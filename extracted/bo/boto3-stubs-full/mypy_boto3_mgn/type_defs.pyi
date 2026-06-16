@@ -47,6 +47,8 @@ from .literals import (
     JobLogEventType,
     JobStatusType,
     JobTypeType,
+    LastKnownCheckStatusType,
+    LastKnownCheckTypeType,
     LaunchDispositionType,
     LaunchStatusType,
     LifeCycleStateType,
@@ -69,6 +71,7 @@ from .literals import (
     SourceEnvironmentType,
     SsmDocumentTypeType,
     SsmParameterStoreParameterTypeType,
+    StorageTypeType,
     TargetDeploymentType,
     TargetInstanceTypeRightSizingMethodType,
     TargetNetworkTopologyType,
@@ -150,6 +153,7 @@ __all__ = (
     "ExportTaskSummaryTypeDef",
     "ExportTaskTypeDef",
     "FinalizeCutoverRequestTypeDef",
+    "FsxOntapConfigurationTypeDef",
     "GetLaunchConfigurationRequestTypeDef",
     "GetNetworkMigrationDefinitionRequestTypeDef",
     "GetNetworkMigrationMapperSegmentConstructRequestTypeDef",
@@ -168,6 +172,7 @@ __all__ = (
     "JobLogTypeDef",
     "JobPostLaunchActionsLaunchStatusTypeDef",
     "JobTypeDef",
+    "LastKnownCheckTypeDef",
     "LaunchConfigurationTemplateResponseTypeDef",
     "LaunchConfigurationTemplateTypeDef",
     "LaunchConfigurationTypeDef",
@@ -355,6 +360,7 @@ __all__ = (
     "StartTestRequestTypeDef",
     "StartTestResponseTypeDef",
     "StopReplicationRequestTypeDef",
+    "StorageConfigurationTypeDef",
     "TagResourceRequestTypeDef",
     "TargetNetworkTypeDef",
     "TargetNetworkUpdateTypeDef",
@@ -466,24 +472,6 @@ class TargetS3ConfigurationTypeDef(TypedDict):
     s3Bucket: str
     s3BucketOwner: str
 
-class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
-    stagingAreaSubnetId: str
-    associateDefaultSecurityGroup: bool
-    replicationServersSecurityGroupsIDs: Sequence[str]
-    replicationServerInstanceType: str
-    useDedicatedReplicationServer: bool
-    defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
-    ebsEncryption: ReplicationConfigurationEbsEncryptionType
-    bandwidthThrottling: int
-    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
-    createPublicIP: bool
-    stagingAreaTags: Mapping[str, str]
-    ebsEncryptionKeyArn: NotRequired[str]
-    useFipsEndpoint: NotRequired[bool]
-    tags: NotRequired[Mapping[str, str]]
-    internetProtocol: NotRequired[InternetProtocolType]
-    storeSnapshotOnLocalZone: NotRequired[bool]
-
 class CreateWaveRequestTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
@@ -562,28 +550,6 @@ class DescribeReplicationConfigurationTemplatesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
-class ReplicationConfigurationTemplateTypeDef(TypedDict):
-    replicationConfigurationTemplateID: str
-    arn: NotRequired[str]
-    stagingAreaSubnetId: NotRequired[str]
-    associateDefaultSecurityGroup: NotRequired[bool]
-    replicationServersSecurityGroupsIDs: NotRequired[list[str]]
-    replicationServerInstanceType: NotRequired[str]
-    useDedicatedReplicationServer: NotRequired[bool]
-    defaultLargeStagingDiskType: NotRequired[
-        ReplicationConfigurationDefaultLargeStagingDiskTypeType
-    ]
-    ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
-    ebsEncryptionKeyArn: NotRequired[str]
-    bandwidthThrottling: NotRequired[int]
-    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
-    createPublicIP: NotRequired[bool]
-    stagingAreaTags: NotRequired[dict[str, str]]
-    useFipsEndpoint: NotRequired[bool]
-    tags: NotRequired[dict[str, str]]
-    internetProtocol: NotRequired[InternetProtocolType]
-    storeSnapshotOnLocalZone: NotRequired[bool]
-
 class DescribeSourceServersRequestFiltersTypeDef(TypedDict):
     sourceServerIDs: NotRequired[Sequence[str]]
     isArchived: NotRequired[bool]
@@ -648,6 +614,10 @@ class ExportTaskSummaryTypeDef(TypedDict):
 class FinalizeCutoverRequestTypeDef(TypedDict):
     sourceServerID: str
     accountID: NotRequired[str]
+
+class FsxOntapConfigurationTypeDef(TypedDict):
+    storageVirtualMachineId: str
+    credentialsSecretArn: str
 
 class GetLaunchConfigurationRequestTypeDef(TypedDict):
     sourceServerID: str
@@ -718,10 +688,16 @@ class JobLogEventDataTypeDef(TypedDict):
     attemptCount: NotRequired[int]
     maxAttemptsCount: NotRequired[int]
 
-class LaunchedInstanceTypeDef(TypedDict):
-    ec2InstanceID: NotRequired[str]
-    jobID: NotRequired[str]
-    firstBoot: NotRequired[FirstBootType]
+LastKnownCheckTypeDef = TypedDict(
+    "LastKnownCheckTypeDef",
+    {
+        "type": NotRequired[LastKnownCheckTypeType],
+        "name": NotRequired[str],
+        "status": NotRequired[LastKnownCheckStatusType],
+        "error": NotRequired[str],
+        "checkedAt": NotRequired[datetime],
+    },
+)
 
 class LifeCycleLastCutoverFinalizedTypeDef(TypedDict):
     apiCallDateTime: NotRequired[str]
@@ -1061,27 +1037,6 @@ class UpdateNetworkMigrationMapperSegmentRequestTypeDef(TypedDict):
     segmentID: str
     scopeTags: NotRequired[Mapping[str, str]]
 
-class UpdateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
-    replicationConfigurationTemplateID: str
-    arn: NotRequired[str]
-    stagingAreaSubnetId: NotRequired[str]
-    associateDefaultSecurityGroup: NotRequired[bool]
-    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
-    replicationServerInstanceType: NotRequired[str]
-    useDedicatedReplicationServer: NotRequired[bool]
-    defaultLargeStagingDiskType: NotRequired[
-        ReplicationConfigurationDefaultLargeStagingDiskTypeType
-    ]
-    ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
-    ebsEncryptionKeyArn: NotRequired[str]
-    bandwidthThrottling: NotRequired[int]
-    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
-    createPublicIP: NotRequired[bool]
-    stagingAreaTags: NotRequired[Mapping[str, str]]
-    useFipsEndpoint: NotRequired[bool]
-    internetProtocol: NotRequired[InternetProtocolType]
-    storeSnapshotOnLocalZone: NotRequired[bool]
-
 class UpdateSourceServerReplicationTypeRequestTypeDef(TypedDict):
     sourceServerID: str
     replicationType: ReplicationTypeType
@@ -1130,27 +1085,6 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
     tags: dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ReplicationConfigurationTemplateResponseTypeDef(TypedDict):
-    replicationConfigurationTemplateID: str
-    arn: str
-    stagingAreaSubnetId: str
-    associateDefaultSecurityGroup: bool
-    replicationServersSecurityGroupsIDs: list[str]
-    replicationServerInstanceType: str
-    useDedicatedReplicationServer: bool
-    defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
-    ebsEncryption: ReplicationConfigurationEbsEncryptionType
-    ebsEncryptionKeyArn: str
-    bandwidthThrottling: int
-    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
-    createPublicIP: bool
-    stagingAreaTags: dict[str, str]
-    useFipsEndpoint: bool
-    tags: dict[str, str]
-    internetProtocol: InternetProtocolType
-    storeSnapshotOnLocalZone: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartImportFileEnrichmentResponseTypeDef(TypedDict):
@@ -1270,11 +1204,6 @@ class DescribeJobsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     accountID: NotRequired[str]
 
-class DescribeReplicationConfigurationTemplatesResponseTypeDef(TypedDict):
-    items: list[ReplicationConfigurationTemplateTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class DescribeSourceServersRequestPaginateTypeDef(TypedDict):
     filters: NotRequired[DescribeSourceServersRequestFiltersTypeDef]
     accountID: NotRequired[str]
@@ -1323,6 +1252,10 @@ class ExportTaskTypeDef(TypedDict):
     summary: NotRequired[ExportTaskSummaryTypeDef]
     tags: NotRequired[dict[str, str]]
 
+class StorageConfigurationTypeDef(TypedDict):
+    storageType: StorageTypeType
+    fsxOntapConfiguration: NotRequired[FsxOntapConfigurationTypeDef]
+
 class GetNetworkMigrationMapperSegmentConstructResponseTypeDef(TypedDict):
     construct: NetworkMigrationMapperSegmentConstructTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1351,6 +1284,13 @@ class JobLogTypeDef(TypedDict):
     logDateTime: NotRequired[str]
     event: NotRequired[JobLogEventType]
     eventData: NotRequired[JobLogEventDataTypeDef]
+
+class LaunchedInstanceTypeDef(TypedDict):
+    ec2InstanceID: NotRequired[str]
+    jobID: NotRequired[str]
+    firstBoot: NotRequired[FirstBootType]
+    lastKnownChecks: NotRequired[list[LastKnownCheckTypeDef]]
+    lastKnownFsxChecksStatus: NotRequired[LastKnownCheckStatusType]
 
 class LifeCycleLastCutoverTypeDef(TypedDict):
     initiated: NotRequired[LifeCycleLastCutoverInitiatedTypeDef]
@@ -1801,50 +1741,6 @@ class TemplateActionDocumentTypeDef(TypedDict):
     description: NotRequired[str]
     category: NotRequired[ActionCategoryType]
 
-class ReplicationConfigurationTypeDef(TypedDict):
-    sourceServerID: str
-    name: str
-    stagingAreaSubnetId: str
-    associateDefaultSecurityGroup: bool
-    replicationServersSecurityGroupsIDs: list[str]
-    replicationServerInstanceType: str
-    useDedicatedReplicationServer: bool
-    defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
-    replicatedDisks: list[ReplicationConfigurationReplicatedDiskTypeDef]
-    ebsEncryption: ReplicationConfigurationEbsEncryptionType
-    ebsEncryptionKeyArn: str
-    bandwidthThrottling: int
-    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
-    createPublicIP: bool
-    stagingAreaTags: dict[str, str]
-    useFipsEndpoint: bool
-    internetProtocol: InternetProtocolType
-    storeSnapshotOnLocalZone: bool
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class UpdateReplicationConfigurationRequestTypeDef(TypedDict):
-    sourceServerID: str
-    name: NotRequired[str]
-    stagingAreaSubnetId: NotRequired[str]
-    associateDefaultSecurityGroup: NotRequired[bool]
-    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
-    replicationServerInstanceType: NotRequired[str]
-    useDedicatedReplicationServer: NotRequired[bool]
-    defaultLargeStagingDiskType: NotRequired[
-        ReplicationConfigurationDefaultLargeStagingDiskTypeType
-    ]
-    replicatedDisks: NotRequired[Sequence[ReplicationConfigurationReplicatedDiskTypeDef]]
-    ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
-    ebsEncryptionKeyArn: NotRequired[str]
-    bandwidthThrottling: NotRequired[int]
-    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
-    createPublicIP: NotRequired[bool]
-    stagingAreaTags: NotRequired[Mapping[str, str]]
-    useFipsEndpoint: NotRequired[bool]
-    accountID: NotRequired[str]
-    internetProtocol: NotRequired[InternetProtocolType]
-    storeSnapshotOnLocalZone: NotRequired[bool]
-
 class SourceConfigurationTypeDef(TypedDict):
     sourceEnvironment: SourceEnvironmentType
     sourceS3Configuration: SourceS3ConfigurationTypeDef
@@ -1853,6 +1749,9 @@ class UpdateSourceServerRequestTypeDef(TypedDict):
     sourceServerID: str
     accountID: NotRequired[str]
     connectorAction: NotRequired[SourceServerConnectorActionTypeDef]
+    userProvidedID: NotRequired[str]
+    fqdnForActionFramework: NotRequired[str]
+    platform: NotRequired[str]
 
 class SplitOperationTypeDef(TypedDict):
     splitConstructs: NotRequired[Sequence[SplitConstructTypeDef]]
@@ -1923,6 +1822,138 @@ class ListExportsResponseTypeDef(TypedDict):
 class StartExportResponseTypeDef(TypedDict):
     exportTask: ExportTaskTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
+    stagingAreaSubnetId: str
+    associateDefaultSecurityGroup: bool
+    replicationServersSecurityGroupsIDs: Sequence[str]
+    replicationServerInstanceType: str
+    useDedicatedReplicationServer: bool
+    defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    ebsEncryption: ReplicationConfigurationEbsEncryptionType
+    bandwidthThrottling: int
+    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    createPublicIP: bool
+    stagingAreaTags: Mapping[str, str]
+    ebsEncryptionKeyArn: NotRequired[str]
+    useFipsEndpoint: NotRequired[bool]
+    tags: NotRequired[Mapping[str, str]]
+    internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
+    storageConfiguration: NotRequired[StorageConfigurationTypeDef]
+
+class ReplicationConfigurationTemplateResponseTypeDef(TypedDict):
+    replicationConfigurationTemplateID: str
+    arn: str
+    stagingAreaSubnetId: str
+    associateDefaultSecurityGroup: bool
+    replicationServersSecurityGroupsIDs: list[str]
+    replicationServerInstanceType: str
+    useDedicatedReplicationServer: bool
+    defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    ebsEncryption: ReplicationConfigurationEbsEncryptionType
+    ebsEncryptionKeyArn: str
+    bandwidthThrottling: int
+    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    createPublicIP: bool
+    stagingAreaTags: dict[str, str]
+    useFipsEndpoint: bool
+    tags: dict[str, str]
+    internetProtocol: InternetProtocolType
+    storeSnapshotOnLocalZone: bool
+    storageConfiguration: StorageConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ReplicationConfigurationTemplateTypeDef(TypedDict):
+    replicationConfigurationTemplateID: str
+    arn: NotRequired[str]
+    stagingAreaSubnetId: NotRequired[str]
+    associateDefaultSecurityGroup: NotRequired[bool]
+    replicationServersSecurityGroupsIDs: NotRequired[list[str]]
+    replicationServerInstanceType: NotRequired[str]
+    useDedicatedReplicationServer: NotRequired[bool]
+    defaultLargeStagingDiskType: NotRequired[
+        ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    ]
+    ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
+    ebsEncryptionKeyArn: NotRequired[str]
+    bandwidthThrottling: NotRequired[int]
+    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    createPublicIP: NotRequired[bool]
+    stagingAreaTags: NotRequired[dict[str, str]]
+    useFipsEndpoint: NotRequired[bool]
+    tags: NotRequired[dict[str, str]]
+    internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
+    storageConfiguration: NotRequired[StorageConfigurationTypeDef]
+
+class ReplicationConfigurationTypeDef(TypedDict):
+    sourceServerID: str
+    name: str
+    stagingAreaSubnetId: str
+    associateDefaultSecurityGroup: bool
+    replicationServersSecurityGroupsIDs: list[str]
+    replicationServerInstanceType: str
+    useDedicatedReplicationServer: bool
+    defaultLargeStagingDiskType: ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    replicatedDisks: list[ReplicationConfigurationReplicatedDiskTypeDef]
+    ebsEncryption: ReplicationConfigurationEbsEncryptionType
+    ebsEncryptionKeyArn: str
+    bandwidthThrottling: int
+    dataPlaneRouting: ReplicationConfigurationDataPlaneRoutingType
+    createPublicIP: bool
+    stagingAreaTags: dict[str, str]
+    useFipsEndpoint: bool
+    internetProtocol: InternetProtocolType
+    storeSnapshotOnLocalZone: bool
+    storageConfiguration: StorageConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateReplicationConfigurationRequestTypeDef(TypedDict):
+    sourceServerID: str
+    name: NotRequired[str]
+    stagingAreaSubnetId: NotRequired[str]
+    associateDefaultSecurityGroup: NotRequired[bool]
+    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
+    replicationServerInstanceType: NotRequired[str]
+    useDedicatedReplicationServer: NotRequired[bool]
+    defaultLargeStagingDiskType: NotRequired[
+        ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    ]
+    replicatedDisks: NotRequired[Sequence[ReplicationConfigurationReplicatedDiskTypeDef]]
+    ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
+    ebsEncryptionKeyArn: NotRequired[str]
+    bandwidthThrottling: NotRequired[int]
+    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    createPublicIP: NotRequired[bool]
+    stagingAreaTags: NotRequired[Mapping[str, str]]
+    useFipsEndpoint: NotRequired[bool]
+    accountID: NotRequired[str]
+    internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
+    storageConfiguration: NotRequired[StorageConfigurationTypeDef]
+
+class UpdateReplicationConfigurationTemplateRequestTypeDef(TypedDict):
+    replicationConfigurationTemplateID: str
+    arn: NotRequired[str]
+    stagingAreaSubnetId: NotRequired[str]
+    associateDefaultSecurityGroup: NotRequired[bool]
+    replicationServersSecurityGroupsIDs: NotRequired[Sequence[str]]
+    replicationServerInstanceType: NotRequired[str]
+    useDedicatedReplicationServer: NotRequired[bool]
+    defaultLargeStagingDiskType: NotRequired[
+        ReplicationConfigurationDefaultLargeStagingDiskTypeType
+    ]
+    ebsEncryption: NotRequired[ReplicationConfigurationEbsEncryptionType]
+    ebsEncryptionKeyArn: NotRequired[str]
+    bandwidthThrottling: NotRequired[int]
+    dataPlaneRouting: NotRequired[ReplicationConfigurationDataPlaneRoutingType]
+    createPublicIP: NotRequired[bool]
+    stagingAreaTags: NotRequired[Mapping[str, str]]
+    useFipsEndpoint: NotRequired[bool]
+    internetProtocol: NotRequired[InternetProtocolType]
+    storeSnapshotOnLocalZone: NotRequired[bool]
+    storageConfiguration: NotRequired[StorageConfigurationTypeDef]
 
 class ListImportErrorsResponseTypeDef(TypedDict):
     items: list[ImportTaskErrorTypeDef]
@@ -2055,6 +2086,11 @@ class OperationUnionTypeDef(TypedDict):
 
 class ListWavesResponseTypeDef(TypedDict):
     items: list[WaveTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class DescribeReplicationConfigurationTemplatesResponseTypeDef(TypedDict):
+    items: list[ReplicationConfigurationTemplateTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

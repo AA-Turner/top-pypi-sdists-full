@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import codecs
 from collections import deque
 from collections.abc import AsyncIterator, Mapping
 import contextlib
@@ -33,12 +32,19 @@ from ouroboros.core.errors import ProviderError
 from ouroboros.core.types import Result
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.adapter import (
+    FULL_CAPABILITIES,
     AgentMessage,
+    ParamSupport,
+    RuntimeCapabilities,
     RuntimeHandle,
     SkillDispatchHandler,
     TaskResult,
 )
 from ouroboros.providers.base import CompletionConfig
+from ouroboros.providers.codex_cli_stream import (
+    iter_runtime_stream_lines,
+    terminate_runtime_process,
+)
 from ouroboros.providers.profiles import resolve_completion_profile
 from ouroboros.router import (
     InvalidInputReason,
@@ -92,6 +98,8 @@ class CodexCliRuntime:
     _stdout_idle_timeout_seconds = 300.0
     _max_stderr_lines = 512
     _child_session_env_keys = DEFAULT_CODEX_CHILD_SESSION_ENV_KEYS
+    _use_process_group = os.name == "posix"
+    _completed_process_group_shutdown_timeout_seconds = 0.2
 
     def __init__(
         self,
@@ -103,6 +111,8 @@ class CodexCliRuntime:
         skill_dispatcher: SkillDispatchHandler | None = None,
         llm_backend: str | None = None,
         runtime_profile: str | None = None,
+        startup_output_timeout_seconds: float | None = None,
+        stdout_idle_timeout_seconds: float | None = None,
     ) -> None:
         self._cli_path = self._resolve_cli_path(cli_path)
         self._permission_mode = self._resolve_permission_mode(permission_mode)
@@ -118,6 +128,14 @@ class CodexCliRuntime:
             log_namespace=self._log_namespace,
         )
         self._builtin_mcp_handlers: dict[str, Any] | None = None
+        if startup_output_timeout_seconds is not None:
+            self._startup_output_timeout_seconds = (
+                None if startup_output_timeout_seconds <= 0 else startup_output_timeout_seconds
+            )
+        if stdout_idle_timeout_seconds is not None:
+            self._stdout_idle_timeout_seconds = (
+                None if stdout_idle_timeout_seconds <= 0 else stdout_idle_timeout_seconds
+            )
 
         log.info(
             f"{self._log_namespace}.initialized",
@@ -127,6 +145,8 @@ class CodexCliRuntime:
             cwd=self._cwd,
             runtime_profile=runtime_profile,
             codex_profile=self._codex_profile,
+            startup_output_timeout_seconds=self._startup_output_timeout_seconds,
+            stdout_idle_timeout_seconds=self._stdout_idle_timeout_seconds,
             skills_dir=(
                 str(self._skills_dir) if self._skills_dir is not None else self._skills_package_uri
             ),
@@ -137,6 +157,17 @@ class CodexCliRuntime:
     @property
     def runtime_backend(self) -> str:
         return self._runtime_handle_backend
+
+    @property
+    def capabilities(self) -> RuntimeCapabilities:
+        # Codex composes the system prompt and tool guidance into the user
+        # message rather than passing native runtime parameters; surface those
+        # as TRANSLATED while preserving the default feature flags.
+        return replace(
+            FULL_CAPABILITIES,
+            system_prompt_support=ParamSupport.TRANSLATED,
+            tool_restriction_support=ParamSupport.TRANSLATED,
+        )
 
     @property
     def llm_backend(self) -> str | None:
@@ -924,128 +955,34 @@ class CodexCliRuntime:
         Codex can emit JSONL events larger than the default asyncio stream limit.
         Reading fixed-size chunks avoids ``LimitOverrunError`` on oversized lines.
         """
-        if stream is None:
-            return
+        async for line in iter_runtime_stream_lines(
+            stream,
+            display_name=self._display_name,
+            chunk_size=chunk_size,
+            first_chunk_timeout_seconds=first_chunk_timeout_seconds,
+            chunk_timeout_seconds=chunk_timeout_seconds,
+            max_buffer_bytes=_MAX_LINE_BUFFER_BYTES,
+            logger=log,
+            log_namespace=self._log_namespace,
+        ):
+            yield line
 
-        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        buffer = ""
-        buffer_byte_estimate = 0
-        saw_chunk = False
-
-        while True:
-            timeout_seconds: float | None = None
-            if not saw_chunk:
-                timeout_seconds = first_chunk_timeout_seconds
-            elif chunk_timeout_seconds is not None:
-                timeout_seconds = chunk_timeout_seconds
-
-            try:
-                if timeout_seconds is None:
-                    chunk = await stream.read(chunk_size)
-                else:
-                    chunk = await asyncio.wait_for(
-                        stream.read(chunk_size),
-                        timeout=timeout_seconds,
-                    )
-            except TimeoutError as exc:
-                phase = "startup" if not saw_chunk else "idle"
-                raise TimeoutError(
-                    f"{self._display_name} produced no stdout during {phase} "
-                    f"window ({timeout_seconds:.0f}s)"
-                ) from exc
-            if not chunk:
-                break
-
-            saw_chunk = True
-            decoded = decoder.decode(chunk)
-            buffer += decoded
-            # Track byte size incrementally: worst-case 4 bytes per char (UTF-8).
-            buffer_byte_estimate += len(decoded) * 4
-            if buffer_byte_estimate > _MAX_LINE_BUFFER_BYTES:
-                log.error(
-                    f"{self._log_namespace}.line_buffer_overflow",
-                    buffer_size=len(buffer),
-                    limit=_MAX_LINE_BUFFER_BYTES,
-                )
-                raise ProviderError(f"JSONL line buffer exceeded {_MAX_LINE_BUFFER_BYTES} bytes")
-            while True:
-                newline_index = buffer.find("\n")
-                if newline_index < 0:
-                    break
-
-                line = buffer[:newline_index]
-                buffer = buffer[newline_index + 1 :]
-                # Recalculate estimate after draining consumed lines.
-                buffer_byte_estimate = len(buffer) * 4
-                yield line.rstrip("\r")
-
-        buffer += decoder.decode(b"", final=True)
-        if buffer:
-            yield buffer.rstrip("\r")
-
-    async def _terminate_process(self, process: Any) -> None:
+    async def _terminate_process(
+        self,
+        process: Any,
+        *,
+        process_group_id: int | None = None,
+    ) -> None:
         """Best-effort subprocess shutdown used when task consumption is cancelled."""
-        if getattr(process, "returncode", None) is not None:
-            return
-
-        await self._close_process_stdin(process)
-
-        terminate = getattr(process, "terminate", None)
-        kill = getattr(process, "kill", None)
-
-        try:
-            if callable(terminate):
-                terminate()
-            elif callable(kill):
-                kill()
-            else:
-                return
-        except ProcessLookupError:
-            return
-        except Exception as exc:
-            log.warning(
-                f"{self._log_namespace}.process_terminate_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            return
-
-        try:
-            await asyncio.wait_for(
-                process.wait(),
-                timeout=self._process_shutdown_timeout_seconds,
-            )
-            return
-        except (TimeoutError, ProcessLookupError):
-            pass
-        except Exception as exc:
-            log.warning(
-                f"{self._log_namespace}.process_wait_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            return
-
-        if not callable(kill):
-            return
-
-        try:
-            kill()
-        except ProcessLookupError:
-            return
-        except Exception as exc:
-            log.warning(
-                f"{self._log_namespace}.process_kill_failed",
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            return
-
-        with contextlib.suppress(asyncio.TimeoutError, ProcessLookupError, Exception):
-            await asyncio.wait_for(
-                process.wait(),
-                timeout=self._process_shutdown_timeout_seconds,
-            )
+        await terminate_runtime_process(
+            process,
+            shutdown_timeout=self._process_shutdown_timeout_seconds,
+            logger=log,
+            log_namespace=self._log_namespace,
+            close_stdin=self._close_process_stdin,
+            terminate_process_group=self._use_process_group,
+            process_group_id=process_group_id,
+        )
 
     async def _close_process_stdin(self, process: Any) -> None:
         """Best-effort stdin shutdown for runtimes that keep a writable pipe open."""
@@ -1068,6 +1005,43 @@ class CodexCliRuntime:
                 asyncio.CancelledError,
             ):
                 await wait_closed()
+
+    def _subprocess_launch_kwargs(self) -> dict[str, Any]:
+        """Return platform-specific subprocess options for owned runtime workers."""
+        if not self._use_process_group:
+            return {}
+        return {"start_new_session": True}
+
+    def _process_group_id(self, process: Any) -> int | None:
+        """Return the subprocess group id while the parent process is still observable."""
+        if not self._use_process_group:
+            return None
+
+        pid = getattr(process, "pid", None)
+        if not isinstance(pid, int):
+            return None
+
+        with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+            return os.getpgid(pid)
+        return None
+
+    async def _cleanup_completed_process_group(
+        self,
+        process: Any,
+        process_group_id: int | None,
+    ) -> None:
+        """Best-effort cleanup for companion shells after the main worker exits."""
+        if process_group_id is None:
+            return
+
+        await terminate_runtime_process(
+            process,
+            shutdown_timeout=self._completed_process_group_shutdown_timeout_seconds,
+            logger=log,
+            log_namespace=self._log_namespace,
+            terminate_process_group=True,
+            process_group_id=process_group_id,
+        )
 
     async def _observe_bound_runtime_handle(
         self,
@@ -1662,6 +1636,7 @@ class CodexCliRuntime:
         process: Any | None = None
         process_finished = False
         process_terminated = False
+        process_group_id: int | None = None
         control_state: dict[str, Any] | None = None
         stderr_task: asyncio.Task[list[str]] | None = None
 
@@ -1673,6 +1648,7 @@ class CodexCliRuntime:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 env=self._build_child_env(),
+                **self._subprocess_launch_kwargs(),
             )
         except FileNotFoundError as e:
             yield AgentMessage(
@@ -1700,6 +1676,8 @@ class CodexCliRuntime:
             )
             output_path.unlink(missing_ok=True)
             return
+
+        process_group_id = self._process_group_id(process)
 
         # Feed prompt via stdin to avoid OS ARG_MAX limits (~262KB on macOS).
         # Runtimes that accept prompt as a CLI arg (e.g. opencode) skip this.
@@ -1835,7 +1813,7 @@ class CodexCliRuntime:
         except asyncio.CancelledError:
             if process is not None:
                 log.warning(f"{self._log_namespace}.task_cancelled", cwd=self._cwd)
-                await self._terminate_process(process)
+                await self._terminate_process(process, process_group_id=process_group_id)
                 process_terminated = True
                 if control_state is not None:
                     control_state["terminated"] = True
@@ -1936,7 +1914,9 @@ class CodexCliRuntime:
                     and not process_terminated
                     and getattr(process, "returncode", None) is None
                 ):
-                    await self._terminate_process(process)
+                    await self._terminate_process(process, process_group_id=process_group_id)
+                elif process_finished:
+                    await self._cleanup_completed_process_group(process, process_group_id)
                 await self._close_process_stdin(process)
             if stderr_task is not None and not stderr_task.done():
                 stderr_task.cancel()

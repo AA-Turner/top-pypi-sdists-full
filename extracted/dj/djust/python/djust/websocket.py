@@ -3152,16 +3152,28 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
                     # Wrap everything in a root "Event Processing" tracker
                     with tracker.track("Event Processing"):
+                        # #1802: the auto-skip-render decision must be made
+                        # against the view the handler actually mutates. For a
+                        # top-level event ``target_view IS self.view_instance``;
+                        # for an embedded ``{% live_render %}`` child (sticky or
+                        # not) ``target_view`` is the CHILD. Snapshotting the
+                        # parent here meant an embedded child's state change was
+                        # invisible — pre/post assigns compared equal → the
+                        # render was skipped → the event returned a bare ``noop``
+                        # and the child's DOM never updated (sticky widgets were
+                        # render-only). Bind a single ``change_target`` and use
+                        # it for every snapshot/flag below.
+                        change_target = target_view
                         # Snapshot public assigns before the handler to detect
                         # unchanged state and auto-skip the render cycle.
-                        pre_assigns = _snapshot_assigns(self.view_instance)
+                        pre_assigns = _snapshot_assigns(change_target)
                         # Identity snapshot: {attr: id(value)} for the
                         # push_commands-only auto-skip (#700). Immune to
                         # deep-copy sentinel issues on non-copyable objects.
-                        _fw_attrs = getattr(self.view_instance, "_framework_attrs", frozenset())
+                        _fw_attrs = getattr(change_target, "_framework_attrs", frozenset())
                         pre_identity = {
                             k: id(v)
-                            for k, v in self.view_instance.__dict__.items()
+                            for k, v in change_target.__dict__.items()
                             if k not in _fw_attrs
                         }
 
@@ -3453,11 +3465,14 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # reassigned, auto-skip the render (eliminates DJE-053).
                         # In-place mutations (list.append) are NOT detected and
                         # will still trigger a render — this is the safe default.
-                        skip_render = getattr(self.view_instance, "_skip_render", False)
+                        # #1802: read flags + snapshot from ``change_target`` (the
+                        # handler's view), not the parent, so an embedded child's
+                        # state change is detected and is NOT skipped.
+                        skip_render = getattr(change_target, "_skip_render", False)
                         # Never skip if the view explicitly requests full HTML
-                        force_html = getattr(self.view_instance, "_force_full_html", False)
+                        force_html = getattr(change_target, "_force_full_html", False)
                         if not skip_render and not force_html:
-                            post_assigns = _snapshot_assigns(self.view_instance)
+                            post_assigns = _snapshot_assigns(change_target)
                             if pre_assigns == post_assigns:
                                 skip_render = True
                                 logger.debug(
@@ -3467,7 +3482,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                             else:
                                 # Phoenix-style: track which keys actually changed
                                 # so _sync_state_to_rust can skip unchanged values
-                                self.view_instance._changed_keys = _compute_changed_keys(
+                                change_target._changed_keys = _compute_changed_keys(
                                     pre_assigns, post_assigns
                                 )
 
@@ -3482,11 +3497,11 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # of each public attr is unchanged — if so, the handler
                         # didn't touch any state and we can safely skip.
                         if not skip_render and not force_html:
-                            pending = getattr(self.view_instance, "_pending_push_events", None)
+                            pending = getattr(change_target, "_pending_push_events", None)
                             if pending:
                                 post_identity = {
                                     k: id(v)
-                                    for k, v in self.view_instance.__dict__.items()
+                                    for k, v in change_target.__dict__.items()
                                     if k not in _fw_attrs
                                 }
                                 if pre_identity == post_identity:
@@ -3498,10 +3513,8 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                                     )
 
                         if skip_render:
-                            self.view_instance._skip_render = False
-                            has_async = (
-                                getattr(self.view_instance, "_async_pending", None) is not None
-                            )
+                            change_target._skip_render = False
+                            has_async = getattr(change_target, "_async_pending", None) is not None
                             await self._flush_all_pending()
                             await self._send_noop(async_pending=has_async, ref=event_ref)
                             if has_async:
@@ -3739,6 +3752,18 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         )
                     else:
                         # patches=None means VDOM diff failed or was skipped - send full HTML
+                        #
+                        # Arm on-demand recovery with the RAW rendered HTML *before*
+                        # the strip/extract below reassigns ``html`` — mirrors the
+                        # recovery-arming in the patches branch above. Without this,
+                        # a client that requests recovery after
+                        # a version mismatch on THIS html_update frame gets
+                        # "Recovery HTML unavailable" → forced full page reload (#1785).
+                        # ``_recovery_html`` expects the pre-strip HTML (it strips +
+                        # extracts on demand in ``handle_request_html``), matching the
+                        # value the patches branch passes.
+                        self._arm_recovery(html, version)
+
                         # Batch strip + extract into a single thread hop
                         # to avoid two separate sync_to_async crossings.
                         def _sync_strip_and_extract(raw_html):
@@ -4641,6 +4666,33 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error("Error handling cursor move: %s", e)
 
+    def _has_live_sticky_children(self) -> bool:
+        """True if the parent view currently holds at least one registered
+        sticky child (a ``{% live_render sticky=True %}`` embed).
+
+        Used by :meth:`handle_request_html` to decide whether the cached
+        ``_recovery_html`` is trustworthy. The cached snapshot is taken on the
+        last PARENT render-send (mount / parent event); embedded-child events
+        deliberately do NOT re-arm it (they send a scoped ``embedded_update``,
+        not a full parent render). So after a child interaction the cached HTML
+        holds an OLD child state — replaying it would reset the sticky child to
+        that stale state (#1813). For pages WITH live sticky children we
+        re-render the parent FRESH at recovery time instead; the (b1)
+        live-instance-reuse hatch in ``live_tags.py`` makes that re-render
+        faithful to the child's current state.
+        """
+        view = self.view_instance
+        if view is None:
+            return False
+        get_all = getattr(view, "_get_all_child_views", None)
+        if not callable(get_all):
+            return False
+        try:
+            children = get_all()
+        except Exception:  # noqa: BLE001 — defensive: never break recovery
+            return False
+        return any(getattr(child, "sticky_id", None) for child in children.values())
+
     async def handle_request_html(self, data: Dict[str, Any]):
         """
         Handle client request for full HTML when VDOM patches fail.
@@ -4648,13 +4700,46 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         The client sends {"type": "request_html"} when applyPatches() returns
         false (e.g., due to {% if %} blocks shifting DOM structure). Server
         responds with the last rendered HTML for client-side DOM morphing.
+
+        #1813 (b2)(ii): when the parent has live sticky children, the cached
+        ``_recovery_html`` may be stale (it is NOT re-armed on embedded-child
+        events, which send scoped ``embedded_update`` frames rather than a full
+        parent render). Replaying it would reset the sticky child to mount /
+        pre-interaction state — the data-loss bug. For such pages we re-render
+        the parent FRESH here; the (b1) live-instance-reuse hatch in
+        ``live_tags.py`` makes the fresh render faithful to the live child's
+        current state. Recovery is rare and child events frequent, so paying
+        the re-render cost on recovery (not on every child event) is also the
+        lowest-overhead choice. Non-sticky pages keep the cached-replay path
+        unchanged.
         """
         if not self.view_instance:
             await self.send_error("View not mounted")
             return
 
-        html = getattr(self, "_recovery_html", None)
         version = getattr(self, "_recovery_version", 0)
+
+        if self._has_live_sticky_children():
+            # Re-render the parent fresh so the recovery HTML reflects the live
+            # sticky child's CURRENT state (#1813). Mirrors the sync/render
+            # sequence used by the async-result path (sync state to Rust, then
+            # render_with_diff for the full raw HTML).
+            def _sync_and_render():
+                if hasattr(self.view_instance, "_sync_state_to_rust"):
+                    self.view_instance._sync_state_to_rust()
+                fresh_html, _patches, fresh_version = self.view_instance.render_with_diff()
+                return fresh_html, fresh_version
+
+            try:
+                html, version = await sync_to_async(_sync_and_render)()
+            except Exception:  # noqa: BLE001 — fall back to cached snapshot
+                logger.exception(
+                    "[djust] request_html fresh re-render failed; falling back "
+                    "to cached recovery HTML"
+                )
+                html = getattr(self, "_recovery_html", None)
+        else:
+            html = getattr(self, "_recovery_html", None)
 
         if not html:
             await self.send_error(

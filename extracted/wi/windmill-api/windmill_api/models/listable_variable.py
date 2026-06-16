@@ -37,6 +37,11 @@ class ListableVariable:
         ws_specific (Union[Unset, bool]):
         edited_at (Union[Unset, datetime.datetime]):
         edited_by (Union[Unset, str]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            variable at the same path. Frontend renders a "Draft" badge.
+        is_draft (Union[Unset, bool]): True when the authed user has a per-user draft at this path
+            (over a deployed row or a synthesized draft-only row).
+            Frontend appends a `*` to the displayed name.
     """
 
     workspace_id: str
@@ -57,6 +62,8 @@ class ListableVariable:
     ws_specific: Union[Unset, bool] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     edited_by: Union[Unset, str] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    is_draft: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -91,6 +98,8 @@ class ListableVariable:
             edited_at = self.edited_at.isoformat()
 
         edited_by = self.edited_by
+        draft_only = self.draft_only
+        is_draft = self.is_draft
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -130,6 +139,10 @@ class ListableVariable:
             field_dict["edited_at"] = edited_at
         if edited_by is not UNSET:
             field_dict["edited_by"] = edited_by
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if is_draft is not UNSET:
+            field_dict["is_draft"] = is_draft
 
         return field_dict
 
@@ -184,6 +197,10 @@ class ListableVariable:
 
         edited_by = d.pop("edited_by", UNSET)
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        is_draft = d.pop("is_draft", UNSET)
+
         listable_variable = cls(
             workspace_id=workspace_id,
             path=path,
@@ -203,6 +220,8 @@ class ListableVariable:
             ws_specific=ws_specific,
             edited_at=edited_at,
             edited_by=edited_by,
+            draft_only=draft_only,
+            is_draft=is_draft,
         )
 
         listable_variable.additional_properties = d

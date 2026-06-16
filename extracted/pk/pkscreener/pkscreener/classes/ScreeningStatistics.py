@@ -7528,18 +7528,17 @@ class ScreeningStatistics:
             "close": 'last',
             "volume": 'sum'
         }
-        
-        # Weekly timeframe for trend analysis
-        weeklyData = data.resample('W-FRI', offset=None).agg(ohlc_dict)
-        weeklyData = weeklyData.dropna()
-        
-        if len(weeklyData) < 50:
-            return False
-        
-        # =========================================================
-        # PART 1: TREND ANALYSIS (Minervini's "Stage 2" Uptrend)
-        # =========================================================
         try:
+            # Weekly timeframe for trend analysis
+            weeklyData = data.resample('W-FRI', offset=None).agg(ohlc_dict)
+            weeklyData = weeklyData.dropna()
+            
+            if len(weeklyData) < 50:
+                return False
+        
+            # =========================================================
+            # PART 1: TREND ANALYSIS (Minervini's "Stage 2" Uptrend)
+            # =========================================================
             w_ema_13 = pktalib.EMA(weeklyData["close"], timeperiod=13).tail(1).iloc[0]
             w_ema_26 = pktalib.EMA(weeklyData["close"], timeperiod=26).tail(1).iloc[0]
             w_sma_50 = pktalib.SMA(weeklyData["close"], timeperiod=50).tail(1).iloc[0]

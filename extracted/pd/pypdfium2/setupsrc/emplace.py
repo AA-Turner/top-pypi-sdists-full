@@ -12,6 +12,7 @@ import update as update_pdfium
 import build_native
 import build_toolchained
 import system_pdfium
+from _build_helpers import install_buildtools
 
 
 def _repr_info(version, flags):
@@ -79,7 +80,8 @@ def stage_platfiles(pl_name, sub_target, pdfium_ver, flags, default_build_params
             builder = dict(native=build_native, toolchained=build_toolchained)[sub_target]
             build_params_env = shlex.split( os.getenv("BUILD_PARAMS", default_build_params) )
             build_params = vars(builder.parse_args(build_params_env))
-            build_params.update(dict(build_ver=pdfium_ver))
+            if pdfium_ver:
+                build_params.update(dict(build_ver=pdfium_ver))
             log(build_params)
             builder.main(**build_params)
         else:
@@ -140,16 +142,13 @@ def copy_platfiles(pl_name):
     assert all(fp.exists() for fp in platfiles), "Some platform files are missing"
     for fp in platfiles:
         shutil.copy(fp, ModuleDir_Raw/fp.name)
-    
-    return tuple(fp.name for fp in platfiles)
 
 
 def prepare_setup(pl_name, sub_target, pdfium_ver, flags):
     # Write platform files into a data staging directory
     pl_name = stage_platfiles(pl_name, sub_target, pdfium_ver, flags)
     # Copy platform files into actual source tree
-    platfiles = copy_platfiles(pl_name)
-    return platfiles, pl_name
+    copy_platfiles(pl_name)
 
 
 def main():

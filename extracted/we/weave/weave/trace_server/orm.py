@@ -1,20 +1,17 @@
-"""A lightweight ORM layer for ClickHouse/SQLite.
-Abstracts away some of their differences and allows building up SQL queries in a safe way.
+"""A lightweight ORM layer for ClickHouse.
+Allows building up SQL queries in a safe way.
 """
 
 import datetime
 import json
 import re
-from collections.abc import Callable, Hashable, Sequence
+from collections.abc import Callable, Collection, Hashable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypeAlias
 
 from weave.trace_server import trace_server_interface as tsi
 from weave.trace_server.common_interface import SortBy
 from weave.trace_server.interface import query as tsi_query
-
-DatabaseType = Literal["clickhouse", "sqlite"]
-
 
 param_builder_count = 0
 
@@ -41,13 +38,11 @@ class ParamBuilder:
     def __init__(
         self,
         prefix: str | None = None,
-        database_type: DatabaseType = "clickhouse",
     ):
         global param_builder_count  # noqa: PLW0603
         param_builder_count += 1
         self._params: dict[str, Any] = {}
         self._prefix = (prefix or f"pb_{param_builder_count}") + "_"
-        self.database_type = database_type
         self._param_to_name: dict[Any, str] = {}
 
     def add_param(self, param_value: Any) -> str:
@@ -69,17 +64,11 @@ class ParamBuilder:
         param_name: str | None = None,
         param_type: str | None = None,
     ) -> str:
-        """Returns the placeholder for the target database type.
-
-        e.g. SQLite -> :limit
-        e.g. ClickHouse -> {limit:UInt64}
-        """
+        """Returns the ClickHouse placeholder, e.g. {limit:UInt64}."""
         param_name = param_name or self._prefix + str(len(self._params))
         self._params[param_name] = param_value
-        if self.database_type == "clickhouse":
-            ptype = param_type or python_value_to_ch_type(param_value)
-            return f"{{{param_name}:{ptype}}}"
-        return ":" + param_name
+        ptype = param_type or python_value_to_ch_type(param_value)
+        return f"{{{param_name}:{ptype}}}"
 
     def get_params(self) -> dict[str, Any]:
         return {**self._params}
@@ -97,22 +86,10 @@ ColumnType = Literal[
     "datetime",
     "json",  # Represented as string in ClickHouse
     "float",
-    # Array(String) in ClickHouse; JSON text in SQLite.
-    "array_string",
-    # Map(String, String) in ClickHouse; JSON text in SQLite.
-    "map_string_string",
-    # Map(String, Float64) in ClickHouse; JSON text in SQLite.
-    "map_string_float",
+    "array_string",  # Array(String)
+    "map_string_string",  # Map(String, String)
+    "map_string_float",  # Map(String, Float64)
 ]
-
-# Column types that ClickHouse stores natively as Array/Map but SQLite stores
-# as JSON-encoded text. The ClickHouse driver round-trips these as native
-# Python list/dict, so coercion is only needed on the SQLite path.
-_JSON_TEXT_BACKED_COL_TYPES: set[ColumnType] = {
-    "array_string",
-    "map_string_string",
-    "map_string_float",
-}
 
 
 class Column:
@@ -143,11 +120,6 @@ class Column:
     def dbname(self) -> str:
         return self.db_name or self.name
 
-    def create_sql(self) -> str:
-        sql_type = "TEXT"
-        sql = f"{self.dbname()} {sql_type}"
-        return sql
-
 
 Columns = list[Column]
 
@@ -159,6 +131,7 @@ class Table:
     # Fields derived from cols
     col_types: dict[str, ColumnType]
     json_cols: list[str]
+    datetime_cols: list[str]
     array_string_cols: list[str]
     map_string_cols: list[str]
     map_float_cols: list[str]
@@ -168,6 +141,7 @@ class Table:
         self.cols = cols or []
         self.col_types = {c.name: c.type for c in self.cols}
         self.json_cols = [c.name for c in self.cols if c.type == "json"]
+        self.datetime_cols = [c.name for c in self.cols if c.type == "datetime"]
         self.array_string_cols = [c.name for c in self.cols if c.type == "array_string"]
         self.map_string_cols = [
             c.name for c in self.cols if c.type == "map_string_string"
@@ -175,15 +149,6 @@ class Table:
         self.map_float_cols = [
             c.name for c in self.cols if c.type == "map_string_float"
         ]
-
-    def create_sql(self) -> str:
-        sql = f"CREATE TABLE IF NOT EXISTS {self.name} (\n"
-        sql += ",\n".join("    " + col.create_sql() for col in self.cols)
-        sql += "\n)"
-        return sql
-
-    def drop_sql(self) -> str:
-        return f"DROP TABLE IF EXISTS {self.name}"
 
     def select(self) -> "Select":
         return Select(self)
@@ -197,18 +162,7 @@ class Table:
     def purge(self) -> "Select":
         return Select(self, action="DELETE")
 
-    def truncate_sql(self, database_type: DatabaseType) -> str:
-        if database_type == "clickhouse":
-            return f"TRUNCATE TABLE {self.name}"
-        if database_type == "sqlite":
-            return f"DELETE FROM {self.name}"
-
-    def tuple_to_row(
-        self,
-        tup: tuple,
-        fields: list[str],
-        database_type: DatabaseType,
-    ) -> Row:
+    def tuple_to_row(self, tup: tuple, fields: list[str]) -> Row:
         d = {}
         for i, field in enumerate(fields):
             normalized_field = field[:-5] if field.endswith("_dump") else field
@@ -216,28 +170,16 @@ class Table:
             col_type = self.col_types.get(normalized_field)
             if col_type == "json":
                 d[normalized_field] = json.loads(value)
-            elif col_type in _JSON_TEXT_BACKED_COL_TYPES and database_type == "sqlite":
-                # SQLite stores Array/Map columns as JSON text; ClickHouse
-                # returns them as native list/dict already.
-                if not isinstance(value, str):
-                    raise ValueError(
-                        f"Unexpected value for {normalized_field}: "
-                        f"expected str, got {type(value).__name__}"
-                    )
-                d[normalized_field] = json.loads(value)
             else:
+                # The ClickHouse driver returns Array/Map columns as native
+                # list/dict already.
                 d[normalized_field] = value
         return d
 
-    def tuples_to_rows(
-        self,
-        tuples: list[tuple],
-        fields: list[str],
-        database_type: DatabaseType,
-    ) -> Rows:
+    def tuples_to_rows(self, tuples: list[tuple], fields: list[str]) -> Rows:
         rows = []
         for t in tuples:
-            rows.append(self.tuple_to_row(t, fields, database_type))
+            rows.append(self.tuple_to_row(t, fields))
         return rows
 
 
@@ -261,6 +203,7 @@ class Join:
 class Select:
     table: Table
     all_columns: list[str]
+    datetime_columns: list[str]
     joins: list[Join]
 
     action: Action
@@ -281,6 +224,7 @@ class Select:
         self.table = table
         self.action = action
         self.all_columns = [c.dbname() for c in table.cols]
+        self.datetime_columns = list(table.datetime_cols)
         self.joins = []
 
         self._project_id = None
@@ -298,6 +242,7 @@ class Select:
         self.joins.append(Join(table, query, join_type))
         for col in table.cols:
             self.all_columns.append(col.dbname())
+        self.datetime_columns.extend(table.datetime_cols)
         return self
 
     def project_id(self, project_id: str | None) -> "Select":
@@ -353,11 +298,12 @@ class Select:
 
     def prepare(
         self,
-        database_type: DatabaseType,
         param_builder: ParamBuilder | None = None,
+        table_name: str | None = None,
+        cluster_name: str | None = None,
     ) -> PreparedSelect:
-        param_builder = param_builder or ParamBuilder(None, database_type)
-        assert database_type == param_builder.database_type
+        """`table_name` overrides only the FROM (a same-schema physical variant like `<t>_local`), not joins."""
+        param_builder = param_builder or ParamBuilder()
 
         sql = ""
         if self.action == "SELECT":
@@ -382,7 +328,7 @@ class Select:
             fieldnames = []
             sql = "DELETE "
 
-        sql += f"FROM {self.table.name}"
+        sql += f"FROM {_format_table_name_with_cluster(table_name or self.table.name, cluster_name)}"
 
         # Handle joins
         # Returns {join type} JOIN {table name} ON {join condition}
@@ -395,6 +341,7 @@ class Select:
                 map_string_columns=self.table.map_string_cols,
                 map_float_columns=self.table.map_float_cols,
                 param_builder=param_builder,
+                datetime_columns=self.datetime_columns,
             )
             joined = combine_conditions(query_conds, "AND")
             sql += f"\n{j.join_type + ' ' if j.join_type else ''}JOIN {j.table.name} ON {joined}"
@@ -414,6 +361,7 @@ class Select:
                 map_string_columns=self.table.map_string_cols,
                 map_float_columns=self.table.map_float_cols,
                 param_builder=param_builder,
+                datetime_columns=self.datetime_columns,
             )
             conditions.extend(query_conds)
 
@@ -490,9 +438,19 @@ class Select:
         return PreparedSelect(sql=sql, parameters=parameters, fields=fieldnames)
 
 
+def _format_table_name_with_cluster(table_name: str, cluster_name: str | None) -> str:
+    """Append `ON CLUSTER {cluster_name}` to a table reference when clustered.
+
+    Callers pass the already-resolved table name (e.g. `<table>_local` in
+    distributed mode); this only appends the cluster clause.
+    """
+    if cluster_name:
+        return f"{table_name} ON CLUSTER {cluster_name}"
+    return table_name
+
+
 @dataclass(slots=True)
 class PreparedInsert:
-    sql: str
     column_names: list[str]
     data: Sequence[Sequence[Any]]
 
@@ -511,7 +469,13 @@ class Insert:
         """Queue a row for insertion."""
         self.rows.append(row)
 
-    def prepare(self, database_type: DatabaseType) -> PreparedInsert:
+    def prepare(self) -> PreparedInsert:
+        """Marshal queued rows for the ClickHouse Python client's insert API.
+
+        No SQL is generated; the client takes column names and row data
+        directly. The ClickHouse driver accepts native list/dict for
+        Array/Map columns, so only JSON columns need encoding.
+        """
         if not self.rows:
             raise ValueError("No rows added for insertion")
 
@@ -527,27 +491,11 @@ class Insert:
                 col_type = self.table.col_types.get(field)
                 if col_type == "json":
                     r.append(json.dumps(row[field]))
-                elif (
-                    col_type in _JSON_TEXT_BACKED_COL_TYPES
-                    and database_type == "sqlite"
-                ):
-                    # SQLite has no Array/Map types; store as JSON text. The
-                    # ClickHouse driver accepts native list/dict directly.
-                    r.append(json.dumps(row[field]))
                 else:
                     r.append(row[field])
             data.append(r)
 
-        if database_type == "sqlite":
-            sql = f"INSERT INTO {self.table.name} (\n    "
-            sql += ", ".join(column_names)
-            sql += "\n) VALUES (\n    "
-            sql += ", ".join("?" for _ in column_names)
-            sql += "\n)"
-        elif database_type == "clickhouse":
-            # We could implement this, but we don't need to given the ClickHouse Python Client API
-            sql = ""
-        return PreparedInsert(sql=sql, column_names=column_names, data=data)
+        return PreparedInsert(column_names=column_names, data=data)
 
 
 def combine_conditions(conditions: list[str], operator: str) -> str:
@@ -578,6 +526,59 @@ def python_value_to_ch_type(value: Any) -> str:
         return "Nullable(String)"
     else:
         raise ValueError(f"Unknown value type: {value}")
+
+
+def timestamp_to_datetime_str(timestamp: float) -> str:
+    """Convert a unix timestamp to a ClickHouse-compatible datetime string.
+
+    Args:
+        timestamp (int | float): Unix timestamp in seconds.
+
+    Returns:
+        str: Datetime string in the format `YYYY-MM-DD HH:MM:SS.ffffff`,
+            matching the precision of ClickHouse `DateTime64(6)` columns.
+
+    Examples:
+        >>> timestamp_to_datetime_str(1709251200)
+        '2024-03-01 00:00:00.000000'
+    """
+    return datetime.datetime.fromtimestamp(
+        timestamp, tz=datetime.timezone.utc
+    ).strftime("%Y-%m-%d %H:%M:%S.%f")
+
+
+def parse_string_to_utc_timestamp(value: str) -> float | None:
+    """Parse a string date or datetime into a UTC unix timestamp (seconds).
+
+    Parsing is delegated to `datetime.datetime.fromisoformat`, which accepts
+    both date-only strings (`YYYY-MM-DD`, read as midnight) and full ISO-8601
+    datetimes. A trailing `Z` / `z` is treated as UTC, and naive datetimes are
+    assumed to be UTC wall time. Unparsable strings return `None`.
+
+    Examples:
+        >>> parse_string_to_utc_timestamp("2024-03-01")
+        1709251200.0
+        >>> parse_string_to_utc_timestamp("2024-03-01T12:00:00Z") == parse_string_to_utc_timestamp(
+        ...     "2024-03-01T12:00:00+00:00"
+        ... )
+        True
+        >>> parse_string_to_utc_timestamp("not a date") is None
+        True
+    """
+    s = value.strip()
+    if not s:
+        return None
+    if s.endswith(("Z", "z")):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    else:
+        dt = dt.astimezone(datetime.timezone.utc)
+    return dt.timestamp()
 
 
 def clickhouse_cast(inner_sql: str, cast: tsi_query.CastTo | None = None) -> str:
@@ -679,8 +680,7 @@ def _transform_external_field_to_internal_field(
     """Transforms a request for a dot-notation field to a clickhouse field.
 
     For Map(String, *) columns, a dotted path like `scorer_ratings._rating_`
-    resolves to a typed map access (`col['key']` in ClickHouse,
-    `json_extract(col, '$."key"')` in SQLite). Bare references to a map
+    resolves to a typed map access (`col['key']`). Bare references to a map
     column pass through to the column itself.
     """
     param_builder = param_builder or ParamBuilder()
@@ -728,38 +728,80 @@ def _transform_external_field_to_internal_field(
 
     raw_fields_used.add(unprefixed_field)
     if map_access_key is not None:
-        is_sqlite = param_builder.database_type == "sqlite"
-        if is_sqlite:
-            json_path_val = quote_json_path_parts([map_access_key])
-            json_path_param = param_builder.add(json_path_val, None, "String")
-            field = f"json_extract({field}, {json_path_param})"
-        else:
-            key_param = param_builder.add(map_access_key, None, "String")
-            # Missing CH map keys default to 0 / "" — guard with mapContains
-            # so absent keys read as NULL (matches SQLite's json_extract).
-            field = f"if(mapContains({field}, {key_param}), {field}[{key_param}], NULL)"
-            # Pass-through casts (string/exists/None) are always safe.
-            # Numeric `OrNull` casts only work on String inputs, so skip them
-            # for `Map(String, Float64)` columns where the value is already
-            # numeric.
-            map_col_was_string = unprefixed_field.split(".", 1)[0] in map_string_columns
-            if map_col_was_string or cast in {None, "string", "exists"}:
-                field = clickhouse_cast(field, cast)
+        key_param = param_builder.add(map_access_key, None, "String")
+        # Missing CH map keys default to 0 / "" — guard with mapContains
+        # so absent keys read as NULL.
+        field = f"if(mapContains({field}, {key_param}), {field}[{key_param}], NULL)"
+        # Pass-through casts (string/exists/None) are always safe.
+        # Numeric `OrNull` casts only work on String inputs, so skip them
+        # for `Map(String, Float64)` columns where the value is already
+        # numeric.
+        map_col_was_string = unprefixed_field.split(".", 1)[0] in map_string_columns
+        if map_col_was_string or cast in {None, "string", "exists"}:
+            field = clickhouse_cast(field, cast)
     elif json_path is not None:
         json_path_param = param_builder.add(json_path, None, "String")
         if cast == "exists":
             field = "(JSON_EXISTS(" + field + ", " + json_path_param + "))"
         else:
-            is_sqlite = param_builder.database_type == "sqlite"
-            json_func = "json_extract(" if is_sqlite else "JSON_VALUE("
-            field = json_func + field + ", " + json_path_param + ")"
-            if not is_sqlite:
-                field = clickhouse_cast_json_value(field, cast or "string")  # type: ignore
+            field = "JSON_VALUE(" + field + ", " + json_path_param + ")"
+            field = clickhouse_cast_json_value(field, cast or "string")
 
     if table_prefix:
         field = f"{table_prefix}.{field}"
 
     return field, param_builder, raw_fields_used
+
+
+def maybe_convert_datetime_operands(
+    operands: Sequence[tsi_query.Operand],
+    datetime_columns: Collection[str],
+) -> Sequence[tsi_query.Operand]:
+    """Normalize a literal compared against a DateTime column to a CH-native string.
+
+    ClickHouse rejects ISO-8601 strings carrying a `T` separator / `Z` suffix
+    (e.g. `2026-05-27T17:49:15.491230Z`) when comparing against a `DateTime64`
+    column (TYPE_MISMATCH, code 53). Numeric unix timestamps and parseable
+    strings are rewritten to the canonical `YYYY-MM-DD HH:MM:SS.ffffff` form,
+    which ClickHouse parses against DateTime columns.
+
+    Returns a new sequence with the conversion applied, or the original
+    sequence if neither operand is a DateTime field/parseable literal pair.
+    """
+    if len(operands) != 2:
+        return operands
+
+    field_idx = None
+    literal_idx = None
+    timestamp: float | None = None
+    for i, op in enumerate(operands):
+        if (
+            isinstance(op, tsi_query.GetFieldOperator)
+            and op.get_field_ in datetime_columns
+        ):
+            field_idx = i
+        elif isinstance(op, tsi_query.LiteralOperation):
+            lit = op.literal_
+            # bool is a subclass of int, but comparing a datetime to a bool is
+            # nonsensical -> leave it untouched.
+            if isinstance(lit, bool):
+                continue
+            if isinstance(lit, (int, float)):
+                literal_idx = i
+                timestamp = float(lit)
+            elif isinstance(lit, str):
+                parsed = parse_string_to_utc_timestamp(lit)
+                if parsed is not None:
+                    literal_idx = i
+                    timestamp = parsed
+
+    if field_idx is None or literal_idx is None or timestamp is None:
+        return operands
+
+    datetime_str = timestamp_to_datetime_str(timestamp)
+    new_operands = list(operands)
+    new_operands[literal_idx] = tsi_query.LiteralOperation(**{"$literal": datetime_str})
+    return new_operands
 
 
 def _operand_array_string_column(
@@ -788,13 +830,19 @@ def _process_query_to_conditions(
     map_float_columns: Sequence[str] = (),
     param_builder: ParamBuilder | None = None,
     field_resolver: Callable[[str, ParamBuilder], tuple[str, set[str]]] | None = None,
+    datetime_columns: Collection[str] | None = None,
 ) -> tuple[list[str], set[str]]:
     """Converts a Query to a list of conditions for a clickhouse query.
 
     field_resolver, when provided, overrides the default field-to-SQL mapping
     for $getField operators. Used by eval_results to map fields like
     "scores.accuracy" to aggregated expressions (e.g. avg(...)).
+
+    datetime_columns names the top-level columns typed as DateTime so that
+    literals compared against them are normalized via
+    `maybe_convert_datetime_operands`.
     """
+    dt_columns = datetime_columns or ()
     pb = param_builder or ParamBuilder()
     conditions = []
     raw_fields_used = set()
@@ -844,28 +892,15 @@ def _process_query_to_conditions(
             cond = f"({lhs_part} IN ({rhs_part}))"
         elif isinstance(operation, tsi_query.ContainsOperation):
             # If LHS is a bare Array(String) column, treat $contains as array
-            # membership, not substring search — `has(col, value)` in CH and
-            # a json_each subquery in SQLite. Falls back to the string-contains
-            # behavior for every other operand shape.
+            # membership, not substring search — `has(col, value)`. Falls back
+            # to the string-contains behavior for every other operand shape.
             array_col = _operand_array_string_column(
                 operation.contains_.input, array_string_columns
             )
             if array_col is not None:
                 rhs_part = process_operand(operation.contains_.substr)
                 raw_fields_used.add(array_col)
-                case_insensitive = operation.contains_.case_insensitive
-                if pb.database_type == "sqlite":
-                    if case_insensitive:
-                        cond = (
-                            f"EXISTS (SELECT 1 FROM json_each({array_col}) "
-                            f"WHERE LOWER(value) = LOWER({rhs_part}))"
-                        )
-                    else:
-                        cond = (
-                            f"EXISTS (SELECT 1 FROM json_each({array_col}) "
-                            f"WHERE value = {rhs_part})"
-                        )
-                elif case_insensitive:
+                if operation.contains_.case_insensitive:
                     cond = (
                         f"arrayExists(x -> lower(x) = lower({rhs_part}), {array_col})"
                     )
@@ -874,21 +909,10 @@ def _process_query_to_conditions(
             else:
                 lhs_part = process_operand(operation.contains_.input)
                 rhs_part = process_operand(operation.contains_.substr)
-                is_sqlite = pb.database_type == "sqlite"
-
-                if is_sqlite:
-                    # SQLite uses INSTR function and doesn't have case-insensitive variant
-                    if operation.contains_.case_insensitive:
-                        # For case-insensitive, convert both to lowercase
-                        cond = f"INSTR(LOWER({lhs_part}), LOWER({rhs_part})) > 0"
-                    else:
-                        cond = f"INSTR({lhs_part}, {rhs_part}) > 0"
-                else:
-                    # ClickHouse uses position/positionCaseInsensitive
-                    position_operation = "position"
-                    if operation.contains_.case_insensitive:
-                        position_operation = "positionCaseInsensitive"
-                    cond = f"{position_operation}({lhs_part}, {rhs_part}) > 0"
+                position_operation = "position"
+                if operation.contains_.case_insensitive:
+                    position_operation = "positionCaseInsensitive"
+                cond = f"{position_operation}({lhs_part}, {rhs_part}) > 0"
         else:
             raise TypeError(f"Unknown operation type: {operation}")
 
@@ -897,6 +921,10 @@ def _process_query_to_conditions(
     def process_binary_operands(
         lhs: tsi_query.Operand, rhs: tsi_query.Operand
     ) -> tuple[str, str]:
+        # Normalize datetime literals before cast inference: a literal compared
+        # against a DateTime column becomes a CH-native datetime string, so the
+        # peer-literal cast below correctly sees a string (not a numeric).
+        lhs, rhs = maybe_convert_datetime_operands((lhs, rhs), dt_columns)
         # Each side's cast is inferred from the peer literal: a numeric RHS
         # tells us to cast the LHS field, and vice versa. Without this, a
         # JSON_VALUE-extracted field comes through as a String while the
@@ -920,9 +948,8 @@ def _process_query_to_conditions(
                 # path applies the inferred cast inside JSON extraction; the
                 # field_resolver path replaces that with caller-controlled
                 # SQL, so the cast has to be reapplied here for the typed
-                # comparison to type-check in CH. Sqlite drops the cast for
-                # the same reason it's dropped in the JSON extraction path.
-                if cast is not None and pb.database_type == "clickhouse":
+                # comparison to type-check in CH.
+                if cast is not None:
                     field = clickhouse_cast_json_value(field, cast)
             else:
                 (

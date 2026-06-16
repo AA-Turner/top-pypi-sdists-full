@@ -18,9 +18,6 @@ Functions:
     get_dependency_analysis_model: Get dependency analysis model from env var or config
     get_ontology_analysis_model: Get ontology analysis model from env var or config
     get_context_compression_model: Get context compression model from env var or config
-    get_atomicity_model: Get atomicity model from env var or config
-    get_decomposition_model: Get decomposition model from env var or config
-    get_double_diamond_model: Get Double Diamond model from env var or config
     get_wonder_model: Get Wonder model from env var or config
     get_reflect_model: Get Reflect model from env var or config
     get_semantic_model: Get semantic evaluation model from env var or config
@@ -69,12 +66,14 @@ _KIRO_LLM_BACKENDS = frozenset({"kiro", "kiro_cli"})
 _COPILOT_LLM_BACKENDS = frozenset({"copilot", "copilot_cli"})
 _HERMES_LLM_BACKENDS = frozenset({"hermes", "hermes_cli"})
 _PI_LLM_BACKENDS = frozenset({"pi", "pi_cli"})
+_GJC_LLM_BACKENDS = frozenset({"gjc", "gjc_cli"})
 _OPENCODE_BACKENDS = frozenset({"opencode", "opencode_cli"})
 _CODEX_DEFAULT_MODEL = "default"
 _KIRO_DEFAULT_MODEL = "default"
 _COPILOT_DEFAULT_MODEL = "default"
 _HERMES_DEFAULT_MODEL = "default"
 _PI_DEFAULT_MODEL = "default"
+_GJC_DEFAULT_MODEL = "default"
 _PLACEHOLDER_API_KEY_PREFIX = "YOUR_"
 _PLACEHOLDER_API_KEY_SUFFIX = "_API_KEY"
 _DEFAULT_MAX_PARALLEL_WORKERS = 3
@@ -159,11 +158,20 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         "OUROBOROS_GOOSE_CLI_PATH",
         "OUROBOROS_GEMINI_CLI_PATH",
         "OUROBOROS_PI_CLI_PATH",
+        "OUROBOROS_GJC_CLI_PATH",
+        "OUROBOROS_OUROCODE_CLI_PATH",
         # Bare provider aliases (no OUROBOROS_ prefix) that adapters also
         # honor and then execute. Any new such alias MUST be added here:
         # `opencode_config._configured_opencode_cli_path` reads
         # OPENCODE_CLI_PATH and runs it via subprocess.run.
         "OPENCODE_CLI_PATH",
+        # Spawned-CLI discovery roots. The gjc CLI resolves its agent dir
+        # (rules/skills/extensions it loads into every session) from these
+        # vars; an untrusted repo .env must not be able to point a spawned
+        # gjc at attacker-controlled instruction/extension directories.
+        "GJC_CODING_AGENT_DIR",
+        "GJC_CONFIG_DIR",
+        "PI_CONFIG_DIR",
         # Runtime/backend selectors — choose which adapter is spawned.
         "OUROBOROS_AGENT_RUNTIME",
         "OUROBOROS_RUNTIME",
@@ -1121,6 +1129,56 @@ def get_pi_cli_path() -> str | None:
     return None
 
 
+def get_gjc_cli_path() -> str | None:
+    """Get GJC CLI path from environment variable or config file.
+
+    Priority:
+        1. OUROBOROS_GJC_CLI_PATH environment variable
+        2. config.yaml orchestrator.gjc_cli_path
+        3. None (resolve from PATH at runtime)
+
+    Returns:
+        Path to GJC CLI binary or None.
+    """
+    env_path = os.environ.get("OUROBOROS_GJC_CLI_PATH", "").strip()
+    if env_path:
+        return str(Path(env_path).expanduser())
+
+    try:
+        config = load_config()
+        if config.orchestrator.gjc_cli_path:
+            return config.orchestrator.gjc_cli_path
+    except ConfigError:
+        pass
+
+    return None
+
+
+def get_ourocode_cli_path() -> str | None:
+    """Get ourocode CLI path from environment variable or config file.
+
+    Priority:
+        1. OUROBOROS_OUROCODE_CLI_PATH environment variable
+        2. config.yaml orchestrator.ourocode_cli_path
+        3. None (resolve ``ourocode`` from PATH at runtime)
+
+    Returns:
+        Path to the ourocode executable or None.
+    """
+    env_path = os.environ.get("OUROBOROS_OUROCODE_CLI_PATH", "").strip()
+    if env_path:
+        return str(Path(env_path).expanduser())
+
+    try:
+        config = load_config()
+        if config.orchestrator.ourocode_cli_path:
+            return config.orchestrator.ourocode_cli_path
+    except ConfigError:
+        pass
+
+    return None
+
+
 def get_opencode_mode() -> str | None:
     """Get configured OpenCode integration mode from config file.
 
@@ -1257,6 +1315,8 @@ def _default_model_for_backend(
         return _HERMES_DEFAULT_MODEL
     if resolved in _PI_LLM_BACKENDS:
         return _PI_DEFAULT_MODEL
+    if resolved in _GJC_LLM_BACKENDS:
+        return _GJC_DEFAULT_MODEL
     return default_model
 
 
@@ -1274,6 +1334,7 @@ def _normalize_configured_model_for_backend(
     *,
     default_model: str,
     backend: str | None = None,
+    extra_shipped_defaults: tuple[str, ...] = (),
 ) -> str:
     """Normalize config-backed models while preserving backend-safe defaults."""
     candidate = configured_model.strip()
@@ -1286,7 +1347,10 @@ def _normalize_configured_model_for_backend(
     # and for Claude-incapable backends it must normalize to the sentinel just
     # like the current default would. Genuinely explicit, never-shipped ids are
     # absent from this set and fall through to be preserved verbatim.
-    is_shipped_default = candidate in recognized_shipped_defaults(default_model)
+    is_shipped_default = candidate in (
+        *recognized_shipped_defaults(default_model),
+        *extra_shipped_defaults,
+    )
     if resolved in _CODEX_LLM_BACKENDS and is_shipped_default:
         return _CODEX_DEFAULT_MODEL
     if resolved in _KIRO_LLM_BACKENDS and is_shipped_default:
@@ -1295,8 +1359,10 @@ def _normalize_configured_model_for_backend(
         return _COPILOT_DEFAULT_MODEL
     if resolved in _HERMES_LLM_BACKENDS and is_shipped_default:
         return _HERMES_DEFAULT_MODEL
-    if resolved in _PI_LLM_BACKENDS and candidate == default_model:
+    if resolved in _PI_LLM_BACKENDS and is_shipped_default:
         return _PI_DEFAULT_MODEL
+    if resolved in _GJC_LLM_BACKENDS and is_shipped_default:
+        return _GJC_DEFAULT_MODEL
 
     return candidate
 
@@ -1380,11 +1446,12 @@ def get_dependency_analysis_model(backend: str | None = None) -> str:
         config = load_config()
         return _normalize_configured_model_for_backend(
             config.llm.dependency_analysis_model,
-            default_model=DEFAULT_OPUS_MODEL,
+            default_model=DEFAULT_SONNET_MODEL,
             backend=backend,
+            extra_shipped_defaults=recognized_shipped_defaults(DEFAULT_OPUS_MODEL),
         )
     except ConfigError:
-        return _default_model_for_backend(DEFAULT_OPUS_MODEL, backend=backend)
+        return _default_model_for_backend(DEFAULT_SONNET_MODEL, backend=backend)
 
 
 def get_ontology_analysis_model(backend: str | None = None) -> str:
@@ -1397,11 +1464,12 @@ def get_ontology_analysis_model(backend: str | None = None) -> str:
         config = load_config()
         return _normalize_configured_model_for_backend(
             config.llm.ontology_analysis_model,
-            default_model=DEFAULT_OPUS_MODEL,
+            default_model=DEFAULT_SONNET_MODEL,
             backend=backend,
+            extra_shipped_defaults=recognized_shipped_defaults(DEFAULT_OPUS_MODEL),
         )
     except ConfigError:
-        return _default_model_for_backend(DEFAULT_OPUS_MODEL, backend=backend)
+        return _default_model_for_backend(DEFAULT_SONNET_MODEL, backend=backend)
 
 
 def get_context_compression_model(backend: str | None = None) -> str:
@@ -1419,57 +1487,6 @@ def get_context_compression_model(backend: str | None = None) -> str:
         )
     except ConfigError:
         return _default_model_for_backend("gpt-4", backend=backend)
-
-
-def get_atomicity_model(backend: str | None = None) -> str:
-    """Get atomicity analysis model from environment variable or config."""
-    env_model = os.environ.get("OUROBOROS_ATOMICITY_MODEL", "").strip()
-    if env_model:
-        return env_model
-
-    try:
-        config = load_config()
-        return _normalize_configured_model_for_backend(
-            config.execution.atomicity_model,
-            default_model=DEFAULT_OPUS_MODEL,
-            backend=backend,
-        )
-    except ConfigError:
-        return _default_model_for_backend(DEFAULT_OPUS_MODEL, backend=backend)
-
-
-def get_decomposition_model(backend: str | None = None) -> str:
-    """Get AC decomposition model from environment variable or config."""
-    env_model = os.environ.get("OUROBOROS_DECOMPOSITION_MODEL", "").strip()
-    if env_model:
-        return env_model
-
-    try:
-        config = load_config()
-        return _normalize_configured_model_for_backend(
-            config.execution.decomposition_model,
-            default_model=DEFAULT_OPUS_MODEL,
-            backend=backend,
-        )
-    except ConfigError:
-        return _default_model_for_backend(DEFAULT_OPUS_MODEL, backend=backend)
-
-
-def get_double_diamond_model(backend: str | None = None) -> str:
-    """Get Double Diamond default model from environment variable or config."""
-    env_model = os.environ.get("OUROBOROS_DOUBLE_DIAMOND_MODEL", "").strip()
-    if env_model:
-        return env_model
-
-    try:
-        config = load_config()
-        return _normalize_configured_model_for_backend(
-            config.execution.double_diamond_model,
-            default_model=DEFAULT_OPUS_MODEL,
-            backend=backend,
-        )
-    except ConfigError:
-        return _default_model_for_backend(DEFAULT_OPUS_MODEL, backend=backend)
 
 
 def get_wonder_model(backend: str | None = None) -> str:

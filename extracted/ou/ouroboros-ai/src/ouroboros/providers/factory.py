@@ -12,10 +12,12 @@ from ouroboros.backends import resolve_llm_backend_name, soft_tool_enforcement_b
 from ouroboros.config import (
     get_codex_cli_path,
     get_gemini_cli_path,
+    get_gjc_cli_path,
     get_goose_cli_path,
     get_hermes_cli_path,
     get_llm_backend,
     get_llm_permission_mode,
+    get_ourocode_cli_path,
     get_pi_cli_path,
     get_runtime_profile,
 )
@@ -24,8 +26,10 @@ from ouroboros.providers.claude_code_adapter import ClaudeCodeAdapter
 from ouroboros.providers.codex_cli_adapter import CodexCliLLMAdapter
 from ouroboros.providers.copilot_cli_adapter import CopilotCliLLMAdapter
 from ouroboros.providers.gemini_cli_adapter import GeminiCLIAdapter
+from ouroboros.providers.gjc_llm_adapter import GjcLLMAdapter
 from ouroboros.providers.goose_cli_adapter import GooseCliLLMAdapter
 from ouroboros.providers.opencode_adapter import OpenCodeLLMAdapter
+from ouroboros.providers.ourocode_llm_adapter import OurocodeLLMAdapter
 from ouroboros.providers.pi_llm_adapter import PiLLMAdapter
 
 if TYPE_CHECKING:
@@ -104,6 +108,7 @@ def resolve_llm_permission_mode(
         "hermes",
         "opencode",
         "pi",
+        "gjc",
     ):
         # Interview uses LLM to generate questions — no file writes, but
         # CLI sandbox modes block LLM output entirely. Must bypass.
@@ -154,11 +159,11 @@ def create_llm_adapter(
         permission_mode=permission_mode,
         use_case=use_case,
     )
-    if io_recorder is not None and resolved_backend != "litellm":
+    if io_recorder is not None and resolved_backend not in ("litellm", "ourocode"):
         log.warning(
             "create_llm_adapter.io_recorder_unsupported_backend",
             backend=resolved_backend,
-            hint="Only LiteLLM currently accepts adapter-level IOJournalRecorder wiring.",
+            hint="Only LiteLLM and ourocode accept adapter-level IOJournalRecorder wiring.",
         )
     if resolved_backend == "claude_code":
         return ClaudeCodeAdapter(
@@ -258,6 +263,24 @@ def create_llm_adapter(
             on_message=on_message,
             timeout=timeout,
             max_retries=max_retries,
+        )
+    if resolved_backend == "gjc":
+        return GjcLLMAdapter(
+            cli_path=cli_path or get_gjc_cli_path(),
+            cwd=cwd,
+            permission_mode=resolved_permission_mode,
+            allowed_tools=allowed_tools,
+            max_turns=max_turns,
+            on_message=on_message,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
+    if resolved_backend == "ourocode":
+        return OurocodeLLMAdapter(
+            cli_path=cli_path or get_ourocode_cli_path(),
+            cwd=cwd,
+            timeout=timeout,
+            io_recorder=io_recorder,
         )
     if resolved_backend == "kiro":
         from ouroboros.config import get_kiro_cli_path

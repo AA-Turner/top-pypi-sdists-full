@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bigframes
-Version: 2.42.0
+Version: 2.43.0
 Summary: BigQuery DataFrames -- scalable analytics and machine learning with BigQuery
 Home-page: https://dataframes.bigquery.dev
 Download-URL: https://github.com/googleapis/google-cloud-python/tree/main/packages/bigframes/releases
@@ -42,7 +42,7 @@ Requires-Dist: grpc-google-iam-v1>=0.14.2
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: pandas>=1.5.3
 Requires-Dist: pandas-gbq>=0.26.1
-Requires-Dist: pyarrow>=15.0.2
+Requires-Dist: pyarrow>=23.0.1
 Requires-Dist: pydata-google-auth>=1.8.2
 Requires-Dist: requests>=2.27.1
 Requires-Dist: shapely>=1.8.5

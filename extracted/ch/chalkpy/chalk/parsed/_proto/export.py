@@ -301,6 +301,19 @@ def export_from_registries(
                 )
             )
             continue
+        # Build resources proto from ResourceRequests if present
+        resources_proto = None
+        if cron.resources is not None:
+            from chalk._gen.chalk.common.v1.offline_query_pb2 import ResourceRequests as ProtoResourceRequests
+
+            resources_proto = ProtoResourceRequests(
+                cpu=cron.resources.cpu,
+                memory=cron.resources.memory,
+                ephemeral_storage=cron.resources.ephemeral_storage,
+                ephemeral_volume_size=cron.resources.ephemeral_volume_size,
+                resource_group=cron.resources.resource_group,
+            )
+
         crons.append(
             CronQuery(
                 name=cron.name,
@@ -345,6 +358,9 @@ def export_from_registries(
                     )
                     for spec in (cron.unload_resolvers or [])
                 ],
+                max_retries=cron.max_retries,
+                resources=resources_proto,
+                environment_override=cron.environment,
             )
         )
 

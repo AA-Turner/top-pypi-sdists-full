@@ -207,8 +207,10 @@ class TestLLMConfig:
         assert config.permission_mode == "default"
         assert config.opencode_permission_mode == "acceptEdits"
         assert config.qa_model == DEFAULT_SONNET_MODEL
-        assert config.dependency_analysis_model == DEFAULT_OPUS_MODEL
-        assert config.ontology_analysis_model == DEFAULT_OPUS_MODEL
+        # Frugality: bounded structured-extraction meta-tasks default to Sonnet,
+        # not Opus (effort-first floor should not start at the priciest tier).
+        assert config.dependency_analysis_model == DEFAULT_SONNET_MODEL
+        assert config.ontology_analysis_model == DEFAULT_SONNET_MODEL
         assert config.context_compression_model == "gpt-4"
 
     def test_llm_config_accepts_claude_shorthand(self) -> None:
@@ -225,6 +227,11 @@ class TestLLMConfig:
         """LLMConfig accepts Pi as a local CLI backend."""
         config = LLMConfig(backend="pi")
         assert config.backend == "pi"
+
+    def test_llm_config_accepts_gjc_backend(self) -> None:
+        """LLMConfig accepts GJC now that the GJC LLM adapter is registered."""
+        config = LLMConfig(backend="gjc")
+        assert config.backend == "gjc"
 
 
 class TestLLMTaskProfileConfig:
@@ -275,9 +282,6 @@ class TestExecutionConfig:
         config = ExecutionConfig()
         assert config.max_iterations_per_ac == 10
         assert config.retrospective_interval == 3
-        assert config.atomicity_model == DEFAULT_OPUS_MODEL
-        assert config.decomposition_model == DEFAULT_OPUS_MODEL
-        assert config.double_diamond_model == DEFAULT_OPUS_MODEL
 
 
 class TestResilienceConfig:
@@ -590,6 +594,13 @@ class TestOrchestratorConfig:
         assert config.pi_cli_path is not None
         assert "~" not in config.pi_cli_path
 
+    def test_orchestrator_config_accepts_gjc_backend(self) -> None:
+        """GJC is a valid runtime-only backend."""
+        config = OrchestratorConfig(runtime_backend="gjc", gjc_cli_path="~/bin/gjc")
+        assert config.runtime_backend == "gjc"
+        assert config.gjc_cli_path is not None
+        assert "~" not in config.gjc_cli_path
+
 
 class TestGetDefaultConfig:
     """Test get_default_config helper function."""
@@ -716,6 +727,11 @@ class TestRuntimeProfileConfig:
         profile = RuntimeProfileConfig(default="pi", stages={"execute": "pi_cli"})
         assert profile.default == "pi"
         assert profile.stages == {"execute": "pi_cli"}
+
+    def test_runtime_profile_accepts_gjc_backends(self) -> None:
+        profile = RuntimeProfileConfig(default="gjc", stages={"execute": "gjc_cli"})
+        assert profile.default == "gjc"
+        assert profile.stages == {"execute": "gjc_cli"}
 
     def test_orchestrator_runtime_profile_string_shorthand(self) -> None:
         config = OrchestratorConfig(runtime_profile="worker")

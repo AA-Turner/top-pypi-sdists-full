@@ -18,6 +18,7 @@ from rich.console import Console
 import structlog
 import yaml
 
+from ouroboros.config._model_defaults import DEFAULT_SONNET_MODEL
 from ouroboros.config.loader import get_max_parallel_workers
 from ouroboros.core.errors import ConfigError, ValidationError
 from ouroboros.core.project_paths import resolve_seed_project_path
@@ -34,11 +35,14 @@ from ouroboros.core.worktree import (
 from ouroboros.evaluation.verification_artifacts import build_verification_artifacts
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
 from ouroboros.mcp.job_manager import JobLinks, JobManager
+from ouroboros.mcp.tools.background import start_background_tool_job
 from ouroboros.mcp.tools.bridge_mixin import BridgeAwareMixin
 from ouroboros.mcp.tools.subagent import (
+    DELEGATED_TO_PLUGIN,
+    DELEGATED_TO_SUBAGENT,
     build_execute_subagent,
     build_subagent_result,
-    emit_subagent_dispatched_event,
+    dispatch_plugin_terminal,
     should_dispatch_via_plugin,
 )
 from ouroboros.mcp.types import (
@@ -58,7 +62,6 @@ from ouroboros.orchestrator.adapter import (
     DELEGATED_PARENT_TRANSCRIPT_PATH_ARG,
     RuntimeHandle,
 )
-from ouroboros.orchestrator.agent_process import run_with_agent_process
 from ouroboros.orchestrator.runner import OrchestratorRunner
 from ouroboros.orchestrator.session import SessionRepository, SessionStatus
 from ouroboros.persistence.checkpoint import CheckpointStore
@@ -81,7 +84,7 @@ def _resolve_execution_model(runtime_backend: str | None) -> str | None:
         stripped = execution_model.strip()
         return stripped or None
     if runtime_backend == "claude":
-        return "claude-sonnet-4-6"
+        return DEFAULT_SONNET_MODEL
     return None
 
 
@@ -228,6 +231,36 @@ def _classify_synchronous_execution_status(
     if session_status in {SessionStatus.FAILED, SessionStatus.CANCELLED}:
         return session_status.value, False, True, "Seed Execution FINISHED"
     return "unknown", False, True, "Seed Execution FINISHED"
+
+
+def _run_only_verification_meta(
+    session_id: str | None,
+    *,
+    verification_status: str = "executed_unverified",
+) -> dict[str, Any]:
+    """Expose that execute_seed completion is not formal 3-stage verification."""
+    next_step = f"ooo evaluate {session_id}" if session_id else "ooo evaluate <session_id>"
+    return {
+        "evaluated": False,
+        "verification_status": verification_status,
+        "formal_evaluation_required": True,
+        "next_step": next_step,
+    }
+
+
+def _run_only_verification_text(
+    session_id: str | None,
+    *,
+    verification_status: str = "executed_unverified",
+) -> str:
+    """Render the run-only verification warning for human-readable tool output."""
+    next_step = f"ooo evaluate {session_id}" if session_id else "ooo evaluate <session_id>"
+    return (
+        f"Verification Status: {verification_status}\n"
+        "Formal Evaluation: NOT evaluated by the 3-stage evaluator\n"
+        "Warning: execution results are run-only and must not be treated as verified.\n"
+        f"Next: {next_step}\n"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -463,21 +496,21 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                 model_tier=model_tier,
                 max_parallel_workers=max_parallel_workers,
             )
-            await emit_subagent_dispatched_event(
+            # Preserve public response shape (#442): consumers expect
+            # session_id / status keys even in plugin-dispatch mode.
+            return await dispatch_plugin_terminal(
                 self.event_store,
                 session_id=session_id,
                 payload=payload,
-            )
-            # Preserve public response shape (#442): consumers expect
-            # session_id / status keys even in plugin-dispatch mode.
-            return build_subagent_result(
-                payload,
                 response_shape={
                     "session_id": session_id,
-                    "status": "delegated_to_subagent",
+                    "status": DELEGATED_TO_SUBAGENT,
                     "dispatch_mode": "plugin",
                     "runtime_backend": self.agent_runtime_backend,
                     "model_tier": model_tier,
+                    **_run_only_verification_meta(
+                        session_id, verification_status="delegated_unverified"
+                    ),
                 },
             )
 
@@ -806,6 +839,7 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                     f"Runtime Backend: {effective_runtime_backend}\n"
                     f"LLM Backend: {resolved_llm_backend}\n"
                 )
+                message += _run_only_verification_text(tracker.session_id)
                 if pause_metadata:
                     if pause_metadata.get("pause_kind") is not None:
                         message += f"Pause Kind: {pause_metadata['pause_kind']}\n"
@@ -836,6 +870,7 @@ class ExecuteSeedHandler(BridgeAwareMixin):
                     "runtime_backend": effective_runtime_backend,
                     "llm_backend": resolved_llm_backend,
                     "resume_requested": is_resume,
+                    **_run_only_verification_meta(tracker.session_id),
                 }
                 if success is not None:
                     meta["success"] = success
@@ -1182,12 +1217,16 @@ class StartExecuteSeedHandler:
             )
         if idempotency_key and idempotency_key in self._idempotency_meta:
             cached_meta = dict(self._idempotency_meta[idempotency_key])
+            cached_session_id = (
+                str(cached_meta.get("session_id")) if cached_meta.get("session_id") else None
+            )
             text = (
                 "Replayed prior background execution via idempotency key.\n\n"
                 f"Idempotency Key: {idempotency_key}\n"
                 f"Job ID: {cached_meta.get('job_id') or 'pending'}\n"
                 f"Session ID: {cached_meta.get('session_id') or 'pending'}\n"
-                f"Execution ID: {cached_meta.get('execution_id') or 'pending'}\n"
+                f"Execution ID: {cached_meta.get('execution_id') or 'pending'}\n\n"
+                + _run_only_verification_text(cached_session_id)
             )
             return Result.ok(
                 MCPToolResult(
@@ -1260,9 +1299,6 @@ class StartExecuteSeedHandler:
             if plugin_mode_result.is_err:
                 return plugin_mode_result
 
-            # Initialize event store first so the audit event persists.
-            await self._event_store.initialize()
-
             # Generate session_id for fresh runs BEFORE building the payload
             # so the child prompt, context, audit event, and response all
             # share the same identity.  Without this the prompt says "new"
@@ -1282,12 +1318,6 @@ class StartExecuteSeedHandler:
                 max_parallel_workers=max_parallel_workers,
             )
 
-            await emit_subagent_dispatched_event(
-                self._event_store,
-                session_id=plugin_session_id,
-                payload=payload,
-            )
-
             # Plugin mode: work runs in the OpenCode child session (Task
             # pane), NOT in a JobManager background job.  Returning a fake
             # instantly-completing job_id would break the polling contract —
@@ -1298,9 +1328,13 @@ class StartExecuteSeedHandler:
                 "job_id": None,
                 "session_id": plugin_session_id,
                 "execution_id": None,
-                "status": "delegated_to_plugin",
+                "status": DELEGATED_TO_PLUGIN,
                 "dispatch_mode": "plugin",
                 "runtime_backend": self.agent_runtime_backend,
+                **_run_only_verification_meta(
+                    plugin_session_id,
+                    verification_status="delegated_unverified",
+                ),
             }
             # Cache for idempotent replay: a second handle() with the same
             # key must NOT re-dispatch (no second subagent_dispatched event)
@@ -1311,21 +1345,22 @@ class StartExecuteSeedHandler:
                     "payload": payload,
                     "response_shape": dict(response_shape),
                 }
-            return build_subagent_result(payload, response_shape=response_shape)
+            # The shared helper initializes the store first so the audit
+            # event persists, then emits and builds the envelope.
+            return await dispatch_plugin_terminal(
+                self._event_store,
+                session_id=plugin_session_id,
+                payload=payload,
+                response_shape=response_shape,
+            )
 
-        # Fall-through: real background job path — build payload here where
-        # session_id may still be None (background path generates its own).
-        payload = build_execute_subagent(
-            seed_content=seed_content,
-            session_id=arguments.get("session_id"),
-            seed_path=arguments.get("seed_path"),
-            cwd=arguments.get("cwd"),
-            max_iterations=arguments.get("max_iterations", 10),
-            skip_qa=arguments.get("skip_qa", False),
-            model_tier=arguments.get("model_tier", "medium"),
-            max_parallel_workers=max_parallel_workers,
-        )
-
+        # Fall-through: real background job path (subprocess / non-opencode
+        # runtimes).  No subagent payload is built here — the background job
+        # re-invokes ExecuteSeedHandler.handle() via ``_runner`` below, which
+        # constructs and consumes its own payload internally.  The only payload
+        # consumer in this handler is the plugin branch above; an earlier
+        # background-path ``build_execute_subagent`` here was orphaned by commit
+        # 3c393c98 (its result was never referenced) and has been removed.
         await self._event_store.initialize()
 
         session_id = arguments.get("session_id")
@@ -1361,18 +1396,8 @@ class StartExecuteSeedHandler:
             execution_id = f"exec_{uuid4().hex[:12]}"
             new_session_id = f"orch_{uuid4().hex[:12]}"
 
-        async def _runner(handle) -> MCPToolResult:
-            if handle.should_cancel():
-                return MCPToolResult(
-                    content=(
-                        MCPContentItem(
-                            type=ContentType.TEXT,
-                            text="Seed execution cancelled before restart work began.",
-                        ),
-                    ),
-                    is_error=True,
-                    meta={"status": "cancelled"},
-                )
+        # The shared pipeline owns the ``should_cancel()`` pre-work guard.
+        async def _runner(_handle) -> MCPToolResult:
             result = await self._execute_handler.handle(
                 arguments,
                 execution_id=execution_id,
@@ -1383,23 +1408,19 @@ class StartExecuteSeedHandler:
                 raise RuntimeError(str(result.error))
             return result.value
 
-        job_id = await self._job_manager.allocate_job_id()
-
-        snapshot = await self._job_manager.start_job(
+        snapshot = await start_background_tool_job(
+            job_manager=self._job_manager,
+            event_store=self._event_store,
             job_type="execute_seed",
+            intent="execute_seed",
+            process_scope=f"execute_seed:{execution_id}",
             initial_message="Queued seed execution",
-            runner=run_with_agent_process(
-                event_store=self._event_store,
-                intent="execute_seed",
-                work_fn=_runner,
-                process_id=f"execute_seed:{execution_id}:{job_id}",
-                cancel_key=f"mcp_job:{job_id}",
-            ),
             links=JobLinks(
                 session_id=session_id or new_session_id,
                 execution_id=execution_id,
             ),
-            job_id=job_id,
+            work_fn=_runner,
+            cancelled_text="Seed execution cancelled before restart work began.",
         )
 
         from ouroboros.orchestrator.runtime_factory import resolve_agent_runtime_backend
@@ -1423,6 +1444,7 @@ class StartExecuteSeedHandler:
             f"Execution ID: {snapshot.links.execution_id or 'pending'}\n\n"
             f"Runtime Backend: {runtime_backend}\n"
             f"LLM Backend: {llm_backend}\n\n"
+            f"{_run_only_verification_text(snapshot.links.session_id)}\n"
             "Use ouroboros_ac_tree_hud(session_id, cursor) for live progress and "
             "ouroboros_job_result(job_id) for the final output."
         )
@@ -1434,6 +1456,7 @@ class StartExecuteSeedHandler:
             "cursor": snapshot.cursor,
             "runtime_backend": runtime_backend,
             "llm_backend": llm_backend,
+            **_run_only_verification_meta(snapshot.links.session_id),
         }
         if idempotency_key:
             self._idempotency_meta[idempotency_key] = dict(meta)

@@ -6,6 +6,7 @@ from typing import List, Tuple, Union
 import numpy as np
 from ase import Atoms
 from ase.io import read, write
+from ase.units import fs
 from pandas import DataFrame
 
 
@@ -179,7 +180,8 @@ def read_xyz(filename: str) -> Atoms:
     structure.
 
     This is a wrapper function around :func:`ase.io.read_xyz` since the ASE implementation does
-    not read velocities properly.
+    not read velocities properly. Specifically, the velocity unit is converted from GPUMD units
+    (Å/fs) to ASE units (1/sqrt(u/eV)).
 
     Parameters
     ----------
@@ -193,7 +195,8 @@ def read_xyz(filename: str) -> Atoms:
     """
     structure = read(filename, format='extxyz')
     if structure.has('vel'):
-        structure.set_velocities(structure.get_array('vel'))
+        gpumd_to_ase_velocity = 1 / fs
+        structure.set_velocities(structure.get_array('vel') * gpumd_to_ase_velocity)
     return structure
 
 
@@ -263,6 +266,10 @@ def write_xyz(filename: str, structure: Atoms, groupings: List[List[List[int]]] 
     """
     Writes a structure into GPUMD input format (`model.xyz`).
 
+    This is a wrapper function around :func:`ase.io.write_xyz` since the ASE implementation does
+    not write velocities properly. Specifically, the velocity unit is converted from ASE units
+    (1/sqrt(u/eV)) to GPUMD units (Å/fs).
+
     Parameters
     ----------
     filename
@@ -325,7 +332,8 @@ def write_xyz(filename: str, structure: Atoms, groupings: List[List[List[int]]] 
         _structure.new_array('mass', _structure.get_masses())
 
     if has_velocity:
-        _structure.new_array('vel', _structure.get_velocities())
+        ase_to_gpumd_velocity = fs
+        _structure.new_array('vel', _structure.get_velocities() * ase_to_gpumd_velocity)
     if groupings is not None:
         group_indices = np.array(
             [
@@ -523,4 +531,82 @@ def read_thermodynamic_data(
     if normalize:
         df.volume /= natoms
 
+    return df
+
+
+def read_dpdt(fname: str) -> DataFrame:
+    """Read a GPUMD ``dpdt.out`` file.
+
+    The time column is converted from fs (as written by GPUMD) to ps.
+
+    Parameters
+    ----------
+    fname
+        Path to the ``dpdt.out`` file.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with columns ``time`` (ps), ``dPx``, ``dPy``, ``dPz``
+        (time derivatives of the polarization in e·Å/fs), and ``Px``, ``Py``,
+        ``Pz`` (polarization components in e·Å).
+    """
+    df = DataFrame(np.loadtxt(fname), columns='time dPx dPy dPz Px Py Pz'.split())
+    df['time'] *= 1e-3
+    return df
+
+
+def read_dipole(fname: str) -> DataFrame:
+    r"""Read a GPUMD ``dipole.out`` file written by the ``dump_dipole`` keyword.
+
+    Parameters
+    ----------
+    fname
+        Path to the ``dipole.out`` file.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with columns ``step`` (int), ``mu_x``, ``mu_y``, ``mu_z``
+        (dipole moment :math:`\mu` for molecules, or polarization **P** for extended systems,
+        in e·Å).
+    """
+    df = DataFrame(np.loadtxt(fname), columns='step mu_x mu_y mu_z'.split())
+    df['step'] = df['step'].astype(int)
+    return df
+
+
+def read_polarizability(fname: str, scale: float = None) -> DataFrame:
+    r"""Read a GPUMD ``polarizability.out`` file written by ``dump_polarizability``.
+
+    Parameters
+    ----------
+    fname
+        Path to the ``polarizability.out`` file.
+    scale
+        Divisor applied to the six susceptibility columns after reading.
+        Should match the normalisation constant used when training the TNEP
+        model. GPUMD writes the *total* supercell susceptibility
+        :math:`\chi_\mathrm{cell}`, so dividing by the same value that was used
+        as the training target scale (typically the number of atoms,
+        ``len(atoms)``) recovers the intensive, per-atom quantity expected by
+        :func:`~calorine.tools.get_raman_spectrum`.  The ``step`` column is
+        not affected.  ``None`` (default) leaves the data unscaled.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with columns ``step`` (int) and the six independent components
+        ``xx``, ``yy``, ``zz``, ``xy``, ``yz``, ``xz`` of the polarizability
+        :math:`\alpha` (molecules) or susceptibility :math:`\chi` (extended
+        systems), in the same units as the TNEP training data (typically Å^3 or
+        bohr^3 per atom when :attr:`scale` equals the number of atoms).
+        The off-diagonal order follows the GPUMD ``polarizability.out`` file
+        (xy, yz, xz).
+    """
+    df = DataFrame(np.loadtxt(fname), columns='step xx yy zz xy yz xz'.split())
+    df['step'] = df['step'].astype(int)
+    if scale is not None:
+        cols = ['xx', 'yy', 'zz', 'xy', 'yz', 'xz']
+        df[cols] = df[cols] / scale
     return df

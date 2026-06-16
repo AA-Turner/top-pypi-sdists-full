@@ -15,8 +15,10 @@ from ..shims import install_guard_shim, remove_guard_shim
 from .base import HarnessAdapter, HarnessContext, _command_available, _run_command_probe
 from .hook_python import resolve_guard_hook_python
 from .mcp_servers import (
+    GUARD_MCP_COMPANION_PREFIX,
     ManagedMcpServer,
     is_guard_proxy_command,
+    is_verified_guard_mcp_companion,
     managed_stdio_servers,
     proxy_cli_args,
     proxy_process_env,
@@ -36,7 +38,7 @@ from .opencode_artifacts import (
 from .opencode_pretool import install_pretool_plugin, remove_pretool_plugin
 
 _OPENCODE_SCHEMA = "https://opencode.ai/config.json"
-_GUARD_MCP_COMPANION_PREFIX = "hol-guard::"
+_GUARD_MCP_COMPANION_PREFIX = GUARD_MCP_COMPANION_PREFIX
 _DEFAULT_BASH_PERMISSION: dict[str, object] = {
     "*": "allow",
     "git checkout *": "deny",
@@ -50,6 +52,10 @@ _DEFAULT_BASH_PERMISSION: dict[str, object] = {
     "rm -rf *": "deny",
     "rm -r *": "deny",
 }
+
+
+class OpenCodeInstallConfigError(RuntimeError):
+    """Raised when Guard cannot safely update an existing OpenCode config file."""
 
 
 class OpenCodeHarnessAdapter(HarnessAdapter):
@@ -170,6 +176,14 @@ class OpenCodeHarnessAdapter(HarnessAdapter):
         managed_servers = managed_stdio_servers(detection)
         skipped_servers = skipped_stdio_server_names(detection)
         target_config_path = self._managed_install_config_path(context)
+        target_payload, parse_error, _parse_reason = _load_json_or_jsonc(target_config_path)
+        if target_config_path.is_file() and (parse_error or not isinstance(target_payload, dict)):
+            raise OpenCodeInstallConfigError(
+                "Refusing to modify an invalid OpenCode root config. "
+                "Fix opencode.json (or opencode.jsonc) syntax and retry install."
+            )
+        if not isinstance(target_payload, dict):
+            target_payload = {}
         original_text = None
         if target_config_path.is_file():
             original_text = target_config_path.read_text(encoding="utf-8")
@@ -195,9 +209,6 @@ class OpenCodeHarnessAdapter(HarnessAdapter):
             + "\n",
             encoding="utf-8",
         )
-        target_payload, parse_error, _parse_reason = _load_json_or_jsonc(target_config_path)
-        if parse_error or not isinstance(target_payload, dict):
-            target_payload = {}
         existing_workspace_server_names = self._workspace_server_names(context)
         _apply_install_baseline(target_payload)
         target_payload["permission"] = self._managed_permission_payload(
@@ -432,8 +443,12 @@ class OpenCodeHarnessAdapter(HarnessAdapter):
             if not isinstance(mcp, dict):
                 continue
             for name, value in mcp.items():
-                if isinstance(name, str) and isinstance(value, dict):
-                    workspace_server_names.add(name)
+                if not isinstance(name, str) or not isinstance(value, dict):
+                    continue
+                command, args = _command_parts(value)
+                if is_verified_guard_mcp_companion(name, command, args):
+                    continue
+                workspace_server_names.add(name)
         return workspace_server_names
 
     @staticmethod
@@ -628,7 +643,7 @@ class OpenCodeHarnessAdapter(HarnessAdapter):
         return {}
 
 
-__all__ = ["OpenCodeHarnessAdapter"]
+__all__ = ["OpenCodeHarnessAdapter", "OpenCodeInstallConfigError"]
 
 
 def _apply_install_baseline(payload: dict[str, object]) -> None:
@@ -725,7 +740,8 @@ def _persisted_mcp_with_guard_companions(
         name
         for name in persisted
         if isinstance(name, str)
-        and name.startswith(_GUARD_MCP_COMPANION_PREFIX)
+        and isinstance(persisted.get(name), dict)
+        and is_verified_guard_mcp_companion(name, *_command_parts(persisted[name]))
         and name.removeprefix(_GUARD_MCP_COMPANION_PREFIX) not in managed_names
     ]
     for name in stale_companions:
@@ -759,6 +775,11 @@ def _persisted_mcp_with_guard_companions(
         if environment:
             entry["environment"] = environment
         persisted[companion_name] = entry
+        native_entry = persisted.get(server.name)
+        if isinstance(native_entry, dict):
+            disabled_native = dict(native_entry)
+            disabled_native["enabled"] = False
+            persisted[server.name] = disabled_native
     return persisted
 
 

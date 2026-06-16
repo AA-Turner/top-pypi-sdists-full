@@ -3472,16 +3472,27 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
         let z_arr = z_v.to_array();
         let mw_arr = moment_weight_v.to_array();
         if COMPUTE_VALUE {
-            let neg_half_z2_v = neg_half_v * z2_v;
-            let exp_neg_half_z2_v = neg_half_z2_v.exp();
-            let value_term_v = scaled_weight_v * exp_neg_half_z2_v;
-            let eta_arr = eta_v.to_array();
-            let vt_arr = value_term_v.to_array();
             for lane in 0..4 {
                 let z = z_arr[lane];
                 let mw = mw_arr[lane];
                 accumulate_moments_unrolled4(moments_slice, mw, z);
-                value_integral = vt_arr[lane].mul_add(normal_cdf(eta_arr[lane]), value_integral);
+                // The value integrand carries Φ(η)'s erfc, whose systematic
+                // per-z error is ~1e-13. To honor the cell-value accuracy
+                // contract the value term must be assembled bit-for-bit like
+                // the scalar reference: a non-fused node map
+                // `z_ref = center + half_width·node`, the expanded
+                // `η = c0 + c1·z + c2·z² + c3·z³` (NOT the SIMD Horner-FMA used
+                // for the moments), the unscaled GL weight, a scalar `exp(-½z²)`,
+                // and a plain `+=`. The SIMD `z_v`/`eta_v` above (fused) feed
+                // ONLY the moments and are left untouched. Any single ULP slip
+                // here (FMA node map, Horner η, per-term half_width, SIMD exp,
+                // FMA accumulation) drifts the 384-node sum by ~1.4e-13 and
+                // breaks the contract.
+                let node = gl_nodes[i + lane];
+                let weight = gl_weights[i + lane];
+                let z_ref = center + half_width * node;
+                let eta_ref = c0 + c1 * z_ref + c2 * z_ref * z_ref + c3 * z_ref * z_ref * z_ref;
+                value_integral += weight * (-0.5 * z_ref * z_ref).exp() * normal_cdf(eta_ref);
             }
         } else {
             for lane in 0..4 {
@@ -3502,12 +3513,25 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
         let moment_weight = scaled_weight * (-q).exp();
         accumulate_moments_unrolled4(moments_slice, moment_weight, z);
         if COMPUTE_VALUE {
-            value_integral =
-                (scaled_weight * (-0.5 * z * z).exp()).mul_add(normal_cdf(eta), value_integral);
+            // Bit-for-bit the reference value structure (see SIMD branch): the
+            // node map `z = center + half_width·node` here already matches the
+            // reference (non-fused), but η must use the expanded reference form
+            // rather than the moment path's Horner-FMA.
+            let eta_ref = c0 + c1 * z + c2 * z * z + c3 * z * z * z;
+            value_integral += weight * (-0.5 * z * z).exp() * normal_cdf(eta_ref);
         }
         i += 1;
     }
-    (moments, value_integral)
+    // Apply the cell half-width to the value integral ONCE at the end, mirroring
+    // the reference's `value_integral * half_width` (the per-node accumulation
+    // above uses the unscaled GL weight). Folding half_width per-term instead
+    // would change the f64 rounding and reintroduce the ~1e-13 value drift.
+    let value = if COMPUTE_VALUE {
+        value_integral * half_width
+    } else {
+        value_integral
+    };
+    (moments, value)
 }
 
 /// Relative agreement threshold for the progressive non-affine quadrature
@@ -3519,6 +3543,24 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
 /// and a 2n-node rule certifies that both are converged: the coarse rule's
 /// true error is bounded by the observed difference plus the (much smaller)
 /// fine-rule error.
+///
+/// History (#979): a roundoff-floor relaxation of this test (accept when
+/// successive rungs agree to `≈ n·ε·scale` rather than the bare `3e-15`) was
+/// tried to let smooth cells certify below the terminal 384-node rung. It was
+/// reverted: the value-bearing path carries `∫ φ(z)·Φ(η(z)) dz`, and `Φ`'s
+/// `erfc` implementation has a *systematic per-z* error of order `1e-13` that
+/// each rung's node set samples differently. Only the exact 384-node rule
+/// reproduces the reference's erfc-noise realization, so any sub-384 rung
+/// drifts from the 384 value by `≈ 1e-13` — a drift that is NOT truncation,
+/// does NOT shrink with rung, and is NOT bounded by rung-to-rung agreement.
+/// Because the value- and derivative-only evaluators are contractually
+/// required to return *bit-identical* moments (so they must select the same
+/// rung), the value path cannot be split off to stay at 384 while the moment
+/// path certifies early. The `3e-15` test therefore stays tight: on these
+/// cells it does not certify, the value rides the bit-exact 384 rule, and the
+/// `non_affine_cell_state_matches_prefold_reference_to_1e_minus_13` accuracy
+/// contract holds. Any future early-certification must bound the value-vs-384
+/// error directly, not merely successive-moment agreement.
 const NON_AFFINE_LADDER_RTOL: f64 = 3e-15;
 
 /// Node counts of the progressive ladder below the 384-node terminal rung.
@@ -3665,10 +3707,13 @@ fn evaluate_non_affine_cell_state(
     max_degree: usize,
 ) -> Result<CellMomentState, String> {
     let (moments, value_integral) = evaluate_non_affine_cell_simd::<true>(cell, max_degree);
-    let inv_sqrt_tau = 1.0 / (std::f64::consts::TAU).sqrt();
+    // Reference structure: `value_integral * half_width / sqrt(TAU)`. The
+    // half_width factor is already applied inside the rule evaluator, so divide
+    // by sqrt(TAU) here (a true division, NOT multiply-by-reciprocal) to
+    // reproduce the reference's final rounding bit-for-bit.
     Ok(CellMomentState {
         branch,
-        value: value_integral * inv_sqrt_tau,
+        value: value_integral / (std::f64::consts::TAU).sqrt(),
         moments,
     })
 }

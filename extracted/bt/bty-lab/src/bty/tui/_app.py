@@ -71,10 +71,12 @@ from rich.panel import Panel
 from rich.progress import (
     BarColumn,
     Progress,
+    TaskID,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
+    TransferSpeedColumn,
 )
 from rich.prompt import Prompt
 from rich.table import Table
@@ -133,6 +135,10 @@ class _TuiImage:
     # the bytes are verified on the wire. ``None`` for local files and
     # sources with no declared digest.
     sha: str | None = None
+    # Informational architecture hint (``x86_64`` / ``arm64`` / ...).
+    # Shown as a column in the image table; never restricts flash
+    # eligibility -- bty writes whatever bytes the operator picks.
+    arch: str | None = None
 
 
 def _normalise_server_url(server: str) -> str:
@@ -226,6 +232,7 @@ def load_catalog_from_source(source: str, *, timeout: float = 30.0) -> list[_Tui
             size_bytes=entry.size_bytes or 0,
             url=entry.src,
             sha=entry.sha256,
+            arch=entry.arch,
         )
         for entry in parsed_catalog.entries
     ]
@@ -427,6 +434,7 @@ def _list_local_images(image_root: Path) -> list[_TuiImage]:
             fmt=img.format,
             size_bytes=img.size_bytes or 0,
             path=img.path,
+            arch=img.arch,
         )
         for img in images.list_images(image_root)
     ]
@@ -1184,6 +1192,7 @@ class BtyTui:
             BarColumn(bar_width=None),
             TaskProgressColumn(),
             TextColumn("[{task.fields[bytes_human]}]"),
+            TransferSpeedColumn(),
             TimeElapsedColumn(),
             TimeRemainingColumn(),
             console=self._console,
@@ -1197,36 +1206,76 @@ class BtyTui:
         shared: dict[str, Any] = {"result": None, "error": None, "stage": "starting"}
 
         with progress:
+            # The write bar is always indeterminate. The "total" for
+            # the writer is fundamentally unreliable: gzip wraps its
+            # uncompressed-size trailer mod 2^32, qcow2 virtual size
+            # need not equal the bytes dd ends up writing, and the
+            # ``size_bytes`` fallback is the COMPRESSED upstream size
+            # which is always smaller than the decompressed write
+            # count. Rather than show a percentage that misleads,
+            # leave ``total=None`` so Rich's BarColumn draws the
+            # pulsing scanner block; the bytes-human counter shows
+            # the running write count so the operator can still see
+            # the disk is being written. The download bar IS
+            # determinate (Content-Length is reliable) and gets added
+            # lazily on the first ``downloading_progress`` event so
+            # local-file flashes do not show a permanently-empty
+            # network bar.
             task_id = progress.add_task(
                 "queued",
-                total=plan.image.virtual_size_bytes or plan.image.size_bytes or None,
-                bytes_human="0 / ?",
+                total=None,
+                bytes_human="0",
             )
+            download_task_id: TaskID | None = None
 
             def _on_progress(ev: flash.FlashProgress) -> None:
                 # Called from the flash thread. ``progress`` is
                 # thread-safe (Rich's Progress mutex), so direct
                 # updates are fine.
+                nonlocal download_task_id
                 shared["stage"] = ev.event
                 if ev.event == "started":
-                    if ev.total_bytes:
-                        progress.update(task_id, total=ev.total_bytes)
                     progress.update(task_id, description="starting flash")
                 elif ev.event == "writing":
                     progress.update(task_id, description=f"writing ({ev.note or '?'})")
                 elif ev.event == "writing_progress":
                     if ev.bytes_written is not None:
+                        # Indeterminate bar; just surface the running
+                        # byte count alongside the pulse.
                         progress.update(
                             task_id,
                             completed=ev.bytes_written,
-                            bytes_human=_format_progress_bytes(ev.bytes_written, ev.total_bytes),
+                            bytes_human=_format_mib(ev.bytes_written),
                         )
+                elif ev.event == "downloading_progress":
+                    if ev.bytes_downloaded is None:
+                        return
+                    if download_task_id is None:
+                        # Rich renders tasks in insertion order; we
+                        # want download above writing, but the write
+                        # task was created first. Workaround: a new
+                        # task added at runtime lands at the bottom,
+                        # which is fine; the operator still sees
+                        # both bars and the labels disambiguate.
+                        download_task_id = progress.add_task(
+                            "downloading",
+                            total=ev.total_bytes,
+                            bytes_human=_format_progress_bytes(ev.bytes_downloaded, ev.total_bytes),
+                        )
+                    progress.update(
+                        download_task_id,
+                        completed=ev.bytes_downloaded,
+                        total=ev.total_bytes,
+                        bytes_human=_format_progress_bytes(ev.bytes_downloaded, ev.total_bytes),
+                    )
                 elif ev.event == "synced":
                     progress.update(task_id, description="syncing buffers")
                 elif ev.event == "partprobed":
                     progress.update(task_id, description="partprobed")
                 elif ev.event == "done":
                     progress.update(task_id, description="done")
+                    if download_task_id is not None:
+                        progress.update(download_task_id, description="downloaded")
                 elif ev.event == "failed":
                     progress.update(task_id, description=f"FAILED: {ev.note}")
                 elif ev.event == "subprocess_log":
@@ -1522,6 +1571,7 @@ class BtyTui:
         table.add_column("#", justify="right", style=_ACCENT, no_wrap=True)
         table.add_column("Name")
         table.add_column("Format", style=_PRIMARY, no_wrap=True)
+        table.add_column("Arch", style=_PRIMARY, no_wrap=True)
         table.add_column("Size", justify="right", no_wrap=True)
         table.add_column("Source", style=_MUTED)
         for i, row in enumerate(rows, start=1):
@@ -1530,6 +1580,7 @@ class BtyTui:
                 str(i),
                 row.name,
                 row.fmt or "?",
+                row.arch or "?",
                 _format_mib(row.size_bytes) if row.size_bytes else "-",
                 source,
             )

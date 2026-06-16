@@ -18,11 +18,11 @@ import os
 import tempfile
 import unittest
 import warnings
-from functools import partial, wraps
+from functools import wraps
 from pathlib import Path
 from unittest import mock
 
-import diskcache
+import orjson
 from click.testing import CliRunner
 from parameterized import parameterized
 
@@ -31,7 +31,7 @@ from dwave.cloud.config import load_config
 from dwave.cloud.config.models import validate_config_v1
 from dwave.cloud.testing import isolated_environ
 from dwave.cloud.auth.creds import Credentials, CREDS_FILENAME
-from dwave.cloud.api.models import LeapProject
+from dwave.cloud.api.models import LeapProject, Region
 from dwave.cloud.api.resources import Regions
 
 from tests import config, test_config_path, test_config_profile
@@ -287,7 +287,7 @@ class TestCli(unittest.TestCase):
         with mock.patch('dwave.cloud.cli.Client') as m:
             # mock returned solver
             client = m.from_config.return_value
-            client.get_solver.return_value.nodes = [5, 7, 3]
+            client.get_solver.return_value.minimal_problem = (({3: 0}, {}, 0.0), {})
 
             runner = CliRunner()
             with runner.isolated_filesystem():
@@ -316,8 +316,8 @@ class TestCli(unittest.TestCase):
 
             # sampling method called on solver with correct params?
             solver = client.get_solver.return_value
-            solver.sample_ising.assert_called_with(
-                {3: 0}, {}, label=label, **params)
+            solver.sample_problem.assert_called_with(
+                problem=({3: 0}, {}, 0.0), label=label, **params)
 
             # verify output contains timing data
             self.assertIn('Wall clock time', result.output)
@@ -333,43 +333,53 @@ class TestCli(unittest.TestCase):
         profile = 'profile'
         client = 'qpu'
         solver = '{"qpu": true}'
-        biases = '[0]'
-        couplings = '{(0, 4): 1}'
+        biases = '{1: 0}'
+        couplings = '{(1, 2): 1}'
         num_reads = '10'
         label = 'label'
 
         with mock.patch('dwave.cloud.cli.Client') as m:
+            # mock returned solver
+            s = solver_object("qpu")
+            with mock.patch.object(s, "sample_ising") as sample_ising:
+                c = m.from_config.return_value
+                c.get_solver.return_value = s
 
-            runner = CliRunner()
-            with runner.isolated_filesystem():
-                touch(config_file)
-                result = runner.invoke(cli, ['sample',
-                                             config_file_option, config_file,
-                                             '--profile', profile,
-                                             '--client', client,
-                                             '--solver', solver,
-                                             '--label', label,
-                                             '-h', biases,
-                                             '-j', couplings,
-                                             '-n', num_reads])
+                runner = CliRunner()
+                with runner.isolated_filesystem():
+                    touch(config_file)
+                    result = runner.invoke(cli, ['sample',
+                                                config_file_option, config_file,
+                                                '--profile', profile,
+                                                '--client', client,
+                                                '--solver', solver,
+                                                '--label', label,
+                                                '-h', biases,
+                                                '-j', couplings,
+                                                '-n', num_reads])
 
-            # proper arguments passed to Client.from_config?
-            m.from_config.assert_called_with(
-                config_file=config_file, profile=profile,
-                endpoint=None, region=None,
-                client=client, solver=solver)
+                # proper arguments passed to Client.from_config?
+                expected_config = dict(
+                    config_file=config_file, profile=profile,
+                    endpoint=None, region=None,
+                    client=client, solver=solver)
+                call = m.from_config.call_args.kwargs
+                self.assertEqual(call, expected_config)
 
-            # get solver called?
-            c = m.from_config.return_value
-            c.get_solver.assert_called_with()
+                m.from_config.assert_called_with(
+                    config_file=config_file, profile=profile,
+                    endpoint=None, region=None,
+                    client=client, solver=solver)
 
-            # sampling method called on solver?
-            s = c.get_solver.return_value
-            s.sample_ising.assert_called_with(
-                {0: 0}, {(0, 4): 1}, num_reads=10, label=label)
+                # get solver called?
+                c.get_solver.assert_called_with()
 
-            # verify output contains timing data
-            self.assertIn('Wall clock time', result.output)
+                # sampling method called on solver?
+                sample_ising.assert_called_with(
+                    {1: 0}, {(1, 2): 1}, 0.0, num_reads=10, label=label)
+
+                # verify output contains timing data
+                self.assertIn('Wall clock time', result.output)
 
         self.assertEqual(result.exit_code, 0)
 
@@ -767,12 +777,101 @@ class TestCacheCli(unittest.TestCase):
                 self.assertIn(str(creds_path), result.output)
 
 
+class TestRegionCli(unittest.TestCase):
+
+    def setUp(self):
+        self.env = isolated_environ(empty=True)
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+
+    def test_region_ls(self):
+        config_file = 'dwave.conf'
+        profile = 'profile'
+        metadata_api_endpoint = 'https://metadata'
+        regions = [Region(code='aaa', name='A', endpoint='https://a'),
+                   Region(code='bbb', name='B', endpoint='https://b')]
+
+        with mock.patch('dwave.cloud.cli.get_regions', return_value=regions) as m:
+            runner = CliRunner()
+
+            with self.subTest("default call"):
+                with runner.isolated_filesystem():
+                    touch(config_file)
+
+                    result = runner.invoke(cli, ['region', 'ls',
+                                                '--config-file', config_file])
+
+                # verify default metadata api used
+                m.assert_called_once()
+                config = m.call_args_list[0].args[0]
+                self.assertIn('/metadata/v', config.metadata_api_endpoint)
+
+                # verify exit code and stdout printout
+                self.assertEqual(result.exit_code, 0)
+                self.assertEqual(result.output.count('Region:'), 2)
+                self.assertIn('Region: A', result.output)
+                self.assertIn('Region: B', result.output)
+
+            m.reset_mock()
+
+            with self.subTest("use metadata api from config"):
+                with runner.isolated_filesystem():
+                    # create config
+                    with open(config_file, 'w') as fp:
+                        fp.write("\n".join([
+                            f"[{profile}]",
+                            f"metadata_api_endpoint = {metadata_api_endpoint}"]))
+
+                    result = runner.invoke(cli, ['region', 'ls',
+                                                '--config-file', config_file,
+                                                '--profile', profile])
+
+                m.assert_called_once()
+                config = m.call_args_list[0].args[0]
+                self.assertEqual(config.metadata_api_endpoint, metadata_api_endpoint)
+
+            m.reset_mock()
+
+            with self.subTest("use metadata api from command line"):
+                with runner.isolated_filesystem():
+                    touch(config_file)
+
+                    result = runner.invoke(cli, ['region', 'ls',
+                                                '--config-file', config_file,
+                                                '--metadata-api-endpoint', metadata_api_endpoint])
+
+                m.assert_called_once()
+                config = m.call_args_list[0].args[0]
+                self.assertEqual(config.metadata_api_endpoint, metadata_api_endpoint)
+
+            with self.subTest("--raw output"):
+                with runner.isolated_filesystem():
+                    touch(config_file)
+
+                    result = runner.invoke(cli, ['region', 'ls',
+                                                '--config-file', config_file,
+                                                '--raw'])
+
+                rs = orjson.dumps([r.dict() for r in regions]).decode('ascii')
+                self.assertEqual(result.output.strip(), rs)
+
+
+
 @unittest.skipUnless(config, "No live server configuration available.")
 class TestCliLive(unittest.TestCase):
 
     def test_ping(self):
         runner = CliRunner()
         result = runner.invoke(cli, ['ping',
+                                     '--config-file', test_config_path,
+                                     '--profile', test_config_profile])
+        self.assertEqual(result.exit_code, 0)
+
+    def test_region_ls(self):
+        runner = CliRunner()
+        result = runner.invoke(cli, ['region', 'ls',
                                      '--config-file', test_config_path,
                                      '--profile', test_config_profile])
         self.assertEqual(result.exit_code, 0)

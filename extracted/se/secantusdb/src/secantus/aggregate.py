@@ -8,6 +8,7 @@ from dataclasses import field as _dc_field
 from typing import TYPE_CHECKING, Any
 
 from secantus.expressions import evaluate
+from secantus.numerics import bson_add
 from secantus.paths import get_path, set_path, unset_path
 from secantus.query import matches
 
@@ -16,7 +17,16 @@ if TYPE_CHECKING:
 
 
 class AggregateError(Exception):
-    pass
+    """Pipeline-validation error. ``code``/``code_name`` default to the
+    generic user-facing mapping (14 TypeMismatch) but raise sites may
+    pin mongod's specific code (e.g. 40324 for unrecognized stages)."""
+
+    def __init__(
+        self, message: str, *, code: int | None = None, code_name: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.code_name = code_name
 
 
 @dataclass
@@ -60,6 +70,16 @@ def apply_pipeline(
     ctx: PipelineContext | None = None,
 ) -> list[dict[str, Any]]:
     ctx = ctx or _NULL_CTX
+    # ``$$NOW``: a Date constant for the whole pipeline execution
+    # (mongod semantics). Seeded into vars so it resolves through the
+    # ordinary user-var path; never mutate the shared module-level null
+    # context.
+    if "NOW" not in ctx.vars:
+        now = _dt.datetime.now(_dt.timezone.utc)
+        if ctx is _NULL_CTX:
+            ctx = PipelineContext(vars={"NOW": now})
+        else:
+            ctx.vars["NOW"] = now
     for stage in pipeline:
         docs = _apply_stage(stage, docs, ctx)
     return docs
@@ -75,7 +95,13 @@ def _apply_stage(
     name, spec = next(iter(stage.items()))
     handler = _STAGES.get(name)
     if handler is None:
-        raise AggregateError(f"unsupported aggregation stage: {name}")
+        # mongod's exact shape: 40324 with this wording (the unified
+        # change-streams-errors spec pins the code).
+        raise AggregateError(
+            f"Unrecognized pipeline stage name: '{name}'",
+            code=40324,
+            code_name="Location40324",
+        )
     return handler(spec, docs, ctx)
 
 
@@ -111,7 +137,7 @@ def _stage_skip(
 def _stage_sort(
     spec: Any, docs: list[dict[str, Any]], _ctx: PipelineContext
 ) -> list[dict[str, Any]]:
-    from secantus.storage import sort_docs
+    from secantus.ordering import sort_docs
 
     return sort_docs(list(docs), spec)
 
@@ -704,7 +730,10 @@ def _acc_sum(
     increment = 1 if arg == 1 else evaluate(arg, doc, vars)
     if increment is None:
         increment = 0
-    bucket[field] = bucket.get(field, 0) + increment
+    # bson_add preserves the BSON numeric type (int32 < int64 < double <
+    # decimal128) so a $sum over Int64 values stays Int64 rather than
+    # narrowing to int32 on the wire.
+    bucket[field] = bson_add(bucket.get(field, 0), increment)
 
 
 def _acc_count(
@@ -1578,6 +1607,33 @@ def _stage_change_stream(
     return []
 
 
+def _stage_change_stream_split_large_event(
+    spec: Any, docs: list[dict[str, Any]], _ctx: PipelineContext
+) -> list[dict[str, Any]]:
+    """``$changeStreamSplitLargeEvent`` — pass-through marker.
+
+    Drivers (mongo-rust-driver, mongo-node-driver, …) insert this
+    stage into the change-stream pipeline when the user opts into
+    ``splitLargeChangeStreamEvents``. SecantusDB already handles
+    the split envelope at projection time: every event the
+    change-stream producer emits with ``splitLargeChangeStreamEvents``
+    set carries a ``splitEvent: {fragment: 1, of: 1}`` sub-doc
+    (events are never large enough to actually need splitting in
+    our single-node surrogate, but the field is present when the
+    user opts in — per ``CLAUDE.md``).
+
+    Because the split envelope is applied during event projection
+    upstream, the pipeline stage itself is a no-op: it accepts an
+    empty doc spec and passes docs through unchanged. Mongod's
+    real implementation also passes events through unchanged
+    unless an event genuinely exceeds the 16 MB BSON limit, which
+    our oplog projection never produces.
+    """
+    if spec is not None and not isinstance(spec, Mapping):
+        raise AggregateError("$changeStreamSplitLargeEvent spec must be a document or {}")
+    return docs
+
+
 def _stage_documents(
     spec: Any, _docs: list[dict[str, Any]], ctx: PipelineContext
 ) -> list[dict[str, Any]]:
@@ -2104,8 +2160,25 @@ _STAGES = {
     "$graphLookup": _stage_graph_lookup,
     "$documents": _stage_documents,
     "$changeStream": _stage_change_stream,
+    "$changeStreamSplitLargeEvent": _stage_change_stream_split_large_event,
     "$geoNear": _stage_geo_near,
     "$unionWith": _stage_union_with,
     "$redact": _stage_redact,
     "$setWindowFields": _stage_set_window_fields,
 }
+
+
+def validate_stage_names(pipeline: list[Any]) -> None:
+    """Upfront stage-name validation (mongod validates at parse time,
+    before any document flows — change streams need the 40324 at
+    ``aggregate`` time, not lazily at the first ``getMore``)."""
+    for stage in pipeline:
+        if not isinstance(stage, Mapping) or len(stage) != 1:
+            raise AggregateError("each pipeline stage must have exactly one key")
+        name = next(iter(stage))
+        if name not in _STAGES:
+            raise AggregateError(
+                f"Unrecognized pipeline stage name: '{name}'",
+                code=40324,
+                code_name="Location40324",
+            )

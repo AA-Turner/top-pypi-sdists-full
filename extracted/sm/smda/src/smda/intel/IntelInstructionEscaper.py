@@ -2047,7 +2047,6 @@ class IntelInstructionEscaper:
                 mnemonic,
             )
             return "U"
-        return mnemonic
 
     @staticmethod
     def escapeField(op_field, escape_registers=True, escape_pointers=True, escape_constants=True):
@@ -2282,7 +2281,9 @@ class IntelInstructionEscaper:
             try:
                 if ins.getDetailed().disp_size == 8:
                     pack_format = "<Q"
-            except (AttributeError, AssertionError, NotImplementedError):
+            except (AttributeError, AssertionError, NotImplementedError, ValueError):
+                # ValueError: getDetailed() raises it when the stored bytes do not decode;
+                # fall back to the default 32-bit pack_format rather than crash here.
                 pass
             try:
                 packed_hex = str(codecs.encode(struct.pack(pack_format, offset), "hex").decode("ascii"))

@@ -403,7 +403,7 @@ class Subprocess:
                 self.log.error("Error reading", f"type(nB) ={type(nB)}")
                 self.log.error("Error reading", f"nB ={str(nB)}")
             except Exception:
-                pass  # nosec B110
+                pass  # nosec
             return S_ERROR(f"Can not read from output: {str(x)}")
         if len(dataString) + baseLength > self.bufferLimit:
             self.log.error("Maximum output buffer length reached")
@@ -452,7 +452,7 @@ class Subprocess:
                 universal_newlines=True,
                 preexec_fn=preexec_fn,
                 start_new_session=start_new_session,
-            )
+            )  # nosec: B602
             self.childPID = self.child.pid
             child_process = psutil.Process(self.childPID)
         except OSError as v:
@@ -464,7 +464,7 @@ class Subprocess:
                 self.child.stdout.close()
                 self.child.stderr.close()
             except Exception:
-                pass  # nosec B110
+                pass  # nosec
             retDict = S_ERROR(repr(x))
             retDict["Value"] = (-1, "", str(x))
             return retDict

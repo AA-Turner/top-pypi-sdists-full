@@ -27,6 +27,21 @@ class ManagedMcpServer:
     identity: McpServerIdentity | None = None
 
 
+GUARD_MCP_COMPANION_PREFIX = "hol-guard::"
+
+
+def is_guard_mcp_companion_name(name: str) -> bool:
+    return name.startswith(GUARD_MCP_COMPANION_PREFIX)
+
+
+def is_verified_guard_mcp_companion(
+    name: str,
+    command: str | None,
+    args: tuple[str, ...],
+) -> bool:
+    return is_guard_mcp_companion_name(name) and is_guard_proxy_command(command, args)
+
+
 _GUARD_PROXY_COMMANDS = frozenset(
     {
         "codex-mcp-proxy",
@@ -158,6 +173,8 @@ def proxy_process_env(server_env: dict[str, str]) -> dict[str, str]:
 def _managed_stdio_server(artifact: GuardArtifact) -> ManagedMcpServer | None:
     if artifact.artifact_type != "mcp_server":
         return None
+    if is_verified_guard_mcp_companion(artifact.name, artifact.command, artifact.args):
+        return None
     if _bool_metadata(artifact.metadata.get("guard_managed_proxy"), default=False):
         return None
     if artifact.command is None or not artifact.name.strip():
@@ -249,17 +266,31 @@ def _bool_metadata(value: object, *, default: bool) -> bool:
     return default
 
 
+def _hol_guard_command_name(command: str) -> str | None:
+    cmd_name = PurePath(command.replace("\\", "/")).name.lower()
+    for suffix in (".exe", ".cmd", ".bat"):
+        if cmd_name.endswith(suffix):
+            cmd_name = cmd_name[: -len(suffix)]
+            break
+    return cmd_name if cmd_name == "hol-guard" else None
+
+
 def is_guard_proxy_command(command: str | None, args: tuple[str, ...]) -> bool:
     if not isinstance(command, str):
         return False
+    if _hol_guard_command_name(command) is not None:
+        return "guard" in args and any(value in _GUARD_PROXY_COMMANDS for value in args)
     if "codex_plugin_scanner.cli" not in args or "guard" not in args:
         return False
     return any(value in _GUARD_PROXY_COMMANDS for value in args)
 
 
 __all__ = [
+    "GUARD_MCP_COMPANION_PREFIX",
     "ManagedMcpServer",
+    "is_guard_mcp_companion_name",
     "is_guard_proxy_command",
+    "is_verified_guard_mcp_companion",
     "managed_stdio_servers",
     "proxy_cli_args",
     "proxy_process_env",

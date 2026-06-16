@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stable_baselines3
-Version: 2.8.0
+Version: 2.9.0
 Summary: Pytorch version of Stable Baselines, implementations of reinforcement learning algorithms.
 Home-page: https://github.com/DLR-RM/stable-baselines3
 Author: Antonin Raffin
@@ -22,12 +22,10 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: gymnasium<1.3.0,>=0.29.1
+Requires-Dist: gymnasium<2.0,>=0.29.1
 Requires-Dist: numpy<3.0,>=1.20
-Requires-Dist: torch<3.0,>=2.3
+Requires-Dist: torch<3.0,>=2.8
 Requires-Dist: cloudpickle
-Requires-Dist: pandas
-Requires-Dist: matplotlib
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
@@ -52,6 +50,8 @@ Requires-Dist: tqdm; extra == "extra"
 Requires-Dist: rich; extra == "extra"
 Requires-Dist: ale-py>=0.9.0; extra == "extra"
 Requires-Dist: pillow; extra == "extra"
+Requires-Dist: pandas; extra == "extra"
+Requires-Dist: matplotlib; extra == "extra"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -92,6 +92,9 @@ https://github.com/DLR-RM/rl-baselines3-zoo
 
 SB3 Contrib:
 https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
+
+SBX (SB3 + Jax):
+https://github.com/araffin/sbx
 
 ## Quick example
 

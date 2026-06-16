@@ -45,6 +45,13 @@ class SqsTrigger:
         error_handler_args (Union[Unset, SqsTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, SqsTriggerRetry]): Retry configuration for failed module executions
         labels (Union[Unset, List[str]]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            trigger at the same path. Set by list endpoints when
+            `include_draft_only=true` synthesizes the row from the
+            draft. Frontend renders a "Draft" badge.
+        is_draft (Union[Unset, bool]): True when the authed user has a per-user draft at this path
+            (over a deployed row or a synthesized draft-only row).
+            Frontend appends a `*` to the displayed name.
     """
 
     queue_url: str
@@ -67,6 +74,8 @@ class SqsTrigger:
     error_handler_args: Union[Unset, "SqsTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "SqsTriggerRetry"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    is_draft: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -112,6 +121,9 @@ class SqsTrigger:
         if not isinstance(self.labels, Unset):
             labels = self.labels
 
+        draft_only = self.draft_only
+        is_draft = self.is_draft
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -146,6 +158,10 @@ class SqsTrigger:
             field_dict["retry"] = retry
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if is_draft is not UNSET:
+            field_dict["is_draft"] = is_draft
 
         return field_dict
 
@@ -211,6 +227,10 @@ class SqsTrigger:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        is_draft = d.pop("is_draft", UNSET)
+
         sqs_trigger = cls(
             queue_url=queue_url,
             aws_auth_resource_type=aws_auth_resource_type,
@@ -232,6 +252,8 @@ class SqsTrigger:
             error_handler_args=error_handler_args,
             retry=retry,
             labels=labels,
+            draft_only=draft_only,
+            is_draft=is_draft,
         )
 
         sqs_trigger.additional_properties = d

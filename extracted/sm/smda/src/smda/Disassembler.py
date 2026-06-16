@@ -3,6 +3,7 @@ import hashlib
 import logging
 import traceback
 
+from smda.aarch64.AArch64Disassembler import AArch64Disassembler
 from smda.cil.CilDisassembler import CilDisassembler
 from smda.common.BinaryInfo import BinaryInfo
 from smda.common.ExceptionHandling import reraise_non_operational_exception
@@ -26,8 +27,11 @@ class Disassembler:
             config = SmdaConfig()
         self.config = config
         self.disassembler = None
+        self._explicit_backend = bool(backend)
         if backend == "intel":
             self.disassembler = IntelDisassembler(self.config)
+        elif backend == "aarch64":
+            self.disassembler = AArch64Disassembler(self.config)
         elif backend == "cil":
             self.disassembler = CilDisassembler(self.config)
         elif backend == "dalvik":
@@ -45,6 +49,8 @@ class Disassembler:
         if self.disassembler is None:
             if architecture == "intel":
                 self.disassembler = IntelDisassembler(self.config)
+            elif architecture == "aarch64":
+                self.disassembler = AArch64Disassembler(self.config)
             elif architecture == "cil":
                 self.disassembler = CilDisassembler(self.config)
             elif architecture == "dalvik":
@@ -70,7 +76,18 @@ class Disassembler:
         return False
 
     def _addStringsToReport(self, smda_report, buffer, mode=None):
+        # StringExtractor reads the buffer off the report, so set it only for the duration of
+        # extraction and then restore the previous value. This keeps a buffer captured purely for
+        # string extraction from being serialized later (persisting it is gated by STORE_BUFFER,
+        # which assigns smda_report.buffer after this call).
+        previous_buffer = smda_report.buffer
         smda_report.buffer = buffer
+        try:
+            self._extractStrings(smda_report, mode=mode)
+        finally:
+            smda_report.buffer = previous_buffer
+
+    def _extractStrings(self, smda_report, mode=None):
         for smda_function in smda_report.getFunctions():
             if smda_report.architecture == "dalvik":
                 if smda_function.stringrefs and isinstance(smda_function.stringrefs, dict):
@@ -136,8 +153,8 @@ class Disassembler:
                 self.disassembler.addPdbFile(binary_info, pdb_path)
             smda_report = self._disassemble(binary_info, timeout=self.config.TIMEOUT)
             if self.config.WITH_STRINGS:
-                is_go_binary = GoSymbolProvider(None).getPcLntabOffset(binary_info.binary)
-                string_mode = "go" if is_go_binary else None
+                go_pclntab_offset = GoSymbolProvider(None).getPcLntabOffset(binary_info.binary)
+                string_mode = "go" if go_pclntab_offset is not None else None
                 self._addStringsToReport(smda_report, binary_info.binary, mode=string_mode)
             if self.config.STORE_BUFFER:
                 smda_report.buffer = binary_info.binary
@@ -159,8 +176,8 @@ class Disassembler:
             self.initDisassembler(binary_info.architecture)
             smda_report = self._disassemble(binary_info, timeout=self.config.TIMEOUT)
             if self.config.WITH_STRINGS:
-                is_go_binary = GoSymbolProvider(None).getPcLntabOffset(binary_info.binary)
-                string_mode = "go" if is_go_binary else None
+                go_pclntab_offset = GoSymbolProvider(None).getPcLntabOffset(binary_info.binary)
+                string_mode = "go" if go_pclntab_offset is not None else None
                 self._addStringsToReport(smda_report, file_content, mode=string_mode)
             if self.config.STORE_BUFFER:
                 smda_report.buffer = file_content
@@ -190,7 +207,7 @@ class Disassembler:
         # Auto-detect DEX when the caller did not explicitly override architecture.
         # disassembleUnmappedBuffer / disassembleFile already use FileLoader for detection;
         # this path bypasses it, so we check the magic bytes manually here.
-        if architecture == "intel" and DexFileLoader.isCompatible(file_content):
+        if not self._explicit_backend and architecture == "intel" and DexFileLoader.isCompatible(file_content):
             architecture = "dalvik"
             if bitness is None:
                 bitness = DexFileLoader.getBitness(file_content)
@@ -209,8 +226,8 @@ class Disassembler:
         try:
             smda_report = self._disassemble(binary_info, timeout=self.config.TIMEOUT)
             if self.config.WITH_STRINGS:
-                is_go_binary = GoSymbolProvider(None).getPcLntabOffset(binary_info.binary)
-                string_mode = "go" if is_go_binary else None
+                go_pclntab_offset = GoSymbolProvider(None).getPcLntabOffset(binary_info.binary)
+                string_mode = "go" if go_pclntab_offset is not None else None
                 self._addStringsToReport(smda_report, file_content, mode=string_mode)
             if self.config.STORE_BUFFER:
                 smda_report.buffer = file_content
@@ -240,6 +257,9 @@ class Disassembler:
         report.status = "error"
         report.execution_time = self._getDurationInSeconds(start, datetime.datetime.now(datetime.timezone.utc))
         report.message = traceback.format_exc()
+        # stamp the report like the regular path so error reports (e.g. for
+        # unsupported architectures) survive toDict()/toFile() serialization
+        report.timestamp = datetime.datetime.now(datetime.timezone.utc)
         return report
 
     def _handleDisassemblyException(self, start, exception, log_message):

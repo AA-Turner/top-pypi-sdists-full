@@ -1,25 +1,8 @@
 """Source tools - Source management with consolidated source_add."""
 
-import os
-from pathlib import Path
-from urllib.parse import quote
-
 from ...services import ServiceError, ValidationError
 from ...services import sources as sources_service
-from ...services.sources import (
-    add_chatgpt_file_source,
-    poll_source_content,
-    safe_chatgpt_filename,
-)
-from ._utils import (
-    PUBLIC_DIR,
-    ResultDict,
-    coerce_list,
-    error_result,
-    get_client,
-    get_mcp_base_url,
-    logged_tool,
-)
+from ._utils import ResultDict, coerce_list, error_result, get_client, logged_tool
 
 
 def _normalize_source_validation_error(message: str) -> str:
@@ -27,43 +10,6 @@ def _normalize_source_validation_error(message: str) -> str:
     if message.startswith("Unknown source type "):
         return message.replace("Unknown source type", "Unknown source_type", 1)
     return message
-
-
-@logged_tool(meta={"openai/fileParams": ["file"]})
-def source_add_chatgpt_file(
-    notebook_id: str,
-    file: dict[str, object] | str | None,
-    title: str | None = None,
-    wait: bool = False,
-    wait_timeout: float = 120.0,
-    cleanup: bool = True,
-) -> ResultDict:
-    """Add a normally uploaded ChatGPT file to a NotebookLM notebook.
-
-    ChatGPT Apps SDK resolves the top-level `file` parameter when this tool is
-    called with a user-uploaded file. The resolved object contains a temporary
-    HTTPS download URL plus file metadata. This tool downloads the file into a
-    local cache, uploads it to NotebookLM through the existing local-file source
-    path, then optionally deletes the cached copy.
-    """
-    try:
-        client = get_client()
-        result = add_chatgpt_file_source(
-            client,
-            notebook_id,
-            file,
-            title=title,
-            wait=wait,
-            wait_timeout=wait_timeout,
-            cleanup=cleanup,
-        )
-        return {"status": "success", "ready": wait, **result}
-    except ValidationError as e:
-        return error_result(_normalize_source_validation_error(str(e)))
-    except ServiceError as e:
-        return error_result(e.user_message, hint=e.hint)
-    except Exception as e:
-        return error_result(str(e))
 
 
 @logged_tool()
@@ -297,12 +243,7 @@ def source_describe(source_id: str) -> ResultDict:
 
 
 @logged_tool()
-def source_get_content(
-    source_id: str,
-    wait: bool = True,
-    wait_timeout: float = 120.0,
-    poll_interval: float = 3.0,
-) -> ResultDict:
+def source_get_content(source_id: str) -> ResultDict:
     """Get raw text content of a source (no AI processing).
 
     Returns the original indexed text from PDFs, web pages, pasted text,
@@ -310,62 +251,14 @@ def source_get_content(
 
     Args:
         source_id: Source UUID
-        wait: If True, poll while NotebookLM is still indexing the source.
-        wait_timeout: Maximum seconds to wait when wait=True.
-        poll_interval: Seconds between readiness checks.
 
-    Returns: content (str), title (str), source_type (str), char_count (int), download_url (str when available)
+    Returns: content (str), title (str), source_type (str), char_count (int)
     """
     try:
         client = get_client()
-        result = poll_source_content(
-            client,
-            source_id,
-            wait=wait,
-            wait_timeout=wait_timeout,
-            poll_interval=poll_interval,
-        )
-
-        # Presentation: copy content to PUBLIC_DIR and generate download_url
-        try:
-            content = result.get("content", "")
-            title = result.get("title", "source")
-            safe_title = safe_chatgpt_filename(title, default="source")
-            if not safe_title.endswith(".txt") and not safe_title.endswith(".md"):
-                safe_title += ".txt"
-
-            PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
-            pub_path = PUBLIC_DIR / safe_title
-            if pub_path.exists():
-                pub_path = (
-                    PUBLIC_DIR
-                    / f"{Path(safe_title).stem}-{os.urandom(2).hex()}{Path(safe_title).suffix}"
-                )
-
-            pub_path.write_text(content, encoding="utf-8")
-
-            base_url = get_mcp_base_url()
-            if base_url:
-                result["download_url"] = f"{base_url}/artifacts/{quote(pub_path.name)}"
-        except Exception as e:
-            import logging
-
-            logging.getLogger("notebooklm_tools.mcp").warning(
-                f"Failed to copy public source file: {e}"
-            )
-
+        result = sources_service.get_source_content(client, source_id)
         return {"status": "success", **result}
-
     except ServiceError as e:
-        # If the service returned pending status, pass it through
-        if e.user_message == "Source content is not ready yet." and getattr(e, 'hint', None):
-            return error_result(
-                e.user_message,
-                status="pending",
-                hint=e.hint,
-                source_id=source_id,
-                attempts=getattr(e, 'attempts', 0),
-            )
         return error_result(e.user_message, hint=e.hint)
     except Exception as e:
         return error_result(str(e))

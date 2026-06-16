@@ -146,6 +146,7 @@ from ._error import (
     DBOSConflictingRegistrationError,
     DBOSException,
     DBOSNonExistentWorkflowError,
+    DBOSPatchNondeterminismError,
 )
 from ._event_loop import BackgroundEventLoop
 from ._logger import (
@@ -410,6 +411,11 @@ class DBOS:
         self._executor_field: Optional[ThreadPoolExecutor] = None
         self._background_threads: List[threading.Thread] = []
         self._timeout_tasks: set[asyncio.Task[None]] = set()
+        # Strong references to running async workflow tasks: the event loop
+        # only keeps weak references, so without these a garbage-collection
+        # pass can destroy a pending workflow task mid-execution (#710).
+        # Entries remove themselves on completion via done-callback.
+        self._workflow_tasks: set["asyncio.Task[Any]"] = set()
         self.conductor_url: Optional[str] = conductor_url
         if config.get("conductor_url"):
             self.conductor_url = config.get("conductor_url")
@@ -622,7 +628,7 @@ class DBOS:
             # Listen to notifications
             dbos_logger.debug("Starting notifications listener thread")
             notification_listener_thread = threading.Thread(
-                target=self._sys_db._notification_listener,
+                target=self._sys_db.run_notification_listener,
                 daemon=True,
             )
             notification_listener_thread.start()
@@ -893,7 +899,11 @@ class DBOS:
         queue = dbos.retrieve_queue(name)
         assert queue is not None, f"Queue {name} missing from database after upsert"
         if inserted:
-            dbos.logger.info("Registered new queue:")
+            listening = dbos._listening_queues is None or name in dbos._listening_queues
+            if listening:
+                dbos.logger.info("Registered and listening to new queue:")
+            else:
+                dbos.logger.info("Registered new queue (not listening):")
             log_queue(queue)
         return queue
 
@@ -1871,37 +1881,55 @@ class DBOS:
         return recover_pending_workflows(_get_dbos_instance(), executor_ids)
 
     @classmethod
-    def cancel_workflow(cls, workflow_id: str) -> None:
+    def cancel_workflow(
+        cls, workflow_id: str, *, cancel_children: bool = False
+    ) -> None:
         """Cancel a workflow by ID."""
-        cls.cancel_workflows([workflow_id])
+        cls.cancel_workflows([workflow_id], cancel_children=cancel_children)
 
     @classmethod
-    async def cancel_workflow_async(cls, workflow_id: str) -> None:
+    async def cancel_workflow_async(
+        cls, workflow_id: str, *, cancel_children: bool = False
+    ) -> None:
         """Cancel a workflow by ID."""
-        await cls.cancel_workflows_async([workflow_id])
+        await cls.cancel_workflows_async([workflow_id], cancel_children=cancel_children)
 
     @classmethod
-    def cancel_workflows(cls, workflow_ids: List[str]) -> None:
-        """Cancel multiple workflows by ID."""
+    def cancel_workflows(
+        cls, workflow_ids: List[str], *, cancel_children: bool = False
+    ) -> None:
+        """Cancel multiple workflows by ID.
+
+        If cancel_children is True, also cancels all child workflows recursively.
+        """
         check_async("cancel_workflows")
 
         def fn() -> None:
             dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
-            _get_dbos_instance()._sys_db.cancel_workflows(workflow_ids)
+            _get_dbos_instance()._sys_db.cancel_workflows(
+                workflow_ids, cancel_children=cancel_children
+            )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.cancelWorkflow", snapshot_step_context(reserve_sleep_id=False)
         )
 
     @classmethod
-    async def cancel_workflows_async(cls, workflow_ids: List[str]) -> None:
-        """Cancel multiple workflows by ID."""
+    async def cancel_workflows_async(
+        cls, workflow_ids: List[str], *, cancel_children: bool = False
+    ) -> None:
+        """Cancel multiple workflows by ID.
+
+        If cancel_children is True, also cancels all child workflows recursively.
+        """
         step_ctx = snapshot_step_context(reserve_sleep_id=False)
         await cls._configure_asyncio_thread_pool()
 
         def fn() -> None:
             dbos_logger.info(f"Cancelling workflow(s): {workflow_ids}")
-            _get_dbos_instance()._sys_db.cancel_workflows(workflow_ids)
+            _get_dbos_instance()._sys_db.cancel_workflows(
+                workflow_ids, cancel_children=cancel_children
+            )
 
         return await asyncio.to_thread(
             _get_dbos_instance()._sys_db.call_function_as_step,
@@ -3100,6 +3128,7 @@ class DBOS:
         sys_db = _get_dbos_instance()._sys_db
 
         event, payload = sys_db.register_stream_listener(workflow_id, key)
+        final_read = False
         try:
             while True:
                 # Clear before reading so a notification arriving after the read
@@ -3112,12 +3141,18 @@ class DBOS:
                     yield value
                     offset += 1
                 except ValueError:
+                    if final_read:
+                        break
                     # No value yet: stop if the workflow is done, else wait for a
                     # notification. Workflow completion fires none, so the wait
                     # is bounded by the polling interval to notice termination.
                     status = cls.retrieve_workflow(workflow_id).get_status().status
                     if not workflow_is_active(status):
-                        break
+                        # The workflow may have written between the read above and
+                        # this status check; all its writes are committed by now,
+                        # so read to the end of the stream before stopping.
+                        final_read = True
+                        continue
                     event.wait(
                         timeout=sys_db._notification_listener_polling_interval_sec
                     )
@@ -3201,6 +3236,7 @@ class DBOS:
         )
 
         event, payload = sys_db.register_stream_listener(workflow_id, key)
+        final_read = False
         try:
             while True:
                 # Clear before reading so a notification arriving after the read
@@ -3215,6 +3251,8 @@ class DBOS:
                     yield value
                     offset += 1
                 except ValueError:
+                    if final_read:
+                        break
                     # No value yet: stop if the workflow is done, else wait for a
                     # notification. Poll the event with short asyncio sleeps (no
                     # held thread), bounded by the fallback re-check interval.
@@ -3223,7 +3261,11 @@ class DBOS:
                     )
                     status = await handle.get_status()
                     if not workflow_is_active(status.status):
-                        break
+                        # The workflow may have written between the read above and
+                        # this status check; all its writes are committed by now,
+                        # so read to the end of the stream before stopping.
+                        final_read = True
+                        continue
                     deadline = time.time() + polling_interval
                     while not event.is_set():
                         remaining = deadline - time.time()
@@ -3253,8 +3295,57 @@ class DBOS:
         return patched
 
     @classmethod
-    def patch_async(cls, patch_name: str) -> Coroutine[Any, Any, bool]:
-        return asyncio.to_thread(cls.patch, patch_name)
+    async def patch_async(cls, patch_name: str) -> bool:
+        if not _get_dbos_instance().enable_patching:
+            raise DBOSException("enable_patching must be True in DBOS configuration")
+        ctx = get_local_dbos_context()
+        if ctx is None or not ctx.is_workflow():
+            raise DBOSException("DBOS.patch_async must be called from a workflow")
+        workflow_id = ctx.workflow_id
+        patch_name = f"DBOS.patch-{patch_name}"
+        sys_db = _get_dbos_instance()._sys_db
+        # Unlike DBOS.patch, this cannot simply read the database and then
+        # consume a checkpoint position: sibling tasks in the same async
+        # workflow may reserve positions while this coroutine is off the
+        # event loop, and any such interleaving makes the position of the
+        # patch marker--and therefore replay--dependent on task scheduling.
+        # Probe the database in a thread, then revalidate and reserve the
+        # position on the event loop, failing loudly if a sibling task
+        # interleaved with the probe.
+        function_id = ctx.function_id
+        checkpoint_name = await asyncio.to_thread(
+            lambda: sys_db.get_checkpoint_name(
+                workflow_id=workflow_id, function_id=function_id + 1
+            )
+        )
+        # No awaits may occur between this check and the reservation below,
+        # so the slice is atomic on the event loop.
+        if ctx.function_id != function_id:
+            raise DBOSPatchNondeterminismError(
+                workflow_id,
+                patch_name,
+                "DBOS.patch_async was called concurrently with other operations "
+                "in the same workflow, so the position of its marker would "
+                "depend on task scheduling; call it from sequential workflow code",
+            )
+        if checkpoint_name is not None and checkpoint_name != patch_name:
+            # Pre-patch replay: run the old code, consuming no position.
+            return False
+        # Reserve the next checkpoint position.
+        ctx.function_id += 1
+        if checkpoint_name == patch_name:
+            # Replay: the patch marker is already in history.
+            return True
+        # New execution: record the marker at the reserved position. No
+        # sibling task can write to it because every checkpoint operation
+        # reserves its position on the event loop before writing.
+        return await asyncio.to_thread(
+            lambda: sys_db.patch(
+                workflow_id=workflow_id,
+                function_id=function_id + 1,
+                patch_name=patch_name,
+            )
+        )
 
     @classmethod
     def deprecate_patch(cls, patch_name: str) -> bool:
@@ -3276,8 +3367,38 @@ class DBOS:
         return True
 
     @classmethod
-    def deprecate_patch_async(cls, patch_name: str) -> Coroutine[Any, Any, bool]:
-        return asyncio.to_thread(cls.deprecate_patch, patch_name)
+    async def deprecate_patch_async(cls, patch_name: str) -> bool:
+        if not _get_dbos_instance().enable_patching:
+            raise DBOSException("enable_patching must be True in DBOS configuration")
+        ctx = get_local_dbos_context()
+        if ctx is None or not ctx.is_workflow():
+            raise DBOSException(
+                "DBOS.deprecate_patch_async must be called from a workflow"
+            )
+        workflow_id = ctx.workflow_id
+        patch_name = f"DBOS.patch-{patch_name}"
+        sys_db = _get_dbos_instance()._sys_db
+        # See patch_async for why the probe and the reservation are separated.
+        function_id = ctx.function_id
+        checkpoint_name = await asyncio.to_thread(
+            lambda: sys_db.get_checkpoint_name(
+                workflow_id=workflow_id, function_id=function_id + 1
+            )
+        )
+        if ctx.function_id != function_id:
+            raise DBOSPatchNondeterminismError(
+                workflow_id,
+                patch_name,
+                "DBOS.deprecate_patch_async was called concurrently with other "
+                "operations in the same workflow, so the position of its marker "
+                "would depend on task scheduling; call it from sequential "
+                "workflow code",
+            )
+        # If the patch is already in history, consume its position;
+        # otherwise consume nothing and introduce no new marker.
+        if checkpoint_name == patch_name:
+            ctx.function_id += 1
+        return True
 
     @classproperty
     def tracer(self) -> DBOSTracer:

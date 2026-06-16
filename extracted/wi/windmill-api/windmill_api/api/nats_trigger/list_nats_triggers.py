@@ -18,6 +18,7 @@ def _get_kwargs(
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -33,6 +34,8 @@ def _get_kwargs(
     params["path_start"] = path_start
 
     params["label"] = label
+
+    params["include_draft_only"] = include_draft_only
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -84,6 +87,7 @@ def sync_detailed(
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListNatsTriggersResponse200Item"]]:
     """list nats triggers
 
@@ -95,6 +99,7 @@ def sync_detailed(
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -112,6 +117,7 @@ def sync_detailed(
         is_flow=is_flow,
         path_start=path_start,
         label=label,
+        include_draft_only=include_draft_only,
     )
 
     response = client.get_httpx_client().request(
@@ -131,6 +137,7 @@ def sync(
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListNatsTriggersResponse200Item"]]:
     """list nats triggers
 
@@ -142,6 +149,7 @@ def sync(
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -160,6 +168,7 @@ def sync(
         is_flow=is_flow,
         path_start=path_start,
         label=label,
+        include_draft_only=include_draft_only,
     ).parsed
 
 
@@ -173,6 +182,7 @@ async def asyncio_detailed(
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListNatsTriggersResponse200Item"]]:
     """list nats triggers
 
@@ -184,6 +194,7 @@ async def asyncio_detailed(
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -201,6 +212,7 @@ async def asyncio_detailed(
         is_flow=is_flow,
         path_start=path_start,
         label=label,
+        include_draft_only=include_draft_only,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -218,6 +230,7 @@ async def asyncio(
     is_flow: Union[Unset, None, bool] = UNSET,
     path_start: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListNatsTriggersResponse200Item"]]:
     """list nats triggers
 
@@ -229,6 +242,7 @@ async def asyncio(
         is_flow (Union[Unset, None, bool]):
         path_start (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -248,5 +262,6 @@ async def asyncio(
             is_flow=is_flow,
             path_start=path_start,
             label=label,
+            include_draft_only=include_draft_only,
         )
     ).parsed

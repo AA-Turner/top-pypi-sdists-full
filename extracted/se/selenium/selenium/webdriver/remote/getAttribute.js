@@ -1,8 +1,9 @@
-(function () {
+(function (element, attribute) {
     const PROPERTY_ALIASES = {
+        'class': 'className',
         'readonly': 'readOnly',
     };
-    const BOOLEAN_PROPERTIES = [
+    const BOOLEAN_PROPERTIES = new Set([
         'allowfullscreen',
         'allowpaymentrequest',
         'allowusermedia',
@@ -49,7 +50,7 @@
         'truespeed',
         'typemustmatch',
         'willvalidate',
-    ];
+    ]);
     function getAttribute(element, attributeName) {
         return element.getAttribute(attributeName.toLowerCase());
     }
@@ -94,60 +95,58 @@
     function isObject(value) {
         return value !== null && (typeof value === 'object' || typeof value === 'function');
     }
-    return function get(element, attribute) {
-        const name = attribute.toLowerCase();
-        if (name === 'style') {
-            const style = element.style;
-            if (!style) {
-                return null;
-            }
-            return typeof style === 'string' ? style : style.cssText;
+    const name = attribute.toLowerCase();
+    if (name === 'style') {
+        const style = element.style;
+        if (!style) {
+            return null;
         }
-        if ((name === 'selected' || name === 'checked') && isSelectable(element)) {
-            return isSelected(element) ? 'true' : null;
-        }
-        const isLink = isElement(element, 'A');
-        const isImg = isElement(element, 'IMG');
-        if ((isImg && name === 'src') || (isLink && name === 'href')) {
-            const attrValue = getAttribute(element, name);
-            if (attrValue) {
-                return String(getProperty(element, name));
-            }
-            return attrValue;
-        }
-        if (name === 'spellcheck') {
-            const attrValue = getAttribute(element, name);
-            if (attrValue !== null) {
-                const lower = attrValue.toLowerCase();
-                if (lower === 'false') {
-                    return 'false';
-                }
-                if (lower === 'true') {
-                    return 'true';
-                }
-            }
+        return typeof style === 'string' ? style : style.cssText;
+    }
+    if ((name === 'selected' || name === 'checked') && isSelectable(element)) {
+        return isSelected(element) ? 'true' : null;
+    }
+    const isLink = isElement(element, 'A');
+    const isImg = isElement(element, 'IMG');
+    if ((isImg && name === 'src') || (isLink && name === 'href')) {
+        const attrValue = getAttribute(element, name);
+        if (attrValue) {
             return String(getProperty(element, name));
         }
-        const propName = PROPERTY_ALIASES[attribute] || attribute;
-        if (BOOLEAN_PROPERTIES.includes(name)) {
-            const hasAttr = getAttribute(element, attribute) !== null;
-            const propValue = getProperty(element, propName);
-            return hasAttr || !!propValue ? 'true' : null;
+        return attrValue;
+    }
+    if (name === 'spellcheck') {
+        const attrValue = getAttribute(element, name);
+        if (attrValue !== null) {
+            const lower = attrValue.toLowerCase();
+            if (lower === 'false') {
+                return 'false';
+            }
+            if (lower === 'true') {
+                return 'true';
+            }
         }
-        if (name === 'value' && isElement(element, 'LI')) {
-            const attrValue = getAttribute(element, attribute);
-            return attrValue != null ? attrValue : null;
-        }
-        let property;
-        try {
-            property = getProperty(element, propName);
-        }
-        catch (_e) {
-        }
-        if (property == null || isObject(property)) {
-            const attrValue = getAttribute(element, attribute);
-            return attrValue != null ? attrValue : null;
-        }
-        return property != null ? String(property) : null;
-    };
-})()
+        return String(getProperty(element, name));
+    }
+    const propName = PROPERTY_ALIASES[name] || attribute;
+    if (BOOLEAN_PROPERTIES.has(name)) {
+        const hasAttr = element.getAttribute(name) !== null;
+        const propValue = getProperty(element, propName);
+        return hasAttr || !!propValue ? 'true' : null;
+    }
+    if (name === 'value' && isElement(element, 'LI')) {
+        const attrValue = element.getAttribute(name);
+        return attrValue != null ? attrValue : null;
+    }
+    let property;
+    try {
+        property = getProperty(element, propName);
+    }
+    catch (_e) {
+    }
+    if (property == null || isObject(property)) {
+        const attrValue = element.getAttribute(name);
+        return attrValue != null ? attrValue : null;
+    }
+    return property != null ? String(property) : null;
+})

@@ -117,6 +117,13 @@ _ALLOWED_AGGS_BY_TYPE: dict[AgentSpanStatsValueType, set[AgentSpanStatsAggregati
 }
 
 
+def _derived_value_type(key: str) -> AgentSpanStatsValueType:
+    for metric, value_type in AGENT_SPAN_STATS_DERIVED_VALUE_TYPES.items():
+        if metric == key:
+            return value_type
+    raise ValueError(f"unknown derived span value: {key!r}")
+
+
 def _as_utc(dt: datetime.datetime) -> datetime.datetime:
     if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
         return dt.replace(tzinfo=datetime.timezone.utc)
@@ -154,9 +161,7 @@ class AgentSpanMeasureSpec(BaseModel):
             raise ValueError("only count measures may omit value")
 
         if self.value is not None and self.value.source == "derived":
-            expected_type = AGENT_SPAN_STATS_DERIVED_VALUE_TYPES[
-                self.value.key  # type: ignore[index]
-            ]
+            expected_type = _derived_value_type(self.value.key)
             if self.value_type is not None and self.value_type != expected_type:
                 raise ValueError(
                     f"derived value {self.value.key!r} has value_type "
@@ -189,9 +194,7 @@ class AgentSpanStatsMetricSpec(BaseModel):
     @model_validator(mode="after")
     def validate_metric_spec(self) -> AgentSpanStatsMetricSpec:
         if self.value.source == "derived":
-            expected_type = AGENT_SPAN_STATS_DERIVED_VALUE_TYPES[
-                self.value.key  # type: ignore[index]
-            ]
+            expected_type = _derived_value_type(self.value.key)
             if self.value_type != expected_type:
                 raise ValueError(
                     f"derived metric {self.value.key!r} has value_type "
@@ -295,9 +298,7 @@ class AgentSpanStatsNumericBucketSpec(BaseModel):
 
         if self.value is not None:
             if self.value.source == "derived":
-                expected_type = AGENT_SPAN_STATS_DERIVED_VALUE_TYPES[
-                    self.value.key  # type: ignore[index]
-                ]
+                expected_type = _derived_value_type(self.value.key)
                 if expected_type != "number":
                     raise ValueError(
                         f"derived bucket value {self.value.key!r} has value_type "
@@ -590,6 +591,18 @@ class AgentSpanGroupDistributionItem(BaseModel):
     values: list[AgentSpanGroupDistributionValue] = Field(default_factory=list)
 
 
+class AgentConversationMessagePreview(BaseModel):
+    """A truncated first/last message snippet for a grouped conversation row.
+
+    `role` is the chat-timeline message type (e.g. "user_message",
+    "assistant_message") so clients can style it consistently with the full
+    chat view; `text` is the trimmed, length-capped preview content.
+    """
+
+    role: str = ""
+    text: str = ""
+
+
 class AgentSpanGroupRow(BaseModel):
     """A single row in a grouped spans query response.
 
@@ -615,6 +628,11 @@ class AgentSpanGroupRow(BaseModel):
     conversation_names: list[str] = Field(default_factory=list)
     first_seen: datetime.datetime | None = None
     last_seen: datetime.datetime | None = None
+    # First/last message previews, populated when grouping by conversation_id so
+    # the conversations table needs no per-row hydration. None when the earliest/
+    # latest span carried no renderable message text.
+    first_message: AgentConversationMessagePreview | None = None
+    last_message: AgentConversationMessagePreview | None = None
     metrics: dict[str, AgentSpanStatsCell] = Field(default_factory=dict)
     distributions: dict[str, AgentSpanGroupDistributionItem] = Field(
         default_factory=dict

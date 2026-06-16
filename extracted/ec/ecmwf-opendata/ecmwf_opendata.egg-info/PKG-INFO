@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ecmwf-opendata
-Version: 0.3.29
+Version: 0.3.30
 Summary: A package to download ECMWF open data
 Home-page: https://github.com/ecmwf/ecmwf-opendata
 Author: European Centre for Medium-Range Weather Forecasts (ECMWF)
@@ -20,7 +20,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: multiurl>=0.2.1
+Requires-Dist: multiurl>=0.3.8
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

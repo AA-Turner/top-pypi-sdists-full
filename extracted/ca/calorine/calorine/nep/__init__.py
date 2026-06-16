@@ -17,7 +17,7 @@ from .nep import (
     get_latent_space,
     get_potential_forces_and_virials,
 )
-from .training_factory import setup_training
+from .training_factory import setup_training, setup_fine_tuning_nep89
 
 __all__ = [
     'read_loss',
@@ -33,6 +33,7 @@ __all__ = [
     'get_latent_space',
     'get_potential_forces_and_virials',
     'setup_training',
+    'setup_fine_tuning_nep89',
     'write_nepfile',
     'write_structures',
 ]

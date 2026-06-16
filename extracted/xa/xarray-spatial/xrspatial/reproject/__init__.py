@@ -14,7 +14,7 @@ import math
 import numpy as np
 import xarray as xr
 
-from xrspatial.utils import _validate_raster
+from xrspatial.utils import _dask_task_name_kwargs, _validate_raster
 
 from ._crs_utils import _detect_band_nodata, _detect_nodata, _detect_source_crs, _resolve_crs
 from ._grid import (_MAX_OUTPUT_PIXELS, _chunk_bounds, _compute_chunk_layout, _compute_output_grid,
@@ -48,13 +48,14 @@ _X_NAMES = {'x', 'lon', 'longitude', 'X', 'Lon', 'Longitude'}
 _MERGE_OOM_THRESHOLD = 512 * 1024 * 1024  # 512 MB
 
 # Byte budget above which reproject() auto-promotes an in-memory raster
-# to the lazy dask path. Compared against the input array size and one
-# float64 output array independently, not against total memory: the
-# eager numpy path holds ~7 output-sized float64 temporaries (coordinate
-# grids, pixel-index grids, result), so eager-path peak RSS can reach
-# ~7x this budget. That multiplier is why a small input upsampled to a
-# large output exhausted memory long before the _MAX_OUTPUT_PIXELS
-# guard tripped (#3267).
+# (numpy or cupy) to the chunked dask path. Compared against the input
+# array size and one float64 output array independently, not against
+# total memory: the eager numpy path holds ~7 output-sized float64
+# temporaries (coordinate grids, pixel-index grids, result), so
+# eager-path peak RSS can reach ~7x this budget. That multiplier is why a
+# small input upsampled to a large output exhausted memory long before
+# the _MAX_OUTPUT_PIXELS guard tripped (#3267). The same budget gates the
+# cupy promotion added in #3281.
 _REPROJECT_OOM_THRESHOLD = 512 * 1024 * 1024  # 512 MB
 
 # Map friendly vertical datum tokens to EPSG codes so attrs['vertical_crs']
@@ -1008,7 +1009,7 @@ def reproject(
     # blockwise layer) so graph metadata is no longer a concern -- the
     # streaming fallback is only needed when dask itself is unavailable.
     _use_streaming = False
-    if not is_dask and not is_cupy:
+    if not is_dask:
         nbytes = src_shape[0] * src_shape[1] * data.dtype.itemsize
         out_nbytes = out_shape[0] * out_shape[1] * 8  # float64 working set
         if data.ndim == 3:
@@ -1025,6 +1026,13 @@ def reproject(
                 cs = (cs[0], cs[1], data.shape[2])
             try:
                 import dask.array as _da
+                # Wrapping an in-memory cupy array keeps the blocks
+                # cupy-backed, so is_cupy stays True and the promoted
+                # raster routes through _reproject_dask_cupy -- which has
+                # its own GPU VRAM check and chunked map_blocks fallback.
+                # Above the threshold an in-memory cupy input therefore
+                # yields a dask-of-cupy output, matching merge()'s
+                # promotion contract (#3281).
                 data = _da.from_array(data, chunks=cs)
                 raster = xr.DataArray(
                     data, dims=raster.dims, coords=raster.coords,
@@ -1032,8 +1040,12 @@ def reproject(
                 )
                 is_dask = True
             except ImportError:
-                # dask not available -- fall back to streaming
-                _use_streaming = True
+                # dask not available. The streaming fallback is a numpy
+                # CPU path, so it only applies to numpy inputs; a cupy
+                # input keeps the eager GPU path rather than silently
+                # moving its data off the device (#3281).
+                if not is_cupy:
+                    _use_streaming = True
 
     # Re-apply the output-size guard for paths that materialize the whole
     # output (in-memory numpy/cupy and streaming). A lazy dask output
@@ -1342,6 +1354,7 @@ def _apply_vertical_shift_numpy(data, y_arr, x_arr,
     matches the input), the behaviour is in-place on a copy of the
     input -- same as before this signature was added.
     """
+    from ._projections import _PARALLEL_KERNEL_LOCK
     from ._vertical import _interp_geoid_2d, _load_geoid
 
     # Determine if we need inverse projection (output CRS is projected)
@@ -1418,8 +1431,12 @@ def _apply_vertical_shift_numpy(data, y_arr, x_arr,
         N_total = np.zeros((n_rows, out_w), dtype=np.float64)
         for (grid_data, g_left, g_top, g_rx, g_ry, g_h, g_w), sign in zip(geoids, signs):
             N_strip = np.empty((n_rows, out_w), dtype=np.float64)
-            _interp_geoid_2d(xx_strip, yy_strip, N_strip,
-                             grid_data, g_left, g_top, g_rx, g_ry, g_h, g_w)
+            # This runs per-chunk under dask's threaded scheduler (via
+            # _apply_vertical_shift_dask), and the kernel is parallel=True,
+            # so the launch must be serialized (#3141).
+            with _PARALLEL_KERNEL_LOCK:
+                _interp_geoid_2d(xx_strip, yy_strip, N_strip,
+                                 grid_data, g_left, g_top, g_rx, g_ry, g_h, g_w)
             N_total += sign * N_strip
 
         # Apply to each band slice. For 2-D this loop runs once.
@@ -1477,7 +1494,8 @@ def _apply_vertical_shift_dask(data, y_arr, x_arr,
     # ``meta`` hardcodes a numpy template to match the assumption above
     # that incoming chunks are numpy-backed. Revisit if dask-of-cupy is
     # ever plumbed through.
-    return da.map_blocks(_block, data, dtype=out_dtype, meta=np.array((), dtype=out_dtype))
+    return da.map_blocks(_block, data, dtype=out_dtype, meta=np.array((), dtype=out_dtype),
+                         **_dask_task_name_kwargs('xrspatial.reproject_vertical_shift'))
 
 
 def _reproject_inmemory_numpy(
@@ -1541,6 +1559,12 @@ def _process_tile_batch(batch, source_data, src_bounds, src_shape, y_desc,
 
     Uses ThreadPoolExecutor for intra-worker parallelism (Numba
     releases the GIL).  Memory bounded by max_memory_bytes.
+
+    The numba coordinate-transform fast path uses parallel=True kernels,
+    which must not run concurrently from multiple host threads (the
+    workqueue threading layer aborts the process, #3141).
+    try_numba_transform serializes those launches behind
+    _projections._PARALLEL_KERNEL_LOCK; resampling stays concurrent.
 
     Returns list of (row_offset, col_offset, tile_data) tuples.
     """
@@ -2160,6 +2184,7 @@ def _reproject_dask(
         template,
         dtype=out_dtype,
         meta=np.array((), dtype=out_dtype),
+        **_dask_task_name_kwargs('xrspatial.reproject'),
     )
 
 
@@ -2919,4 +2944,5 @@ def _merge_dask(
         template,
         dtype=out_dtype,
         meta=np.array((), dtype=out_dtype),
+        **_dask_task_name_kwargs('xrspatial.merge'),
     )

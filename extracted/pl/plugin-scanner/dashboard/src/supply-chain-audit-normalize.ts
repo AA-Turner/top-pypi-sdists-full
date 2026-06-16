@@ -146,11 +146,15 @@ function addAdvisoryAlias(aliases: Set<string>, rawId: string): void {
   if (trimmed.length === 0) {
     return;
   }
-  if (trimmed.startsWith("GHSA-") || trimmed.startsWith("CVE-")) {
-    aliases.add(trimmed);
-    return;
+  const upper = trimmed.toUpperCase();
+  if (
+    upper.startsWith("GHSA-") ||
+    upper.startsWith("CVE-") ||
+    upper.startsWith("PYSEC-") ||
+    upper.startsWith("GO-")
+  ) {
+    aliases.add(upper);
   }
-  aliases.add(`GHSA-${trimmed.slice(0, 8).toLowerCase()}`);
 }
 
 function readAdvisoryIdList(value: unknown): string[] {
@@ -162,20 +166,45 @@ function readAdvisoryIdList(value: unknown): string[] {
     .map((entry) => entry.trim());
 }
 
-function buildAdvisoryAliasStubs(
+function buildAdvisoryAliases(
   packageRecord: Record<string, unknown>,
   reasons: SupplyChainAuditFindingReason[],
 ): string[] {
+  const precomputed = readAdvisoryIdList(packageRecord.advisoryAliases).concat(
+    readAdvisoryIdList(packageRecord.advisory_aliases),
+  );
+  if (precomputed.length > 0) {
+    const normalized = new Set<string>();
+    for (const id of precomputed) {
+      addAdvisoryAlias(normalized, id);
+    }
+    return Array.from(normalized);
+  }
+
   const aliases = new Set<string>();
   const packageAdvisoryId = readString(packageRecord.advisoryId) ?? readString(packageRecord.advisory_id);
   if (packageAdvisoryId !== null) {
     addAdvisoryAlias(aliases, packageAdvisoryId);
   }
   for (const entry of [
+    ...readAdvisoryIdList(packageRecord.advisoryIds),
+    ...readAdvisoryIdList(packageRecord.advisory_ids),
     ...readAdvisoryIdList(packageRecord.related_advisory_ids),
     ...readAdvisoryIdList(packageRecord.relatedAdvisoryIds),
   ]) {
     addAdvisoryAlias(aliases, entry);
+  }
+  const rawReasons = packageRecord.reasons;
+  if (Array.isArray(rawReasons)) {
+    for (const entry of rawReasons) {
+      if (!isRecord(entry)) {
+        continue;
+      }
+      const advisoryId = readString(entry.advisoryId) ?? readString(entry.advisory_id);
+      if (advisoryId !== null) {
+        addAdvisoryAlias(aliases, advisoryId);
+      }
+    }
   }
   for (const reason of reasons) {
     const match = reason.message.match(/\b(CVE-\d{4}-\d+)\b/i);
@@ -185,13 +214,6 @@ function buildAdvisoryAliasStubs(
     const ghsaMatch = reason.message.match(/\b(GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})\b/i);
     if (ghsaMatch !== null) {
       aliases.add(ghsaMatch[1].toUpperCase());
-    }
-  }
-  if (aliases.size === 0) {
-    const severity = resolveFindingSeverity(packageRecord, reasons);
-    if (SEVERITY_RANK[severity] >= SEVERITY_RANK.medium) {
-      aliases.add("GHSA-alias-pending");
-      aliases.add("CVE-alias-pending");
     }
   }
   return Array.from(aliases);
@@ -219,7 +241,7 @@ function normalizePackageFinding(
     decision,
     severity,
     reasons,
-    advisoryAliases: buildAdvisoryAliasStubs(packageRecord, reasons),
+    advisoryAliases: buildAdvisoryAliases(packageRecord, reasons),
     status: readString(packageRecord.status),
   };
 }
@@ -241,6 +263,24 @@ function normalizePackageFindings(value: unknown): SupplyChainAuditFinding[] {
     }
   }
   return findings;
+}
+
+const INFORMATIONAL_REASON_CODES = new Set(["unknown_package", "no_cached_match"]);
+
+export function isActionablePackageFinding(finding: SupplyChainAuditFinding): boolean {
+  if (finding.decision === "block" || finding.decision === "ask" || finding.decision === "warn") {
+    return true;
+  }
+  if (finding.reasons.length === 0) {
+    return finding.decision !== "allow" && finding.decision !== "monitor";
+  }
+  return finding.reasons.some((reason) => !INFORMATIONAL_REASON_CODES.has(reason.code));
+}
+
+export function deriveActionableFindings(
+  packages: SupplyChainAuditFinding[],
+): SupplyChainAuditFinding[] {
+  return packages.filter(isActionablePackageFinding);
 }
 
 function packageRecordsFromEvaluation(evaluation: Record<string, unknown> | null): SupplyChainAuditFinding[] {
@@ -269,9 +309,25 @@ export function normalizeSupplyChainAuditSnapshot(
     return null;
   }
   const evaluation = isRecord(raw.evaluation) ? raw.evaluation : null;
+  const inventoryPackages = normalizePackageFindings(raw.package_inventory);
+  const evaluationPackages = packageRecordsFromEvaluation(evaluation);
+  let packages: SupplyChainAuditFinding[];
+  if (evaluationPackages.length > 0) {
+    packages = evaluationPackages;
+  } else if (inventoryPackages.length > 0) {
+    packages = inventoryPackages;
+  } else {
+    packages = normalizePackageFindings(raw.package_findings);
+  }
   const findingsFromEvidence = normalizePackageFindings(raw.package_findings);
-  const findings =
-    findingsFromEvidence.length > 0 ? findingsFromEvidence : packageRecordsFromEvaluation(evaluation);
+  let findings: SupplyChainAuditFinding[];
+  if (packages.length > 0) {
+    findings = deriveActionableFindings(packages);
+  } else if (findingsFromEvidence.length > 0) {
+    findings = findingsFromEvidence;
+  } else {
+    findings = [];
+  }
   const generatedAt =
     readString(raw.generated_at) ?? readString(raw.generatedAt) ?? new Date(0).toISOString();
   const inventory = normalizeInventory(isRecord(raw.inventory) ? raw.inventory : null);
@@ -279,6 +335,7 @@ export function normalizeSupplyChainAuditSnapshot(
   const manifestPaths = readStringArray(raw.manifest_paths);
   const lockfilePaths = readStringArray(raw.lockfile_paths);
   const hasAuditContext =
+    packages.length > 0 ||
     findings.length > 0 ||
     inventory.totalPackages > 0 ||
     evaluation !== null;
@@ -290,6 +347,7 @@ export function normalizeSupplyChainAuditSnapshot(
     source: readString(raw.source),
     decision,
     inventory,
+    packages,
     findings,
     manifestPaths,
     lockfilePaths,
@@ -315,7 +373,8 @@ export function derivePackageWorkbenchFromReceipts(receipts: GuardReceipt[]): Su
         audit_status: evidenceRaw.audit_status,
         evaluation: {
           decision: evidenceRaw.audit_decision,
-          packages: evidenceRaw.package_findings,
+          packages:
+            evidenceRaw.package_inventory ?? evidenceRaw.package_findings,
         },
         inventory: {
           total_packages: evidenceRaw.total_packages,

@@ -36,6 +36,11 @@ class ListableResource:
         inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
             Read-only — edit them on the folder.
         ws_specific (Union[Unset, bool]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            resource at the same path. Frontend renders a "Draft" badge.
+        is_draft (Union[Unset, bool]): True when the authed user has a per-user draft at this path
+            (over a deployed row or a synthesized draft-only row).
+            Frontend appends a `*` to the displayed name.
     """
 
     path: str
@@ -55,6 +60,8 @@ class ListableResource:
     labels: Union[Unset, List[str]] = UNSET
     inherited_labels: Union[Unset, List[str]] = UNSET
     ws_specific: Union[Unset, bool] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    is_draft: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -87,6 +94,8 @@ class ListableResource:
             inherited_labels = self.inherited_labels
 
         ws_specific = self.ws_specific
+        draft_only = self.draft_only
+        is_draft = self.is_draft
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -123,6 +132,10 @@ class ListableResource:
             field_dict["inherited_labels"] = inherited_labels
         if ws_specific is not UNSET:
             field_dict["ws_specific"] = ws_specific
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if is_draft is not UNSET:
+            field_dict["is_draft"] = is_draft
 
         return field_dict
 
@@ -175,6 +188,10 @@ class ListableResource:
 
         ws_specific = d.pop("ws_specific", UNSET)
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        is_draft = d.pop("is_draft", UNSET)
+
         listable_resource = cls(
             path=path,
             resource_type=resource_type,
@@ -193,6 +210,8 @@ class ListableResource:
             labels=labels,
             inherited_labels=inherited_labels,
             ws_specific=ws_specific,
+            draft_only=draft_only,
+            is_draft=is_draft,
         )
 
         listable_resource.additional_properties = d

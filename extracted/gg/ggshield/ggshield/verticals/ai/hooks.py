@@ -1,10 +1,15 @@
 import hashlib
 import json
 import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Sequence, Set
 
+import filelock
 from notifypy import Notify
 
+from ggshield.core import ui
+from ggshield.core.dirs import get_cache_dir
+from ggshield.core.errors import AuthError
 from ggshield.core.filter import censor_match
 from ggshield.core.scan import ScannerProtocol
 from ggshield.core.scan import SecretProtocol as Secret
@@ -18,6 +23,7 @@ from .models import Agent, EventType, HookPayload, HookResult, Tool
 
 HOOK_NAME_TO_EVENT_TYPE = {
     "userpromptsubmit": EventType.USER_PROMPT,
+    "userpromptsubmitted": EventType.USER_PROMPT,  # Copilot CLI's native event name
     "beforesubmitprompt": EventType.USER_PROMPT,
     "pretooluse": EventType.PRE_TOOL_USE,
     "posttooluse": EventType.POST_TOOL_USE,
@@ -31,6 +37,32 @@ TOOL_NAME_TO_TOOL = {
     "read_file": Tool.READ,  # Copilot
     "view": Tool.READ,  # Copilot CLI
 }
+
+
+def has_already_been_seen(content: str) -> bool:
+    """Return True if the payload is identical to the most recent hook call.
+
+    Some agents install hooks from multiple assistants, which can invoke ggshield
+    twice with the same payload.
+    """
+    payload_hash = hashlib.sha256(content.strip().encode()).hexdigest()
+    debounce_path = get_cache_dir() / "latest_ai_hook.txt"
+    try:
+        debounce_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
+
+    # Make sure only one process can read/write the debounce file at a time
+    # to avoid having the same payload being processed twice.
+    with filelock.FileLock(debounce_path.with_suffix(".lock")):
+        try:
+            stored = debounce_path.read_text()
+        except FileNotFoundError:
+            stored = ""
+        if payload_hash == stored:
+            return True
+        debounce_path.write_text(payload_hash)
+        return False
 
 
 def lookup(data: Dict[str, Any], keys: Sequence[str], default: Any = None) -> Any:
@@ -75,6 +107,8 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
         but in some cases files mentioned in the prompt will be read but the
         PreToolUse event will not be called. So we need to handle this case ourselves.
     """
+    timestamp = datetime.now(timezone.utc)
+
     # Parse the content as JSON
     if not raw_content.strip():
         raise ValueError("Error: No input received on stdin")
@@ -103,7 +137,7 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
         content = data.get("prompt", "")
         # Look for files mentioned in the prompt that could be read
         # without triggering a PRE_TOOL_USE event.
-        payloads.extend(_parse_user_prompt(content, event_type, agent))
+        payloads.extend(_parse_user_prompt(content, event_type, agent, timestamp))
 
     elif event_type == EventType.PRE_TOOL_USE:
         tool = _parse_tool(data)
@@ -115,7 +149,7 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
             content = tool_input.get("command", "")
             identifier = content
             # Try to detect a command that could be used to read a file.
-            payloads.extend(_parse_command(content, event_type, agent))
+            payloads.extend(_parse_command(content, event_type, agent, timestamp))
         elif tool == Tool.READ:
             # We only need to deal with the identifier, the content will be read by the Scannable
             identifier = lookup(tool_input, ["file_path", "filePath", "path"], "")
@@ -139,6 +173,7 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
             identifier=identifier,
             agent=agent,
             raw=data,
+            timestamp=timestamp,
         )
     )
 
@@ -147,6 +182,46 @@ def parse_hook_input(raw_content: str) -> list[HookPayload]:
         agent.post_process_payload(payload)
 
     return payloads
+
+
+def emit_fail_open_response(stdin_content: str, error: Exception) -> int:
+    """Emit an "allow" response carrying a warning instead of crashing.
+
+    A failure to scan (missing or unreadable token, unreachable server...)
+    must never break the agent: agents interpret a non-zero exit or a raw
+    traceback as a block or an error, and the user is never told that
+    scanning is broken. Instead we allow the action and surface a warning
+    through the agent.
+
+    Returns the exit code to use.
+    """
+    warning = _cannot_scan_warning(error)
+    ui.display_warning(warning)
+    try:
+        payload = parse_hook_input(stdin_content)[-1]
+    except ValueError:
+        # We can't even tell which agent is calling us, so we can't emit a
+        # well-formed response. Agents treat exit 1 as a non-blocking error.
+        return 1
+    return payload.agent.output_result(HookResult.allow_with_warning(payload, warning))
+
+
+def _cannot_scan_warning(error: Exception) -> str:
+    if isinstance(error, AuthError):
+        reason = "ggshield could not authenticate to GitGuardian"
+        remediation = (
+            "Run 'ggshield auth login' to authenticate. If you are already "
+            "logged in, run 'ggshield api-status' once in a terminal: your OS "
+            "credentials store may require an interactive approval before "
+            "agent-spawned processes can read the token."
+        )
+    else:
+        # Only keep the first line: error details such as connection errors
+        # can span several lines and don't belong in an agent message.
+        detail = str(error).splitlines()[0] if str(error) else error.__class__.__name__
+        reason = f"ggshield could not scan ({detail})"
+        remediation = "Run 'ggshield api-status' to diagnose."
+    return f"{reason} — this action was NOT scanned for secrets. {remediation}"
 
 
 def _parse_tool(data: Dict[str, Any]) -> Tool:
@@ -166,7 +241,7 @@ def _detect_agent(data: Dict[str, Any]) -> Agent:
 
 
 def _parse_user_prompt(
-    content: str, event_type: EventType, agent: Agent
+    content: str, event_type: EventType, agent: Agent, timestamp: datetime
 ) -> List[HookPayload]:
     """Parse the user prompt for additional payloads that we may miss."""
     payloads = []
@@ -183,13 +258,14 @@ def _parse_user_prompt(
                 identifier=match,
                 agent=agent,
                 raw={},
+                timestamp=timestamp,
             )
         )
     return payloads
 
 
 def _parse_command(
-    content: str, event_type: EventType, agent: Agent
+    content: str, event_type: EventType, agent: Agent, timestamp: datetime
 ) -> List[HookPayload]:
     """Parse the command for additional payloads that we may miss."""
     # In Windows, some agents (at least Codex) use the Get-Content command to read a file.
@@ -207,6 +283,7 @@ def _parse_command(
                 identifier=identifier,
                 agent=agent,
                 raw={},
+                timestamp=timestamp,
             )
         )
     return payloads
@@ -231,6 +308,8 @@ class AIHookScanner:
 
     def scan(self, content: str) -> int:
         """Scan the content, print the result and return the exit code."""
+        if content.strip() and has_already_been_seen(content):
+            return 0
 
         payloads = parse_hook_input(content)
         result = self._scan_payloads(payloads)

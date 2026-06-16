@@ -38,6 +38,8 @@ from .type_defs import (
     CountTokensResponseTypeDef,
     GetAsyncInvokeRequestTypeDef,
     GetAsyncInvokeResponseTypeDef,
+    InvokeGuardrailChecksRequestTypeDef,
+    InvokeGuardrailChecksResponseTypeDef,
     InvokeModelRequestTypeDef,
     InvokeModelResponseTypeDef,
     InvokeModelWithBidirectionalStreamRequestTypeDef,
@@ -157,6 +159,16 @@ class BedrockRuntimeClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/get_async_invoke.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_runtime/client/#get_async_invoke)
+        """
+
+    def invoke_guardrail_checks(
+        self, **kwargs: Unpack[InvokeGuardrailChecksRequestTypeDef]
+    ) -> InvokeGuardrailChecksResponseTypeDef:
+        """
+        Evaluates messages against inline guardrail checks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_guardrail_checks.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_runtime/client/#invoke_guardrail_checks)
         """
 
     def invoke_model(

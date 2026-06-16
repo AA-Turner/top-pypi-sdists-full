@@ -1,6 +1,6 @@
 [project]
 name = "esphome-device-builder-frontend"
-version = "0.1.154"
+version = "0.1.158"
 description = "Prebuilt web frontend for the ESPHome Device Builder Dashboard"
 readme = "README.md"
 requires-python = ">=3.12"

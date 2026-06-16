@@ -23,6 +23,7 @@ def _get_kwargs(
     summary: Union[Unset, None, str] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -48,6 +49,8 @@ def _get_kwargs(
     params["broad_filter"] = broad_filter
 
     params["label"] = label
+
+    params["include_draft_only"] = include_draft_only
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -104,6 +107,7 @@ def sync_detailed(
     summary: Union[Unset, None, str] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -120,6 +124,7 @@ def sync_detailed(
         summary (Union[Unset, None, str]):
         broad_filter (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -142,6 +147,7 @@ def sync_detailed(
         summary=summary,
         broad_filter=broad_filter,
         label=label,
+        include_draft_only=include_draft_only,
     )
 
     response = client.get_httpx_client().request(
@@ -166,6 +172,7 @@ def sync(
     summary: Union[Unset, None, str] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -182,6 +189,7 @@ def sync(
         summary (Union[Unset, None, str]):
         broad_filter (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -205,6 +213,7 @@ def sync(
         summary=summary,
         broad_filter=broad_filter,
         label=label,
+        include_draft_only=include_draft_only,
     ).parsed
 
 
@@ -223,6 +232,7 @@ async def asyncio_detailed(
     summary: Union[Unset, None, str] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -239,6 +249,7 @@ async def asyncio_detailed(
         summary (Union[Unset, None, str]):
         broad_filter (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -261,6 +272,7 @@ async def asyncio_detailed(
         summary=summary,
         broad_filter=broad_filter,
         label=label,
+        include_draft_only=include_draft_only,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -283,6 +295,7 @@ async def asyncio(
     summary: Union[Unset, None, str] = UNSET,
     broad_filter: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListSchedulesResponse200Item"]]:
     """list schedules
 
@@ -299,6 +312,7 @@ async def asyncio(
         summary (Union[Unset, None, str]):
         broad_filter (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -323,5 +337,6 @@ async def asyncio(
             summary=summary,
             broad_filter=broad_filter,
             label=label,
+            include_draft_only=include_draft_only,
         )
     ).parsed

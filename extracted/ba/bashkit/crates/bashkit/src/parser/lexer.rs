@@ -1297,10 +1297,10 @@ impl<'a> Lexer<'a> {
         out
     }
 
-    /// Append a literal segment while protecting `$` from parse_word expansion.
+    /// Append a literal segment while protecting sentinel-sensitive bytes from parse_word expansion.
     fn push_literal_with_escaped_dollar(dst: &mut String, segment: &str) {
         for ch in segment.chars() {
-            if ch == '$' {
+            if matches!(ch, '\x00' | '$') {
                 dst.push('\x00');
             }
             dst.push(ch);
@@ -1330,7 +1330,6 @@ impl<'a> Lexer<'a> {
         self.advance(); // consume opening "
         let mut content = String::new();
         let mut closed = false;
-        let mut has_quoted_expansion = false;
 
         while let Some(ch) = self.peek_char() {
             match ch {
@@ -1370,13 +1369,6 @@ impl<'a> Lexer<'a> {
                 '$' => {
                     content.push('$');
                     self.advance();
-                    if self.peek_char().is_some_and(|nc| {
-                        nc.is_ascii_alphanumeric()
-                            || nc == '_'
-                            || matches!(nc, '{' | '(' | '?' | '#' | '@' | '*' | '!' | '$' | '-')
-                    }) {
-                        has_quoted_expansion = true;
-                    }
                     if self.peek_char() == Some('(') {
                         // $(...) command substitution — track paren depth
                         content.push('(');
@@ -1394,7 +1386,6 @@ impl<'a> Lexer<'a> {
                 }
                 '`' => {
                     // Backtick command substitution inside double quotes
-                    has_quoted_expansion = true;
                     self.advance(); // consume opening `
                     content.push_str("$(");
                     while let Some(c) = self.peek_char() {
@@ -1451,16 +1442,121 @@ impl<'a> Lexer<'a> {
                 Self::apply_quote_markers(&mut content, ranges);
                 return Some(Token::Word(content));
             }
-            if has_quoted_expansion && flags.has_unquoted_glob {
-                return Some(Token::QuotedGlobWord(content));
+            if flags.has_unquoted_glob {
+                // Escape glob metacharacters inside quoted ranges (initial double-quoted
+                // prefix + any further quoted segments from read_continuation_into) so
+                // the glob expander treats them as literals, not active patterns.
+                let mut ranges = flags.quoted_ranges;
+                if quoted_prefix_len > 0 {
+                    ranges.push((0, quoted_prefix_len));
+                }
+                ranges.sort_unstable_by_key(|&(s, _)| s);
+                return Some(Token::QuotedGlobWord(
+                    Self::escape_glob_metas_in_quoted_ranges(&content, &ranges),
+                ));
             }
-            if has_quoted_expansion {
-                return Some(Token::QuotedWord(content));
-            }
-            return Some(Token::Word(content));
+            return Some(Token::QuotedWord(content));
         }
 
         Some(Token::QuotedWord(content))
+    }
+
+    /// Escape glob metacharacters within quoted byte ranges so that the glob
+    /// expander treats them as literal characters rather than active patterns.
+    /// Ranges must be sorted and non-overlapping.
+    fn escape_glob_metas_in_quoted_ranges(s: &str, quoted_ranges: &[(usize, usize)]) -> String {
+        if quoted_ranges.is_empty() {
+            return s.to_string();
+        }
+        // Collect chars with their byte positions for range-boundary checks.
+        let char_vec: Vec<(usize, char)> = {
+            let mut pos = 0usize;
+            s.chars()
+                .map(|c| {
+                    let p = pos;
+                    pos += c.len_utf8();
+                    (p, c)
+                })
+                .collect()
+        };
+
+        let mut result = String::with_capacity(s.len() + 8);
+        let mut range_idx = 0usize;
+        // Stack of opening delimiters ('{'  or  '(') for active ${ } / $( ) constructs.
+        // While non-empty we are inside an expansion and must NOT escape anything,
+        // because the content is still unexpanded at parse time and characters like
+        // { } [ ] are structural (e.g. ${arr[0]}, $(cmd)).
+        let mut expansion_stack: Vec<char> = Vec::new();
+        let n = char_vec.len();
+        let mut i = 0usize;
+
+        while i < n {
+            let (byte_pos, ch) = char_vec[i];
+            let ch_end = byte_pos + ch.len_utf8();
+
+            // Advance past quoted-range entries that ended before this char.
+            while range_idx < quoted_ranges.len() && quoted_ranges[range_idx].1 <= byte_pos {
+                range_idx += 1;
+            }
+            let in_quoted = range_idx < quoted_ranges.len()
+                && byte_pos >= quoted_ranges[range_idx].0
+                && ch_end <= quoted_ranges[range_idx].1;
+
+            if in_quoted {
+                if expansion_stack.is_empty() && ch == '$' {
+                    // Peek at next char to detect ${ or $(
+                    if let Some(&(_, next)) = char_vec.get(i + 1)
+                        && (next == '{' || next == '(')
+                    {
+                        expansion_stack.push(next);
+                        result.push(ch);
+                        result.push(next);
+                        i += 2;
+                        continue;
+                    }
+                } else if !expansion_stack.is_empty() {
+                    // Track nesting: ${ … { … } … } and $( … ( … ) … )
+                    let top = *expansion_stack.last().unwrap();
+                    match (top, ch) {
+                        ('{', '{') | ('(', '(') => expansion_stack.push(ch),
+                        ('{', '}') | ('(', ')') => {
+                            expansion_stack.pop();
+                        }
+                        _ => {}
+                    }
+                    result.push(ch);
+                    i += 1;
+                    continue;
+                }
+
+                // Outside any ${ }/$( ) construct: escape glob / brace / extglob metas
+                // so that runtime brace-expansion and glob-expansion treat them as literals,
+                // matching how bash handles metacharacters inside double quotes.
+                if expansion_stack.is_empty()
+                    && matches!(
+                        ch,
+                        '\\' | '*'
+                            | '?'
+                            | '['
+                            | ']'
+                            | '{'
+                            | '}'
+                            | '@'
+                            | '!'
+                            | '+'
+                            | '('
+                            | ')'
+                            | '|'
+                    )
+                {
+                    result.push('\\');
+                }
+            }
+
+            result.push(ch);
+            i += 1;
+        }
+        result
     }
 
     /// Read command substitution content after `$(`, handling nested parens and quotes.

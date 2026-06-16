@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import urllib.request
 import urllib.error
 from pathlib import Path
 
-from ..models import Job, JobState
+from ..models import Job, JobState, activation_extraction_must_share_gpu, deprecated_activation_command_reason
 from ..config import estimate_gpu_memory, lookup_instance_type, BUCKET
 
 
@@ -106,9 +105,11 @@ def submit_job(
     verify_command: str = "",
     exclusive: bool = False,
     run_id: str = "",
-    re_submission_of: str = "",
 ) -> Job:
     """Submit a job. Uses compute.wisent.com API if available, GCS otherwise."""
+    reason = deprecated_activation_command_reason(command)
+    if reason: raise ValueError(reason)
+    exclusive = exclusive and not activation_extraction_must_share_gpu(command)
     api_key = os.environ.get("COMPUTE_API_KEY", "").strip()
     if api_key:
         return _submit_via_api(command, api_key, provider)
@@ -123,7 +124,6 @@ def submit_job(
         pre_command=pre_command, apt_packages=apt_packages or [],
         output_uri=output_uri, verify_command=verify_command,
         exclusive=exclusive, run_id=run_id,
-        re_submission_of=re_submission_of,
     )
 
 
@@ -188,7 +188,7 @@ def _submit_via_gcs(
     output_uri: str = "",
     verify_command: str = "",
     exclusive: bool = False,
-    run_id: str = "", re_submission_of: str = "",
+    run_id: str = "",
 ) -> Job:
     """Submit directly to GCS queue (no API server needed).
 
@@ -291,7 +291,7 @@ def _submit_via_gcs(
         apt_packages=apt_packages,
         output_uri=output_uri,
         verify_command=verify_command,
-        exclusive=exclusive, re_submission_of=re_submission_of,
+        exclusive=exclusive,
     )
 
     store = JobStorage(bucket)

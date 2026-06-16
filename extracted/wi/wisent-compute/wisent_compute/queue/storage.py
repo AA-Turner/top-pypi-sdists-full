@@ -56,7 +56,7 @@ _GSUTIL = _find_gsutil()
 
 
 def _gsutil_cp(src: str, dst: str):
-    if (r:=subprocess.run([_GSUTIL,"cp",src,dst],capture_output=True)).returncode: raise RuntimeError(f"gsutil cp failed rc={r.returncode}: {r.stderr.decode(errors='replace').strip()}")
+    subprocess.run([_GSUTIL, "cp", src, dst], capture_output=True)
 
 
 def _gsutil_cat(path: str) -> str | None:
@@ -138,11 +138,10 @@ class JobStorage:
         if self._azure_backend is not None:
             return self._azure_backend.download_text(blob_path)
         if self._sdk_bucket:
-            from google.api_core.exceptions import NotFound
-            try:
-                blob = self._sdk_bucket.blob(blob_path); blob.reload(); return blob.download_as_text()
-            except NotFound:
+            blob = self._sdk_bucket.blob(blob_path)
+            if not blob.exists():
                 return None
+            return blob.download_as_text()
         return _gsutil_cat(f"{self.gs}/{blob_path}")
 
     def _delete_blob(self, blob_path: str):
@@ -228,9 +227,10 @@ class JobStorage:
             self.delete_priority_marker(job_id)
 
     def move_job(self, job: Job, from_prefix: str, to_prefix: str):
-        self.write_job(to_prefix, job); self._delete_blob(f"{from_prefix}/{job.job_id}.json")
-        if from_prefix == "queue": self.delete_priority_marker(job.job_id)
-        from .tracking import on_transition; on_transition(self, job, to_prefix)
+        self.write_job(to_prefix, job)
+        self._delete_blob(f"{from_prefix}/{job.job_id}.json")
+        if from_prefix == "queue":
+            self.delete_priority_marker(job.job_id)
 
     # ---- delegates to queue/listing/ ----
 

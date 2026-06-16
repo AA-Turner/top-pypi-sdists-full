@@ -51,6 +51,14 @@ def __getattr__(name: str) -> object:
         from ouroboros.providers.pi_llm_adapter import PiLLMAdapter
 
         return PiLLMAdapter
+    if name == "GjcLLMAdapter":
+        from ouroboros.providers.gjc_llm_adapter import GjcLLMAdapter
+
+        return GjcLLMAdapter
+    if name == "OurocodeLLMAdapter":
+        from ouroboros.providers.ourocode_llm_adapter import OurocodeLLMAdapter
+
+        return OurocodeLLMAdapter
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -71,6 +79,8 @@ __all__ = [
     "HermesCliLLMAdapter",
     "GooseCliLLMAdapter",
     "PiLLMAdapter",
+    "GjcLLMAdapter",
+    "OurocodeLLMAdapter",
     "LiteLLMAdapter",
     # Factory helpers
     "create_llm_adapter",

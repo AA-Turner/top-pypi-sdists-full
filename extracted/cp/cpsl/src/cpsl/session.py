@@ -2396,12 +2396,10 @@ async def _activate_integration(integration_type: str, fields: dict[str, str]) -
     if integration_type == "tailscale":
         auth_key = fields.get("auth_key", "")
         if not auth_key:
-            log.warning("tailscale integration missing auth_key")
-            return
+            raise RuntimeError("tailscale integration missing auth_key")
 
-        if shutil.which("tailscaled") is None:
-            log.error("tailscaled binary not found — is Tailscale installed in the image?")
-            return
+        if shutil.which("tailscaled") is None or shutil.which("tailscale") is None:
+            raise RuntimeError("tailscale binaries not found")
 
         log.info("starting tailscaled (userspace networking)")
         _sp.Popen(
@@ -2417,13 +2415,20 @@ async def _activate_integration(integration_type: str, fields: dict[str, str]) -
 
         await asyncio.sleep(1)
 
+        up_cmd = ["tailscale", "up", f"--authkey={auth_key}"]
+        advertise_tags = fields.get("advertise_tags", "")
+        if advertise_tags:
+            up_cmd.append(f"--advertise-tags={advertise_tags}")
+
         _sp.run(
-            ["tailscale", "up", f"--authkey={auth_key}"],
+            up_cmd,
             timeout=30,
             check=True,
             capture_output=True,
         )
 
+        ready = False
+        last_status = ""
         for _ in range(20):
             result = _sp.run(
                 ["tailscale", "status", "--json"],
@@ -2431,13 +2436,21 @@ async def _activate_integration(integration_type: str, fields: dict[str, str]) -
                 timeout=5,
             )
             if result.returncode == 0:
+                last_status = result.stdout.decode("utf-8", errors="replace")
                 try:
-                    status = json.loads(result.stdout)
+                    status = json.loads(last_status)
                     if status.get("BackendState") == "Running":
+                        ready = True
                         break
                 except (json.JSONDecodeError, TypeError):
                     pass
             await asyncio.sleep(0.5)
+
+        if not ready:
+            raise RuntimeError(
+                "tailscale integration did not reach Running state"
+                + (f": {last_status}" if last_status else "")
+            )
 
         os.environ["ALL_PROXY"] = "socks5://localhost:1080"
         os.environ["HTTP_PROXY"] = "socks5://localhost:1080"

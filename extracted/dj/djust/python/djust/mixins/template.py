@@ -84,38 +84,22 @@ class TemplateMixin:
         elif self.template_name:
             # Load the raw template source
             from django.template import loader
-            from django.conf import settings
 
             template = loader.get_template(self.template_name)
             template_source = template.template.source
 
             # Check if template uses {% extends %} - if so, resolve inheritance in Rust
             if "{% extends" in template_source or "{%extends" in template_source:
-                # Get template directories from Django settings in the EXACT same order Django searches
-                template_dirs = []
-
-                # Step 1: Add DIRS from all TEMPLATES configs
-                for template_config in settings.TEMPLATES:
-                    if "DIRS" in template_config:
-                        template_dirs.extend(template_config["DIRS"])
-
-                # Step 2: Add app template directories (only for DjangoTemplates with APP_DIRS=True)
-                for template_config in settings.TEMPLATES:
-                    if (
-                        template_config["BACKEND"]
-                        == "django.template.backends.django.DjangoTemplates"
-                    ):
-                        if template_config.get("APP_DIRS", False):
-                            from django.apps import apps
-                            from pathlib import Path
-
-                            for app_config in apps.get_app_configs():
-                                templates_dir = Path(app_config.path) / "templates"
-                                if templates_dir.exists():
-                                    template_dirs.append(str(templates_dir))
-
-                # Convert to strings
-                template_dirs_str = [str(d) for d in template_dirs]
+                # Template directories in the EXACT same order Django searches.
+                # Shared with ``render_full_template`` step 2 via the single
+                # ``get_template_dirs()`` helper so the two paths can never drift
+                # apart on which backends honor APP_DIRS (#1646 parallel-path
+                # cure). Re-implementing this inline here ONLY recognized the
+                # stock Django backend, so under djust's own backend (the
+                # ``djust new`` scaffold) the app-template dirs were dropped and
+                # ``resolve_template_inheritance`` raised "Template not found"
+                # → swallowed → fragment-only on the initial GET (#1801).
+                template_dirs_str = get_template_dirs()
 
                 # Get the actual path Django resolved for verification
                 django_resolved_path = (
@@ -124,78 +108,33 @@ class TemplateMixin:
                     else None
                 )
 
-                # Use Rust template inheritance resolution
+                # --- Resolve template inheritance in Rust ---
+                # This is the ONLY step that legitimately needs the raw-template
+                # fallback (a template that genuinely can't be resolved as a
+                # standalone inheritance document). It is scoped to a tight
+                # try/except that LOGS at WARNING so a resolution error can never
+                # again silently degrade an ``{% extends %}`` page to
+                # fragment-only without a trace (#1801). Post-resolution work
+                # (VDOM extraction / whitespace strip) is OUTSIDE this try — if
+                # that raises it is an unexpected framework bug that must surface,
+                # not be swallowed.
                 try:
                     from djust._rust import resolve_template_inheritance
 
                     resolved = resolve_template_inheritance(self.template_name, template_dirs_str)
-
-                    # Verify Rust found the same template as Django
-                    if django_resolved_path:
-                        rust_would_find = None
-                        for template_dir in template_dirs_str:
-                            candidate = os.path.join(template_dir, self.template_name)
-                            if os.path.exists(candidate):
-                                rust_would_find = os.path.abspath(candidate)
-                                break
-
-                        if (
-                            rust_would_find
-                            and os.path.abspath(django_resolved_path) != rust_would_find
-                        ):
-                            logger.warning(
-                                "Template resolution mismatch! Django found: %s, "
-                                "Rust found: %s, Template dirs order: %s...",
-                                django_resolved_path,
-                                rust_would_find,
-                                template_dirs_str[:3],
-                            )
-
-                    # Store full template for initial GET rendering
-                    self._full_template = resolved
-
-                    # For VDOM tracking, prefer the child template source — it contains
-                    # the dj-root block directly without base template surrounding HTML,
-                    # making extraction simpler and immune to Issue #365 miscount.
-                    # Fall back to resolved if dj-root is only in the base template.
-                    #
-                    # Use the anchored-attribute regexes (NOT a naive substring): a
-                    # naive ``"dj-root" in template_source`` matches the token ANYWHERE
-                    # — including documentation/example code that merely *displays*
-                    # ``dj-root``/``dj-view`` as text, or another word containing it as
-                    # a substring (``adj-view``). When the real ``<div dj-root>`` lives
-                    # in the BASE template and the child only mentions the tokens in
-                    # text, the substring check wrongly picks the child as the VDOM
-                    # source → extraction finds no real dj-root → render_full_template
-                    # nests the whole page (two <!DOCTYPE>/two <footer>). The regexes
-                    # require a REAL ``<div ... dj-root/dj-view ...>`` tag (#1746).
-                    vdom_source = (
-                        template_source
-                        if (
-                            _DJ_ROOT_RE.search(template_source)
-                            or _DJ_VIEW_RE.search(template_source)
-                        )
-                        else resolved
-                    )
-                    vdom_template = self._extract_liveview_root_with_wrapper(vdom_source)
-
-                    # CRITICAL: Strip comments and whitespace from template BEFORE Rust VDOM sees it
-                    vdom_template = self._strip_comments_and_whitespace(vdom_template)
-
-                    logger.debug(
-                        "[LiveView] Template inheritance resolved (%d chars), "
-                        "extracted liveview-root for VDOM (%d chars)",
-                        len(resolved),
-                        len(vdom_template),
-                    )
-                    return vdom_template
-
                 except Exception as e:
-                    # Fallback to raw template if Rust resolution fails
-                    logger.debug("[LiveView] Template inheritance resolution failed: %s", e)
-                    logger.debug("[LiveView] Falling back to raw template source")
-                    # Set to None so render_full_template won't try to render a template
-                    # that contains {% extends %} tags as a standalone document.
+                    logger.warning(
+                        "[LiveView] Template inheritance resolution failed for %s "
+                        "(searched %d dirs); falling back to raw template source — "
+                        "the initial HTTP GET will render the dj-root fragment "
+                        "WITHOUT the base template <head> (#1801). Error: %s",
+                        self.template_name,
+                        len(template_dirs_str),
+                        e,
+                    )
+                    # Set to None so render_full_template won't try to render a
+                    # template that contains {% extends %} tags as a standalone
+                    # document.
                     self._full_template = None
                     extracted = self._extract_liveview_root_with_wrapper(template_source)
                     extracted = self._strip_comments_and_whitespace(extracted)
@@ -206,6 +145,60 @@ class TemplateMixin:
                         len(template_source),
                     )
                     return extracted
+
+                # Verify Rust found the same template as Django
+                if django_resolved_path:
+                    rust_would_find = None
+                    for template_dir in template_dirs_str:
+                        candidate = os.path.join(template_dir, self.template_name)
+                        if os.path.exists(candidate):
+                            rust_would_find = os.path.abspath(candidate)
+                            break
+
+                    if rust_would_find and os.path.abspath(django_resolved_path) != rust_would_find:
+                        logger.warning(
+                            "Template resolution mismatch! Django found: %s, "
+                            "Rust found: %s, Template dirs order: %s...",
+                            django_resolved_path,
+                            rust_would_find,
+                            template_dirs_str[:3],
+                        )
+
+                # Store full template for initial GET rendering
+                self._full_template = resolved
+
+                # For VDOM tracking, prefer the child template source — it contains
+                # the dj-root block directly without base template surrounding HTML,
+                # making extraction simpler and immune to Issue #365 miscount.
+                # Fall back to resolved if dj-root is only in the base template.
+                #
+                # Use the anchored-attribute regexes (NOT a naive substring): a
+                # naive ``"dj-root" in template_source`` matches the token ANYWHERE
+                # — including documentation/example code that merely *displays*
+                # ``dj-root``/``dj-view`` as text, or another word containing it as
+                # a substring (``adj-view``). When the real ``<div dj-root>`` lives
+                # in the BASE template and the child only mentions the tokens in
+                # text, the substring check wrongly picks the child as the VDOM
+                # source → extraction finds no real dj-root → render_full_template
+                # nests the whole page (two <!DOCTYPE>/two <footer>). The regexes
+                # require a REAL ``<div ... dj-root/dj-view ...>`` tag (#1746).
+                vdom_source = (
+                    template_source
+                    if (_DJ_ROOT_RE.search(template_source) or _DJ_VIEW_RE.search(template_source))
+                    else resolved
+                )
+                vdom_template = self._extract_liveview_root_with_wrapper(vdom_source)
+
+                # CRITICAL: Strip comments and whitespace from template BEFORE Rust VDOM sees it
+                vdom_template = self._strip_comments_and_whitespace(vdom_template)
+
+                logger.debug(
+                    "[LiveView] Template inheritance resolved (%d chars), "
+                    "extracted liveview-root for VDOM (%d chars)",
+                    len(resolved),
+                    len(vdom_template),
+                )
+                return vdom_template
 
             # No template inheritance - store full template and extract liveview-root for VDOM
             self._full_template = template_source
@@ -882,6 +875,24 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
 
         Returns the complete HTML document (DOCTYPE, html, head, body, etc.)
         """
+        # #1784: register self as the active parent view for the duration of
+        # this render so an embedded ``{% live_render ... %}`` tag can find its
+        # parent during the Rust shell/dj-root render. The Rust engine renders
+        # from a JSON-serialized context that structurally cannot carry the
+        # live ``LiveView`` object, so without this thread-local the tag raised
+        # ``TemplateSyntaxError`` ("no parent view in the current render
+        # context") and the initial HTTP GET 500'd. The context manager
+        # save/restores so it never leaks across requests/threads, even on
+        # error.
+        from ..templatetags.live_tags import active_parent_view
+
+        with active_parent_view(self):
+            return self._render_full_template_inner(request, serialized_context)
+
+    def _render_full_template_inner(self, request=None, serialized_context=None) -> str:
+        """Body of :meth:`render_full_template`. Split out so the
+        active-parent-view thread-local (#1784) wraps the entire render in a
+        ``with`` block without indenting the whole method."""
         if hasattr(self, "_full_template") and self._full_template:
             # --- Step 1: Render the dj-root content via self._rust_view ---
             # This is the SAME instance the WS path will use for diffing,
@@ -1047,7 +1058,19 @@ Object.assign(window.handlerMetadata, {json.dumps(metadata)});
             )
         self._sync_done_this_cycle = False  # Reset for next cycle
 
-        result = self._rust_view.render_with_diff()
+        # #1784: register self as the active parent view for the duration of
+        # the Rust diff render. ``RequestMixin.get`` calls this AFTER
+        # ``render_full_template`` to establish the VDOM baseline, and the Rust
+        # ``render_with_diff()`` re-runs any embedded ``{% live_render %}`` tag
+        # against a JSON-serialized context that cannot carry the live parent
+        # view — same gap ``render_full_template`` guards (parallel-path-drift,
+        # per CLAUDE.md). The context manager save/restores so the WS path
+        # (which already carries a real ``view``) is unaffected and the
+        # thread-local never leaks.
+        from ..templatetags.live_tags import active_parent_view
+
+        with active_parent_view(self):
+            result = self._rust_view.render_with_diff()
         html, patches_json, version = result
 
         # Capture per-phase Rust timing (render, parse, diff, serialize)

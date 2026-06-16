@@ -7,7 +7,13 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..types import api_key_list_params, api_key_create_params, api_key_update_params
+from ..types import (
+    api_key_list_params,
+    api_key_create_params,
+    api_key_rotate_params,
+    api_key_update_params,
+    api_key_retrieve_params,
+)
 from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from .._utils import path_template, maybe_transform, async_maybe_transform
 from .._compat import cached_property
@@ -99,6 +105,7 @@ class APIKeysResource(SyncAPIResource):
         self,
         id: str,
         *,
+        include_deleted: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -112,6 +119,9 @@ class APIKeysResource(SyncAPIResource):
         masked.
 
         Args:
+          include_deleted: When true, return the API key even if it has been deleted (soft-deleted), for
+              audit purposes. Defaults to false, which returns 404 for a deleted key.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -125,7 +135,13 @@ class APIKeysResource(SyncAPIResource):
         return self._get(
             path_template("/org/api_keys/{id}", id=id),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {"include_deleted": include_deleted}, api_key_retrieve_params.APIKeyRetrieveParams
+                ),
             ),
             cast_to=APIKey,
         )
@@ -170,11 +186,13 @@ class APIKeysResource(SyncAPIResource):
     def list(
         self,
         *,
+        include_deleted: bool | Omit = omit,
         limit: int | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         sort_by: Literal["created_at", "name", "expires_at"] | Omit = omit,
         sort_direction: Literal["asc", "desc"] | Omit = omit,
+        status: Literal["active", "deleted", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -187,6 +205,9 @@ class APIKeysResource(SyncAPIResource):
         API keys are masked.
 
         Args:
+          include_deleted: Deprecated: use status=all instead. When true, include deleted (soft-deleted)
+              API keys in the results for audit purposes.
+
           limit: Maximum number of results to return
 
           offset: Number of results to skip
@@ -197,6 +218,10 @@ class APIKeysResource(SyncAPIResource):
           sort_by: Field to sort API keys by.
 
           sort_direction: Sort direction for API keys.
+
+          status: Filter API keys by status. "active" returns keys that are not deleted (default;
+              expired-but-not-deleted keys are still included), "deleted" returns only
+              soft-deleted keys, "all" returns both.
 
           extra_headers: Send extra headers
 
@@ -216,11 +241,13 @@ class APIKeysResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "include_deleted": include_deleted,
                         "limit": limit,
                         "offset": offset,
                         "query": query,
                         "sort_by": sort_by,
                         "sort_direction": sort_direction,
+                        "status": status,
                     },
                     api_key_list_params.APIKeyListParams,
                 ),
@@ -260,6 +287,57 @@ class APIKeysResource(SyncAPIResource):
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
             cast_to=NoneType,
+        )
+
+    def rotate(
+        self,
+        id: str,
+        *,
+        days_to_expire: Optional[int] | Omit = omit,
+        expire_in_days: Optional[int] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CreatedAPIKey:
+        """Rotate an API key.
+
+        Issues a new key that copies the name and project of the
+        rotated key, and schedules the rotated key to expire after a grace period so
+        in-flight callers can swap over. The new plaintext key is returned once.
+
+        Args:
+          days_to_expire: Lifetime in days for the new key, up to 3650. Omit to reuse the rotated key's
+              original lifetime, or never-expires if it had none.
+
+          expire_in_days: Grace period in days before the rotated key expires. Use 0 to expire it
+              immediately. Omit for the default grace period of 7 days.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return self._post(
+            path_template("/org/api_keys/{id}/rotate", id=id),
+            body=maybe_transform(
+                {
+                    "days_to_expire": days_to_expire,
+                    "expire_in_days": expire_in_days,
+                },
+                api_key_rotate_params.APIKeyRotateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=CreatedAPIKey,
         )
 
 
@@ -336,6 +414,7 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         self,
         id: str,
         *,
+        include_deleted: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -349,6 +428,9 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         masked.
 
         Args:
+          include_deleted: When true, return the API key even if it has been deleted (soft-deleted), for
+              audit purposes. Defaults to false, which returns 404 for a deleted key.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -362,7 +444,13 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         return await self._get(
             path_template("/org/api_keys/{id}", id=id),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform(
+                    {"include_deleted": include_deleted}, api_key_retrieve_params.APIKeyRetrieveParams
+                ),
             ),
             cast_to=APIKey,
         )
@@ -407,11 +495,13 @@ class AsyncAPIKeysResource(AsyncAPIResource):
     def list(
         self,
         *,
+        include_deleted: bool | Omit = omit,
         limit: int | Omit = omit,
         offset: int | Omit = omit,
         query: str | Omit = omit,
         sort_by: Literal["created_at", "name", "expires_at"] | Omit = omit,
         sort_direction: Literal["asc", "desc"] | Omit = omit,
+        status: Literal["active", "deleted", "all"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -424,6 +514,9 @@ class AsyncAPIKeysResource(AsyncAPIResource):
         API keys are masked.
 
         Args:
+          include_deleted: Deprecated: use status=all instead. When true, include deleted (soft-deleted)
+              API keys in the results for audit purposes.
+
           limit: Maximum number of results to return
 
           offset: Number of results to skip
@@ -434,6 +527,10 @@ class AsyncAPIKeysResource(AsyncAPIResource):
           sort_by: Field to sort API keys by.
 
           sort_direction: Sort direction for API keys.
+
+          status: Filter API keys by status. "active" returns keys that are not deleted (default;
+              expired-but-not-deleted keys are still included), "deleted" returns only
+              soft-deleted keys, "all" returns both.
 
           extra_headers: Send extra headers
 
@@ -453,11 +550,13 @@ class AsyncAPIKeysResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "include_deleted": include_deleted,
                         "limit": limit,
                         "offset": offset,
                         "query": query,
                         "sort_by": sort_by,
                         "sort_direction": sort_direction,
+                        "status": status,
                     },
                     api_key_list_params.APIKeyListParams,
                 ),
@@ -499,6 +598,57 @@ class AsyncAPIKeysResource(AsyncAPIResource):
             cast_to=NoneType,
         )
 
+    async def rotate(
+        self,
+        id: str,
+        *,
+        days_to_expire: Optional[int] | Omit = omit,
+        expire_in_days: Optional[int] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> CreatedAPIKey:
+        """Rotate an API key.
+
+        Issues a new key that copies the name and project of the
+        rotated key, and schedules the rotated key to expire after a grace period so
+        in-flight callers can swap over. The new plaintext key is returned once.
+
+        Args:
+          days_to_expire: Lifetime in days for the new key, up to 3650. Omit to reuse the rotated key's
+              original lifetime, or never-expires if it had none.
+
+          expire_in_days: Grace period in days before the rotated key expires. Use 0 to expire it
+              immediately. Omit for the default grace period of 7 days.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        return await self._post(
+            path_template("/org/api_keys/{id}/rotate", id=id),
+            body=await async_maybe_transform(
+                {
+                    "days_to_expire": days_to_expire,
+                    "expire_in_days": expire_in_days,
+                },
+                api_key_rotate_params.APIKeyRotateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=CreatedAPIKey,
+        )
+
 
 class APIKeysResourceWithRawResponse:
     def __init__(self, api_keys: APIKeysResource) -> None:
@@ -518,6 +668,9 @@ class APIKeysResourceWithRawResponse:
         )
         self.delete = to_raw_response_wrapper(
             api_keys.delete,
+        )
+        self.rotate = to_raw_response_wrapper(
+            api_keys.rotate,
         )
 
 
@@ -540,6 +693,9 @@ class AsyncAPIKeysResourceWithRawResponse:
         self.delete = async_to_raw_response_wrapper(
             api_keys.delete,
         )
+        self.rotate = async_to_raw_response_wrapper(
+            api_keys.rotate,
+        )
 
 
 class APIKeysResourceWithStreamingResponse:
@@ -561,6 +717,9 @@ class APIKeysResourceWithStreamingResponse:
         self.delete = to_streamed_response_wrapper(
             api_keys.delete,
         )
+        self.rotate = to_streamed_response_wrapper(
+            api_keys.rotate,
+        )
 
 
 class AsyncAPIKeysResourceWithStreamingResponse:
@@ -581,4 +740,7 @@ class AsyncAPIKeysResourceWithStreamingResponse:
         )
         self.delete = async_to_streamed_response_wrapper(
             api_keys.delete,
+        )
+        self.rotate = async_to_streamed_response_wrapper(
+            api_keys.rotate,
         )

@@ -17,16 +17,21 @@ Custom CLI Path:
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
 import structlog
 
 from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
-from ouroboros.orchestrator.adapter import AgentMessage, RuntimeCapabilities, RuntimeHandle
+from ouroboros.orchestrator.adapter import (
+    AgentMessage,
+    ParamSupport,
+    RuntimeCapabilities,
+    RuntimeHandle,
+)
 from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime, SkillDispatchHandler
 from ouroboros.providers.gemini_event_normalizer import GeminiEventNormalizer
+from ouroboros.runtime.child_env import build_child_env
 
 log = structlog.get_logger(__name__)
 
@@ -54,6 +59,10 @@ _GEMINI_DEFAULT_PERMISSION_MODE = "acceptEdits"
 
 #: Maximum Ouroboros nesting depth to prevent fork bombs
 _MAX_OUROBOROS_DEPTH = 5
+# Child-env strip set for Gemini.  Gemini does NOT strip CLAUDECODE (unlike
+# codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
+# are removed.
+_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
 
 
 class GeminiCLIRuntime(CodexCliRuntime):
@@ -177,23 +186,13 @@ class GeminiCLIRuntime(CodexCliRuntime):
 
     def _build_child_env(self) -> dict[str, str]:
         """Build child env with the recursion guard (matches #315 adapter pattern)."""
-        env = os.environ.copy()
-
-        # Prevent child from re-entering Ouroboros MCP
-        for key in ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND"):
-            env.pop(key, None)
-
-        try:
-            depth = int(env.get("_OUROBOROS_DEPTH", "0")) + 1
-        except (ValueError, TypeError):
-            depth = 1
-
-        if depth > _MAX_OUROBOROS_DEPTH:
-            msg = f"Maximum Ouroboros nesting depth ({_MAX_OUROBOROS_DEPTH}) exceeded"
-            raise RuntimeError(msg)
-
-        env["_OUROBOROS_DEPTH"] = str(depth)
-        return env
+        return build_child_env(
+            strip_keys=_CHILD_ENV_STRIP_KEYS,
+            max_depth=_MAX_OUROBOROS_DEPTH,
+            depth_error_factory=lambda _depth, max_depth: RuntimeError(
+                f"Maximum Ouroboros nesting depth ({max_depth}) exceeded"
+            ),
+        )
 
     # -- CLI path resolution -----------------------------------------------
 
@@ -272,6 +271,12 @@ class GeminiCLIRuntime(CodexCliRuntime):
             skill_dispatch=True,
             targeted_resume=False,
             structured_output=True,
+            # System prompt is composed into the user message (inherited Codex
+            # prompt builder), not passed as a native system directive. The
+            # inherited builder also renders requested tool lists as prompt
+            # guidance rather than enforcing a Gemini-native allow-list.
+            system_prompt_support=ParamSupport.TRANSLATED,
+            tool_restriction_support=ParamSupport.TRANSLATED,
         )
 
     # -- Event parsing and normalization -----------------------------------

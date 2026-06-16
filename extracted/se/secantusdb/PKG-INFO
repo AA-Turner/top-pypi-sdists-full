@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SecantusDB
-Version: 0.5.2b7
+Version: 0.5.3b7
 Summary: An embeddable, MongoDB compatible, document database, built on WiredTiger
 Author-Email: Joe Drumgoole <joe@joedrumgoole.com>
 License-Expression: GPL-2.0-only AND CC-BY-4.0
@@ -35,6 +35,8 @@ Requires-Dist: httpx>=0.27; extra == "admin"
 Requires-Dist: pywebview>=5.0; extra == "admin"
 Requires-Dist: python-multipart>=0.0.9; extra == "admin"
 Requires-Dist: setproctitle>=1.3; extra == "admin"
+Provides-Extra: rust
+Requires-Dist: secantus-core==0.5.2b15; extra == "rust"
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -179,6 +181,36 @@ needs three native build tools on `PATH`:
 | Alpine | `apk add --no-cache cmake ninja swig build-base` |
 
 See [Installation](https://secantusdb.readthedocs.io/en/latest/installation.html) for dev-install instructions.
+
+### Optional Rust acceleration
+
+The operator engines (query matching, updates, the aggregation-expression
+evaluator, projection, and the storage-independent aggregation pipeline) have an
+optional Rust implementation that runs off the GIL. It's an **accelerator, not a
+replacement** — the pure-Python engines are always present and remain the
+**default**, and the Rust core is pinned byte-for-byte against them.
+
+```bash
+pip install "secantus[rust]"      # pulls the matching secantus-core wheel
+```
+
+Enable it process-wide (default stays Python):
+
+```bash
+export SECANTUS_ENGINE=rust       # or "auto" — rust if the extension is present
+```
+
+```python
+from secantus import SecantusDBServer
+server = SecantusDBServer(engine="rust")   # same effect, programmatic
+```
+
+`rust` transparently falls back to Python for anything it doesn't reproduce, so
+it's always correct. The Rust side is a Cargo workspace under `crates/`: a
+pure-Rust engine crate (`secantus-core`, no PyO3) plus a thin PyO3 bindings crate
+(`secantus-core-py`) that builds the `secantus-core` wheel. Splitting them keeps
+the engines reusable so they can evolve toward a first-class, standalone Rust
+build.
 
 ## Standalone daemon (drop-in `mongod` replacement)
 

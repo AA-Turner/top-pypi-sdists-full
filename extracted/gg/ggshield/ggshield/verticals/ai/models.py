@@ -1,21 +1,26 @@
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import tomli
-from pygitguardian.models import (
-    AIDiscovery,
-    MCPActivityRequest,
-    MCPConfiguration,
-    MCPServer,
-)
+from pygitguardian.models import AIDiscovery, MCPActivityRequest
+from pygitguardian.models import MCPConfiguration as BaseMCPConfiguration
+from pygitguardian.models import MCPServer, UserInfo
 
 from ggshield.core.scan import File, Scannable, StringScannable
 from ggshield.utils.files import is_path_binary
+
+
+@dataclass
+class MCPConfiguration(BaseMCPConfiguration):
+    """MCP configuration that can store a human-readable name for its server."""
+
+    display_name: Optional[str] = None
 
 
 # Small re-exports arount Py-gitguardian models to make our life easier.
@@ -52,10 +57,19 @@ class HookResult:
     message: str
     nbr_secrets: int
     payload: "HookPayload"
+    # Set when the action is allowed but the user must be warned,
+    # typically because the scan could not run at all.
+    warning: str = ""
 
     @classmethod
     def allow(cls, payload: "HookPayload") -> "HookResult":
         return cls(block=False, message="", nbr_secrets=0, payload=payload)
+
+    @classmethod
+    def allow_with_warning(cls, payload: "HookPayload", warning: str) -> "HookResult":
+        return cls(
+            block=False, message="", nbr_secrets=0, payload=payload, warning=warning
+        )
 
 
 @dataclass
@@ -66,6 +80,7 @@ class HookPayload:
     identifier: str
     agent: "Agent"
     raw: Dict[str, Any]
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def scannable(self) -> Scannable:
@@ -233,6 +248,7 @@ class Agent(ABC):
         data: Dict[str, Dict[str, Any]],
         scope: Scope,
         project: Optional[Path],
+        display_name: Optional[str] = None,
     ) -> Iterator[MCPConfiguration]:
         """Utility function to parse a "mcpServer" block and return the MCP server entries.
 
@@ -262,6 +278,7 @@ class Agent(ABC):
                 env=entry.get("env", {}),
                 url=entry.get("url"),
                 headers=entry.get("headers", {}),
+                display_name=display_name,
             )
 
     def _get_user_mcp_configurations(self) -> Iterator[MCPConfiguration]:
@@ -315,6 +332,25 @@ class Agent(ABC):
 
         Implementations can assume that the payload is an MCP pre-tool use.
         """
+
+    # History parsing — agents that can find past MCP usage on disk override this.
+
+    def iter_history_events(
+        self, ai_config: Optional[AIDiscovery]
+    ) -> Iterator[MCPActivityRequest]:
+        """Yield historical MCP tool calls this agent can recover from its on-disk state.
+
+        Default: empty (this agent does not know how to surface its history).
+        Implementations decide how to source the events: JSONL transcripts,
+        SQLite databases, etc.
+        """
+        return iter(())
+
+    def _user_or_default(self, ai_config: Optional[AIDiscovery]) -> UserInfo:
+        """Return ``ai_config.user`` or a blank ``UserInfo`` if no config is provided."""
+        if ai_config is not None:
+            return ai_config.user
+        return UserInfo(hostname="", username="", machine_id="")
 
     # Helper methods
 

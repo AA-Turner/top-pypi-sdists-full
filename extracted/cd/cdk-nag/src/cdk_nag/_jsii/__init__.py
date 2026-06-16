@@ -67,7 +67,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "cdk-nag", "3.0.0", __name__[0:-6], "cdk-nag@3.0.0.jsii.tgz"
+    "cdk-nag", "3.0.1", __name__[0:-6], "cdk-nag@3.0.1.jsii.tgz"
 )
 
 __all__ = [

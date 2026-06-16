@@ -8,6 +8,7 @@ from ase.units import GPa
 
 try:
     import spglib
+    from spglib._spglib import SpglibCppError
     spglib_available = True
 except ImportError:  # pragma: no cover
     spglib_available = False
@@ -144,9 +145,12 @@ def get_primitive_structure(
         structure.get_cell(),
         structure.get_scaled_positions(),
         structure.numbers)
-    result = spglib.standardize_cell(
-        structure_tuple, to_primitive=to_primitive,
-        no_idealize=no_idealize, symprec=symprec)
+    try:
+        result = spglib.standardize_cell(
+            structure_tuple, to_primitive=to_primitive,
+            no_idealize=no_idealize, symprec=symprec)
+    except SpglibCppError:
+        result = None
     if result is None:
         raise ValueError('spglib failed to find the primitive cell, maybe caused by large symprec.')
     lattice, scaled_positions, numbers = result

@@ -5,17 +5,9 @@ From LangChain's standard test suite.
 
 from typing import Type
 
-from langchain_core.messages import AIMessage, AIMessageChunk
 from langchain_tests.unit_tests import ChatModelUnitTests
-from litellm.types.utils import ChatCompletionDeltaToolCall, Delta, Function
 
 from langchain_litellm.chat_models import ChatLiteLLM
-from langchain_litellm.chat_models.litellm import (
-    _convert_delta_to_message_chunk,
-    _convert_dict_to_message,
-    _create_usage_metadata,
-    _inject_reasoning_content_into_content,
-)
 
 
 class TestChatLiteLLMUnit(ChatModelUnitTests):
@@ -42,15 +34,15 @@ class TestChatLiteLLMUnit(ChatModelUnitTests):
 
     @property
     def has_structured_output(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_json_mode(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_image_inputs(self) -> bool:
-        return False
+        return True
 
     @property
     def returns_usage_metadata(self) -> bool:

@@ -307,6 +307,8 @@ __all__ = (
     "DeleteFormTypeInputTypeDef",
     "DeleteGlossaryInputTypeDef",
     "DeleteGlossaryTermInputTypeDef",
+    "DeleteLineageEventInputTypeDef",
+    "DeleteLineageEventOutputTypeDef",
     "DeleteListingInputTypeDef",
     "DeleteNotebookInputTypeDef",
     "DeleteProjectInputTypeDef",
@@ -1537,6 +1539,10 @@ class DeleteGlossaryInputTypeDef(TypedDict):
     identifier: str
 
 class DeleteGlossaryTermInputTypeDef(TypedDict):
+    domainIdentifier: str
+    identifier: str
+
+class DeleteLineageEventInputTypeDef(TypedDict):
     domainIdentifier: str
     identifier: str
 
@@ -2777,6 +2783,16 @@ class DeleteConnectionOutputTypeDef(TypedDict):
 class DeleteDomainOutputTypeDef(TypedDict):
     status: DomainStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+DeleteLineageEventOutputTypeDef = TypedDict(
+    "DeleteLineageEventOutputTypeDef",
+    {
+        "id": str,
+        "domainId": str,
+        "processingStatus": LineageEventProcessingStatusType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef

@@ -41,6 +41,7 @@ from plato._generated.api.v2.sessions import execute as sessions_execute
 from plato._generated.api.v2.sessions import get_public_url as sessions_get_public_url
 from plato._generated.api.v2.sessions import heartbeat as sessions_heartbeat
 from plato._generated.api.v2.sessions import link_testcase as sessions_link_testcase
+from plato._generated.api.v2.sessions import list_jobs as sessions_list_jobs
 from plato._generated.api.v2.sessions import make as sessions_make
 from plato._generated.api.v2.sessions import remove_job as sessions_remove_job
 from plato._generated.api.v2.sessions import reset as sessions_reset
@@ -71,6 +72,7 @@ from plato._generated.models import (
     ExecuteCommandResponse,
     Flow,
     HeartbeatTimeout,
+    JobInfo,
     LinkTestcaseRequest,
     RemoveJobRequest,
     ResetSessionRequest,
@@ -1177,6 +1179,38 @@ class Session:
 
         logger.debug(f"Added job {job_id} (alias={env.alias}) to session {self.session_id}")
         return new_environment
+
+    async def list_jobs(self) -> list[JobInfo]:
+        """List every job in this session with its live backend status.
+
+        Unlike ``envs`` (built from the locally cached context, which goes
+        stale across processes), this asks the backend — it sees jobs added
+        or removed by other processes and reports their current status.
+        """
+        self._check_closed()
+        response = await sessions_list_jobs.asyncio(
+            client=self._http,
+            session_id=self.session_id,
+            x_api_key=self._api_key,
+        )
+        return list(response.jobs)
+
+    async def remove_job(self, job_id: str) -> bool:
+        """Remove a job from this session by id (network + VM + cancel).
+
+        Thin wrapper over the remove-job API for jobs that are not in the
+        locally cached env context (e.g. leaked by another process); use
+        ``remove_env`` for environments this session object created itself.
+        """
+        self._check_closed()
+        request = RemoveJobRequest(job_id=job_id)
+        response = await sessions_remove_job.asyncio(
+            client=self._http,
+            session_id=self.session_id,
+            body=request,
+            x_api_key=self._api_key,
+        )
+        return bool(response.success)
 
     async def remove_env(self, env: Environment | str) -> None:
         """Remove an environment from this session.

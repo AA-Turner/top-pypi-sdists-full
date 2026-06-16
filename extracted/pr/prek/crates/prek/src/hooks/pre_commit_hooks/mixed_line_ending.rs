@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::Result;
 use bstr::ByteSlice;
 use clap::{Parser, ValueEnum};
-use rustc_hash::FxHashMap;
 
 use crate::hook::Hook;
 use crate::hooks::run_concurrent_file_checks;
@@ -12,7 +11,6 @@ use crate::run::CONCURRENCY;
 const CRLF: &[u8] = b"\r\n";
 const LF: &[u8] = b"\n";
 const CR: &[u8] = b"\r";
-const ALL_ENDINGS: [&[u8]; 3] = [CR, CRLF, LF];
 
 #[derive(Parser)]
 #[command(disable_help_subcommand = true)]
@@ -41,6 +39,25 @@ enum FixMode {
     CR,
 }
 
+#[derive(Default)]
+struct LineEndingCounts {
+    cr: usize,
+    crlf: usize,
+    lf: usize,
+}
+
+impl LineEndingCounts {
+    fn kind_count(&self) -> usize {
+        usize::from(self.cr > 0) + usize::from(self.crlf > 0) + usize::from(self.lf > 0)
+    }
+
+    fn has_any_except(&self, ending: &[u8]) -> bool {
+        (ending != CR && self.cr > 0)
+            || (ending != CRLF && self.crlf > 0)
+            || (ending != LF && self.lf > 0)
+    }
+}
+
 pub(crate) async fn mixed_line_ending(hook: &Hook, filenames: &[&Path]) -> Result<(i32, Vec<u8>)> {
     let args = Args::try_parse_from(hook.entry.expect_direct().split()?.iter().chain(&hook.args))?;
 
@@ -61,7 +78,7 @@ async fn fix_file(file_base: &Path, filename: &Path, fix_mode: FixMode) -> Resul
     }
 
     let counts = count_line_endings(&contents);
-    let has_mixed_endings = counts.len() > 1;
+    let has_mixed_endings = counts.kind_count() > 1;
 
     match fix_mode {
         FixMode::No => {
@@ -90,7 +107,7 @@ async fn fix_file(file_base: &Path, filename: &Path, fix_mode: FixMode) -> Resul
                 FixMode::CR => CR,
                 _ => unreachable!(),
             };
-            let needs_fixing = counts.keys().any(|&ending| ending != target_ending);
+            let needs_fixing = counts.has_any_except(target_ending);
 
             if needs_fixing {
                 apply_line_ending(&file_path, &contents, target_ending).await?;
@@ -102,96 +119,72 @@ async fn fix_file(file_base: &Path, filename: &Path, fix_mode: FixMode) -> Resul
     }
 }
 
-fn count_line_endings(contents: &[u8]) -> FxHashMap<&'static [u8], usize> {
-    let mut counts = FxHashMap::default();
+fn count_line_endings(contents: &[u8]) -> LineEndingCounts {
+    let mut counts = LineEndingCounts::default();
+    let mut index = 0;
 
-    for line in split_lines_with_endings(contents) {
-        let ending = if line.ends_with(CRLF) {
-            CRLF
-        } else if line.ends_with(CR) {
-            CR
-        } else if line.ends_with(LF) {
-            LF
-        } else {
-            continue; // Line without ending
-        };
-        *counts.entry(ending).or_insert(0) += 1;
+    while index < contents.len() {
+        match contents[index] {
+            b'\r' if contents.get(index + 1) == Some(&b'\n') => {
+                counts.crlf += 1;
+                index += 2;
+            }
+            b'\r' => {
+                counts.cr += 1;
+                index += 1;
+            }
+            b'\n' => {
+                counts.lf += 1;
+                index += 1;
+            }
+            _ => index += 1,
+        }
     }
 
     counts
 }
 
-fn find_most_common_ending(counts: &FxHashMap<&'static [u8], usize>) -> &'static [u8] {
-    ALL_ENDINGS
-        .iter()
-        .max_by_key(|&&ending| counts.get(ending).unwrap_or(&0))
-        .copied()
-        .unwrap_or(LF)
+fn find_most_common_ending(counts: &LineEndingCounts) -> &'static [u8] {
+    // Preserve the previous tie-break order from `[CR, CRLF, LF].max_by_key(...)`.
+    if counts.lf >= counts.crlf && counts.lf >= counts.cr {
+        LF
+    } else if counts.crlf >= counts.cr {
+        CRLF
+    } else {
+        CR
+    }
 }
 
 async fn apply_line_ending(filename: &Path, contents: &[u8], ending: &[u8]) -> Result<()> {
-    let lines = split_lines_with_endings(contents);
     let mut new_contents = Vec::with_capacity(contents.len());
+    let mut line_start = 0;
+    let mut index = 0;
 
-    for line in lines {
-        let line_without_ending = strip_line_ending(line);
-        new_contents.extend_from_slice(line_without_ending);
+    while index < contents.len() {
+        match contents[index] {
+            b'\r' if contents.get(index + 1) == Some(&b'\n') => {
+                new_contents.extend_from_slice(&contents[line_start..index]);
+                new_contents.extend_from_slice(ending);
+                index += 2;
+                line_start = index;
+            }
+            b'\r' | b'\n' => {
+                new_contents.extend_from_slice(&contents[line_start..index]);
+                new_contents.extend_from_slice(ending);
+                index += 1;
+                line_start = index;
+            }
+            _ => index += 1,
+        }
+    }
+
+    if line_start < contents.len() {
+        new_contents.extend_from_slice(&contents[line_start..]);
         new_contents.extend_from_slice(ending);
     }
 
     fs_err::tokio::write(filename, &new_contents).await?;
     Ok(())
-}
-
-fn strip_line_ending(line: &[u8]) -> &[u8] {
-    if line.ends_with(CRLF) {
-        &line[..line.len() - 2]
-    } else if line.ends_with(LF) || line.ends_with(CR) {
-        &line[..line.len() - 1]
-    } else {
-        line
-    }
-}
-
-fn split_lines_with_endings(contents: &[u8]) -> Vec<&[u8]> {
-    if contents.is_empty() {
-        return Vec::new();
-    }
-
-    let mut lines = Vec::new();
-    let mut last_end = 0;
-    let mut i = 0;
-
-    while i < contents.len() {
-        match contents[i] {
-            b'\n' => {
-                lines.push(&contents[last_end..=i]);
-                last_end = i + 1;
-                i += 1;
-            }
-            b'\r' => {
-                if i + 1 < contents.len() && contents[i + 1] == b'\n' {
-                    // CRLF
-                    lines.push(&contents[last_end..=i + 1]);
-                    last_end = i + 2;
-                    i += 2;
-                } else {
-                    // CR
-                    lines.push(&contents[last_end..=i]);
-                    last_end = i + 1;
-                    i += 1;
-                }
-            }
-            _ => i += 1,
-        }
-    }
-
-    // Add remaining content if any
-    if last_end < contents.len() {
-        lines.push(&contents[last_end..]);
-    }
-
-    lines
 }
 
 #[cfg(test)]

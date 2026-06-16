@@ -3,7 +3,7 @@ import json
 import os
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Callable, TypeVar
+from typing import Any, AsyncGenerator, Callable, TypeVar, overload
 
 T = TypeVar("T")
 
@@ -41,7 +41,15 @@ def encode_params(obj: dict):
     return res
 
 
-def get_or(obj: dict, key: str, default_value: T = None) -> Any | T:
+@overload
+def get_or(obj: dict, key: str) -> Any | None: ...
+
+
+@overload
+def get_or(obj: dict, key: str, default_value: T) -> Any | T: ...
+
+
+def get_or(obj: dict, key: str, default_value: Any = None) -> Any:
     for part in key.split("."):
         if part not in obj:
             return default_value
@@ -153,10 +161,13 @@ def _flatten_user_v2(obj: dict) -> dict:
         if avatar_url:
             flat["profile_image_url_https"] = avatar_url
 
-    if not flat.get("location"):
-        loc = (obj.get("location") or {}).get("location")
+    location = obj.get("location")
+    if isinstance(location, dict):
+        loc = location.get("location")
         if loc is not None:
             flat["location"] = loc
+    elif not flat.get("location") and location is not None:
+        flat["location"] = location
 
     if "protected" not in flat:
         prot = (obj.get("privacy") or {}).get("protected")
@@ -228,7 +239,7 @@ def to_old_obj(obj: dict):
     return _flatten_tweet_v2(obj)
 
 
-def to_old_rep(obj: dict) -> dict[str, dict]:
+def to_old_rep(obj: dict) -> dict[str, Any]:
     tmp = get_typed_object(obj, defaultdict(list))
 
     # "legacy" in x still matches under the new schema: the key is present
@@ -280,7 +291,19 @@ def to_old_rep(obj: dict) -> dict[str, dict]:
     trends = list(tmp.get("TimelineTrend", []))
     trends = {x["name"]: x for x in trends}
 
-    return {"tweets": {**tw1, **tw2}, "users": users, "trends": trends}
+    tweets = {**tw1, **tw2}
+    retweeted_ids = {
+        str(retweeted_id)
+        for tweet in tweets.values()
+        for path in (
+            "retweeted_status_id_str",
+            "retweeted_status_result.result.rest_id",
+            "retweeted_status_result.result.tweet.rest_id",
+        )
+        if (retweeted_id := get_or(tweet, path)) is not None
+    }
+
+    return {"tweets": tweets, "retweeted_ids": retweeted_ids, "users": users, "trends": trends}
 
 
 def print_table(rows: list[dict], hr_after=False):

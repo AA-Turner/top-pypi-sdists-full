@@ -305,7 +305,7 @@ class UserSettings:
     Can be overridden with the environment variable `WEAVE_DISABLE_WAL_SENDER`
     """
 
-    use_otel_v2: bool = False
+    use_otel_v2: bool = True
     """
     Routes OTel-capable integrations through their OTel variant.
 
@@ -314,7 +314,22 @@ class UserSettings:
     import-hook patching. Explicit ``patch_*`` calls are unaffected — they
     always do exactly what their name says.
 
+    NOTE: plain ``openai`` has no OTel variant, so it is no longer patched on
+    implicit import-hook patching. Call ``weave.integrations.patch_openai()``
+    explicitly (or set this to False) to trace direct ``openai.*`` calls.
+
     Can be overridden with the environment variable `WEAVE_USE_OTEL_V2`
+    """
+
+    allow_unsafe_custom_obj_decode: bool = True
+    """Permits reconstructing code-bearing custom objects (ops, or any type whose
+    decode falls back to running a packaged `load_op`) on `client.get`.
+
+    Defaults True, matching historical behavior. Set False to harden a client so it
+    only reconstructs data-only custom objects (images, audio, datetimes, etc.) and
+    refuses to import or run any stored `.py`. Server-side workers force this off
+    regardless via `require_secure_weave_client`; deployments can disable it globally
+    with the environment variable `WEAVE_ALLOW_UNSAFE_CUSTOM_OBJ_DECODE=false`.
     """
 
 
@@ -360,6 +375,7 @@ class _SettingsOverrides(TypedDict, total=False):
     enable_wal: bool
     disable_wal_sender: bool
     use_otel_v2: bool
+    allow_unsafe_custom_obj_decode: bool
 
 
 # Resolve string annotations once at import; used for env-var coercion.
@@ -634,3 +650,11 @@ def should_disable_wal_sender() -> bool:
 def should_use_otel_v2() -> bool:
     """Returns whether OTel-capable integrations should use their OTel variant."""
     return _env_or_default("use_otel_v2", _current_settings.get().use_otel_v2)
+
+
+def should_allow_unsafe_custom_obj_decode() -> bool:
+    """Returns whether reconstructing code-bearing custom objects is permitted."""
+    return _env_or_default(
+        "allow_unsafe_custom_obj_decode",
+        _current_settings.get().allow_unsafe_custom_obj_decode,
+    )

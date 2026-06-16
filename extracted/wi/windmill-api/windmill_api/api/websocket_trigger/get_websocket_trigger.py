@@ -6,14 +6,21 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.get_websocket_trigger_response_200 import GetWebsocketTriggerResponse200
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
     path: str,
+    *,
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["get_draft"] = get_draft
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "get",
@@ -21,6 +28,7 @@ def _get_kwargs(
             workspace=workspace,
             path=path,
         ),
+        "params": params,
     }
 
 
@@ -53,12 +61,14 @@ def sync_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetWebsocketTriggerResponse200]:
     """get websocket trigger
 
     Args:
         workspace (str):
         path (str):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,6 +81,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path=path,
+        get_draft=get_draft,
     )
 
     response = client.get_httpx_client().request(
@@ -85,12 +96,14 @@ def sync(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetWebsocketTriggerResponse200]:
     """get websocket trigger
 
     Args:
         workspace (str):
         path (str):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -104,6 +117,7 @@ def sync(
         workspace=workspace,
         path=path,
         client=client,
+        get_draft=get_draft,
     ).parsed
 
 
@@ -112,12 +126,14 @@ async def asyncio_detailed(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetWebsocketTriggerResponse200]:
     """get websocket trigger
 
     Args:
         workspace (str):
         path (str):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -130,6 +146,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         path=path,
+        get_draft=get_draft,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -142,12 +159,14 @@ async def asyncio(
     path: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetWebsocketTriggerResponse200]:
     """get websocket trigger
 
     Args:
         workspace (str):
         path (str):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -162,5 +181,6 @@ async def asyncio(
             workspace=workspace,
             path=path,
             client=client,
+            get_draft=get_draft,
         )
     ).parsed

@@ -74,6 +74,12 @@ from .type_defs import (
     GetRateBasedStatementManagedKeysResponseTypeDef,
     GetRegexPatternSetRequestTypeDef,
     GetRegexPatternSetResponseTypeDef,
+    GetRevenueStatisticsRequestTypeDef,
+    GetRevenueStatisticsResponseTypeDef,
+    GetRevenueStatisticsSummaryRequestTypeDef,
+    GetRevenueStatisticsSummaryResponseTypeDef,
+    GetRevenueStatisticsTimeSeriesRequestTypeDef,
+    GetRevenueStatisticsTimeSeriesResponseTypeDef,
     GetRuleGroupRequestTypeDef,
     GetRuleGroupResponseTypeDef,
     GetSampledRequestsRequestTypeDef,
@@ -104,6 +110,8 @@ from .type_defs import (
     ListResourcesForWebACLResponseTypeDef,
     ListRuleGroupsRequestTypeDef,
     ListRuleGroupsResponseTypeDef,
+    ListSettlementRecordsRequestTypeDef,
+    ListSettlementRecordsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     ListWebACLsRequestTypeDef,
@@ -471,6 +479,36 @@ class WAFV2Client(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#get_regex_pattern_set)
         """
 
+    def get_revenue_statistics(
+        self, **kwargs: Unpack[GetRevenueStatisticsRequestTypeDef]
+    ) -> GetRevenueStatisticsResponseTypeDef:
+        """
+        Retrieves ranked monetization statistics.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_revenue_statistics.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#get_revenue_statistics)
+        """
+
+    def get_revenue_statistics_summary(
+        self, **kwargs: Unpack[GetRevenueStatisticsSummaryRequestTypeDef]
+    ) -> GetRevenueStatisticsSummaryResponseTypeDef:
+        """
+        Retrieves a summary of monetization revenue for the specified time window.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_revenue_statistics_summary.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#get_revenue_statistics_summary)
+        """
+
+    def get_revenue_statistics_time_series(
+        self, **kwargs: Unpack[GetRevenueStatisticsTimeSeriesRequestTypeDef]
+    ) -> GetRevenueStatisticsTimeSeriesResponseTypeDef:
+        """
+        Retrieves time series data for monetization revenue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/get_revenue_statistics_time_series.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#get_revenue_statistics_time_series)
+        """
+
     def get_rule_group(
         self, **kwargs: Unpack[GetRuleGroupRequestTypeDef]
     ) -> GetRuleGroupResponseTypeDef:
@@ -623,6 +661,16 @@ class WAFV2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/list_rule_groups.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#list_rule_groups)
+        """
+
+    def list_settlement_records(
+        self, **kwargs: Unpack[ListSettlementRecordsRequestTypeDef]
+    ) -> ListSettlementRecordsResponseTypeDef:
+        """
+        Retrieves individual settlement transaction records for monetization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wafv2/client/list_settlement_records.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_wafv2/client/#list_settlement_records)
         """
 
     def list_tags_for_resource(

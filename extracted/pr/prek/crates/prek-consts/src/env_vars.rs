@@ -84,8 +84,26 @@ impl EnvVars {
     pub const LUA_PATH: &'static str = "LUA_PATH";
     pub const LUA_CPATH: &'static str = "LUA_CPATH";
 
+    // Perl related
+    pub const PERL5LIB: &'static str = "PERL5LIB";
+    pub const PERL_MB_OPT: &'static str = "PERL_MB_OPT";
+    pub const PERL_MM_OPT: &'static str = "PERL_MM_OPT";
+
+    // R related
+    pub const R_HOME: &'static str = "R_HOME";
+    pub const R_PROFILE_USER: &'static str = "R_PROFILE_USER";
+    pub const RENV_PROJECT: &'static str = "RENV_PROJECT";
+
+    // Conda related
+    pub const CONDA_PREFIX: &'static str = "CONDA_PREFIX";
+    pub const PRE_COMMIT_USE_MAMBA: &'static str = "PRE_COMMIT_USE_MAMBA";
+    pub const PRE_COMMIT_USE_MICROMAMBA: &'static str = "PRE_COMMIT_USE_MICROMAMBA";
+
     // Dart related
     pub const PUB_CACHE: &'static str = "PUB_CACHE";
+
+    // Coursier related
+    pub const COURSIER_CACHE: &'static str = "COURSIER_CACHE";
 
     // Ruby related
     pub const PREK_RUBY_MIRROR: &'static str = "PREK_RUBY_MIRROR";

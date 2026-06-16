@@ -1,5 +1,8 @@
-(function () {
+(function isShownElement(elem, optIgnoreOpacity) {
     var tagNameDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'tagName');
+    var computedStyleCache = new Map();
+    var clientRectCache = new Map();
+    var displayedCache = new Map();
     function toUpperCaseTag(tagName) {
         return tagName ? tagName.toUpperCase() : undefined;
     }
@@ -29,11 +32,12 @@
         return current && current.nodeType === 1 ? current : null;
     }
     function getEffectiveStyle(elem, propertyName) {
-        var win = elem.ownerDocument.defaultView;
-        if (!win) {
-            return null;
+        var computed = computedStyleCache.get(elem);
+        if (computed === undefined) {
+            var win = elem.ownerDocument.defaultView;
+            computed = win ? (win.getComputedStyle(elem) || null) : null;
+            computedStyleCache.set(elem, computed);
         }
-        var computed = win.getComputedStyle(elem);
         if (!computed) {
             return null;
         }
@@ -66,29 +70,41 @@
         };
     }
     function getClientRect(elem) {
+        var cachedRect = clientRectCache.get(elem);
+        if (cachedRect) {
+            return cachedRect;
+        }
+        var rect;
         var imageMap = maybeFindImageMap(elem);
         if (imageMap) {
-            return imageMap.rect;
+            rect = imageMap.rect;
         }
-        var elemTagName = typeof elem.tagName === 'string' ? elem.tagName : '';
-        if (elemTagName.toUpperCase() === 'HTML') {
-            var doc = elem.ownerDocument;
-            return createRect(0, 0, doc.documentElement.clientWidth, doc.documentElement.clientHeight);
+        else {
+            var elemTagName = typeof elem.tagName === 'string' ? elem.tagName : '';
+            if (elemTagName.toUpperCase() === 'HTML') {
+                var doc = elem.ownerDocument;
+                var sizeElem = doc.compatMode === 'CSS1Compat' ? doc.documentElement : (doc.body || doc.documentElement);
+                rect = createRect(0, 0, sizeElem.clientWidth, sizeElem.clientHeight);
+            }
+            else {
+                try {
+                    var nativeRect = elem.getBoundingClientRect();
+                    rect = {
+                        left: nativeRect.left,
+                        top: nativeRect.top,
+                        right: nativeRect.right,
+                        bottom: nativeRect.bottom,
+                        width: nativeRect.right - nativeRect.left,
+                        height: nativeRect.bottom - nativeRect.top,
+                    };
+                }
+                catch (_error) {
+                    rect = createRect(0, 0, 0, 0);
+                }
+            }
         }
-        try {
-            var nativeRect = elem.getBoundingClientRect();
-            return {
-                left: nativeRect.left,
-                top: nativeRect.top,
-                right: nativeRect.right,
-                bottom: nativeRect.bottom,
-                width: nativeRect.right - nativeRect.left,
-                height: nativeRect.bottom - nativeRect.top,
-            };
-        }
-        catch (_error) {
-            return createRect(0, 0, 0, 0);
-        }
+        clientRectCache.set(elem, rect);
+        return rect;
     }
     function getAreaRelativeRect(area) {
         var shape = area.shape.toLowerCase();
@@ -117,14 +133,7 @@
         return createRect(0, 0, 0, 0);
     }
     function findImageUsingMap(mapName, doc) {
-        var elements = doc.getElementsByTagName('*');
-        for (var index = 0; index < elements.length; index += 1) {
-            var useMap = elements[index].getAttribute('usemap');
-            if (useMap === '#' + mapName) {
-                return elements[index];
-            }
-        }
-        return null;
+        return doc.querySelector('[usemap="#' + mapName.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"]');
     }
     function maybeFindImageMap(elem) {
         var isMap = isElement(elem, 'MAP');
@@ -339,30 +348,38 @@
         }
         return !hiddenByOverflow(elem);
     }
-    return function isShownElement(elem, optIgnoreOpacity) {
-        function displayed(node) {
-            if (isElement(node)) {
-                var display = getEffectiveStyle(node, 'display');
-                var contentVisibility = getEffectiveStyle(node, 'content-visibility');
-                if (display === 'none' || contentVisibility === 'hidden') {
-                    return false;
-                }
-            }
-            var parent = getParentNodeInComposedDom(node);
-            if (typeof ShadowRoot === 'function' && parent instanceof ShadowRoot) {
-                if (parent.host.shadowRoot && parent.host.shadowRoot !== parent) {
-                    return false;
-                }
-                parent = parent.host;
-            }
-            if (parent && (parent.nodeType === Node.DOCUMENT_NODE || parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE)) {
-                return true;
-            }
-            if (isElement(parent, 'DETAILS') && !parent.open && !isElement(node, 'SUMMARY')) {
+    function displayed(node) {
+        var cached = displayedCache.get(node);
+        if (cached !== undefined) {
+            return cached;
+        }
+        if (isElement(node)) {
+            var display = getEffectiveStyle(node, 'display');
+            var contentVisibility = getEffectiveStyle(node, 'content-visibility');
+            if (display === 'none' || contentVisibility === 'hidden') {
+                displayedCache.set(node, false);
                 return false;
             }
-            return !!parent && displayed(parent);
         }
-        return isShownInternal(elem, !!optIgnoreOpacity, displayed);
-    };
-})()
+        var parent = getParentNodeInComposedDom(node);
+        if (typeof ShadowRoot === 'function' && parent instanceof ShadowRoot) {
+            if (parent.host.shadowRoot && parent.host.shadowRoot !== parent) {
+                displayedCache.set(node, false);
+                return false;
+            }
+            parent = parent.host;
+        }
+        if (parent && (parent.nodeType === Node.DOCUMENT_NODE || parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE)) {
+            displayedCache.set(node, true);
+            return true;
+        }
+        if (isElement(parent, 'DETAILS') && !parent.open && !isElement(node, 'SUMMARY')) {
+            displayedCache.set(node, false);
+            return false;
+        }
+        var result = !!parent && displayed(parent);
+        displayedCache.set(node, result);
+        return result;
+    }
+    return isShownInternal(elem, !!optIgnoreOpacity, displayed);
+})

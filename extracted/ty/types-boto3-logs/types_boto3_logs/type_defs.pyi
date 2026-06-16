@@ -52,6 +52,7 @@ from .literals import (
     QueryStatusType,
     S3TableIntegrationSourceStatusType,
     ScheduledQueryStateType,
+    ScheduleTypeType,
     StandardUnitType,
     StateType,
     SuppressionStateType,
@@ -1112,6 +1113,7 @@ class ListScheduledQueriesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     state: NotRequired[ScheduledQueryStateType]
+    scheduleType: NotRequired[ScheduleTypeType]
 
 class ListSourcesForS3TableIntegrationRequestTypeDef(TypedDict):
     integrationArn: str
@@ -1814,6 +1816,7 @@ class ListLogGroupsForQueryRequestPaginateTypeDef(TypedDict):
 
 class ListScheduledQueriesRequestPaginateTypeDef(TypedDict):
     state: NotRequired[ScheduledQueryStateType]
+    scheduleType: NotRequired[ScheduleTypeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSourcesForS3TableIntegrationRequestPaginateTypeDef(TypedDict):
@@ -2183,6 +2186,7 @@ class CreateScheduledQueryRequestTypeDef(TypedDict):
     logGroupIdentifiers: NotRequired[Sequence[str]]
     timezone: NotRequired[str]
     startTimeOffset: NotRequired[int]
+    endTimeOffset: NotRequired[int]
     destinationConfiguration: NotRequired[DestinationConfigurationTypeDef]
     scheduleStartTime: NotRequired[int]
     scheduleEndTime: NotRequired[int]
@@ -2199,8 +2203,10 @@ class GetScheduledQueryResponseTypeDef(TypedDict):
     scheduleExpression: str
     timezone: str
     startTimeOffset: int
+    endTimeOffset: int
     destinationConfiguration: DestinationConfigurationTypeDef
     state: ScheduledQueryStateType
+    scheduleType: ScheduleTypeType
     lastTriggeredTime: int
     lastExecutionStatus: ExecutionStatusType
     scheduleStartTime: int
@@ -2214,6 +2220,7 @@ class ScheduledQuerySummaryTypeDef(TypedDict):
     scheduledQueryArn: NotRequired[str]
     name: NotRequired[str]
     state: NotRequired[ScheduledQueryStateType]
+    scheduleType: NotRequired[ScheduleTypeType]
     lastTriggeredTime: NotRequired[int]
     lastExecutionStatus: NotRequired[ExecutionStatusType]
     scheduleExpression: NotRequired[str]
@@ -2232,6 +2239,7 @@ class UpdateScheduledQueryRequestTypeDef(TypedDict):
     logGroupIdentifiers: NotRequired[Sequence[str]]
     timezone: NotRequired[str]
     startTimeOffset: NotRequired[int]
+    endTimeOffset: NotRequired[int]
     destinationConfiguration: NotRequired[DestinationConfigurationTypeDef]
     scheduleStartTime: NotRequired[int]
     scheduleEndTime: NotRequired[int]
@@ -2247,8 +2255,10 @@ class UpdateScheduledQueryResponseTypeDef(TypedDict):
     scheduleExpression: str
     timezone: str
     startTimeOffset: int
+    endTimeOffset: int
     destinationConfiguration: DestinationConfigurationTypeDef
     state: ScheduledQueryStateType
+    scheduleType: ScheduleTypeType
     lastTriggeredTime: int
     lastExecutionStatus: ExecutionStatusType
     scheduleStartTime: int

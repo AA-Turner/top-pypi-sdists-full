@@ -10,6 +10,7 @@ attributes when used as context managers.
 
 from __future__ import annotations
 
+import logging
 import types
 import uuid
 from contextvars import ContextVar, Token
@@ -42,6 +43,7 @@ from weave.session.types import (
     _parse_data_url,
 )
 from weave.trace.settings import should_disable_weave, should_redact_pii
+from weave.trace.util import Thread
 from weave.utils import pii_redaction
 from weave.utils.capture_info import get_capture_info
 
@@ -108,6 +110,8 @@ __all__ = [
 
 # OTel tracer name — identifies the Session SDK as the source of these spans.
 _TRACER_NAME = "weave.session"
+
+logger = logging.getLogger(__name__)
 
 
 def _capture_info_attrs() -> dict[str, str]:
@@ -183,6 +187,116 @@ class _SpanBase(BaseModel):
         self._otel_span.set_status(StatusCode.ERROR, str(exc_val))
         self._otel_span.record_exception(exc_val)
 
+    def _recording_span(self, operation: str, key: str | list[str]) -> _OTelSpan | None:
+        """Return the OTel span if it's recording, else ``None``.
+
+        Logs a warning naming the caller-facing fix when not recording.
+        Silent when OTel isn't installed or Weave is disabled — both are
+        intentional configs. Returning the span (instead of a bool) lets
+        mypy narrow it through the caller's ``if`` guard.
+        """
+        if not _OTEL_AVAILABLE or should_disable_weave():
+            return None
+        key_repr = (
+            "{" + ", ".join(map(repr, key)) + "}"
+            if isinstance(key, list)
+            else repr(key)
+        )
+        if self._otel_span is None:
+            logger.warning(
+                "%s(%s) ignored: span not started. Use `with` for live "
+                "tracing, or log_turn() for batch ingest.",
+                operation,
+                key_repr,
+            )
+            return None
+        if not self._otel_span.is_recording():
+            logger.warning(
+                "%s(%s) ignored: span already ended. Set attributes before "
+                "exiting `with` or calling .end().",
+                operation,
+                key_repr,
+            )
+            return None
+        return self._otel_span
+
+    def set_attributes(self, attributes: dict[str, Any]) -> Self:
+        """Stamp arbitrary OTel attributes on this span.
+
+        Pass a dict whether you have one key or many — single-key callers
+        use ``span.set_attributes({"weave.tag": "value"})``. Mirrors OTel's
+        ``Span.set_attributes``.
+
+        Must be called between span start and span end — i.e. inside a
+        ``with`` block. Outside that window the call is a no-op and logs
+        a warning. For batch ingest, populate the object's declared fields
+        directly and pass it to ``log_turn`` / ``log_session``.
+        """
+        if span := self._recording_span("set_attributes", list(attributes)):
+            span.set_attributes(attributes)
+        return self
+
+    def add_event(
+        self,
+        name: str,
+        attributes: dict[str, Any] | None = None,
+        timestamp: datetime | None = None,
+    ) -> Self:
+        """Record an OTel span event at a point in time within this span.
+
+        Use for marker / lifecycle data — permission prompts (e.g.
+        ``weave.permission_request``), lifecycle transitions (e.g.
+        ``spawned`` / ``streaming`` / ``finished``), or any custom
+        milestone that happens at a point in time within the span's
+        lifetime (vs an attribute, which is a property of the span as a
+        whole).
+
+        Must be called between span start and span end (inside ``with``).
+        Outside that window the call is a no-op and logs a warning.
+        """
+        if span := self._recording_span("add_event", name):
+            span.add_event(name, attributes=attributes, timestamp=_to_ns(timestamp))
+        return self
+
+
+def _publish_media_content(
+    *,
+    content: bytes | str,
+    uri: str,
+    file_id: str,
+    mime_type: str,
+) -> str:
+    """Create a Content object from raw media data and publish it.
+
+    Returns the ``weave://`` ref URI string.
+    """
+    from weave.trace.api import publish
+    from weave.type_wrappers.Content.content import Content
+
+    content_obj: Content
+    if content:
+        if isinstance(content, str):
+            content_obj = Content.from_base64(content, mimetype=mime_type or None)
+        else:
+            content_obj = Content.from_bytes(content, mimetype=mime_type or None)
+    elif uri:
+        if uri.startswith("data:"):
+            content_obj = Content.from_data_url(uri)
+        else:
+            content_obj = Content.from_url(uri)
+    elif file_id:
+        raise ValueError(
+            f"Cannot publish file_id {file_id!r} as Content; "
+            "fetch the content from the provider first or use a URI"
+        )
+    else:
+        raise ValueError("_publish_media_content requires content or uri")
+
+    ref = publish(content_obj)
+    # Coerce to a plain ``str``: ``ref.uri`` may be a ``_CallableStr`` subclass
+    # that OTel attribute validation rejects.
+    return str(getattr(ref, "uri", ref))
+
 
 class Tool(_SpanBase):
     """One tool execution. Maps to an execute_tool OTel span.
@@ -253,7 +367,7 @@ class Tool(_SpanBase):
             session_id=session.session_id if session else "",
             include_content=session.include_content if session else True,
         )
-        self._end_otel_span(attrs)
+        self._end_otel_span(attrs, end_time_ns=_to_ns(self.ended_at))
 
     def __enter__(self) -> Self:
         if self.started_at is None:
@@ -302,6 +416,7 @@ class LLM(_SpanBase):
 
     _ended: bool = PrivateAttr(default=False)
     _token: Token[LLM | None] | None = PrivateAttr(default=None)
+    _upload_threads: list[Thread] = PrivateAttr(default_factory=list)
 
     def model_post_init(self, context: Any, /) -> None:
         if self.started_at is None:
@@ -328,8 +443,18 @@ class LLM(_SpanBase):
     ) -> LLM:
         """Attach media to this LLM call.
 
-        Exactly one of content, uri, or file_id must be provided.
-        Modality is inferred from mime_type when not set explicitly.
+        Creates a ``Content`` object from the provided data, publishes it
+        to get a ``weave://`` ref, and stores only that ref.  Exactly one
+        of ``content``, ``uri``, or ``file_id`` must be provided.
+
+        The publish (which uploads the media) runs on a dedicated
+        background thread so the call returns immediately without blocking
+        the caller; one thread is dispatched per attachment so multiple
+        uploads proceed in parallel. The placeholder ``MediaAttachment`` is
+        appended synchronously and its ``ref`` is filled in once the upload
+        completes. Refs are guaranteed populated before the span is emitted
+        (the build path waits on the in-flight uploads via
+        ``_await_uploads``).
         """
         sources = sum(bool(s) for s in (content, uri, file_id))
         if sources != 1:
@@ -340,33 +465,73 @@ class LLM(_SpanBase):
             if prefix in {"image", "audio", "video"}:
                 modality = prefix
 
-        if content:
-            kind: Literal["blob", "uri", "file"] = "blob"
-        elif uri:
-            kind = "uri"
-        else:
-            kind = "file"
-
-        self.media_attachments.append(
-            MediaAttachment(
-                kind=kind,
-                modality=modality or "unknown",
-                mime_type=mime_type,
-                content=content,
-                uri=uri,
-                file_id=file_id,
-            )
+        attachment = MediaAttachment(
+            ref="",
+            modality=modality or "unknown",
+            mime_type=mime_type,
         )
+        self.media_attachments.append(attachment)
+        thread = Thread(
+            target=self._upload_media,
+            kwargs={
+                "attachment": attachment,
+                "content": content,
+                "uri": uri,
+                "file_id": file_id,
+                "mime_type": mime_type,
+            },
+            name="weave-session-media-upload",
+            daemon=True,
+        )
+        thread.start()
+        self._upload_threads.append(thread)
         return self
+
+    def _upload_media(
+        self,
+        *,
+        attachment: MediaAttachment,
+        content: bytes | str,
+        uri: str,
+        file_id: str,
+        mime_type: str,
+    ) -> None:
+        """Publish one media attachment and record its ref.
+
+        Runs on a background thread dispatched by ``attach_media``. On
+        success the ``weave://`` ref is written back onto ``attachment``.
+        Failures are logged and leave the ref empty; ``_await_uploads``
+        drops empty-ref attachments so a failed upload never emits a
+        broken URI part.
+        """
+        try:
+            attachment.ref = _publish_media_content(
+                content=content, uri=uri, file_id=file_id, mime_type=mime_type
+            )
+        except Exception:
+            logger.exception("Failed to publish media attachment for chat span")
+
+    def _await_uploads(self) -> None:
+        """Block until all in-flight media uploads finish.
+
+        Called before building span attributes so every attachment has its
+        ``weave://`` ref populated. Attachments whose upload failed (empty
+        ref) are dropped so the emitted span never carries a broken URI.
+        """
+        if not self._upload_threads:
+            return
+        for thread in self._upload_threads:
+            thread.join()
+        self._upload_threads.clear()
+        self.media_attachments = [m for m in self.media_attachments if m.ref]
 
     def attach_media_url(self, url: str, *, modality: str = "") -> LLM:
         """Attach a media URL to this LLM call.
 
         Convenience over ``attach_media`` for the common case where the
-        caller has a URL string from an upstream message and doesn't want
-        to inspect it. ``data:`` URLs are parsed into ``mime_type`` +
-        inline content (kind=blob); plain URIs become ``kind=uri``. Empty
-        URLs are ignored. Returns ``self`` for chaining.
+        caller has a URL string from an upstream message. ``data:`` URLs
+        are parsed into bytes and published; plain URIs are fetched and
+        published. Empty URLs are ignored. Returns ``self`` for chaining.
         """
         if not url:
             return self
@@ -436,6 +601,10 @@ class LLM(_SpanBase):
         ``reasoning``, which previously bypassed the gate and leaked
         into ``gen_ai.output.messages``.
         """
+        # Block on any background media uploads so every attachment's
+        # weave:// ref is populated before it is serialized into attrs.
+        self._await_uploads()
+
         input_messages: list[Message] | None
         output_messages: list[Message] | None
         system_instructions: list[str] | None
@@ -493,7 +662,8 @@ class LLM(_SpanBase):
         if self._ended:
             return
         self._ended = True
-        self.ended_at = datetime.now(timezone.utc)
+        if self.ended_at is None:
+            self.ended_at = datetime.now(timezone.utc)
 
         session = get_current_session()
         attrs = self._build_attrs(
@@ -505,7 +675,7 @@ class LLM(_SpanBase):
             _current_llm.reset(self._token)
             self._token = None
 
-        self._end_otel_span(attrs)
+        self._end_otel_span(attrs, end_time_ns=_to_ns(self.ended_at))
 
     def __enter__(self) -> Self:
         if self._token is None:
@@ -593,18 +763,21 @@ class SubAgent(_SpanBase):
         if self._ended:
             return
         self._ended = True
-        self.ended_at = datetime.now(timezone.utc)
+        if self.ended_at is None:
+            self.ended_at = datetime.now(timezone.utc)
 
         session = get_current_session()
         attrs = self._build_attrs(
             session_id=session.session_id if session else "",
             session_name=session.session_name if session else "",
         )
-        self._end_otel_span(attrs)
+        self._end_otel_span(attrs, end_time_ns=_to_ns(self.ended_at))
 
     def __enter__(self) -> Self:
-        self.started_at = datetime.now(timezone.utc)
-        self._start_otel_span(f"invoke_agent {self.name}")
+        if self.started_at is None:
+            self.started_at = datetime.now(timezone.utc)
+        start_ns = int(self.started_at.timestamp() * 1_000_000_000)
+        self._start_otel_span(f"invoke_agent {self.name}", start_time_ns=start_ns)
         return self
 
     def __exit__(
@@ -718,7 +891,8 @@ class Turn(_SpanBase):
         if self._ended:
             return
         self._ended = True
-        self.ended_at = datetime.now(timezone.utc)
+        if self.ended_at is None:
+            self.ended_at = datetime.now(timezone.utc)
 
         session = get_current_session()
         attrs = self._build_attrs(
@@ -731,7 +905,7 @@ class Turn(_SpanBase):
             _current_turn.reset(self._token)
             self._token = None
 
-        self._end_otel_span(attrs)
+        self._end_otel_span(attrs, end_time_ns=_to_ns(self.ended_at))
 
     def __enter__(self) -> Self:
         if self._token is None:

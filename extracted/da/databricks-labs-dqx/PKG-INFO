@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-labs-dqx
-Version: 0.14.0
+Version: 0.15.0
 Summary: Data Quality eXtended (DQX) is a Python library for data quality checks and data quality monitoring
 Project-URL: Issues, https://github.com/databrickslabs/dqx/issues
 Project-URL: Source, https://github.com/databrickslabs/dqx

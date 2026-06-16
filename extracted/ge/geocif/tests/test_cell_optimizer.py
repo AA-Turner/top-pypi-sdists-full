@@ -339,6 +339,44 @@ class TestRunGA(unittest.TestCase):
         self.assertAlmostEqual(a.baseline_r2, b.baseline_r2, places=10)
 
 
+class TestTinyRegionDoesNotCrash(unittest.TestCase):
+    """Regression: a region with fewer cropland cells than the
+    configured ``min_cell_floor_abs`` used to crash the GA at the
+    seed-population repair step with::
+
+        ValueError: Cannot take a larger sample than population when
+        replace is False
+
+    The fix clamps ``min_cells`` to ``n_cells`` so tiny regions
+    degenerate gracefully to an all-cells-in mask (lift = 0) instead
+    of crashing the entire combo. Seen in production for
+    Argentina/soybean/corrientes and /misiones where soybean cropland
+    is < 20 cells.
+    """
+
+    def test_n_cells_below_min_cell_floor_abs(self):
+        rng = np.random.default_rng(0)
+        n_cells = 12  # < default min_cell_floor_abs of 20
+        n_years = 20
+        per_cell = rng.normal(size=(n_cells, n_years, 1))
+        y = rng.normal(size=n_years)
+        afi = rng.uniform(5, 80, size=n_cells)
+
+        cfg = GAConfig(
+            population_size=20, n_generations=5,
+            min_cell_floor_abs=20,    # > n_cells, would crash without clamp
+            min_cell_floor_frac=0.01,
+            seed=0,
+        )
+        # Must not raise.
+        result = run_ga(per_cell, y, cfg, afi=afi)
+
+        # GA degenerates to all-cells-in (only viable mask given the
+        # floor==n_cells); baseline == optimized.
+        self.assertEqual(int(result.best_mask.sum()), n_cells)
+        self.assertEqual(result.best_mask.shape, (n_cells,))
+
+
 class TestProductionMaskParquetRoundTrip(unittest.TestCase):
     """Smoke-check the production-output schema we hand to geoextract.
     The path / atomic-rename / row-shape are all the file-system side

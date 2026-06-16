@@ -13,7 +13,7 @@ import pytest
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPToolError
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
-from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle
+from ouroboros.orchestrator.adapter import AgentMessage, ParamSupport, RuntimeHandle
 import ouroboros.orchestrator.hermes_runtime as hermes_runtime_module
 from ouroboros.orchestrator.hermes_runtime import HermesCliRuntime, _parse_quiet_output
 from ouroboros.router import Resolved, ResolveRequest, SkillDispatchRouter
@@ -123,6 +123,42 @@ class TestHermesCliRuntime:
         assert runtime.runtime_backend == "hermes_cli"
         assert runtime.working_directory == _EXPECTED_CWD
         assert runtime.permission_mode == "default"
+        assert runtime.permission_mode_requested is False
+
+    @pytest.mark.asyncio
+    async def test_iter_stream_lines_enforces_line_buffer_cap(self) -> None:
+        """Regression (DUP-3): the Hermes stream reader must cap its line buffer.
+
+        The standalone Hermes copy of ``_iter_stream_lines`` shipped without a
+        buffer cap, so newline-free stdout grew memory without bound.  After
+        consolidating onto the shared runtime reader, newline-free output that
+        exceeds the cap must raise ``ProviderError`` instead of accumulating.
+        """
+        from ouroboros.core.errors import ProviderError
+        from ouroboros.providers.codex_cli_stream import _MAX_RUNTIME_LINE_BUFFER_BYTES
+
+        runtime = HermesCliRuntime(cli_path="hermes", cwd="/tmp/project")
+
+        # The estimate counts 4 bytes per decoded char; size just past the cap.
+        oversized_chars = (_MAX_RUNTIME_LINE_BUFFER_BYTES // 4) + 1
+        newline_free = _FakeStream("a" * oversized_chars)
+
+        with pytest.raises(ProviderError, match="JSONL line buffer exceeded"):
+            async for _ in runtime._iter_stream_lines(newline_free):
+                pass
+
+    def test_tracks_requested_permission_mode_and_declares_ignored_support(self) -> None:
+        runtime = HermesCliRuntime(
+            cli_path="hermes",
+            cwd="/tmp/project",
+            permission_mode="acceptEdits",
+        )
+
+        assert runtime.permission_mode == "acceptEdits"
+        assert runtime.permission_mode_requested is True
+        assert runtime.capabilities.system_prompt_support is ParamSupport.TRANSLATED
+        assert runtime.capabilities.tool_restriction_support is ParamSupport.TRANSLATED
+        assert runtime.capabilities.permission_mode_support is ParamSupport.IGNORED
 
     def test_constructor_accepts_llm_backend(self) -> None:
         runtime = HermesCliRuntime(cli_path="hermes", llm_backend="opencode")
@@ -566,6 +602,50 @@ class TestHermesCliRuntime:
         mock_exec.assert_called_once()
         mock_warning.assert_not_called()
         assert messages[-1].content == "Hermes fallback completed"
+
+    @pytest.mark.asyncio
+    async def test_execute_task_nonzero_exit_emits_typed_error_metadata(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """A non-zero hermes exit carrying a provider 429 must surface typed
+        error metadata (issue 1.1 regression). Without it the failure lacks
+        runtime-error shape and the run hard-fails instead of pausing."""
+        self._write_skill(
+            tmp_path,
+            "run",
+            [
+                "name: run",
+                "mcp_tool: ouroboros_execute_seed",
+                "mcp_args:",
+                '  seed_path: "$1"',
+            ],
+        )
+        runtime = HermesCliRuntime(
+            cli_path="hermes",
+            cwd="/tmp/project",
+            skills_dir=tmp_path,
+        )
+        process = _FakeProcess(
+            stdout="",
+            stderr="HTTP 429: Usage limit reached for 5 hour.",
+            returncode=1,
+        )
+
+        with patch(
+            "ouroboros.orchestrator.hermes_runtime.asyncio.create_subprocess_exec",
+            return_value=process,
+        ):
+            messages = [
+                message async for message in runtime.execute_task("please ooo run seed.yaml")
+            ]
+
+        final = messages[-1]
+        assert final.is_error
+        assert final.data["subtype"] == "error"
+        assert final.data["exit_code"] == 1
+        assert final.data["error_type"] == "RateLimitError"
+        assert final.data["http_status"] == 429
 
     @pytest.mark.asyncio
     async def test_execute_task_maps_interview_argument_to_initial_context(

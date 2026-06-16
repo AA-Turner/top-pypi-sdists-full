@@ -220,11 +220,8 @@ pub fn build_warm_start(
         // term whose penalty count drifted can still transfer β.
         let mut beta_projected = false;
         if let Some(t_block) = new_term.gauge_t_block.as_ref()
-            && let Some(theta) = project_raw_beta_to_reduced(
-                t_block,
-                &parent_term.raw_beta,
-                new_term.reduced_width,
-            )
+            && let Some(theta) =
+                project_raw_beta_to_reduced(t_block, &parent_term.raw_beta, new_term.reduced_width)
         {
             block_beta[term_idx] = theta;
             beta_projected = true;
@@ -287,7 +284,7 @@ mod tests {
     /// Block-layer term identity (the surviving, fold-invariant identity API),
     /// one unlabeled penalty over a 1-dim nullspace.
     fn block_id(block_name: &str) -> TermIdentityKey {
-        term_identity_from_block(TermRole::Mean, block_name, &[None], &[1])
+        term_identity_from_block(TermRole::Mean, block_name, &[None], &[1], 10)
     }
 
     /// A ρ-only term context (no gauge block): β stays cold, only ρ transfers.

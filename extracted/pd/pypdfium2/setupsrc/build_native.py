@@ -10,8 +10,11 @@ import shutil
 import argparse
 from enum import Enum
 from pathlib import Path
+import urllib.request as url_request
 
-from base import *  # local
+# local
+from base import *
+from _build_helpers import *
 
 _CR_PREFIX = "https://chromium.googlesource.com/"
 DEPS_URLS = dict(
@@ -19,9 +22,10 @@ DEPS_URLS = dict(
     build      = _CR_PREFIX + "chromium/src/build",
     abseil     = _CR_PREFIX + "chromium/src/third_party/abseil-cpp",
     fast_float = _CR_PREFIX + "external/github.com/fastfloat/fast_float",
+    simdutf    = _CR_PREFIX + "chromium/src/third_party/simdutf",
     catapult   = _CR_PREFIX + "catapult",  # android
     # vendorable dependencies
-    icu         = _CR_PREFIX + "chromium/deps/icu",  # cibuildwheel
+    icu         = _CR_PREFIX + "chromium/deps/icu",
     buildtools  = _CR_PREFIX + "chromium/src/buildtools",
     libcxx      = _CR_PREFIX + "external/github.com/llvm/llvm-project/libcxx",
     libcxxabi   = _CR_PREFIX + "external/github.com/llvm/llvm-project/libcxxabi",
@@ -31,7 +35,6 @@ DEPS_URLS = dict(
     nasm_source = _CR_PREFIX + "chromium/deps/nasm",
     libpng      = _CR_PREFIX + "chromium/src/third_party/libpng",
     zlib        = _CR_PREFIX + "chromium/src/third_party/zlib",
-    simdutf     = _CR_PREFIX + "chromium/src/third_party/simdutf",
     harfbuzz    = _CR_PREFIX + "external/github.com/harfbuzz/harfbuzz",
     # unittests
     gtest      = _CR_PREFIX + "external/github.com/google/googletest",
@@ -96,7 +99,7 @@ if IS_ANDROID:
         "target_os": "android",
         "use_mold": False,
     })
-    del DefaultConfig["use_sysroot"]  # implies use_sysroot = true
+    DefaultConfig["use_sysroot"] = True
     # On Android, it seems that the build system's CPU type statically defaults to "arm", but we want this script to be host-adaptive (plus, "arm64" is the more likely candidate).
     # TODO(future) refactor platform constants from base.py so we can access abstracted OS/CPU separately through sub-attributes
     AndroidCPUMap = {"aarch64": "arm64", "armv7l": "arm", "x86_64": "x64", "i686": "x86"}
@@ -108,6 +111,18 @@ if IS_ANDROID:
         log(f"Warning: Unknown Android CPU {raw_cpu}")
 
 
+def git_clone_rev(name, url, rev, target_dir, depth=1):
+    # https://stackoverflow.com/questions/31278902/how-to-shallow-clone-a-specific-commit-with-depth-1
+    # NOTE Once we can require git >= 2.49.0, `git clone --depth <n> --revision <sha>` will do. (The author currently uses git 2.42.0.)
+    mkdir(target_dir)
+    depth_param = ["--depth", str(depth)] if depth else []
+    log(f"\nCloning {name} from {url!r} at {rev} ...")
+    run_cmd(["git", "init"], cwd=target_dir, silent=True)
+    run_cmd(["git", "remote", "add", "origin", url], cwd=target_dir, silent=True)
+    run_cmd(["git", "fetch", *depth_param, "origin", rev], cwd=target_dir)
+    run_cmd(["git", "-c", "advice.detachedHead=false", "checkout", "FETCH_HEAD"], cwd=target_dir)
+
+
 class DepsFetcher:
     
     def __init__(self, deps_info):
@@ -117,14 +132,14 @@ class DepsFetcher:
         
         if target_dir.exists():
             if reset:
-                log(f"Discarding unstaged changes on {target_dir.name!r} as per --reset option.")
+                log(f"\n{target_dir.name}: Discarding unstaged changes as per --reset option.")
                 run_cmd(["git", "restore", "."], cwd=target_dir)
                 return True
             else:
                 return False
         
         rev = self.deps_info[name]
-        git_clone_rev(DEPS_URLS[name], rev, target_dir, depth)
+        git_clone_rev(name, DEPS_URLS[name], rev, target_dir, depth)
         
         return True
 
@@ -210,7 +225,21 @@ def handle_deps(config, vendor_deps, with_tests):
 VendorableDeps = ("libc++", "icu", "freetype", "libjpeg", "libpng", "zlib", "lcms2", "openjpeg", "libtiff", "harfbuzz")
 
 
-def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps, legacy_gn_compat):
+_SHIMHEADERS_URL = "https://raw.githubusercontent.com/chromium/chromium/{rev}/tools/generate_shim_headers/generate_shim_headers.py"
+
+def _get_shimheaders_tool(pdfium_dir, rev="main"):
+
+    tools_dir = pdfium_dir / "tools" / "generate_shim_headers"
+    shimheaders_file = tools_dir / "generate_shim_headers.py"
+    shimheaders_url = _SHIMHEADERS_URL.format(rev=rev)
+
+    if not shimheaders_file.exists():
+        log(f"Downloading {shimheaders_file.name} at revision {rev}")
+        mkdir(tools_dir)
+        url_request.urlretrieve(shimheaders_url, shimheaders_file)
+
+
+def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps):
     
     assert not IGNORE_FULLVER
     full_ver, pdfium_rev, chromium_rev = handle_sbuild_vers(short_ver)
@@ -225,12 +254,8 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
             r'(\s*)("//third_party/test_fonts")', r"\1# \2",
             is_regex=True, exp_count=1,
         )
-        if full_ver.build < 7848:
-            git_apply_patch(PatchDir/"security"/"openjpeg.patch", cwd=PDFIUM_DIR)  # CVE-2026-6192
         if sys.byteorder == "big":
             git_apply_patch(PatchDir/"bigendian.patch", cwd=PDFIUM_DIR)
-            if with_tests:
-                git_apply_patch(PatchDir/"bigendian_test.patch", cwd=PDFIUM_DIR)
     
     df = DepsFetcher(deps_info)
     do_patches = df.fetch("build", PDFIUM_DIR_build, reset=reset)
@@ -245,23 +270,24 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         # > Extra flags to be appended when compiling both C and C++ files. "CPP" stands for "C PreProcessor" in this context, although it can be used for non-preprocessor flags as well. Not to be confused with "CXX" (which follows).
         env_append("CPPFLAGS", "-ffp-contract=off", " ")
     if do_patches:
-        # Patches for legacy versions of GN not supported by upstream
-        # Recent GN binaries can be obtained from https://chrome-infra-packages.appspot.com/p/gn/gn
-        # Note that merely calling depot_tools `gn` is not sufficient, as it is only a wrapper script looking for vendored GN in the target repository, and if not present (as in this case), falls back to system GN.
-        if legacy_gn_compat:
-            # Work around error about path_exists() being undefined
-            git_apply_patch(PatchDir/"legacy_gn_1.patch", cwd=PDFIUM_DIR_build)
-            # https://groups.google.com/g/pdfium/c/1__HW-wzJ8c/m/5MCYXAuDBQAJ
-            git_apply_patch(PatchDir/"legacy_gn_2.patch", cwd=PDFIUM_DIR_build)
-        if IS_ANDROID:
-            # fix linkage step
-            git_apply_patch(PatchDir/"android_build.patch", cwd=PDFIUM_DIR_build)
+        # it says gcc_toolchain but actually needed for clang as well
+        # -> upstream fix merged, can be removed or put behind version guard once pdfium rolls //build and we update pdfium
+        git_apply_patch(PatchDir/"gcc_toolchain.patch", cwd=PDFIUM_DIR_build)
+        if IS_ANDROID:  # fix linkage step
+            git_apply_patch(PatchDir/"android_native.patch", cwd=PDFIUM_DIR_build)
         if compiler is Compiler.clang:
-            # historically, https://crbug.com/410883044
-            if "libc++" not in vendor_deps:
-                git_apply_patch(PatchDir/"system_libcxx_with_clang.patch", cwd=PDFIUM_DIR_build)
             if clang_ver < 23:
-                git_apply_patch(PatchDir/"avoid_new_clang_flags.patch", cwd=PDFIUM_DIR_build)
+                git_apply_patch(PatchDir/"clang_22_compat.patch", cwd=PDFIUM_DIR_build)
+            if no_libclang_rt:
+                git_apply_patch(PatchDir/"no_libclang_rt.patch", cwd=PDFIUM_DIR_build)
+            if "libc++" not in vendor_deps:
+                # historically, https://crbug.com/410883044
+                autopatch(
+                    PDFIUM_DIR_build/"config"/"BUILDCONFIG.gn",
+                    "use_libcxx_modules = is_clang",
+                    "use_libcxx_modules = false",
+                    is_regex=False, exp_count=2,
+                )
             # TODO should we handle other OSes here?
             # see also https://groups.google.com/g/llvm-dev/c/k3q_ATl-K_0/m/MjEb6gsCCAAJ
             lld_path = clang_path/"bin"/"ld.lld"
@@ -271,17 +297,16 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
                 f'ldflags += [ "-fuse-ld={lld_path}" ]',
                 is_regex=False, exp_count=1,
             )
-            if no_libclang_rt:
-                git_apply_patch(PatchDir/"no_libclang_rt.patch", cwd=PDFIUM_DIR_build)
             if Host._libc_name == "musl":
-                if not no_libclang_rt:
-                    git_apply_patch(PatchDir/"musl_fix_libclang_rt_finder.patch", cwd=PDFIUM_DIR_build)
+                n_subs = 0
                 for pattern in ("-unknown-linux-gnu", "-linux-gnu"):  # two-pass
-                    autopatch(
-                        PDFIUM_DIR_build/"config"/"compiler"/"BUILD.gn",
+                    n_subs += autopatch(
+                        PDFIUM_DIR_build/"config"/"compiler_cpu_abi.gn",
                         pattern, "-alpine-linux-musl",
                         is_regex=False,
                     )
+                # confirm there have been a couple of substitutions
+                assert n_subs > 3  # likely much more than that
         # Create pseudo gclient config included by //build
         (PDFIUM_DIR_build/"config"/"gclient_args.gni").write_text("build_with_chromium = false")
     
@@ -311,11 +336,9 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         df.fetch("nasm_source", PDFIUM_3RDPARTY/"nasm")
     if "libpng" in vendor_deps:
         do_patches = df.fetch("libpng", PDFIUM_3RDPARTY/"libpng", reset=reset)
-        if do_patches:
-            if Host._raw_machine in ("loong64", "loongarch64"):
-                git_apply_patch(PatchDir/"libpng_loong64.patch", cwd=PDFIUM_3RDPARTY/"libpng")
-            elif Host._raw_machine == "ppc64le":
-                git_apply_patch(PatchDir/"libpng_ppc64.patch", cwd=PDFIUM_3RDPARTY/"libpng")
+        if do_patches and Host._raw_machine in ("ppc64le", "loong64", "loongarch64"):
+            # upstream CL merged, can be removed or put behind version guard once pdfium rolls libpng and we update pdfium
+            git_apply_patch(PatchDir/"libpng_ppc64_loong64.patch", cwd=PDFIUM_3RDPARTY/"libpng")
     if "zlib" in vendor_deps:
         df.fetch("zlib", PDFIUM_3RDPARTY/"zlib")
     if "harfbuzz" in vendor_deps:
@@ -325,19 +348,10 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         df.fetch("gtest", PDFIUM_3RDPARTY/"googletest"/"src")
         df.fetch("test_fonts", PDFIUM_3RDPARTY/"test_fonts")
     
-    get_shimheaders_tool(PDFIUM_DIR, rev=chromium_rev)
+    _get_shimheaders_tool(PDFIUM_DIR, rev=chromium_rev)
     
     return full_ver
 
-
-def _get_clang_ver(clang_path):
-    from packaging.version import Version
-    output = run_cmd([str(clang_path/"bin"/"clang"), "--version"], capture=True, cwd=None)
-    log(output)
-    version = re.search(r"version ([\d\.]+)", output).group(1)
-    version = Version(version).major
-    log(f"Determined clang version {version!r}")
-    return version
 
 def setup_compiler(config, compiler, clang_ver, clang_path):
     if compiler is Compiler.gcc:
@@ -354,6 +368,32 @@ def setup_compiler(config, compiler, clang_ver, clang_path):
         })
     else:
         assert False, f"Unhandled compiler {compiler}"
+
+
+_SysrootMap = sysroot_cpu = {
+    "x86_64":  ("amd64",   "bullseye"),
+    "i686":    ("i386",    "bullseye"),
+    "armv7l":  ("armhf",   "bullseye"),
+    "armv8l":  ("armhf",   "bullseye"),
+    "aarch64": ("arm64",   "bullseye"),
+    "ppc64le": ("ppc64el", "bullseye"),
+    "riscv64": ("riscv64", "trixie"),
+}
+
+def handle_sysroot(use_sysroot, config, compiler, vendor_deps):
+    
+    if not (use_sysroot and sys.platform.startswith("linux") and Host._libc_name == "glibc"):
+        return
+    
+    sysroot_cpu, deb_name = _SysrootMap.get(Host._raw_machine, (Host._raw_machine, "bullseye"))
+    sysroot_script = PDFIUM_DIR/"build"/"linux"/"sysroot_scripts"/"install-sysroot.py"
+    run_cmd([sys.executable, str(sysroot_script), "--arch", sysroot_cpu], cwd=PDFIUM_DIR)
+    
+    config["use_sysroot"] = True
+    config["sysroot"] = f"//build/linux/debian_{deb_name}_{sysroot_cpu}-sysroot"
+    
+    if compiler is Compiler.gcc or "libc++" not in vendor_deps:
+        log("Warning: --use-sysroot works best with clang and vendored libc++. It may or may not work with GCC / system libc++.")
 
 
 def build(build_dir, config_dict, with_tests, n_jobs):
@@ -400,10 +440,15 @@ def test(build_dir, vendor_deps, compiler):
     run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR)
 
 
-def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, legacy_gn_compat=True):
+def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, use_sysroot=False):
     
     if build_ver is None:
         build_ver = SBUILD_NATIVE_PIN
+    elif build_ver == "latest":
+        build_ver = PdfiumVer.get_latest_upstream().build
+    elif build_ver == "latest-binaries":
+        build_ver = PdfiumVer.get_latest()
+    
     if vendor_deps is None:
         vendor_deps = set()
     if compiler is None:
@@ -419,12 +464,15 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     if compiler is Compiler.clang:
         if clang_path is None:
             clang_path = Host.usr
+        clang_ver = get_clang_version(clang_path)
+        if clang_ver < 22:
+            log("Warning: Clang below version 22 is not supported with upstream's clang config - implicitly switching to --clang-as-gcc mode. If you mean to manually patch pdfium's //build for compatibility with older clang (possible, but no fun to maintain), take out this check.")
+            clang_as_gcc = True
+            clang_ver = None
         if clang_as_gcc:
             env_prepend("PATH", str(clang_path/"bin"), os.pathsep)
             set_envs(CC="clang", CXX="clang++", TOOLPREFIX="llvm-")
             compiler = Compiler.gcc
-        else:
-            clang_ver = _get_clang_ver(clang_path)
     
     build_dir = PDFIUM_DIR/"out"/"Default"
     config = DefaultConfig.copy()
@@ -432,8 +480,9 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     deps_info = handle_deps(config, vendor_deps, with_tests)
     
     mkdir(SOURCES_DIR)
-    full_ver = get_sources(deps_info, build_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps, legacy_gn_compat)
+    full_ver = get_sources(deps_info, build_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps)
     setup_compiler(config, compiler, clang_ver, clang_path)
+    handle_sysroot(use_sysroot, config, compiler, vendor_deps)
     build(build_dir, config, with_tests, n_jobs)
     if with_tests:
         test(build_dir, vendor_deps, compiler)
@@ -450,9 +499,19 @@ Build PDFium from source natively with a self-managed checkout and system tools/
 
 This does not use Google's binary toolchain, so it should be portable across different Linux architectures.
 Whether this might also work on other OSes depends on PDFium's build system and the availability of a Linux-like system library environment.
-For instance, it should also work on Android (Termux) natively. See the notes in pypdfium2's README.md for more information.
+See the notes in pypdfium2's README.md for more information.
 
-In GCC build mode, the usual environment variables are respected: CC, CXX, CFLAGS, CPPFLAGS, CXXFLAGS, LDFLAGS. Also, a TOOLPREFIX can be set for ar/nm/readelf.\
+Note that pdfium is picky about the GN version, and requires newer GN than what stable distributions usually provide. Outdated GN may fail with the most obscure errors.
+We suggest that you `pip install -r req/gn.txt` which will install an appropriate version of gn-dist from PyPI. gn-dist is also maintained by the pypdfium2 authors.
+
+Likewise, clang users should note that pdfium expects a very recent version of clang.
+Upstream does not aim for compatibility with clang older than the version they currently use.
+pypdfium2 patches pdfium for compatibility with clang 22. For versions older than that, --clang-as-gcc mode is implicitly enabled.
+
+In GCC build mode, the usual environment variables are respected: CC, CXX, CFLAGS, CPPFLAGS, CXXFLAGS, LDFLAGS. Also, a TOOLPREFIX can be set for ar/nm/readelf.
+In clang mode, --clang-path lets you choose the clang build used, but flags are not honored yet.
+
+Some params take a default from an environment variable, for easy passthrough with cibuildwheel.\
 """,
     )
     if ExtendAction is not None:  # from base.py
@@ -461,14 +520,15 @@ In GCC build mode, the usual environment variables are respected: CC, CXX, CFLAG
     parser.add_argument(
         "--version",
         dest = "build_ver",
-        help = f"The pdfium version to use. Currently defaults to {SBUILD_NATIVE_PIN}. Pass 'main' to try the latest state.",
+        default = (os.environ.get("PDFIUM_VER") or None),
+        help = f"The pdfium version to use. Either a literal version number, or 'main', 'latest' or 'latest-binaries'. Defaults to the pinned version {SBUILD_NATIVE_PIN}, or $PDFIUM_VER if set.",
     )
     parser.add_argument(
         "--test",
         dest = "with_tests",
         action = "store_true",
         default = bool(int( os.environ.get("TEST_PDFIUM", 0) )),
-        help = "Whether to build and run tests. Recommended, except on very slow hosts. (Defaults to the value of $TEST_PDFIUM, for passthrough with cibuildwheel.)",
+        help = "Whether to build and run tests. Recommended, except on very slow hosts. Defaults to $TEST_PDFIUM.",
     )
     parser.add_argument(
         "-j", "--jobs",
@@ -518,10 +578,10 @@ In GCC build mode, the usual environment variables are respected: CC, CXX, CFLAG
         help = "Dependencies not to vendor. Overrides --vendor.",
     )
     parser.add_argument(
-        "--no-legacy-gn",
-        dest = "legacy_gn_compat",
-        action = "store_false",
-        help = "Do not apply patches for compatibility with older GN not supported by upstream. i.e. this flag can be used to indicate that recent enough GN is available in the build env. It is highly recommended to pass this flag if you can.",
+        "--use-sysroot",
+        action = "store_true",
+        default = bool(int( os.environ.get("USE_SYSROOT", 0) )),
+        help = "Attempt to use a Google-processed Debian sysroot for the build. This may help achieve a lower glibc requirement. This option is Linux glibc only, and ignored on other platforms. If no sysroot is available for the host CPU, this will fail.",
     )
     
     args = parser.parse_args(argv)

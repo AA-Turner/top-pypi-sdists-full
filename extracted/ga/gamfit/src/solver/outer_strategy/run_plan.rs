@@ -571,7 +571,9 @@ pub(crate) fn run_outer_with_plan(
                 );
             }
         }
-        if continuation_path.is_none() && enter_via_continuation_path && continuation_prewarm_budget > 0
+        if continuation_path.is_none()
+            && enter_via_continuation_path
+            && continuation_prewarm_budget > 0
         {
             if let Some(reason) = continuation_prewarm_suppressed_after.as_ref() {
                 log::info!(
@@ -1235,6 +1237,95 @@ pub(crate) fn run_outer_with_plan(
                         .with_bounds(bounds)
                         .with_gradient_tolerance(grad_tol)
                         .with_max_iterations(max_iter);
+                    // Warm-start first-step scaling. `opt::Bfgs` begins with an
+                    // UNSCALED identity inverse-Hessian (`B_inv = I`) on iter 0:
+                    // the search direction is the raw `d = -g`, so the unit
+                    // line-search step (`α = 1`) is `-g` in ρ-space. The
+                    // optimizer's Barzilai-Borwein self-scaling (`γ = sᵀy/yᵀy`)
+                    // only fires AFTER the first line search completes, so when a
+                    // warm start lands a near-optimal seed whose residual gradient
+                    // still has a large component along a weakly-curved (heavily
+                    // penalized) log-λ direction, the raw `-g` step overshoots and
+                    // the StrongWolfe search has to bracket/zoom — each bracketing
+                    // probe is a full inner joint-Newton re-solve. On the biobank
+                    // LOSO fold that is the observed three ~65 s `outer eval Value`
+                    // probes before the single accepted step.
+                    //
+                    // Seed the iter-0 metric with the one-point magnitude estimate
+                    // the `InitialMetric::Scalar` API is designed for ("a previous
+                    // run's gradient norm"): `H₀⁻¹ = (1/‖g₀‖)·I` makes the first
+                    // direction `d = -g₀/‖g₀‖` a unit-ℓ²-norm ρ step — bounded,
+                    // still exactly steepest-descent (so still a descent
+                    // direction), and almost always Wolfe-acceptable at `α = 1`.
+                    // This changes only the LINE-SEARCH PATH, never the accepted
+                    // optimum: BFGS converges to the same stationary point
+                    // `∇_ρ V(ρ*) = 0` under any symmetric-positive-definite initial
+                    // metric, and the gradient/KKT convergence tests are unchanged.
+                    // Gated on "this seed is the pinned warm start" so cold
+                    // multistart seeds keep the optimizer's historical internal
+                    // scaling. Two warm-start mechanisms both pin `initial_rho`:
+                    // the in-process / disk persistent cache (which also flips
+                    // `warm_start_cache_hit`) AND the biobank cross-fit β
+                    // projection (`consume_fit_artifact`, logged `[CACHE]
+                    // beta-warm action=projected source=cross-fit`), which sets
+                    // `initial_rho` to the transferred ρ but leaves
+                    // `warm_start_cache_hit` false. Cover both by testing seed
+                    // identity against `initial_rho`. The scale is clamped to the
+                    // same `[1e-3, 1e3]` band the optimizer applies to its own BB
+                    // estimate so a pathological seed gradient cannot produce a
+                    // degenerate metric.
+                    let is_warm_seed = config.warm_start_cache_hit
+                        || config
+                            .initial_rho
+                            .as_ref()
+                            .is_some_and(|initial| initial == seed);
+                    if is_warm_seed {
+                        // Prefer the converged outer curvature transferred from
+                        // the prior structurally-matching fit (`H(θ̂)_parent`):
+                        // its inverse is the ideal BFGS iter-0 metric, making the
+                        // first outer direction a quasi-Newton step `d = -H⁻¹g₀`
+                        // rather than the unscaled `-g₀`. Across LOSO folds the
+                        // curvature differs by one held-out row, so the parent's
+                        // anisotropic Hessian is a far better local model than the
+                        // single-magnitude scalar — it eliminates most of the
+                        // StrongWolfe bracketing whose every probe is a full inner
+                        // joint-Newton re-solve. `invert_spd_with_ridge` only
+                        // returns when the curvature is SPD (after a tiny ridge),
+                        // which is exactly when it is a valid (descent-preserving)
+                        // metric; a non-PD transferred Hessian falls through to
+                        // the scalar magnitude metric. Either way the converged
+                        // optimum is unchanged: BFGS reaches ∇V=0 under any SPD
+                        // initial metric, and the gradient/KKT tests are identical.
+                        let dense_metric = config
+                            .warm_start_outer_hessian
+                            .as_ref()
+                            .filter(|h| {
+                                h.nrows() == layout.n_params
+                                    && h.ncols() == layout.n_params
+                                    && h.iter().all(|v| v.is_finite())
+                            })
+                            .and_then(|h| {
+                                crate::linalg::utils::invert_spd_with_ridge(h, 1.0e-8).ok()
+                            })
+                            .filter(|h_inv| h_inv.iter().all(|v| v.is_finite()));
+                        if let Some(h_inv) = dense_metric {
+                            log::info!(
+                                "[OUTER] {context}: warm-start BFGS metric = transferred \
+                                 H(θ̂)⁻¹ (dim={}); quasi-Newton first step",
+                                layout.n_params,
+                            );
+                            optimizer = optimizer
+                                .with_initial_metric(InitialMetric::DenseInverseHessian(h_inv));
+                        } else {
+                            let g0_norm =
+                                seed_eval.gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
+                            if g0_norm.is_finite() && g0_norm > 0.0 {
+                                let scale = (1.0 / g0_norm).clamp(1.0e-3, 1.0e3);
+                                optimizer =
+                                    optimizer.with_initial_metric(InitialMetric::Scalar(scale));
+                            }
+                        }
+                    }
                     if let Some(caps) = bfgs_axis_step_caps(config, layout) {
                         optimizer = optimizer.with_axis_step_caps(caps);
                     }

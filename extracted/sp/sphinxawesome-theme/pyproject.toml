@@ -1,6 +1,6 @@
 [project]
 name = "sphinxawesome-theme"
-version = "6.0.3"
+version = "6.0.5"
 description = "An awesome theme for the Sphinx documentation generator"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -60,14 +60,18 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
-sources = ["src"]
 dev-mode-dirs = ["src"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sphinxawesome_theme"]
 
 [tool.hatch.build.targets.sdist]
-packages = ["src/sphinxawesome_theme"]
+include = [
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/src/sphinxawesome_theme",
+]
 
 [tool.hatch.envs.default]
 installer = "uv"

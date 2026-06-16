@@ -10,8 +10,12 @@ from ..models.get_script_by_path_response_200_language import GetScriptByPathRes
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_script_by_path_response_200_draft import GetScriptByPathResponse200Draft
     from ..models.get_script_by_path_response_200_extra_perms import GetScriptByPathResponse200ExtraPerms
     from ..models.get_script_by_path_response_200_modules import GetScriptByPathResponse200Modules
+    from ..models.get_script_by_path_response_200_other_drafts_users_item import (
+        GetScriptByPathResponse200OtherDraftsUsersItem,
+    )
     from ..models.get_script_by_path_response_200_schema import GetScriptByPathResponse200Schema
 
 
@@ -37,6 +41,7 @@ class GetScriptByPathResponse200:
         kind (GetScriptByPathResponse200Kind):
         starred (bool):
         has_preprocessor (bool):
+        is_draft (bool):
         workspace_id (Union[Unset, str]):
         parent_hashes (Union[Unset, List[str]]): The first element is the direct parent of the script, the second is the
             parent of the first, etc
@@ -44,7 +49,6 @@ class GetScriptByPathResponse200:
         lock (Union[Unset, str]):
         lock_error_logs (Union[Unset, str]):
         tag (Union[Unset, str]):
-        has_draft (Union[Unset, bool]):
         draft_only (Union[Unset, bool]):
         envs (Union[Unset, List[str]]):
         concurrent_limit (Union[Unset, int]):
@@ -72,6 +76,15 @@ class GetScriptByPathResponse200:
         labels (Union[Unset, List[str]]):
         inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
             Read-only — edit them on the folder.
+        draft_saved_at (Union[Unset, datetime.datetime]):
+        no_deployed (Union[Unset, bool]):
+        draft (Union[Unset, GetScriptByPathResponse200Draft]):
+        other_drafts_users (Union[Unset, List['GetScriptByPathResponse200OtherDraftsUsersItem']]): Other workspace users
+            (and the legacy NULL-email row, if any)
+            with a saved draft at the same path. Populated only on the
+            authed user's "get by path" responses for kinds the editor
+            surfaces a fork banner for (script, flow, app, raw_app).
+            Empty / omitted for kinds without that UI.
     """
 
     hash_: str
@@ -89,13 +102,13 @@ class GetScriptByPathResponse200:
     kind: GetScriptByPathResponse200Kind
     starred: bool
     has_preprocessor: bool
+    is_draft: bool
     workspace_id: Union[Unset, str] = UNSET
     parent_hashes: Union[Unset, List[str]] = UNSET
     schema: Union[Unset, "GetScriptByPathResponse200Schema"] = UNSET
     lock: Union[Unset, str] = UNSET
     lock_error_logs: Union[Unset, str] = UNSET
     tag: Union[Unset, str] = UNSET
-    has_draft: Union[Unset, bool] = UNSET
     draft_only: Union[Unset, bool] = UNSET
     envs: Union[Unset, List[str]] = UNSET
     concurrent_limit: Union[Unset, int] = UNSET
@@ -120,6 +133,10 @@ class GetScriptByPathResponse200:
     modules: Union[Unset, None, "GetScriptByPathResponse200Modules"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
     inherited_labels: Union[Unset, List[str]] = UNSET
+    draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    no_deployed: Union[Unset, bool] = UNSET
+    draft: Union[Unset, "GetScriptByPathResponse200Draft"] = UNSET
+    other_drafts_users: Union[Unset, List["GetScriptByPathResponse200OtherDraftsUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -142,6 +159,7 @@ class GetScriptByPathResponse200:
 
         starred = self.starred
         has_preprocessor = self.has_preprocessor
+        is_draft = self.is_draft
         workspace_id = self.workspace_id
         parent_hashes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.parent_hashes, Unset):
@@ -154,7 +172,6 @@ class GetScriptByPathResponse200:
         lock = self.lock
         lock_error_logs = self.lock_error_logs
         tag = self.tag
-        has_draft = self.has_draft
         draft_only = self.draft_only
         envs: Union[Unset, List[str]] = UNSET
         if not isinstance(self.envs, Unset):
@@ -194,6 +211,23 @@ class GetScriptByPathResponse200:
         if not isinstance(self.inherited_labels, Unset):
             inherited_labels = self.inherited_labels
 
+        draft_saved_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_saved_at, Unset):
+            draft_saved_at = self.draft_saved_at.isoformat()
+
+        no_deployed = self.no_deployed
+        draft: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.draft, Unset):
+            draft = self.draft.to_dict()
+
+        other_drafts_users: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.other_drafts_users, Unset):
+            other_drafts_users = []
+            for other_drafts_users_item_data in self.other_drafts_users:
+                other_drafts_users_item = other_drafts_users_item_data.to_dict()
+
+                other_drafts_users.append(other_drafts_users_item)
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -213,6 +247,7 @@ class GetScriptByPathResponse200:
                 "kind": kind,
                 "starred": starred,
                 "has_preprocessor": has_preprocessor,
+                "is_draft": is_draft,
             }
         )
         if workspace_id is not UNSET:
@@ -227,8 +262,6 @@ class GetScriptByPathResponse200:
             field_dict["lock_error_logs"] = lock_error_logs
         if tag is not UNSET:
             field_dict["tag"] = tag
-        if has_draft is not UNSET:
-            field_dict["has_draft"] = has_draft
         if draft_only is not UNSET:
             field_dict["draft_only"] = draft_only
         if envs is not UNSET:
@@ -277,13 +310,25 @@ class GetScriptByPathResponse200:
             field_dict["labels"] = labels
         if inherited_labels is not UNSET:
             field_dict["inherited_labels"] = inherited_labels
+        if draft_saved_at is not UNSET:
+            field_dict["draft_saved_at"] = draft_saved_at
+        if no_deployed is not UNSET:
+            field_dict["no_deployed"] = no_deployed
+        if draft is not UNSET:
+            field_dict["draft"] = draft
+        if other_drafts_users is not UNSET:
+            field_dict["other_drafts_users"] = other_drafts_users
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_script_by_path_response_200_draft import GetScriptByPathResponse200Draft
         from ..models.get_script_by_path_response_200_extra_perms import GetScriptByPathResponse200ExtraPerms
         from ..models.get_script_by_path_response_200_modules import GetScriptByPathResponse200Modules
+        from ..models.get_script_by_path_response_200_other_drafts_users_item import (
+            GetScriptByPathResponse200OtherDraftsUsersItem,
+        )
         from ..models.get_script_by_path_response_200_schema import GetScriptByPathResponse200Schema
 
         d = src_dict.copy()
@@ -317,6 +362,8 @@ class GetScriptByPathResponse200:
 
         has_preprocessor = d.pop("has_preprocessor")
 
+        is_draft = d.pop("is_draft")
+
         workspace_id = d.pop("workspace_id", UNSET)
 
         parent_hashes = cast(List[str], d.pop("parent_hashes", UNSET))
@@ -333,8 +380,6 @@ class GetScriptByPathResponse200:
         lock_error_logs = d.pop("lock_error_logs", UNSET)
 
         tag = d.pop("tag", UNSET)
-
-        has_draft = d.pop("has_draft", UNSET)
 
         draft_only = d.pop("draft_only", UNSET)
 
@@ -391,6 +436,31 @@ class GetScriptByPathResponse200:
 
         inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
 
+        _draft_saved_at = d.pop("draft_saved_at", UNSET)
+        draft_saved_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_saved_at, Unset):
+            draft_saved_at = UNSET
+        else:
+            draft_saved_at = isoparse(_draft_saved_at)
+
+        no_deployed = d.pop("no_deployed", UNSET)
+
+        _draft = d.pop("draft", UNSET)
+        draft: Union[Unset, GetScriptByPathResponse200Draft]
+        if isinstance(_draft, Unset):
+            draft = UNSET
+        else:
+            draft = GetScriptByPathResponse200Draft.from_dict(_draft)
+
+        other_drafts_users = []
+        _other_drafts_users = d.pop("other_drafts_users", UNSET)
+        for other_drafts_users_item_data in _other_drafts_users or []:
+            other_drafts_users_item = GetScriptByPathResponse200OtherDraftsUsersItem.from_dict(
+                other_drafts_users_item_data
+            )
+
+            other_drafts_users.append(other_drafts_users_item)
+
         get_script_by_path_response_200 = cls(
             hash_=hash_,
             path=path,
@@ -407,13 +477,13 @@ class GetScriptByPathResponse200:
             kind=kind,
             starred=starred,
             has_preprocessor=has_preprocessor,
+            is_draft=is_draft,
             workspace_id=workspace_id,
             parent_hashes=parent_hashes,
             schema=schema,
             lock=lock,
             lock_error_logs=lock_error_logs,
             tag=tag,
-            has_draft=has_draft,
             draft_only=draft_only,
             envs=envs,
             concurrent_limit=concurrent_limit,
@@ -438,6 +508,10 @@ class GetScriptByPathResponse200:
             modules=modules,
             labels=labels,
             inherited_labels=inherited_labels,
+            draft_saved_at=draft_saved_at,
+            no_deployed=no_deployed,
+            draft=draft,
+            other_drafts_users=other_drafts_users,
         )
 
         get_script_by_path_response_200.additional_properties = d

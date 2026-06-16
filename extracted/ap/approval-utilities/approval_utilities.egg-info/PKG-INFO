@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: approval_utilities
-Version: 18.1.0
+Version: 18.1.1
 Summary: Utilities for your production code that work well with approvaltests
 Home-page: https://github.com/approvals/ApprovalTests.Python
 Author: ApprovalTests Contributors
@@ -21,11 +21,13 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 License-File: LICENSE
+Requires-Dist: typing_extensions>=4.12.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

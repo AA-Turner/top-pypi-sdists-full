@@ -13,16 +13,19 @@ from typer_injector import InjectingTyper
 from pymobiledevice3.cli.cli_common import RSDServiceProviderDep, async_command, print_json
 from pymobiledevice3.lockdown import create_using_usbmux
 from pymobiledevice3.remote.core_device.app_service import AppServiceService
+from pymobiledevice3.remote.core_device.configuration_service import ConfigurationService
 from pymobiledevice3.remote.core_device.device_info import DeviceInfoService
 from pymobiledevice3.remote.core_device.diagnostics_service import DiagnosticsServiceService
 from pymobiledevice3.remote.core_device.display_service import DisplayService
 from pymobiledevice3.remote.core_device.file_service import APPLE_DOMAIN_DICT, FileServiceService
 from pymobiledevice3.remote.core_device.hid_service import (
+    ASCII_TO_HID,
     DIGITIZER_SURFACE_MAIN_TOUCHSCREEN,
     DIGITIZER_SURFACE_TOUCHSCREEN_GESTURE,
     HID_BUTTON_STATE_CANCELED,
     HID_BUTTON_STATE_DOWN,
     HID_BUTTON_STATE_UP,
+    KEY_LEFT_SHIFT,
     TOUCHSCREEN_STATE_CONTACT,
     TOUCHSCREEN_STATE_RELEASE,
     IndigoHIDService,
@@ -30,6 +33,7 @@ from pymobiledevice3.remote.core_device.hid_service import (
     touch_session,
 )
 from pymobiledevice3.remote.core_device.location_service import LocationService
+from pymobiledevice3.remote.core_device.orientation_service import OrientationService
 from pymobiledevice3.remote.core_device.screen_capture_service import ScreenCaptureService
 from pymobiledevice3.remote.core_device.screen_stream import (
     ScreenStreamServer,
@@ -284,6 +288,37 @@ async def core_device_get_lockstate(service_provider: RSDServiceProviderDep) -> 
     await core_device_get_lockstate_task(service_provider)
 
 
+@cli.command("rotate")
+@async_command
+async def core_device_rotate(
+    service_provider: RSDServiceProviderDep,
+    direction: Annotated[
+        str,
+        typer.Argument(
+            click_type=click.Choice(["left", "right"]),
+            help="Rotate 90 degrees: 'left' = CCW, 'right' = CW.",
+        ),
+    ] = "left",
+) -> None:
+    """Rotate the device 90 degrees. Four consecutive 'left' calls cycle a full turn."""
+    async with OrientationService(service_provider) as svc:
+        print_json(await svc.rotate(direction))
+
+
+@cli.command("user-interface-style")
+@async_command
+async def core_device_user_interface_style(
+    service_provider: RSDServiceProviderDep,
+    style: Annotated[Optional[str], typer.Argument(click_type=click.Choice(["dark", "light"]))] = None,
+) -> None:
+    """Get the active user-interface style; pass dark/light to set it."""
+    async with ConfigurationService(service_provider) as config:
+        if style is None:
+            print_json(await config.get_user_interface_style())
+        else:
+            await config.set_user_interface_style(style)
+
+
 async def core_device_list_apps_task(service_provider: RemoteServiceDiscoveryService) -> None:
     async with AppServiceService(service_provider) as app_service:
         print_json(await app_service.list_apps())
@@ -375,24 +410,31 @@ _BUTTON_STATE_CHOICES = {
     "canceled": HID_BUTTON_STATE_CANCELED,
 }
 
-# Named iOS hardware buttons → (usage_page, usage_code).
-# Most physical iOS buttons live on the Consumer page (0x0C).
-_NAMED_BUTTONS: dict[str, tuple[int, int]] = {
-    "home": (0x0C, 0x40),  # Consumer / Menu
-    "power": (0x0C, 0x30),  # Consumer / Power
-    "lock": (0x0C, 0x30),  # alias for power
-    "sleep": (0x0C, 0x32),  # Consumer / Sleep
-    "volume-up": (0x0C, 0xE9),  # Consumer / Volume Increment
-    "volume-down": (0x0C, 0xEA),  # Consumer / Volume Decrement
-    "mute": (0x0C, 0xE2),  # Consumer / Mute
-    "siri": (0x0C, 0xCF),  # Consumer / Voice Command
+# Named iOS hardware buttons → (usage_page, usage_code, hold_seconds).
+# Most physical iOS buttons live on the Consumer page (0x0C). ``hold_seconds``
+# is how long to keep DOWN before sending UP for the ``press`` shortcut --
+# iOS distinguishes a tap (Home / Vol / Mute) from a hold (Lock = sleep,
+# Siri = start listening) by the time the usage stays asserted. A 0 s hold
+# (which the previous implementation effectively did via back-to-back
+# send_button calls ~70 µs apart) reads to backboardd as bounce noise and
+# only the tap-class buttons fire on it.
+_NAMED_BUTTONS: dict[str, tuple[int, int, float]] = {
+    "home": (0x0C, 0x40, 0.05),  # Consumer / Menu
+    "lock": (0x0C, 0x30, 0.5),  # Consumer / Power, held long enough for iOS to sleep
+    "volume-up": (0x0C, 0xE9, 0.05),  # Consumer / Volume Increment
+    "volume-down": (0x0C, 0xEA, 0.05),  # Consumer / Volume Decrement
+    "mute": (0x0C, 0xE2, 0.05),  # Consumer / Mute
+    "siri": (0x0C, 0xCF, 1.0),  # Consumer / Voice Command, held to start listening
 }
 
 
-async def _send_button_press(service: IndigoHIDService, usage_page: int, usage_code: int, state: str) -> None:
+async def _send_button_press(
+    service: IndigoHIDService, usage_page: int, usage_code: int, state: str, hold: float = 0.05
+) -> None:
     """Dispatch a single button state (down/up/canceled), or down+up for ``press``."""
     if state == "press":
         await service.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+        await asyncio.sleep(hold)
         await service.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
     else:
         await service.send_button(usage_page, usage_code, _BUTTON_STATE_CHOICES[state])
@@ -422,9 +464,9 @@ async def core_device_hid_button(
     ] = "press",
 ) -> None:
     """Press a named iOS hardware button (home / power / volume-up / etc.)."""
-    usage_page, usage_code = _NAMED_BUTTONS[name]
+    usage_page, usage_code, hold = _NAMED_BUTTONS[name]
     async with IndigoHIDService(service_provider) as service:
-        await _send_button_press(service, usage_page, usage_code, state)
+        await _send_button_press(service, usage_page, usage_code, state, hold)
 
 
 @hid_cli.command("raw-button")
@@ -697,6 +739,44 @@ async def core_device_universal_hid_service_session(
 
 
 # ---------------------------------------------------------------------------
+# Keyboard typing — virtual HID keyboard registered atop universalhidservice
+# ---------------------------------------------------------------------------
+@universal_hid_service_cli.command("type")
+@async_command
+async def core_device_universal_hid_service_type(
+    service_provider: RSDServiceProviderDep,
+    text: Annotated[str, typer.Argument(help="Text to type (printable ASCII)")],
+    char_delay: Annotated[
+        float,
+        typer.Option("--char-delay", help="Seconds between key down and key up"),
+    ] = 0.04,
+    inter_delay: Annotated[
+        float,
+        typer.Option("--inter-delay", help="Seconds between characters"),
+    ] = 0.02,
+) -> None:
+    """Type ``TEXT`` on the device via a host-registered virtual keyboard.
+
+    Auto-opens a media stream (the dtuhidd auth gate) and registers a
+    virtual keyboard surface, then emits one ``down``/``up`` HID Keyboard
+    report pair per character. Capital letters and shifted symbols
+    synthesise the matching Left-Shift bit in the bitmap.
+    """
+    async with touch_session(service_provider) as service:
+        kb_service_id = await service.create_keyboard_service()
+        for ch in text:
+            mapping = ASCII_TO_HID.get(ch)
+            if mapping is None:
+                raise typer.BadParameter(f"unsupported character: {ch!r}")
+            usage, needs_shift = mapping
+            usages = (KEY_LEFT_SHIFT, usage) if needs_shift else (usage,)
+            await service.send_keyboard(kb_service_id, usages)
+            await asyncio.sleep(char_delay)
+            await service.send_keyboard(kb_service_id, ())
+            await asyncio.sleep(inter_delay)
+
+
+# ---------------------------------------------------------------------------
 # Display service — com.apple.coredevice.displayservice
 # ---------------------------------------------------------------------------
 display_cli = InjectingTyper(
@@ -774,13 +854,64 @@ async def core_device_display_start_audio_stream(
 async def core_device_display_serve_web(
     service_provider: RSDServiceProviderDep,
     display_id: Annotated[int, typer.Option("--display-id")] = 1,
-    bind: Annotated[str, typer.Option("--bind", help="Host to bind the webserver on")] = "127.0.0.1",
+    bind: Annotated[
+        str,
+        typer.Option(
+            "--bind",
+            help=(
+                "Host to bind the webserver on. Defaults to ``0.0.0.0`` so the "
+                "viewer is reachable from any device on the LAN. The /touch / "
+                "/button / /key endpoints have no auth, so anyone reaching this "
+                "port can both watch and control the iPhone -- pass ``127.0.0.1`` "
+                "if that's not what you want."
+            ),
+        ),
+    ] = "0.0.0.0",
     http_port: Annotated[int, typer.Option("--http-port", help="Port for the webserver")] = 8080,
     no_audio: Annotated[
         bool,
         typer.Option(
             "--no-audio",
             help="Don't auto-enable sound in the viewer (user can still click Enable Sound).",
+        ),
+    ] = False,
+    ltrp: Annotated[
+        bool,
+        typer.Option(
+            "--ltrp",
+            help=(
+                "Opt back into LTRP (long-term reference pictures). LTRP is OFF "
+                "by default because on-device probing showed the device honours "
+                "the protobuf-level switch (`IsltrpEnabled: false` in the "
+                "answer) and LTRP-off eliminates the mid-stream tearing pattern "
+                "under UDP loss. Apple's captured Xcode offer used LTRP-on; "
+                "this flag restores that for regression testing."
+            ),
+        ),
+    ] = False,
+    rtcp_fb: Annotated[
+        bool,
+        typer.Option(
+            "--rtcp-fb",
+            help=(
+                "Negotiate `allowRTCPFB=True` in the mediaBlob. No observable "
+                "effect in streamConfig but may influence internal encoder "
+                "behaviour."
+            ),
+        ),
+    ] = False,
+    https: Annotated[
+        bool,
+        typer.Option(
+            "--https",
+            help=(
+                "Serve over HTTPS using an ephemeral self-signed certificate. "
+                "Required for WebCodecs when accessing the viewer from a non-"
+                "loopback origin: the browser's secure-context policy refuses "
+                "WebCodecs over plain http:// from any LAN IP. The browser will "
+                "warn on first visit -- accept the cert and the viewer works "
+                "normally afterwards."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -793,6 +924,8 @@ async def core_device_display_serve_web(
 
     Open ``http://<bind>:<http_port>/`` in Safari or Chrome (macOS Chrome needs
     HEVC support — recent versions enable it by default if the OS supports it).
+    Pass ``--https`` when connecting from another LAN host (browsers gate
+    WebCodecs on a secure context; only loopback origins bypass that).
     """
     server = ScreenStreamServer(
         service_provider,
@@ -800,6 +933,9 @@ async def core_device_display_serve_web(
         http_port=http_port,
         display_id=display_id,
         audio_default_on=not no_audio,
+        allow_rtcp_fb=rtcp_fb,
+        ltrp_enabled=ltrp,
+        https=https,
     )
     await server.serve()
 
@@ -809,7 +945,18 @@ async def core_device_display_serve_web(
 async def core_device_display_serve_vnc(
     service_provider: RSDServiceProviderDep,
     display_id: Annotated[int, typer.Option("--display-id")] = 1,
-    bind: Annotated[str, typer.Option("--bind", help="Host to bind the VNC listener on")] = "127.0.0.1",
+    bind: Annotated[
+        str,
+        typer.Option(
+            "--bind",
+            help=(
+                "Host to bind the VNC listener on. Defaults to ``0.0.0.0`` so "
+                "any device on the LAN can connect. The VNC server has no "
+                "password, so anyone reaching this port can watch AND control "
+                "the iPhone -- pass ``127.0.0.1`` if that's not acceptable."
+            ),
+        ),
+    ] = "0.0.0.0",
     port: Annotated[int, typer.Option("--port", help="TCP port for the VNC listener")] = 5901,
     audio: Annotated[
         bool,
@@ -829,6 +976,20 @@ async def core_device_display_serve_vnc(
             ),
         ),
     ] = "auto",
+    ltrp: Annotated[
+        bool,
+        typer.Option(
+            "--ltrp",
+            help="Opt back into LTRP (off by default; see serve-web for context).",
+        ),
+    ] = False,
+    rtcp_fb: Annotated[
+        bool,
+        typer.Option(
+            "--rtcp-fb",
+            help="Negotiate allowRTCPFB=True in the mediaBlob (experimental).",
+        ),
+    ] = False,
 ) -> None:
     """Serve the device's screen as a VNC (RFB 3.8) server.
 
@@ -855,6 +1016,8 @@ async def core_device_display_serve_vnc(
         display_id=display_id,
         audio=audio,
         decoder=decoder,
+        allow_rtcp_fb=rtcp_fb,
+        ltrp_enabled=ltrp,
     )
     await server.serve()
 

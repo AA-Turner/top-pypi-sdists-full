@@ -274,17 +274,19 @@ RUNTIME_COUNT=0
 # able to see why Claude/Hermes pull MCP dependencies while file-based runtimes
 # only need the base CLI.
 _runtime_to_extras() {
+  # `tui` ships with every selection so the settings GUI
+  # (`ouroboros config`) works out of the box (#1414).
   case "$1" in
-    claude)  EXTRAS="[mcp,claude]"; RUNTIME="claude" ;;
-    codex)   EXTRAS=""; RUNTIME="codex" ;;
-    opencode) EXTRAS=""; RUNTIME="opencode" ;;
-    hermes)  EXTRAS="[mcp]"; RUNTIME="hermes" ;;
-    gemini)  EXTRAS=""; RUNTIME="gemini" ;;
-    kiro)    EXTRAS=""; RUNTIME="kiro" ;;
-    copilot) EXTRAS=""; RUNTIME="copilot" ;;
-    pi)      EXTRAS=""; RUNTIME="pi" ;;
+    claude)  EXTRAS="[mcp,claude,tui]"; RUNTIME="claude" ;;
+    codex)   EXTRAS="[tui]"; RUNTIME="codex" ;;
+    opencode) EXTRAS="[tui]"; RUNTIME="opencode" ;;
+    hermes)  EXTRAS="[mcp,tui]"; RUNTIME="hermes" ;;
+    gemini)  EXTRAS="[tui]"; RUNTIME="gemini" ;;
+    kiro)    EXTRAS="[tui]"; RUNTIME="kiro" ;;
+    copilot) EXTRAS="[tui]"; RUNTIME="copilot" ;;
+    pi)      EXTRAS="[tui]"; RUNTIME="pi" ;;
     all)     EXTRAS="[all]"; RUNTIME="" ;;
-    "")      EXTRAS=""; RUNTIME="" ;;
+    "")      EXTRAS="[tui]"; RUNTIME="" ;;
     *)
       _err "unsupported runtime '$1'"
       _info "Expected one of: claude, codex, opencode, hermes, gemini, kiro, copilot, pi, all"
@@ -297,6 +299,10 @@ _runtime_to_extras() {
 # Preserves user choice across upgrades unless --reconfigure / --runtime is set.
 EXISTING_RUNTIME=""
 EXISTING_CONFIG="$HOME/.ouroboros/config.yaml"
+# Fresh install (no config yet) → the post-install settings-GUI offer
+# defaults to yes; upgrades default to no.
+FRESH_CONFIG=true
+[ -f "$EXISTING_CONFIG" ] && FRESH_CONFIG=false
 if [ -z "$EXPLICIT_RUNTIME" ] && [ -z "$RECONFIGURE" ] && [ -f "$EXISTING_CONFIG" ] && command -v python3 &>/dev/null; then
   EXISTING_RUNTIME=$(EXISTING_CONFIG="$EXISTING_CONFIG" python3 -c "
 import os, re
@@ -333,14 +339,14 @@ elif [ "$RUNTIME_COUNT" -gt 1 ]; then
   if [ -t 0 ]; then
     _blank
     _say "${BOLD}Multiple runtimes detected. Pick where Ouroboros should appear first:${RESET}"
-    _choice 1 "Claude" "Claude Code plugin + MCP server (${PACKAGE_NAME}[mcp,claude])"
-    _choice 2 "Codex" "Codex plugin artifacts (${PACKAGE_NAME})"
-    _choice 3 "Hermes" "Hermes agent guides + MCP server (${PACKAGE_NAME}[mcp])"
-    _choice 4 "OpenCode" "OpenCode commands and agent files (${PACKAGE_NAME})"
-    _choice 5 "Gemini" "Gemini CLI integration (${PACKAGE_NAME})"
-    _choice 6 "Kiro" "Kiro CLI integration (${PACKAGE_NAME})"
-    _choice 7 "Copilot" "GitHub Copilot integration (${PACKAGE_NAME})"
-    _choice 8 "Pi" "Pi CLI bridge and instruction artifacts (${PACKAGE_NAME})"
+    _choice 1 "Claude" "Claude Code plugin + MCP server (${PACKAGE_NAME}[mcp,claude,tui])"
+    _choice 2 "Codex" "Codex plugin artifacts (${PACKAGE_NAME}[tui])"
+    _choice 3 "Hermes" "Hermes agent guides + MCP server (${PACKAGE_NAME}[mcp,tui])"
+    _choice 4 "OpenCode" "OpenCode commands and agent files (${PACKAGE_NAME}[tui])"
+    _choice 5 "Gemini" "Gemini CLI integration (${PACKAGE_NAME}[tui])"
+    _choice 6 "Kiro" "Kiro CLI integration (${PACKAGE_NAME}[tui])"
+    _choice 7 "Copilot" "GitHub Copilot integration (${PACKAGE_NAME}[tui])"
+    _choice 8 "Pi" "Pi CLI bridge and instruction artifacts (${PACKAGE_NAME}[tui])"
     _choice 9 "All" "Install every optional integration (${PACKAGE_NAME}[all])"
     _prompt "Select [1]: "
     read -r choice
@@ -382,14 +388,14 @@ else
   if [ -t 0 ]; then
     _blank
     _say "${BOLD}No runtime CLI detected yet. Choose the agent you plan to use:${RESET}"
-    _choice 1 "Claude" "Recommended: plugin + MCP server (${PACKAGE_NAME}[mcp,claude])"
-    _choice 2 "Codex" "Codex plugin artifacts (${PACKAGE_NAME})"
-    _choice 3 "Hermes" "Hermes agent guides + MCP server (${PACKAGE_NAME}[mcp])"
-    _choice 4 "OpenCode" "OpenCode commands and agent files (${PACKAGE_NAME})"
-    _choice 5 "Gemini" "Gemini CLI integration (${PACKAGE_NAME})"
-    _choice 6 "Kiro" "Kiro CLI integration (${PACKAGE_NAME})"
-    _choice 7 "Copilot" "GitHub Copilot integration (${PACKAGE_NAME})"
-    _choice 8 "Pi" "Pi CLI bridge and instruction artifacts (${PACKAGE_NAME})"
+    _choice 1 "Claude" "Recommended: plugin + MCP server (${PACKAGE_NAME}[mcp,claude,tui])"
+    _choice 2 "Codex" "Codex plugin artifacts (${PACKAGE_NAME}[tui])"
+    _choice 3 "Hermes" "Hermes agent guides + MCP server (${PACKAGE_NAME}[mcp,tui])"
+    _choice 4 "OpenCode" "OpenCode commands and agent files (${PACKAGE_NAME}[tui])"
+    _choice 5 "Gemini" "Gemini CLI integration (${PACKAGE_NAME}[tui])"
+    _choice 6 "Kiro" "Kiro CLI integration (${PACKAGE_NAME}[tui])"
+    _choice 7 "Copilot" "GitHub Copilot integration (${PACKAGE_NAME}[tui])"
+    _choice 8 "Pi" "Pi CLI bridge and instruction artifacts (${PACKAGE_NAME}[tui])"
     _choice 9 "All" "Install every optional integration (${PACKAGE_NAME}[all])"
     _choice 0 "None" "Base CLI only; choose a backend later"
     _prompt "Select [1]: "
@@ -447,26 +453,30 @@ if [ "$HAS_UV" = true ]; then
   # (e.g. forgetting `tui`) is caught in CI rather than discovered by a
   # user with a half-installed `[all]` tree.
   case "$EXTRAS" in
-    "[mcp,claude]")
+    "[mcp,claude,tui]")
       UV_ARGS+=(
-        --with "mcp>=1.26.0,<2.0.0"
-        --with "claude-agent-sdk>=0.1.0,<1.0.0"
-        --with "anthropic>=0.52.0,<1.0.0"
+        --with "mcp==1.27.2"
+        --with "claude-agent-sdk==0.2.87"
+        --with "anthropic==0.105.2"
       )
       ;;
-    "[mcp]")
-      UV_ARGS+=(--with "mcp>=1.26.0,<2.0.0")
+    "[mcp,tui]")
+      UV_ARGS+=(--with "mcp==1.27.2")
       ;;
     "[all]")
       UV_ARGS+=(
-        --with "mcp>=1.26.0,<2.0.0"
-        --with "claude-agent-sdk>=0.1.0,<1.0.0"
-        --with "anthropic>=0.52.0,<1.0.0"
-        --with "litellm>=1.80.0,<=1.82.6"
-        --with "textual>=1.0.0,<9.0.0"
+        --with "mcp==1.27.2"
+        --with "claude-agent-sdk==0.2.87"
+        --with "anthropic==0.105.2"
+        --with "litellm==1.86.2"
       )
       ;;
   esac
+  # Every install ships the settings GUI (`ouroboros config`).
+  UV_ARGS+=(
+    --with "textual==8.2.7"
+    --with "textual-serve==1.1.3"
+  )
   uv "${UV_ARGS[@]}"
 elif [ "$HAS_PIPX" = true ]; then
   INSTALL_METHOD="pipx"
@@ -547,7 +557,7 @@ if command -v claude &>/dev/null && { [ "$RUNTIME" = "claude" ] || [ "$EXTRAS" =
   # MCP command matches the installer that actually ran in step 3
   if [ "$INSTALL_METHOD" = "uv" ]; then
     case "$EXTRAS" in
-      "[mcp,claude]")
+      "[mcp,claude]" | "[mcp,claude,tui]")
         OUROBOROS_ENTRY='{"command":"uvx","args":["--from","ouroboros-ai[mcp,claude]","ouroboros","mcp","serve"]}'
         ;;
       "[all]")
@@ -628,3 +638,48 @@ if [ -n "$RUNTIME" ]; then
   _info "Current backend: $RUNTIME"
 fi
 _info "Switch backend later: ouroboros setup --runtime <claude|codex|opencode|hermes|gemini|kiro|copilot|pi>"
+_say "${BOLD}Settings GUI — pick per-stage agents & models${RESET}"
+_info 'Inside your AI agent: > ooo config   (opens in your browser)'
+_info 'From this terminal:  ouroboros config   (full-screen TUI)'
+
+# 6. Optional first-run settings GUI (interactive installs only).
+# install.sh always runs in a real terminal when interactive, so the
+# full-screen Textual settings app can open right here. curl|bash pipe
+# installs skip this automatically ([ -t 0 ] is false).
+if [ -t 0 ] && [ -z "${OUROBOROS_INSTALL_SKIP_CONFIG_GUI:-}" ]; then
+  if [ "$FRESH_CONFIG" = true ]; then
+    GUI_DEFAULT="y"
+    GUI_HINT="[Y/n]"
+  else
+    GUI_DEFAULT="n"
+    GUI_HINT="[y/N]"
+  fi
+  _blank
+  _say "${BOLD}First-time setup: pick per-stage agents & models in the settings GUI?${RESET}"
+  _prompt "Open settings GUI now $GUI_HINT: "
+  read -r gui_choice
+  case "${gui_choice:-$GUI_DEFAULT}" in
+    y | Y | yes | YES)
+      GUI_OK=false
+      if [ -n "${OUROBOROS_SETUP_CMD:-}" ] && "$OUROBOROS_SETUP_CMD" config; then
+        GUI_OK=true
+      elif command -v uvx &>/dev/null; then
+        # The selected extras may not include [tui]; run the GUI from an
+        # ephemeral env with the tui extra instead of fattening the install.
+        _info "Settings GUI needs the tui extra; running it via uvx..."
+        if uvx --from "${PACKAGE_NAME}[tui]" ouroboros config; then
+          GUI_OK=true
+        fi
+      fi
+      if [ "$GUI_OK" = false ]; then
+        _warn "Could not open the settings GUI."
+        _info "Run it later with: uvx --from '${PACKAGE_NAME}[tui]' ouroboros config"
+      fi
+      ;;
+    *)
+      _info "Skipped. Open it anytime:"
+      _info '  in your AI agent: > ooo config'
+      _info '  in a terminal:    ouroboros config'
+      ;;
+  esac
+fi

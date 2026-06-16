@@ -1,9 +1,8 @@
 from contextlib import aclosing
 from typing import Literal
 
-from httpx import Response
-
 from .accounts_pool import AccountsPool
+from .http import Response
 from .logger import logger, set_log_level
 from .models import (
     AccountAbout,
@@ -27,26 +26,26 @@ from .utils import encode_params, find_obj, get_by_path
 # This script rewrites the whole block automatically.
 
 # GQL_OPS_CODEGEN
-OP_AboutAccountQuery = "zUnx-DLN9dkwOkNhTLySjg/AboutAccountQuery"
-OP_BlueVerifiedFollowers = "crKOXrAHR3W3aPuKEJG8GA/BlueVerifiedFollowers"
-OP_Bookmarks = "XD0ViOeSOW4YoeNTGjVaYw/Bookmarks"
-OP_CommunityQuery = "uBpODvS60xZ1q2L88d-W2A/CommunityQuery"
-OP_CommunityTweetsTimeline = "gabM2RYROuhItXzDYUdjyA/CommunityTweetsTimeline"
-OP_Followers = "_orfRBQae57vylFPH0Huhg/Followers"
-OP_Following = "F42cDX8PDFxkbjjq6JrM2w/Following"
-OP_GenericTimelineById = "_dGVIf1cY6xFanFNPsAzPQ/GenericTimelineById"
-OP_ListLatestTweetsTimeline = "7UuJsFvnWuZo0HmxrzU42Q/ListLatestTweetsTimeline"
-OP_ListMembers = "oIetCo19avgStX4mOnGsPg/ListMembers"
-OP_ListMembers = "oIetCo19avgStX4mOnGsPg/ListMembers"
-OP_Retweeters = "TZsWuSj7vGmncVnq7KWDUQ/Retweeters"
-OP_SearchTimeline = "Yw6L66Pw54NHKuq4Dp7b4Q/SearchTimeline"
-OP_TweetDetail = "oCon7R-cgWRFy6EfZjaKfg/TweetDetail"
-OP_UserByRestId = "VQfQ9wwYdk6j_u2O4vt64Q/UserByRestId"
-OP_UserByScreenName = "IGgvgiOx4QZndDHuD3x9TQ/UserByScreenName"
-OP_UserCreatorSubscriptions = "-9O4xZ8ykY_Hf6kyHJX30A/UserCreatorSubscriptions"
-OP_UserMedia = "9EovraBTXJYGSEQXZqlLmQ/UserMedia"
-OP_UserTweets = "36rb3Xj3iJ64Q-9wKDjCcQ/UserTweets"
-OP_UserTweetsAndReplies = "D5eKzDa5ZoJuC1TCeAXbWA/UserTweetsAndReplies"
+OP_AboutAccountQuery = "TzOG2twZEfhr9KmClvVVqA/AboutAccountQuery"
+OP_BlueVerifiedFollowers = "OBBd6Dw-4qEYbsu3hGkyxg/BlueVerifiedFollowers"
+OP_Bookmarks = "i8QZ1qqy36ffA3bxfTaf7w/Bookmarks"
+OP_CommunityQuery = "-ElI1vg3dYbttVMhBhGdLw/CommunityQuery"
+OP_CommunityTweetsTimeline = "Mvs5UOOEkpXVMDZtUcxR-Q/CommunityTweetsTimeline"
+OP_Followers = "9jsVJ9l2uXUIKslHvJqIhw/Followers"
+OP_Following = "OLm4oHZBfqWx8jbcEhWoFw/Following"
+OP_GenericTimelineById = "KfIjJuNtxHJ-69Ziswa89w/GenericTimelineById"
+OP_ListLatestTweetsTimeline = "27HKUy8ulrflZ9Tole038g/ListLatestTweetsTimeline"
+OP_ListMembers = "H_0zFfjp73xGZrJpY-C2IQ/ListMembers"
+OP_ListMembers = "H_0zFfjp73xGZrJpY-C2IQ/ListMembers"
+OP_Retweeters = "FeoLYPQ-q4bmjGLTZTGs0g/Retweeters"
+OP_SearchTimeline = "yIphfmxUO-hddQHKIOk9tA/SearchTimeline"
+OP_TweetDetail = "meGUdoK_ryVZ0daBK-HJ2g/TweetDetail"
+OP_UserByRestId = "IBScZCvFJadZC25ubLYNRQ/UserByRestId"
+OP_UserByScreenName = "681MIj51w00Aj6dY0GXnHw/UserByScreenName"
+OP_UserCreatorSubscriptions = "8qiWrxuavgRRACul8oJo4w/UserCreatorSubscriptions"
+OP_UserMedia = "Ecl7YvFIuRaUPonVOHzoOA/UserMedia"
+OP_UserTweets = "RyDU3I9VJtPF-Pnl6vrRlw/UserTweets"
+OP_UserTweetsAndReplies = "plVqzvVGaDxbFEPoOe_i-A/UserTweetsAndReplies"
 OP_membersSliceTimeline_Query = "WSbJGJjZaVasSj9bnqSZSA/membersSliceTimeline_Query"
 OP_moderatorsSliceTimeline_Query = "GBMT3GOWy5dYsYC4XJfvow/moderatorsSliceTimeline_Query"
 # GQL_OPS_CODEGEN

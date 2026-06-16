@@ -89,6 +89,7 @@ class SubmitInputArgs(TypedDict, total=False):
                 openai.types.responses.response_input_param.FunctionCallOutput,
                 openai.types.responses.response_input_param.ToolSearchCall,
                 openai.types.responses.response_tool_search_output_item_param_param.ResponseToolSearchOutputItemParamParam,
+                openai.types.responses.response_input_param.AdditionalTools,
                 openai.types.responses.response_reasoning_item_param.ResponseReasoningItemParam,
                 openai.types.responses.response_compaction_item_param_param.ResponseCompactionItemParamParam,
                 openai.types.responses.response_input_param.ImageGenerationCall,
@@ -105,6 +106,7 @@ class SubmitInputArgs(TypedDict, total=False):
                 openai.types.responses.response_input_param.McpCall,
                 openai.types.responses.response_custom_tool_call_output_param.ResponseCustomToolCallOutputParam,
                 openai.types.responses.response_custom_tool_call_param.ResponseCustomToolCallParam,
+                openai.types.responses.response_input_param.CompactionTrigger,
                 openai.types.responses.response_input_param.ItemReference,
             ]
         ],
@@ -213,6 +215,9 @@ class SubmitInputArgs(TypedDict, total=False):
             "gpt-5.1-codex-max",
         ],
         openai.Omit,
+    ]
+    moderation: Union[
+        openai.types.responses.response_create_params.Moderation, None, openai.Omit
     ]
     parallel_tool_calls: Union[bool, None, openai.Omit]
     previous_response_id: Union[str, None, openai.Omit]

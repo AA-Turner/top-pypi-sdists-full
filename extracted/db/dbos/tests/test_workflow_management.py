@@ -71,6 +71,50 @@ def test_cancel_resume(dbos: DBOS) -> None:
     assert queue_entries_are_cleaned_up(dbos)
 
 
+def test_cancel_after_final_step(dbos: DBOS) -> None:
+    # A workflow cancelled after its final step completes (but before it
+    # finishes) must not be able to complete successfully. CANCELLED is terminal.
+    steps_completed = 0
+    workflow_event = threading.Event()
+    main_thread_event = threading.Event()
+    input = 5
+
+    @DBOS.step()
+    def step_one() -> None:
+        nonlocal steps_completed
+        steps_completed += 1
+
+    @DBOS.workflow()
+    def simple_workflow(x: int) -> int:
+        # The only step runs and records its output...
+        step_one()
+        # ...then the workflow is cancelled before it returns.
+        main_thread_event.set()
+        workflow_event.wait()
+        return x
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        cancelled_handle = DBOS.start_workflow(simple_workflow, input)
+    main_thread_event.wait()
+    DBOS.cancel_workflow(wfid)
+    workflow_event.set()
+
+    # The workflow must not complete successfully.
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        cancelled_handle.get_result()
+    assert steps_completed == 1
+    assert DBOS.get_workflow_status(wfid).status == "CANCELLED"  # type: ignore[union-attr]
+
+    # Resuming it should let it complete successfully.
+    handle = DBOS.resume_workflow(wfid)
+    assert handle.get_result() == input
+    assert DBOS.get_workflow_status(wfid).status == "SUCCESS"  # type: ignore[union-attr]
+    assert steps_completed == 1  # step_one was already recorded, not re-run
+
+    assert queue_entries_are_cleaned_up(dbos)
+
+
 def test_delete_workflow(dbos: DBOS) -> None:
     @DBOS.transaction()
     def txn(x: int) -> int:
@@ -201,6 +245,88 @@ def test_bulk_cancel(dbos: DBOS) -> None:
 
     # step_two should not have run for any workflow
     assert steps_completed == 3
+
+    assert queue_entries_are_cleaned_up(dbos)
+
+
+def test_cancel_workflow_children(dbos: DBOS) -> None:
+    # Build a three-level tree: parent -> child -> grandchild, each blocking.
+    parent_id = str(uuid.uuid4())
+    child_id = str(uuid.uuid4())
+    grandchild_id = str(uuid.uuid4())
+    ids = [parent_id, child_id, grandchild_id]
+
+    workflow_events: dict[str, threading.Event] = {i: threading.Event() for i in ids}
+    main_events: dict[str, threading.Event] = {i: threading.Event() for i in ids}
+
+    @DBOS.step()
+    def noop() -> None:
+        pass
+
+    @DBOS.workflow()
+    def grandchild_workflow() -> str:
+        wfid = DBOS.workflow_id
+        assert wfid is not None
+        main_events[wfid].set()
+        workflow_events[wfid].wait()
+        # A step after the wait so the workflow observes its cancellation.
+        noop()
+        return wfid
+
+    @DBOS.workflow()
+    def child_workflow() -> str:
+        wfid = DBOS.workflow_id
+        assert wfid is not None
+        with SetWorkflowID(grandchild_id):
+            DBOS.start_workflow(grandchild_workflow)
+        main_events[wfid].set()
+        workflow_events[wfid].wait()
+        noop()
+        return wfid
+
+    @DBOS.workflow()
+    def parent_workflow() -> str:
+        wfid = DBOS.workflow_id
+        assert wfid is not None
+        with SetWorkflowID(child_id):
+            DBOS.start_workflow(child_workflow)
+        main_events[wfid].set()
+        workflow_events[wfid].wait()
+        noop()
+        return wfid
+
+    with SetWorkflowID(parent_id):
+        parent_handle = DBOS.start_workflow(parent_workflow)
+
+    # Wait until the whole tree is running and blocked
+    for i in ids:
+        main_events[i].wait()
+
+    # The cascade should discover the full descendant tree
+    assert set(dbos._sys_db.get_workflow_children(parent_id)) == {
+        child_id,
+        grandchild_id,
+    }
+
+    # Cancelling without cancel_children only affects the parent
+    DBOS.cancel_workflow(parent_id, cancel_children=False)
+    assert DBOS.get_workflow_status(parent_id).status == "CANCELLED"  # type: ignore[union-attr]
+    assert DBOS.get_workflow_status(child_id).status != "CANCELLED"  # type: ignore[union-attr]
+    assert DBOS.get_workflow_status(grandchild_id).status != "CANCELLED"  # type: ignore[union-attr]
+
+    # Cancelling with cancel_children cancels the entire subtree
+    DBOS.cancel_workflow(parent_id, cancel_children=True)
+    for i in ids:
+        status = DBOS.get_workflow_status(i)
+        assert status is not None
+        assert status.status == "CANCELLED"
+
+    # Release the workflows so they observe the cancellation and threads exit
+    for evt in workflow_events.values():
+        evt.set()
+
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
+        parent_handle.get_result()
 
     assert queue_entries_are_cleaned_up(dbos)
 
@@ -368,9 +494,10 @@ def test_cancel_resume_queue(dbos: DBOS) -> None:
     main_thread_event.wait()
     DBOS.cancel_workflow(wfid)
     workflow_event.set()
-    with pytest.raises(Exception):
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         handle.get_result()
     assert steps_completed == 1
+    assert DBOS.get_workflow_status(wfid).status == "CANCELLED"  # type: ignore[union-attr]
 
     # Resume the workflow. Verify it completes successfully.
     handle = DBOS.resume_workflow(wfid)
@@ -859,8 +986,9 @@ def test_resume_and_fork_to_queue(dbos: DBOS) -> None:
     main_thread_event.wait()
     DBOS.cancel_workflow(wfid)
     workflow_event.set()
-    with pytest.raises(Exception):
+    with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         handle.get_result()
+    assert DBOS.get_workflow_status(wfid).status == "CANCELLED"  # type: ignore[union-attr]
     assert step_one_count == 1
     assert step_two_count == 0
 
@@ -1002,7 +1130,9 @@ def test_garbage_collection(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -
     assert len(workflows) == num_workflows
 
 
-def test_global_timeout(dbos: DBOS) -> None:
+def test_global_timeout(dbos: DBOS, skip_with_sqlite_imprecise_time: None) -> None:
+    # Skipped on imprecise-time SQLite: second-granularity created_at can eat
+    # the 1s margin between the cutoff and the final workflow's start time.
     event = threading.Event()
 
     @DBOS.workflow()

@@ -32,6 +32,7 @@ def test_finalize_guard_connect_payload_keeps_first_sync_pending_on_transient_sy
         _store: GuardStore,
         *,
         auth_context: dict[str, object] | None = None,
+        now: str | None = None,
     ) -> dict[str, object]:
         assert auth_context is None
         raise RuntimeError("temporary receipt sync failure")
@@ -80,6 +81,7 @@ def test_finalize_guard_connect_payload_keeps_first_sync_pending_on_sync_lock_ti
         _store: GuardStore,
         *,
         auth_context: dict[str, object] | None = None,
+        now: str | None = None,
     ) -> dict[str, object]:
         assert auth_context is None
         raise TimeoutError("Timed out waiting for Guard Cloud sync lock.")
@@ -121,6 +123,7 @@ def test_finalize_guard_connect_payload_uses_fresh_oauth_access_token_once(tmp_p
         _store: GuardStore,
         *,
         auth_context: dict[str, object] | None = None,
+        now: str | None = None,
     ) -> dict[str, object]:
         sync_calls.append(auth_context)
         return {
@@ -157,6 +160,48 @@ def test_finalize_guard_connect_payload_uses_fresh_oauth_access_token_once(tmp_p
     assert CONNECT_SYNC_AUTH_CONTEXT_KEY not in payload
 
 
+def test_finalize_guard_connect_payload_marks_not_configured_oauth_as_retry_required(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    connect_url = "https://hol.org/guard/connect"
+    now = "2026-06-04T12:00:00+00:00"
+
+    store.set_sync_credentials(
+        "https://hol.org/api/guard/receipts/sync",
+        "stale-sync-token",
+        "2026-06-04T11:59:00+00:00",
+    )
+    monkeypatch.setattr(store, "get_cloud_sync_profile", lambda: None)
+    monkeypatch.setattr(
+        store,
+        "get_oauth_local_credential_health",
+        lambda: {"configured": False, "state": "not_configured"},
+    )
+
+    payload = guard_commands_module._finalize_guard_connect_payload(
+        store=store,
+        connect_url=connect_url,
+        payload={"status": "connected"},
+        now=now,
+    )
+
+    assert payload["status"] == "retry_required"
+    assert payload["milestone"] == "first_sync_failed"
+    assert payload["sync_succeeded"] is False
+    assert payload["sync_error"] == (
+        "Guard Cloud authorization did not persist locally. "
+        "Run hol-guard connect again to repair local sign-in."
+    )
+    assert payload["repair_message"] == payload["sync_error"]
+    latest_state = payload["latest_connect_state"]
+    assert isinstance(latest_state, dict)
+    assert latest_state["status"] == "retry_required"
+    assert latest_state["milestone"] == "first_sync_failed"
+    assert store.get_cloud_sync_profile() is None
+
+
 def test_daemon_finalize_guard_connect_payload_uses_fresh_oauth_access_token_once(
     tmp_path,
     monkeypatch,
@@ -181,6 +226,7 @@ def test_daemon_finalize_guard_connect_payload_uses_fresh_oauth_access_token_onc
         _store: GuardStore,
         *,
         auth_context: dict[str, object] | None = None,
+        now: str | None = None,
     ) -> dict[str, object]:
         sync_calls.append(auth_context)
         return {
@@ -217,6 +263,48 @@ def test_daemon_finalize_guard_connect_payload_uses_fresh_oauth_access_token_onc
     assert CONNECT_SYNC_AUTH_CONTEXT_KEY not in payload
 
 
+def test_daemon_finalize_guard_connect_payload_marks_not_configured_oauth_as_retry_required(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    connect_url = "https://hol.org/guard/connect"
+    now = "2026-06-04T12:00:00+00:00"
+
+    store.set_sync_credentials(
+        "https://hol.org/api/guard/receipts/sync",
+        "stale-sync-token",
+        "2026-06-04T11:59:00+00:00",
+    )
+    monkeypatch.setattr(store, "get_cloud_sync_profile", lambda: None)
+    monkeypatch.setattr(
+        store,
+        "get_oauth_local_credential_health",
+        lambda: {"configured": False, "state": "not_configured"},
+    )
+
+    payload = daemon_server_module._finalize_daemon_guard_connect_payload(
+        store=store,
+        connect_url=connect_url,
+        payload={"status": "connected"},
+        now=now,
+    )
+
+    assert payload["status"] == "retry_required"
+    assert payload["milestone"] == "first_sync_failed"
+    assert payload["sync_succeeded"] is False
+    assert payload["sync_error"] == (
+        "Guard Cloud authorization did not persist locally. "
+        "Start Guard Cloud connect again to repair local sign-in."
+    )
+    assert payload["repair_message"] == payload["sync_error"]
+    latest_state = payload["latest_connect_state"]
+    assert isinstance(latest_state, dict)
+    assert latest_state["status"] == "retry_required"
+    assert latest_state["milestone"] == "first_sync_failed"
+    assert store.get_cloud_sync_profile() is None
+
+
 def test_daemon_finalize_guard_connect_payload_keeps_first_sync_pending_on_sync_lock_timeout(
     tmp_path,
     monkeypatch,
@@ -240,6 +328,7 @@ def test_daemon_finalize_guard_connect_payload_keeps_first_sync_pending_on_sync_
         _store: GuardStore,
         *,
         auth_context: dict[str, object] | None = None,
+        now: str | None = None,
     ) -> dict[str, object]:
         assert auth_context is None
         raise TimeoutError("Timed out waiting for Guard Cloud sync lock.")
@@ -373,6 +462,7 @@ def test_finalize_guard_connect_payload_keeps_reauth_failures_in_retry_required_
         _store: GuardStore,
         *,
         auth_context: dict[str, object] | None = None,
+        now: str | None = None,
     ) -> dict[str, object]:
         assert auth_context is None
         raise guard_commands_module.GuardSyncAuthorizationExpiredError("reauth required")
@@ -414,7 +504,12 @@ def test_headless_first_sync_auth_expiry_marks_connect_state_for_repair(tmp_path
         lambda: {"configured": True, "state": "healthy"},
     )
 
-    def _raise_auth_expired(_store: GuardStore) -> dict[str, object]:
+    def _raise_auth_expired(
+        _store: GuardStore,
+        *,
+        auth_context: dict[str, object] | None = None,
+        now: str | None = None,
+    ) -> dict[str, object]:
         raise guard_commands_module.GuardSyncAuthorizationExpiredError("reauth required")
 
     def _record_queue(*, store: GuardStore) -> dict[str, object]:

@@ -94,6 +94,7 @@ def coroutine_timer(
 
 # All this typing mess was stolen from TypeShed and adapted to our needs
 @overload
+# pyrefly: ignore [inconsistent-overload, inconsistent-overload-default]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     /,
@@ -103,6 +104,7 @@ async def gather(
 ) -> tuple[_T1]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -112,6 +114,7 @@ async def gather(
 ) -> tuple[_T1, _T2]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -122,6 +125,7 @@ async def gather(
 ) -> tuple[_T1, _T2, _T3]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -133,6 +137,7 @@ async def gather(
 ) -> tuple[_T1, _T2, _T3, _T4]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -145,6 +150,7 @@ async def gather(
 ) -> tuple[_T1, _T2, _T3, _T4, _T5]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -164,6 +170,7 @@ async def gather(
 ) -> list[T]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     /,
@@ -173,6 +180,7 @@ async def gather(
 ) -> tuple[_T1 | BaseException]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -183,6 +191,7 @@ async def gather(
 ) -> tuple[_T1 | BaseException, _T2 | BaseException]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -196,6 +205,7 @@ async def gather(
 ]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -213,6 +223,7 @@ async def gather(
 ]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],
@@ -232,6 +243,7 @@ async def gather(
 ]:  # pragma: no cover
     ...
 @overload
+# pyrefly: ignore [inconsistent-overload]
 async def gather(
     coro1: Coroutine[Any, Any, _T1],
     coro2: Coroutine[Any, Any, _T2],

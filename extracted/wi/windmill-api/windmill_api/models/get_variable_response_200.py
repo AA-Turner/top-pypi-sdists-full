@@ -8,7 +8,9 @@ from dateutil.parser import isoparse
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_variable_response_200_draft import GetVariableResponse200Draft
     from ..models.get_variable_response_200_extra_perms import GetVariableResponse200ExtraPerms
+    from ..models.get_variable_response_200_other_drafts_users_item import GetVariableResponse200OtherDraftsUsersItem
 
 
 T = TypeVar("T", bound="GetVariableResponse200")
@@ -22,6 +24,7 @@ class GetVariableResponse200:
         path (str):
         is_secret (bool):
         extra_perms (GetVariableResponse200ExtraPerms):
+        is_draft (bool):
         value (Union[Unset, str]):
         description (Union[Unset, str]):
         account (Union[Unset, int]):
@@ -37,12 +40,24 @@ class GetVariableResponse200:
         ws_specific (Union[Unset, bool]):
         edited_at (Union[Unset, datetime.datetime]):
         edited_by (Union[Unset, str]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            variable at the same path. Frontend renders a "Draft" badge.
+        draft_saved_at (Union[Unset, datetime.datetime]):
+        no_deployed (Union[Unset, bool]):
+        draft (Union[Unset, GetVariableResponse200Draft]):
+        other_drafts_users (Union[Unset, List['GetVariableResponse200OtherDraftsUsersItem']]): Other workspace users
+            (and the legacy NULL-email row, if any)
+            with a saved draft at the same path. Populated only on the
+            authed user's "get by path" responses for kinds the editor
+            surfaces a fork banner for (script, flow, app, raw_app).
+            Empty / omitted for kinds without that UI.
     """
 
     workspace_id: str
     path: str
     is_secret: bool
     extra_perms: "GetVariableResponse200ExtraPerms"
+    is_draft: bool
     value: Union[Unset, str] = UNSET
     description: Union[Unset, str] = UNSET
     account: Union[Unset, int] = UNSET
@@ -57,6 +72,11 @@ class GetVariableResponse200:
     ws_specific: Union[Unset, bool] = UNSET
     edited_at: Union[Unset, datetime.datetime] = UNSET
     edited_by: Union[Unset, str] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    no_deployed: Union[Unset, bool] = UNSET
+    draft: Union[Unset, "GetVariableResponse200Draft"] = UNSET
+    other_drafts_users: Union[Unset, List["GetVariableResponse200OtherDraftsUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -65,6 +85,7 @@ class GetVariableResponse200:
         is_secret = self.is_secret
         extra_perms = self.extra_perms.to_dict()
 
+        is_draft = self.is_draft
         value = self.value
         description = self.description
         account = self.account
@@ -91,6 +112,23 @@ class GetVariableResponse200:
             edited_at = self.edited_at.isoformat()
 
         edited_by = self.edited_by
+        draft_only = self.draft_only
+        draft_saved_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_saved_at, Unset):
+            draft_saved_at = self.draft_saved_at.isoformat()
+
+        no_deployed = self.no_deployed
+        draft: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.draft, Unset):
+            draft = self.draft.to_dict()
+
+        other_drafts_users: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.other_drafts_users, Unset):
+            other_drafts_users = []
+            for other_drafts_users_item_data in self.other_drafts_users:
+                other_drafts_users_item = other_drafts_users_item_data.to_dict()
+
+                other_drafts_users.append(other_drafts_users_item)
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -100,6 +138,7 @@ class GetVariableResponse200:
                 "path": path,
                 "is_secret": is_secret,
                 "extra_perms": extra_perms,
+                "is_draft": is_draft,
             }
         )
         if value is not UNSET:
@@ -130,12 +169,26 @@ class GetVariableResponse200:
             field_dict["edited_at"] = edited_at
         if edited_by is not UNSET:
             field_dict["edited_by"] = edited_by
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if draft_saved_at is not UNSET:
+            field_dict["draft_saved_at"] = draft_saved_at
+        if no_deployed is not UNSET:
+            field_dict["no_deployed"] = no_deployed
+        if draft is not UNSET:
+            field_dict["draft"] = draft
+        if other_drafts_users is not UNSET:
+            field_dict["other_drafts_users"] = other_drafts_users
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_variable_response_200_draft import GetVariableResponse200Draft
         from ..models.get_variable_response_200_extra_perms import GetVariableResponse200ExtraPerms
+        from ..models.get_variable_response_200_other_drafts_users_item import (
+            GetVariableResponse200OtherDraftsUsersItem,
+        )
 
         d = src_dict.copy()
         workspace_id = d.pop("workspace_id")
@@ -145,6 +198,8 @@ class GetVariableResponse200:
         is_secret = d.pop("is_secret")
 
         extra_perms = GetVariableResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
+
+        is_draft = d.pop("is_draft")
 
         value = d.pop("value", UNSET)
 
@@ -184,11 +239,37 @@ class GetVariableResponse200:
 
         edited_by = d.pop("edited_by", UNSET)
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        _draft_saved_at = d.pop("draft_saved_at", UNSET)
+        draft_saved_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_saved_at, Unset):
+            draft_saved_at = UNSET
+        else:
+            draft_saved_at = isoparse(_draft_saved_at)
+
+        no_deployed = d.pop("no_deployed", UNSET)
+
+        _draft = d.pop("draft", UNSET)
+        draft: Union[Unset, GetVariableResponse200Draft]
+        if isinstance(_draft, Unset):
+            draft = UNSET
+        else:
+            draft = GetVariableResponse200Draft.from_dict(_draft)
+
+        other_drafts_users = []
+        _other_drafts_users = d.pop("other_drafts_users", UNSET)
+        for other_drafts_users_item_data in _other_drafts_users or []:
+            other_drafts_users_item = GetVariableResponse200OtherDraftsUsersItem.from_dict(other_drafts_users_item_data)
+
+            other_drafts_users.append(other_drafts_users_item)
+
         get_variable_response_200 = cls(
             workspace_id=workspace_id,
             path=path,
             is_secret=is_secret,
             extra_perms=extra_perms,
+            is_draft=is_draft,
             value=value,
             description=description,
             account=account,
@@ -203,6 +284,11 @@ class GetVariableResponse200:
             ws_specific=ws_specific,
             edited_at=edited_at,
             edited_by=edited_by,
+            draft_only=draft_only,
+            draft_saved_at=draft_saved_at,
+            no_deployed=no_deployed,
+            draft=draft,
+            other_drafts_users=other_drafts_users,
         )
 
         get_variable_response_200.additional_properties = d

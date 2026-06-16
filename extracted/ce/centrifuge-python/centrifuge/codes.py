@@ -62,6 +62,30 @@ class _ErrorCode(Enum):
     BAD_CONFIGURATION = 12
     CONNECT_ERROR = 13
     SUBSCRIBE_ERROR = 14
+    SUBSCRIPTION_GET_STATE = 15
 
     # Errors with code > 100 are errors from server.
     TOKEN_EXPIRED = 109
+
+
+# Subscription feature flags — bitmask sent in SubscribeRequest flag field.
+#
+# Channel compaction asks the server to replace the string channel name with a
+# short numeric ID in subscription pushes (bandwidth optimization). Safe to send
+# unconditionally: servers that don't support or don't allow it ignore the bit
+# and keep sending the full channel name.
+_SUBSCRIPTION_FLAG_CHANNEL_COMPACTION = 1
+_SUBSCRIPTION_FLAG_REJECT_UNRECOVERED = 2
+
+# Server error code returned when recovery from the provided position is
+# impossible (only sent when _SUBSCRIPTION_FLAG_REJECT_UNRECOVERED was requested).
+_ERROR_CODE_UNRECOVERABLE_POSITION = 112
+
+# Server-sent "state invalidated" codes. The server determines that the client's
+# cached state and/or token are no longer valid and asks the client to drop them
+# and re-sync. 2502 arrives in an Unsubscribe push for a single subscription (the
+# client clears the subscription state and resubscribes, since it's >= 2500); 3014
+# arrives for the whole connection (the client clears the connection token to force
+# a fresh one via get_token, invalidates all subscriptions, reconnects).
+_UNSUBSCRIBED_STATE_INVALIDATED = 2502
+_DISCONNECTED_STATE_INVALIDATED = 3014

@@ -70,9 +70,12 @@ class _Cached(type):
         strip_tokenize_options = {
             k: kwargs.pop(k) for k in cls._strip_tokenize_options if k in kwargs
         }
-        token = tokenize(
-            cls, cls._pid, threading.get_ident(), *args, *extra_tokens, **kwargs
-        )
+        if getattr(cls, "async_impl", False) and not kwargs.get("asynchronous", False):
+            token = tokenize(cls, cls._pid, *args, *extra_tokens, **kwargs)
+        else:
+            token = tokenize(
+                cls, cls._pid, threading.get_ident(), *args, *extra_tokens, **kwargs
+            )
         skip = kwargs.pop("skip_instance_cache", False)
         if os.getpid() != cls._pid:
             cls._cache.clear()
@@ -871,7 +874,7 @@ class AbstractFileSystem(metaclass=_Cached):
         out = []
         for p, s, e in zip(paths, starts, ends):
             try:
-                out.append(self.cat_file(p, s, e))
+                out.append(self.cat_file(p, s, e, **kwargs))
             except Exception as e:
                 if on_error == "return":
                     out.append(e)
@@ -1175,7 +1178,9 @@ class AbstractFileSystem(metaclass=_Cached):
                 if on_error == "raise":
                     raise
 
-    def expand_path(self, path, recursive=False, maxdepth=None, **kwargs):
+    def expand_path(
+        self, path, recursive=False, maxdepth=None, assume_literal=False, **kwargs
+    ):
         """Turn one or more globs or directories into a list of all matching paths
         to files or directories.
 
@@ -1191,7 +1196,7 @@ class AbstractFileSystem(metaclass=_Cached):
             out = set()
             path = [self._strip_protocol(p) for p in path]
             for p in path:
-                if has_magic(p):
+                if not assume_literal and has_magic(p):
                     bit = set(self.glob(p, maxdepth=maxdepth, **kwargs))
                     out |= bit
                     if recursive:
@@ -1205,6 +1210,7 @@ class AbstractFileSystem(metaclass=_Cached):
                                 list(bit),
                                 recursive=recursive,
                                 maxdepth=maxdepth - 1 if maxdepth is not None else None,
+                                assume_literal=True,
                                 **kwargs,
                             )
                         )
@@ -1230,7 +1236,7 @@ class AbstractFileSystem(metaclass=_Cached):
         else:
             # explicitly raise exception to prevent data corruption
             self.copy(
-                path1, path2, recursive=recursive, maxdepth=maxdepth, onerror="raise"
+                path1, path2, recursive=recursive, maxdepth=maxdepth, on_error="raise"
             )
             self.rm(path1, recursive=recursive)
 
@@ -2216,7 +2222,7 @@ class AbstractBufferedFile(io.IOBase):
             if self.mode == "rb":
                 self.cache = None
             else:
-                if not self.forced:
+                if not getattr(self, "forced", True):
                     self.flush(force=True)
 
                 if self.fs is not None:

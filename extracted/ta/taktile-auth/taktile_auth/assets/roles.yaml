@@ -65,6 +65,7 @@ taktile_d_admin:
     - r+w:workspace_case_template/*,*
     - r+w:workspace_case/*,*
     - r+w:workspace_case_queue/*,*
+    - r+w:workspace_case_dashboard/*,*,*
 fwd_d/org_id:
     - d_admin/org_id
     - r+w:organization/org_id
@@ -184,6 +185,10 @@ ws_admin/org_id,ws_id:
     - r+w:workspace_case_template/org_id,ws_id
     - r+w:workspace_case/org_id,ws_id
     - r+w:workspace_case_queue/org_id,ws_id
+    - r:workspace_case_analytics/org_id,ws_id
+    - r+w:workspace_case_dashboard/org_id,ws_id,*
+case_dashboard_member/org_id,ws_id,dashboard_id:
+    - r+w:workspace_case_dashboard/org_id,ws_id,dashboard_id
 api_key_job_admin/org_id,ws_id:
     - ws_viewer/org_id,ws_id
     - r+w+d:workspace_job/org_id,ws_id

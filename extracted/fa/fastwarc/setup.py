@@ -14,19 +14,27 @@
 
 import os
 import platform
+from pathlib import Path
 from shutil import copytree
 import sys
 
 from Cython.Build import cythonize
 from Cython.Distutils.build_ext import new_build_ext as build_ext
 from setuptools import Extension, setup
+from setuptools.command.sdist import sdist
 from setuptools_rust import Binding, RustExtension
+
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+import tomli_w
 
 TRACE = bool(int(os.getenv('TRACE', 0)))
 DEBUG = bool(int(os.getenv('DEBUG', 0))) or TRACE
 ASAN = bool(int(os.getenv('ASAN', 0)))
 
-ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
+ROOT_DIR = Path(__file__).parent.absolute()
 
 
 class resiliparse_build_ext(build_ext):
@@ -50,12 +58,12 @@ class resiliparse_build_ext(build_ext):
         triplet = f'{arch}-{osname}'
 
         if os.environ.get('RESILIPARSE_VCPKG_PATH'):
-            return os.path.join(os.environ['RESILIPARSE_VCPKG_PATH'], triplet)
-        return os.path.join(os.path.dirname(ROOT_DIR), 'vcpkg_installed', triplet)
+            return Path(os.environ['RESILIPARSE_VCPKG_PATH']) / triplet
+        return ROOT_DIR.parent / 'vcpkg_installed' / triplet
 
     def get_cpp_args(self):
-        include_path = os.path.join(self.get_vcpkg_path(), 'include')
-        library_path = os.path.join(self.get_vcpkg_path(), 'lib')
+        include_path = self.get_vcpkg_path() / 'include'
+        library_path = self.get_vcpkg_path() / 'lib'
         cpp_args = {}
 
         if TRACE:
@@ -93,6 +101,40 @@ class resiliparse_build_ext(build_ext):
         return cpp_args
 
 
+class resiliparse_sdist(sdist):
+    def make_release_tree(self, base_dir, files):
+        super().make_release_tree(base_dir, files)
+        base_dir = Path(base_dir)
+
+        # Patch Cargo.toml
+        pkg_name = base_dir.name.split('-', 1)[0]
+        self.inline_workspace_dependencies(ROOT_DIR.parent / 'Cargo.toml', base_dir / pkg_name / 'Cargo.toml')
+
+    @staticmethod
+    def inline_workspace_dependencies(workspace_manifest, crate_manifest) -> None:
+        workspace = tomllib.loads(workspace_manifest.read_text())
+        crate = tomllib.loads(crate_manifest.read_text())
+
+        workspace_deps = workspace.get('workspace', {}).get('dependencies', {})
+        workspace_package = workspace.get('workspace', {}).get('package', {})
+
+        for k in crate['package']:
+            if isinstance(crate['package'][k], dict) and crate['package'][k].get('workspace') is True:
+                crate['package'][k] = workspace_package[k]
+        for section in ['dependencies', 'dev-dependencies', 'build-dependencies']:
+            deps = crate.get(section, {})
+            for name, spec in list(deps.items()):
+                if name in ['fastwarc', 'resiliparse']:
+                    deps[name] = workspace_package['version']
+                if isinstance(spec, dict) and spec.get('workspace') is True:
+                    inherited = workspace_deps[name]
+                    deps[name] = inherited
+
+        crate['workspace'] = {}
+
+        crate_manifest.write_text(tomli_w.dumps(crate))
+
+
 def get_cython_args():
     return dict(
         annotate=DEBUG,
@@ -120,12 +162,12 @@ def get_ext_modules():
 
 
 def main():
-    # Copy Resiliparse header files
-    if os.path.isdir(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_inc')):
-        copytree(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_inc'),
-                 os.path.join(ROOT_DIR, 'resiliparse_inc'), dirs_exist_ok=True)
-        copytree(os.path.join(ROOT_DIR, '..', 'resiliparse-py', 'resiliparse_common'),
-                 os.path.join(ROOT_DIR, 'resiliparse_common'), dirs_exist_ok=True)
+    # Copy Resiliparse headers
+    if ROOT_DIR.parent.joinpath('resiliparse-py', 'resiliparse_inc').is_dir():
+        copytree(ROOT_DIR.parent / 'resiliparse-py' / 'resiliparse_inc',
+                 ROOT_DIR / 'resiliparse_inc', dirs_exist_ok=True)
+        copytree(ROOT_DIR.parent / 'resiliparse-py' / 'resiliparse_common',
+                 ROOT_DIR / 'resiliparse_common', dirs_exist_ok=True)
 
     setup(
         ext_modules=get_ext_modules(),
@@ -136,9 +178,10 @@ def main():
                 binding=Binding.PyO3
             )
         ],
-        cmdclass=dict(build_ext=resiliparse_build_ext),
+        cmdclass=dict(build_ext=resiliparse_build_ext, sdist=resiliparse_sdist),
         exclude_package_data={
-            '': [] if 'sdist' in sys.argv else ['*.pxd', '*.pxi', '*.pyx', '*.h', '*.cpp']
+            '': [] if 'sdist' in sys.argv else ['*.rs', 'Cargo.toml', 'Cargo.lock',
+                                                '*.pxd', '*.pxi', '*.pyx', '*.h', '*.cpp']
         }
     )
 

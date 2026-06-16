@@ -351,7 +351,7 @@ async fn test_sdk_initialization_dist_recorded() {
 
 #[tokio::test]
 #[serial]
-async fn test_event_success_count_includes_log_event_endpoint() {
+async fn test_event_logging_metrics_include_request_context() {
     let obs_client = Arc::new(MockObservabilityClient {
         calls: Mutex::new(Vec::new()),
     });
@@ -369,22 +369,60 @@ async fn test_event_success_count_includes_log_event_endpoint() {
 
     let expected_source_api = mock_scrapi.url_for_endpoint(Endpoint::LogEvent);
     let deadline = Instant::now() + Duration::from_secs(1);
-    let mut found_metric = false;
+    let mut found_success_count = false;
+    let mut found_event_count = false;
+    let mut found_uncompressed_body_size = false;
+    let mut found_max_event_queue_time = false;
 
     while Instant::now() < deadline {
         {
             let calls = obs_client.calls.lock().unwrap();
-            found_metric = calls.iter().any(|call| match call {
+            found_success_count = calls.iter().any(|call| match call {
                 RecordedCall::Increment(metric_name, value, Some(tags)) => {
                     metric_name == "statsig.sdk.events_successfully_sent_count"
                         && *value > 0.0
                         && tags.get("source_api") == Some(&expected_source_api)
+                        && tags.get("flush_type").map(String::as_str) == Some("manual")
+                }
+                _ => false,
+            });
+
+            found_event_count = calls.iter().any(|call| match call {
+                RecordedCall::Dist(metric_name, value, Some(tags)) => {
+                    metric_name == "statsig.sdk.log_event_request_event_count"
+                        && *value > 0.0
+                        && tags.get("source_api") == Some(&expected_source_api)
+                        && tags.get("flush_type").map(String::as_str) == Some("manual")
+                }
+                _ => false,
+            });
+
+            found_uncompressed_body_size = calls.iter().any(|call| match call {
+                RecordedCall::Dist(metric_name, value, Some(tags)) => {
+                    metric_name == "statsig.sdk.log_event_request_uncompressed_body_size_bytes"
+                        && *value > 0.0
+                        && tags.get("source_api") == Some(&expected_source_api)
+                        && tags.get("flush_type").map(String::as_str) == Some("manual")
+                }
+                _ => false,
+            });
+
+            found_max_event_queue_time = calls.iter().any(|call| match call {
+                RecordedCall::Dist(metric_name, value, Some(tags)) => {
+                    metric_name == "statsig.sdk.log_event_request_max_event_queue_time_ms"
+                        && *value >= 0.0
+                        && tags.get("source_api") == Some(&expected_source_api)
+                        && tags.get("flush_type").map(String::as_str) == Some("manual")
                 }
                 _ => false,
             });
         }
 
-        if found_metric {
+        if found_success_count
+            && found_event_count
+            && found_uncompressed_body_size
+            && found_max_event_queue_time
+        {
             break;
         }
 
@@ -392,8 +430,20 @@ async fn test_event_success_count_includes_log_event_endpoint() {
     }
 
     assert!(
-        found_metric,
-        "Expected events_successfully_sent_count to include source_api"
+        found_success_count,
+        "Expected events_successfully_sent_count to include source_api and flush_type"
+    );
+    assert!(
+        found_event_count,
+        "Expected log_event_request_event_count to include request context"
+    );
+    assert!(
+        found_uncompressed_body_size,
+        "Expected log_event_request_uncompressed_body_size_bytes to include request context"
+    );
+    assert!(
+        found_max_event_queue_time,
+        "Expected log_event_request_max_event_queue_time_ms to include request context"
     );
 }
 

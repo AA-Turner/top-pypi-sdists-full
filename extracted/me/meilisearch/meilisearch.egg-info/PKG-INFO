@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meilisearch
-Version: 0.41.0
+Version: 0.41.1
 Summary: The python client for Meilisearch API.
 Author-email: Clémentine <clementine@meilisearch.com>
 License: MIT

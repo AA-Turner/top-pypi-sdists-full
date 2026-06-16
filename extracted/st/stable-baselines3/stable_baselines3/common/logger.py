@@ -7,12 +7,13 @@ import warnings
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from io import TextIOBase
-from typing import Any, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
-import matplotlib.figure
 import numpy as np
-import pandas
 import torch as th
+
+if TYPE_CHECKING:
+    import matplotlib.figure
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -53,7 +54,7 @@ class Figure:
     :param close: if true, close the figure after logging it
     """
 
-    def __init__(self, figure: matplotlib.figure.Figure, close: bool):
+    def __init__(self, figure: "matplotlib.figure.Figure", close: bool):
         self.figure = figure
         self.close = close
 
@@ -427,6 +428,7 @@ class TensorBoardOutputFormat(KVWriter):
                 self.writer.add_image(key, value.image, step, dataformats=value.dataformats)
 
             if isinstance(value, HParam):
+                assert self.writer.file_writer is not None
                 # we don't use `self.writer.add_hparams` to have control over the log_dir
                 experiment, session_start_info, session_end_info = hparams(value.hparam_dict, metric_dict=value.metric_dict)
                 self.writer.file_writer.add_summary(experiment)
@@ -665,32 +667,3 @@ def configure(folder: str | None = None, format_strings: list[str] | None = None
     if len(format_strings) > 0 and format_strings != ["stdout"]:
         logger.log(f"Logging to {folder}")
     return logger
-
-
-# ================================================================
-# Readers
-# ================================================================
-
-
-def read_json(filename: str) -> pandas.DataFrame:
-    """
-    read a json file using pandas
-
-    :param filename: the file path to read
-    :return: the data in the json
-    """
-    data = []
-    with open(filename) as file_handler:
-        for line in file_handler:
-            data.append(json.loads(line))
-    return pandas.DataFrame(data)
-
-
-def read_csv(filename: str) -> pandas.DataFrame:
-    """
-    read a csv file using pandas
-
-    :param filename: the file path to read
-    :return: the data in the csv
-    """
-    return pandas.read_csv(filename, index_col=None, comment="#")

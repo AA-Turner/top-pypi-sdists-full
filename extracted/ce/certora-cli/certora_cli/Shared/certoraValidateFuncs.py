@@ -93,6 +93,8 @@ class RunSources(Util.NoValEnum):
     LIGHT_TEST = auto()
     REPORT = auto()
     TIMEOUTER = auto()
+    STATIC_ANALYZER = auto()
+    AUTO_PROVER = auto()
 
 
 class WaitForResultOptions(Util.NoValEnum):

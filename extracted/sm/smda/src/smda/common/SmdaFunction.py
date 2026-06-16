@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
+import bisect
 import hashlib
 import logging
 import re
 import struct
-from typing import Iterator
+from typing import Iterator, List
 
+from smda.common.CodeXref import CodeXref
 from smda.common.DominatorTree import build_dominator_tree, get_nesting_depth
 from smda.common.ExceptionHandling import reraise_non_operational_exception
 from smda.common.SmdaBasicBlock import SmdaBasicBlock
@@ -16,13 +18,78 @@ from .SmdaInstruction import SmdaInstruction
 LOGGER = logging.getLogger(__name__)
 
 
+class LazyIntKeyDict(dict):
+    def __init__(self, data=None):
+        if data:
+            self._raw_data = data
+            self._is_converted = False
+        else:
+            dict.__init__(self)
+            self._is_converted = True
+
+    def _convert(self):
+        if not self._is_converted:
+            for k, v in self._raw_data.items():
+                dict.__setitem__(self, int(k), v)
+            self._is_converted = True
+            self._raw_data = None
+
+    def __getitem__(self, key):
+        self._convert()
+        return dict.__getitem__(self, key)
+
+    def __setitem__(self, key, value):
+        self._convert()
+        dict.__setitem__(self, key, value)
+
+    def __delitem__(self, key):
+        self._convert()
+        dict.__delitem__(self, key)
+
+    def __iter__(self):
+        self._convert()
+        return dict.__iter__(self)
+
+    def __len__(self):
+        if not self._is_converted:
+            return len(self._raw_data)
+        return dict.__len__(self)
+
+    def __contains__(self, key):
+        self._convert()
+        return dict.__contains__(self, key)
+
+    def get(self, key, default=None):
+        self._convert()
+        return dict.get(self, key, default)
+
+    def items(self):
+        self._convert()
+        return dict.items(self)
+
+    def keys(self):
+        self._convert()
+        return dict.keys(self)
+
+    def values(self):
+        self._convert()
+        return dict.values(self)
+
+    def copy(self):
+        self._convert()
+        return dict.copy(self)
+
+
 class SmdaFunction:
     smda_report = None
     offset = None
     blocks = None
+    _sorted_block_keys = None
     apirefs = None
     stringrefs = None
     blockrefs = None
+    _blockrefs_reverse = None
+    _normalized_blockrefs = None
     inrefs = None
     outrefs = None
     code_inrefs = None
@@ -36,11 +103,15 @@ class SmdaFunction:
     function_name = ""
     pic_hash = None
     opc_hash = None
+    nesting_depth = 0
     strongly_connected_components = None
     tfidf = None
 
     def __init__(self, disassembly=None, function_offset=None, config=None, smda_report=None):
         self.smda_report = smda_report
+        self.nesting_depth = 0
+        self._normalized_blockrefs = None
+        self._basic_blocks = None
         if disassembly is not None and function_offset is not None:
             self._escaper = IntelInstructionEscaper if disassembly.binary_info.architecture in ["intel"] else None
             self.offset = function_offset
@@ -72,14 +143,11 @@ class SmdaFunction:
             # DEX strings are part of the parsed file structure, so they're always
             # populated for Dalvik regardless of WITH_STRINGS — no extra extraction
             # cost. For other architectures, honor WITH_STRINGS as usual.
-            if (
-                config
-                and config.WITH_STRINGS
-                or (
-                    disassembly.binary_info.architecture == "dalvik"
-                    and disassembly.getStringRefsForFunction(function_offset)
-                )
-            ):
+            is_dalvik_with_strings = (
+                disassembly.binary_info.architecture == "dalvik"
+                and disassembly.getStringRefsForFunction(function_offset)
+            )
+            if (config and config.WITH_STRINGS) or is_dalvik_with_strings:
                 self.stringrefs = (
                     self._normalizeDalvikStringRefs(disassembly.getStringRefsForFunction(function_offset))
                     if disassembly.binary_info.architecture == "dalvik"
@@ -137,15 +205,18 @@ class SmdaFunction:
     def isExported(self):
         return self.is_exported
 
-    def getBlocks(self) -> Iterator["SmdaBasicBlock"]:
-        for _, block in sorted(self.blocks.items()):
-            yield SmdaBasicBlock(block, smda_function=self)
+    def getBlocks(self) -> List["SmdaBasicBlock"]:
+        if self._basic_blocks is None:
+            self._basic_blocks = [
+                SmdaBasicBlock(self.blocks[key], smda_function=self) for key in self._sorted_block_keys
+            ]
+        return self._basic_blocks
 
     def getPicHashAsLong(self):
         return self.pic_hash
 
     def getPicHashAsHex(self):
-        return struct.pack("l", self.pic_hash).hex()
+        return struct.pack("<Q", self.pic_hash).hex()
 
     def getInstructions(self):
         for block in self.getBlocks():
@@ -160,12 +231,25 @@ class SmdaFunction:
 
     def getCodeInrefs(self):
         self.smda_report.initCodeXrefs()
-        # potentially lazy initialize CodeXrefs externally via SmdaReport
+        if self.code_inrefs is None:
+            self.code_inrefs = []
+            for inref in self.inrefs:
+                if inref in self.smda_report._offset2ins:
+                    self.code_inrefs.append(
+                        CodeXref(self.smda_report._offset2ins[inref], self.smda_report._offset2ins[self.offset])
+                    )
         yield from self.code_inrefs
 
     def getCodeOutrefs(self):
         self.smda_report.initCodeXrefs()
-        # potentially lazy initialize CodeXrefs externally via SmdaReport
+        if self.code_outrefs is None:
+            self.code_outrefs = []
+            for outref_src, outref_dsts in self.outrefs.items():
+                for target in outref_dsts:
+                    if target in self.smda_report._offset2ins:
+                        self.code_outrefs.append(
+                            CodeXref(self.smda_report._offset2ins[outref_src], self.smda_report._offset2ins[target])
+                        )
         yield from self.code_outrefs
 
     def _calculateSccs(self):
@@ -187,12 +271,12 @@ class SmdaFunction:
         return nesting_depth
 
     def getPicHash(self, binary_info):
-        return struct.unpack("Q", hashlib.sha256(self.getPicHashSequence(binary_info)).digest()[:8])[0]
+        return struct.unpack("<Q", hashlib.sha256(self.getPicHashSequence(binary_info)).digest()[:8])[0]
 
     def getPicHashSequence(self, binary_info):
         escaped_binary_seqs = []
-        for _, block in sorted(self.blocks.items()):
-            for instruction in block:
+        for key in self._sorted_block_keys:
+            for instruction in self.blocks[key]:
                 escaped_binary_seqs.append(
                     instruction.getEscapedBinary(
                         self._escaper,
@@ -201,17 +285,17 @@ class SmdaFunction:
                         upper_addr=binary_info.base_addr + binary_info.binary_size,
                     )
                 )
-        return bytes([ord(c) for c in "".join(escaped_binary_seqs)])
+        return "".join(escaped_binary_seqs).encode("ascii")
 
     def getOpcHash(self):
-        return struct.unpack("Q", hashlib.sha256(self.getOpcHashSequence()).digest()[:8])[0]
+        return struct.unpack("<Q", hashlib.sha256(self.getOpcHashSequence()).digest()[:8])[0]
 
     def getOpcHashSequence(self):
         escaped_binary_seqs = []
-        for _, block in sorted(self.blocks.items()):
-            for instruction in block:
+        for key in self._sorted_block_keys:
+            for instruction in self.blocks[key]:
                 escaped_binary_seqs.append(instruction.getEscapedToOpcodeOnly(self._escaper))
-        return bytes([ord(c) for c in "".join(escaped_binary_seqs)])
+        return "".join(escaped_binary_seqs).encode("ascii")
 
     def _parseBlocks(self, block_dict):
         self.blocks = {}
@@ -219,24 +303,16 @@ class SmdaFunction:
             instructions = [SmdaInstruction(ins, smda_function=self) for ins in block]
             self.blocks[int(offset)] = instructions
             self.binweight += sum(len(ins.bytes) / 2 for ins in instructions)
+        self._sorted_block_keys = sorted(self.blocks.keys())
+        # invalidate any cached SmdaBasicBlock objects built from a previous block set
+        self._basic_blocks = None
 
     @staticmethod
     def _normalizeDalvikStringRefs(stringrefs):
         if not stringrefs:
             return []
         if isinstance(stringrefs, list):
-            normalized = []
-            for entry in stringrefs:
-                if isinstance(entry, dict):
-                    normalized.append(
-                        {
-                            "string": entry.get("string", ""),
-                            "ins_addr": int(entry.get("ins_addr", 0)),
-                            "data_addr": entry.get("data_addr", None),
-                            "type": entry.get("type", "dex"),
-                        }
-                    )
-            return normalized
+            return stringrefs
         if isinstance(stringrefs, dict):
             return [
                 {
@@ -250,12 +326,16 @@ class SmdaFunction:
         return stringrefs
 
     def _getContainingBlockStart(self, instruction_addr):
-        for block_start, block in self.blocks.items():
-            if not block:
-                continue
-            block_end = block[-1].offset + (len(block[-1].bytes) // 2)
-            if block_start <= instruction_addr < block_end:
-                return block_start
+        if not self._sorted_block_keys:
+            return None
+        idx = bisect.bisect_right(self._sorted_block_keys, instruction_addr)
+        if idx > 0:
+            block_start = self._sorted_block_keys[idx - 1]
+            block = self.blocks[block_start]
+            if block:
+                block_end = block[-1].offset + (len(block[-1].bytes) // 2)
+                if instruction_addr < block_end:
+                    return block_start
         return None
 
     def _getCfgRoot(self, normalized_blockrefs):
@@ -277,11 +357,15 @@ class SmdaFunction:
         return None
 
     def getNormalizedBlockRefs(self):
+        if getattr(self, "_normalized_blockrefs", None) is not None:
+            return self._normalized_blockrefs
+
         current_blockrefs = self.blockrefs or {}
-        normalized_blockrefs = {
-            block_start: sorted(current_blockrefs.get(block_start, [])) for block_start in self.blocks
-        }
+        normalized_blockrefs = {}
+
+        # 1. Preprocess active try ranges and prepare all normalized targets
         try_ranges = self.architecture_metadata.get("try_ranges", []) if self.architecture_metadata else []
+        active_try_ranges = []
         for try_range in try_ranges:
             raw_targets = []
             for handler in try_range.get("handlers", []):
@@ -292,22 +376,37 @@ class SmdaFunction:
                 raw_targets.append(try_range["catch_all_addr"])
             if not raw_targets:
                 continue
+
             normalized_targets = set()
             for target_addr in raw_targets:
                 block_start = self._getContainingBlockStart(target_addr)
                 if block_start is None:
                     block_start = target_addr
                 normalized_targets.add(block_start)
-                normalized_blockrefs.setdefault(block_start, [])
-            for block_start, block in self.blocks.items():
-                if not block:
-                    continue
+
+            active_try_ranges.append(
+                {"start": try_range["start_addr"], "end": try_range["end_addr"], "targets": normalized_targets}
+            )
+
+        # 2. Iterate blocks once to build normalized_blockrefs and apply try_ranges
+        for block_start, block in self.blocks.items():
+            successors = set(current_blockrefs.get(block_start, []))
+            if block:
                 block_end = block[-1].offset + (len(block[-1].bytes) // 2)
-                if try_range["start_addr"] < block_end and block_start < try_range["end_addr"]:
-                    successors = set(normalized_blockrefs.get(block_start, []))
-                    successors.update(normalized_targets)
-                    normalized_blockrefs[block_start] = sorted(successors)
-        return {block_start: normalized_blockrefs[block_start] for block_start in sorted(normalized_blockrefs)}
+                for r in active_try_ranges:
+                    if r["start"] < block_end and block_start < r["end"]:
+                        successors.update(r["targets"])
+            normalized_blockrefs[block_start] = sorted(successors)
+
+        # 3. Ensure any targets that are not in self.blocks are also keys in normalized_blockrefs
+        for r in active_try_ranges:
+            for target in r["targets"]:
+                if target not in normalized_blockrefs:
+                    normalized_blockrefs[target] = []
+
+        result = {block_start: normalized_blockrefs[block_start] for block_start in sorted(normalized_blockrefs)}
+        self._normalized_blockrefs = result
+        return result
 
     def toDotGraph(self, with_api=False):
         dot_graph = f'digraph "CFG for 0x{self.offset:x}" {{\n'
@@ -341,10 +440,12 @@ class SmdaFunction:
         smda_function.blocks = {}
         for addr, block in function_dict["blocks"].items():
             smda_function.blocks[int(addr)] = [SmdaInstruction.fromDict(ins, smda_function) for ins in block]
-        smda_function.apirefs = {int(k): v for k, v in function_dict["apirefs"].items()}
-        smda_function.blockrefs = {int(k): v for k, v in function_dict["blockrefs"].items()}
+        smda_function._sorted_block_keys = sorted(smda_function.blocks.keys())
+        smda_function._basic_blocks = None
+        smda_function.apirefs = LazyIntKeyDict(function_dict["apirefs"])
+        smda_function.blockrefs = LazyIntKeyDict(function_dict["blockrefs"])
         smda_function.inrefs = function_dict["inrefs"]
-        smda_function.outrefs = {int(k): v for k, v in function_dict["outrefs"].items()}
+        smda_function.outrefs = LazyIntKeyDict(function_dict["outrefs"])
         # provide some legacy support by assuming functions are not exported for SMDA reports < 1.7.0
         smda_function.is_exported = function_dict.get("is_exported", False)
         smda_function.architecture_metadata = function_dict.get("architecture_metadata", {})

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse
-Version: 4.7.1
+Version: 4.8.1
 Summary: A client library for accessing langfuse
 Author: langfuse
 Author-email: langfuse <developers@langfuse.com>
@@ -9,7 +9,7 @@ License-File: LICENSE
 Requires-Dist: httpx>=0.15.4,<1.0
 Requires-Dist: pydantic>=2,<3
 Requires-Dist: backoff>=1.10.0
-Requires-Dist: wrapt>=1.14,<2
+Requires-Dist: wrapt>=1.14,<3
 Requires-Dist: packaging>=23.2,<27.0
 Requires-Dist: opentelemetry-api>=1.33.1,<2
 Requires-Dist: opentelemetry-sdk>=1.33.1,<2
@@ -17,7 +17,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.33.1,<2
 Requires-Python: >=3.10, <4.0
 Description-Content-Type: text/markdown
 
-![Langfuse GitHub Banner](https://langfuse.com/langfuse_logo_white.png)
+<img width="2400" height="600" alt="hero-b" src="https://github.com/user-attachments/assets/4005eb1b-539d-4d35-9683-3a61ec9d9301" />
 
 # Langfuse Python SDK
 

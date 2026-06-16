@@ -8,6 +8,23 @@ import torch
 from .utils import has_overlapping, has_overlapping_nested
 
 
+def _expand_batch_param(value, batch_size: int, name: str) -> list:
+    if isinstance(value, (list, tuple)):
+        if len(value) != batch_size:
+            raise ValueError(f"{name} must have length {batch_size}, got {len(value)}")
+        return list(value)
+    return [value for _ in range(batch_size)]
+
+
+def _threshold_compare_tensor(threshold, batch_size: int, device, dims: int):
+    if isinstance(threshold, (list, tuple)):
+        if len(threshold) != batch_size:
+            raise ValueError(f"threshold must have length {batch_size}, got {len(threshold)}")
+        shape = [batch_size] + [1] * (dims - 1)
+        return torch.tensor(threshold, device=device).view(*shape)
+    return threshold
+
+
 @dataclass
 class Span:
     """Represents a detected entity span with its properties.
@@ -20,6 +37,7 @@ class Span:
         class_probs: Optional dict of top-k class probabilities
         generated_labels: Optional list of generated labels (for generative decoders)
     """
+
     start: int
     end: int
     entity_type: str
@@ -260,7 +278,7 @@ class BaseSpanDecoder(BaseDecoder):
         """
         # Mask probabilities to only include input spans (for efficiency)
         if input_spans_i is not None:
-            L, K_dim, C = probs_i.shape
+            L, K_dim, _ = probs_i.shape
             span_filter = torch.zeros(L, K_dim, dtype=torch.bool, device=probs_i.device)
             for word_start, word_end in input_spans_i:
                 width = word_end - word_start
@@ -350,6 +368,9 @@ class BaseSpanDecoder(BaseDecoder):
             List[List[Span]]: For each sample in batch, list of Span objects.
         """
         B, L, K_dim, C = probs.shape
+        thresholds = _expand_batch_param(threshold, B, "threshold")
+        flat_ner_values = _expand_batch_param(flat_ner, B, "flat_ner")
+        multi_label_values = _expand_batch_param(multi_label, B, "multi_label")
 
         # Fast path for batch size 1: use the per-item decoder directly.
         # The batch-level 4D torch.where has ~0.2ms fixed overhead on GPU and
@@ -358,18 +379,20 @@ class BaseSpanDecoder(BaseDecoder):
         if B == 1:
             id_to_class_0 = self._get_id_to_class_for_sample(id_to_classes, 0)
             input_spans_0 = input_spans[0] if input_spans is not None else None
-            return [self._decode_batch_item(
-                probs_i=probs[0],
-                tokens_i=tokens[0],
-                id_to_class_i=id_to_class_0,
-                K=K,
-                threshold=threshold,
-                flat_ner=flat_ner,
-                multi_label=multi_label,
-                span_label_map=span_label_maps[0],
-                return_class_probs=return_class_probs,
-                input_spans_i=input_spans_0,
-            )]
+            return [
+                self._decode_batch_item(
+                    probs_i=probs[0],
+                    tokens_i=tokens[0],
+                    id_to_class_i=id_to_class_0,
+                    K=K,
+                    threshold=thresholds[0],
+                    flat_ner=flat_ner_values[0],
+                    multi_label=multi_label_values[0],
+                    span_label_map=span_label_maps[0],
+                    return_class_probs=return_class_probs,
+                    input_spans_i=input_spans_0,
+                )
+            ]
 
         # Apply input_spans mask at batch level (one mask, one multiply)
         if input_spans is not None:
@@ -386,15 +409,14 @@ class BaseSpanDecoder(BaseDecoder):
             probs = probs * span_filter.unsqueeze(-1)
 
         # ONE torch.where on the full (B, L, K, C) tensor
-        b_idx, s_idx, k_idx, c_idx = torch.where(probs > threshold)
+        threshold_tensor = _threshold_compare_tensor(threshold, B, probs.device, probs.dim())
+        b_idx, s_idx, k_idx, c_idx = torch.where(probs > threshold_tensor)
 
         if b_idx.numel() == 0:
             return [[] for _ in range(B)]
 
         # ONE vectorized valid-span check across entire batch
-        num_tokens = torch.tensor(
-            [len(t) for t in tokens], device=probs.device, dtype=torch.long
-        )
+        num_tokens = torch.tensor([len(t) for t in tokens], device=probs.device, dtype=torch.long)
         valid = (s_idx + k_idx + 1) <= num_tokens[b_idx]
         b_idx = b_idx[valid]
         s_idx = s_idx[valid]
@@ -427,15 +449,11 @@ class BaseSpanDecoder(BaseDecoder):
             top_indices_list = all_top_indices.tolist()
 
         # Pre-resolve id_to_class mappings per batch item
-        id_to_class_per_item = [
-            self._get_id_to_class_for_sample(id_to_classes, i) for i in range(B)
-        ]
+        id_to_class_per_item = [self._get_id_to_class_for_sample(id_to_classes, i) for i in range(B)]
 
         # Group by batch item and build Span objects (pure Python)
         batch_spans: List[List[Span]] = [[] for _ in range(B)]
-        for j, (b, s, k, c, flat_idx, score) in enumerate(
-            zip(b_list, s_list, k_list, c_list, flat_idxs, scores)
-        ):
+        for j, (b, s, k, c, flat_idx, score) in enumerate(zip(b_list, s_list, k_list, c_list, flat_idxs, scores)):
             id_to_class_i = id_to_class_per_item[b]
 
             class_probs = None
@@ -445,15 +463,13 @@ class BaseSpanDecoder(BaseDecoder):
                     class_name = id_to_class_i.get(idx + 1, f"class_{idx}")
                     class_probs[class_name] = prob
 
-            span = self._build_span_tuple(
-                s, k, c, flat_idx, score, id_to_class_i, span_label_maps[b], class_probs
-            )
+            span = self._build_span_tuple(s, k, c, flat_idx, score, id_to_class_i, span_label_maps[b], class_probs)
             batch_spans[b].append(span)
 
         # Per-item greedy search (inherently sequential, but cheap pure Python)
         return [
-            self.greedy_search(spans, flat_ner, multi_label=multi_label)
-            for spans in batch_spans
+            self.greedy_search(spans, flat_ner_values[i], multi_label=multi_label_values[i])
+            for i, spans in enumerate(batch_spans)
         ]
 
     def decode(
@@ -544,13 +560,7 @@ class SpanDecoder(BaseSpanDecoder):
             Span: Span object with entity properties.
         """
         ent_type = id_to_class[class_idx + 1]  # +1 because 0 is <pad>
-        return Span(
-            start=start,
-            end=start + width,
-            entity_type=ent_type,
-            score=score,
-            class_probs=class_probs
-        )
+        return Span(start=start, end=start + width, entity_type=ent_type, score=score, class_probs=class_probs)
 
 
 class SpanGenerativeDecoder(BaseSpanDecoder):
@@ -619,14 +629,15 @@ class SpanGenerativeDecoder(BaseSpanDecoder):
         span_label_maps = [{} for _ in range(batch_size)]
         cursor = 0  # Tracks position in gen_labels
 
+        # Batch CPU transfer to avoid per-element .item() sync
+        sel_idx_cpu = sel_idx.tolist()
+
         for b in range(batch_size):
-            valid_pos = sel_idx[b] != -1
-            n = valid_pos.sum().item()  # Number of valid spans in this batch element
+            # Get flat indices that are valid (not -1)
+            flat_indices = [idx for idx in sel_idx_cpu[b] if idx != -1]
+            n = len(flat_indices)
 
             if n > 0:
-                # Get the flat indices of spans that were kept
-                flat_indices = sel_idx[b, valid_pos].tolist()
-
                 # Calculate the range of labels for this batch element
                 start_index = cursor * num_gen_sequences
                 end_index = start_index + n * num_gen_sequences
@@ -678,7 +689,7 @@ class SpanGenerativeDecoder(BaseSpanDecoder):
             entity_type=ent_type,
             score=score,
             class_probs=class_probs,
-            generated_labels=gen_ent_type
+            generated_labels=gen_ent_type,
         )
 
     def decode_generative(
@@ -828,7 +839,7 @@ def _decode_relations_batch(
     rel_idx: torch.Tensor,
     rel_logits: torch.Tensor,
     rel_mask: torch.Tensor,
-    rel_probs_threshold: float,
+    rel_probs_threshold: Union[float, List[float]],
     spans: List[List[tuple]],
     rel_id_to_classes: Union[Dict[int, str], List[Dict[int, str]]],
     batch_size: int,
@@ -863,19 +874,13 @@ def _decode_relations_batch(
     # 3. Vectorized index-validity check
     head = rel_idx[..., 0]  # (B, R)
     tail = rel_idx[..., 1]  # (B, R)
-    num_spans = torch.tensor(
-        [len(s) for s in spans], device=rel_idx.device, dtype=head.dtype
-    )  # (B,)
-    valid = (
-        (head >= 0)
-        & (tail >= 0)
-        & (head < num_spans[:, None])
-        & (tail < num_spans[:, None])
-    )  # (B, R)
+    num_spans = torch.tensor([len(s) for s in spans], device=rel_idx.device, dtype=head.dtype)  # (B,)
+    valid = (head >= 0) & (tail >= 0) & (head < num_spans[:, None]) & (tail < num_spans[:, None])  # (B, R)
     rel_probs = rel_probs * valid.unsqueeze(-1)
 
     # 4. Single torch.where on the full (B, R, C) tensor
-    b_idx, r_idx, c_idx = torch.where(rel_probs > rel_probs_threshold)
+    threshold_tensor = _threshold_compare_tensor(rel_probs_threshold, batch_size, rel_probs.device, rel_probs.dim())
+    b_idx, r_idx, c_idx = torch.where(rel_probs > threshold_tensor)
 
     if b_idx.numel() == 0:
         return relations
@@ -897,9 +902,7 @@ def _decode_relations_batch(
         mapping = rel_id_to_classes[b] if is_list else rel_id_to_classes
         if c1 not in mapping:
             continue
-        relations[b].append(
-            (int(head_list[k]), mapping[c1], int(tail_list[k]), scores[k])
-        )
+        relations[b].append((int(head_list[k]), mapping[c1], int(tail_list[k]), scores[k]))
 
     return relations
 
@@ -954,13 +957,7 @@ class SpanRelexDecoder(BaseSpanDecoder):
             Span: Span object with entity properties.
         """
         ent_type = id_to_class[class_idx + 1]  # +1 because 0 is <pad>
-        return Span(
-            start=start,
-            end=start + width,
-            entity_type=ent_type,
-            score=score,
-            class_probs=class_probs
-        )
+        return Span(start=start, end=start + width, entity_type=ent_type, score=score, class_probs=class_probs)
 
     def _build_entity_span_to_decoded_idx(
         self,
@@ -987,6 +984,9 @@ class SpanRelexDecoder(BaseSpanDecoder):
         if entity_spans is None:
             return [None] * batch_size
 
+        # Batch CPU transfer to avoid per-element .item() sync
+        entity_spans_cpu = entity_spans.tolist()
+
         mappings = []
         for i in range(batch_size):
             # Build reverse lookup: (start, end) -> index in decoded spans
@@ -998,9 +998,7 @@ class SpanRelexDecoder(BaseSpanDecoder):
 
             # Map each entity in target_span_rep to decoded span index
             model_to_decoded = {}
-            for e in range(entity_spans.size(1)):
-                start = entity_spans[i, e, 0].item()
-                end = entity_spans[i, e, 1].item()
+            for e, (start, end) in enumerate(entity_spans_cpu[i]):
                 key = (start, end)
                 if key in span_boundary_to_idx:
                     model_to_decoded[e] = span_boundary_to_idx[key]
@@ -1016,7 +1014,7 @@ class SpanRelexDecoder(BaseSpanDecoder):
         rel_logits: Optional[torch.Tensor],
         rel_mask: Optional[torch.Tensor],
         rel_id_to_classes: Union[Dict[int, str], List[Dict[int, str]]],
-        threshold: float,
+        threshold: Union[float, List[float]],
         batch_size: int,
         entity_spans: Optional[torch.Tensor] = None,
     ) -> List[List[tuple]]:
@@ -1058,24 +1056,32 @@ class SpanRelexDecoder(BaseSpanDecoder):
 
         rel_probs = torch.sigmoid(rel_logits)
 
+        # Batch CPU transfer to avoid per-element .item() sync
+        rel_idx_cpu = rel_idx.tolist()
+        rel_mask_cpu = rel_mask.tolist()
+        rel_probs_cpu = rel_probs.tolist()
+
         # Build mapping from model entity indices to decoded span indices
         idx_mappings = self._build_entity_span_to_decoded_idx(spans, entity_spans, batch_size)
 
         relations = [[] for _ in range(batch_size)]
 
         # Decode relations for each sample
+        thresholds = _expand_batch_param(threshold, batch_size, "relation_threshold")
         for i in range(batch_size):
             rel_id_to_class_i = rel_id_to_classes[i] if isinstance(rel_id_to_classes, list) else rel_id_to_classes
             idx_map = idx_mappings[i]
+            num_spans_i = len(spans[i])
+            threshold_i = thresholds[i]
 
             # Process each potential relation
-            for j in range(rel_idx.size(1)):
+            for j in range(len(rel_idx_cpu[i])):
                 # Skip if masked out
-                if not rel_mask[i, j]:
+                if not rel_mask_cpu[i][j]:
                     continue
 
-                model_head_idx = rel_idx[i, j, 0].item()
-                model_tail_idx = rel_idx[i, j, 1].item()
+                model_head_idx = rel_idx_cpu[i][j][0]
+                model_tail_idx = rel_idx_cpu[i][j][1]
 
                 # Skip invalid indices
                 if model_head_idx < 0 or model_tail_idx < 0:
@@ -1091,15 +1097,13 @@ class SpanRelexDecoder(BaseSpanDecoder):
                     # Fallback: use model indices directly (legacy behavior)
                     head_idx = model_head_idx
                     tail_idx = model_tail_idx
-                    if head_idx >= len(spans[i]) or tail_idx >= len(spans[i]):
+                    if head_idx >= num_spans_i or tail_idx >= num_spans_i:
                         continue
 
                 # Check each relation class
-                for c, p in enumerate(rel_probs[i, j]):
-                    prob = p.item()
-
+                for c, prob in enumerate(rel_probs_cpu[i][j]):
                     # Skip low confidence predictions
-                    if prob <= threshold:
+                    if prob <= threshold_i:
                         continue
 
                     # Skip if class ID not in mapping
@@ -1145,6 +1149,7 @@ class SpanRelexDecoder(BaseSpanDecoder):
             rel_idx: Optional tensor of shape (batch_size, num_relations, 2).
             rel_logits: Optional tensor of shape (batch_size, num_relations, num_relation_classes).
             rel_mask: Optional boolean tensor of shape (batch_size, num_relations).
+            return_class_probs: Whether to include class probabilities in the decoded spans.
             flat_ner: If True, applies greedy filtering for non-overlapping entities.
             threshold: Minimum confidence score for entity predictions.
             relation_threshold: Minimum confidence score for relation predictions.
@@ -1241,28 +1246,27 @@ class TokenDecoder(BaseDecoder):
         Returns:
             List[Span]: List of Span objects.
         """
+        # Batch CPU transfer to avoid per-element .item() sync in nested loops
+        scores_inside_cpu = scores_inside_i.tolist()
+        start_cpu = start_i.tolist()
+        end_cpu = end_i.tolist()
+
         span_i = []
         for st, cls_st in zip(*start_idx):
             for ed, cls_ed in zip(*end_idx):
                 if ed >= st and cls_st == cls_ed:
                     if input_spans_i is not None and (st, ed) not in input_spans_i:
                         continue
-                    ins = scores_inside_i[st : ed + 1, cls_st]
-                    if (ins < threshold).any():
+                    # Get inside scores for this span (already on CPU)
+                    ins = [scores_inside_cpu[pos][cls_st] for pos in range(st, ed + 1)]
+                    if any(score < threshold for score in ins):
                         continue
                     # Get the start and end scores for this span
-                    start_score = start_i[st, cls_st]
-                    end_score = end_i[ed, cls_ed]
-                    # Concatenate the inside scores with start and end scores
-                    combined = torch.cat([ins, start_score.unsqueeze(0), end_score.unsqueeze(0)])
-                    # The span score is the minimum value among these scores
-                    spn_score = combined.min().item()
-                    span_i.append(Span(
-                        start=st,
-                        end=ed,
-                        entity_type=id_to_classes[cls_st + 1],
-                        score=spn_score
-                    ))
+                    start_score = start_cpu[st][cls_st]
+                    end_score = end_cpu[ed][cls_ed]
+                    # The span score is the minimum value among all scores
+                    spn_score = min(*ins, start_score, end_score)
+                    span_i.append(Span(start=st, end=ed, entity_type=id_to_classes[cls_st + 1], score=spn_score))
         return span_i
 
     def _decode_from_spans(
@@ -1303,48 +1307,50 @@ class TokenDecoder(BaseDecoder):
             List[List[Span]]: For each sample, list of Span objects.
         """
         batch_size = span_logits.size(0)
+        thresholds = _expand_batch_param(threshold, batch_size, "threshold")
+        flat_ner_values = _expand_batch_param(flat_ner, batch_size, "flat_ner")
+        multi_label_values = _expand_batch_param(multi_label, batch_size, "multi_label")
         spans = []
 
         # Apply sigmoid to get probabilities
         span_probs = torch.sigmoid(span_logits)
 
+        # Batch CPU transfer to avoid per-element .item() sync
+        span_idx_cpu = span_idx.tolist()
+        span_probs_cpu = span_probs.tolist()
+        span_mask_cpu = span_mask.tolist()
+
         for i in range(batch_size):
             id_to_class_i = self._get_id_to_class_for_sample(id_to_classes, i)
             input_spans_set = set(input_spans[i]) if input_spans is not None else None
+            threshold_i = thresholds[i]
             span_scores = []
 
-            # Get valid spans for this sample
-            valid_mask = span_mask[i]
-            valid_indices = torch.where(valid_mask)[0]
+            # Get valid span positions from pre-converted mask
+            valid_positions = [j for j, valid in enumerate(span_mask_cpu[i]) if valid]
 
-            for span_pos in valid_indices:
-                span_start = span_idx[i, span_pos, 0].item()
-                span_end = span_idx[i, span_pos, 1].item()
+            for span_pos in valid_positions:
+                span_start = span_idx_cpu[i][span_pos][0]
+                span_end = span_idx_cpu[i][span_pos][1]
 
                 # Skip spans not in input_spans
                 if input_spans_set is not None and (span_start, span_end) not in input_spans_set:
                     continue
 
-                # Get probabilities for all classes for this span
-                probs = span_probs[i, span_pos]
+                # Get probabilities for all classes for this span (already on CPU)
+                probs = span_probs_cpu[i][span_pos]
 
                 # Find classes above threshold
-                class_indices = torch.where(probs > threshold)[0]
-
-                for class_idx in class_indices:
-                    class_id = class_idx.item() + 1  # Convert to 1-indexed
+                for class_idx, prob in enumerate(probs):
+                    if prob <= threshold_i:
+                        continue
+                    class_id = class_idx + 1  # Convert to 1-indexed
                     if class_id in id_to_class_i:
                         entity_type = id_to_class_i[class_id]
-                        score = probs[class_idx].item()
-                        span_scores.append(Span(
-                            start=span_start,
-                            end=span_end,
-                            entity_type=entity_type,
-                            score=score
-                        ))
+                        span_scores.append(Span(start=span_start, end=span_end, entity_type=entity_type, score=prob))
 
             # Apply greedy search to handle overlapping spans if needed
-            span_i = self.greedy_search(span_scores, flat_ner, multi_label)
+            span_i = self.greedy_search(span_scores, flat_ner_values[i], multi_label_values[i])
             spans.append(span_i)
         return spans
 
@@ -1418,22 +1424,27 @@ class TokenDecoder(BaseDecoder):
         if model_output is not None:
             model_output = model_output.permute(3, 0, 1, 2)
             scores_start, scores_end, scores_inside = model_output
+            batch_size = len(tokens)
+            thresholds = _expand_batch_param(threshold, batch_size, "threshold")
+            flat_ner_values = _expand_batch_param(flat_ner, batch_size, "flat_ner")
+            multi_label_values = _expand_batch_param(multi_label, batch_size, "multi_label")
             spans = []
 
             for i, _ in enumerate(tokens):
                 id_to_class_i = self._get_id_to_class_for_sample(id_to_classes, i)
                 input_spans_i = set(input_spans[i]) if input_spans is not None else None
+                threshold_i = thresholds[i]
                 span_scores = self._calculate_span_score(
-                    self._get_indices_above_threshold(scores_start[i], threshold),
-                    self._get_indices_above_threshold(scores_end[i], threshold),
+                    self._get_indices_above_threshold(scores_start[i], threshold_i),
+                    self._get_indices_above_threshold(scores_end[i], threshold_i),
                     torch.sigmoid(scores_inside[i]),
                     torch.sigmoid(scores_start[i]),
                     torch.sigmoid(scores_end[i]),
                     id_to_class_i,
-                    threshold,
+                    threshold_i,
                     input_spans_i=input_spans_i,
                 )
-                span_i = self.greedy_search(span_scores, flat_ner, multi_label)
+                span_i = self.greedy_search(span_scores, flat_ner_values[i], multi_label_values[i])
                 spans.append(span_i)
             return spans
 
@@ -1487,6 +1498,9 @@ class TokenRelexDecoder(TokenDecoder):
         if entity_spans is None:
             return [None] * batch_size
 
+        # Batch CPU transfer to avoid per-element .item() sync
+        entity_spans_cpu = entity_spans.tolist()
+
         mappings = []
         for i in range(batch_size):
             span_boundary_to_idx = {}
@@ -1496,9 +1510,7 @@ class TokenRelexDecoder(TokenDecoder):
                     span_boundary_to_idx[key] = idx
 
             model_to_decoded = {}
-            for e in range(entity_spans.size(1)):
-                start = entity_spans[i, e, 0].item()
-                end = entity_spans[i, e, 1].item()
+            for e, (start, end) in enumerate(entity_spans_cpu[i]):
                 key = (start, end)
                 if key in span_boundary_to_idx:
                     model_to_decoded[e] = span_boundary_to_idx[key]
@@ -1513,7 +1525,7 @@ class TokenRelexDecoder(TokenDecoder):
         rel_logits: Optional[torch.Tensor],
         rel_mask: Optional[torch.Tensor],
         rel_id_to_classes: Union[Dict[int, str], List[Dict[int, str]]],
-        threshold: float,
+        threshold: Union[float, List[float]],
         batch_size: int,
         entity_spans: Optional[torch.Tensor] = None,
     ) -> List[List[tuple]]:
@@ -1545,24 +1557,32 @@ class TokenRelexDecoder(TokenDecoder):
 
         rel_probs = torch.sigmoid(rel_logits)
 
+        # Batch CPU transfer to avoid per-element .item() sync
+        rel_idx_cpu = rel_idx.tolist()
+        rel_mask_cpu = rel_mask.tolist()
+        rel_probs_cpu = rel_probs.tolist()
+
         # Build mapping from model entity indices to decoded span indices
         idx_mappings = self._build_entity_span_to_decoded_idx(spans, entity_spans, batch_size)
 
         relations = [[] for _ in range(batch_size)]
-        
+
         # Decode relations for each sample
+        thresholds = _expand_batch_param(threshold, batch_size, "relation_threshold")
         for i in range(batch_size):
             rel_id_to_class_i = rel_id_to_classes[i] if isinstance(rel_id_to_classes, list) else rel_id_to_classes
             idx_map = idx_mappings[i]
+            num_spans_i = len(spans[i])
+            threshold_i = thresholds[i]
 
             # Process each potential relation
-            for j in range(rel_idx.size(1)):
+            for j in range(len(rel_idx_cpu[i])):
                 # Skip if masked out
-                if not rel_mask[i, j]:
+                if not rel_mask_cpu[i][j]:
                     continue
 
-                model_head_idx = rel_idx[i, j, 0].item()
-                model_tail_idx = rel_idx[i, j, 1].item()
+                model_head_idx = rel_idx_cpu[i][j][0]
+                model_tail_idx = rel_idx_cpu[i][j][1]
 
                 # Skip invalid indices
                 if model_head_idx < 0 or model_tail_idx < 0:
@@ -1577,15 +1597,13 @@ class TokenRelexDecoder(TokenDecoder):
                 else:
                     head_idx = model_head_idx
                     tail_idx = model_tail_idx
-                    if head_idx >= len(spans[i]) or tail_idx >= len(spans[i]):
+                    if head_idx >= num_spans_i or tail_idx >= num_spans_i:
                         continue
 
                 # Check each relation class
-                for c, p in enumerate(rel_probs[i, j]):
-                    prob = p.item()
-
+                for c, prob in enumerate(rel_probs_cpu[i][j]):
                     # Skip low confidence predictions
-                    if prob <= threshold:
+                    if prob <= threshold_i:
                         continue
 
                     # Skip if class ID not in mapping (c + 1 because 0 is padding)
@@ -1646,6 +1664,8 @@ class TokenRelexDecoder(TokenDecoder):
             rel_id_to_classes: Optional mapping from relation class IDs to relation names.
                 If None, relation decoding is skipped and empty relation lists are returned.
                 Can be either a single Dict or List[Dict] for per-sample mappings.
+            entity_spans: Optional tensor of pre-computed entity spans to use instead
+                of decoding them from model_output.
                 Class IDs are 1-indexed.
             **kwargs: Additional keyword arguments passed to the parent class decode method.
 
@@ -1772,39 +1792,50 @@ class TokenGenerativeDecoder(TokenDecoder, SpanGenerativeDecoder):
             span_label_maps = [{} for _ in range(B)]
 
         batch_size = span_logits.size(0)
+        thresholds = _expand_batch_param(threshold, batch_size, "threshold")
+        flat_ner_values = _expand_batch_param(flat_ner, batch_size, "flat_ner")
+        multi_label_values = _expand_batch_param(multi_label, batch_size, "multi_label")
         spans = []
 
         span_probs = torch.sigmoid(span_logits)
+
+        # Batch CPU transfer to avoid per-element .item() sync
+        span_idx_cpu = span_idx.tolist()
+        span_probs_cpu = span_probs.tolist()
+        span_mask_cpu = span_mask.tolist()
 
         for i in range(batch_size):
             id_to_class_i = self._get_id_to_class_for_sample(id_to_classes, i)
             span_label_map_i = span_label_maps[i]
             input_spans_set = set(input_spans[i]) if input_spans is not None else None
+            threshold_i = thresholds[i]
             span_scores = []
 
-            valid_mask = span_mask[i]
-            valid_indices = torch.where(valid_mask)[0]
+            # Get valid span positions from pre-converted mask
+            valid_positions = [j for j, valid in enumerate(span_mask_cpu[i]) if valid]
 
-            for span_pos in valid_indices:
-                span_start = span_idx[i, span_pos, 0].item()
-                span_end = span_idx[i, span_pos, 1].item()
+            for span_pos in valid_positions:
+                span_start = span_idx_cpu[i][span_pos][0]
+                span_end = span_idx_cpu[i][span_pos][1]
 
                 # Skip spans not in input_spans
                 if input_spans_set is not None and (span_start, span_end) not in input_spans_set:
                     continue
 
-                probs = span_probs[i, span_pos]
-                class_indices = torch.where(probs > threshold)[0]
+                # Get probabilities for all classes for this span (already on CPU)
+                probs = span_probs_cpu[i][span_pos]
 
-                for class_idx in class_indices:
-                    class_id = class_idx.item() + 1
+                # Find classes above threshold
+                for class_idx, prob in enumerate(probs):
+                    if prob <= threshold_i:
+                        continue
+                    class_id = class_idx + 1
                     if class_id in id_to_class_i:
                         entity_type = id_to_class_i[class_id]
-                        score = probs[class_idx].item()
-                        gen_label = span_label_map_i.get(span_pos.item())
-                        span_scores.append((span_start, span_end, entity_type, gen_label, score))
+                        gen_label = span_label_map_i.get(span_pos)
+                        span_scores.append((span_start, span_end, entity_type, gen_label, prob))
 
-            span_i = self.greedy_search(span_scores, flat_ner, multi_label)
+            span_i = self.greedy_search(span_scores, flat_ner_values[i], multi_label_values[i])
             spans.append(span_i)
 
         return spans

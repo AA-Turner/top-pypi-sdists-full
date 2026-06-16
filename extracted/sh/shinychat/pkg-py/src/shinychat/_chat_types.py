@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import AsyncIterable, Literal, Union
 
 from htmltools import HTML, HTMLDependency, Tag, TagChild, TagList
+from pydantic import BaseModel
 
 from ._html_islands import split_html_islands
 from ._typing_extensions import NotRequired, TypedDict
 
 Role = Literal["assistant", "user", "system"]
+
+SerializedDep = dict[str, object]
 
 # ---------------------------------------------------------------------------
 # Wire-format types (mirrors js/src/transport/types.ts)
@@ -17,13 +19,16 @@ Role = Literal["assistant", "user", "system"]
 ContentType = Literal["markdown", "html", "text", "thinking"]
 
 
-class MessagePayload(TypedDict):
-    role: Literal["user", "assistant"]
+class MessagePayloadSegment(TypedDict):
     content: str
     content_type: ContentType
+
+
+class MessagePayload(TypedDict):
+    role: Literal["user", "assistant"]
+    segments: list[MessagePayloadSegment]
     id: NotRequired[str]
     icon: NotRequired[str]
-    html_deps: NotRequired[list[dict[str, object]]]
 
 
 class MessageAction(TypedDict):
@@ -64,6 +69,11 @@ class RemoveLoadingAction(TypedDict):
     type: Literal["remove_loading"]
 
 
+class UpdateCancelAction(TypedDict):
+    type: Literal["update_cancel"]
+    enable_cancel: bool
+
+
 class HideToolRequestAction(TypedDict):
     type: Literal["hide_tool_request"]
     requestId: str
@@ -102,6 +112,17 @@ class GreetingClearAction(TypedDict):
     type: Literal["greeting_clear"]
 
 
+class SlashCommandDef(TypedDict):
+    name: str
+    description: str
+    echo: bool
+
+
+class UpdateSlashCommandsAction(TypedDict):
+    type: Literal["update_slash_commands"]
+    commands: list[SlashCommandDef]
+
+
 ChatAction = Union[
     MessageAction,
     ChunkStartAction,
@@ -110,19 +131,21 @@ ChatAction = Union[
     ClearAction,
     UpdateInputAction,
     RemoveLoadingAction,
+    UpdateCancelAction,
     HideToolRequestAction,
     GreetingAction,
     GreetingStartAction,
     GreetingChunkAction,
     GreetingEndAction,
     GreetingClearAction,
+    UpdateSlashCommandsAction,
 ]
 
 
 class ShinyChatEnvelope(TypedDict):
     id: str
     action: ChatAction
-    html_deps: NotRequired[list[dict[str, object]]]
+    html_deps: NotRequired[list[SerializedDep]]
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +158,7 @@ class ShinyChatEnvelope(TypedDict):
 class ChatMessageDict(TypedDict):
     content: str
     role: Role
-    html_deps: NotRequired[list[dict[str, object]]]
+    html_deps: NotRequired[list[SerializedDep]]
 
 
 class ChatMessage:
@@ -260,20 +283,68 @@ def chat_greeting(
     )
 
 
-@dataclass
-class StoredMessage:
-    content: str | HTML
+class _SegmentBase(BaseModel):
+    content: str
+    content_type: ContentType
+
+    def __str__(self) -> str:
+        return self.stringify(self.content, self.content_type)
+
+    @staticmethod
+    def stringify(content: str, content_type: ContentType) -> str:
+        if content_type == "thinking":
+            return f"<thinking>\n{content}\n</thinking>\n\n"
+        return content
+
+
+class ContentSegment(_SegmentBase):
+    model_config = {"arbitrary_types_allowed": True}
+
+    html_deps: list[HTMLDependency] | None = None
+
+
+class StoredSegment(_SegmentBase):
+    html_deps: list[SerializedDep] | None = None
+
+
+class StoredMessage(BaseModel):
     role: Role
-    html_deps: list[dict[str, object]] | None = None
+    segments: list[StoredSegment]
+
+    @property
+    def content(self) -> str:
+        return "".join(
+            StoredSegment.stringify(s.content, s.content_type)
+            for s in self.segments
+        )
+
+    @property
+    def html_deps(self) -> list[SerializedDep] | None:
+        deps: list[SerializedDep] = []
+        for s in self.segments:
+            if s.html_deps:
+                deps.extend(s.html_deps)
+        return deps or None
+
+    def wire_segments(self) -> list[MessagePayloadSegment]:
+        return [
+            {"content": s.content, "content_type": s.content_type}
+            for s in self.segments
+        ]
 
     @classmethod
     def from_chat_message(
         cls,
         message: ChatMessage,
-        html_deps: list[dict[str, object]] | None = None,
-    ) -> "StoredMessage":
-        return StoredMessage(
-            content=message.content,
+        html_deps: list[SerializedDep] | None = None,
+    ) -> StoredMessage:
+        return cls(
             role=message.role,
-            html_deps=html_deps,
+            segments=[
+                StoredSegment(
+                    content=str(message.content),
+                    content_type=message.content_type,
+                    html_deps=html_deps,
+                )
+            ],
         )

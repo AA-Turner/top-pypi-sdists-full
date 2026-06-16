@@ -18,6 +18,8 @@ import json
 import os
 import re
 import uuid
+from collections import UserDict
+from collections.abc import MutableMapping
 
 import requests
 import sys
@@ -823,24 +825,22 @@ class CloudVerification:
 
         return True
 
-    def cli_verify_and_report(self, cl_args: str, wait_for_results: str) -> bool:
+    def cli_verify(self, cl_args: str) -> Optional[JobList]:
         """
         Sends a verification request to HTTP Handler, uploads a zip file, and outputs the results.
-        :param wait_for_results: If "all", we will wait for the results of the verification. If "none",
-               the run will be terminated after sending the job to the cloud.
         :param cl_args: A string that can be copied to and run by the shell to recreate this run.
-        @returns If compareToExpected is True, returns True when the expected output equals the actual results.
-                 Otherwise, returns False if there was at least one violated rule.
+        @returns job_list which defines the jobs that have been submitted successfully.
+                 Otherwise, returns None.
         """
 
         post_result = self.__send_verification_request(cl_args)
         if not post_result:
-            return False
+            return None
 
         file_upload_success = self.__compress_and_upload_zip_files()
 
         if not file_upload_success:
-            return False
+            return None
 
         # set results urls. They are all functions of the form: self.set_output_url(self.userId, self.anonymousKey)
         for func_name in ["set_output_url", "set_report_url", "set_zip_output_url", "set_json_output_url",
@@ -859,6 +859,18 @@ class CloudVerification:
         # Generate a json file for the VS Code extension with the relevant url
         self.vscode_extension_info_writer.add_field("verification_report_url", self.url_print_format())
         self.vscode_extension_info_writer.write_file()
+
+        return job_list
+
+    def cli_report(self, job_list: JobList, wait_for_results: str) -> bool:
+        """
+        Outputs and report the results from verification.
+        :param wait_for_results: If "all", we will wait for the results of the verification. If "none",
+               the run will be terminated after sending the job to the cloud.
+        :param job_list: A JobList which contains data relevant to the job which was sent for verification.
+        @returns If compareToExpected is True, returns True when the expected output equals the actual results.
+                 Otherwise, returns False if there was at least one violated rule.
+        """
 
         if not wait_for_results or wait_for_results == str(Vf.WaitForResultOptions.NONE):
             job_list.save_data()
@@ -927,10 +939,10 @@ class CloudVerification:
         response = None
         print("\nConnecting to server...")
         cloud_logger.debug(f"requesting verification from {verify_url}")
-        headers = {
+        headers: MutableMapping[str, str | bytes] = UserDict({
             'Authorization': f'Bearer {self.context.key}',
             "Content-Type": "application/json"
-        }
+        })
 
         # retry on request timeout or 502 (must take no more than 3 minutes)
         # print error message on the 3rd exception and return
@@ -953,6 +965,9 @@ class CloudVerification:
                 elif status == 401:
                     print("Invalid key or key is missing. Please, make sure you entered a valid key.")
                     return None
+                elif status == 426:
+                    output_error_response(response)
+                    return None
                 elif status >= 500:
                     cloud_logger.debug(f'{status} received. Retry...')
                     if i < self.verification_request_retries:
@@ -961,7 +976,7 @@ class CloudVerification:
                     else:
                         print("Oops, an error occurred when sending your request. Please try again later")
                         return None
-                else:  # status != 200, 403, 5XX
+                else:  # status != 200, 403, 401, 426, 5XX
                     output_error_response(response)
                     return None
             except requests.exceptions.Timeout:

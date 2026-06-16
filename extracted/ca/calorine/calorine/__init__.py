@@ -3,4 +3,4 @@
 Main module of the calorine package.
 """
 
-__version__ = '3.3'
+__version__ = '3.4'

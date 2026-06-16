@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-documentcloud
-Version: 4.6.0
+Version: 4.7.0
 Summary: A simple Python wrapper for the DocumentCloud API
 Home-page: https://github.com/muckrock/python-documentcloud
 Author: Mitchell Kotler
@@ -27,6 +27,7 @@ Requires-Dist: urllib3
 Requires-Dist: pyyaml
 Requires-Dist: fastjsonschema
 Requires-Dist: python-squarelet
+Requires-Dist: token-bucket
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
@@ -37,6 +38,7 @@ Requires-Dist: twine; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-mock; extra == "test"
+Requires-Dist: pytest-xdist; extra == "test"
 Requires-Dist: pytest-recording; extra == "test"
 Requires-Dist: vcrpy; extra == "test"
 Dynamic: author

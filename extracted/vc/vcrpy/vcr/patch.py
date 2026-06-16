@@ -92,12 +92,49 @@ else:
 
 
 try:
-    import httpcore
+    import httpx
 except ImportError:  # pragma: no cover
     pass
 else:
-    _HttpcoreConnectionPool_handle_request = httpcore.ConnectionPool.handle_request
-    _HttpcoreAsyncConnectionPool_handle_async_request = httpcore.AsyncConnectionPool.handle_async_request
+    _HttpxHttpTransport_handle_request = httpx.HTTPTransport.handle_request
+    _HttpxAsyncHttpTransport_handle_async_request = httpx.AsyncHTTPTransport.handle_async_request
+    _HttpxWsgiTransport_handle_request = httpx.WSGITransport.handle_request
+    _HttpxAsgiTransport_handle_async_request = httpx.ASGITransport.handle_async_request
+    _HttpxMockTransport_handle_request = httpx.MockTransport.handle_request
+    _HttpxMockTransport_handle_async_request = httpx.MockTransport.handle_async_request
+
+try:
+    import httpx_curl_cffi
+except ImportError:  # pragma: no cover
+    pass
+else:
+    _HttpxCurlTransport_handle_request = httpx_curl_cffi.CurlTransport.handle_request
+    _HttpxAsyncCurlTransport_handle_async_request = httpx_curl_cffi.AsyncCurlTransport.handle_async_request
+
+try:
+    import pyreqwest.compatibility.httpx
+except ImportError:  # pragma: no cover
+    pass
+else:
+    _HttpxSyncPyreqwestTransport_handle_request = (
+        pyreqwest.compatibility.httpx.SyncHttpxTransport.handle_request
+    )
+    _HttpxPyreqwestTransport_handle_async_request = (
+        pyreqwest.compatibility.httpx.HttpxTransport.handle_async_request
+    )
+
+
+try:
+    import httpx2
+except ImportError:  # pragma: no cover
+    pass
+else:
+    _Httpx2HttpTransport_handle_request = httpx2.HTTPTransport.handle_request
+    _Httpx2AsyncHttpTransport_handle_async_request = httpx2.AsyncHTTPTransport.handle_async_request
+    _Httpx2WsgiTransport_handle_request = httpx2.WSGITransport.handle_request
+    _Httpx2AsgiTransport_handle_async_request = httpx2.ASGITransport.handle_async_request
+    _Httpx2MockTransport_handle_request = httpx2.MockTransport.handle_request
+    _Httpx2MockTransport_handle_async_request = httpx2.MockTransport.handle_async_request
 
 
 class CassettePatcherBuilder:
@@ -121,7 +158,8 @@ class CassettePatcherBuilder:
             self._httplib2(),
             self._tornado(),
             self._aiohttp(),
-            self._httpcore(),
+            self._httpx(),
+            self._httpx2(),
             self._build_patchers_from_mock_triples(self._cassette.custom_patches),
         )
 
@@ -304,22 +342,136 @@ class CassettePatcherBuilder:
             yield client.ClientSession, "_request", new_request
 
     @_build_patchers_from_mock_triples_decorator
-    def _httpcore(self):
+    def _httpx(self):
         try:
-            import httpcore
+            import httpx
         except ImportError:  # pragma: no cover
             pass
         else:
-            from .stubs.httpcore_stubs import vcr_handle_async_request, vcr_handle_request
+            from .stubs.httpx_stubs import vcr_handle_async_request, vcr_handle_request
 
-            new_handle_request = vcr_handle_request(self._cassette, _HttpcoreConnectionPool_handle_request)
-            yield httpcore.ConnectionPool, "handle_request", new_handle_request
+            new_handle_request = vcr_handle_request(self._cassette, _HttpxHttpTransport_handle_request, httpx)
+            yield httpx.HTTPTransport, "handle_request", new_handle_request
 
             new_handle_async_request = vcr_handle_async_request(
                 self._cassette,
-                _HttpcoreAsyncConnectionPool_handle_async_request,
+                _HttpxAsyncHttpTransport_handle_async_request,
+                httpx,
             )
-            yield httpcore.AsyncConnectionPool, "handle_async_request", new_handle_async_request
+            yield httpx.AsyncHTTPTransport, "handle_async_request", new_handle_async_request
+
+            new_handle_request = vcr_handle_request(self._cassette, _HttpxWsgiTransport_handle_request, httpx)
+            yield httpx.WSGITransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _HttpxAsgiTransport_handle_async_request,
+                httpx,
+            )
+            yield httpx.ASGITransport, "handle_async_request", new_handle_async_request
+
+            new_handle_request = vcr_handle_request(self._cassette, _HttpxMockTransport_handle_request, httpx)
+            yield httpx.MockTransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _HttpxMockTransport_handle_async_request,
+                httpx,
+            )
+            yield httpx.MockTransport, "handle_async_request", new_handle_async_request
+
+        try:
+            import httpx_curl_cffi
+        except ImportError:  # pragma: no cover
+            pass
+        else:
+            from .stubs.httpx_stubs import vcr_handle_async_request, vcr_handle_request
+
+            new_handle_request = vcr_handle_request(self._cassette, _HttpxCurlTransport_handle_request, httpx)
+            yield httpx_curl_cffi.CurlTransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _HttpxAsyncCurlTransport_handle_async_request,
+                httpx,
+            )
+            yield httpx_curl_cffi.AsyncCurlTransport, "handle_async_request", new_handle_async_request
+
+        try:
+            import pyreqwest.compatibility.httpx
+        except ImportError:  # pragma: no cover
+            pass
+        else:
+            from .stubs.httpx_stubs import vcr_handle_async_request, vcr_handle_request
+
+            new_handle_request = vcr_handle_request(
+                self._cassette,
+                _HttpxSyncPyreqwestTransport_handle_request,
+                httpx,
+            )
+            yield pyreqwest.compatibility.httpx.SyncHttpxTransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _HttpxPyreqwestTransport_handle_async_request,
+                httpx,
+            )
+            yield (
+                pyreqwest.compatibility.httpx.HttpxTransport,
+                "handle_async_request",
+                new_handle_async_request,
+            )
+
+    @_build_patchers_from_mock_triples_decorator
+    def _httpx2(self):
+        try:
+            import httpx2
+        except ImportError:  # pragma: no cover
+            pass
+        else:
+            from .stubs.httpx_stubs import vcr_handle_async_request, vcr_handle_request
+
+            new_handle_request = vcr_handle_request(
+                self._cassette,
+                _Httpx2HttpTransport_handle_request,
+                httpx2,
+            )
+            yield httpx2.HTTPTransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _Httpx2AsyncHttpTransport_handle_async_request,
+                httpx2,
+            )
+            yield httpx2.AsyncHTTPTransport, "handle_async_request", new_handle_async_request
+
+            new_handle_request = vcr_handle_request(
+                self._cassette,
+                _Httpx2WsgiTransport_handle_request,
+                httpx2,
+            )
+            yield httpx2.WSGITransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _Httpx2AsgiTransport_handle_async_request,
+                httpx2,
+            )
+            yield httpx2.ASGITransport, "handle_async_request", new_handle_async_request
+
+            new_handle_request = vcr_handle_request(
+                self._cassette,
+                _Httpx2MockTransport_handle_request,
+                httpx2,
+            )
+            yield httpx2.MockTransport, "handle_request", new_handle_request
+
+            new_handle_async_request = vcr_handle_async_request(
+                self._cassette,
+                _Httpx2MockTransport_handle_async_request,
+                httpx2,
+            )
+            yield httpx2.MockTransport, "handle_async_request", new_handle_async_request
 
     def _urllib3_patchers(self, cpool, conn, stubs):
         http_connection_remover = ConnectionRemover(
@@ -448,19 +600,91 @@ def reset_patchers():
         yield mock.patch.object(curl.CurlAsyncHTTPClient, "fetch_impl", _CurlAsyncHTTPClient_fetch_impl)
 
     try:
-        import httpcore
+        import httpx
     except ImportError:  # pragma: no cover
         pass
     else:
         yield mock.patch.object(
-            httpcore.ConnectionPool,
+            httpx.HTTPTransport,
             "handle_request",
-            _HttpcoreConnectionPool_handle_request,
+            _HttpxHttpTransport_handle_request,
         )
         yield mock.patch.object(
-            httpcore.AsyncConnectionPool,
+            httpx.AsyncHTTPTransport,
             "handle_async_request",
-            _HttpcoreAsyncConnectionPool_handle_async_request,
+            _HttpxAsyncHttpTransport_handle_async_request,
+        )
+        yield mock.patch.object(
+            httpx.WSGITransport,
+            "handle_request",
+            _HttpxWsgiTransport_handle_request,
+        )
+        yield mock.patch.object(
+            httpx.ASGITransport,
+            "handle_async_request",
+            _HttpxAsgiTransport_handle_async_request,
+        )
+        yield mock.patch.object(
+            httpx.MockTransport,
+            "handle_request",
+            _HttpxMockTransport_handle_request,
+        )
+        yield mock.patch.object(
+            httpx.MockTransport,
+            "handle_async_request",
+            _HttpxMockTransport_handle_async_request,
+        )
+
+    try:
+        import httpx_curl_cffi
+    except ImportError:  # pragma: no cover
+        pass
+    else:
+        yield mock.patch.object(
+            httpx_curl_cffi.CurlTransport,
+            "handle_request",
+            _HttpxCurlTransport_handle_request,
+        )
+        yield mock.patch.object(
+            httpx_curl_cffi.AsyncCurlTransport,
+            "handle_async_request",
+            _HttpxAsyncCurlTransport_handle_async_request,
+        )
+
+    try:
+        import httpx2
+    except ImportError:  # pragma: no cover
+        pass
+    else:
+        yield mock.patch.object(
+            httpx2.HTTPTransport,
+            "handle_request",
+            _Httpx2HttpTransport_handle_request,
+        )
+        yield mock.patch.object(
+            httpx2.AsyncHTTPTransport,
+            "handle_async_request",
+            _Httpx2AsyncHttpTransport_handle_async_request,
+        )
+        yield mock.patch.object(
+            httpx2.WSGITransport,
+            "handle_request",
+            _Httpx2WsgiTransport_handle_request,
+        )
+        yield mock.patch.object(
+            httpx2.ASGITransport,
+            "handle_async_request",
+            _Httpx2AsgiTransport_handle_async_request,
+        )
+        yield mock.patch.object(
+            httpx2.MockTransport,
+            "handle_request",
+            _Httpx2MockTransport_handle_request,
+        )
+        yield mock.patch.object(
+            httpx2.MockTransport,
+            "handle_async_request",
+            _Httpx2MockTransport_handle_async_request,
         )
 
 

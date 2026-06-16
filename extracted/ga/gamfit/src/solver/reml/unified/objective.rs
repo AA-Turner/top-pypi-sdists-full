@@ -125,7 +125,7 @@ pub fn reml_laml_evaluate(
             // VALUE — not just its argmin — is exactly invariant, matching mgcv
             // (the profiled σ̂² absorbs the c factor).
             let dp_raw = -2.0 * solution.log_likelihood + solution.penalty_quadratic;
-            let (dp_c, dp_cgrad, dp_cgrad2) = smooth_floor_dp(dp_raw);
+            let (dp_c, dp_cgrad, dp_cgrad2) = smooth_floor_dp(dp_raw, solution.dp_floor_scale);
             let denom = (solution.n_observations as f64 - solution.nullspace_dim).max(DENOM_RIDGE);
             let phi = dp_c / denom;
 
@@ -298,10 +298,19 @@ pub fn reml_laml_evaluate(
             if let Some(kernel) = solution.penalty_subspace_trace.as_ref() {
                 (-0.5_f64 * kernel.bilinear_pseudo_inverse(r, r), "projected")
             } else {
-                let mut rhs = Array2::<f64>::zeros((hop.dim(), 1));
-                rhs.column_mut(0).assign(r);
-                let w_mat = hop.solve_multi(&rhs);
-                let w: Array1<f64> = w_mat.column(0).to_owned();
+                // Full-H IFT mode response `w = H⁻¹ r`. The cached
+                // `DenseSpectralOperator` (materialized once for `log_det_h`
+                // at the top of this evaluator and shared via `RayonSafeOnce`)
+                // turns this into a single per-eigendirection `solve` — two
+                // GEMVs against the already-factored eigenbasis, NOT a refactor
+                // or row re-stream. Use the single-vector `solve` directly: it
+                // is the exact per-eigendirection form the gradient stack's
+                // unconstrained `respond_stack` arm uses column-by-column, so
+                // the cost-side and gradient-side IFT inverse stay bit-identical
+                // by construction (no separate `(p,1)` Array2 allocation +
+                // column copy, no second BLAS-3 entry point to drift from the
+                // gradient kernel's `solve_multi`).
+                let w = hop.solve(r);
                 let cost_correction = -0.5_f64 * r.view().dot(&w);
                 inner_polish_step = Some(w);
                 (cost_correction, "full_h")
@@ -555,7 +564,17 @@ pub fn reml_laml_evaluate(
                 hop.dim(),
                 correction_work
             );
-            effective_deriv.hessian_derivative_corrections_result(&correction_vs)?
+            // Named heartbeat scope so the active-scope line attributes the
+            // coord_corrections wall time (the biobank's dominant REML stage).
+            let coord_corr_scope = crate::process_monitor::track_scope(format!(
+                "reml_laml coord_corrections batched k={k} ext_dim={ext_dim} n={} dim={}",
+                solution.n_observations,
+                hop.dim()
+            ));
+            let coord_corrections_result =
+                effective_deriv.hessian_derivative_corrections_result(&correction_vs);
+            drop(coord_corr_scope);
+            coord_corrections_result?
         } else {
             // Fallback for providers without a fused hook: each
             // `hessian_derivative_correction_result` is an `Xᵀ·diag(c⊙Xvₖ)·X`
@@ -1162,6 +1181,20 @@ pub fn reml_laml_evaluate(
             if let Some(stash) = diag_stash.as_mut() {
                 stash.projection_active = Some(solution.penalty_subspace_trace.is_some());
                 stash.production_tr = Some(trace_logdet_i);
+                // HVP ψ-gradient attribution (#740): expose the cost-derivative
+                // `a` and penalty-logdet `ld_s` pieces of this coordinate's
+                // outer gradient so a per-component FD of the outer value can be
+                // matched against each analytic term independently.
+                stash.coord_a = Some(coord.a);
+                stash.coord_ld_s = Some(coord.ld_s);
+                // Outer VALUE components, so a per-component FD of the objective
+                // (β̂ re-solved at each ψ) can be matched against each analytic
+                // gradient piece: FD(log_det_h) ↔ production_tr (probe b),
+                // FD(cost − ½log_det_h + ½log_det_s) ↔ coord_a (probe a),
+                // FD(log_det_s) ↔ coord_ld_s.
+                stash.coord_log_det_h = Some(log_det_h);
+                stash.coord_log_det_s = Some(log_det_s);
+                stash.coord_cost = Some(cost);
                 let correction = ext_corrections[ext_idx].as_ref();
                 let drift = hyper_coord_total_drift_result(&coord.drift, correction, hop.dim());
                 let unprojected = match &drift {
@@ -1264,6 +1297,62 @@ pub fn reml_laml_evaluate(
         .collect();
     for (idx, value) in ext_grad_entries? {
         grad[idx] = value;
+    }
+
+    // KKT-residual correction for the ψ (ext) gradient — the exact analogue of
+    // the ρ correction applied above (`kkt_rho_corrections`), which was missing
+    // for the extended coordinates.
+    //
+    // When the inner solve exits at β̂ with a nonzero KKT residual
+    // `r = ∇_β L_pen(β̂)`, the cost carries the one-step Newton profile
+    // correction `−½ rᵀ H⁻¹ r` (applied above), so the CORRECTED scalar
+    // objective is `Ṽ(θ) = V(β̂,θ) − ½ rᵀ H⁻¹ r`. Differentiating the
+    // correction w.r.t. a ψ coordinate (holding β̂ fixed, the same convention
+    // the ρ block uses) with `q = H⁻¹ r`:
+    //
+    //   ∂_ψ r = ∂_ψ(∇_β L_pen)|_β = coord.g   (= score_psi + S_ψ β̂)
+    //   ∂_ψ H = Ḣ_ψ|_β            = the FROZEN ψ Hessian drift B_i
+    //   ∂_ψ(−½ rᵀ H⁻¹ r) = −(∂_ψ r)ᵀ q + ½ qᵀ (∂_ψ H) q
+    //                     = −coord.gᵀ q + ½ qᵀ B_i q.
+    //
+    // This is `compute_kkt_residual_rho_corrections`'s `C_i = −a_iᵀq + ½ qᵀA_iq`
+    // with the ρ ingredients `(a_i = A_iβ̂, A_i = λ_iS_i)` replaced by the ψ
+    // ingredients `(coord.g, B_i)`. It vanishes identically at exact KKT
+    // (`r = 0 ⇒ q = 0`); when the logslope block is near-singular and the inner
+    // exit accepts `‖r‖ > 0`, the dropped `−coord.gᵀq` term is amplified by
+    // `‖H⁻¹‖·‖r‖` and is exactly the large component the envelope ψ-gradient
+    // was missing relative to the centered FD of the corrected objective. The
+    // FROZEN drift (no IFT correction) is used — the IFT/β-response of the
+    // logdet trace is handled separately in the trace term; the residual
+    // correction differentiates `−½rᵀH⁻¹r` at fixed β̂ exactly as the ρ block
+    // does.
+    if ext_dim > 0
+        && let Some(r) = kkt_residual_vec
+            .as_ref()
+            .filter(|_| kkt_residual_correction_active)
+            .map(|r| r.as_ref())
+    {
+        let subspace = solution.penalty_subspace_trace.as_deref();
+        let q = solve_kkt_residual_kernel(hop, subspace, r);
+        for ext_idx in 0..ext_dim {
+            let coord = &solution.ext_coords[ext_idx];
+            // FROZEN ψ Hessian drift B_i (no IFT correction); `apply` matvecs the
+            // dense or operator form against `q`.
+            let frozen_drift = hyper_coord_total_drift_result(&coord.drift, None, hop.dim());
+            let b_i_q = frozen_drift.apply(&q);
+            let linear = coord.g.dot(&q);
+            let quadratic = q.dot(&b_i_q);
+            if !linear.is_finite() || !quadratic.is_finite() {
+                return Err(RemlError::NonFiniteValue {
+                    reason: format!(
+                        "KKT ext correction produced non-finite ingredients at ext coord \
+                         {ext_idx}: linear={linear} quadratic={quadratic}"
+                    ),
+                }
+                .into());
+            }
+            grad[k + ext_idx] += -linear + 0.5 * quadratic;
+        }
     }
 
     // Drain the per-call EIG-DECOMP sink into the calling thread's

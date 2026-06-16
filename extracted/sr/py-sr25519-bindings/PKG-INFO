@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: py-sr25519-bindings
-Version: 0.2.3
+Version: 0.2.4
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -20,8 +20,8 @@ Author-email: info@polkascan.org
 Maintainer-email: JAMdot Technologies <devops@jamdot.tech>
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: repository, https://github.com/polkascan/py-sr25519-bindings
 Project-URL: homepage, https://github.com/polkascan/py-sr25519-bindings
+Project-URL: repository, https://github.com/polkascan/py-sr25519-bindings
 
 # py-sr25519-bindings
 Python bindings for sr25519 library: https://github.com/w3f/schnorrkel

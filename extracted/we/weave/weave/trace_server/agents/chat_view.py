@@ -14,6 +14,7 @@ message wins and the parent invoke output is suppressed.
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -388,6 +389,30 @@ def _select_root_span(spans: list[AgentSpanSchema]) -> AgentSpanSchema:
     return max(spans, key=_root_sort_key)
 
 
+def _display_text(content: str) -> str:
+    """Extract human-readable text from a message content field.
+
+    Content is either plain text (legacy) or a JSON-serialized parts array
+    (multimodal messages).  For parts arrays, concatenate text and reasoning
+    parts; for plain text, return as-is.
+    """
+    if not content or not content.startswith("["):
+        return content
+    try:
+        parts = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return content
+    if not isinstance(parts, list):
+        return content
+    texts: list[str] = []
+    for p in parts:
+        if isinstance(p, dict) and isinstance(p.get("content"), str):
+            texts.append(p["content"])
+        elif isinstance(p, str):
+            texts.append(p)
+    return "\n".join(texts)
+
+
 def _filter_message_texts(
     messages: list[NormalizedMessage],
     *,
@@ -398,14 +423,14 @@ def _filter_message_texts(
     texts: list[str] = []
     for message in messages:
         role = message.role
-        content = message.content
-        if not content:
+        text = _display_text(message.content)
+        if not text:
             continue
         if include_roles is not None and role not in include_roles:
             continue
         if exclude_roles is not None and role in exclude_roles:
             continue
-        texts.append(content)
+        texts.append(text)
     return texts
 
 
@@ -434,6 +459,21 @@ def _extract_user_text(
     return "\n\n".join(texts)
 
 
+def first_user_preview_text(messages: list[NormalizedMessage]) -> str:
+    """Public: opening user-prompt text from a span's `input_messages`.
+
+    Used to build the conversation table's "first message" preview directly
+    from the grouped spans query, applying the same role resolution as the
+    full chat view so previews match the opened conversation.
+    """
+    return _extract_user_text(messages, last_only=True)
+
+
+def last_assistant_preview_text(messages: list[NormalizedMessage]) -> str:
+    """Public: final assistant/output text from a span's `output_messages`."""
+    return _extract_non_user_output_text(messages)
+
+
 def _extract_non_user_output_text(messages: list[NormalizedMessage]) -> str:
     """Extract renderable output text from normalized output_messages.
 
@@ -460,6 +500,94 @@ def _content_refs(span: AgentSpanSchema) -> list[str]:
     return [str(r) for r in (span.content_refs or []) if r]
 
 
+# Content part types that reference uploaded media by ref rather than inlining
+# text. The session SDK emits attached media as ``uri`` parts (see
+# weave/session/session_otel.py::_media_to_part); ``blob``/``file`` are accepted
+# defensively in case other producers use a ref-bearing variant.
+_MEDIA_PART_TYPES = {"uri", "blob", "file"}
+
+
+def _parse_content_parts(content: str) -> list[dict]:
+    """Parse a message ``content`` field into its parts array.
+
+    Multimodal content is a JSON-serialized parts array (see
+    genai_extraction._normalize_single_message); plain-text/legacy content is
+    not a JSON list and yields nothing.
+    """
+    if not content or not content.startswith("["):
+        return []
+    try:
+        parsed = json.loads(content)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(parsed, list):
+        return []
+    return [p for p in parsed if isinstance(p, dict)]
+
+
+def _ref_digest(ref: str) -> str:
+    """Return the trailing object digest of a content ref.
+
+    The same object is referenced in two forms sharing one digest: the inline
+    message ``uri`` part uses the external ``weave:///entity/project/...`` form,
+    while the span-level ``content_refs`` uses the internal
+    ``weave-trace-internal:///...`` form. Both end in ``...:<digest>``, so the
+    digest is the stable key for matching one to the other.
+    """
+    return ref.rsplit(":", 1)[-1]
+
+
+def _media_part_digests(messages: list[NormalizedMessage]) -> set[str]:
+    """Object digests of media (uri/blob/file) parts inlined in these messages.
+
+    Direction lives in the parts: a user-supplied audio/image is a ``uri`` part
+    on an input message; model-generated media is a part on an output message.
+    """
+    digests: set[str] = set()
+    for message in messages:
+        for part in _parse_content_parts(message.content):
+            if part.get("type") in _MEDIA_PART_TYPES:
+                uri = part.get("uri")
+                if isinstance(uri, str) and uri:
+                    digests.add(_ref_digest(uri))
+    return digests
+
+
+def _directional_content_refs(
+    span: AgentSpanSchema, part_digests: set[str]
+) -> list[str]:
+    """Span ``content_refs`` whose object digest matches an inline part.
+
+    The value comes from ``content_refs`` because it holds the ref in the
+    internal, int<->ext-convertible form the response pipeline requires — the
+    int->ext adapter raises on a bare external ref. The direction comes from
+    the message parts (external form). Match the two by digest so each ref is
+    surfaced on the correct side (input -> user, output -> assistant).
+    """
+    if not part_digests:
+        return []
+    return [r for r in _content_refs(span) if _ref_digest(r) in part_digests]
+
+
+def _input_content_refs(spans: list[AgentSpanSchema]) -> list[str]:
+    """Input-side media refs across a trace, de-duplicated, in internal form.
+
+    ``attach_media`` records media on the LLM/chat span, but the rendered user
+    prompt is synthesized from the enclosing invoke_agent span, so the media
+    lives on a different span than the user text. Gather input media across all
+    spans so it lands on the user message regardless of which span carries it.
+    """
+    refs: list[str] = []
+    seen: set[str] = set()
+    for span in spans:
+        in_digests = _media_part_digests(span.input_messages)
+        for ref in _directional_content_refs(span, in_digests):
+            if ref not in seen:
+                seen.add(ref)
+                refs.append(ref)
+    return refs
+
+
 def _sum_descendant_tokens(node: SpanNode) -> TokenTotals:
     """Sum input, output, and reasoning tokens across a subtree."""
     input_t = node.span.input_tokens or 0
@@ -482,7 +610,13 @@ def _find_user_message(spans: list[AgentSpanSchema]) -> AgentChatMessage | None:
     Priority order: invoke_agent spans first, then anything else, with
     started_at tiebreaking inside each group. Returns the first span whose
     `input_messages` yields user text, already shaped as an API message.
+
+    Media direction comes from the input message parts; the ref value comes
+    from `content_refs` (internal form) via `_input_content_refs`, gathered
+    across the trace since `attach_media` records on the LLM span while the
+    user text comes from the enclosing invoke_agent span.
     """
+    user_media_refs = _input_content_refs(spans)
     prioritized = sorted(
         spans,
         key=lambda s: (s.operation_name != OP_INVOKE_AGENT, _span_sort_key(s)),
@@ -499,7 +633,7 @@ def _find_user_message(spans: list[AgentSpanSchema]) -> AgentChatMessage | None:
                 started_at=s.started_at,
                 user_message=AgentChatUserMessage(
                     text=text,
-                    content_refs=_content_refs(s),
+                    content_refs=user_media_refs,
                 ),
             )
     return None
@@ -549,6 +683,8 @@ def _emit_assistant_message(
             output_tokens=totals.output_tokens or span.output_tokens,
             duration_ms=_compute_duration_ms(span.started_at, span.ended_at),
             status=span.status_code,
-            content_refs=_content_refs(span),
+            content_refs=_directional_content_refs(
+                span, _media_part_digests(span.output_messages)
+            ),
         ),
     )

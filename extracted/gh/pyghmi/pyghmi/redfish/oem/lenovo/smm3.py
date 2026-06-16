@@ -186,8 +186,6 @@ class OEMHandler(generic.OEMHandler):
         rsp = self._do_web_request('/redfish/v1/UpdateService/Actions/UpdateService.StartUpdate', targspec)
         monitorurl = rsp.get('@odata.id', None)
         return self.monitor_update_progress(monitorurl, progress)
-        
-
 
     def get_diagnostic_data(self, savefile, progress=None, autosuffix=False):
         tsk = self._do_web_request(
@@ -197,10 +195,16 @@ class OEMHandler(generic.OEMHandler):
         taskurl = tsk.get('@odata.id', None)
         pct = 0 if taskurl else 100
         durl = None
+        iters = 0
         while pct < 100 and taskrunning:
+            iters += 1
             status = self._do_web_request(taskurl)
             durl = status.get('AdditionalDataURI', '')
             pct = status.get('PercentComplete', 0)
+            if pct <= 0:
+                pct = float(iters/1.3)
+                if pct >= 80.0:
+                    pct = 80.0
             taskrunning = status.get('TaskState', 'Complete') == 'Running'
             if progress:
                 progress({'phase': 'initializing', 'progress': float(pct)})
@@ -214,6 +218,15 @@ class OEMHandler(generic.OEMHandler):
                     entryinfo = self._do_web_request(enturl)
                     durl = entryinfo.get('AdditionalDataURI', None)
                     break
+        tries = 0
+        while not durl and tries < 60:
+            tries += 1
+            if progress:
+                progress({'phase': 'initializing', 'progress': float(pct + tries * (100 - pct) / 60)})
+            time.sleep(3)
+            entries = self._do_web_request('/redfish/v1/Managers/bmc/LogServices/Dump/Entries')
+            if entries['Members']:
+                durl = entries['Members'][0].get('AdditionalDataURI', None)
         if not durl:
             raise Exception("Failed getting service data url")
         fname = os.path.basename(durl)

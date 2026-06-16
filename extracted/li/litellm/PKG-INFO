@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.89.0
+Version: 1.89.1
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT
@@ -73,7 +73,7 @@ Requires-Dist: sentry-sdk>=2.21.0,<3.0 ; extra == 'proxy-runtime'
 Requires-Dist: mangum>=0.17.0,<1.0 ; extra == 'proxy-runtime'
 Requires-Dist: azure-ai-contentsafety>=1.0.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: azure-storage-file-datalake>=12.20.0,<13.0 ; extra == 'proxy-runtime'
-Requires-Dist: pypdf>=6.10.2,<7.0 ; python_full_version < '3.14' and extra == 'proxy-runtime'
+Requires-Dist: pypdf>=6.12.0,<7.0 ; python_full_version < '3.14' and extra == 'proxy-runtime'
 Requires-Dist: llm-sandbox>=0.3.39,<1.0 ; extra == 'proxy-runtime'
 Requires-Dist: detect-secrets>=1.5.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: semantic-router>=0.1.15,<1.0 ; python_full_version < '3.14' and extra == 'semantic-router'

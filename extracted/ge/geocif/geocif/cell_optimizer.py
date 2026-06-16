@@ -80,6 +80,44 @@ _DOY_AGG = {
 }
 
 
+def _ndvi_byte_to_unit(arr):
+    """Rescale Mark's byte-scale NDVI (≈50..250) to unit NDVI (≈0..1).
+
+    Mirrors ``geocif/cid/indices.py:standardize_dataframe``'s formula
+    ``(byte − 50) / 200``. Pass-through (no rescale) when the array is
+    already in unit scale — heuristic: max(arr) ≤ 1.0.
+
+    Only used for display labels in plots; the GA itself doesn't care
+    about scale because Pearson r and OLS R² are scale-invariant.
+    """
+    arr = np.asarray(arr, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    if finite.size == 0:
+        return arr
+    if float(np.nanmax(finite)) <= 1.0:
+        return arr
+    return (arr - 50.0) / 200.0
+
+
+def _display_var_name(var: str) -> str:
+    """Map internal variable slug to the label used on plot axes.
+    NDVI / tmax / tmin / precip get conventional capitalisation."""
+    return {
+        "ndvi": "NDVI",
+        "tmax": "Tmax",
+        "tmin": "Tmin",
+        "precip": "Precipitation",
+    }.get(var.lower(), var)
+
+
+def _display_region_name(region: str) -> str:
+    """Slug → human label for plot titles: replace underscores with
+    spaces and apply title case. ``buenos_aires`` → ``Buenos Aires``,
+    ``new_south_wales`` → ``New South Wales``.
+    """
+    return str(region).replace("_", " ").title()
+
+
 # ----------------------------------------------------------------------
 # Pure-function fitness primitives — unit-testable in isolation
 # ----------------------------------------------------------------------
@@ -295,8 +333,29 @@ def run_ga(
     n_cells = per_cell.shape[0]
     pop_size = cfg.population_size
 
-    min_cells = max(cfg.min_cell_floor_abs, int(np.ceil(cfg.min_cell_floor_frac * n_cells)))
-    mut_rate = cfg.mutation_rate if cfg.mutation_rate is not None else 2.0 / n_cells
+    # Clamp the min-cell floor to n_cells. The configured floor can
+    # exceed the cropland-cell count for very small regions (e.g.
+    # Argentina/soybean/Corrientes has < min_cell_floor_abs=20 cells);
+    # without the clamp the seed-population repair tries to sample
+    # ``need = min_cells - sum`` cells from a smaller "off" pool and
+    # numpy raises "Cannot take a larger sample than population when
+    # replace is False". Clamping makes ``min_cells == n_cells`` for
+    # tiny regions: every genome becomes all-True after repair, the
+    # GA degenerates to a single configuration (baseline R² ==
+    # optimized R², lift = 0), and the region's production mask
+    # simply includes every cell.
+    min_cells_raw = max(
+        cfg.min_cell_floor_abs,
+        int(np.ceil(cfg.min_cell_floor_frac * n_cells)),
+    )
+    min_cells = min(min_cells_raw, n_cells)
+    if min_cells < min_cells_raw and logger is not None:
+        logger.warning(
+            f"  min-cell floor clamped {min_cells_raw} -> {min_cells} "
+            f"because region has only {n_cells} cropland cells; GA "
+            f"degenerates to all-cells-in for this region"
+        )
+    mut_rate = cfg.mutation_rate if cfg.mutation_rate is not None else 2.0 / max(1, n_cells)
 
     # Baseline: all cells included (no selection). Reported alongside
     # the GA's best to quantify lift.
@@ -553,6 +612,9 @@ class CellOptimizer(base.BaseGeo):
                        first axis of per_cell
             var_cols : tuple of var names in the same order as the third
                        axis of per_cell
+            years    : tuple of int years aligned with the second axis
+                       of per_cell (and with y). Returned so plots can
+                       colour points by year.
         """
         path = self.cells_parquet_path(country, crop, season)
         if not path.is_file():
@@ -661,7 +723,7 @@ class CellOptimizer(base.BaseGeo):
 
         # Reindex cell_meta to match per_cell's first axis.
         cell_meta = cell_meta.set_index("cell_id").reindex(cell_ids).reset_index()
-        return per_cell, y, cell_meta, var_cols
+        return per_cell, y, cell_meta, var_cols, tuple(years)
 
     # ------------------------------------------------------------------
     # Per-region runner
@@ -677,7 +739,7 @@ class CellOptimizer(base.BaseGeo):
         if loaded is None:
             return None
 
-        per_cell, y, cell_meta, var_cols = loaded
+        per_cell, y, cell_meta, var_cols, years = loaded
         n_cells = per_cell.shape[0]
         n_years_finite = int(np.isfinite(y).sum())
         if n_years_finite < 5:
@@ -717,7 +779,9 @@ class CellOptimizer(base.BaseGeo):
         if self.do_plot:
             self._plot_diagnostics(
                 result, per_cell, y, cell_meta, var_cols,
-                out_dir=out_dir, stem=stem, region=region,
+                out_dir=out_dir, stem=stem,
+                country=country, region=region,
+                years=years,
             )
 
         # Per-cell rows for the production-mask parquet. One row per
@@ -754,9 +818,189 @@ class CellOptimizer(base.BaseGeo):
     # Diagnostic plots
     # ------------------------------------------------------------------
 
+    def _load_country_boundary_gdf(self, country: str):
+        """Lazy-load and per-process-cache the country's boundary
+        GeoDataFrame. Used by ``_add_locator_inset`` to draw the
+        country-context inset on each mask map. Returns None if
+        geopandas is unavailable, the boundary file is missing, or
+        the country doesn't appear in the shapefile.
+
+        Caching is intra-process — joblib workers each load once. With
+        ~50 regions per country that's ~50 redundant loads avoided per
+        worker, but the first region's load still pays the ~100ms read
+        cost.
+        """
+        if not hasattr(self, "_boundary_cache"):
+            self._boundary_cache = {}
+        if country in self._boundary_cache:
+            return self._boundary_cache[country]
+
+        try:
+            import geopandas as gpd
+        except ImportError:
+            self.logger.warning(
+                "geopandas not installed — skipping locator-inset map "
+                "on mask plots (install geopandas to enable)"
+            )
+            self._boundary_cache[country] = None
+            return None
+
+        country_key = country.lower().replace(" ", "_")
+        boundary_file = None
+        if self.parser.has_option(country_key, "boundary_file"):
+            boundary_file = self.parser.get(country_key, "boundary_file")
+        elif self.parser.has_option("DEFAULT", "boundary_file"):
+            boundary_file = self.parser.get("DEFAULT", "boundary_file")
+        if not boundary_file:
+            self._boundary_cache[country] = None
+            return None
+
+        try:
+            dir_boundary = Path(self.parser.get("PATHS", "dir_boundary_files"))
+        except Exception:
+            self._boundary_cache[country] = None
+            return None
+        fp = dir_boundary / boundary_file
+        if not fp.exists():
+            self.logger.warning(
+                f"  boundary shapefile not found: {fp} — locator inset "
+                f"will be skipped for {country}"
+            )
+            self._boundary_cache[country] = None
+            return None
+
+        try:
+            gdf = gpd.read_file(fp)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                f"  failed to read boundary shapefile {fp}: {exc}"
+            )
+            self._boundary_cache[country] = None
+            return None
+
+        # Filter to the country. The shared global Level_1.shp carries
+        # admin units for every country; we only want one country's.
+        if "ADM0_NAME" in gdf.columns:
+            country_str = country.replace("_", " ").title()
+            gdf = gdf[gdf["ADM0_NAME"].str.lower() == country_str.lower()]
+        # Keep only polygon geometries.
+        gdf = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
+        if gdf.empty:
+            self.logger.warning(
+                f"  no polygons found for {country} in {fp.name}; "
+                f"locator inset will be skipped"
+            )
+            self._boundary_cache[country] = None
+            return None
+
+        self._boundary_cache[country] = gdf
+        return gdf
+
+    def _add_locator_inset(self, ax, country: str, region: str,
+                            region_id=None) -> None:
+        """Add a small country-context map inside the top-right of the
+        main axes, with the current region highlighted in royalblue.
+        Mirrors agmet._add_inset_map's approach: aspect-correct sizing
+        from the country's bounding box, ID-based highlight when
+        available with a name-match fallback. Silently skips if the
+        boundary file can't be loaded or the region can't be matched.
+        """
+        gdf = self._load_country_boundary_gdf(country)
+        if gdf is None or gdf.empty:
+            return
+        try:
+            # Compute the country's geo aspect (dx/dy) from its total
+            # bounds so the inset doesn't squash tall/narrow countries
+            # (Chile, Norway) or stretch wide ones. Same logic as
+            # agmet._add_inset_map at agmet/plot.py.
+            bounds = gdf.total_bounds   # [minx, miny, maxx, maxy]
+            dx = float(bounds[2] - bounds[0])
+            dy = float(bounds[3] - bounds[1])
+            if dx <= 0 or dy <= 0:
+                return
+            geo_aspect = dx / dy
+
+            # Inset box: cap at 22% axes width OR 22% axes height,
+            # whichever lets the country fit at its true aspect.
+            box_max = 0.22
+            if geo_aspect >= 1:
+                # Wider than tall → cap on width.
+                w = box_max
+                h = w / geo_aspect
+            else:
+                # Taller than wide → cap on height.
+                h = box_max
+                w = h * geo_aspect
+            # Anchor box at top-right of the axes with a small inset.
+            x0 = 0.99 - w
+            y0 = 0.99 - h
+            inset_ax = ax.inset_axes([x0, y0, w, h])
+            inset_ax.set_axis_off()
+
+            # Keep only polygon geometries (drop stray points/lines).
+            gdf_poly = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].copy()
+            if gdf_poly.empty:
+                return
+
+            # Country outline as a single dissolved polygon — avoids
+            # internal admin boundaries crowding a thumbnail-sized map.
+            dissolved = gdf_poly.dissolve()
+            dissolved.plot(
+                ax=inset_ax, color="lightgray", edgecolor="black", linewidth=0.6,
+            )
+
+            # Highlight the region. Prefer ADM_ID match when both
+            # region_id and the column are available — that's the
+            # only reliable disambiguator when ADM1_NAME values
+            # collide across countries (agmet flagged this for US
+            # counties like Kiowa appearing in CO/KS/OK).
+            highlighted = False
+            if region_id is not None and "ADM_ID" in gdf_poly.columns:
+                mask = gdf_poly["ADM_ID"].astype(str) == str(region_id)
+                if mask.any():
+                    gdf_poly[mask].plot(
+                        ax=inset_ax, color="royalblue", edgecolor="royalblue",
+                    )
+                    highlighted = True
+
+            if not highlighted:
+                # Fall back to name match against ADM<N>_NAME for the
+                # configured admin_level.
+                country_key = country.lower().replace(" ", "_")
+                admin_level = (
+                    self.parser.get(country_key, "admin_level", fallback=None)
+                    or self.parser.get("DEFAULT", "admin_level", fallback="admin_1")
+                )
+                level_num = admin_level.replace("admin_", "") if admin_level else "1"
+                name_col = next(
+                    (c for c in [f"ADM{level_num}_NAME", f"ADMIN{level_num}"]
+                     if c in gdf_poly.columns),
+                    None,
+                )
+                if name_col is not None:
+                    region_norm = str(region).lower().replace("_", " ").strip()
+                    mask = (
+                        gdf_poly[name_col].astype(str).str.lower()
+                            .str.replace("_", " ").str.strip()
+                        == region_norm
+                    )
+                    if mask.any():
+                        gdf_poly[mask].plot(
+                            ax=inset_ax, color="royalblue", edgecolor="royalblue",
+                        )
+
+            # Lock geographic aspect so the country isn't distorted by
+            # the inset box's shape. Without this, matplotlib stretches
+            # the polygons to fill the inset axes irrespective of true
+            # lat/lon ratio.
+            inset_ax.set_aspect("equal")
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"  locator inset failed for {region}: {exc}")
+
     def _plot_diagnostics(
         self, result, per_cell, y, cell_meta, var_cols,
-        out_dir: Path, stem: str, region: str,
+        out_dir: Path, stem: str, country: str, region: str,
+        years=None,
     ):
         try:
             import matplotlib
@@ -766,34 +1010,70 @@ class CellOptimizer(base.BaseGeo):
             self.logger.warning(f"  matplotlib unavailable: {exc}")
             return
 
-        # 1. Mask map — lat/lon scatter coloured by inclusion
-        fig, ax = plt.subplots(figsize=(7, 6))
+        # Pull region_id from cell_meta (all rows for a region share the
+        # same region_id). Passed to _add_locator_inset so the inset
+        # prefers an ADM_ID match over name-matching — only reliable
+        # disambiguator when region names collide.
+        region_id = None
+        if "region_id" in cell_meta.columns and not cell_meta.empty:
+            rid_val = cell_meta["region_id"].iloc[0]
+            if pd.notna(rid_val):
+                region_id = rid_val
+
+        # 1. Mask map — lat/lon scatter, BOTH in and out cells coloured
+        # by AFI on the same viridis ramp so the eye can answer "did
+        # the GA disagree with the AFI cropmask?" at a glance.
+        #   * Out cells: faded (alpha=0.30), small, no edge — recedes
+        #     visually but AFI is still readable from the colour.
+        #   * In cells:  vivid (alpha=0.95), larger, black ring —
+        #     pops out as "what the GA kept".
+        # Shared vmin/vmax across both scatters so the colourbar maps
+        # cleanly to either population.
         included = result.best_mask
+        afi_all = cell_meta["afi"].to_numpy(dtype=float)
+        afi_vmin = float(np.nanmin(afi_all)) if afi_all.size else 0.0
+        afi_vmax = float(np.nanmax(afi_all)) if afi_all.size else 100.0
+        if afi_vmax <= afi_vmin:
+            # Degenerate single-AFI-value region — give the colormap a
+            # finite range so it renders without warnings.
+            afi_vmax = afi_vmin + 1.0
+
+        fig, ax = plt.subplots(figsize=(7, 6))
         ax.scatter(
             cell_meta.loc[~included, "lon"], cell_meta.loc[~included, "lat"],
-            c="lightgray", s=14, alpha=0.6, label=f"out (n={(~included).sum()})",
-            edgecolors="none",
+            c=cell_meta.loc[~included, "afi"], s=12, cmap="viridis",
+            vmin=afi_vmin, vmax=afi_vmax, alpha=0.30,
+            label=f"out (n={(~included).sum()})", edgecolors="none",
         )
-        ax.scatter(
+        sc_in = ax.scatter(
             cell_meta.loc[included, "lon"], cell_meta.loc[included, "lat"],
-            c=cell_meta.loc[included, "afi"], s=22, cmap="viridis",
-            label=f"in (n={included.sum()})", edgecolors="black", linewidths=0.3,
+            c=cell_meta.loc[included, "afi"], s=28, cmap="viridis",
+            vmin=afi_vmin, vmax=afi_vmax, alpha=0.95,
+            label=f"in (n={included.sum()})", edgecolors="black", linewidths=0.4,
         )
+        fig.colorbar(sc_in, ax=ax, fraction=0.04, pad=0.02,
+                     label="AFI (crop fraction %)")
         ax.set_xlabel("longitude")
         ax.set_ylabel("latitude")
         ax.set_title(
-            f"{region} — selected cells\n"
-            f"R^2: {result.baseline_r2:.3f} (all cells) -> "
+            f"{_display_region_name(region)} — selected cells\n"
+            f"R²: {result.baseline_r2:.3f} (all cells) → "
             f"{result.best_r2:.3f} (optimized), lift = "
             f"{(result.best_r2 - result.baseline_r2):+.3f}"
         )
-        ax.legend(loc="best", fontsize=8)
+        ax.legend(loc="upper left", fontsize=8)
         ax.grid(True, alpha=0.3)
+        # Country-context inset — top-right of the axes, region in red.
+        self._add_locator_inset(ax, country=country, region=region,
+                                 region_id=region_id)
         fig.tight_layout()
         fig.savefig(out_dir / f"{stem}_mask_map.png", dpi=130)
         plt.close(fig)
 
-        # 2. Fitness history
+        # 2. Fitness history. "best fitness" = R² minus the L0 size
+        # penalty (λ × |mask|/n_cells); "best R²" = the same mask's R²
+        # without the penalty applied. The gap between the two lines is
+        # the size penalty being paid by the GA's current best mask.
         fig, ax = plt.subplots(figsize=(8, 4.5))
         h = result.history
         ax.plot(h["generation"], h["best_fit"], color="#1f77b4",
@@ -801,46 +1081,133 @@ class CellOptimizer(base.BaseGeo):
         ax.plot(h["generation"], h["mean_fit"], color="#1f77b4",
                 linewidth=1.0, alpha=0.4, linestyle="--", label="mean fitness")
         ax.plot(h["generation"], h["best_r2"], color="#d62728",
-                linewidth=1.4, label="best R^2 (unpenalized)")
+                linewidth=1.4, label="best R²")
         ax.axhline(result.baseline_r2, color="gray", linestyle=":",
-                   linewidth=1.0, label=f"baseline R^2 = {result.baseline_r2:.3f}")
+                   linewidth=1.0, label=f"baseline R² = {result.baseline_r2:.3f}")
         ax.set_xlabel("generation")
-        ax.set_ylabel("fitness / R^2")
-        ax.set_title(f"{region} — GA convergence")
+        ax.set_ylabel("fitness / R²")
+        ax.set_title(f"{_display_region_name(region)} — GA convergence")
         ax.legend(loc="best", fontsize=8)
         ax.grid(True, alpha=0.3)
-        fig.tight_layout()
+        # Fitness equation annotation — shows the actual objective the
+        # GA optimizes so a reader can decode the blue-vs-red gap as
+        # the L0 size penalty being paid. Lower-right corner stays
+        # clear of the convergence curves which rise to the right.
+        eqn = (
+            f"fitness = R² − λ·(|mask|/n_cells)"
+            f"     λ = {self.ga.l0_lambda:g}"
+        )
+        ax.text(
+            0.99, 0.02, eqn,
+            transform=ax.transAxes, ha="right", va="bottom",
+            fontsize=9,
+            bbox=dict(boxstyle="round,pad=0.4",
+                      facecolor="white", edgecolor="gray",
+                      linewidth=0.5, alpha=0.9),
+        )
+        # Plain-English caption at the bottom of the figure so a
+        # non-LLM reader doesn't have to decode the equation box to
+        # understand what fitness is. The split across two lines keeps
+        # the caption inside the 8-inch figure width at fontsize 8.
+        caption = (
+            "Fitness = how well a cell-mask predicts yield (R²), minus a "
+            "small penalty for using too many cells (λ × fraction-of-"
+            "cells-selected).\n"
+            "The single number the GA tries to maximise."
+        )
+        # Reserve bottom margin for the caption.
+        fig.tight_layout(rect=[0, 0.12, 1, 1])
+        fig.text(
+            0.5, 0.02, caption,
+            ha="center", va="bottom",
+            fontsize=8, style="italic",
+        )
         fig.savefig(out_dir / f"{stem}_fitness_history.png", dpi=130)
         plt.close(fig)
 
-        # 3. Pre/post yield-vs-EO scatter, one row per var, two cols
+        # 3. Pre/post yield-vs-EO scatter, one row per var, two cols.
+        # Each dot is a year; the colour ramp (viridis) shows the year
+        # so trends across the time axis are readable on the same axes.
+        # NDVI is rescaled from byte-scale (≈50-250) to unit (0-1) to
+        # match the convention used elsewhere in geocif; variable
+        # labels are properly capitalised via _display_var_name.
+        # Figure dimensions: wider than tall per-row so the year colorbar
+        # has room to sit alongside the right panel without clipping its
+        # X-axis tick labels. Was (8, 2.6 × n_vars) — too squat at n=1
+        # and the colorbar crowded the rightmost ticks.
         n_vars = len(var_cols)
         fig, axes = plt.subplots(
-            n_vars, 2, figsize=(8, 2.6 * n_vars),
+            n_vars, 2, figsize=(11, 3.5 * n_vars),
             sharey=False, squeeze=False,
         )
         base_x = aggregate_over_mask(per_cell, np.ones(per_cell.shape[0], dtype=bool))
         opt_x = aggregate_over_mask(per_cell, result.best_mask)
+
+        # Year array for colouring. When None (synthetic test), use a
+        # linear index so the colormap still works.
+        years_arr = (
+            np.asarray(years, dtype=int) if years is not None
+            else np.arange(per_cell.shape[1], dtype=int)
+        )
+
+        last_sc = None  # last scatter handle for the shared colorbar
         for vi, v in enumerate(var_cols):
-            for ci, (xv, title) in enumerate(
+            display_name = _display_var_name(v)
+            for ci, (xv_raw, title) in enumerate(
                 [(base_x[:, vi], "all cells"), (opt_x[:, vi], "optimized")]
             ):
                 ax = axes[vi][ci]
+                # Rescale NDVI byte-scale → unit so the X-axis matches
+                # the convention used elsewhere in geocif. Other vars
+                # pass through untouched.
+                xv = _ndvi_byte_to_unit(xv_raw) if v.lower() == "ndvi" else xv_raw
                 mask = np.isfinite(xv) & np.isfinite(y)
                 if mask.sum() >= 2:
-                    ax.scatter(xv[mask], y[mask], s=20, alpha=0.7, c="#1f77b4")
+                    sc = ax.scatter(
+                        xv[mask], y[mask],
+                        c=years_arr[mask], cmap="viridis",
+                        vmin=int(years_arr.min()),
+                        vmax=int(years_arr.max()),
+                        s=28, alpha=0.85,
+                        edgecolors="black", linewidths=0.3,
+                    )
+                    last_sc = sc
                     if mask.sum() >= 3 and xv[mask].std() > 0:
                         r = float(np.corrcoef(xv[mask], y[mask])[0, 1])
-                        ax.set_title(f"{v} — {title} (r={r:+.2f})", fontsize=9)
+                        ax.set_title(
+                            f"{display_name} — {title} (r={r:+.2f})", fontsize=9,
+                        )
                     else:
-                        ax.set_title(f"{v} — {title}", fontsize=9)
+                        ax.set_title(f"{display_name} — {title}", fontsize=9)
                 else:
-                    ax.set_title(f"{v} — {title} (no data)", fontsize=9)
-                ax.set_xlabel(v)
+                    ax.set_title(f"{display_name} — {title} (no data)", fontsize=9)
+                ax.set_xlabel(display_name)
                 ax.set_ylabel("yield (tn/ha)")
                 ax.grid(True, alpha=0.3)
-        fig.suptitle(f"{region} — pre/post comparison per variable", fontsize=11)
-        fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+        # Single shared colorbar at the right edge showing the year
+        # mapping; integer year ticks so it reads as a calendar legend
+        # rather than a continuous variable.
+        if last_sc is not None:
+            cbar = fig.colorbar(
+                last_sc, ax=axes, fraction=0.025, pad=0.02, label="year",
+            )
+            # Integer year ticks across the actual span.
+            yr_min, yr_max = int(years_arr.min()), int(years_arr.max())
+            # Cap to ~8 ticks for readability on a 5-year span vs a 25-year span.
+            n_ticks = min(8, max(2, yr_max - yr_min + 1))
+            tick_positions = np.linspace(yr_min, yr_max, n_ticks).round().astype(int)
+            cbar.set_ticks(tick_positions)
+            cbar.set_ticklabels([str(t) for t in tick_positions])
+
+        fig.suptitle(
+            f"{_display_region_name(region)} — pre/post comparison per variable",
+            fontsize=11,
+        )
+        # tight_layout's rect leaves whitespace for the suptitle AND the
+        # colorbar; without rect=[..., 0.92, ...] the colorbar collides
+        # with the suptitle on tall figures.
+        fig.tight_layout(rect=[0, 0, 0.92, 0.96])
         fig.savefig(out_dir / f"{stem}_pre_post.png", dpi=130)
         plt.close(fig)
 
@@ -857,9 +1224,11 @@ class CellOptimizer(base.BaseGeo):
 
         df = pd.DataFrame(summary_rows)
         out_dir = self.cross_region_dir()
-        csv_path = out_dir / "summary.csv"
-        df.to_csv(csv_path, index=False)
-        self.logger.info(f"  wrote {csv_path}")
+        # Master CSV at the root for convenience (every region from
+        # every country × crop × season in one place).
+        master_csv = out_dir / "summary.csv"
+        df.to_csv(master_csv, index=False)
+        self.logger.info(f"  wrote {master_csv}")
 
         if not self.do_plot or len(df) < 2:
             return
@@ -871,20 +1240,343 @@ class CellOptimizer(base.BaseGeo):
             self.logger.warning(f"  matplotlib unavailable: {exc}")
             return
 
+        # Split outputs by (country, crop, season). Lifts and R²s aren't
+        # comparable across crops or countries (different yield series,
+        # different baseline difficulty), so a single histogram or
+        # scatter mixing them all hides more than it shows. Per-combo
+        # folders keep the plots readable.
+        group_cols = [c for c in ("country", "crop", "season") if c in df.columns]
+        if not group_cols:
+            self.logger.warning(
+                "  cross-region df missing country/crop/season columns; "
+                "writing only master summary.csv"
+            )
+            return
+
+        for keys, grp in df.groupby(group_cols):
+            # Normalize keys to a flat tuple even when group_cols has length 1.
+            keys = keys if isinstance(keys, tuple) else (keys,)
+            kv = dict(zip(group_cols, keys))
+            country = str(kv.get("country", "_unknown"))
+            crop = str(kv.get("crop", "_unknown"))
+            season = int(kv.get("season", 1))
+
+            sub_dir = out_dir / country / crop
+            sub_dir.mkdir(parents=True, exist_ok=True)
+            stem = f"s{season}"
+
+            # Mean area per region for this combo — pulled via the
+            # canonical add_statistics dispatcher so the source (AMIS /
+            # HarvestStat / per-country override) is selected
+            # automatically. Used to size dots in the baseline-vs-
+            # optimized scatter; empty dict if anything fails, in which
+            # case the scatter falls back to uniform dot size.
+            mean_areas = self._fetch_mean_areas(
+                country=country, crop=crop,
+                regions=list(grp["region"].astype(str).unique()),
+                current_year=self._current_year_or_default(),
+                season=season,
+            )
+            if mean_areas:
+                grp = grp.assign(
+                    mean_area_ha=grp["region"].astype(str).map(mean_areas),
+                )
+                n_with_area = int(grp["mean_area_ha"].notna().sum())
+                self.logger.info(
+                    f"  {country}/{crop}/{stem}: mean_area_ha resolved "
+                    f"for {n_with_area}/{len(grp)} regions"
+                )
+                # Rewrite the per-combo CSV with the new column.
+                sub_csv = sub_dir / f"summary_{stem}.csv"
+                grp.to_csv(sub_csv, index=False)
+            else:
+                # No area data — write CSV without the mean_area_ha column.
+                sub_csv = sub_dir / f"summary_{stem}.csv"
+                grp.to_csv(sub_csv, index=False)
+
+            if len(grp) < 2:
+                self.logger.info(
+                    f"  {country}/{crop}/{stem}: only {len(grp)} regions, "
+                    f"skipping cross-region plots"
+                )
+                continue
+
+            self._cross_region_plots(grp, sub_dir, stem, country, crop, season, plt)
+            self.logger.info(
+                f"  cross-region plots → {sub_dir} ({len(grp)} regions)"
+            )
+
+    def _current_year_or_default(self) -> int:
+        """Best-effort current-year resolver for the mean-area lookup
+        window. Tries ML.current_year / DEFAULT.current_year config,
+        falls back to the system year."""
+        for sec in ("ML", "DEFAULT"):
+            if self.parser.has_option(sec, "current_year"):
+                try:
+                    return int(self.parser.get(sec, "current_year"))
+                except (ValueError, TypeError):
+                    pass
+        import arrow as _ar
+        return int(_ar.utcnow().year)
+
+    def _fetch_mean_areas(
+        self, country: str, crop: str, regions, current_year=None,
+        n_years: int = 10, season: int = 1,
+    ) -> dict:
+        """Pull per-region mean ``Area (ha)`` over the past
+        ``n_years`` via the canonical ``ml_stats.add_statistics``
+        dispatcher. Routes through HarvestStat / AMIS / per-country
+        override files automatically (same path used for yield
+        lookups), so this works uniformly across countries.
+
+        Returns ``{region: float}`` (mean over years; NaN-tolerant).
+        Returns ``{}`` on any failure so the caller can fall back to
+        uniform dot sizes instead of crashing the cross-region step.
+        """
+        if not regions or self.parser is None:
+            return {}
+        try:
+            import pandas as pd
+            from pathlib import Path as _Path
+            from geocif.ml import stats as ml_stats
+            from geocif.agmet import utils as agmet_utils
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                f"  mean-area fetch skipped (import failed): {exc}"
+            )
+            return {}
+
+        # Resolve dir_production_statistics — geobase.txt's PATHS
+        # section provides it via interpolation when parser was loaded
+        # with ExtendedInterpolation.
+        try:
+            dir_stats = _Path(self.parser.get("PATHS", "dir_production_statistics"))
+        except Exception:
+            try:
+                dir_metadata = _Path(self.parser.get("PATHS", "dir_metadata"))
+                dir_stats = dir_metadata / "production_statistics"
+            except Exception:
+                self.logger.warning(
+                    "  mean-area fetch skipped: could not resolve "
+                    "dir_production_statistics from parser"
+                )
+                return {}
+        if not dir_stats.exists():
+            self.logger.warning(
+                f"  mean-area fetch skipped: {dir_stats} not found"
+            )
+            return {}
+
+        country_str = str(country).replace("_", " ").title()
+        try:
+            crop_str = agmet_utils.get_crop_name(crop)
+        except Exception:
+            crop_str = str(crop).replace("_", " ").title()
+
+        country_key = str(country).lower().replace(" ", "_")
+        if self.parser.has_option(country_key, "admin_level"):
+            admin_zone = self.parser.get(country_key, "admin_level")
+        elif self.parser.has_option("DEFAULT", "admin_level"):
+            admin_zone = self.parser.get("DEFAULT", "admin_level")
+        else:
+            admin_zone = "admin_1"
+
+        ref_year = int(current_year) if current_year else self._current_year_or_default()
+        years = list(range(ref_year - n_years, ref_year))
+        rows = [
+            {"Region": r, "Harvest Year": y, "Season": int(season)}
+            for r in regions for y in years
+        ]
+        if not rows:
+            return {}
+        df_in = pd.DataFrame(rows)
+        try:
+            df_out = ml_stats.add_statistics(
+                dir_stats=dir_stats,
+                df=df_in,
+                country=country_str,
+                crop=crop_str,
+                admin_zone=admin_zone,
+                stats=["Yield (tn per ha)", "Area (ha)"],
+                method="",
+                parser=self.parser,
+                label=f"cell-optimizer-area/{country}/{crop}",
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                f"  mean-area fetch failed for {country}/{crop}: {exc}"
+            )
+            return {}
+
+        if "Area (ha)" not in df_out.columns:
+            return {}
+
+        # Mean area per region, NaN-tolerant. NaN means "AMIS/HarvestStat
+        # has no area data for this region/crop/year window" — the
+        # plotter handles this by giving those dots a fallback size.
+        out: dict = {}
+        area_col = "Area (ha)"
+        for region in regions:
+            sub = df_out[df_out["Region"].astype(str) == str(region)]
+            if sub.empty:
+                continue
+            vals = sub[area_col].astype(float).dropna()
+            if vals.empty:
+                continue
+            out[str(region)] = float(vals.mean())
+        return out
+
+    def _cross_region_plots(self, grp, sub_dir, stem, country, crop, season, plt):
+        """Render the two cross-region diagnostics for one
+        (country, crop, season) group: lift histogram + baseline-vs-
+        optimized scatter. Factored out so the layout for the two
+        figures is defined once instead of duplicated.
+        """
+        # 1. Lift histogram
         fig, ax = plt.subplots(figsize=(8, 4.5))
-        ax.hist(df["lift"], bins=20, color="#1f77b4", alpha=0.8, edgecolor="black")
+        ax.hist(grp["lift"], bins=min(20, max(5, len(grp) // 2)),
+                color="#1f77b4", alpha=0.8, edgecolor="black")
         ax.axvline(0, color="black", linewidth=0.8)
-        ax.axvline(df["lift"].mean(), color="red", linestyle="--",
-                   linewidth=1.2, label=f"mean lift = {df['lift'].mean():+.3f}")
-        ax.set_xlabel("LOOCV R^2 lift (optimized - baseline)")
+        ax.axvline(grp["lift"].mean(), color="red", linestyle="--",
+                   linewidth=1.2, label=f"mean lift = {grp['lift'].mean():+.3f}")
+        ax.set_xlabel("LOOCV R² lift (optimized − baseline)")
         ax.set_ylabel("regions")
-        ax.set_title(f"Cell-optimizer lift across {len(df)} regions")
+        ax.set_title(
+            f"{country.title()} {crop.title()} s{season} — "
+            f"cell-optimizer lift across {len(grp)} regions"
+        )
         ax.legend(loc="best", fontsize=9)
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
-        fig.savefig(out_dir / "lift_distribution.png", dpi=130)
+        fig.savefig(sub_dir / f"lift_distribution_{stem}.png", dpi=130)
         plt.close(fig)
-        self.logger.info(f"  wrote {out_dir / 'lift_distribution.png'}")
+
+        # 2. Baseline vs optimized R² scatter — one dot per region with
+        # y=x reference, coloured by lift, top-5 labeled. When
+        # mean_area_ha is present in grp, dot size encodes the region's
+        # average crop area (log-scaled — area distributions span 2-3
+        # orders of magnitude). Regions with NaN area get a fallback
+        # mid-range size + thinner outline so they're distinguishable
+        # as "size unknown".
+        fig, ax = plt.subplots(figsize=(7, 7))
+
+        # Compute dot sizes.
+        S_FALLBACK = 60.0       # used when no area data at all
+        S_NAN = 45.0            # this region has no area but others do
+        S_MIN, S_MAX = 25.0, 250.0
+        has_area = "mean_area_ha" in grp.columns
+        area_finite = (
+            grp["mean_area_ha"].notna() if has_area
+            else pd.Series([False] * len(grp), index=grp.index)
+        )
+        if has_area and area_finite.any():
+            a = grp["mean_area_ha"].astype(float).to_numpy()
+            valid = np.isfinite(a) & (a > 0)
+            if valid.sum() >= 2 and (a[valid].max() > a[valid].min()):
+                # Log-scale so 100 ha and 10M ha both render readably.
+                la = np.log10(a[valid] + 1.0)
+                la_min, la_max = float(la.min()), float(la.max())
+                # Apply to every row; NaNs / non-positive get S_NAN.
+                sizes = np.full_like(a, S_NAN, dtype=float)
+                la_all = np.where(valid, np.log10(a + 1.0), la_min)
+                sizes[valid] = S_MIN + (S_MAX - S_MIN) * (
+                    (la_all[valid] - la_min) / (la_max - la_min)
+                )
+            else:
+                # All-same area or only one finite — fall back to fixed size.
+                sizes = np.full(len(grp), S_FALLBACK, dtype=float)
+        else:
+            sizes = np.full(len(grp), S_FALLBACK, dtype=float)
+
+        # Thinner outline for "size unknown" dots so they're visually distinct.
+        if has_area and area_finite.any():
+            edge_widths = np.where(area_finite.to_numpy(), 0.4, 0.15)
+        else:
+            edge_widths = np.full(len(grp), 0.4, dtype=float)
+
+        sc = ax.scatter(
+            grp["baseline_r2"], grp["optimized_r2"],
+            c=grp["lift"].to_numpy(), cmap="RdYlGn",
+            s=sizes, alpha=0.85, edgecolors="black", linewidths=edge_widths,
+        )
+        lo = float(min(grp["baseline_r2"].min(), grp["optimized_r2"].min(), 0.0)) - 0.05
+        hi = float(max(grp["baseline_r2"].max(), grp["optimized_r2"].max(), 1.0)) + 0.05
+        ax.plot([lo, hi], [lo, hi], color="gray", linestyle="--",
+                linewidth=1.0, alpha=0.7, label="y = x (no lift)")
+        # Label top-5 by lift so the biggest wins are named on the chart.
+        for _, row in grp.nlargest(min(5, len(grp)), "lift").iterrows():
+            ax.annotate(
+                str(row["region"]),
+                xy=(row["baseline_r2"], row["optimized_r2"]),
+                xytext=(4, 4), textcoords="offset points",
+                fontsize=8, alpha=0.85,
+            )
+        fig.colorbar(sc, ax=ax, fraction=0.04, pad=0.02, label="lift (Δ R²)")
+
+        # Title — note size encoding when active.
+        if has_area and area_finite.any():
+            size_hint = "; dot size ∝ mean area (ha, log)"
+        else:
+            size_hint = ""
+        ax.set_xlabel("baseline R² (all cells)")
+        ax.set_ylabel("optimized R² (GA-selected cells)")
+        ax.set_title(
+            f"{country.title()} {crop.title()} s{season} — R² before vs "
+            f"after\n({len(grp)} regions; mean lift = "
+            f"{grp['lift'].mean():+.3f}{size_hint})"
+        )
+        ax.set_xlim(lo, hi)
+        ax.set_ylim(lo, hi)
+        ax.set_aspect("equal")
+
+        # Size legend showing 10th / 50th / 90th-percentile areas, when
+        # area is encoded. Lower-left corner stays clear of the lift
+        # colorbar (right) and the y=x reference annotation (lower right).
+        if has_area and area_finite.any():
+            from matplotlib.lines import Line2D
+            a_valid = grp.loc[area_finite, "mean_area_ha"].astype(float).to_numpy()
+            la_min = float(np.log10(a_valid.min() + 1.0))
+            la_max = float(np.log10(a_valid.max() + 1.0))
+
+            def _area_to_size(a_val):
+                la = np.log10(a_val + 1.0)
+                if la_max <= la_min:
+                    return S_FALLBACK
+                return S_MIN + (S_MAX - S_MIN) * (la - la_min) / (la_max - la_min)
+
+            def _fmt_area(a_val):
+                if a_val >= 1e6:
+                    return f"{a_val / 1e6:.1f} M ha"
+                if a_val >= 1e3:
+                    return f"{a_val / 1e3:.0f} K ha"
+                return f"{int(a_val)} ha"
+
+            percentiles = np.percentile(a_valid, [10, 50, 90])
+            legend_handles = [
+                Line2D(
+                    [], [], marker="o", linestyle="", color="lightgray",
+                    markersize=np.sqrt(_area_to_size(a_val)),
+                    markeredgecolor="black", markeredgewidth=0.4,
+                    label=_fmt_area(a_val),
+                )
+                for a_val in percentiles
+            ]
+            # Two legends — keep the y=x reference line legend AND the
+            # size legend visible. Add y=x first then attach size legend
+            # separately so they don't overwrite each other.
+            yx_legend = ax.legend(loc="lower right", fontsize=9)
+            ax.add_artist(yx_legend)
+            ax.legend(
+                handles=legend_handles, loc="lower left", fontsize=8,
+                title="region area", title_fontsize=8, frameon=True,
+            )
+        else:
+            ax.legend(loc="lower right", fontsize=9)
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        fig.savefig(sub_dir / f"baseline_vs_optimized_r2_{stem}.png", dpi=130)
+        plt.close(fig)
 
     # ------------------------------------------------------------------
     # Top-level entry
@@ -963,13 +1655,125 @@ class CellOptimizer(base.BaseGeo):
             summary_rows.append(r["summary"])
             production_frames.append(r["production_rows"])
 
-        if self.write_production_mask and production_frames:
-            self._write_production_mask(
-                country, crop, season,
-                pd.concat(production_frames, ignore_index=True),
-            )
+        if production_frames:
+            # Combine the per-region per-cell rows once; reused for the
+            # production parquet AND the national mask plot. Avoids
+            # concatenating twice.
+            combined_cells = pd.concat(production_frames, ignore_index=True)
+            if self.write_production_mask:
+                self._write_production_mask(
+                    country, crop, season, combined_cells,
+                )
+            if self.do_plot:
+                self._plot_national_mask(
+                    country, crop, season, combined_cells,
+                )
 
         return summary_rows
+
+    def _plot_national_mask(
+        self, country: str, crop: str, season: int, df_cells,
+    ) -> None:
+        """One country-scale map showing every cell across every region
+        in this (country, crop, season) combo, coloured by AFI with the
+        in-vs-out distinction preserved via alpha and size. The same
+        visual conventions as the per-region ``_mask_map.png`` so the
+        eye can move between scales without re-calibrating.
+
+        Country boundary outline (dissolved) is overlaid for context
+        when geopandas + the shapefile are available; if not, the dots
+        still plot — the inset failure is silent.
+        """
+        if df_cells is None or df_cells.empty:
+            return
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(f"  matplotlib unavailable: {exc}")
+            return
+
+        afi_all = df_cells["afi"].to_numpy(dtype=float)
+        afi_vmin = float(np.nanmin(afi_all)) if afi_all.size else 0.0
+        afi_vmax = float(np.nanmax(afi_all)) if afi_all.size else 100.0
+        if afi_vmax <= afi_vmin:
+            afi_vmax = afi_vmin + 1.0
+
+        included = df_cells["included"].astype(bool)
+        out_cells = df_cells[~included]
+        in_cells = df_cells[included]
+
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        # Country boundary first so dots sit on top of the outline.
+        gdf = self._load_country_boundary_gdf(country)
+        if gdf is not None and not gdf.empty:
+            try:
+                gdf_poly = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])]
+                if not gdf_poly.empty:
+                    gdf_poly.dissolve().boundary.plot(
+                        ax=ax, color="black", linewidth=0.5, alpha=0.6,
+                    )
+            except Exception:
+                pass
+
+        # Out cells: small + faded, AFI-coloured.
+        if not out_cells.empty:
+            ax.scatter(
+                out_cells["lon"], out_cells["lat"],
+                c=out_cells["afi"], cmap="viridis",
+                vmin=afi_vmin, vmax=afi_vmax,
+                s=4, alpha=0.25, edgecolors="none",
+                label=f"out (n={len(out_cells):,})",
+            )
+        # In cells: larger + vivid, with black ring so they pop against
+        # the faded out-population. The shared vmin/vmax keeps colours
+        # comparable between in and out populations.
+        sc_in = None
+        if not in_cells.empty:
+            sc_in = ax.scatter(
+                in_cells["lon"], in_cells["lat"],
+                c=in_cells["afi"], cmap="viridis",
+                vmin=afi_vmin, vmax=afi_vmax,
+                s=10, alpha=0.95, edgecolors="black", linewidths=0.15,
+                label=f"in (n={len(in_cells):,})",
+            )
+        if sc_in is not None:
+            fig.colorbar(sc_in, ax=ax, fraction=0.04, pad=0.02,
+                         label="AFI (crop fraction %)")
+
+        n_in = int(included.sum())
+        n_total = int(len(df_cells))
+        pct = (100.0 * n_in / n_total) if n_total else 0.0
+        country_display = country.replace("_", " ").title()
+        crop_display = crop.replace("_", " ").title()
+        ax.set_xlabel("longitude")
+        ax.set_ylabel("latitude")
+        ax.set_title(
+            f"{country_display} {crop_display} s{season} — "
+            f"national selected cells\n"
+            f"{n_in:,}/{n_total:,} cells selected ({pct:.1f}%) "
+            f"across {df_cells['region'].nunique()} regions"
+        )
+        ax.set_aspect("equal")
+        ax.grid(True, alpha=0.3)
+        if not in_cells.empty or not out_cells.empty:
+            ax.legend(loc="best", fontsize=9)
+        fig.tight_layout()
+
+        # File sits at country/crop scope (alongside the production
+        # parquet's sibling diagnostics), not under regions_s<season>/.
+        out_path = (
+            self.summary_dir(country, crop)
+            / f"{country}_{crop}_s{season}_national_mask.png"
+        )
+        fig.savefig(out_path, dpi=130)
+        plt.close(fig)
+        self.logger.info(
+            f"  wrote national mask map -> {out_path} "
+            f"({n_in:,}/{n_total:,} cells)"
+        )
 
     def _write_production_mask(
         self, country: str, crop: str, season: int, df: pd.DataFrame,

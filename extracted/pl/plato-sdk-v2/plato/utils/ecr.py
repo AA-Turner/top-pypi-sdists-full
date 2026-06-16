@@ -39,19 +39,16 @@ ECR_REGISTRY = "383806609161.dkr.ecr.us-west-1.amazonaws.com"
 ECR_REGION = "us-west-1"
 
 
-def retag_image_via_chronos(
-    chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
-) -> bool:
-    """Retag a world image in ECR through the Chronos API.
+def _retag_via_chronos(chronos_url: str, endpoint: str, source_tag: str, target_tag: str, api_key: str) -> bool:
+    """POST a retag request to a Chronos retag endpoint. Returns True on success.
 
-    Server-side equivalent of retag_image(): Chronos copies the image manifest
-    using its own ECS task credentials, so the caller does not need local AWS
-    credentials. Returns True on success.
+    Chronos copies the image manifest using its own ECS task credentials, so the
+    caller does not need local AWS credentials.
     """
     chronos_url = chronos_url.rstrip("/")
     try:
         response = httpx.post(
-            f"{chronos_url}/api/worlds/{package_name}/retag-image",
+            f"{chronos_url}{endpoint}",
             json={"source_tag": source_tag, "target_tag": target_tag},
             headers={"X-API-Key": api_key},
             timeout=60.0,
@@ -63,6 +60,28 @@ def retag_image_via_chronos(
         logger.debug("Chronos retag returned HTTP %s: %s", response.status_code, response.text)
         return False
     return True
+
+
+def retag_image_via_chronos(
+    chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
+) -> bool:
+    """Retag a world image in ECR through the Chronos API.
+
+    Server-side equivalent of retag_image(): the caller does not need local AWS
+    credentials. Returns True on success.
+    """
+    return _retag_via_chronos(chronos_url, f"/api/worlds/{package_name}/retag-image", source_tag, target_tag, api_key)
+
+
+def retag_agent_image_via_chronos(
+    chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
+) -> bool:
+    """Retag an agent image in ECR through the Chronos API.
+
+    Server-side equivalent of retag_image(): the caller does not need local AWS
+    credentials. Returns True on success.
+    """
+    return _retag_via_chronos(chronos_url, f"/api/agents/{package_name}/retag-image", source_tag, target_tag, api_key)
 
 
 @dataclass

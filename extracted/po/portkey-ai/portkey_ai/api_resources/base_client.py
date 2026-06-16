@@ -675,7 +675,7 @@ class APIClient:
             # to completion before attempting to access the response text.
 
             if retry_count < self.max_retries and self._should_retry(err.response):
-                self._request(
+                return self._request(
                     options=options,
                     stream=stream,
                     cast_to=cast_to,
@@ -688,7 +688,7 @@ class APIClient:
             raise APITimeoutError(request=request) from err
         except Exception as err:
             if retry_count < self.max_retries:
-                self._request(
+                return self._request(
                     options=options,
                     stream=stream,
                     cast_to=cast_to,
@@ -1388,7 +1388,7 @@ class AsyncAPIClient:
             # If the response is streamed then we need to explicitly read the response
             # to completion before attempting to access the response text.
             if retry_count < self.max_retries and self._should_retry(err.response):
-                await self._request(
+                return await self._request(
                     options=options,
                     stream=stream,
                     cast_to=cast_to,
@@ -1401,7 +1401,7 @@ class AsyncAPIClient:
             raise APITimeoutError(request=request) from err
         except Exception as err:
             if retry_count < self.max_retries:
-                await self._request(
+                return await self._request(
                     options=options,
                     stream=stream,
                     cast_to=cast_to,

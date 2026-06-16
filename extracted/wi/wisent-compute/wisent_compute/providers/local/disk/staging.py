@@ -179,33 +179,3 @@ def setup_agent_staging(log_fn) -> str | None:
         f"{target} (disk-backed, {free_gb:.0f}G free)"
     )
     return target
-
-
-def _flush_staging_child(path: str) -> None:
-    from wisent.core.reading.modules.utilities.data.sources.hf.hf_writers import (
-        flush_staging_dir,
-    )
-    flush_staging_dir(path)
-
-
-def flush_fleet_staging(path: str, log_fn, timeout_s: int = 300) -> bool:
-    """Flush agent-wide HF staging without wedging the agent loop forever."""
-    if not os.path.isdir(path) or not any(os.scandir(path)):
-        return False
-    import multiprocessing as mp
-
-    proc = mp.Process(target=_flush_staging_child, args=(path,))
-    proc.start()
-    proc.join(timeout_s)
-    if proc.is_alive():
-        proc.terminate()
-        proc.join(10)
-        log_fn(f"fleet staging flush timed out after {timeout_s}s; keeping staging dir")
-        return False
-    if proc.exitcode != 0:
-        log_fn(f"fleet staging flush failed rc={proc.exitcode}; keeping staging dir")
-        return False
-    shutil.rmtree(path)
-    os.makedirs(path, exist_ok=True)
-    log_fn("flushed fleet staging dir to HF (1 commit)")
-    return True

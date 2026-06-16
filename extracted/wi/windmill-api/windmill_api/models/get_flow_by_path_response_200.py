@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -8,9 +8,10 @@ from dateutil.parser import isoparse
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.get_flow_by_path_response_200_extra_perms import GetFlowByPathResponse200ExtraPerms
-    from ..models.get_flow_by_path_response_200_schema import GetFlowByPathResponse200Schema
-    from ..models.get_flow_by_path_response_200_value import GetFlowByPathResponse200Value
+    from ..models.get_flow_by_path_response_200_draft import GetFlowByPathResponse200Draft
+    from ..models.get_flow_by_path_response_200_other_drafts_users_item import (
+        GetFlowByPathResponse200OtherDraftsUsersItem,
+    )
 
 
 T = TypeVar("T", bound="GetFlowByPathResponse200")
@@ -20,227 +21,103 @@ T = TypeVar("T", bound="GetFlowByPathResponse200")
 class GetFlowByPathResponse200:
     """
     Attributes:
-        summary (str): Short description of what this flow does
-        value (GetFlowByPathResponse200Value): The flow structure containing modules and optional preprocessor/failure
-            handlers
-        path (str):
-        edited_by (str):
-        edited_at (datetime.datetime):
-        archived (bool):
-        extra_perms (GetFlowByPathResponse200ExtraPerms):
-        description (Union[Unset, str]): Detailed documentation for this flow
-        schema (Union[Unset, GetFlowByPathResponse200Schema]): JSON Schema for flow inputs. Use this to define input
-            parameters, their types, defaults, and validation. For resource inputs, set type to 'object' and format to
-            'resource-<type>' (e.g., 'resource-stripe')
-        on_behalf_of_email (Union[Unset, str]):
-        workspace_id (Union[Unset, str]):
-        starred (Union[Unset, bool]):
-        draft_only (Union[Unset, bool]):
-        tag (Union[Unset, str]):
-        ws_error_handler_muted (Union[Unset, bool]):
-        priority (Union[Unset, int]):
-        dedicated_worker (Union[Unset, bool]):
-        timeout (Union[Unset, float]):
-        visible_to_runner_only (Union[Unset, bool]):
-        labels (Union[Unset, List[str]]):
-        inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
-            Read-only — edit them on the folder.
-        lock_error_logs (Union[Unset, str]):
-        version_id (Union[Unset, float]):
+        is_draft (bool):
+        draft_saved_at (Union[Unset, datetime.datetime]):
+        no_deployed (Union[Unset, bool]):
+        draft (Union[Unset, GetFlowByPathResponse200Draft]):
+        other_drafts_users (Union[Unset, List['GetFlowByPathResponse200OtherDraftsUsersItem']]): Other workspace users
+            (and the legacy NULL-email row, if any)
+            with a saved draft at the same path. Populated only on the
+            authed user's "get by path" responses for kinds the editor
+            surfaces a fork banner for (script, flow, app, raw_app).
+            Empty / omitted for kinds without that UI.
     """
 
-    summary: str
-    value: "GetFlowByPathResponse200Value"
-    path: str
-    edited_by: str
-    edited_at: datetime.datetime
-    archived: bool
-    extra_perms: "GetFlowByPathResponse200ExtraPerms"
-    description: Union[Unset, str] = UNSET
-    schema: Union[Unset, "GetFlowByPathResponse200Schema"] = UNSET
-    on_behalf_of_email: Union[Unset, str] = UNSET
-    workspace_id: Union[Unset, str] = UNSET
-    starred: Union[Unset, bool] = UNSET
-    draft_only: Union[Unset, bool] = UNSET
-    tag: Union[Unset, str] = UNSET
-    ws_error_handler_muted: Union[Unset, bool] = UNSET
-    priority: Union[Unset, int] = UNSET
-    dedicated_worker: Union[Unset, bool] = UNSET
-    timeout: Union[Unset, float] = UNSET
-    visible_to_runner_only: Union[Unset, bool] = UNSET
-    labels: Union[Unset, List[str]] = UNSET
-    inherited_labels: Union[Unset, List[str]] = UNSET
-    lock_error_logs: Union[Unset, str] = UNSET
-    version_id: Union[Unset, float] = UNSET
+    is_draft: bool
+    draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    no_deployed: Union[Unset, bool] = UNSET
+    draft: Union[Unset, "GetFlowByPathResponse200Draft"] = UNSET
+    other_drafts_users: Union[Unset, List["GetFlowByPathResponse200OtherDraftsUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        summary = self.summary
-        value = self.value.to_dict()
+        is_draft = self.is_draft
+        draft_saved_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_saved_at, Unset):
+            draft_saved_at = self.draft_saved_at.isoformat()
 
-        path = self.path
-        edited_by = self.edited_by
-        edited_at = self.edited_at.isoformat()
+        no_deployed = self.no_deployed
+        draft: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.draft, Unset):
+            draft = self.draft.to_dict()
 
-        archived = self.archived
-        extra_perms = self.extra_perms.to_dict()
+        other_drafts_users: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.other_drafts_users, Unset):
+            other_drafts_users = []
+            for other_drafts_users_item_data in self.other_drafts_users:
+                other_drafts_users_item = other_drafts_users_item_data.to_dict()
 
-        description = self.description
-        schema: Union[Unset, Dict[str, Any]] = UNSET
-        if not isinstance(self.schema, Unset):
-            schema = self.schema.to_dict()
-
-        on_behalf_of_email = self.on_behalf_of_email
-        workspace_id = self.workspace_id
-        starred = self.starred
-        draft_only = self.draft_only
-        tag = self.tag
-        ws_error_handler_muted = self.ws_error_handler_muted
-        priority = self.priority
-        dedicated_worker = self.dedicated_worker
-        timeout = self.timeout
-        visible_to_runner_only = self.visible_to_runner_only
-        labels: Union[Unset, List[str]] = UNSET
-        if not isinstance(self.labels, Unset):
-            labels = self.labels
-
-        inherited_labels: Union[Unset, List[str]] = UNSET
-        if not isinstance(self.inherited_labels, Unset):
-            inherited_labels = self.inherited_labels
-
-        lock_error_logs = self.lock_error_logs
-        version_id = self.version_id
+                other_drafts_users.append(other_drafts_users_item)
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "summary": summary,
-                "value": value,
-                "path": path,
-                "edited_by": edited_by,
-                "edited_at": edited_at,
-                "archived": archived,
-                "extra_perms": extra_perms,
+                "is_draft": is_draft,
             }
         )
-        if description is not UNSET:
-            field_dict["description"] = description
-        if schema is not UNSET:
-            field_dict["schema"] = schema
-        if on_behalf_of_email is not UNSET:
-            field_dict["on_behalf_of_email"] = on_behalf_of_email
-        if workspace_id is not UNSET:
-            field_dict["workspace_id"] = workspace_id
-        if starred is not UNSET:
-            field_dict["starred"] = starred
-        if draft_only is not UNSET:
-            field_dict["draft_only"] = draft_only
-        if tag is not UNSET:
-            field_dict["tag"] = tag
-        if ws_error_handler_muted is not UNSET:
-            field_dict["ws_error_handler_muted"] = ws_error_handler_muted
-        if priority is not UNSET:
-            field_dict["priority"] = priority
-        if dedicated_worker is not UNSET:
-            field_dict["dedicated_worker"] = dedicated_worker
-        if timeout is not UNSET:
-            field_dict["timeout"] = timeout
-        if visible_to_runner_only is not UNSET:
-            field_dict["visible_to_runner_only"] = visible_to_runner_only
-        if labels is not UNSET:
-            field_dict["labels"] = labels
-        if inherited_labels is not UNSET:
-            field_dict["inherited_labels"] = inherited_labels
-        if lock_error_logs is not UNSET:
-            field_dict["lock_error_logs"] = lock_error_logs
-        if version_id is not UNSET:
-            field_dict["version_id"] = version_id
+        if draft_saved_at is not UNSET:
+            field_dict["draft_saved_at"] = draft_saved_at
+        if no_deployed is not UNSET:
+            field_dict["no_deployed"] = no_deployed
+        if draft is not UNSET:
+            field_dict["draft"] = draft
+        if other_drafts_users is not UNSET:
+            field_dict["other_drafts_users"] = other_drafts_users
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.get_flow_by_path_response_200_extra_perms import GetFlowByPathResponse200ExtraPerms
-        from ..models.get_flow_by_path_response_200_schema import GetFlowByPathResponse200Schema
-        from ..models.get_flow_by_path_response_200_value import GetFlowByPathResponse200Value
+        from ..models.get_flow_by_path_response_200_draft import GetFlowByPathResponse200Draft
+        from ..models.get_flow_by_path_response_200_other_drafts_users_item import (
+            GetFlowByPathResponse200OtherDraftsUsersItem,
+        )
 
         d = src_dict.copy()
-        summary = d.pop("summary")
+        is_draft = d.pop("is_draft")
 
-        value = GetFlowByPathResponse200Value.from_dict(d.pop("value"))
-
-        path = d.pop("path")
-
-        edited_by = d.pop("edited_by")
-
-        edited_at = isoparse(d.pop("edited_at"))
-
-        archived = d.pop("archived")
-
-        extra_perms = GetFlowByPathResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
-
-        description = d.pop("description", UNSET)
-
-        _schema = d.pop("schema", UNSET)
-        schema: Union[Unset, GetFlowByPathResponse200Schema]
-        if isinstance(_schema, Unset):
-            schema = UNSET
+        _draft_saved_at = d.pop("draft_saved_at", UNSET)
+        draft_saved_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_saved_at, Unset):
+            draft_saved_at = UNSET
         else:
-            schema = GetFlowByPathResponse200Schema.from_dict(_schema)
+            draft_saved_at = isoparse(_draft_saved_at)
 
-        on_behalf_of_email = d.pop("on_behalf_of_email", UNSET)
+        no_deployed = d.pop("no_deployed", UNSET)
 
-        workspace_id = d.pop("workspace_id", UNSET)
+        _draft = d.pop("draft", UNSET)
+        draft: Union[Unset, GetFlowByPathResponse200Draft]
+        if isinstance(_draft, Unset):
+            draft = UNSET
+        else:
+            draft = GetFlowByPathResponse200Draft.from_dict(_draft)
 
-        starred = d.pop("starred", UNSET)
+        other_drafts_users = []
+        _other_drafts_users = d.pop("other_drafts_users", UNSET)
+        for other_drafts_users_item_data in _other_drafts_users or []:
+            other_drafts_users_item = GetFlowByPathResponse200OtherDraftsUsersItem.from_dict(
+                other_drafts_users_item_data
+            )
 
-        draft_only = d.pop("draft_only", UNSET)
-
-        tag = d.pop("tag", UNSET)
-
-        ws_error_handler_muted = d.pop("ws_error_handler_muted", UNSET)
-
-        priority = d.pop("priority", UNSET)
-
-        dedicated_worker = d.pop("dedicated_worker", UNSET)
-
-        timeout = d.pop("timeout", UNSET)
-
-        visible_to_runner_only = d.pop("visible_to_runner_only", UNSET)
-
-        labels = cast(List[str], d.pop("labels", UNSET))
-
-        inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
-
-        lock_error_logs = d.pop("lock_error_logs", UNSET)
-
-        version_id = d.pop("version_id", UNSET)
+            other_drafts_users.append(other_drafts_users_item)
 
         get_flow_by_path_response_200 = cls(
-            summary=summary,
-            value=value,
-            path=path,
-            edited_by=edited_by,
-            edited_at=edited_at,
-            archived=archived,
-            extra_perms=extra_perms,
-            description=description,
-            schema=schema,
-            on_behalf_of_email=on_behalf_of_email,
-            workspace_id=workspace_id,
-            starred=starred,
-            draft_only=draft_only,
-            tag=tag,
-            ws_error_handler_muted=ws_error_handler_muted,
-            priority=priority,
-            dedicated_worker=dedicated_worker,
-            timeout=timeout,
-            visible_to_runner_only=visible_to_runner_only,
-            labels=labels,
-            inherited_labels=inherited_labels,
-            lock_error_logs=lock_error_logs,
-            version_id=version_id,
+            is_draft=is_draft,
+            draft_saved_at=draft_saved_at,
+            no_deployed=no_deployed,
+            draft=draft,
+            other_drafts_users=other_drafts_users,
         )
 
         get_flow_by_path_response_200.additional_properties = d

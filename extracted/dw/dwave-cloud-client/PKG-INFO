@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-cloud-client
-Version: 0.14.4
+Version: 0.14.5
 Summary: A minimal client for interacting with D-Wave cloud resources.
 Home-page: https://github.com/dwavesystems/dwave-cloud-client
 Author: D-Wave Systems Inc.
@@ -29,7 +29,7 @@ Requires-Dist: typing-extensions<5,>=4.5.0
 Requires-Dist: authlib<2,>=1.2
 Requires-Dist: importlib_metadata>=5.0.0
 Requires-Dist: orjson>=3.11
-Requires-Dist: http-sf>=1.0.4
+Requires-Dist: http-sf>=1.2.1
 Provides-Extra: test
 Requires-Dist: requests_mock; extra == "test"
 Requires-Dist: mock; extra == "test"

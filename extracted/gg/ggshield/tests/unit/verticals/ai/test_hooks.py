@@ -10,7 +10,12 @@ from pygitguardian.models import MCPActivityResponse
 
 from ggshield.utils.git_shell import Filemode
 from ggshield.verticals.ai.agents import Agent, Claude, Codex, Copilot, Cursor, VSCode
-from ggshield.verticals.ai.hooks import AIHookScanner, find_filepaths, parse_hook_input
+from ggshield.verticals.ai.hooks import (
+    AIHookScanner,
+    find_filepaths,
+    has_already_been_seen,
+    parse_hook_input,
+)
 from ggshield.verticals.ai.mcp import send_mcp_activity
 from ggshield.verticals.ai.models import EventType, HookPayload, HookResult, Tool
 from ggshield.verticals.secret import SecretScanner
@@ -121,6 +126,20 @@ class TestAIHookScannerScanContent:
         assert "remove the secrets from your prompt" in result.message
 
 
+class TestHasAlreadyBeenSeen:
+    def test_first_call_is_not_duplicate(self):
+        assert has_already_been_seen('{"hook_event_name": "PreToolUse"}') is False
+
+    def test_second_identical_call_is_duplicate(self):
+        content = '{"hook_event_name": "PreToolUse"}'
+        assert has_already_been_seen(content) is False
+        assert has_already_been_seen(content) is True
+
+    def test_different_payload_is_not_duplicate(self):
+        assert has_already_been_seen('{"prompt": "a"}') is False
+        assert has_already_been_seen('{"prompt": "b"}') is False
+
+
 class TestAIHookScannerScan:
     """Unit tests for the AIHookScanner.scan() method."""
 
@@ -143,6 +162,21 @@ class TestAIHookScannerScan:
         }
         code = scanner.scan(json.dumps(data))
         assert code == 0
+
+    def test_scan_duplicate_payload_skips_processing(self):
+        """scan() with the same payload as the previous call returns early."""
+        mock_scanner = _mock_scanner([])
+        scanner = AIHookScanner(mock_scanner)
+        data = {
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "hello world",
+            "transcript_path": "/home/user/.claude/projects/foo/session.jsonl",
+            "cursor_version": "1.2.3",
+        }
+        content = json.dumps(data)
+        assert scanner.scan(content) == 0
+        assert scanner.scan(content) == 0
+        mock_scanner.scan.assert_called_once()
 
     @patch("ggshield.verticals.ai.hooks.AIHookScanner._send_secret_notification")
     def test_scan_post_tool_use_with_secrets_sends_notification(
@@ -704,6 +738,26 @@ class TestAIHookScannerParseInput:
         assert payload.tool is None
         assert isinstance(payload.agent, Copilot)
 
+    def test_copilot_user_prompt_submitted(self):
+        """Test Copilot CLI's own 'userPromptSubmitted' event name parsing.
+
+        Copilot CLI fires the camelCase ``userPromptSubmitted`` event, not the
+        VS Code ``UserPromptSubmit``. If it is not mapped, the prompt content is
+        never scanned and ggshield wrongly returns ``{"continue": true}``.
+        """
+        data = {
+            "timestamp": "2026-02-26T11:28:53.112Z",
+            "hook_event_name": "userPromptSubmitted",
+            "session_id": "69cc6a03-7034-4c49-8cf9-3805c292a15c",
+            "prompt": "hello world",
+            "cwd": "/home/user1/foo",
+        }
+        payload = parse_hook_input(json.dumps(data))[0]
+        assert payload.event_type == EventType.USER_PROMPT
+        assert "hello world" in payload.content
+        assert payload.tool is None
+        assert isinstance(payload.agent, Copilot)
+
     def test_copilot_pre_tool_use_run_in_terminal(self):
         """Test Copilot PreToolUse with bash parsing."""
         data = {
@@ -1077,6 +1131,29 @@ class TestFlavorOutputResult:
         out = json.loads(args[0])
         assert not out["continue"]
 
+    @patch("ggshield.verticals.ai.agents.copilot.click.echo")
+    def test_copilot_output_result_user_prompt_block(self, mock_echo: MagicMock):
+        """Copilot USER_PROMPT block: {"decision": "block"} to stdout, return 0.
+
+        Copilot CLI cancels a prompt before it reaches the model when the hook
+        emits ``{"decision": "block"}`` (verified against Copilot CLI 1.0.61).
+        The inherited ``{"continue": false}`` is ignored on the prompt event.
+        """
+        result = HookResult(
+            block=True,
+            message="Remove secrets from prompt",
+            nbr_secrets=1,
+            payload=_dummy_payload(EventType.USER_PROMPT),
+        )
+        code = Copilot().output_result(result)
+        assert code == 0
+        mock_echo.assert_called_once()
+        args, kwargs = mock_echo.call_args
+        assert kwargs.get("err", False) is False  # stdout (default)
+        out = json.loads(args[0])
+        assert out["decision"] == "block"
+        assert out["reason"] == "Remove secrets from prompt"
+
     @patch("ggshield.verticals.ai.agents.codex.click.echo")
     def test_codex_output_result_allow(self, mock_echo: MagicMock):
         """Codex with block=False: empty JSON to stdout, return 0."""
@@ -1152,6 +1229,53 @@ class TestFlavorOutputResult:
         code = Codex().output_result(result)
         assert code == 2
         mock_echo.assert_called_once_with("Unsupported Codex event", err=True)
+
+    @patch("ggshield.verticals.ai.agents.claude_code.click.echo")
+    def test_claude_output_result_allow_with_warning(self, mock_echo: MagicMock):
+        """Claude allow with a warning: continue true plus systemMessage."""
+        result = HookResult.allow_with_warning(
+            _dummy_payload(EventType.PRE_TOOL_USE), "could not scan"
+        )
+        code = Claude().output_result(result)
+        assert code == 0
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out["continue"] is True
+        assert out["systemMessage"] == "could not scan"
+
+    @patch("ggshield.verticals.ai.agents.vscode.click.echo")
+    def test_vscode_output_result_allow_with_warning(self, mock_echo: MagicMock):
+        """VSCode allow with a warning: continue true plus systemMessage."""
+        result = HookResult.allow_with_warning(
+            _dummy_payload(EventType.PRE_TOOL_USE), "could not scan"
+        )
+        code = VSCode().output_result(result)
+        assert code == 0
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out["continue"] is True
+        assert out["systemMessage"] == "could not scan"
+
+    @patch("ggshield.verticals.ai.agents.codex.click.echo")
+    def test_codex_output_result_allow_with_warning(self, mock_echo: MagicMock):
+        """Codex allow with a warning: systemMessage only, no block fields."""
+        result = HookResult.allow_with_warning(
+            _dummy_payload(EventType.PRE_TOOL_USE), "could not scan"
+        )
+        code = Codex().output_result(result)
+        assert code == 0
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out == {"systemMessage": "could not scan"}
+
+    @patch("ggshield.verticals.ai.agents.cursor.click.echo")
+    def test_cursor_output_result_allow_with_warning(self, mock_echo: MagicMock):
+        """Cursor allow with a warning: permission allow plus user_message."""
+        result = HookResult.allow_with_warning(
+            _dummy_payload(EventType.PRE_TOOL_USE), "could not scan"
+        )
+        code = Cursor().output_result(result)
+        assert code == 0
+        out = json.loads(mock_echo.call_args[0][0])
+        assert out["permission"] == "allow"
+        assert out["user_message"] == "could not scan"
 
 
 @pytest.mark.parametrize(

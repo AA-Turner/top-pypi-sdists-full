@@ -28,6 +28,7 @@ from typing import (
 
 import sqlalchemy as sa
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
 from dbos._debug_trigger import DebugTriggers
@@ -419,6 +420,15 @@ class ThreadSafeEventDict:
             ]
 
 
+# Return type of the recv/get_event setup phases: either a cached result
+# (OAOO replay or value already available) or the registered event the
+# caller must wait on.
+EventSetupResult = Union[
+    tuple[Literal[True], Any],
+    tuple[Literal[False], threading.Event, float, str, int],
+]
+
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -572,6 +582,7 @@ class SystemDatabase(ABC):
         )
 
         self._listener_thread_lock = threading.Lock()
+        self._listener_running = False
 
         # Now we can run background processes
         self._run_background_processes = True
@@ -610,7 +621,7 @@ class SystemDatabase(ABC):
     def _insert_workflow_status(
         self,
         status: WorkflowStatusInternal,
-        conn: sa.Connection,
+        conn: Union[sa.Connection, Session],
         *,
         max_recovery_attempts: Optional[int],
         owner_xid: Optional[str],
@@ -782,7 +793,10 @@ class SystemDatabase(ABC):
     ) -> None:
         with self.engine.begin() as c:
             now_ms = self._now_ms_sql()
-            c.execute(
+            # Record the outcome, but never overwrite the terminal CANCELLED
+            # status: a workflow can be cancelled during its final step, and if so
+            # it must not be able to subsequently complete.
+            result = c.execute(
                 sa.update(SystemSchema.workflow_status)
                 .values(
                     status=status,
@@ -794,36 +808,69 @@ class SystemDatabase(ABC):
                     completed_at=now_ms,
                 )
                 .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                .where(
+                    SystemSchema.workflow_status.c.status
+                    != WorkflowStatusString.CANCELLED.value
+                )
             )
+            # update_workflow_outcome is only called to finalize a workflow. If
+            # the guarded UPDATE above matched no rows, the workflow may have
+            # been cancelled: a cancelled workflow must not complete, so re-read
+            # the status and raise so it ends as cancelled rather than succeeding
+            # or erroring. The re-read only happens on this rare no-op path, not
+            # on every completion.
+            if result.rowcount == 0:
+                current_status = c.execute(
+                    sa.select(SystemSchema.workflow_status.c.status).where(
+                        SystemSchema.workflow_status.c.workflow_uuid == workflow_id
+                    )
+                ).scalar_one_or_none()
+                if current_status == WorkflowStatusString.CANCELLED.value:
+                    raise DBOSAwaitedWorkflowCancelledError(workflow_id)
 
     def cancel_workflows(
         self,
         workflow_ids: list[str],
+        cancel_children: bool = False,
     ) -> None:
-        with self.engine.begin() as c:
-            now_ms = self._now_ms_sql()
-            # Set the workflows' status to CANCELLED and remove them from any queue,
-            # but only if the workflow is not already complete.
-            c.execute(
-                sa.update(SystemSchema.workflow_status)
-                .where(SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids))
-                .where(
-                    SystemSchema.workflow_status.c.status.notin_(
-                        [
-                            WorkflowStatusString.SUCCESS.value,
-                            WorkflowStatusString.ERROR.value,
-                        ]
+        def _cancel_workflows(ids: list[str]) -> None:
+            with self.engine.begin() as c:
+                now_ms = self._now_ms_sql()
+                # Set the workflows' status to CANCELLED and remove them from any
+                # queue, but only if the workflow is not already complete.
+                c.execute(
+                    sa.update(SystemSchema.workflow_status)
+                    .where(SystemSchema.workflow_status.c.workflow_uuid.in_(ids))
+                    .where(
+                        SystemSchema.workflow_status.c.status.notin_(
+                            [
+                                WorkflowStatusString.SUCCESS.value,
+                                WorkflowStatusString.ERROR.value,
+                            ]
+                        )
+                    )
+                    .values(
+                        status=WorkflowStatusString.CANCELLED.value,
+                        queue_name=None,
+                        deduplication_id=None,
+                        started_at_epoch_ms=None,
+                        updated_at=now_ms,
+                        completed_at=now_ms,
                     )
                 )
-                .values(
-                    status=WorkflowStatusString.CANCELLED.value,
-                    queue_name=None,
-                    deduplication_id=None,
-                    started_at_epoch_ms=None,
-                    updated_at=now_ms,
-                    completed_at=now_ms,
-                )
-            )
+
+        if not cancel_children:
+            _cancel_workflows(workflow_ids)
+            return
+
+        # Cascade child workflows level by level
+        visited: set[str] = set(workflow_ids)
+        frontier: list[str] = list(workflow_ids)
+        while frontier:
+            _cancel_workflows(frontier)
+            children = self._get_direct_children(frontier)
+            frontier = [c for c in children if c not in visited]
+            visited.update(frontier)
 
     def resume_workflows(
         self,
@@ -1354,15 +1401,9 @@ class SystemDatabase(ABC):
             return workflow_id
 
     @db_retry()
-    def check_workflow_result(self, workflow_id: str) -> Union[NoResult, Any]:
-        """Check if a workflow has completed and return its result.
-
-        Returns NoResult() if the workflow is still pending/enqueued/delayed/not found.
-        Returns the deserialized output on success.
-        Raises on error, cancellation, or max recovery attempts exceeded.
-        """
+    def _read_workflow_result_row(self, workflow_id: str) -> Optional[Any]:
         with self.engine.begin() as c:
-            row = c.execute(
+            return c.execute(
                 sa.select(
                     SystemSchema.workflow_status.c.status,
                     SystemSchema.workflow_status.c.output,
@@ -1370,23 +1411,30 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.serialization,
                 ).where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
             ).fetchone()
-            if row is not None:
-                status = row[0]
-                if status == WorkflowStatusString.SUCCESS.value:
-                    output = row[1]
-                    return deserialize_value(output, row[3], self.serializer)
-                elif status == WorkflowStatusString.ERROR.value:
-                    error = row[2]
-                    e: Exception = deserialize_exception(error, row[3], self.serializer)
-                    raise e
-                elif status == WorkflowStatusString.CANCELLED.value:
-                    # Raise AwaitedWorkflowCancelledError here, not the cancellation exception
-                    # because the awaiting workflow is not being cancelled.
-                    raise DBOSAwaitedWorkflowCancelledError(workflow_id)
-                elif (
-                    status == WorkflowStatusString.MAX_RECOVERY_ATTEMPTS_EXCEEDED.value
-                ):
-                    raise DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded(workflow_id)
+
+    def check_workflow_result(self, workflow_id: str) -> Union[NoResult, Any]:
+        """Check if a workflow has completed and return its result.
+
+        Returns NoResult() if the workflow is still pending/enqueued/delayed/not found.
+        Returns the deserialized output on success.
+        Raises on error, cancellation, or max recovery attempts exceeded.
+        """
+        row = self._read_workflow_result_row(workflow_id)
+        if row is not None:
+            status = row[0]
+            if status == WorkflowStatusString.SUCCESS.value:
+                output = row[1]
+                return deserialize_value(output, row[3], self.serializer)
+            elif status == WorkflowStatusString.ERROR.value:
+                error = row[2]
+                e: Exception = deserialize_exception(error, row[3], self.serializer)
+                raise e
+            elif status == WorkflowStatusString.CANCELLED.value:
+                # Raise AwaitedWorkflowCancelledError here, not the cancellation exception
+                # because the awaiting workflow is not being cancelled.
+                raise DBOSAwaitedWorkflowCancelledError(workflow_id)
+            elif status == WorkflowStatusString.MAX_RECOVERY_ATTEMPTS_EXCEEDED.value:
+                raise DBOSAwaitedWorkflowMaxRecoveryAttemptsExceeded(workflow_id)
         return NoResult()
 
     def await_workflow_result(self, workflow_id: str, polling_interval: float) -> Any:
@@ -1712,6 +1760,7 @@ class SystemDatabase(ABC):
             infos.append(info)
         return infos
 
+    @db_retry()
     def get_pending_workflows(
         self, executor_id: str, app_version: str
     ) -> list[GetPendingWorkflowsOutput]:
@@ -2558,10 +2607,7 @@ class SystemDatabase(ABC):
         timeout_function_id: int,
         topic: Optional[str],
         timeout_seconds: float = 60,
-    ) -> Union[
-        tuple[Literal[True], Any],
-        tuple[Literal[False], threading.Event, float, str, int],
-    ]:
+    ) -> EventSetupResult:
         """Setup phase of recv. Returns either:
         - (True, result) if a cached result was found (OAOO replay or message already available)
         - (False, event, actual_timeout, payload, start_time) if caller must wait on the event
@@ -2593,6 +2639,8 @@ class SystemDatabase(ABC):
         success, _ = self.notifications_map.set(payload, event, (workflow_uuid, topic))
         if not success:
             # This should not happen, but if it does, it means the workflow is executed concurrently.
+            # set() incremented the existing entry's count, so undo that before raising.
+            self.notifications_map.pop(payload)
             raise DBOSWorkflowConflictIDError(workflow_uuid)
 
         try:
@@ -2703,6 +2751,25 @@ class SystemDatabase(ABC):
     # The interval that recv and get_event poll on as a fallback to catch dropped notifications
     _notification_fallback_polling_interval: float = 60.0
 
+    def _event_recheck_interval(self) -> float:
+        """How long recv and get_event wait on their in-memory event before
+        re-checking the database.
+
+        With a notification listener running, the listener signals the event
+        promptly and the re-check is only a safety net against dropped
+        notifications. Without one (e.g. in DBOSClient, which never starts a
+        listener thread), the re-check is the only delivery mechanism, so use
+        the much shorter polling interval instead."""
+        if self._listener_running:
+            return self._notification_fallback_polling_interval
+        return self._notification_listener_polling_interval_sec
+
+    def run_notification_listener(self) -> None:
+        """Run the notification listener, marking it active so event waits
+        only re-check the database as a fallback."""
+        self._listener_running = True
+        self._notification_listener()
+
     def recv(
         self,
         workflow_uuid: str,
@@ -2723,14 +2790,65 @@ class SystemDatabase(ABC):
                 remaining = deadline - time.time()
                 if remaining <= 0:
                     break
-                event.wait(
-                    timeout=min(remaining, self._notification_fallback_polling_interval)
-                )
+                event.wait(timeout=min(remaining, self._event_recheck_interval()))
                 if not event.is_set():
                     self.recv_check(workflow_uuid, topic, event)
             return self.recv_consume(workflow_uuid, function_id, topic, start_time)
         finally:
             self.notifications_map.pop(payload)
+
+    async def _run_event_setup_async(
+        self,
+        event_map: ThreadSafeEventDict,
+        setup_fn: Callable[..., EventSetupResult],
+        *args: Any,
+    ) -> EventSetupResult:
+        """Run a recv/get_event setup function in a worker thread, cleaning up
+        synchronously if this coroutine is cancelled while the thread is in
+        flight.
+
+        The worker thread cannot be cancelled, so it finishes registering in
+        event_map even after cancellation abandons the coroutine before its
+        try/finally cleanup is in place. A leftover recv entry makes the next
+        recv on the same workflow and topic fail with
+        DBOSWorkflowConflictIDError -- a spurious "duplicate execution" that
+        parks the caller in await_workflow_result forever; a leftover
+        get_event entry leaks. So on cancellation, wait for the thread inline
+        and undo its registration *before* re-raising CancelledError: once the
+        cancelled call returns, no stale entry remains, so there is no window
+        for a concurrent recv to trip over. If a further cancellation
+        interrupts that wait, fall back to deferred cleanup via a done-callback
+        so an impatient caller is not blocked on the thread.
+        """
+        setup_task = asyncio.create_task(asyncio.to_thread(setup_fn, *args))
+        try:
+            return await asyncio.shield(setup_task)
+        except asyncio.CancelledError:
+
+            def unregister(task: "asyncio.Task[EventSetupResult]") -> None:
+                if task.cancelled() or task.exception() is not None:
+                    # Setup never registered, or registered then cleaned up
+                    # after its own failure; nothing to undo.
+                    return
+                result = task.result()
+                if not result[0]:
+                    event_map.pop(result[3])
+
+            # Wait for the thread to finish, then undo its registration. A
+            # second cancellation lands in the except below; an exception from
+            # setup is ignored because setup already cleaned up after itself.
+            try:
+                await asyncio.shield(setup_task)
+            except asyncio.CancelledError:
+                if not setup_task.done():
+                    # Cancelled again while still waiting on the thread: hand
+                    # cleanup to a done-callback rather than block any longer.
+                    setup_task.add_done_callback(unregister)
+                    raise
+            except Exception:
+                pass
+            unregister(setup_task)
+            raise
 
     async def recv_async(
         self,
@@ -2740,7 +2858,8 @@ class SystemDatabase(ABC):
         topic: Optional[str],
         timeout_seconds: float = 60,
     ) -> Any:
-        setup = await asyncio.to_thread(
+        setup = await self._run_event_setup_async(
+            self.notifications_map,
             self.recv_setup,
             workflow_uuid,
             function_id,
@@ -2762,7 +2881,7 @@ class SystemDatabase(ABC):
                 now = time.time()
                 if (
                     not event.is_set()
-                    and now - last_poll >= self._notification_fallback_polling_interval
+                    and now - last_poll >= self._event_recheck_interval()
                 ):
                     last_poll = now
                     await asyncio.to_thread(
@@ -3127,10 +3246,7 @@ class SystemDatabase(ABC):
         key: str,
         timeout_seconds: float = 60,
         caller_ctx: Optional[GetEventWorkflowContext] = None,
-    ) -> Union[
-        tuple[Literal[True], Any],
-        tuple[Literal[False], threading.Event, float, str, int],
-    ]:
+    ) -> EventSetupResult:
         """Setup phase of get_event. Returns either:
         - (True, result) if a cached result was found (OAOO replay)
         - (False, event, actual_timeout, payload, start_time) if caller must wait on the event
@@ -3275,9 +3391,7 @@ class SystemDatabase(ABC):
                 remaining = deadline - time.time()
                 if remaining <= 0:
                     break
-                event.wait(
-                    timeout=min(remaining, self._notification_fallback_polling_interval)
-                )
+                event.wait(timeout=min(remaining, self._event_recheck_interval()))
                 if not event.is_set():
                     self.get_event_check(target_uuid, key, event)
             return self.get_event_consume(target_uuid, key, start_time, caller_ctx)
@@ -3291,7 +3405,8 @@ class SystemDatabase(ABC):
         timeout_seconds: float = 60,
         caller_ctx: Optional[GetEventWorkflowContext] = None,
     ) -> Any:
-        setup = await asyncio.to_thread(
+        setup = await self._run_event_setup_async(
+            self.workflow_events_map,
             self.get_event_setup,
             target_uuid,
             key,
@@ -3312,7 +3427,7 @@ class SystemDatabase(ABC):
                 now = time.time()
                 if (
                     not event.is_set()
-                    and now - last_poll >= self._notification_fallback_polling_interval
+                    and now - last_poll >= self._event_recheck_interval()
                 ):
                     last_poll = now
                     await asyncio.to_thread(
@@ -3543,6 +3658,7 @@ class SystemDatabase(ABC):
             # Return the IDs of all functions we started
             return ret_ids
 
+    @db_retry()
     def clear_queue_assignment(self, workflow_id: str) -> bool:
         with self.engine.begin() as c:
             # Reset the status of the task to "ENQUEUED"
@@ -3687,6 +3803,31 @@ class SystemDatabase(ABC):
             )
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
         return wf_status, workflow_deadline_epoch_ms, should_execute
+
+    def init_workflow_with_connection(
+        self,
+        status: WorkflowStatusInternal,
+        conn: Union[sa.Connection, Session],
+        *,
+        max_recovery_attempts: Optional[int] = None,
+        owner_xid: Optional[str] = None,
+    ) -> tuple[WorkflowStatuses, Optional[int], bool]:
+        """
+        Record the initial status and inputs for a workflow using a caller-owned
+        SQLAlchemy Connection or ORM Session.
+
+        Does not begin, commit, rollback, or retry. The caller owns the
+        transaction. The connection or session must target the DBOS system
+        database; it cannot atomically span a separate application database.
+        """
+        return self._insert_workflow_status(
+            status,
+            conn,
+            max_recovery_attempts=max_recovery_attempts,
+            owner_xid=owner_xid,
+            is_recovery_request=False,
+            is_dequeued_request=False,
+        )
 
     def check_connection(self) -> None:
         try:
@@ -4014,6 +4155,20 @@ class SystemDatabase(ABC):
         return metrics
 
     @db_retry()
+    def get_checkpoint_name(
+        self, *, workflow_id: str, function_id: int
+    ) -> Optional[str]:
+        """Return the name of the checkpoint recorded at this point in history, if any."""
+        with self.engine.begin() as c:
+            checkpoint_name: str | None = c.execute(
+                sa.select(SystemSchema.operation_outputs.c.function_name).where(
+                    (SystemSchema.operation_outputs.c.workflow_uuid == workflow_id)
+                    & (SystemSchema.operation_outputs.c.function_id == function_id)
+                )
+            ).scalar()
+            return checkpoint_name
+
+    @db_retry()
     def patch(self, *, workflow_id: str, function_id: int, patch_name: str) -> bool:
         """If there is no checkpoint for this point in history,
         insert a patch marker and return True.
@@ -4054,6 +4209,26 @@ class SystemDatabase(ABC):
             ).scalar()
             return checkpoint_name == patch_name
 
+    def _get_direct_children(self, workflow_ids: list[str]) -> list[str]:
+        """
+        Get the immediate (one-level) child workflow IDs for a set of workflows.
+
+        Args:
+            workflow_ids: The workflow UUIDs to get the direct children of
+
+        Returns:
+            A list of the direct child workflow IDs
+        """
+        if not workflow_ids:
+            return []
+        with self.engine.begin() as c:
+            child_rows = c.execute(
+                sa.select(SystemSchema.workflow_status.c.workflow_uuid).where(
+                    SystemSchema.workflow_status.c.parent_workflow_id.in_(workflow_ids)
+                )
+            ).fetchall()
+        return [row[0] for row in child_rows]
+
     def get_workflow_children(self, workflow_id: str) -> list[str]:
         """
         Recursively get all child workflow IDs for a workflow.
@@ -4064,31 +4239,13 @@ class SystemDatabase(ABC):
         Returns:
             A list of all child (and grandchild, etc.) workflow IDs
         """
-        children: set[str] = set()
-        to_process: list[str] = [workflow_id]
-
-        with self.engine.begin() as c:
-            while to_process:
-                current_id = to_process.pop()
-                # Find all child workflows for the current workflow
-                child_rows = c.execute(
-                    sa.select(SystemSchema.operation_outputs.c.child_workflow_id).where(
-                        (SystemSchema.operation_outputs.c.workflow_uuid == current_id)
-                        & (
-                            SystemSchema.operation_outputs.c.child_workflow_id.isnot(
-                                None
-                            )
-                        )
-                    )
-                ).fetchall()
-
-                for row in child_rows:
-                    child_id = row[0]
-                    if child_id not in children:
-                        children.add(child_id)
-                        to_process.append(child_id)
-
-        return list(children)
+        descendants: set[str] = set()
+        frontier: list[str] = [workflow_id]
+        while frontier:
+            children = self._get_direct_children(frontier)
+            frontier = [c for c in children if c not in descendants]
+            descendants.update(frontier)
+        return list(descendants)
 
     def export_workflow(
         self, workflow_id: str, *, export_children: bool

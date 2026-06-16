@@ -28,9 +28,22 @@ except ImportError:
 from xrspatial.convolution import (_available_memory_bytes, _promote_float, convolve_2d,
                                    custom_kernel)
 from xrspatial.dataset_support import supports_dataset
-from xrspatial.utils import (ArrayTypeFunctionMapping, _boundary_to_dask, _pad_array,
-                             _validate_boundary, _validate_raster, _validate_scalar, cuda_args,
-                             is_cupy_array, is_dask_cupy, ngjit)
+from xrspatial.utils import (ArrayTypeFunctionMapping, _boundary_to_dask, _dask_task_name_kwargs,
+                             _pad_array, _validate_boundary, _validate_raster, _validate_scalar,
+                             cuda_args, is_cupy_array, is_dask_cupy, ngjit)
+
+
+def _is_empty_raster(agg):
+    """True if *agg* has a degenerate spatial axis (0 rows or 0 cols).
+
+    An empty raster has no cells to filter, but the GPU and dask paths
+    crash on it rather than no-op: ``cuda_args`` hands ``cuLaunchKernel``
+    a zero-sized grid, and ``map_overlap`` rejects a depth that exceeds
+    the (zero-length) axis. The numpy path already returns an empty
+    result with the input shape preserved, so the focal APIs short
+    circuit empty input to match it on every backend (issue #3225).
+    """
+    return agg.shape[-2] == 0 or agg.shape[-1] == 0
 
 
 def _validate_binary_kernel(kernel, func_name):
@@ -210,7 +223,8 @@ def _mean_dask_numpy(data, excludes, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(1, 1),
                            boundary=_boundary_to_dask(boundary),
-                           meta=np.array((), dtype=data.dtype))
+                           meta=np.array((), dtype=data.dtype),
+                           **_dask_task_name_kwargs('xrspatial.mean'))
     return out
 
 
@@ -220,7 +234,8 @@ def _mean_dask_cupy(data, excludes, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(1, 1),
                            boundary=_boundary_to_dask(boundary, is_cupy=True),
-                           meta=cupy.array((), dtype=data.dtype))
+                           meta=cupy.array((), dtype=data.dtype),
+                           **_dask_task_name_kwargs('xrspatial.mean'))
     return out
 
 
@@ -441,6 +456,16 @@ def mean(agg, passes=1, excludes=None, name='mean', boundary='nan'):
         return _apply_per_band(mean, agg, passes=passes, excludes=excludes,
                                name=name, boundary=boundary)
 
+    if _is_empty_raster(agg):
+        # No cells to filter; return an empty result of the input shape
+        # and dtype contract, matching the numpy path on every backend
+        # (issue #3225).
+        return DataArray(agg.data.astype(_promote_float(agg.dtype)),
+                         name=name,
+                         dims=agg.dims,
+                         coords=agg.coords,
+                         attrs=agg.attrs)
+
     # Preserve the input float dtype, promoting ints to float32 -- the same
     # contract as apply() / focal_stats() (#2769) and convolve_2d() (#1096).
     # Cast excludes to the working dtype so value matching behaves the same
@@ -565,7 +590,8 @@ def _apply_dask_numpy(data, kernel, func, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(pad_h, pad_w),
                            boundary=_boundary_to_dask(boundary),
-                           meta=np.array((), dtype=data.dtype))
+                           meta=np.array((), dtype=data.dtype),
+                           **_dask_task_name_kwargs('xrspatial.apply'))
     return out
 
 
@@ -595,7 +621,8 @@ def _apply_dask_cupy(data, kernel, func, boundary='nan'):
     out = data.map_overlap(_func,
                            depth=(pad_h, pad_w),
                            boundary=_boundary_to_dask(boundary, is_cupy=True),
-                           meta=cupy.array((), dtype=data.dtype))
+                           meta=cupy.array((), dtype=data.dtype),
+                           **_dask_task_name_kwargs('xrspatial.apply'))
     return out
 
 
@@ -758,6 +785,15 @@ def apply(agg=None, kernel=None, func=None, name='focal_apply',
     _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='apply',
                                    chunks=getattr(agg.data, 'chunks', None),
                                    itemsize=itemsize)
+
+    if _is_empty_raster(agg):
+        # No cells to filter; return an empty result of the input shape,
+        # matching the numpy path on every backend (issue #3225).
+        return DataArray(agg.data.astype(_promote_float(agg.dtype)),
+                         name=name,
+                         coords=agg.coords,
+                         dims=agg.dims,
+                         attrs=agg.attrs)
 
     # apply kernel to raster values
     # if agg is a numpy or dask with numpy backed data array,
@@ -1246,7 +1282,8 @@ def _focal_stats_dask_cupy(agg, kernel, stats_funcs, boundary='nan'):
         data = agg.data.astype(_promote_float(agg.data.dtype))
         stats_data = data.map_overlap(
             _func, depth=(pad_h, pad_w),
-            boundary=dask_bnd, meta=cupy.array((), dtype=data.dtype))
+            boundary=dask_bnd, meta=cupy.array((), dtype=data.dtype),
+            **_dask_task_name_kwargs('xrspatial.focal_stats'))
         stats_agg = xr.DataArray(
             stats_data, dims=agg.dims, coords=agg.coords, attrs=agg.attrs)
         stats_aggs.append(stats_agg)
@@ -1401,6 +1438,16 @@ def focal_stats(agg,
     _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='focal_stats',
                                    chunks=getattr(agg.data, 'chunks', None),
                                    itemsize=itemsize)
+
+    if _is_empty_raster(agg):
+        # No cells to filter; build the empty stacked result the same way
+        # the real paths do, reusing apply()'s empty short circuit so the
+        # output matches the numpy path on every backend (issue #3225).
+        stats_aggs = [apply(agg, kernel, boundary=boundary) for _ in stats_funcs]
+        result = xr.concat(stats_aggs,
+                           pd.Index(stats_funcs, name='stats', dtype=object))
+        result.name = name
+        return result
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=partial(_focal_stats_cpu, boundary=boundary),
@@ -1587,9 +1634,11 @@ def _hotspots_dask_numpy(raster, kernel, boundary='nan'):
     # all-NaN / single-valid-cell rasters raise at compute time instead of
     # classifying to a silent all-zeros raster (issue #2843).
     z_array = da.map_blocks(_gistar_validate_lazy, z_array, global_std, n,
-                            dtype=z_array.dtype, meta=z_array._meta)
+                            dtype=z_array.dtype, meta=z_array._meta,
+                            **_dask_task_name_kwargs('xrspatial.hotspots.validate'))
     out = z_array.map_blocks(_calc_hotspots_numpy,
-                             meta=np.array((), dtype=np.int8))
+                             meta=np.array((), dtype=np.int8),
+                             **_dask_task_name_kwargs('xrspatial.hotspots'))
     return out
 
 
@@ -1627,9 +1676,11 @@ def _hotspots_dask_cupy(raster, kernel, boundary='nan'):
     # all-NaN / single-valid-cell rasters raise at compute time instead of
     # classifying to a silent all-zeros raster (issue #2843).
     z_array = da.map_blocks(_gistar_validate_lazy, z_array, global_std, n,
-                            dtype=z_array.dtype, meta=z_array._meta)
+                            dtype=z_array.dtype, meta=z_array._meta,
+                            **_dask_task_name_kwargs('xrspatial.hotspots.validate'))
     out = z_array.map_blocks(_calc_hotspots_cupy,
-                             meta=cupy.array((), dtype=cupy.int8))
+                             meta=cupy.array((), dtype=cupy.int8),
+                             **_dask_task_name_kwargs('xrspatial.hotspots'))
     return out
 
 
@@ -1804,6 +1855,15 @@ def hotspots(agg=None, kernel=None, name='hotspots', boundary='nan', *,
     # 4 bytes/cell budget is correct here (issue #3223).
     _check_kernel_vs_raster_memory(kernel, rows, cols, func_name='hotspots',
                                    chunks=getattr(agg.data, 'chunks', None))
+
+    if _is_empty_raster(agg):
+        # An empty raster has no valid cells, so Gi* is undefined. Raise the
+        # same clear error the numpy path already raises, before the cupy and
+        # dask backends crash on a zero-sized reduction or overlap (#3225).
+        raise ValueError(
+            "hotspots() needs at least 2 valid (non-NaN) cells to "
+            "compute the Getis-Ord Gi* statistic."
+        )
 
     mapper = ArrayTypeFunctionMapping(
         numpy_func=partial(_hotspots_numpy, boundary=boundary),

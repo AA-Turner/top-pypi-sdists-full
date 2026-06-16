@@ -1458,13 +1458,16 @@ class _SafeLoad:
     Default loading (flag off) is unchanged.
     """
 
+    # Restricted loading reconstructs allow-listed classes via the torch.serialization.safe_globals context manager,
+    # added in torch 2.5. On older torch it is unavailable, so restricted loading degrades to a standard load there.
+    SUPPORTED = hasattr(torch.serialization, "safe_globals")
     _globals = None  # cached allow-list, built once
     _local = threading.local()  # per-thread flag set while a weights_only load is in progress
 
     @classmethod
     def restricted(cls):
         """Whether model construction should use the no-eval, known-layer path (env flag or an in-progress load)."""
-        return SAFE_LOAD or getattr(cls._local, "active", False)
+        return cls.SUPPORTED and (SAFE_LOAD or getattr(cls._local, "active", False))
 
     @classmethod
     @contextlib.contextmanager
@@ -1593,10 +1596,13 @@ def torch_safe_load(weight, safe_only=None):
         >>> from ultralytics.nn.tasks import torch_safe_load
         >>> ckpt, file = torch_safe_load("path/to/best.pt", safe_only=True)
     """
-    from ultralytics.utils.downloads import attempt_download_asset
+    from ultralytics.utils.downloads import GITHUB_ASSETS_NAMES, attempt_download_asset
 
     if safe_only is None:
         safe_only = SAFE_LOAD
+    if safe_only and not _SafeLoad.SUPPORTED:
+        LOGGER.warning("Restricted model loading requires torch>=2.5; loading without restriction.")
+        safe_only = False
     check_suffix(file=weight, suffix=".pt")
     file = attempt_download_asset(weight)  # search online if missing locally
 
@@ -1628,8 +1634,9 @@ def torch_safe_load(weight, safe_only=None):
         ckpt = _load()
 
     except RuntimeError as e:
-        # Corrupt downloaded weight (e.g. truncated); skip user-supplied local paths to avoid destructive unlink.
-        if "PytorchStreamReader" not in str(e) or Path(str(weight)).exists():
+        # Recover only a corrupt cached official asset requested by bare name; never touch user-supplied paths.
+        name = Path(str(weight)).name
+        if "PytorchStreamReader" not in str(e) or str(weight) != name or name not in GITHUB_ASSETS_NAMES:
             raise
         LOGGER.warning(f"Corrupt cache {file}, re-downloading {weight}...")
         Path(file).unlink(missing_ok=True)

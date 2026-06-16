@@ -41,12 +41,13 @@ impl BernoulliMarginalSlopeFamily {
                     .map(|range| Array1::<f64>::zeros(range.len())),
             )
         };
+        let row_chunk = bms_row_chunk_size(n);
         let (log_likelihood, grad_marginal, grad_logslope, grad_h, grad_w) = (0..n
-            .div_ceil(ROW_CHUNK_SIZE))
+            .div_ceil(row_chunk))
             .into_par_iter()
             .try_fold(make_acc, |mut acc, chunk_idx| -> Result<_, String> {
-                let start = chunk_idx * ROW_CHUNK_SIZE;
-                let end = (start + ROW_CHUNK_SIZE).min(n);
+                let start = chunk_idx * row_chunk;
+                let end = (start + row_chunk).min(n);
                 let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(primary.total);
                 for row in start..end {
                     let row_ctx = Self::row_ctx(cache, row);
@@ -179,13 +180,14 @@ impl BernoulliMarginalSlopeFamily {
 
         // ── Rigid closed-form: scalar kernel + design row ops ────────
         if !self.effective_flex_active(block_states)? {
-            let partial = (0..n.div_ceil(ROW_CHUNK_SIZE))
+            let row_chunk = bms_row_chunk_size(n);
+            let partial = (0..n.div_ceil(row_chunk))
                 .into_par_iter()
                 .try_fold(
                     || Array1::<f64>::zeros(slices.total),
                     |mut chunk_out, chunk_idx| -> Result<_, String> {
-                        let start = chunk_idx * ROW_CHUNK_SIZE;
-                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        let start = chunk_idx * row_chunk;
+                        let end = (start + row_chunk).min(n);
                         // The β-direction sub-views for the two design blocks are
                         // constant across every row in the chunk; building the
                         // `s![..]` SliceInfo and re-slicing once per chunk instead
@@ -374,7 +376,8 @@ impl BernoulliMarginalSlopeFamily {
             // per-chunk partial + a sum reduce — numerically identical to the
             // serial single-buffer accumulation, with each worker owning its
             // own action scratch.
-            let partial = (0..n.div_ceil(ROW_CHUNK_SIZE))
+            let row_chunk = bms_row_chunk_size(n);
+            let partial = (0..n.div_ceil(row_chunk))
                 .into_par_iter()
                 .try_fold(
                     || {
@@ -384,8 +387,8 @@ impl BernoulliMarginalSlopeFamily {
                         )
                     },
                     |(mut chunk_out, mut action_scratch), chunk_idx| -> Result<_, String> {
-                        let start = chunk_idx * ROW_CHUNK_SIZE;
-                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        let start = chunk_idx * row_chunk;
+                        let end = (start + row_chunk).min(n);
                         for row in start..end {
                             let action_slice = &y_rows[row * r_pr..(row + 1) * r_pr];
                             action_scratch
@@ -530,13 +533,14 @@ impl BernoulliMarginalSlopeFamily {
             return Ok(());
         }
 
-        let partial = (0..n.div_ceil(ROW_CHUNK_SIZE))
+        let row_chunk = bms_row_chunk_size(n);
+        let partial = (0..n.div_ceil(row_chunk))
             .into_par_iter()
             .try_fold(
                 || Array1::<f64>::zeros(slices.total),
                 |mut chunk_out, chunk_idx| -> Result<_, String> {
-                    let start = chunk_idx * ROW_CHUNK_SIZE;
-                    let end = (start + ROW_CHUNK_SIZE).min(n);
+                    let start = chunk_idx * row_chunk;
+                    let end = (start + row_chunk).min(n);
                     let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(primary.total);
                     // Per-thread scratch for row direction — allocated once per
                     // chunk thread rather than once per row.
@@ -787,13 +791,14 @@ impl BernoulliMarginalSlopeFamily {
 
         // ── Rigid closed-form: no jets, no row contexts ──────────────
         if !self.effective_flex_active(block_states)? {
-            let diagonal = (0..n.div_ceil(ROW_CHUNK_SIZE))
+            let row_chunk = bms_row_chunk_size(n);
+            let diagonal = (0..n.div_ceil(row_chunk))
                 .into_par_iter()
                 .try_fold(
                     || Array1::<f64>::zeros(slices.total),
                     |mut chunk_diag, chunk_idx| -> Result<_, String> {
-                        let start = chunk_idx * ROW_CHUNK_SIZE;
-                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        let start = chunk_idx * row_chunk;
+                        let end = (start + row_chunk).min(n);
                         for row in start..end {
                             let marginal_eta = block_states[0].eta[row];
                             let marginal = self.marginal_link_map(marginal_eta)?;
@@ -891,13 +896,14 @@ impl BernoulliMarginalSlopeFamily {
             // reduce, exactly as the streaming fallback below does — numerically
             // identical to the serial single-buffer accumulation up to f.p.
             // reduction order, and removing the serial walk over all `n` rows.
-            let diagonal = (0..n.div_ceil(ROW_CHUNK_SIZE))
+            let row_chunk = bms_row_chunk_size(n);
+            let diagonal = (0..n.div_ceil(row_chunk))
                 .into_par_iter()
                 .try_fold(
                     || Array1::<f64>::zeros(slices.total),
                     |mut chunk_diag, chunk_idx| -> Result<_, String> {
-                        let start = chunk_idx * ROW_CHUNK_SIZE;
-                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        let start = chunk_idx * row_chunk;
+                        let end = (start + row_chunk).min(n);
                         for row in start..end {
                             let d_row_base = row * r_pr;
                             let h00 = d_rows[d_row_base];
@@ -1066,13 +1072,14 @@ impl BernoulliMarginalSlopeFamily {
             return Ok(diagonal);
         }
 
-        let diagonal = (0..n.div_ceil(ROW_CHUNK_SIZE))
+        let row_chunk = bms_row_chunk_size(n);
+        let diagonal = (0..n.div_ceil(row_chunk))
             .into_par_iter()
             .try_fold(
                 || Array1::<f64>::zeros(slices.total),
                 |mut chunk_diag, chunk_idx| -> Result<_, String> {
-                    let start = chunk_idx * ROW_CHUNK_SIZE;
-                    let end = (start + ROW_CHUNK_SIZE).min(n);
+                    let start = chunk_idx * row_chunk;
+                    let end = (start + row_chunk).min(n);
                     let mut scratch = BernoulliMarginalSlopeFlexRowScratch::new(primary.total);
                     for row in start..end {
                         let row_ctx = Self::row_ctx(cache, row);
@@ -1275,7 +1282,7 @@ impl BernoulliMarginalSlopeFamily {
         // Block-local accumulator path: avoids O(n p^2) dense Hessian
         // materialization by keeping one accumulator per ψ axis in the
         // rayon fold.
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let make_acc = || -> Vec<(f64, Array1<f64>, BernoulliBlockHessianAccumulator)> {
             (0..k)
                 .map(|_| {
@@ -1288,7 +1295,7 @@ impl BernoulliMarginalSlopeFamily {
                 .collect()
         };
         let folded = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(make_acc, |mut acc, wr| -> Result<_, String> {
                 let row = wr.index;
                 let w = wr.weight;
@@ -1496,9 +1503,9 @@ impl BernoulliMarginalSlopeFamily {
         self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
 
         // Block-local accumulator path for second-order psi terms
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let (objective_psi_psi, score_psi_psi, block_acc) = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(
                 || {
                     (
@@ -1899,9 +1906,9 @@ impl BernoulliMarginalSlopeFamily {
         // operators), plus the contracted objective scalar and score vector per
         // output row. The data rows are streamed ONCE; every output row reads the
         // same per-row primary grad/Hess and the same cached third/fourth jets.
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let per_row = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(
                 || {
                     (
@@ -2269,9 +2276,9 @@ impl BernoulliMarginalSlopeFamily {
         // the third-order (degree-15) lookups (gam#683).
         self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
 
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let block_acc = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(
                 || BernoulliBlockHessianAccumulator::new(slices),
                 |mut acc, wr| -> Result<_, String> {
@@ -2411,9 +2418,9 @@ impl BernoulliMarginalSlopeFamily {
         // the third-order (degree-15) lookups (gam#683).
         self.prewarm_flex_cell_bundle(block_states, cache, 21)?;
 
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let block_acc = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(
                 || BernoulliBlockHessianAccumulator::new(slices),
                 |mut acc, wr| -> Result<_, String> {
@@ -2523,12 +2530,12 @@ impl BernoulliMarginalSlopeFamily {
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
 
         // ── Rigid closed-form: 3rd-order scalar kernel ───────────────
         if !self.effective_flex_active(block_states)? {
             let block_acc = weighted_rows
-                .into_par_iter()
+                .par_iter()
                 .try_fold(
                     || BernoulliBlockHessianAccumulator::new(slices),
                     |mut acc, wr| -> Result<_, String> {
@@ -2564,7 +2571,7 @@ impl BernoulliMarginalSlopeFamily {
         self.prewarm_flex_cell_bundle(block_states, cache, 15)?;
 
         let block_acc = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(
                 || BernoulliBlockHessianAccumulator::new(slices),
                 |mut acc, wr| -> Result<_, String> {
@@ -2613,11 +2620,11 @@ impl BernoulliMarginalSlopeFamily {
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
 
         if !self.effective_flex_active(block_states)? {
             let block_acc = weighted_rows
-                .into_par_iter()
+                .par_iter()
                 .try_fold(
                     || BernoulliBlockHessianAccumulator::new(slices),
                     |mut acc, wr| -> Result<_, String> {
@@ -2655,7 +2662,7 @@ impl BernoulliMarginalSlopeFamily {
         self.prewarm_flex_cell_bundle(block_states, cache, 15)?;
 
         let block_acc = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(
                 || BernoulliBlockHessianAccumulator::new(slices),
                 |mut acc, wr| -> Result<_, String> {
@@ -2703,7 +2710,7 @@ impl BernoulliMarginalSlopeFamily {
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let make_accs = || {
             (0..d_beta_flats.len())
                 .map(|_| BernoulliBlockHessianAccumulator::new(slices))
@@ -2809,7 +2816,139 @@ impl BernoulliMarginalSlopeFamily {
         let run_rows_serial = rayon::current_thread_index().is_some()
             || rayon::current_num_threads() <= 1
             || n_rows < ROW_PAR_MIN_ROWS;
-        let mut accs = if !flex_active {
+        let mut accs = if !flex_active && dense_contiguous_rows {
+            // RIGID BLAS-3 chunked Gram path. The rigid directional Hessian
+            // drift for direction `idx` is exactly
+            //   `H_drift[idx] = Σ_row X_rᵀ · contract_third_full(T3_row, dq, dg) · X_r`,
+            // a 2×2-weighted pullback through the STATIC primary designs (no
+            // h/w blocks in the rigid accumulator: `dense_correction = None`).
+            // The per-row `add_pullback_rigid_2x2` form issues, for every one of
+            // the 326k+ rows × `n_dirs` directions, two `syr_row_into` rank-1
+            // SYRs plus a rank-1 `row_outer_into_view` straight into the dense
+            // p×p blocks — O(n·n_dirs·p²) of memory-bandwidth-bound BLAS-1 that
+            // never reaches a BLAS-3 kernel and dominates the large-scale fit.
+            //
+            // Mirror the FLEX `dense_contiguous_rows` path: accumulate the 2×2
+            // contraction weights `(w_mm, w_mg, w_gg)` per chunk row, then close
+            // each chunk with ONE pair of `Xᵀ diag(w) X` / `Xᵀ diag(w) G` BLAS-3
+            // Gram products (`add_weighted_design_grams_from_chunks` →
+            // `fast_xt_diag_x` / `fast_xt_diag_y`). Identical arithmetic
+            // (`w_mm = t[0][0]`, `w_mg = t[0][1]`, `w_gg = t[1][1]`, the same
+            // entries `add_pullback_rigid_2x2` writes), just batched and
+            // vectorized — bit-for-bit the same Hessian drift, computed in `k`
+            // GEMMs per chunk instead of `n·k` rank-1 updates. `dense_contiguous_rows`
+            // guarantees `weight ≡ 1.0` and `wr.index == row`, so the chunk
+            // borrows the contiguous design rows directly.
+            let marginal_dirs =
+                Self::stacked_direction_block(d_beta_flats, slices.marginal.clone());
+            let logslope_dirs =
+                Self::stacked_direction_block(d_beta_flats, slices.logslope.clone());
+            let (chunk_rows, _gpu_sized_chunks) =
+                Self::batched_directional_derivative_chunk_rows(n, d_beta_flats.len());
+            let chunks = (0..n)
+                .step_by(chunk_rows)
+                .map(|start| (start, (start + chunk_rows).min(n)))
+                .collect::<Vec<_>>();
+            log::info!(
+                "[BMS batched dH chunks] mode=rigid-blas3 rows_per_chunk={} chunks={}",
+                chunk_rows,
+                chunks.len(),
+            );
+            let chunk_body =
+                |(start, end): (usize, usize)| -> Result<Vec<BernoulliBlockHessianAccumulator>, String> {
+                    let n_dirs = d_beta_flats.len();
+                    let len = end - start;
+                    let mut accs = make_accs();
+                    let mut w_mm = (0..n_dirs)
+                        .map(|_| Array1::<f64>::zeros(len))
+                        .collect::<Vec<_>>();
+                    let mut w_mg = (0..n_dirs)
+                        .map(|_| Array1::<f64>::zeros(len))
+                        .collect::<Vec<_>>();
+                    let mut w_gg = (0..n_dirs)
+                        .map(|_| Array1::<f64>::zeros(len))
+                        .collect::<Vec<_>>();
+                    // Zero-copy borrow of the contiguous chunk rows (mirrors the
+                    // FLEX chunked path); falls back to a chunk copy only for a
+                    // non-dense design representation.
+                    let x_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                        match self.marginal_design.as_dense_ref() {
+                            Some(x_full) => x_full.slice(s![start..end, ..]).into(),
+                            None => self
+                                .marginal_design
+                                .try_row_chunk(start..end)
+                                .map_err(|e| format!("bernoulli marginal_design try_row_chunk: {e}"))?
+                                .into(),
+                        };
+                    let g_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                        match self.logslope_design.as_dense_ref() {
+                            Some(g_full) => g_full.slice(s![start..end, ..]).into(),
+                            None => self
+                                .logslope_design
+                                .try_row_chunk(start..end)
+                                .map_err(|e| format!("bernoulli logslope_design try_row_chunk: {e}"))?
+                                .into(),
+                        };
+                    // Per-direction projected primary perturbations `(dq, dg)` for
+                    // every chunk row: `dq = X_chunk · marginal_dir`,
+                    // `dg = G_chunk · logslope_dir` (BLAS-3 GEMM, all directions
+                    // at once), matching the per-row `dot_row_view` the scalar
+                    // path used.
+                    let marginal_projected = crate::faer_ndarray::fast_ab(&x_chunk, &marginal_dirs);
+                    let logslope_projected = crate::faer_ndarray::fast_ab(&g_chunk, &logslope_dirs);
+                    for row in start..end {
+                        let local = row - start;
+                        let full = self.rigid_third_full_cached(block_states, cache, row)?;
+                        for idx in 0..n_dirs {
+                            let dq = marginal_projected[[local, idx]];
+                            let dg = logslope_projected[[local, idx]];
+                            let t = contract_third_full(full, dq, dg);
+                            w_mm[idx][local] = t[0][0];
+                            w_mg[idx][local] = t[0][1];
+                            w_gg[idx][local] = t[1][1];
+                        }
+                        bump_progress(&progress);
+                    }
+                    for idx in 0..n_dirs {
+                        accs[idx].add_weighted_design_grams_from_chunks(
+                            &x_chunk,
+                            &g_chunk,
+                            &w_mm[idx],
+                            &w_mg[idx],
+                            &w_gg[idx],
+                        );
+                    }
+                    Ok(accs)
+                };
+            if run_rows_serial {
+                let mut accs = make_accs();
+                for chunk in chunks {
+                    let partial = chunk_body(chunk)?;
+                    for (l, r) in accs.iter_mut().zip(partial.iter()) {
+                        l.add(r);
+                    }
+                }
+                accs
+            } else {
+                chunks
+                    .into_par_iter()
+                    // Pin faer's per-chunk GEMM parallelism to `Par::Seq` so the
+                    // chunk fan-out (this `into_par_iter`) owns the global Rayon
+                    // pool and the inner `fast_ab` / weighted-Gram GEMMs do not
+                    // re-fan it and oversubscribe — same discipline as the FLEX
+                    // chunked path.
+                    .map(|chunk| crate::faer_ndarray::with_nested_parallel(|| chunk_body(chunk)))
+                    .try_reduce(make_accs, |mut left, right| -> Result<_, String> {
+                        for (l, r) in left.iter_mut().zip(right.iter()) {
+                            l.add(r);
+                        }
+                        Ok(left)
+                    })?
+            }
+        } else if !flex_active {
+            // Non-contiguous rigid rows (e.g. an outer-score subsample mask): the
+            // chunked zero-copy Gram borrow above assumes contiguous unit-weight
+            // rows, so fall back to the per-row pullback for the sampled subset.
             if run_rows_serial {
                 let mut accs = make_accs();
                 for wr in weighted_rows.iter() {
@@ -2837,8 +2976,7 @@ impl BernoulliMarginalSlopeFamily {
                 accs
             } else {
                 weighted_rows
-                    .clone()
-                    .into_par_iter()
+                    .par_iter()
                     .try_fold(make_accs, |mut accs, wr| -> Result<_, String> {
                         let row = wr.index;
                         let w = wr.weight;
@@ -3034,9 +3172,9 @@ impl BernoulliMarginalSlopeFamily {
                 accs
             } else {
                 weighted_rows
-                    .into_par_iter()
+                    .par_iter()
                     .try_fold(make_accs, |mut accs, wr| -> Result<_, String> {
-                        row_body(wr, &mut accs)?;
+                        row_body(*wr, &mut accs)?;
                         Ok(accs)
                     })
                     .try_reduce(make_accs, |mut left, right| -> Result<_, String> {
@@ -3098,7 +3236,7 @@ impl BernoulliMarginalSlopeFamily {
         let primary = &cache.primary;
         let n = self.y.len();
         let make_acc = || BernoulliBlockHessianAccumulator::new(slices);
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
 
         // Eager-prime the per-row uncontracted fourth-derivative cache *before*
         // entering the per-row `par_iter` so the cache's nested-`par_iter`
@@ -3124,7 +3262,7 @@ impl BernoulliMarginalSlopeFamily {
         // ── Rigid closed-form: 4th-order scalar kernel ───────────────
         if !self.effective_flex_active(block_states)? {
             let block_acc = weighted_rows
-                .into_par_iter()
+                .par_iter()
                 .try_fold(make_acc, |mut acc, wr| -> Result<_, String> {
                     let row = wr.index;
                     let w = wr.weight;
@@ -3157,7 +3295,7 @@ impl BernoulliMarginalSlopeFamily {
         }
 
         let block_acc = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(make_acc, |mut acc, wr| -> Result<_, String> {
                 let row = wr.index;
                 let w = wr.weight;
@@ -3205,7 +3343,7 @@ impl BernoulliMarginalSlopeFamily {
         let primary = &cache.primary;
         let n = self.y.len();
         let make_acc = || BernoulliBlockHessianAccumulator::new(slices);
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
 
         // Eager-prime the per-row uncontracted fourth-derivative cache *before*
         // entering the per-row `par_iter` to avoid the lazy-cache-under-rayon
@@ -3225,7 +3363,7 @@ impl BernoulliMarginalSlopeFamily {
 
         if !self.effective_flex_active(block_states)? {
             let block_acc = weighted_rows
-                .into_par_iter()
+                .par_iter()
                 .try_fold(make_acc, |mut acc, wr| -> Result<_, String> {
                     let row = wr.index;
                     let w = wr.weight;
@@ -3260,7 +3398,7 @@ impl BernoulliMarginalSlopeFamily {
         }
 
         let block_acc = weighted_rows
-            .into_par_iter()
+            .par_iter()
             .try_fold(make_acc, |mut acc, wr| -> Result<_, String> {
                 let row = wr.index;
                 let w = wr.weight;
@@ -3305,7 +3443,7 @@ impl BernoulliMarginalSlopeFamily {
         let slices = &cache.slices;
         let primary = &cache.primary;
         let n = self.y.len();
-        let weighted_rows = outer_weighted_rows(options, n);
+        let weighted_rows = cache.outer_weighted_rows_cached(options, n);
         let mut unique_dirs = Vec::<Array1<f64>>::new();
         let mut pair_indices = Vec::<(usize, usize)>::with_capacity(d_beta_pairs.len());
         for (u, v) in d_beta_pairs {
@@ -3408,8 +3546,7 @@ impl BernoulliMarginalSlopeFamily {
                 accs
             } else {
                 weighted_rows
-                    .clone()
-                    .into_par_iter()
+                    .par_iter()
                     .try_fold(make_accs, |mut accs, wr| -> Result<_, String> {
                         let row = wr.index;
                         let w = wr.weight;
@@ -3479,8 +3616,7 @@ impl BernoulliMarginalSlopeFamily {
             accs
         } else {
             weighted_rows
-                .clone()
-                .into_par_iter()
+                .par_iter()
                 .try_fold(make_accs, |mut accs, wr| -> Result<_, String> {
                     let row = wr.index;
                     let w = wr.weight;
@@ -3557,7 +3693,8 @@ impl BernoulliMarginalSlopeFamily {
     ) -> Result<FamilyEvaluation, String> {
         let primary = cache.primary.clone();
         let n = self.y.len();
-        let n_chunks = n.div_ceil(ROW_CHUNK_SIZE);
+        let row_chunk = bms_row_chunk_size(n);
+        let n_chunks = n.div_ceil(row_chunk);
         // Pool of per-worker workspaces reused across chunks within this
         // evaluate. The previous implementation seeded a fresh accumulator
         // per try_fold chunk, paying p_marginal² + p_logslope² (+ optional
@@ -3586,8 +3723,8 @@ impl BernoulliMarginalSlopeFamily {
                                 BernoulliMarginalSlopeFlexRowScratch::new(primary.total),
                             )
                         });
-                    let start = chunk_idx * ROW_CHUNK_SIZE;
-                    let end = (start + ROW_CHUNK_SIZE).min(n);
+                    let start = chunk_idx * row_chunk;
+                    let end = (start + row_chunk).min(n);
                     let chunk_res: Result<(), String> = (|| {
                         for row in start..end {
                             let row_ctx = Self::row_ctx(cache, row);
@@ -3703,13 +3840,14 @@ impl BernoulliMarginalSlopeFamily {
                     Array2::<f64>::zeros((p_logslope, p_logslope)),
                 )
             };
-            let (hess_marginal, hess_logslope) = (0..n.div_ceil(ROW_CHUNK_SIZE))
+            let row_chunk = bms_row_chunk_size(n);
+            let (hess_marginal, hess_logslope) = (0..n.div_ceil(row_chunk))
                 .into_par_iter()
                 .try_fold(
                     make_pair,
                     |(mut hm, mut hl), chunk_idx| -> Result<(Array2<f64>, Array2<f64>), String> {
-                        let start = chunk_idx * ROW_CHUNK_SIZE;
-                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        let start = chunk_idx * row_chunk;
+                        let end = (start + row_chunk).min(n);
                         let rows = end - start;
                         // Zero-copy fast path: borrow the chunk rows from the
                         // stored dense matrix as `ArrayView2` (wrapped in
@@ -3832,8 +3970,9 @@ impl BernoulliMarginalSlopeFamily {
                 Array2::<f64>::zeros((p_logslope, p_logslope)),
             )
         };
+        let row_chunk = bms_row_chunk_size(n);
         let (ll, grad_marginal, grad_logslope, hess_marginal, hess_logslope) = (0..n
-            .div_ceil(ROW_CHUNK_SIZE))
+            .div_ceil(row_chunk))
             .into_par_iter()
             .try_fold(
                 make_acc,
@@ -3847,8 +3986,8 @@ impl BernoulliMarginalSlopeFamily {
                     // intermittent `hessian_qp` stalls. Bit-identical: faer
                     // partitions the matmul output, never the contracted axis.
                     crate::faer_ndarray::with_nested_parallel(|| {
-                        let start = chunk_idx * ROW_CHUNK_SIZE;
-                        let end = (start + ROW_CHUNK_SIZE).min(n);
+                        let start = chunk_idx * row_chunk;
+                        let end = (start + row_chunk).min(n);
                         let rows = end - start;
                         // Zero-copy chunk binding: a materialised dense design lets us
                         // borrow the chunk rows straight out of the stored matrix

@@ -8,7 +8,7 @@ from chalk.queries._schedule_entity_name import validate_schedule_entity_name
 from chalk.utils.duration import CronTab, Duration
 
 if TYPE_CHECKING:
-    from chalk.client.models import FeatureReference, UnloadResolvers
+    from chalk.client.models import FeatureReference, ResourceRequests, UnloadResolvers
 
 
 class ScheduledQuery:
@@ -34,6 +34,9 @@ class ScheduledQuery:
         num_workers: int | None = None,
         input_sql: str | None = None,
         unload_resolvers: UnloadResolvers = None,
+        max_retries: int | None = None,
+        resources: ResourceRequests | None = None,
+        environment: str | None = None,
     ):
         """Create an offline query which runs on a schedule.
 
@@ -170,6 +173,9 @@ class ScheduledQuery:
         self.resource_group = resource_group
 
         self.completion_deadline = completion_deadline
+        self.max_retries = max_retries
+        self.resources = resources
+        self.environment = environment
 
         self.num_shards = num_shards
         self.num_workers = num_workers

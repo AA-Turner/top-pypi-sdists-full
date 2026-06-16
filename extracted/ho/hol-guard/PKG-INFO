@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hol-guard
-Version: 2.0.707
+Version: 2.0.742
 Summary: Protect local AI harnesses with HOL Guard before tools run in Codex, Claude Code, Cursor, Gemini, and OpenCode.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard
@@ -21,11 +21,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Python: >=3.10
-Requires-Dist: cisco-ai-skill-scanner~=2.0.9
-Requires-Dist: cryptography>=47.0.0
+Requires-Dist: cisco-ai-skill-scanner~=2.0.11
+Requires-Dist: cryptography>=49.0.0
 Requires-Dist: keyring>=25.0
 Requires-Dist: packaging>=24.0
-Requires-Dist: rich>=13.0
+Requires-Dist: rich>=15.0.0
 Requires-Dist: tomli>=2.0; python_version < '3.11'
 Provides-Extra: cisco
 Requires-Dist: cisco-ai-mcp-scanner~=4.6; (python_version >= '3.11') and extra == 'cisco'

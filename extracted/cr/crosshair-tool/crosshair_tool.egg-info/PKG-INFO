@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crosshair-tool
-Version: 0.0.106
+Version: 0.0.107
 Summary: Analyze Python code for correctness using symbolic execution.
 Author-email: Phillip Schanely <pschanely+vE7F@gmail.com>
 License: MIT
@@ -37,7 +37,7 @@ Requires-Dist: isort==5.11.5; extra == "dev"
 Requires-Dist: mypy==1.18.1; extra == "dev"
 Requires-Dist: numpy==1.24.0; python_version < "3.12" and extra == "dev"
 Requires-Dist: numpy==2.3.3; python_version >= "3.12" and extra == "dev"
-Requires-Dist: pre-commit~=2.20; extra == "dev"
+Requires-Dist: pre-commit~=4.3; extra == "dev"
 Requires-Dist: pytest==8.3.5; extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"

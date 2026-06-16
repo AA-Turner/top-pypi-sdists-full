@@ -11,13 +11,14 @@ DEFAULT_REPORTER = local()
 
 
 def set_default_reporter(reporter: Reporter | None) -> None:
-    DEFAULT_REPORTER.v = reporter
+    DEFAULT_REPORTER.instance = reporter
 
 
 def get_default_reporter() -> Reporter:
-    if not hasattr(DEFAULT_REPORTER, "v") or DEFAULT_REPORTER.v is None:
-        return FirstWorkingReporter(EnvironmentVariableReporter(), DiffReporter())
-    return DEFAULT_REPORTER.v
+    instance = getattr(DEFAULT_REPORTER, "instance", None)
+    return instance or FirstWorkingReporter(
+        EnvironmentVariableReporter(), DiffReporter()
+    )
 
 
 def get_reporter(reporter: Reporter | None) -> Reporter:

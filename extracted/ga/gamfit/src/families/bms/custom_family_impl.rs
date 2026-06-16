@@ -92,7 +92,16 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
             .max(self.coefficient_gradient_cost(specs));
         let dense_available = self.outer_hyper_hessian_dense_available(specs);
         let hvp_available = self.outer_hyper_hessian_hvp_available(specs);
-        if flex_active {
+        // Flex (`score_warp` / `link_dev`) without a matrix-free outer θ-HVP
+        // would force the dense fourth-order outer-Hessian assembly, whose
+        // per-cell flex-jet cost is prohibitive at scale — so that case stays
+        // first-order. But when the exact profiled outer θ-HVP is available the
+        // operator reuses the flex row stream once per Hv (near-gradient cost)
+        // and PCG converges in a handful of iters; the outer Newton then
+        // converges in ≤ a couple of iterations instead of several BFGS line
+        // searches. Fall through to the HVP-aware order selection in that case
+        // rather than demoting flex to BFGS.
+        if flex_active && !hvp_available {
             if log_exact_work(self.y.len()) {
                 log::info!(
                     "[BMS outer-derivative-policy] n={} p={} flex=true order=First reason=flex-outer-hessian-fourth-order-cost dense_available={} outer_hvp_available={} coefficient_work={}",
@@ -748,6 +757,26 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
         parameter_block_specs_match_rows(specs, self.y.len())
     }
 
+    fn outer_hyper_hessian_hvp_available(&self, specs: &[ParameterBlockSpec]) -> bool {
+        // Binary twin of `SurvivalMarginalSlopeFamily`: the exact profiled
+        // outer Hessian over θ=(ρ,ψ[,log σ]) is applied matrix-free, without
+        // pairwise θθ materialization. The coefficient-Hessian drift terms
+        // (D_β H[u_k]) come from `exact_newton_joint_hessian_directional_derivative`
+        // and `...second_directional_derivative`; the ψ-drift terms come from
+        // `exact_newton_joint_psi_terms`; the joint mode response H u_k = −g_k
+        // is solved through the inner Hv workspace. The generic exact
+        // joint-hyper assembler in `custom_family::outer_objective` consumes
+        // these directional kernels to produce an
+        // `OuterHessianOperator`, so advertising this capability lifts the
+        // outer-derivative order to `Second` and routes the planner to ARC /
+        // exact outer Newton instead of BFGS — converging the outer ρ-loop in
+        // ≤ a couple of iterations rather than several BFGS line searches, each
+        // of which costs a full inner re-solve. The operator is the EXACT
+        // analytic θ-HVP (no finite differences, no quasi-Newton surrogate),
+        // so the REML/LAML optimum is bit-identical to the first-order path.
+        parameter_block_specs_match_rows(specs, self.y.len())
+    }
+
     fn inner_joint_workspace_gradient_available(&self, specs: &[ParameterBlockSpec]) -> bool {
         parameter_block_specs_match_rows(specs, self.y.len())
     }
@@ -829,6 +858,59 @@ impl CustomFamily for BernoulliMarginalSlopeFamily {
                 &cache,
             )
         }
+    }
+
+    fn joint_jeffreys_information_second_directional_all_axes_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+        d_beta_u_flat: &Array1<f64>,
+    ) -> Result<Option<Vec<Array2<f64>>>, String> {
+        // Same trust dispatch as the per-axis
+        // `exact_newton_joint_hessian_second_directional_derivative_with_specs`:
+        // an untrusted, structurally-decoupled spec returns `None` so the caller
+        // keeps the released zero-drift semantics, exactly as the per-axis path.
+        if !self.outer_default_trustworthy_for_joint_hessian(specs)
+            && !self.joint_hessian_is_structurally_coupled(block_states)?
+        {
+            return Ok(None);
+        }
+        // Flex-active fits use the dense exact-cache path; only the rigid
+        // marginal-slope kernel has the BLAS-3 design-row-Gram batched override.
+        // Fall back to the generic per-axis assembly (bit-for-bit identical to the
+        // trait default) when flex is active.
+        if self.effective_flex_active(block_states)? {
+            let p = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
+            let mut axes = Vec::with_capacity(p);
+            for a in 0..p {
+                let mut axis = Array1::<f64>::zeros(p);
+                axis[a] = 1.0;
+                match self.joint_jeffreys_information_second_directional_derivative_with_specs(
+                    block_states,
+                    specs,
+                    d_beta_u_flat,
+                    &axis,
+                )? {
+                    Some(m) => axes.push(m),
+                    None => return Ok(None),
+                }
+            }
+            return Ok(Some(axes));
+        }
+        let kern = BernoulliRigidRowKernel::new(self.clone(), block_states.to_vec());
+        let su = d_beta_u_flat
+            .as_slice()
+            .ok_or("non-contiguous d_beta_u for batched all-axes second directional")?;
+        // The dispatcher takes the BLAS-3 override when available and otherwise
+        // runs the generic per-axis sweep — both bit-faithful to the per-axis
+        // `exact_newton_joint_hessiansecond_directional_derivative` the default
+        // would call.
+        crate::families::row_kernel::row_kernel_second_directional_derivative_all_axes(
+            &kern,
+            &crate::families::row_kernel::RowSet::All,
+            su,
+        )
+        .map(Some)
     }
 
     fn exact_newton_joint_psi_terms(
@@ -1048,14 +1130,15 @@ impl BernoulliMarginalSlopeExactNewtonJointHessianWorkspace {
                     .map_or(family.y.len(), |subsample| subsample.len())
             );
         }
-        let mut cache =
-            family.build_exact_eval_cache_with_options(&block_states, Some(&options))?;
-        // Materialize per-row primary Hessians at construction time. The
-        // matrix-free CG / inner-Newton loops contract these against many
-        // trial directions at the same β, so caching the `r×r` blocks once
-        // amortizes the cell-moment + flex-jet rebuild over every Hv product.
-        cache.row_primary_hessians =
-            family.build_row_primary_hessian_cache(&block_states, &cache)?;
+        // Build (or reuse, at a bit-identical β) the exact-cache with per-row
+        // primary Hessians materialized at construction time. The matrix-free
+        // CG / inner-Newton loops contract these against many trial directions
+        // at the same β, so caching the `r×r` blocks once amortizes the
+        // cell-moment + flex-jet rebuild over every Hv product. The same-β
+        // reuse store additionally elides the whole O(n·cells) build when the
+        // outer loop revisits an already-evaluated β̂ (Value→ValueAndGradient at
+        // one ρ, or a line-search ρ that maps back to a seen β̂).
+        let cache = family.build_or_reuse_shared_exact_cache(&block_states, &options, true)?;
         if log_exact_work(family.y.len()) {
             log::info!(
                 "[BMS Hessian-workspace] build done n={} p={} primary_hessian_cache={} elapsed={:.3}s",
@@ -1065,7 +1148,7 @@ impl BernoulliMarginalSlopeExactNewtonJointHessianWorkspace {
                 started.elapsed().as_secs_f64()
             );
         }
-        let workspace = Self::from_arc_cache(family, block_states, Arc::new(cache), options);
+        let workspace = Self::from_arc_cache(family, block_states, cache, options);
         drop(process_monitor_guard);
         workspace
     }
@@ -1201,16 +1284,21 @@ impl ExactNewtonJointHessianWorkspace for BernoulliMarginalSlopeExactNewtonJoint
 
     fn hessian_dense_forced(&self) -> Result<Option<Array2<f64>>, String> {
         // Callers that genuinely require a dense joint Hessian (e.g. outer
-        // batched-gradient assembly that pulls back the dense `H_β`) bypass
-        // the matrix-free route gate above. The fused row pass is still the
-        // structural direct-dense path here — column-basis HVP fallback would
-        // be `total` extra row sweeps, which is exactly what the matrix-free
-        // inner solver is designed to amortize across far fewer iterations.
-        if self.cache.slices.total >= 512 {
-            return Ok(None);
-        }
-        // Block 9 Phase 6 shortcut: when the row-primary Hessian is already
-        // pinned on the GPU and `p_total` fits the dense-block kernel's
+        // batched-gradient assembly that pulls back the dense `H_β`, or the LAML
+        // logdet factorization in `MatrixFreeSpdOperator::materialize_dense_
+        // operator`) bypass the matrix-free route gate above. The fused row pass
+        // is the structural direct-dense path here: it streams every row exactly
+        // ONCE and uses BLAS-3 for the `XᵀWX` pullback — O(n·p²) total. The only
+        // alternative for a consumer that needs the full dense matrix is
+        // canonical-basis reconstruction `H·I`, which re-walks all `n` rows once
+        // per column = `total` full-n passes = O(total·n·p). One pass beats
+        // `total` passes at every scale, so there is NO size at which the matvec
+        // reconstruction wins; the previous `total >= 512` early-return forced
+        // exactly that losing path for the large-p outer logdet (the biobank BMS
+        // rigid/flex fit at p in the hundreds). The matrix-free INNER solve never
+        // calls `hessian_dense_forced` (it pulls HVPs through `hessian_matvec`),
+        // so serving the structural one-pass build here does not regress the
+        // inner solve it was designed to keep matrix-free.
         // shared-memory cap, dispatch the device-resident dense build
         // instead of round-tripping through the CPU fused gradient pass.
         // Numerics match the CPU pullback to within reduction-order f.p.
@@ -2410,16 +2498,21 @@ impl BernoulliMarginalSlopeExactNewtonJointPsiWorkspace {
         derivative_blocks: Vec<Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>>,
         options: BlockwiseFitOptions,
     ) -> Result<Self, String> {
-        let cache = family.build_exact_eval_cache_with_options(&block_states, Some(&options))?;
+        // Build (or reuse, at a bit-identical β) the exact-cache. This workspace
+        // does not materialize per-row primary Hessians, so it keys a separate
+        // store slot from the Hessian-workspace build.
+        let cache = family.build_or_reuse_shared_exact_cache(&block_states, &options, false)?;
         // Prime the per-row uncontracted third-derivative tensor at workspace
         // construction (rigid path only). The build runs at top-level rayon
         // here, so the parallel row pass uses all cores. If we instead let
         // it run lazily inside `build_psi_hyper_coords` axis calls, those
         // calls are themselves at top level — so leaving lazy would also be
         // parallel — but priming here lifts the first-axis cost out of the
-        // workspace's `first_order_terms` measurement.
+        // workspace's `first_order_terms` measurement. The warm-up writes the
+        // `RayonSafeOnce` interior fields of the (possibly shared) cache; that
+        // is idempotent and yields the same values across a shared `Arc`.
         if !family.effective_flex_active(&block_states)? {
-            let warmed_third = family.rigid_third_full_cached(&block_states, &cache, 0)?;
+            let warmed_third = family.rigid_third_full_cached(&block_states, cache.as_ref(), 0)?;
             ensure_finite_third_full_cache_row(
                 warmed_third,
                 "BernoulliMarginalSlopeExactNewtonJointPsiWorkspace third-cache warm-up",
@@ -2428,7 +2521,8 @@ impl BernoulliMarginalSlopeExactNewtonJointPsiWorkspace {
             // (ψ-axis-i, ψ-axis-j) pair — prime here too so the 528-pair
             // sweep reads a populated cache instead of triggering the
             // 8-direction empirical jet on its first per-pair call.
-            let warmed_fourth = family.rigid_fourth_full_cached(&block_states, &cache, 0)?;
+            let warmed_fourth =
+                family.rigid_fourth_full_cached(&block_states, cache.as_ref(), 0)?;
             ensure_finite_fourth_full_cache_row(
                 warmed_fourth,
                 "BernoulliMarginalSlopeExactNewtonJointPsiWorkspace fourth-cache warm-up",
@@ -2439,7 +2533,7 @@ impl BernoulliMarginalSlopeExactNewtonJointPsiWorkspace {
             block_states,
             specs,
             derivative_blocks,
-            cache: std::sync::Arc::new(cache),
+            cache,
             options,
         })
     }

@@ -163,6 +163,8 @@ from .type_defs import (
     DeleteFormTypeInputTypeDef,
     DeleteGlossaryInputTypeDef,
     DeleteGlossaryTermInputTypeDef,
+    DeleteLineageEventInputTypeDef,
+    DeleteLineageEventOutputTypeDef,
     DeleteListingInputTypeDef,
     DeleteNotebookInputTypeDef,
     DeleteProjectInputTypeDef,
@@ -1026,6 +1028,16 @@ class DataZoneClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_glossary_term.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#delete_glossary_term)
+        """
+
+    def delete_lineage_event(
+        self, **kwargs: Unpack[DeleteLineageEventInputTypeDef]
+    ) -> DeleteLineageEventOutputTypeDef:
+        """
+        Deletes the specified lineage event.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/datazone/client/delete_lineage_event.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_datazone/client/#delete_lineage_event)
         """
 
     def delete_listing(self, **kwargs: Unpack[DeleteListingInputTypeDef]) -> dict[str, Any]:

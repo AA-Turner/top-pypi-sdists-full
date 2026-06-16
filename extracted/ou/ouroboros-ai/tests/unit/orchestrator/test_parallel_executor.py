@@ -14,7 +14,13 @@ import pytest
 from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
 from ouroboros.events.base import BaseEvent
 from ouroboros.mcp.types import MCPToolDefinition
-from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle
+from ouroboros.orchestrator.adapter import (
+    FULL_CAPABILITIES,
+    AgentMessage,
+    ParamSupport,
+    RuntimeCapabilities,
+    RuntimeHandle,
+)
 from ouroboros.orchestrator.coordinator import CoordinatorReview, FileConflict
 from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
 from ouroboros.orchestrator.evidence_schema import EvidenceRecord, ValidationResult
@@ -40,12 +46,114 @@ from ouroboros.orchestrator.parallel_executor import (
     render_parallel_verification_report,
 )
 from ouroboros.orchestrator.profile_loader import EvidenceSchema, load_profile
+from ouroboros.orchestrator.rate_limit import RateLimitGate, SharedRateLimitBucket
 from ouroboros.orchestrator.verifier import VerifierVerdict
 
 
 def test_stall_timeout_default_allows_realistic_test_suites() -> None:
     """The default stall watchdog should not kill long quiet test commands too early."""
     assert STALL_TIMEOUT_SECONDS == 900.0
+
+
+class _RateGateStubAdapter:
+    """Minimal adapter exposing only what the dispatch rate gate inspects."""
+
+    def __init__(self, *, runtime_backend: str, self_governs: bool) -> None:
+        self.runtime_backend = runtime_backend
+        self.self_governs_rate_limit = self_governs
+        self.working_directory = "/workspace"
+        self.permission_mode = "acceptEdits"
+
+
+def _make_rate_gate_executor(adapter: _RateGateStubAdapter) -> ParallelACExecutor:
+    return ParallelACExecutor(
+        adapter=adapter,
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+    )
+
+
+class TestDispatchRateGate:
+    """The executor governs delivery fan-out within the backend's rate budget."""
+
+    def test_gate_dormant_for_self_governing_adapter(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Claude self-governs via its own bucket — the executor must not add a
+        # second gate, even though "claude" declares an RPM in the registry.
+        monkeypatch.setenv("OUROBOROS_BACKEND_LIMITS", str(tmp_path / "absent.yaml"))
+        adapter = _RateGateStubAdapter(runtime_backend="claude", self_governs=True)
+
+        executor = _make_rate_gate_executor(adapter)
+
+        assert executor._dispatch_rate_gate.enabled is False
+
+    def test_gate_dormant_for_cli_backend_without_configuration(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        # Default behavior is unchanged: no configured RPM/TPM → no pacing.
+        monkeypatch.setenv("OUROBOROS_BACKEND_LIMITS", str(tmp_path / "absent.yaml"))
+        monkeypatch.delenv("OUROBOROS_OPENCODE_RPM", raising=False)
+        adapter = _RateGateStubAdapter(runtime_backend="opencode", self_governs=False)
+
+        executor = _make_rate_gate_executor(adapter)
+
+        assert executor._dispatch_rate_gate.enabled is False
+
+    def test_gate_activates_for_cli_backend_with_configured_rpm(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        monkeypatch.setenv("OUROBOROS_BACKEND_LIMITS", str(tmp_path / "absent.yaml"))
+        monkeypatch.setenv("OUROBOROS_OPENCODE_RPM", "2")
+        adapter = _RateGateStubAdapter(runtime_backend="opencode", self_governs=False)
+
+        executor = _make_rate_gate_executor(adapter)
+
+        assert executor._dispatch_rate_gate.enabled is True
+
+    @pytest.mark.asyncio
+    async def test_await_dispatch_rate_budget_no_op_when_dormant(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        monkeypatch.setenv("OUROBOROS_BACKEND_LIMITS", str(tmp_path / "absent.yaml"))
+        adapter = _RateGateStubAdapter(runtime_backend="opencode", self_governs=False)
+        executor = _make_rate_gate_executor(adapter)
+
+        # Dormant gate: returns immediately, no error.
+        await executor._await_dispatch_rate_budget(prompt="hello", system_prompt=None)
+
+    @pytest.mark.asyncio
+    async def test_await_dispatch_rate_budget_paces_through_active_gate(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        monkeypatch.setenv("OUROBOROS_BACKEND_LIMITS", str(tmp_path / "absent.yaml"))
+        adapter = _RateGateStubAdapter(runtime_backend="opencode", self_governs=False)
+        executor = _make_rate_gate_executor(adapter)
+
+        # Swap in a deterministic gate (rpm=1, fake clock + sleep) to prove the
+        # executor's dispatch hook actually waits on the shared budget.
+        clock = {"now": 0.0}
+        slept: list[float] = []
+
+        async def fake_sleep(seconds: float) -> None:
+            slept.append(seconds)
+            clock["now"] += seconds
+
+        bucket = SharedRateLimitBucket(
+            runtime_backend="opencode",
+            request_limit=1,
+            token_limit=None,
+            time_provider=lambda: clock["now"],
+        )
+        executor._dispatch_rate_gate = RateLimitGate(
+            bucket, heartbeat_seconds=120.0, sleep=fake_sleep
+        )
+
+        await executor._await_dispatch_rate_budget(prompt="a", system_prompt=None)
+        await executor._await_dispatch_rate_budget(prompt="b", system_prompt=None)
+
+        assert slept == [60.0]  # second dispatch waited a full window
 
 
 def _make_seed(*acceptance_criteria: str) -> Seed:
@@ -1675,7 +1783,10 @@ class TestProfileAwareDecompositionAudit:
         assert event.data["decomposition_profile"] == {
             "profile": "code",
             "axis": "testable_unit",
-            "min_unit": "single function or module with at least one runnable test",
+            "min_unit": (
+                "a cohesive change verified by one test-command run — typically a "
+                "function or module plus its tests; never split below a single function"
+            ),
             "cut_signal": "sub-AC produces an independently runnable test",
             "max_branching": 5,
         }
@@ -10011,3 +10122,132 @@ async def test_try_decompose_ac_accumulates_goose_stream_chunks() -> None:
         "Sub-AC 2: write a focused regression test",
         "Sub-AC 3: document the result",
     ]
+
+
+@pytest.mark.asyncio
+async def test_try_decompose_ac_announces_same_empty_tools_allowlist_it_dispatches() -> None:
+    class _CapturingRuntime:
+        runtime_backend = "codex_cli"
+        capabilities = RuntimeCapabilities(
+            skill_dispatch=True,
+            targeted_resume=True,
+            structured_output=True,
+            tool_restriction_support=ParamSupport.TRANSLATED,
+        )
+
+        def __init__(self) -> None:
+            self.dispatched_tools: list[str] | None = None
+
+        async def execute_task(
+            self,
+            prompt: str,
+            tools: list[str] | None = None,
+            system_prompt: str | None = None,
+            resume_handle: RuntimeHandle | None = None,
+            resume_session_id: str | None = None,
+        ):
+            del prompt, system_prompt, resume_handle, resume_session_id
+            self.dispatched_tools = tools
+            yield AgentMessage(type="assistant", content='["Sub-AC 1: inspect", "Sub-AC 2: test"]')
+
+    runtime = _CapturingRuntime()
+    console = MagicMock()
+    executor = ParallelACExecutor(
+        adapter=runtime,
+        event_store=AsyncMock(),
+        console=console,
+        enable_decomposition=True,
+    )
+
+    result = await executor._try_decompose_ac(
+        ac_content="Investigate and test sub-AC behavior.",
+        ac_index=0,
+        seed_goal="Verify decomposition tool handling",
+        tools=["Read"],
+        system_prompt="system",
+    )
+
+    assert result == ["Sub-AC 1: inspect", "Sub-AC 2: test"]
+    assert runtime.dispatched_tools == []
+    console.print.assert_called_once()
+    notice = console.print.call_args.args[0]
+    assert "tools" in notice
+    assert "ignored" in notice
+
+
+class _ParamCapsStubAdapter:
+    """Minimal adapter exposing the attributes the param-degradation hook reads."""
+
+    def __init__(self, capabilities: RuntimeCapabilities) -> None:
+        self.capabilities = capabilities
+        self.runtime_backend = "hermes_cli"
+        self.permission_mode = "acceptEdits"
+        self.working_directory = "/workspace"
+
+
+def _make_param_executor(capabilities: RuntimeCapabilities) -> ParallelACExecutor:
+    return ParallelACExecutor(
+        adapter=_ParamCapsStubAdapter(capabilities),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+    )
+
+
+class TestParamDegradationNotice:
+    """The executor surfaces non-native param handling once per run."""
+
+    def test_translated_system_prompt_surfaces_one_notice(self) -> None:
+        caps = RuntimeCapabilities(
+            skill_dispatch=True,
+            targeted_resume=True,
+            structured_output=True,
+            system_prompt_support=ParamSupport.TRANSLATED,
+        )
+        executor = _make_param_executor(caps)
+
+        # Two dispatches with the same degraded param → surfaced once (deduped).
+        executor._announce_param_degradations(system_prompt="be terse", tools=None)
+        executor._announce_param_degradations(system_prompt="be terse", tools=None)
+
+        assert executor._console.print.call_count == 1
+        notice = executor._console.print.call_args.args[0]
+        assert "system_prompt" in notice
+        assert "hermes_cli" in notice
+
+    def test_all_native_adapter_is_silent(self) -> None:
+        executor = _make_param_executor(FULL_CAPABILITIES)
+
+        executor._announce_param_degradations(system_prompt="be terse", tools=["Read"])
+
+        executor._console.print.assert_not_called()
+
+    def test_absent_system_prompt_produces_no_notice(self) -> None:
+        caps = RuntimeCapabilities(
+            skill_dispatch=True,
+            targeted_resume=True,
+            structured_output=True,
+            system_prompt_support=ParamSupport.TRANSLATED,
+        )
+        executor = _make_param_executor(caps)
+
+        executor._announce_param_degradations(system_prompt=None, tools=None)
+
+        executor._console.print.assert_not_called()
+
+    def test_empty_tools_allowlist_surfaces_one_notice(self) -> None:
+        caps = RuntimeCapabilities(
+            skill_dispatch=True,
+            targeted_resume=True,
+            structured_output=True,
+            tool_restriction_support=ParamSupport.TRANSLATED,
+        )
+        executor = _make_param_executor(caps)
+
+        executor._announce_param_degradations(system_prompt=None, tools=[])
+        executor._announce_param_degradations(system_prompt=None, tools=[])
+
+        assert executor._console.print.call_count == 1
+        notice = executor._console.print.call_args.args[0]
+        assert "tools" in notice
+        assert "ignored" in notice

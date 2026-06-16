@@ -100,6 +100,7 @@ class PlatformRefund(google.protobuf.message.Message):
     AMOUNT_CENTS_FIELD_NUMBER: builtins.int
     REASON_FIELD_NUMBER: builtins.int
     DATE_ADDED_ST_FIELD_NUMBER: builtins.int
+    STRIPE_CHARGE_ID_FIELD_NUMBER: builtins.int
     stripe_id: builtins.str
     """Stripe id of the refund (e.g. "re_xxx")."""
     organization_id: builtins.int
@@ -109,6 +110,12 @@ class PlatformRefund(google.protobuf.message.Message):
     """Stripe-supplied refund reason. Unset when Stripe did not provide one."""
     date_added_st: builtins.int
     """Unix epoch seconds when the refund was recorded by the platform."""
+    stripe_charge_id: builtins.str
+    """Stripe id of the ``PlatformCharge`` this refund applies to. Mirrors
+    Stripe's own ``refund.charge`` wire field. Lets callers disambiguate
+    refunds in flat responses like ``ListRefundsByInvoiceResponse`` when
+    an invoice has more than one charge (e.g. retries, partial capture).
+    """
     def __init__(
         self,
         *,
@@ -117,9 +124,10 @@ class PlatformRefund(google.protobuf.message.Message):
         amount_cents: builtins.int = ...,
         reason: builtins.str | None = ...,
         date_added_st: builtins.int = ...,
+        stripe_charge_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_reason", b"_reason", "reason", b"reason"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_reason", b"_reason", "amount_cents", b"amount_cents", "date_added_st", b"date_added_st", "organization_id", b"organization_id", "reason", b"reason", "stripe_id", b"stripe_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_reason", b"_reason", "amount_cents", b"amount_cents", "date_added_st", b"date_added_st", "organization_id", b"organization_id", "reason", b"reason", "stripe_charge_id", b"stripe_charge_id", "stripe_id", b"stripe_id"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_reason", b"_reason"]) -> typing.Literal["reason"] | None: ...
 
 global___PlatformRefund = PlatformRefund

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vcrpy
-Version: 8.1.1
+Version: 8.2.0
 Summary: Automatically mock your HTTP interactions to simplify and speed up testing
 Home-page: https://github.com/kevin1024/vcrpy
 Author: Kevin McCarthy
@@ -32,10 +32,12 @@ Requires-Dist: aiohttp; extra == "tests"
 Requires-Dist: boto3; extra == "tests"
 Requires-Dist: cryptography; extra == "tests"
 Requires-Dist: httpbin; extra == "tests"
-Requires-Dist: httpcore; extra == "tests"
 Requires-Dist: httplib2; extra == "tests"
 Requires-Dist: httpx; extra == "tests"
+Requires-Dist: httpx-curl-cffi; extra == "tests"
+Requires-Dist: httpx2; extra == "tests"
 Requires-Dist: pycurl; platform_python_implementation != "PyPy" and extra == "tests"
+Requires-Dist: pyreqwest; python_version >= "3.11" and extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-aiohttp; extra == "tests"
 Requires-Dist: pytest-asyncio; extra == "tests"

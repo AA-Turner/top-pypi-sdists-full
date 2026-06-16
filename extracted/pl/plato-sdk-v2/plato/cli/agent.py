@@ -10,6 +10,7 @@ from pathlib import Path
 
 import typer
 
+from plato.cli.chronos.settings import get_settings as get_chronos_settings
 from plato.cli.utils import (
     console,
     maybe_bump_package_version,
@@ -17,7 +18,13 @@ from plato.cli.utils import (
     require_api_key,
     wait_for_pypi_version,
 )
-from plato.utils.ecr import ECR_REGISTRY, get_image_digest, publish_docker_image, retag_image
+from plato.utils.ecr import (
+    ECR_REGISTRY,
+    get_image_digest,
+    publish_docker_image,
+    retag_agent_image_via_chronos,
+    retag_image,
+)
 from plato.utils.pypi_index import plato_token_simple_index
 from plato.v2 import Env, Plato
 from plato.v2.types import SimConfigCompute
@@ -917,7 +924,21 @@ def _push_single_agent(
         if skip_docker:
             console.print("[bold]Step 3: Retagging existing Docker image...[/bold]")
             repository = f"vm/rootfs/plato-agents/{short_name}"
-            if retag_image(repository, "latest", version):
+            # Prefer the server-side retag (Chronos uses its own ECS task creds,
+            # so the author needs no local AWS access), falling back to local AWS
+            # credentials if the endpoint is unavailable. The Chronos call needs
+            # an API key, which is absent on dry runs — those go straight to the
+            # local fallback.
+            retagged = False
+            if api_key is not None:
+                retagged = retag_agent_image_via_chronos(
+                    get_chronos_settings().chronos_url, package_name, "latest", version, api_key
+                )
+                if not retagged:
+                    console.print("[dim]Chronos retag API unavailable - falling back to local AWS credentials...[/dim]")
+            if not retagged:
+                retagged = retag_image(repository, "latest", version)
+            if retagged:
                 ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"
                 console.print(f"[green]Retagged:[/green] {ecr_image}")
             else:

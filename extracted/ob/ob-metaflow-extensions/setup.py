@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 from pathlib import Path
 
 
-version = "1.6.22"
+version = "1.6.23"
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
@@ -20,6 +20,6 @@ setup(
         "boto3",
         "kubernetes",
         "requests",
-        "ob-metaflow == 2.19.32.2",
+        "ob-metaflow == 2.19.33.1",
     ],
 )

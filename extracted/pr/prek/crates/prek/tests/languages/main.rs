@@ -2,6 +2,8 @@
 mod common;
 
 mod bun;
+mod conda;
+mod coursier;
 mod dart;
 mod deno;
 #[cfg(all(feature = "docker", target_os = "linux"))]
@@ -15,13 +17,14 @@ mod haskell;
 mod julia;
 mod lua;
 mod node;
+mod perl;
 mod pygrep;
 mod python;
+mod r;
 mod ruby;
 mod rust;
 mod script;
 mod shell;
 mod swift;
 mod system;
-mod unimplemented;
 mod unsupported;

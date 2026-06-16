@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyprep
-Version: 0.7.0
+Version: 0.7.1
 Summary: PyPREP: A Python implementation of the preprocessing pipeline (PREP) for EEG data.
 Project-URL: Bug Tracker, https://github.com/sappelhoff/pyprep/issues/
 Project-URL: Documentation, https://pyprep.readthedocs.io/en/latest

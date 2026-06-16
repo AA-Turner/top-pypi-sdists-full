@@ -1,4 +1,5 @@
 from os import makedirs
+from pathlib import Path
 from os.path import exists, join as join_path
 from typing import List, NamedTuple, Optional
 
@@ -76,7 +77,7 @@ def _prepare_training(parameters: NamedTuple,
                       rs: np.random.RandomState) -> None:
     """Prepares training and test sets and writes structural data as well as parameters files.
 
-    See class-level docstring for documentation of parameters.
+    See docstring for `setup_training` for documentation of parameters.
     """
     dirname = join_path(rootdir, 'nepmodel_full')
     makedirs(dirname, exist_ok=True)
@@ -139,7 +140,7 @@ def _write_structures(structures: List[Atoms],
                       test_selection: List[int]):
     """Writes structures in format readable by nep executable.
 
-    See class-level docstring for documentation of parameters.
+    See docstring for `setup_training` for documentation of parameters.
     """
     write_structures(
         join_path(dirname, 'train.xyz'),
@@ -147,3 +148,66 @@ def _write_structures(structures: List[Atoms],
     write_structures(
         join_path(dirname, 'test.xyz'),
         [s for k, s in enumerate(structures) if k in test_selection])
+
+
+def setup_fine_tuning_nep89(parameters: NamedTuple,
+                            nep: Path,
+                            restart: Path,
+                            **kwargs_to_setup_training) -> None:
+    """
+    Sets up a fine-tuning of the NEP89 foundation model.
+
+    Note that only the types, the number of generations, the batch,
+    the population, and the regularization parameters are allowed
+    to be changed.
+
+    The types must be a subset of the 89 types atomic species supported by
+    the NEP89 foundation model.
+
+    This function wraps :func:`setup_training`.
+
+    Parameters
+    ----------
+    parameters
+        Dictionary containing the parameters to be set in the `nep.in` file;
+        see `here <https://gpumd.org/nep/input_parameters/index.html>`__
+        for an overview of these parameters.
+        Note that only `lambda_1`, `lambda_2`, `lambda_e`, `lambda_f`, `lambda_v`,
+        `generation`, `population`, `type`, and `batch` are allowed parameters when fine-tuning.
+    nep:
+        Path to the `nep.txt` file for NEP89.
+    restart:
+        Path to the `nep.restart` file for NEP89.
+    kwargs_to_setup_training:
+        See the dosctring for `setup_training` for the rest of the parameters.
+    """
+    allowed_parameters = ['type',
+                          'lambda_1',
+                          'lambda_2',
+                          'lambda_e',
+                          'lambda_f',
+                          'lambda_v',
+                          'generation',
+                          'population',
+                          'batch']
+
+    for param in parameters.keys():
+        if param not in allowed_parameters:
+            raise ValueError(f'Parameter {param} not allowed when fine-tuning.')
+
+    if not Path(nep).is_file():
+        raise FileNotFoundError(f'{nep} does not exist.')
+    if not Path(restart).is_file():
+        raise FileNotFoundError(f'{restart} does not exist.')
+
+    # Default parameters that need to be set for NEP89.
+    nep89_parameters = dict(version=4,
+                            zbl=2,
+                            cutoff=[6, 5],
+                            n_max=[4, 4],
+                            basis_size=[8, 8],
+                            l_max=[4, 2, 1],
+                            neuron=80)
+
+    fine_tuning = (dict(fine_tune=[str(nep), str(restart)]) | parameters | nep89_parameters)
+    setup_training(fine_tuning, **kwargs_to_setup_training)

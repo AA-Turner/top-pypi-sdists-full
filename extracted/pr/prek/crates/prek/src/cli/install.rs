@@ -20,7 +20,7 @@ use crate::fs::{CWD, Simplified};
 use crate::git::{GIT_ROOT, git_cmd};
 use crate::printer::Printer;
 use crate::store::Store;
-use crate::workspace::{Error as WorkspaceError, Project, Workspace};
+use crate::workspace::{Error as WorkspaceError, HookInitFilters, Project, Workspace};
 use crate::{git, warn_user};
 
 #[allow(clippy::fn_params_excessive_bools)]
@@ -136,14 +136,17 @@ pub(crate) async fn prepare_hooks(
 ) -> Result<ExitStatus> {
     let workspace_root = Workspace::find_root(config.as_deref(), &CWD)?;
     let selectors = Selectors::load(&includes, &skips, &workspace_root)?;
-    let mut workspace =
-        Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
+    let workspace = Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
 
     let reporter = HookInitReporter::new(printer);
     let _lock = store.lock_async().await?;
 
     let hooks = workspace
-        .init_hooks(store, Some(&reporter))
+        .init_hooks(
+            store,
+            HookInitFilters::new(Some(&selectors), None),
+            Some(&reporter),
+        )
         .await
         .context("Failed to init hooks")?;
     let filtered_hooks: Vec<_> = hooks

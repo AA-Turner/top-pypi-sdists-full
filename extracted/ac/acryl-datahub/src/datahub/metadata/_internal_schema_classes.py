@@ -12694,6 +12694,58 @@ class DataTypeKeyClass(_Aspect):
         self._inner_dict['id'] = value
     
     
+class DomainAssociationClass(DictWrapper):
+    """Properties of an applied domain association."""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.domain.DomainAssociation")
+    def __init__(self,
+        domain: str,
+        context: Union[None, str]=None,
+        attribution: Union[None, "MetadataAttributionClass"]=None,
+    ):
+        super().__init__()
+        
+        self.domain = domain
+        self.context = context
+        self.attribution = attribution
+    
+    def _restore_defaults(self) -> None:
+        self.domain = str()
+        self.context = self.RECORD_SCHEMA.fields_dict["context"].default
+        self.attribution = self.RECORD_SCHEMA.fields_dict["attribution"].default
+    
+    
+    @property
+    def domain(self) -> str:
+        """Urn of the associated domain. Corresponds to an entry in the parallel domains array."""
+        return self._inner_dict.get('domain')  # type: ignore
+    
+    @domain.setter
+    def domain(self, value: str) -> None:
+        self._inner_dict['domain'] = value
+    
+    
+    @property
+    def context(self) -> Union[None, str]:
+        """Additional context about the association"""
+        return self._inner_dict.get('context')  # type: ignore
+    
+    @context.setter
+    def context(self, value: Union[None, str]) -> None:
+        self._inner_dict['context'] = value
+    
+    
+    @property
+    def attribution(self) -> Union[None, "MetadataAttributionClass"]:
+        """Information about who, why, and how this domain was applied.
+    sourceDetail may carry flags such as 'propagated'='true' when set via glossary tree propagation."""
+        return self._inner_dict.get('attribution')  # type: ignore
+    
+    @attribution.setter
+    def attribution(self, value: Union[None, "MetadataAttributionClass"]) -> None:
+        self._inner_dict['attribution'] = value
+    
+    
 class DomainPropertiesClass(_Aspect):
     """Information about a Domain"""
 
@@ -12784,18 +12836,21 @@ class DomainsClass(_Aspect):
 
 
     ASPECT_NAME = 'domains'
-    ASPECT_INFO = {}
+    ASPECT_INFO = {'schemaVersion': 2}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.domain.Domains")
 
     def __init__(self,
         domains: List[str],
+        domainAssociations: Union[None, List["DomainAssociationClass"]]=None,
     ):
         super().__init__()
         
         self.domains = domains
+        self.domainAssociations = domainAssociations
     
     def _restore_defaults(self) -> None:
         self.domains = list()
+        self.domainAssociations = self.RECORD_SCHEMA.fields_dict["domainAssociations"].default
     
     
     @property
@@ -12806,6 +12861,19 @@ class DomainsClass(_Aspect):
     @domains.setter
     def domains(self, value: List[str]) -> None:
         self._inner_dict['domains'] = value
+    
+    
+    @property
+    def domainAssociations(self) -> Union[None, List["DomainAssociationClass"]]:
+        """Additional per-domain association metadata such as attribution and propagation source.
+    A superset of the domains field; entries correspond by domain URN.
+    Initial migration handled by the DomainsMigrationMutator;
+    the two fields are kept in sync via the DomainsSyncMutationHook."""
+        return self._inner_dict.get('domainAssociations')  # type: ignore
+    
+    @domainAssociations.setter
+    def domainAssociations(self, value: Union[None, List["DomainAssociationClass"]]) -> None:
+        self._inner_dict['domainAssociations'] = value
     
     
 class EntityTypeInfoClass(_Aspect):
@@ -18278,7 +18346,7 @@ class GlossaryNodeKeyClass(_Aspect):
 
 
     ASPECT_NAME = 'glossaryNodeKey'
-    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings']}
+    ASPECT_INFO = {'keyForEntity': 'glossaryNode', 'entityCategory': 'core', 'entityAspects': ['glossaryNodeInfo', 'institutionalMemory', 'ownership', 'status', 'structuredProperties', 'forms', 'testResults', 'subTypes', 'displayProperties', 'assetSettings', 'domains']}
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.metadata.key.GlossaryNodeKey")
 
     def __init__(self,
@@ -29580,6 +29648,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.dataset.ViewProperties': ViewPropertiesClass,
     'com.linkedin.pegasus2avro.datatype.DataTypeInfo': DataTypeInfoClass,
     'com.linkedin.pegasus2avro.datatype.DataTypeKey': DataTypeKeyClass,
+    'com.linkedin.pegasus2avro.domain.DomainAssociation': DomainAssociationClass,
     'com.linkedin.pegasus2avro.domain.DomainProperties': DomainPropertiesClass,
     'com.linkedin.pegasus2avro.domain.Domains': DomainsClass,
     'com.linkedin.pegasus2avro.entitytype.EntityTypeInfo': EntityTypeInfoClass,
@@ -30137,6 +30206,7 @@ __SCHEMA_TYPES = {
     'ViewProperties': ViewPropertiesClass,
     'DataTypeInfo': DataTypeInfoClass,
     'DataTypeKey': DataTypeKeyClass,
+    'DomainAssociation': DomainAssociationClass,
     'DomainProperties': DomainPropertiesClass,
     'Domains': DomainsClass,
     'EntityTypeInfo': EntityTypeInfoClass,

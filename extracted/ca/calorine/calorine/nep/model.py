@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from itertools import product
 
@@ -245,6 +246,68 @@ def _sort_ann_parameters(parameters: list[float],
     return pars
 
 
+def _adaptive_sigma(mu_arr, sigma_factor: float, sigma_floor: float) -> np.ndarray:
+    """Return adaptive SNES sigma: ``max(sigma_floor, sigma_factor * |mu|)``."""
+    return np.maximum(sigma_floor, sigma_factor * np.abs(mu_arr))
+
+
+def _apply_adaptive_sigma_to_restart(restart_params, keys, sigma_factor, sigma_floor):
+    """Apply adaptive SNES sigma to every parameter in *restart_params* in-place.
+
+    Covers per-species ANN weights (w0, b0, w1, optional w1_charge), the global b1
+    scalar, the optional sqrt_epsilon_infinity scalar, and all radial/angular descriptor
+    weight pairs. *keys* is the list of per-species ANN keys to update.
+    """
+    for s in keys:
+        ann_mu = restart_params['ann_mu'][s]
+        ann_sigma = restart_params['ann_sigma'][s]
+        ann_sigma['w0'] = _adaptive_sigma(ann_mu['w0'], sigma_factor, sigma_floor)
+        ann_sigma['b0'] = _adaptive_sigma(ann_mu['b0'], sigma_factor, sigma_floor)
+        ann_sigma['w1'] = _adaptive_sigma(ann_mu['w1'], sigma_factor, sigma_floor)
+        if 'w1_charge' in ann_mu:
+            ann_sigma['w1_charge'] = _adaptive_sigma(
+                ann_mu['w1_charge'], sigma_factor, sigma_floor
+            )
+    b1_mu = restart_params['ann_mu']['b1']
+    restart_params['ann_sigma']['b1'] = float(_adaptive_sigma(b1_mu, sigma_factor, sigma_floor))
+    if 'sqrt_epsilon_infinity' in restart_params['ann_mu']:
+        sei_mu = restart_params['ann_mu']['sqrt_epsilon_infinity']
+        restart_params['ann_sigma']['sqrt_epsilon_infinity'] = float(
+            _adaptive_sigma(sei_mu, sigma_factor, sigma_floor)
+        )
+    for desc_type in ['radial', 'angular']:
+        sigma_key = f'{desc_type}_descriptor_sigma'
+        mu_key = f'{desc_type}_descriptor_mu'
+        for pair in restart_params[sigma_key]:
+            restart_params[sigma_key][pair] = _adaptive_sigma(
+                restart_params[mu_key][pair], sigma_factor, sigma_floor
+            )
+
+
+def _recalculate_parameter_counts(new) -> None:
+    """Recompute n_ann_parameters, n_descriptor_parameters, and n_parameters on *new*.
+
+    Reads all architectural state from *new* directly, so callers must update
+    new.n_neuron, new.n_descriptor_radial/angular, new.model_type, and new.types
+    before calling this function.
+    """
+    n_types = len(new.types)
+    n_desc = new.n_descriptor_radial + new.n_descriptor_angular
+    is_charged = new.model_type == 'potential_with_charges'
+    n_networks = n_types if new.version in (4, 5) else 1
+    n_bias = 2 if is_charged else (1 + n_types if new.version == 5 else 1)
+    n_ann_input_weights = (n_desc + 1) * new.n_neuron
+    n_ann_output_weights = 2 * new.n_neuron if is_charged else new.n_neuron
+    new.n_ann_parameters = (n_ann_input_weights + n_ann_output_weights) * n_networks + n_bias
+    new.n_descriptor_parameters = n_types ** 2 * (
+        (new.n_max_radial + 1) * (new.n_basis_radial + 1)
+        + (new.n_max_angular + 1) * (new.n_basis_angular + 1)
+    )
+    new.n_parameters = new.n_ann_parameters + new.n_descriptor_parameters + n_desc
+    if new.model_type == 'polarizability':
+        new.n_parameters += new.n_ann_parameters
+
+
 @dataclass
 class Model:
     r"""Objects of this class represent a NEP model in a form suitable for
@@ -293,6 +356,14 @@ class Model:
         Maximum expansion order for four-body terms :math:`l_\mathrm{max}^\mathrm{4b}`.
     l_max_5b : int
         Maximum expansion order for five-body terms :math:`l_\mathrm{max}^\mathrm{5b}`.
+    has_q_112 : int
+        Flag enabling the 5-body :math:`q_{112}` descriptor (0 or 1).
+    has_q_123 : int
+        Flag enabling the 5-body :math:`q_{123}` descriptor (0 or 1).
+    has_q_233 : int
+        Flag enabling the 5-body :math:`q_{233}` descriptor (0 or 1).
+    has_q_134 : int
+        Flag enabling the higher-body :math:`q_{134}` descriptor (0 or 1).
     n_descriptor_radial : int
         Dimension of radial part of descriptor.
     n_descriptor_angular : int
@@ -339,6 +410,10 @@ class Model:
     l_max_3b: int
     l_max_4b: int
     l_max_5b: int
+    has_q_112: int
+    has_q_123: int
+    has_q_233: int
+    has_q_134: int
     n_descriptor_radial: int
     n_descriptor_angular: int
 
@@ -371,7 +446,10 @@ class Model:
         s = []
         for fld in self.__dataclass_fields__:
             if fld not in self._special_fields:
-                s += [f'{fld:22} : {getattr(self, fld)}']
+                value = getattr(self, fld)
+                if fld == 'restart_parameters':
+                    value = 'available' if value is not None else 'not available'
+                s += [f'{fld:22} : {value}']
         return '\n'.join(s)
 
     def _repr_html_(self) -> str:
@@ -383,9 +461,12 @@ class Model:
         s += ['<tbody>']
         for fld in self.__dataclass_fields__:
             if fld not in self._special_fields:
+                value = getattr(self, fld)
+                if fld == 'restart_parameters':
+                    value = 'available' if value is not None else 'not available'
                 s += [
                     f'<tr><td style="text-align: left;">{fld:22}</td>'
-                    f'<td>{getattr(self, fld)}</td><tr>'
+                    f'<td>{value}</td><tr>'
                 ]
         for fld in self._special_fields:
             d = getattr(self, fld)
@@ -403,19 +484,77 @@ class Model:
         s += ['</table>']
         return ''.join(s)
 
-    def remove_species(self, species: list[str]):
-        """Removes one or more species from the model.
+    @property
+    def training_parameters(self) -> dict:
+        """Return model hyperparameters in the format accepted by :func:`write_nepfile
+        <calorine.nep.write_nepfile>`.
 
-        This method modifies the model in-place by removing all parameters
-        associated with the specified chemical species. It prunes the species
-        list, the Artificial Neural Network (ANN) parameters, and the
-        descriptor weights. It also recalculates the total number of
-        parameters in the model.
+        Use this after any model modification (:meth:`augment`, :meth:`add_species`,
+        :meth:`remove_species`, :meth:`keep_species`) to produce the architecture fields
+        that must go into the new ``nep.in`` before training. Merge the result with your
+        existing training-specific parameters (``lambda_*``, ``generation``, ``batch``,
+        etc.) before calling :func:`write_nepfile <calorine.nep.write_nepfile>`.
+
+        Returns
+        -------
+        dict
+            Keys ``version``, ``type``, ``cutoff``, ``n_max``, ``basis_size``, ``l_max``,
+            and ``neuron`` (plus ``zbl`` when applicable) with values in the format
+            expected by :func:`write_nepfile <calorine.nep.write_nepfile>`.
+
+        """
+        l_max = [self.l_max_3b, self.l_max_4b, self.l_max_5b,
+                 self.has_q_112, self.has_q_123, self.has_q_233, self.has_q_134]
+        while len(l_max) > 1 and l_max[-1] == 0:
+            l_max = l_max[:-1]
+
+        if isinstance(self.radial_cutoff, list):
+            cutoff = []
+            for rc, ac in zip(self.radial_cutoff, self.angular_cutoff):
+                cutoff += [rc, ac]
+        else:
+            cutoff = [self.radial_cutoff, self.angular_cutoff]
+
+        params = {
+            'version': self.version,
+            'type': [len(self.types)] + list(self.types),
+            'cutoff': cutoff,
+            'n_max': [self.n_max_radial, self.n_max_angular],
+            'basis_size': [self.n_basis_radial, self.n_basis_angular],
+            'l_max': l_max,
+            'neuron': self.n_neuron,
+        }
+        if self.zbl is not None:
+            params['zbl'] = list(self.zbl)
+        return params
+
+    def remove_species(self,
+                       species: list[str],
+                       sigma_factor: float = 0.1,
+                       sigma_floor: float = 1e-6) -> 'Model':
+        """Remove one or more species from the model.
+
+        Returns a new :class:`Model` with the specified species removed.
+        The source model is not modified.
+
+        If ``restart_parameters`` are loaded, the surviving parameters receive
+        adaptive SNES sigma values: ``sigma = max(sigma_floor, sigma_factor * |mu|)``,
+        re-opening the search distribution while preserving dormant parameters.
 
         Parameters
         ----------
         species
-            A list of species names (str) to remove from the model.
+            Species names to remove.
+        sigma_factor
+            Used only when restart is loaded: ``sigma = max(sigma_floor, sigma_factor * |mu|)``
+            for surviving parameters.
+        sigma_floor
+            Minimum sigma for surviving parameters when restart is loaded.
+
+        Returns
+        -------
+        Model
+            New model with the specified species removed.
 
         Raises
         ------
@@ -426,85 +565,272 @@ class Model:
             if s not in self.types:
                 raise ValueError(f'{s} is not a species supported by the NEP model')
 
-        # --- Prune attributes based on species ---
+        new = copy.deepcopy(self)
         types_to_keep = [t for t in self.types if t not in species]
-        self.types = tuple(types_to_keep)
+        new.types = tuple(types_to_keep)
 
         # Prune ANN parameters (for NEP4 and NEP5)
         if self.version in [4, 5]:
-            self.ann_parameters = {
-                key: value for key, value in self.ann_parameters.items()
+            new.ann_parameters = {
+                key: value for key, value in new.ann_parameters.items()
                 if key in types_to_keep or key.startswith('b1')
             }
 
-        # Prune descriptor weights
-        # key is here a tuple, (species1, species2)
-        self.radial_descriptor_weights = {
-            key: value for key, value in self.radial_descriptor_weights.items()
+        # Prune descriptor weights; key is a (species1, species2) tuple
+        new.radial_descriptor_weights = {
+            key: value for key, value in new.radial_descriptor_weights.items()
             if key[0] in types_to_keep and key[1] in types_to_keep
         }
-        self.angular_descriptor_weights = {
-            key: value for key, value in self.angular_descriptor_weights.items()
+        new.angular_descriptor_weights = {
+            key: value for key, value in new.angular_descriptor_weights.items()
             if key[0] in types_to_keep and key[1] in types_to_keep
         }
 
-        # Prune restart parameters if they have been loaded
-        if self.restart_parameters is not None:
+        # Prune typewise cutoff lists so remaining species map to correct cutoffs
+        if isinstance(self.radial_cutoff, list):
+            indices = [i for i, t in enumerate(self.types) if t not in species]
+            new.radial_cutoff = [self.radial_cutoff[i] for i in indices]
+            new.angular_cutoff = [self.angular_cutoff[i] for i in indices]
+
+        # Prune and optionally re-open restart parameters
+        if new.restart_parameters is not None:
+            ann_keys = types_to_keep if self.version in [4, 5] else ['all_species']
             for param_type in ['mu', 'sigma']:
-                # Prune ANN restart parameters
                 ann_key = f'ann_{param_type}'
                 if self.version in [4, 5]:
-                    self.restart_parameters[ann_key] = {
-                        key: value for key, value in self.restart_parameters[ann_key].items()
-                        if key in types_to_keep or key.startswith('b1')
+                    # Keep per-species keys for survivors, global bias keys, and
+                    # sqrt_epsilon_infinity (charge models)
+                    new.restart_parameters[ann_key] = {
+                        key: value for key, value in new.restart_parameters[ann_key].items()
+                        if (key in types_to_keep or key.startswith('b1')
+                            or key == 'sqrt_epsilon_infinity')
                     }
 
                 # Prune descriptor restart parameters
                 for desc_type in ['radial', 'angular']:
                     key = f'{desc_type}_descriptor_{param_type}'
-                    self.restart_parameters[key] = {
-                        k: v for k, v in self.restart_parameters[key].items()
+                    new.restart_parameters[key] = {
+                        k: v for k, v in new.restart_parameters[key].items()
                         if k[0] in types_to_keep and k[1] in types_to_keep
                     }
 
-        # --- Recalculate parameter counts ---
-        n_types = len(self.types)
+            # Apply adaptive sigma to all surviving parameters
+            _apply_adaptive_sigma_to_restart(
+                new.restart_parameters, ann_keys, sigma_factor, sigma_floor
+            )
+
+        # Recalculate parameter counts
+        _recalculate_parameter_counts(new)
+
+        return new
+
+    def keep_species(self,
+                     species: list[str],
+                     sigma_factor: float = 0.1,
+                     sigma_floor: float = 1e-6) -> 'Model':
+        """Retain only the specified species, removing all others.
+
+        Convenience complement to :meth:`remove_species`. Useful when the set
+        of species to drop is large (e.g. isolating two elements from a
+        foundation model with dozens of species).
+
+        Parameters
+        ----------
+        species
+            Species names to keep. All other species are removed.
+        sigma_factor
+            Passed to :meth:`remove_species`. Controls adaptive sigma for
+            surviving parameters when restart is loaded.
+        sigma_floor
+            Passed to :meth:`remove_species`. Minimum sigma for surviving
+            parameters.
+
+        Returns
+        -------
+        Model
+            New model containing only the requested species.
+
+        Raises
+        ------
+        ValueError
+            If any of the requested species is not in the model.
+        """
+        unknown = [s for s in species if s not in self.types]
+        if unknown:
+            raise ValueError(
+                f'Species not in model: {unknown}'
+            )
+        to_remove = [s for s in self.types if s not in species]
+        return self.remove_species(to_remove, sigma_factor=sigma_factor, sigma_floor=sigma_floor)
+
+    def add_species(self,
+                    species: list[str],
+                    radial_cutoff: float | list[float] = None,
+                    angular_cutoff: float | list[float] = None,
+                    sigma_new: float = 0.1,
+                    sigma_factor: float = 0.1,
+                    sigma_floor: float = 1e-6,
+                    seed: int | None = None) -> 'Model':
+        """Add one or more species to the model.
+
+        Returns a new :class:`Model` with the requested species added. New ANN
+        sub-networks and descriptor weight pairs are initialised by drawing
+        ``mu`` uniformly from [-1, 1] (matching the GPUMD fresh-model
+        initialisation), with ``sigma = sigma_new`` in the restart.
+        Charge-specific parameters (``w1_charge``) are kept at ``mu = 0`` to
+        preserve stability, also matching GPUMD.
+        Existing parameters receive adaptive sigma:
+        ``sigma = max(sigma_floor, sigma_factor * |mu|)``.
+
+        Only supported for NEP4 models. For NEP3 the ANN is shared across all
+        species and adding a per-species sub-network is not meaningful.
+
+        Parameters
+        ----------
+        species
+            New species names to add. Appended to ``types`` in the order given.
+        radial_cutoff
+            Radial cutoff(s) for the new species, in Å. Required when the model
+            uses typewise cutoffs (i.e. ``isinstance(model.radial_cutoff, list)``
+            is ``True``). Pass a single float or a list with one value per new
+            species.
+        angular_cutoff
+            Angular cutoff(s) for the new species, in Å. Same requirements as
+            ``radial_cutoff``.
+        sigma_new
+            SNES sigma assigned to all newly created parameters. Defaults to
+            ``0.1``, matching the GPUMD ``sigma0`` default.
+        sigma_factor
+            Controls sigma for *existing* parameters:
+            ``sigma = max(sigma_floor, sigma_factor * |mu|)``.
+        sigma_floor
+            Minimum sigma for existing parameters.
+        seed
+            Seed for the random number generator used to draw the initial ``mu``
+            values. Pass an integer for reproducible initialisation.
+
+        Returns
+        -------
+        Model
+            New model with updated structure, weights, and restart statistics.
+
+        Raises
+        ------
+        ValueError
+            If the model version is not 4, if ``restart_parameters`` are not
+            loaded, if any species is already in the model, or if typewise
+            cutoffs are used and ``radial_cutoff``/``angular_cutoff`` are not
+            provided.
+        """
+        if self.version != 4:
+            raise ValueError(
+                f'add_species() only supports NEP4 models; got version {self.version}.'
+            )
+        for s in species:
+            if s in self.types:
+                raise ValueError(f'{s!r} is already in the model.')
+        if self.restart_parameters is None:
+            raise ValueError(
+                'restart_parameters must be loaded before calling add_species(). '
+                'Pass restart_file= to read_model() or call model.read_restart() first.'
+            )
+
+        uses_typewise = isinstance(self.radial_cutoff, list)
+        if uses_typewise:
+            if radial_cutoff is None or angular_cutoff is None:
+                raise ValueError(
+                    'Model uses typewise cutoffs; provide radial_cutoff and angular_cutoff '
+                    'for the new species.'
+                )
+            rc_list = ([radial_cutoff] * len(species)
+                       if isinstance(radial_cutoff, (int, float)) else list(radial_cutoff))
+            ac_list = ([angular_cutoff] * len(species)
+                       if isinstance(angular_cutoff, (int, float)) else list(angular_cutoff))
+            if len(rc_list) != len(species) or len(ac_list) != len(species):
+                raise ValueError(
+                    'Length of radial_cutoff/angular_cutoff must match the number of new species.'
+                )
+
+        new = copy.deepcopy(self)
+
         n_descriptor = self.n_descriptor_radial + self.n_descriptor_angular
+        n_neuron = self.n_neuron
+        is_charged = self.model_type == 'potential_with_charges'
+        all_types_after = list(self.types) + list(species)
+        rng = np.random.default_rng(seed)
 
-        # Recalculate descriptor parameter count
-        self.n_descriptor_parameters = n_types**2 * (
-            (self.n_max_radial + 1) * (self.n_basis_radial + 1)
-            + (self.n_max_angular + 1) * (self.n_basis_angular + 1)
+        def _rand(shape):
+            return rng.uniform(-1.0, 1.0, size=shape)
+
+        # Step 1: Adaptive sigma for existing parameters
+        _apply_adaptive_sigma_to_restart(
+            new.restart_parameters, list(self.types), sigma_factor, sigma_floor
         )
 
-        # Recalculate ANN parameter count
-        if self.version == 3:
-            n_networks = 1
-            n_bias = 1
-        elif self.version == 4:
-            n_networks = n_types
-            n_bias = 1
-        else:  # NEP5
-            n_networks = n_types
-            n_bias = 1 + n_types
+        # Step 2: New ANN sub-networks
+        w1_shape = (n_neuron,) if is_charged else (1, n_neuron)
+        for s_new in species:
+            w0_vals = _rand((n_neuron, n_descriptor))
+            b0_vals = _rand((n_neuron, 1))
+            w1_vals = _rand(w1_shape)
+            s_params = {'w0': w0_vals.copy(), 'b0': b0_vals.copy(), 'w1': w1_vals.copy()}
+            if is_charged:
+                s_params['w1_charge'] = np.zeros(n_neuron)
+            new.ann_parameters[s_new] = s_params
 
-        n_ann_input_weights = (n_descriptor + 1) * self.n_neuron
-        n_ann_output_weights = self.n_neuron
-        self.n_ann_parameters = (
-            n_ann_input_weights + n_ann_output_weights
-        ) * n_networks + n_bias
+            mu_entry = {'w0': w0_vals, 'b0': b0_vals, 'w1': w1_vals}
+            sigma_entry = {
+                'w0': np.full((n_neuron, n_descriptor), sigma_new),
+                'b0': np.full((n_neuron, 1), sigma_new),
+                'w1': np.full(w1_shape, sigma_new),
+            }
+            if is_charged:
+                mu_entry['w1_charge'] = np.zeros(n_neuron)
+                sigma_entry['w1_charge'] = np.full(n_neuron, sigma_new)
+            new.restart_parameters['ann_mu'][s_new] = mu_entry
+            new.restart_parameters['ann_sigma'][s_new] = sigma_entry
 
-        # Recalculate total parameter count
-        self.n_parameters = (
-            self.n_ann_parameters
-            + self.n_descriptor_parameters
-            + n_descriptor  # q_scaler parameters
-        )
-        if self.model_type == 'polarizability':
-            self.n_parameters += self.n_ann_parameters
+        # Step 3: New descriptor weight pairs
+        n_r = (self.n_max_radial + 1, self.n_basis_radial + 1)
+        n_a = (self.n_max_angular + 1, self.n_basis_angular + 1)
+        existing_pairs = set(self.radial_descriptor_weights)
+        new_pairs = {
+            (s1, s2)
+            for s1 in all_types_after for s2 in all_types_after
+            if (s1, s2) not in existing_pairs
+        }
+        for pair in new_pairs:
+            r_vals = _rand(n_r)
+            a_vals = _rand(n_a)
+            new.radial_descriptor_weights[pair] = r_vals.copy()
+            new.angular_descriptor_weights[pair] = a_vals.copy()
+            new.restart_parameters['radial_descriptor_mu'][pair] = r_vals
+            new.restart_parameters['angular_descriptor_mu'][pair] = a_vals
+            new.restart_parameters['radial_descriptor_sigma'][pair] = np.full(n_r, sigma_new)
+            new.restart_parameters['angular_descriptor_sigma'][pair] = np.full(n_a, sigma_new)
 
-    def write(self, filename: str) -> None:
-        """Write NEP model to file in `nep.txt` format."""
+        # Step 4: Update types and typewise cutoffs
+        new.types = tuple(all_types_after)
+        if uses_typewise:
+            new.radial_cutoff = list(self.radial_cutoff) + rc_list
+            new.angular_cutoff = list(self.angular_cutoff) + ac_list
+
+        # Step 5: Recalculate parameter counts
+        _recalculate_parameter_counts(new)
+
+        return new
+
+    def write(self, filename: str, restart_file: str = None) -> None:
+        """Write NEP model to file in `nep.txt` format.
+
+        Parameters
+        ----------
+        filename
+            Output file name for the NEP model.
+        restart_file
+            If provided, also write restart parameters to this file in
+            `nep.restart` format. Defaults to None.
+        """
         with open(filename, 'w') as f:
             # header
             version_name = f'nep{self.version}'
@@ -526,7 +852,16 @@ class Model:
             f.write('\n')
             f.write(f'n_max {self.n_max_radial} {self.n_max_angular}\n')
             f.write(f'basis_size {self.n_basis_radial} {self.n_basis_angular}\n')
-            f.write(f'l_max {self.l_max_3b} {self.l_max_4b} {self.l_max_5b}\n')
+            l_max_line = f'l_max {self.l_max_3b} {self.l_max_4b} {self.l_max_5b}'
+            if self.has_q_112 or self.has_q_123 or self.has_q_233 or self.has_q_134:
+                l_max_line += f' {self.has_q_112}'
+            if self.has_q_123 or self.has_q_233 or self.has_q_134:
+                l_max_line += f' {self.has_q_123}'
+            if self.has_q_233 or self.has_q_134:
+                l_max_line += f' {self.has_q_233}'
+            if self.has_q_134:
+                l_max_line += f' {self.has_q_134}'
+            f.write(l_max_line + '\n')
             f.write(f'ANN {self.n_neuron} 0\n')
 
             # neural network weights
@@ -546,11 +881,16 @@ class Model:
                             f.write(f'{w0[n, nu]:15.7e}\n')
                     for b in b0[:, 0]:
                         f.write(f'{b:15.7e}\n')
-                    for v in w1[0, :]:
+                    for v in (w1[0, :] if w1.ndim == 2 else w1):
                         f.write(f'{v:15.7e}\n')
+                    if f'w1_charge{suffix}' in self.ann_parameters[s]:
+                        for v in self.ann_parameters[s][f'w1_charge{suffix}']:
+                            f.write(f'{v:15.7e}\n')
                     if self.version == 5:
                         b1 = self.ann_parameters[s][f'b1{suffix}']
                         f.write(f'{b1:15.7e}\n')
+                if self.sqrt_epsilon_infinity is not None:
+                    f.write(f'{self.sqrt_epsilon_infinity:15.7e}\n')
                 b1 = self.ann_parameters[f'b1{suffix}']
                 f.write(f'{b1:15.7e}\n')
 
@@ -573,6 +913,9 @@ class Model:
             # scaler
             for v in self.q_scaler:
                 f.write(f'{v:15.7e}\n')
+
+        if restart_file is not None:
+            self.write_restart(restart_file)
 
     def read_restart(self, filename: str):
         """Parses a file in `nep.restart` format and saves the
@@ -608,6 +951,8 @@ class Model:
 
         ann_groups = [s for s in self.ann_parameters.keys() if not s.startswith('b1')]
         n_bias = len([s for s in self.ann_parameters.keys() if s.startswith('b1')])
+        if self.sqrt_epsilon_infinity is not None:
+            n_bias += 1  # charge models have sqrt_epsilon_infinity before b1
         n_descriptor = self.n_descriptor_radial + self.n_descriptor_angular
         restart = {}
 
@@ -655,8 +1000,13 @@ class Model:
                             column.append(f'{w0[n, nu]:15.7e}')
                     for b in b0[:, 0]:
                         column.append(f'{b:15.7e}')
-                    for v in w1[0, :]:
+                    for v in (w1[0, :] if w1.ndim == 2 else w1):
                         column.append(f'{v:15.7e}')
+                    if f'w1_charge{suffix}' in ann_parameters[s]:
+                        for v in ann_parameters[s][f'w1_charge{suffix}']:
+                            column.append(f'{v:15.7e}')
+                if f'sqrt_epsilon_infinity{suffix}' in ann_parameters:
+                    column.append(f'{ann_parameters[f"sqrt_epsilon_infinity{suffix}"]:15.7e}')
                 b1 = ann_parameters[f'b1{suffix}']
                 column.append(f'{b1:15.7e}')
             columns.append(column)
@@ -686,8 +1036,469 @@ class Model:
         with open(filename, 'w') as f:
             f.writelines(joined)
 
+    def augment(self,
+                n_neuron: int = None,
+                l_max_4b: int = None,
+                l_max_5b: int = None,
+                has_q_112: bool = None,
+                has_q_123: bool = None,
+                has_q_233: bool = None,
+                has_q_134: bool = None,
+                charge_head: bool = False,
+                sigma_new: float = 0.01,
+                sigma_factor: float = 0.1,
+                sigma_floor: float = 1e-6) -> 'Model':
+        """Augment the model by adding neurons, descriptor terms, or a charge output head.
 
-def read_model(filename: str) -> Model:
+        Returns a new :class:`Model` with the requested structural changes applied.
+        The source model is not modified. Existing parameter values are preserved exactly;
+        new parameters are initialized to zero. The restart SNES statistics are updated
+        as follows:
+
+        - Existing parameters: ``sigma = max(sigma_floor, sigma_factor * |mu|)``, which
+          re-opens the SNES search distribution while keeping parameters that were driven
+          toward zero effectively dormant.
+        - New parameters: ``mu = 0``, ``sigma = sigma_new``.
+
+        Parameters
+        ----------
+        n_neuron
+            Target neuron count; must be >= current. ``None`` leaves unchanged.
+        l_max_4b
+            Target 4-body l_max value; must be >= current. ``None`` leaves unchanged.
+        l_max_5b
+            Target 5-body l_max value; must be >= current. ``None`` leaves unchanged.
+        has_q_112
+            ``True`` enables the q_112 5-body descriptor; ``None`` or ``False`` leaves
+            the current state unchanged (disabling an already-enabled term raises).
+        has_q_123
+            Same as ``has_q_112`` but for the q_123 term.
+        has_q_233
+            Same as ``has_q_112`` but for the q_233 term.
+        has_q_134
+            Same as ``has_q_112`` but for the q_134 term.
+        charge_head
+            If ``True``, promote a ``potential`` model to ``potential_with_charges`` by
+            adding a charge output head (w1_charge per species and sqrt_epsilon_infinity).
+        sigma_new
+            SNES sigma assigned to all newly created parameters.
+        sigma_factor
+            Controls the sigma for *existing* parameters:
+            ``sigma = max(sigma_floor, sigma_factor * |mu|)``.
+        sigma_floor
+            Minimum sigma for existing parameters; keeps near-zero (dormant) parameters
+            from being accidentally re-activated.
+
+        Returns
+        -------
+        Model
+            New model with updated structure, weights, and restart statistics.
+
+        Raises
+        ------
+        ValueError
+            If ``restart_parameters`` is not loaded, if ``n_neuron`` or an ``l_max_*``
+            target is smaller than the current value, if a ``has_q_*`` flag attempts to
+            disable an already-enabled term, or if ``charge_head=True`` on a model that
+            is not of type ``potential``.
+        """
+        # Structural checks (independent of restart)
+        if self.version not in (3, 4):
+            raise ValueError(
+                f'augment() only supports NEP versions 3 and 4; got version {self.version}.'
+            )
+        if n_neuron is not None and n_neuron < self.n_neuron:
+            raise ValueError(
+                f'n_neuron ({n_neuron}) must be >= current n_neuron ({self.n_neuron}); '
+                'use prune() to reduce.'
+            )
+        if l_max_4b is not None and l_max_4b < self.l_max_4b:
+            raise ValueError(
+                f'l_max_4b ({l_max_4b}) must be >= current l_max_4b ({self.l_max_4b}); '
+                'use prune() to disable.'
+            )
+        if l_max_5b is not None and l_max_5b < self.l_max_5b:
+            raise ValueError(
+                f'l_max_5b ({l_max_5b}) must be >= current l_max_5b ({self.l_max_5b}); '
+                'use prune() to disable.'
+            )
+        for flag_val, name in [
+            (has_q_112, 'has_q_112'), (has_q_123, 'has_q_123'), (has_q_233, 'has_q_233'),
+            (has_q_134, 'has_q_134')
+        ]:
+            if flag_val is False and getattr(self, name):
+                raise ValueError(
+                    f'Cannot disable {name} via augment(); '
+                    'use prune() to disable descriptor terms.'
+                )
+        if charge_head and self.model_type != 'potential':
+            raise ValueError(
+                f'charge_head=True requires model_type="potential"; '
+                f'got "{self.model_type}".'
+            )
+        if self.restart_parameters is None:
+            raise ValueError(
+                'restart_parameters must be loaded before calling augment(). '
+                'Pass restart_file= to read_model() or call model.read_restart() first.'
+            )
+
+        new = copy.deepcopy(self)
+
+        # Resolve new structural parameters
+        new_l_max_4b = l_max_4b if l_max_4b is not None else self.l_max_4b
+        new_l_max_5b = l_max_5b if l_max_5b is not None else self.l_max_5b
+        new_has_q_112 = int(has_q_112) if has_q_112 is not None else self.has_q_112
+        new_has_q_123 = int(has_q_123) if has_q_123 is not None else self.has_q_123
+        new_has_q_233 = int(has_q_233) if has_q_233 is not None else self.has_q_233
+        new_has_q_134 = int(has_q_134) if has_q_134 is not None else self.has_q_134
+        new_n_neuron = n_neuron if n_neuron is not None else self.n_neuron
+
+        new_l_max_enh = (self.l_max_3b
+                         + (new_l_max_4b > 0) + (new_l_max_5b > 0)
+                         + (new_has_q_112 > 0) + (new_has_q_123 > 0) + (new_has_q_233 > 0)
+                         + (new_has_q_134 > 0))
+        new_n_desc_angular = (self.n_max_angular + 1) * new_l_max_enh
+        old_n_desc = self.n_descriptor_radial + self.n_descriptor_angular
+        new_n_desc = self.n_descriptor_radial + new_n_desc_angular
+        delta_desc = new_n_desc - old_n_desc
+        delta_neuron = new_n_neuron - self.n_neuron
+
+        keys = self.types if self.version in (4, 5) else ['all_species']
+
+        # Step 1: Apply adaptive sigma to all existing parameters (re-open SNES search width)
+        _apply_adaptive_sigma_to_restart(new.restart_parameters, keys, sigma_factor, sigma_floor)
+
+        # Step 2: Expand descriptor dimensions (new columns in w0, new q_scaler entries)
+        if delta_desc > 0:
+            for s in keys:
+                old_w0 = new.ann_parameters[s]['w0']  # (n_neuron_old, old_n_desc)
+                new.ann_parameters[s]['w0'] = np.hstack(
+                    [old_w0, np.zeros((self.n_neuron, delta_desc))]
+                )
+                old_mu_w0 = new.restart_parameters['ann_mu'][s]['w0']
+                new.restart_parameters['ann_mu'][s]['w0'] = np.hstack(
+                    [old_mu_w0, np.zeros((self.n_neuron, delta_desc))]
+                )
+                old_sigma_w0 = new.restart_parameters['ann_sigma'][s]['w0']
+                new.restart_parameters['ann_sigma'][s]['w0'] = np.hstack(
+                    [old_sigma_w0, np.full((self.n_neuron, delta_desc), sigma_new)]
+                )
+            new.q_scaler = list(new.q_scaler) + [1.0] * delta_desc
+
+        # Step 3: Expand neuron count (new rows in w0/b0, new columns in w1)
+        if delta_neuron > 0:
+            for s in keys:
+                # w0: append new rows
+                cur_w0 = new.ann_parameters[s]['w0']  # (n_old, new_n_desc)
+                new.ann_parameters[s]['w0'] = np.vstack(
+                    [cur_w0, np.zeros((delta_neuron, new_n_desc))]
+                )
+                # b0: append new rows
+                cur_b0 = new.ann_parameters[s]['b0']
+                new.ann_parameters[s]['b0'] = np.vstack(
+                    [cur_b0, np.zeros((delta_neuron, 1))]
+                )
+                # w1: append new columns; handle both 2D (standard) and 1D (charge)
+                cur_w1 = new.ann_parameters[s]['w1']
+                zeros_w1 = (np.zeros(delta_neuron) if cur_w1.ndim == 1
+                            else np.zeros((1, delta_neuron)))
+                new.ann_parameters[s]['w1'] = np.hstack([cur_w1, zeros_w1])
+                if 'w1_charge' in new.ann_parameters[s]:
+                    cur_wc = new.ann_parameters[s]['w1_charge']
+                    new.ann_parameters[s]['w1_charge'] = np.hstack([cur_wc, np.zeros(delta_neuron)])
+
+                # restart w0
+                cur_mu_w0 = new.restart_parameters['ann_mu'][s]['w0']
+                new.restart_parameters['ann_mu'][s]['w0'] = np.vstack(
+                    [cur_mu_w0, np.zeros((delta_neuron, new_n_desc))]
+                )
+                cur_sigma_w0 = new.restart_parameters['ann_sigma'][s]['w0']
+                new.restart_parameters['ann_sigma'][s]['w0'] = np.vstack(
+                    [cur_sigma_w0, np.full((delta_neuron, new_n_desc), sigma_new)]
+                )
+                # restart b0
+                cur_mu_b0 = new.restart_parameters['ann_mu'][s]['b0']
+                new.restart_parameters['ann_mu'][s]['b0'] = np.vstack(
+                    [cur_mu_b0, np.zeros((delta_neuron, 1))]
+                )
+                cur_sigma_b0 = new.restart_parameters['ann_sigma'][s]['b0']
+                new.restart_parameters['ann_sigma'][s]['b0'] = np.vstack(
+                    [cur_sigma_b0, np.full((delta_neuron, 1), sigma_new)]
+                )
+                # restart w1
+                cur_mu_w1 = new.restart_parameters['ann_mu'][s]['w1']
+                zeros_w1 = (np.zeros(delta_neuron) if cur_mu_w1.ndim == 1
+                            else np.zeros((1, delta_neuron)))
+                new.restart_parameters['ann_mu'][s]['w1'] = np.hstack([cur_mu_w1, zeros_w1])
+                cur_sigma_w1 = new.restart_parameters['ann_sigma'][s]['w1']
+                zeros_w1 = (np.full(delta_neuron, sigma_new) if cur_sigma_w1.ndim == 1
+                            else np.full((1, delta_neuron), sigma_new))
+                new.restart_parameters['ann_sigma'][s]['w1'] = np.hstack([cur_sigma_w1, zeros_w1])
+                if 'w1_charge' in new.restart_parameters['ann_mu'][s]:
+                    cur = new.restart_parameters['ann_mu'][s]['w1_charge']
+                    new.restart_parameters['ann_mu'][s]['w1_charge'] = np.hstack(
+                        [cur, np.zeros(delta_neuron)]
+                    )
+                    cur = new.restart_parameters['ann_sigma'][s]['w1_charge']
+                    new.restart_parameters['ann_sigma'][s]['w1_charge'] = np.hstack(
+                        [cur, np.full(delta_neuron, sigma_new)]
+                    )
+
+        # Step 4: Add charge output head
+        if charge_head:
+            new.model_type = 'potential_with_charges'
+            new.sqrt_epsilon_infinity = 1.0
+            for s in keys:
+                cur_w1 = new.ann_parameters[s]['w1']  # (1, new_n_neuron)
+                new.ann_parameters[s]['w1'] = cur_w1[0, :]  # flatten to 1D
+                new.ann_parameters[s]['w1_charge'] = np.zeros(new_n_neuron)
+
+                cur_mu_w1 = new.restart_parameters['ann_mu'][s]['w1']
+                new.restart_parameters['ann_mu'][s]['w1'] = cur_mu_w1[0, :]
+                new.restart_parameters['ann_mu'][s]['w1_charge'] = np.zeros(new_n_neuron)
+
+                cur_sigma_w1 = new.restart_parameters['ann_sigma'][s]['w1']
+                new.restart_parameters['ann_sigma'][s]['w1'] = cur_sigma_w1[0, :]
+                new.restart_parameters['ann_sigma'][s]['w1_charge'] = np.full(
+                    new_n_neuron, sigma_new
+                )
+
+            new.restart_parameters['ann_mu']['sqrt_epsilon_infinity'] = 1.0
+            new.restart_parameters['ann_sigma']['sqrt_epsilon_infinity'] = float(sigma_new)
+
+        # Step 5: Update header metadata
+        new.l_max_4b = new_l_max_4b
+        new.l_max_5b = new_l_max_5b
+        new.has_q_112 = new_has_q_112
+        new.has_q_123 = new_has_q_123
+        new.has_q_233 = new_has_q_233
+        new.has_q_134 = new_has_q_134
+        new.n_descriptor_angular = new_n_desc_angular
+        new.n_neuron = new_n_neuron
+
+        # Step 6: Recalculate parameter counts
+        _recalculate_parameter_counts(new)
+
+        return new
+
+    def prune(self,
+              n_neuron: int = None,
+              l_max_4b: int = None,
+              l_max_5b: int = None,
+              has_q_112: bool = None,
+              has_q_123: bool = None,
+              has_q_233: bool = None,
+              has_q_134: bool = None,
+              charge_head: bool = False,
+              sigma_factor: float = 0.1,
+              sigma_floor: float = 1e-6) -> 'Model':
+        """Prune the model by removing neurons, disabling descriptor terms, or removing
+        the charge output head.
+
+        Returns a new :class:`Model` with the requested structural changes applied.
+        The source model is not modified. When reducing ``n_neuron``, neurons are
+        selected by importance score averaged over species:
+        ``importance[n] = mean_s(||w0_s[n,:]||_2 * |w1_s[n]|)``.
+
+        All surviving parameters receive adaptive SNES sigma:
+        ``sigma = max(sigma_floor, sigma_factor * |mu|)``.
+
+        Parameters
+        ----------
+        n_neuron
+            Target neuron count; must be <= current. ``None`` leaves unchanged.
+        l_max_4b
+            Target 4-body l_max; must be <= current. Setting to ``0`` removes the
+            4-body angular descriptor block. Reducing to a lower non-zero value is
+            a header-only change (descriptor dimensions unchanged). ``None`` leaves
+            unchanged.
+        l_max_5b
+            Same as ``l_max_4b`` but for five-body terms.
+        has_q_112
+            ``False`` disables and removes the q_112 descriptor block. ``None``
+            leaves unchanged. ``True`` is not valid; use :meth:`augment` instead.
+        has_q_123
+            Same as ``has_q_112`` but for the q_123 term.
+        has_q_233
+            Same as ``has_q_112`` but for the q_233 term.
+        has_q_134
+            Same as ``has_q_112`` but for the q_134 term.
+        charge_head
+            If ``True``, remove the charge output head from a
+            ``potential_with_charges`` model, converting it back to ``potential``.
+            Removes ``w1_charge`` per species and ``sqrt_epsilon_infinity`` from
+            the restart.
+        sigma_factor
+            Controls sigma for surviving parameters:
+            ``sigma = max(sigma_floor, sigma_factor * |mu|)``.
+        sigma_floor
+            Minimum sigma for surviving parameters.
+
+        Returns
+        -------
+        Model
+            New model with reduced structure, weights, and restart statistics.
+
+        Raises
+        ------
+        ValueError
+            If ``restart_parameters`` is not loaded, if any target value would
+            expand the model (use :meth:`augment` instead), if a ``has_q_*``
+            flag is set to ``True``, or if ``charge_head=True`` on a model
+            without charges.
+        """
+        # --- Resolve target values ---
+        new_n_neuron = n_neuron if n_neuron is not None else self.n_neuron
+        new_l_max_4b = l_max_4b if l_max_4b is not None else self.l_max_4b
+        new_l_max_5b = l_max_5b if l_max_5b is not None else self.l_max_5b
+        new_has_q_112 = 0 if has_q_112 is False else self.has_q_112
+        new_has_q_123 = 0 if has_q_123 is False else self.has_q_123
+        new_has_q_233 = 0 if has_q_233 is False else self.has_q_233
+        new_has_q_134 = 0 if has_q_134 is False else self.has_q_134
+
+        # --- Validate ---
+        if self.version not in (3, 4):
+            raise ValueError(
+                f'prune() only supports NEP versions 3 and 4; got version {self.version}.'
+            )
+        if new_n_neuron > self.n_neuron:
+            raise ValueError(
+                f'n_neuron ({new_n_neuron}) must be <= current n_neuron ({self.n_neuron}); '
+                'use augment() to increase.'
+            )
+        if new_l_max_4b > self.l_max_4b:
+            raise ValueError(
+                f'l_max_4b ({new_l_max_4b}) must be <= current l_max_4b ({self.l_max_4b}); '
+                'use augment() to increase.'
+            )
+        if new_l_max_5b > self.l_max_5b:
+            raise ValueError(
+                f'l_max_5b ({new_l_max_5b}) must be <= current l_max_5b ({self.l_max_5b}); '
+                'use augment() to increase.'
+            )
+        for flag_val, name in [
+            (has_q_112, 'has_q_112'), (has_q_123, 'has_q_123'),
+            (has_q_233, 'has_q_233'), (has_q_134, 'has_q_134')
+        ]:
+            if flag_val is True:
+                raise ValueError(
+                    f'Cannot enable {name} via prune(); '
+                    'use augment() to enable descriptor terms.'
+                )
+        if charge_head and self.model_type != 'potential_with_charges':
+            raise ValueError(
+                f'charge_head=True requires model_type="potential_with_charges"; '
+                f'got "{self.model_type}".'
+            )
+        if self.restart_parameters is None:
+            raise ValueError(
+                'restart_parameters must be loaded before calling prune(). '
+                'Pass restart_file= to read_model() or call model.read_restart() first.'
+            )
+
+        new = copy.deepcopy(self)
+        keys = self.types if self.version in (4, 5) else ['all_species']
+
+        # Step 1: Adaptive sigma for all existing parameters
+        _apply_adaptive_sigma_to_restart(new.restart_parameters, keys, sigma_factor, sigma_floor)
+
+        # Step 2: Neuron pruning — keep the most important neurons
+        if new_n_neuron < self.n_neuron:
+            importances = []
+            for s in keys:
+                w0 = self.ann_parameters[s]['w0']   # (n_neuron, n_desc)
+                w1_flat = self.ann_parameters[s]['w1'].ravel()
+                if 'w1_charge' in self.ann_parameters[s]:
+                    output_norm = np.abs(w1_flat) + np.abs(self.ann_parameters[s]['w1_charge'])
+                else:
+                    output_norm = np.abs(w1_flat)
+                importances.append(np.linalg.norm(w0, axis=1) * output_norm)
+
+            keep_idx = np.sort(np.argsort(np.mean(importances, axis=0))[-new_n_neuron:])
+
+            for s in keys:
+                new.ann_parameters[s]['w0'] = new.ann_parameters[s]['w0'][keep_idx, :]
+                new.ann_parameters[s]['b0'] = new.ann_parameters[s]['b0'][keep_idx, :]
+                w1 = new.ann_parameters[s]['w1']
+                new.ann_parameters[s]['w1'] = w1[:, keep_idx] if w1.ndim == 2 else w1[keep_idx]
+                if 'w1_charge' in new.ann_parameters[s]:
+                    new.ann_parameters[s]['w1_charge'] = (
+                        new.ann_parameters[s]['w1_charge'][keep_idx]
+                    )
+                for pk in ['ann_mu', 'ann_sigma']:
+                    rp = new.restart_parameters[pk][s]
+                    rp['w0'] = rp['w0'][keep_idx, :]
+                    rp['b0'] = rp['b0'][keep_idx, :]
+                    w1 = rp['w1']
+                    rp['w1'] = w1[:, keep_idx] if w1.ndim == 2 else w1[keep_idx]
+                    if 'w1_charge' in rp:
+                        rp['w1_charge'] = rp['w1_charge'][keep_idx]
+
+        # Step 3: Descriptor column pruning (disabling higher-body terms)
+        n_per = self.n_max_angular + 1
+        hb_terms = [
+            (self.l_max_4b, new_l_max_4b),
+            (self.l_max_5b, new_l_max_5b),
+            (self.has_q_112, new_has_q_112),
+            (self.has_q_123, new_has_q_123),
+            (self.has_q_233, new_has_q_233),
+            (self.has_q_134, new_has_q_134),
+        ]
+        keep_cols = list(range(self.n_descriptor_radial + n_per * self.l_max_3b))
+        col_offset = len(keep_cols)
+        for old_val, new_val in hb_terms:
+            if old_val > 0:
+                if new_val > 0:
+                    keep_cols.extend(range(col_offset, col_offset + n_per))
+                col_offset += n_per
+
+        old_n_desc = self.n_descriptor_radial + self.n_descriptor_angular
+        if len(keep_cols) < old_n_desc:
+            keep_cols = np.array(keep_cols, dtype=int)
+            for s in keys:
+                new.ann_parameters[s]['w0'] = new.ann_parameters[s]['w0'][:, keep_cols]
+                for pk in ['ann_mu', 'ann_sigma']:
+                    rp = new.restart_parameters[pk][s]
+                    rp['w0'] = rp['w0'][:, keep_cols]
+            new.q_scaler = [new.q_scaler[i] for i in keep_cols]
+
+        # Step 4: Charge head removal
+        if charge_head:
+            new.model_type = 'potential'
+            new.sqrt_epsilon_infinity = None
+            for s in keys:
+                w1 = new.ann_parameters[s]['w1']        # 1D (n_neuron,)
+                new.ann_parameters[s]['w1'] = w1.reshape(1, -1)
+                del new.ann_parameters[s]['w1_charge']
+                for pk in ['ann_mu', 'ann_sigma']:
+                    rp = new.restart_parameters[pk][s]
+                    rp['w1'] = rp['w1'].reshape(1, -1)
+                    del rp['w1_charge']
+            del new.restart_parameters['ann_mu']['sqrt_epsilon_infinity']
+            del new.restart_parameters['ann_sigma']['sqrt_epsilon_infinity']
+
+        # Step 5: Update header fields
+        new.n_neuron = new_n_neuron
+        new.l_max_4b = new_l_max_4b
+        new.l_max_5b = new_l_max_5b
+        new.has_q_112 = new_has_q_112
+        new.has_q_123 = new_has_q_123
+        new.has_q_233 = new_has_q_233
+        new.has_q_134 = new_has_q_134
+
+        new_l_max_enh = (self.l_max_3b
+                         + (new_l_max_4b > 0) + (new_l_max_5b > 0)
+                         + (new_has_q_112 > 0) + (new_has_q_123 > 0) + (new_has_q_233 > 0)
+                         + (new_has_q_134 > 0))
+        new.n_descriptor_angular = (self.n_max_angular + 1) * new_l_max_enh
+
+        # Step 6: Recalculate parameter counts
+        _recalculate_parameter_counts(new)
+
+        return new
+
+
+def read_model(filename: str, restart_file: str = None) -> Model:
     """Parses a file in ``nep.txt`` format and returns the
     content in the form of a :class:`Model <calorine.nep.model.Model>`
     object.
@@ -696,6 +1507,10 @@ def read_model(filename: str) -> Model:
     ----------
     filename
         Input file name.
+    restart_file
+        If provided, also read restart parameters from this file in
+        `nep.restart` format and attach them to the returned model.
+        Defaults to None.
     """
     data, parameters = _get_nep_contents(filename)
 
@@ -737,15 +1552,25 @@ def read_model(filename: str) -> Model:
 
     # split up nl_max tuple
     len_l = len(data['l_max'])
-    assert len_l in [1, 2, 3]
+    assert len_l in [1, 2, 3, 4, 5, 6, 7]
     data['l_max_3b'] = data['l_max'][0]
     data['l_max_4b'] = data['l_max'][1] if len_l > 1 else 0
     data['l_max_5b'] = data['l_max'][2] if len_l > 2 else 0
+    data['has_q_112'] = data['l_max'][3] if len_l > 3 else 0
+    data['has_q_123'] = data['l_max'][4] if len_l > 4 else 0
+    data['has_q_233'] = data['l_max'][5] if len_l > 5 else 0
+    data['has_q_134'] = data['l_max'][6] if len_l > 6 else 0
     del data['l_max']
 
     # compute dimensions of descriptor components
     data['n_descriptor_radial'] = data['n_max_radial'] + 1
-    l_max_enh = data['l_max_3b'] + (data['l_max_4b'] > 0) + (data['l_max_5b'] > 0)
+    l_max_enh = (data['l_max_3b']
+                 + (data['l_max_4b'] > 0)
+                 + (data['l_max_5b'] > 0)
+                 + (data['has_q_112'] > 0)
+                 + (data['has_q_123'] > 0)
+                 + (data['has_q_233'] > 0)
+                 + (data['has_q_134'] > 0))
     data['n_descriptor_angular'] = (data['n_max_angular'] + 1) * l_max_enh
     n_descriptor = data['n_descriptor_radial'] + data['n_descriptor_angular']
 
@@ -835,4 +1660,7 @@ def read_model(filename: str) -> Model:
     data['radial_descriptor_weights'] = radial
     data['angular_descriptor_weights'] = angular
 
-    return Model(**data)
+    model = Model(**data)
+    if restart_file is not None:
+        model.read_restart(restart_file)
+    return model

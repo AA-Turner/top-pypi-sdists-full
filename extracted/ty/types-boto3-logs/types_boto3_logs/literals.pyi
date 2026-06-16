@@ -77,6 +77,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "S3TableIntegrationSourceStatusType",
+    "ScheduleTypeType",
     "ScheduledQueryDestinationTypeType",
     "ScheduledQueryStateType",
     "ScopeType",
@@ -168,6 +169,7 @@ QueryStatusType = Literal[
 S3TableIntegrationSourceStatusType = Literal[
     "ACTIVE", "DATA_SOURCE_DELETE_IN_PROGRESS", "FAILED", "UNHEALTHY"
 ]
+ScheduleTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 ScheduledQueryDestinationTypeType = Literal["S3"]
 ScheduledQueryStateType = Literal["DISABLED", "ENABLED"]
 ScopeType = Literal["ALL"]
@@ -530,6 +532,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -557,6 +560,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

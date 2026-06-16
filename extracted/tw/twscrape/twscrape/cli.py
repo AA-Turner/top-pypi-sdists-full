@@ -8,10 +8,10 @@ import json
 import sqlite3
 from importlib.metadata import version
 
-import httpx
-
+from . import telemetry
 from .api import API, AccountsPool
 from .db import get_sqlite_version
+from .http import Response
 from .logger import logger, set_log_level
 from .login import LoginConfig
 from .models import Tweet, User
@@ -36,7 +36,7 @@ def get_fn_arg(args):
     exit(1)
 
 
-def to_str(doc: httpx.Response | Tweet | User | None) -> str:
+def to_str(doc: Response | Tweet | User | None) -> str:
     if doc is None:
         return "Not Found. See --raw for more details."
 
@@ -45,6 +45,7 @@ def to_str(doc: httpx.Response | Tweet | User | None) -> str:
 
 
 async def main(args):
+    telemetry.set_source("cli")
     if args.debug:
         set_log_level("DEBUG")
 
@@ -127,6 +128,13 @@ async def main(args):
     else:
         doc = await fn(val)
         print(to_str(doc))
+
+
+async def _run(args):
+    try:
+        await main(args)
+    finally:
+        await telemetry.flush()
 
 
 def custom_help(p):
@@ -224,6 +232,6 @@ def run():
         return custom_help(p)
 
     try:
-        asyncio.run(main(args))
+        asyncio.run(_run(args))
     except KeyboardInterrupt:
         pass

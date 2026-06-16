@@ -6,13 +6,13 @@ use owo_colors::OwoColorize;
 use serde::Serialize;
 
 use crate::cli::reporter::HookInitReporter;
-use crate::cli::run::Selectors;
+use crate::cli::run::{GroupFilters, Selectors};
 use crate::cli::{ExitStatus, ListOutputFormat};
 use crate::config::{Language, Stage};
 use crate::fs::CWD;
 use crate::printer::Printer;
 use crate::store::Store;
-use crate::workspace::Workspace;
+use crate::workspace::{HookInitFilters, Workspace};
 
 #[derive(Serialize)]
 struct SerializableHook {
@@ -30,6 +30,8 @@ pub(crate) async fn list(
     config: Option<PathBuf>,
     includes: Vec<String>,
     skips: Vec<String>,
+    groups: Vec<String>,
+    no_groups: Vec<String>,
     hook_stage: Option<Stage>,
     language: Option<Language>,
     output_format: ListOutputFormat,
@@ -39,13 +41,17 @@ pub(crate) async fn list(
 ) -> anyhow::Result<ExitStatus> {
     let workspace_root = Workspace::find_root(config.as_deref(), &CWD)?;
     let selectors = Selectors::load(&includes, &skips, &workspace_root)?;
-    let mut workspace =
-        Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
+    let group_filters = GroupFilters::parse(&groups, &no_groups)?;
+    let workspace = Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
 
     let reporter = HookInitReporter::new(printer);
     let lock = store.lock_async().await?;
     let hooks = workspace
-        .init_hooks(store, Some(&reporter))
+        .init_hooks(
+            store,
+            HookInitFilters::new(Some(&selectors), Some(&group_filters)),
+            Some(&reporter),
+        )
         .await
         .context("Failed to init hooks")?;
 
@@ -54,11 +60,13 @@ pub(crate) async fn list(
     let filtered_hooks: Vec<_> = hooks
         .into_iter()
         .filter(|h| selectors.matches_hook(h))
+        .filter(|h| group_filters.matches_hook(h))
         .filter(|h| hook_stage.is_none_or(|hook_stage| h.stages.contains(hook_stage)))
         .filter(|h| language.is_none_or(|lang| h.language == lang))
         .collect();
 
     selectors.report_unused();
+    group_filters.report_unused();
 
     match output_format {
         ListOutputFormat::Text => {

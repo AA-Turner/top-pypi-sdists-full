@@ -73,6 +73,7 @@ from ._serialization import (
     DBOSPortableJSON,
     WorkflowInputs,
     WorkflowSerializationFormat,
+    coerce_portable_args_to_hints,
     deserialize_args,
     deserialize_exception,
     deserialize_value,
@@ -539,6 +540,9 @@ def _get_wf_invoke_func(
             return output
         except DBOSWorkflowConflictIDError:
             # Await the workflow result
+            dbos.logger.warning(
+                f"Aborting duplicate execution of workflow {status['workflow_uuid']}."
+            )
             r: R = dbos._sys_db.await_workflow_result(
                 status["workflow_uuid"], polling_interval=DEFAULT_POLLING_INTERVAL
             )
@@ -738,6 +742,15 @@ def execute_workflow_by_id(
             "<NONE>",
             f"{wf_func.__name__} is not a registered workflow function",
         )
+    # Type-coerce arguments whose type is lost to portable JSON serialization.
+    using_portable_serialization = status[
+        "serialization"
+    ] == DBOSPortableJSON.name() or (
+        status["serialization"] is None
+        and dbos._serializer.name() == DBOSPortableJSON.name()
+    )
+    if using_portable_serialization and inputs is not None and fi.validate_args is None:
+        inputs = coerce_portable_args_to_hints(wf_func, inputs)
     # Run argument validation if configured on the workflow
     if fi.validate_args is not None and inputs is not None:
         try:
@@ -1059,8 +1072,16 @@ async def start_workflow_async(
         return WorkflowHandleAsyncPolling(new_child_workflow_id, dbos)
 
     coro = _execute_workflow_async(dbos, status, func, new_wf_ctx, args, kwargs)
+    inner_task = asyncio.create_task(coro)
+    # Hold a strong reference to the workflow task until it completes: the
+    # event loop only keeps weak references to tasks, and callers (notably
+    # execute_workflow_by_id on the dequeue path) may discard the returned
+    # handle. Without this, a cyclic GC pass can destroy the pending task
+    # mid-execution, killing the workflow with GeneratorExit (#710).
+    dbos._workflow_tasks.add(inner_task)
+    inner_task.add_done_callback(dbos._workflow_tasks.discard)
     # Shield the workflow task from cancellation
-    task = asyncio.shield(asyncio.create_task(coro))
+    task = asyncio.shield(inner_task)
     return WorkflowHandleAsyncTask(new_child_workflow_id, task, dbos)
 
 

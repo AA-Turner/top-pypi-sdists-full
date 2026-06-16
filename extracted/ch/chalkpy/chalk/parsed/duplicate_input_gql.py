@@ -288,6 +288,9 @@ class UpsertCronQueryGQL:
     numShards: Optional[int] = None
     numWorkers: Optional[int] = None
     inputSql: Optional[str] = None
+    maxRetries: Optional[int] = None
+    resources: Optional[Dict[str, Any]] = None
+    environment: Optional[str] = None
 
 
 @dataclasses_json.dataclass_json

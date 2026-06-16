@@ -44,7 +44,6 @@ class Script:
         lock (Union[Unset, str]):
         lock_error_logs (Union[Unset, str]):
         tag (Union[Unset, str]):
-        has_draft (Union[Unset, bool]):
         draft_only (Union[Unset, bool]):
         envs (Union[Unset, List[str]]):
         concurrent_limit (Union[Unset, int]):
@@ -94,7 +93,6 @@ class Script:
     lock: Union[Unset, str] = UNSET
     lock_error_logs: Union[Unset, str] = UNSET
     tag: Union[Unset, str] = UNSET
-    has_draft: Union[Unset, bool] = UNSET
     draft_only: Union[Unset, bool] = UNSET
     envs: Union[Unset, List[str]] = UNSET
     concurrent_limit: Union[Unset, int] = UNSET
@@ -153,7 +151,6 @@ class Script:
         lock = self.lock
         lock_error_logs = self.lock_error_logs
         tag = self.tag
-        has_draft = self.has_draft
         draft_only = self.draft_only
         envs: Union[Unset, List[str]] = UNSET
         if not isinstance(self.envs, Unset):
@@ -226,8 +223,6 @@ class Script:
             field_dict["lock_error_logs"] = lock_error_logs
         if tag is not UNSET:
             field_dict["tag"] = tag
-        if has_draft is not UNSET:
-            field_dict["has_draft"] = has_draft
         if draft_only is not UNSET:
             field_dict["draft_only"] = draft_only
         if envs is not UNSET:
@@ -333,8 +328,6 @@ class Script:
 
         tag = d.pop("tag", UNSET)
 
-        has_draft = d.pop("has_draft", UNSET)
-
         draft_only = d.pop("draft_only", UNSET)
 
         envs = cast(List[str], d.pop("envs", UNSET))
@@ -412,7 +405,6 @@ class Script:
             lock=lock,
             lock_error_logs=lock_error_logs,
             tag=tag,
-            has_draft=has_draft,
             draft_only=draft_only,
             envs=envs,
             concurrent_limit=concurrent_limit,

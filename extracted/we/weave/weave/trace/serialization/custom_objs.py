@@ -4,7 +4,10 @@ import logging
 from collections.abc import Mapping
 from typing import Any, Literal, TypedDict
 
-from weave.trace.context.weave_client_context import require_weave_client
+from weave.trace.context.weave_client_context import (
+    get_weave_client,
+    require_weave_client,
+)
 from weave.trace.op import op
 from weave.trace.op_protocol import Op
 from weave.trace.refs import ObjectRef
@@ -19,6 +22,7 @@ from weave.trace.serialization.serializer import (
     is_probably_legacy_file_load,
     is_probably_legacy_inline_load,
 )
+from weave.trace.settings import should_allow_unsafe_custom_obj_decode
 from weave.trace_server.trace_server_interface import (
     FileContentReadReq,
     TraceServerInterface,
@@ -63,7 +67,46 @@ KNOWN_TYPES = {
     "rich.markdown.Markdown",
     "moviepy.video.VideoClip.VideoClip",
     "weave.type_wrappers.Content.content.Content",
+    "weave.type_handlers.File.file.File",
 }
+
+# The one type whose serializer loads code (imports a user-uploaded `.py`).
+OP_CUSTOM_WEAVE_TYPE = "Op"
+
+# Custom types whose serializer reconstructs data only, using code already in this
+# process. "Op" and unknown types instead load and run a user `.py`, so a client with
+# unsafe decode off (server workers) refuses them; the `load_op` fallback is gated
+# separately in `_decode_custom_obj`. Kept in sync with KNOWN_TYPES minus
+# `OP_CUSTOM_WEAVE_TYPE` by `test_safe_custom_weave_types_in_sync`.
+SAFE_CUSTOM_WEAVE_TYPES = frozenset(
+    {
+        "PIL.Image.Image",
+        "wave.Wave_read",
+        "weave.type_handlers.Audio.audio.Audio",
+        "datetime.datetime",
+        "rich.markdown.Markdown",
+        "moviepy.video.VideoClip.VideoClip",
+        "weave.type_wrappers.Content.content.Content",
+        "weave.type_handlers.File.file.File",
+    }
+)
+
+
+class UnsafeDeserializationError(Exception):
+    """Raised when a client that forbids unsafe decode is asked to reconstruct a
+    code-bearing custom object (`Op`, or any type that falls back to `load_op`).
+    """
+
+
+def is_safe_to_decode(weave_type_id: str, *, allow_unsafe: bool) -> bool:
+    """Whether reconstructing this custom type is permitted.
+
+    `allow_unsafe` is the active client's policy. When False (server-side workers)
+    only data-only types decode, via their in-process serializer. `Op` and unknown
+    types load and run user-uploaded code, so they are refused here; the packaged
+    `load_op` fallback is blocked separately in `_decode_custom_obj`.
+    """
+    return allow_unsafe or weave_type_id in SAFE_CUSTOM_WEAVE_TYPES
 
 
 def encode_custom_obj(obj: Any) -> EncodedCustomObjDict | None:
@@ -84,7 +127,7 @@ def encode_custom_obj(obj: Any) -> EncodedCustomObjDict | None:
             serializer.load = op(serializer.load)
             # We don't want to actually trace the load_instance op,
             # just save it.
-            serializer.load._tracing_enabled = False  # type: ignore
+            serializer.load._tracing_enabled = False
 
         if serializer.publish_load_op:
             # Save the load_instance_op
@@ -94,7 +137,7 @@ def encode_custom_obj(obj: Any) -> EncodedCustomObjDict | None:
             # Calculating this URL is blocking, but we only have to pay it once per custom type
             load_instance_op_ref = wc._save_op(
                 serializer.load, "load_" + serializer.id()
-            )  # type: ignore
+            )
             load_op_uri = load_instance_op_ref.uri
 
     encoded: EncodedCustomObjDict = {
@@ -122,14 +165,18 @@ def encode_custom_obj(obj: Any) -> EncodedCustomObjDict | None:
         return None
     if art.path_contents:
         encoded_path_contents = {
-            k: (v.encode("utf-8") if isinstance(v, str) else v)  # type: ignore
-            for k, v in art.path_contents.items()
+            k: _ensure_bytes(v) for k, v in art.path_contents.items()
         }
         encoded["files"] = encoded_path_contents
     if val is not None:
         encoded["val"] = val
 
     return encoded
+
+
+def _ensure_bytes(value: str | bytes) -> bytes:
+    """Normalize artifact file contents to bytes for storage."""
+    return value.encode("utf-8") if isinstance(value, str) else value
 
 
 def _load_custom_obj_files(
@@ -162,8 +209,10 @@ def _load_custom_obj(
     val: Any | None,
     load_instance_op: AllLoadCallables,
 ) -> Any:
-    # Disables tracing so that calls to loading data itself don't get traced
-    load_instance_op._tracing_enabled = False  # type: ignore
+    # Disables tracing so that calls to loading data itself don't get traced.
+    # Only ops carry this flag; legacy plain callables aren't traced anyway.
+    if isinstance(load_instance_op, Op):
+        load_instance_op._tracing_enabled = False
     art = MemTraceFilesArtifact(encoded_path_contents, metadata={})
     if is_probably_legacy_file_load(load_instance_op):
         res = load_instance_op(art, "obj")
@@ -193,6 +242,30 @@ def _decode_custom_obj(
     load_instance_op_uri: str | None = None,
 ) -> Any:
     type_ = weave_type["type"]
+
+    # Unsafe decode requires BOTH gates open: the `WEAVE_ALLOW_UNSAFE_CUSTOM_OBJ_DECODE`
+    # setting (deployments/users can force-close it globally) and the active client's
+    # flag (workers force-close it in code via `require_secure_weave_client`). Either
+    # closed -> only data-only types decode. With no client we also fail closed, so a
+    # missing process-global client never opens the gate.
+    client = get_weave_client()
+    allow_unsafe = (
+        should_allow_unsafe_custom_obj_decode()
+        and client is not None
+        and client._allow_unsafe_custom_obj_decode
+    )
+    if not is_safe_to_decode(type_, allow_unsafe=allow_unsafe):
+        if client is None:
+            logger.warning(
+                "Refusing to decode code-bearing custom object `%s`: no active Weave "
+                "client, so no decode policy is set. Call `weave.init()` to permit it.",
+                type_,
+            )
+        raise UnsafeDeserializationError(
+            f"Refusing to reconstruct custom object of type `{type_}`: the active "
+            f"client does not allow deserializing code-bearing custom objects."
+        )
+
     found_serializer = False
 
     # First, try to load the object using a known serializer
@@ -213,6 +286,15 @@ def _decode_custom_obj(
     if not found_serializer:
         if load_instance_op_uri is None:
             raise ValueError(f"No serializer found for `{type_}`")
+
+        # The fallback runs a packaged op; with unsafe decode off we never run one. A
+        # safe type lands here only when its in-process serializer failed, so the policy
+        # gates this path too, not just the type check above.
+        if not allow_unsafe:
+            raise UnsafeDeserializationError(
+                f"Refusing to load the packaged op needed to decode `{type_}`: the "
+                f"active client does not allow deserializing code-bearing custom objects."
+            )
 
         obj_ref = ObjectRef.parse_uri(load_instance_op_uri)
         wc = require_weave_client()

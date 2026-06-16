@@ -449,6 +449,7 @@ async def drain_deferred_overdue_tasks(
 ) -> int:
     """Start queued overdue one-time tasks after Matrix sync is ready."""
     drained_count = 0
+    matrix_admin = build_hook_matrix_admin(client, runtime_paths)
 
     while _deferred_overdue_tasks:
         queued_task = _deferred_overdue_tasks.popleft()
@@ -463,7 +464,7 @@ async def drain_deferred_overdue_tasks(
                 runtime_paths,
                 event_cache,
                 conversation_cache,
-                matrix_admin=build_hook_matrix_admin(client, runtime_paths),
+                matrix_admin=matrix_admin,
             ):
                 drained_count += 1
         except Exception:
@@ -610,6 +611,52 @@ def _serialize_scheduled_task_created_at(created_at: datetime | str | None) -> s
     return datetime.now(UTC).isoformat()
 
 
+async def _put_scheduled_task_state_content(
+    client: nio.AsyncClient,
+    room_id: str,
+    task_id: str,
+    content: dict[str, typing.Any],
+    matrix_admin: HookMatrixAdmin | None = None,
+) -> None:
+    """Write scheduled-task state, falling back to the admin-capable Matrix path on rejection."""
+    active_write_failure: str | None = None
+    try:
+        response = await client.room_put_state(
+            room_id=room_id,
+            event_type=_SCHEDULED_TASK_EVENT_TYPE,
+            content=content,
+            state_key=task_id,
+        )
+    except Exception as exc:
+        active_write_failure = f"{type(exc).__name__}: {exc!s}"
+    else:
+        if isinstance(response, nio.RoomPutStateResponse):
+            return
+        active_write_failure = str(response)
+
+    if matrix_admin is not None:
+        try:
+            admin_wrote = await matrix_admin.put_room_state(
+                room_id,
+                _SCHEDULED_TASK_EVENT_TYPE,
+                task_id,
+                content,
+            )
+        except Exception as exc:
+            msg = (
+                f"Failed to persist scheduled task state for task `{task_id}`: "
+                f"active write failed ({active_write_failure}); privileged fallback raised {type(exc).__name__}: {exc!s}"
+            )
+            raise ValueError(msg) from exc
+        if admin_wrote:
+            logger.info("scheduled_task_state_persisted_via_admin", room_id=room_id, task_id=task_id)
+            return
+        active_write_failure = f"{active_write_failure}; privileged fallback failed"
+
+    msg = f"Failed to persist scheduled task state for task `{task_id}`: {active_write_failure}"
+    raise ValueError(msg)
+
+
 async def _persist_scheduled_task_state(
     client: nio.AsyncClient,
     room_id: str,
@@ -617,11 +664,13 @@ async def _persist_scheduled_task_state(
     workflow: ScheduledWorkflow,
     status: str = "pending",
     created_at: datetime | str | None = None,
+    matrix_admin: HookMatrixAdmin | None = None,
 ) -> None:
     """Persist scheduled task state to Matrix."""
-    await client.room_put_state(
+    await _put_scheduled_task_state_content(
+        client=client,
         room_id=room_id,
-        event_type=_SCHEDULED_TASK_EVENT_TYPE,
+        task_id=task_id,
         content={
             "task_id": task_id,
             "workflow": workflow.model_dump_json(),
@@ -629,7 +678,7 @@ async def _persist_scheduled_task_state(
             "created_at": _serialize_scheduled_task_created_at(created_at),
             "updated_at": datetime.now(UTC).isoformat(),
         },
-        state_key=task_id,
+        matrix_admin=matrix_admin,
     )
 
 
@@ -654,6 +703,7 @@ async def _save_pending_scheduled_task(
         workflow=workflow,
         status="pending",
         created_at=created_at,
+        matrix_admin=matrix_admin,
     )
     _start_scheduled_task(
         client,
@@ -671,6 +721,7 @@ async def _save_one_time_task_status(
     client: nio.AsyncClient,
     task: ScheduledTaskRecord,
     status: str,
+    matrix_admin: HookMatrixAdmin | None = None,
 ) -> None:
     """Persist the terminal status for a one-time task without restarting it."""
     await _persist_scheduled_task_state(
@@ -680,6 +731,7 @@ async def _save_one_time_task_status(
         workflow=task.workflow,
         status=status,
         created_at=task.created_at,
+        matrix_admin=matrix_admin,
     )
 
 
@@ -689,6 +741,7 @@ async def save_edited_scheduled_task(
     task_id: str,
     workflow: ScheduledWorkflow,
     existing_task: ScheduledTaskRecord,
+    matrix_admin: HookMatrixAdmin | None = None,
 ) -> ScheduledTaskRecord:
     """Persist edits to an existing task without touching runtime task runners."""
     if existing_task.status != "pending":
@@ -705,6 +758,7 @@ async def save_edited_scheduled_task(
         workflow=workflow,
         status="pending",
         created_at=existing_task.created_at,
+        matrix_admin=matrix_admin,
     )
 
     return ScheduledTaskRecord(
@@ -980,6 +1034,7 @@ async def _run_once_task(  # noqa: C901, PLR0912, PLR0915
                     client=client,
                     task=latest_pending_task,
                     status=final_status,
+                    matrix_admin=matrix_admin,
                 )
             except Exception:
                 logger.exception(
@@ -1016,6 +1071,7 @@ async def _run_once_task(  # noqa: C901, PLR0912, PLR0915
                         client=client,
                         task=latest_pending_task,
                         status="failed",
+                        matrix_admin=matrix_admin,
                     )
                 except Exception:
                     logger.exception("Failed to mark one-time task as failed", task_id=task_id)
@@ -1250,6 +1306,7 @@ async def schedule_task(  # noqa: C901, PLR0911, PLR0912, PLR0915
                 task_id=task_id,
                 workflow=workflow_result,
                 existing_task=existing_task,
+                matrix_admin=runtime.matrix_admin,
             )
         else:
             await _save_pending_scheduled_task(
@@ -1409,12 +1466,9 @@ async def cancel_scheduled_task(
     room_id: str,
     task_id: str,
     cancel_in_memory: bool = True,
+    matrix_admin: HookMatrixAdmin | None = None,
 ) -> str:
     """Cancel a scheduled task."""
-    # Cancel the asyncio task if running
-    if cancel_in_memory:
-        _cancel_running_task(task_id)
-
     # First check if task exists
     response = await client.room_get_state_event(
         room_id=room_id,
@@ -1427,12 +1481,19 @@ async def cancel_scheduled_task(
 
     # Update to cancelled
     existing_content = response.content if isinstance(response.content, dict) else None
-    await client.room_put_state(
-        room_id=room_id,
-        event_type=_SCHEDULED_TASK_EVENT_TYPE,
-        content=_cancelled_task_content(task_id, existing_content),
-        state_key=task_id,
-    )
+    try:
+        await _put_scheduled_task_state_content(
+            client=client,
+            room_id=room_id,
+            task_id=task_id,
+            content=_cancelled_task_content(task_id, existing_content),
+            matrix_admin=matrix_admin,
+        )
+    except ValueError as e:
+        return f"❌ Failed to cancel task `{task_id}`: {e!s}"
+
+    if cancel_in_memory:
+        _cancel_running_task(task_id)
 
     return f"✅ Cancelled task `{task_id}`"
 
@@ -1440,6 +1501,7 @@ async def cancel_scheduled_task(
 async def cancel_all_scheduled_tasks(
     client: nio.AsyncClient,
     room_id: str,
+    matrix_admin: HookMatrixAdmin | None = None,
 ) -> str:
     """Cancel all scheduled tasks in a room."""
     # Get all scheduled tasks
@@ -1458,18 +1520,17 @@ async def cancel_all_scheduled_tasks(
             if content.get("status") == "pending":
                 task_id = event["state_key"]
 
-                # Cancel the asyncio task if running
-                _cancel_running_task(task_id)
-
                 # Update to cancelled in Matrix state
                 try:
                     existing_content = content if isinstance(content, dict) else None
-                    await client.room_put_state(
+                    await _put_scheduled_task_state_content(
+                        client=client,
                         room_id=room_id,
-                        event_type=_SCHEDULED_TASK_EVENT_TYPE,
+                        task_id=task_id,
                         content=_cancelled_task_content(task_id, existing_content),
-                        state_key=task_id,
+                        matrix_admin=matrix_admin,
                     )
+                    _cancel_running_task(task_id)
                     cancelled_count += 1
                     logger.info("scheduled_task_cancelled", task_id=task_id)
                 except Exception:
@@ -1477,6 +1538,8 @@ async def cancel_all_scheduled_tasks(
                     failed_count += 1
 
     if cancelled_count == 0:
+        if failed_count > 0:
+            return f"❌ Failed to cancel {failed_count} scheduled task(s)"
         return "No scheduled tasks to cancel."
 
     result = f"✅ Cancelled {cancelled_count} scheduled task(s)"
@@ -1505,6 +1568,7 @@ async def restore_scheduled_tasks(  # noqa: C901
         return 0
 
     restored_count = 0
+    matrix_admin = build_hook_matrix_admin(client, runtime_paths)
     for task in _parse_task_records_from_state(room_id, response, include_non_pending=False):
         task_id = task.task_id
         workflow = task.workflow
@@ -1531,6 +1595,7 @@ async def restore_scheduled_tasks(  # noqa: C901
                             workflow=workflow,
                             status="failed",
                             created_at=task.created_at,
+                            matrix_admin=matrix_admin,
                         )
                     except Exception:
                         logger.exception("Failed to mark ancient task as failed", task_id=task_id)
@@ -1556,7 +1621,7 @@ async def restore_scheduled_tasks(  # noqa: C901
             runtime_paths,
             event_cache,
             conversation_cache,
-            matrix_admin=build_hook_matrix_admin(client, runtime_paths),
+            matrix_admin=matrix_admin,
         ):
             restored_count += 1
 

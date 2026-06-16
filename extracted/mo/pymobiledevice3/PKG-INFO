@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 9.20.0
+Version: 9.24.0
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -61,7 +61,7 @@ Requires-Dist: plumbum
 Requires-Dist: pyimg4>=0.8.8
 Requires-Dist: pyiosbackup>=0.2.4
 Requires-Dist: typer<0.24.0,>=0.23.2; python_version < "3.10"
-Requires-Dist: typer>=0.26.0; python_version >= "3.10"
+Requires-Dist: typer>=0.25; python_version >= "3.10"
 Requires-Dist: typer-injector>=0.2.0
 Requires-Dist: defusedxml
 Requires-Dist: pywin32; platform_system == "Windows"

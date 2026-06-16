@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fsspec
-Version: 2026.4.0
+Version: 2026.6.0
 Summary: File-system specification
 Project-URL: Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://filesystem-spec.readthedocs.io/en/latest/
@@ -143,7 +143,7 @@ Requires-Dist: requests; extra == 'test-full'
 Requires-Dist: smbprotocol; extra == 'test-full'
 Requires-Dist: tqdm; extra == 'test-full'
 Requires-Dist: urllib3; extra == 'test-full'
-Requires-Dist: zarr; extra == 'test-full'
+Requires-Dist: zarr<3.2.0; extra == 'test-full'
 Requires-Dist: zstandard; (python_version < '3.14') and extra == 'test-full'
 Provides-Extra: tqdm
 Requires-Dist: tqdm; extra == 'tqdm'

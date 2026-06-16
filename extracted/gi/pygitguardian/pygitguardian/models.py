@@ -785,6 +785,7 @@ class TokenScope(str, Enum):
     SOURCES_WRITE = "sources:write"
     NHI_WRITE_VAULT = "nhi:write-vault"
     NHI_SEND_INVENTORY = "nhi:send-inventory"
+    ENDPOINTS_SEND = "endpoints:send"
     CUSTOM_TAGS_READ = "custom_tags:read"
     CUSTOM_TAGS_WRITE = "custom_tags:write"
     SECRET_READ = "secrets:read"
@@ -1815,6 +1816,7 @@ class MCPActivityRequest(FromDictMixin, ToDictMixin):
     model: str
     cwd: str
     input: Dict[str, Any]
+    timestamp: Optional[datetime] = None
 
 
 class MCPActivityRequestSchema(BaseSchema):
@@ -1825,6 +1827,7 @@ class MCPActivityRequestSchema(BaseSchema):
     model = fields.Str(required=True)
     cwd = fields.Str(required=True)
     input = fields.Dict(keys=fields.Str(), values=fields.Raw(), required=True)
+    timestamp = fields.DateTime(load_default=None, allow_none=True)
 
     @post_load
     def make_mcp_activity_request(self, data: Dict[str, Any], **kwargs: Any):
@@ -1850,3 +1853,23 @@ class MCPActivityResponseSchema(BaseSchema):
 
 
 MCPActivityResponse.SCHEMA = MCPActivityResponseSchema()
+
+
+@dataclass
+class MCPActivityBulkResponse(FromDictWithBase):
+    ingested: int
+    duplicates: int
+    skipped: int
+
+
+class MCPActivityBulkResponseSchema(BaseSchema):
+    ingested = fields.Int(required=True)
+    duplicates = fields.Int(required=True)
+    skipped = fields.Int(required=True)
+
+    @post_load
+    def make_mcp_activity_bulk_response(self, data: Dict[str, Any], **kwargs: Any):
+        return MCPActivityBulkResponse(**data)
+
+
+MCPActivityBulkResponse.SCHEMA = MCPActivityBulkResponseSchema()

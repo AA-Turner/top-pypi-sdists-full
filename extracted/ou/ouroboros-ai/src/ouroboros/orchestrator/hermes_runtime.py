@@ -7,7 +7,6 @@ by shelling out to the Hermes CLI.
 from __future__ import annotations
 
 import asyncio
-import codecs
 from collections import deque
 from collections.abc import AsyncIterator, Mapping
 import contextlib
@@ -25,11 +24,19 @@ from ouroboros.core.errors import ProviderError
 from ouroboros.core.types import Result
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.adapter import (
+    FULL_CAPABILITIES,
     AgentMessage,
     AgentRuntime,
+    ParamSupport,
+    RuntimeCapabilities,
     RuntimeHandle,
     SkillDispatchHandler,
     TaskResult,
+)
+from ouroboros.orchestrator.runtime_error import classify_subprocess_failure
+from ouroboros.providers.codex_cli_stream import (
+    iter_runtime_stream_lines,
+    terminate_runtime_process,
 )
 from ouroboros.router import (
     InvalidInputReason,
@@ -39,6 +46,7 @@ from ouroboros.router import (
     ResolveRequest,
     resolve_skill_dispatch,
 )
+from ouroboros.runtime.child_env import build_child_env
 
 log = get_logger(__name__)
 
@@ -46,6 +54,11 @@ _INTERVIEW_SESSION_METADATA_KEY = "ouroboros_interview_session_id"
 
 _STARTUP_TIMEOUT_ENV = "OUROBOROS_HERMES_STARTUP_TIMEOUT_SECONDS"
 _IDLE_TIMEOUT_ENV = "OUROBOROS_HERMES_IDLE_TIMEOUT_SECONDS"
+
+# Child-env strip set for Hermes.  Hermes does NOT strip CLAUDECODE (unlike
+# codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
+# are removed.
+_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
 
 
 def _resolve_timeout_override(
@@ -178,6 +191,7 @@ class HermesCliRuntime(AgentRuntime):
         stdout_idle_timeout_seconds: float | None = None,
     ) -> None:
         self._cli_path = self._resolve_cli_path(cli_path)
+        self._permission_mode_requested = permission_mode is not None
         self._permission_mode = permission_mode or "default"
         self._model = model
         self._cwd = str(Path(cwd).expanduser()) if cwd is not None else os.getcwd()
@@ -219,12 +233,29 @@ class HermesCliRuntime(AgentRuntime):
         return self._runtime_handle_backend
 
     @property
+    def capabilities(self) -> RuntimeCapabilities:
+        # Hermes composes the system prompt and tool guidance into the user
+        # message rather than passing native runtime parameters, and hermes chat
+        # has no permission-mode flag. Surface both truthfully for degradation
+        # notices.
+        return replace(
+            FULL_CAPABILITIES,
+            system_prompt_support=ParamSupport.TRANSLATED,
+            tool_restriction_support=ParamSupport.TRANSLATED,
+            permission_mode_support=ParamSupport.IGNORED,
+        )
+
+    @property
     def working_directory(self) -> str | None:
         return self._cwd
 
     @property
     def permission_mode(self) -> str | None:
         return self._permission_mode
+
+    @property
+    def permission_mode_requested(self) -> bool:
+        return self._permission_mode_requested
 
     @property
     def llm_backend(self) -> str | None:
@@ -243,21 +274,13 @@ class HermesCliRuntime(AgentRuntime):
 
     def _build_child_env(self) -> dict[str, str]:
         """Build an isolated environment for child runtime processes."""
-        env = os.environ.copy()
-        for key in ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND"):
-            env.pop(key, None)
-
-        try:
-            depth = int(env.get("_OUROBOROS_DEPTH", "0")) + 1
-        except (ValueError, TypeError):
-            depth = 1
-
-        if depth > self._max_ouroboros_depth:
-            msg = f"Maximum Ouroboros nesting depth ({self._max_ouroboros_depth}) exceeded"
-            raise RuntimeError(msg)
-
-        env["_OUROBOROS_DEPTH"] = str(depth)
-        return env
+        return build_child_env(
+            strip_keys=_CHILD_ENV_STRIP_KEYS,
+            max_depth=self._max_ouroboros_depth,
+            depth_error_factory=lambda _depth, max_depth: RuntimeError(
+                f"Maximum Ouroboros nesting depth ({max_depth}) exceeded"
+            ),
+        )
 
     def _build_runtime_handle(
         self,
@@ -313,49 +336,21 @@ class HermesCliRuntime(AgentRuntime):
         first_chunk_timeout_seconds: float | None = None,
         chunk_timeout_seconds: float | None = None,
     ) -> AsyncIterator[str]:
-        """Yield decoded lines from a subprocess stream with timeout guards."""
-        if stream is None:
-            return
+        """Yield decoded lines from a subprocess stream with timeout guards.
 
-        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        buffer = ""
-        saw_chunk = False
-
-        while True:
-            timeout_seconds: float | None = None
-            if not saw_chunk:
-                timeout_seconds = first_chunk_timeout_seconds
-            elif chunk_timeout_seconds is not None:
-                timeout_seconds = chunk_timeout_seconds
-
-            try:
-                if timeout_seconds is None:
-                    chunk = await stream.read(chunk_size)
-                else:
-                    chunk = await asyncio.wait_for(stream.read(chunk_size), timeout=timeout_seconds)
-            except TimeoutError as exc:
-                phase = "startup" if not saw_chunk else "idle"
-                raise TimeoutError(
-                    f"{self._display_name} produced no stdout during {phase} "
-                    f"window ({timeout_seconds:.0f}s)"
-                ) from exc
-
-            if not chunk:
-                break
-
-            saw_chunk = True
-            buffer += decoder.decode(chunk)
-            while True:
-                newline_index = buffer.find("\n")
-                if newline_index < 0:
-                    break
-                line = buffer[:newline_index]
-                buffer = buffer[newline_index + 1 :]
-                yield line.rstrip("\r")
-
-        buffer += decoder.decode(b"", final=True)
-        if buffer:
-            yield buffer.rstrip("\r")
+        Delegates to the shared runtime reader, which enforces a line-buffer
+        cap so newline-free Hermes stdout cannot grow memory without bound.
+        """
+        async for line in iter_runtime_stream_lines(
+            stream,
+            display_name=self._display_name,
+            chunk_size=chunk_size,
+            first_chunk_timeout_seconds=first_chunk_timeout_seconds,
+            chunk_timeout_seconds=chunk_timeout_seconds,
+            logger=log,
+            log_namespace=self._log_namespace,
+        ):
+            yield line
 
     async def _collect_stream_lines(
         self,
@@ -381,37 +376,12 @@ class HermesCliRuntime(AgentRuntime):
 
     async def _terminate_process(self, process: Any) -> None:
         """Best-effort subprocess shutdown used for cancellations and timeouts."""
-        if getattr(process, "returncode", None) is not None:
-            return
-
-        terminate = getattr(process, "terminate", None)
-        kill = getattr(process, "kill", None)
-        wait = getattr(process, "wait", None)
-
-        try:
-            if callable(terminate):
-                terminate()
-            elif callable(kill):
-                kill()
-            else:
-                return
-        except ProcessLookupError:
-            return
-
-        if not callable(wait):
-            return
-
-        try:
-            await asyncio.wait_for(wait(), timeout=self._process_shutdown_timeout_seconds)
-            return
-        except (ProcessLookupError, TimeoutError):
-            pass
-
-        if callable(kill):
-            with contextlib.suppress(ProcessLookupError):
-                kill()
-            with contextlib.suppress(ProcessLookupError, TimeoutError):
-                await asyncio.wait_for(wait(), timeout=self._process_shutdown_timeout_seconds)
+        await terminate_runtime_process(
+            process,
+            shutdown_timeout=self._process_shutdown_timeout_seconds,
+            logger=log,
+            log_namespace=self._log_namespace,
+        )
 
     async def execute_task(
         self,
@@ -523,7 +493,7 @@ class HermesCliRuntime(AgentRuntime):
             yield AgentMessage(
                 type="result",
                 content=f"Hermes execution failed:\n{failure_content}",
-                data={"subtype": "error", "exit_code": returncode},
+                data=classify_subprocess_failure(failure_content, exit_code=returncode),
                 resume_handle=handle,
             )
             return

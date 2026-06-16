@@ -21,6 +21,7 @@ from workflows.context.state_store import (
     InMemoryStateStore,
     StateStore,
     infer_state_type,
+    is_durable_serialized_state,
 )
 from workflows.errors import WorkflowRuntimeError
 from workflows.events import Event, StartEvent, StopEvent
@@ -105,7 +106,10 @@ class InternalAsyncioAdapter(InternalRunAdapter, SnapshottableAdapter):
         self._queues.publish_queue.put_nowait(event)
 
     async def get_now(self) -> float:
-        return time.monotonic()
+        # Wall clock, not monotonic: get_now timestamps (first_attempt_at,
+        # retry not_before) are persisted in snapshots and compared across
+        # process restarts, so they must live in a cross-process time domain.
+        return time.time()
 
     async def send_event(self, tick: WorkflowTick) -> None:
         self._queues.receive_queue.put_nowait(tick)
@@ -278,6 +282,12 @@ class BasicRuntime(Runtime):
         # Create state store from serialized state or infer type from workflow
         active_serializer = serializer or JsonSerializer()
         if serialized_state:
+            if is_durable_serialized_state(serialized_state):
+                store_type = serialized_state.get("store_type")
+                raise WorkflowRuntimeError(
+                    f"BasicRuntime cannot restore durable state store '{store_type}'. "
+                    "Use the matching durable runtime or pass an in-memory context snapshot."
+                )
             state_store = InMemoryStateStore.from_dict(
                 serialized_state, active_serializer
             )

@@ -194,6 +194,14 @@ list(APPEND sources
   online-punctuation-model-config.cc
   online-punctuation.cc
 )
+# Diacritization
+list(APPEND sources
+  tashkeel-tokenizer.cc
+  offline-catt-model.cc
+  offline-diacritization-model-config.cc
+  offline-diacritization.cc
+  offline-diacritization-impl.cc
+)
 if(SHERPA_ONNX_ENABLE_RKNN)
   list(APPEND sources
     ./rknn/context-blocking-queue-rknn.cc
@@ -250,7 +258,9 @@ if(SHERPA_ONNX_ENABLE_QNN)
   list(APPEND sources
     ./qnn/offline-sense-voice-model-qnn.cc
     ./qnn/offline-paraformer-model-qnn.cc
+    ./qnn/offline-zipformer-transducer-model-qnn.cc
     ./qnn/offline-zipformer-ctc-model-qnn.cc
+    ./qnn/online-zipformer-transducer-model-qnn.cc
     ./qnn/qnn-backend.cc
     ./qnn/qnn-model.cc
     ./qnn/utils.cc
@@ -492,6 +502,7 @@ if(SHERPA_ONNX_ENABLE_BINARY)
   add_executable(sherpa-onnx-offline sherpa-onnx-offline.cc)
   add_executable(sherpa-onnx-offline-audio-tagging sherpa-onnx-offline-audio-tagging.cc)
   add_executable(sherpa-onnx-offline-denoiser sherpa-onnx-offline-denoiser.cc)
+  add_executable(sherpa-onnx-offline-diacritization sherpa-onnx-offline-diacritization.cc)
   add_executable(sherpa-onnx-offline-language-identification sherpa-onnx-offline-language-identification.cc)
   add_executable(sherpa-onnx-offline-parallel sherpa-onnx-offline-parallel.cc)
   add_executable(sherpa-onnx-offline-punctuation sherpa-onnx-offline-punctuation.cc)
@@ -518,6 +529,7 @@ if(SHERPA_ONNX_ENABLE_BINARY)
     sherpa-onnx-offline
     sherpa-onnx-offline-audio-tagging
     sherpa-onnx-offline-denoiser
+    sherpa-onnx-offline-diacritization
     sherpa-onnx-offline-language-identification
     sherpa-onnx-offline-parallel
     sherpa-onnx-offline-punctuation

@@ -19,6 +19,7 @@ def _get_kwargs(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -32,6 +33,8 @@ def _get_kwargs(
     params["is_flow"] = is_flow
 
     params["label"] = label
+
+    params["include_draft_only"] = include_draft_only
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -84,6 +87,7 @@ def sync_detailed(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListNativeTriggersResponse200Item"]]:
     """list native triggers
 
@@ -97,6 +101,7 @@ def sync_detailed(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -114,6 +119,7 @@ def sync_detailed(
         path=path,
         is_flow=is_flow,
         label=label,
+        include_draft_only=include_draft_only,
     )
 
     response = client.get_httpx_client().request(
@@ -133,6 +139,7 @@ def sync(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListNativeTriggersResponse200Item"]]:
     """list native triggers
 
@@ -146,6 +153,7 @@ def sync(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -164,6 +172,7 @@ def sync(
         path=path,
         is_flow=is_flow,
         label=label,
+        include_draft_only=include_draft_only,
     ).parsed
 
 
@@ -177,6 +186,7 @@ async def asyncio_detailed(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListNativeTriggersResponse200Item"]]:
     """list native triggers
 
@@ -190,6 +200,7 @@ async def asyncio_detailed(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -207,6 +218,7 @@ async def asyncio_detailed(
         path=path,
         is_flow=is_flow,
         label=label,
+        include_draft_only=include_draft_only,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -224,6 +236,7 @@ async def asyncio(
     path: Union[Unset, None, str] = UNSET,
     is_flow: Union[Unset, None, bool] = UNSET,
     label: Union[Unset, None, str] = UNSET,
+    include_draft_only: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListNativeTriggersResponse200Item"]]:
     """list native triggers
 
@@ -237,6 +250,7 @@ async def asyncio(
         path (Union[Unset, None, str]):
         is_flow (Union[Unset, None, bool]):
         label (Union[Unset, None, str]):
+        include_draft_only (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -256,5 +270,6 @@ async def asyncio(
             path=path,
             is_flow=is_flow,
             label=label,
+            include_draft_only=include_draft_only,
         )
     ).parsed

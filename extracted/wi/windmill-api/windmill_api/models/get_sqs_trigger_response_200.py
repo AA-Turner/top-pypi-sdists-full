@@ -6,12 +6,14 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.get_sqs_trigger_response_200_aws_auth_resource_type import GetSqsTriggerResponse200AwsAuthResourceType
-from ..models.get_sqs_trigger_response_200_mode import GetSqsTriggerResponse200Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_sqs_trigger_response_200_draft import GetSqsTriggerResponse200Draft
     from ..models.get_sqs_trigger_response_200_error_handler_args import GetSqsTriggerResponse200ErrorHandlerArgs
-    from ..models.get_sqs_trigger_response_200_extra_perms import GetSqsTriggerResponse200ExtraPerms
+    from ..models.get_sqs_trigger_response_200_other_drafts_users_item import (
+        GetSqsTriggerResponse200OtherDraftsUsersItem,
+    )
     from ..models.get_sqs_trigger_response_200_retry import GetSqsTriggerResponse200Retry
 
 
@@ -26,16 +28,7 @@ class GetSqsTriggerResponse200:
         aws_auth_resource_type (GetSqsTriggerResponse200AwsAuthResourceType): Authentication type - 'credentials' for
             access key/secret, 'oidc' for OpenID Connect
         aws_resource_path (str): Path to the AWS resource containing credentials or OIDC configuration
-        path (str): The unique Windmill path for this trigger. Must be of the form `u/<user>/<path>` or
-            `f/<folder>/<path>`. This is the trigger object path, not the HTTP route path.
-        script_path (str): Path to the script or flow to execute when triggered
-        permissioned_as (str): The user or group this trigger runs as (permissioned_as)
-        extra_perms (GetSqsTriggerResponse200ExtraPerms): Additional permissions for this trigger
-        workspace_id (str): The workspace this trigger belongs to
-        edited_by (str): Username of the last person who edited this trigger
-        edited_at (datetime.datetime): Timestamp of the last edit
-        is_flow (bool): True if script_path points to a flow, false if it points to a script
-        mode (GetSqsTriggerResponse200Mode): job trigger mode
+        is_draft (bool):
         message_attributes (Union[Unset, None, List[str]]): Array of SQS message attribute names to include with each
             message
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
@@ -45,21 +38,21 @@ class GetSqsTriggerResponse200:
         error_handler_args (Union[Unset, GetSqsTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the script
             or flow
         retry (Union[Unset, GetSqsTriggerResponse200Retry]): Retry configuration for failed module executions
-        labels (Union[Unset, List[str]]):
+        draft_saved_at (Union[Unset, datetime.datetime]):
+        no_deployed (Union[Unset, bool]):
+        draft (Union[Unset, GetSqsTriggerResponse200Draft]):
+        other_drafts_users (Union[Unset, List['GetSqsTriggerResponse200OtherDraftsUsersItem']]): Other workspace users
+            (and the legacy NULL-email row, if any)
+            with a saved draft at the same path. Populated only on the
+            authed user's "get by path" responses for kinds the editor
+            surfaces a fork banner for (script, flow, app, raw_app).
+            Empty / omitted for kinds without that UI.
     """
 
     queue_url: str
     aws_auth_resource_type: GetSqsTriggerResponse200AwsAuthResourceType
     aws_resource_path: str
-    path: str
-    script_path: str
-    permissioned_as: str
-    extra_perms: "GetSqsTriggerResponse200ExtraPerms"
-    workspace_id: str
-    edited_by: str
-    edited_at: datetime.datetime
-    is_flow: bool
-    mode: GetSqsTriggerResponse200Mode
+    is_draft: bool
     message_attributes: Union[Unset, None, List[str]] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -67,7 +60,10 @@ class GetSqsTriggerResponse200:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GetSqsTriggerResponse200ErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GetSqsTriggerResponse200Retry"] = UNSET
-    labels: Union[Unset, List[str]] = UNSET
+    draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    no_deployed: Union[Unset, bool] = UNSET
+    draft: Union[Unset, "GetSqsTriggerResponse200Draft"] = UNSET
+    other_drafts_users: Union[Unset, List["GetSqsTriggerResponse200OtherDraftsUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -75,18 +71,7 @@ class GetSqsTriggerResponse200:
         aws_auth_resource_type = self.aws_auth_resource_type.value
 
         aws_resource_path = self.aws_resource_path
-        path = self.path
-        script_path = self.script_path
-        permissioned_as = self.permissioned_as
-        extra_perms = self.extra_perms.to_dict()
-
-        workspace_id = self.workspace_id
-        edited_by = self.edited_by
-        edited_at = self.edited_at.isoformat()
-
-        is_flow = self.is_flow
-        mode = self.mode.value
-
+        is_draft = self.is_draft
         message_attributes: Union[Unset, None, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
             if self.message_attributes is None:
@@ -109,9 +94,22 @@ class GetSqsTriggerResponse200:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
-        labels: Union[Unset, List[str]] = UNSET
-        if not isinstance(self.labels, Unset):
-            labels = self.labels
+        draft_saved_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_saved_at, Unset):
+            draft_saved_at = self.draft_saved_at.isoformat()
+
+        no_deployed = self.no_deployed
+        draft: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.draft, Unset):
+            draft = self.draft.to_dict()
+
+        other_drafts_users: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.other_drafts_users, Unset):
+            other_drafts_users = []
+            for other_drafts_users_item_data in self.other_drafts_users:
+                other_drafts_users_item = other_drafts_users_item_data.to_dict()
+
+                other_drafts_users.append(other_drafts_users_item)
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -120,15 +118,7 @@ class GetSqsTriggerResponse200:
                 "queue_url": queue_url,
                 "aws_auth_resource_type": aws_auth_resource_type,
                 "aws_resource_path": aws_resource_path,
-                "path": path,
-                "script_path": script_path,
-                "permissioned_as": permissioned_as,
-                "extra_perms": extra_perms,
-                "workspace_id": workspace_id,
-                "edited_by": edited_by,
-                "edited_at": edited_at,
-                "is_flow": is_flow,
-                "mode": mode,
+                "is_draft": is_draft,
             }
         )
         if message_attributes is not UNSET:
@@ -145,15 +135,24 @@ class GetSqsTriggerResponse200:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
-        if labels is not UNSET:
-            field_dict["labels"] = labels
+        if draft_saved_at is not UNSET:
+            field_dict["draft_saved_at"] = draft_saved_at
+        if no_deployed is not UNSET:
+            field_dict["no_deployed"] = no_deployed
+        if draft is not UNSET:
+            field_dict["draft"] = draft
+        if other_drafts_users is not UNSET:
+            field_dict["other_drafts_users"] = other_drafts_users
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_sqs_trigger_response_200_draft import GetSqsTriggerResponse200Draft
         from ..models.get_sqs_trigger_response_200_error_handler_args import GetSqsTriggerResponse200ErrorHandlerArgs
-        from ..models.get_sqs_trigger_response_200_extra_perms import GetSqsTriggerResponse200ExtraPerms
+        from ..models.get_sqs_trigger_response_200_other_drafts_users_item import (
+            GetSqsTriggerResponse200OtherDraftsUsersItem,
+        )
         from ..models.get_sqs_trigger_response_200_retry import GetSqsTriggerResponse200Retry
 
         d = src_dict.copy()
@@ -163,23 +162,7 @@ class GetSqsTriggerResponse200:
 
         aws_resource_path = d.pop("aws_resource_path")
 
-        path = d.pop("path")
-
-        script_path = d.pop("script_path")
-
-        permissioned_as = d.pop("permissioned_as")
-
-        extra_perms = GetSqsTriggerResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
-
-        workspace_id = d.pop("workspace_id")
-
-        edited_by = d.pop("edited_by")
-
-        edited_at = isoparse(d.pop("edited_at"))
-
-        is_flow = d.pop("is_flow")
-
-        mode = GetSqsTriggerResponse200Mode(d.pop("mode"))
+        is_draft = d.pop("is_draft")
 
         message_attributes = cast(List[str], d.pop("message_attributes", UNSET))
 
@@ -210,21 +193,36 @@ class GetSqsTriggerResponse200:
         else:
             retry = GetSqsTriggerResponse200Retry.from_dict(_retry)
 
-        labels = cast(List[str], d.pop("labels", UNSET))
+        _draft_saved_at = d.pop("draft_saved_at", UNSET)
+        draft_saved_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_saved_at, Unset):
+            draft_saved_at = UNSET
+        else:
+            draft_saved_at = isoparse(_draft_saved_at)
+
+        no_deployed = d.pop("no_deployed", UNSET)
+
+        _draft = d.pop("draft", UNSET)
+        draft: Union[Unset, GetSqsTriggerResponse200Draft]
+        if isinstance(_draft, Unset):
+            draft = UNSET
+        else:
+            draft = GetSqsTriggerResponse200Draft.from_dict(_draft)
+
+        other_drafts_users = []
+        _other_drafts_users = d.pop("other_drafts_users", UNSET)
+        for other_drafts_users_item_data in _other_drafts_users or []:
+            other_drafts_users_item = GetSqsTriggerResponse200OtherDraftsUsersItem.from_dict(
+                other_drafts_users_item_data
+            )
+
+            other_drafts_users.append(other_drafts_users_item)
 
         get_sqs_trigger_response_200 = cls(
             queue_url=queue_url,
             aws_auth_resource_type=aws_auth_resource_type,
             aws_resource_path=aws_resource_path,
-            path=path,
-            script_path=script_path,
-            permissioned_as=permissioned_as,
-            extra_perms=extra_perms,
-            workspace_id=workspace_id,
-            edited_by=edited_by,
-            edited_at=edited_at,
-            is_flow=is_flow,
-            mode=mode,
+            is_draft=is_draft,
             message_attributes=message_attributes,
             server_id=server_id,
             last_server_ping=last_server_ping,
@@ -232,7 +230,10 @@ class GetSqsTriggerResponse200:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
-            labels=labels,
+            draft_saved_at=draft_saved_at,
+            no_deployed=no_deployed,
+            draft=draft,
+            other_drafts_users=other_drafts_users,
         )
 
         get_sqs_trigger_response_200.additional_properties = d

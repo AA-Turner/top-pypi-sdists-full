@@ -3066,42 +3066,217 @@ fn scan_for_vendor_directories(
 
 const MAX_TRACKED_FILE_LINES: usize = 10_000;
 
-fn scan_for_oversized_tracked_files(root: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
-    let output = Command::new("git")
-        .arg("-c")
-        .arg("safe.directory=*")
-        .arg("-C")
-        .arg(root)
-        .arg("ls-files")
-        .arg("-z")
-        .output()
-        .expect("failed to list Git-tracked files for line-count audit");
-    assert!(
-        output.status.success(),
-        "git ls-files failed during line-count audit"
-    );
+/// Cached result of [`collect_repo_files`].
+static REPO_FILES: OnceLock<Vec<PathBuf>> = OnceLock::new();
 
-    for raw in output.stdout.split(|b| *b == 0) {
-        if raw.is_empty() {
+/// Tracked-file list for the line-count and mechanical-part-name audits, read
+/// directly from `.git/index`.
+///
+/// History: the audits originally shelled out to `git ls-files`, but that
+/// panicked inside maturin's manylinux / musllinux Docker images (the
+/// bind-mounted source tree trips git's `safe.directory` check and the
+/// command returns non-zero). A naive replacement that walked the filesystem
+/// then broke the wheel build a different way: GitHub Actions steps install
+/// CUDA into the workspace at `<root>/cuda_installer-*`, and that 16M-line
+/// installer blob is neither a build artifact nor in `.gitignore`, so the
+/// line-count audit flagged it and failed the build.
+///
+/// Parsing `.git/index` directly avoids both failure modes: no dependency on
+/// the `git` binary or its `safe.directory` config, and the canonical
+/// definition of "what belongs to this repo" — the index, i.e. the staged
+/// tree — naturally excludes anything CI dropped into the workspace.
+fn collect_repo_files(root: &Path) -> &'static [PathBuf] {
+    REPO_FILES
+        .get_or_init(|| read_git_index_tracked_files(root))
+        .as_slice()
+}
+
+/// Resolve the path of `.git/index`, following the worktree pointer if `.git`
+/// is a file (`gitdir: <path>`) rather than a directory.
+fn locate_git_index(root: &Path) -> PathBuf {
+    let git = root.join(".git");
+    let meta = fs::metadata(&git).unwrap_or_else(|err| {
+        panic!(
+            "failed to stat {} for tracked-file audit: {err}",
+            git.display()
+        )
+    });
+    if meta.is_dir() {
+        return git.join("index");
+    }
+    // `.git` is a file in linked worktrees / submodules; first line is
+    // `gitdir: <absolute or relative path to the real gitdir>`.
+    let pointer = fs::read_to_string(&git)
+        .unwrap_or_else(|err| panic!("failed to read worktree pointer {}: {err}", git.display()));
+    let gitdir = pointer
+        .lines()
+        .next()
+        .and_then(|line| line.strip_prefix("gitdir:"))
+        .map(|rest| rest.trim())
+        .unwrap_or_else(|| panic!("worktree pointer at {} missing gitdir line", git.display()));
+    let gitdir_path = if Path::new(gitdir).is_absolute() {
+        PathBuf::from(gitdir)
+    } else {
+        root.join(gitdir)
+    };
+    gitdir_path.join("index")
+}
+
+fn read_git_index_tracked_files(root: &Path) -> Vec<PathBuf> {
+    let index_path = locate_git_index(root);
+    let bytes = fs::read(&index_path).unwrap_or_else(|err| {
+        panic!(
+            "failed to read git index for tracked-file audit ({}): {err}",
+            index_path.display()
+        )
+    });
+    parse_git_index(&bytes).unwrap_or_else(|err| {
+        panic!(
+            "failed to parse git index at {}: {err}",
+            index_path.display()
+        )
+    })
+}
+
+/// Parse the on-disk git index (v2, v3, v4) and return one repo-relative
+/// `PathBuf` per stage-0 entry. Index format reference:
+/// `Documentation/gitformat-index.txt` in the git source tree.
+fn parse_git_index(bytes: &[u8]) -> Result<Vec<PathBuf>, String> {
+    if bytes.len() < 12 {
+        return Err(format!("index too short for header: {} bytes", bytes.len()));
+    }
+    if &bytes[0..4] != b"DIRC" {
+        return Err(format!("bad signature {:?}", &bytes[0..4]));
+    }
+    let version = u32::from_be_bytes(bytes[4..8].try_into().expect("4-byte slice"));
+    if !matches!(version, 2 | 3 | 4) {
+        return Err(format!("unsupported index version {version}"));
+    }
+    let count = u32::from_be_bytes(bytes[8..12].try_into().expect("4-byte slice")) as usize;
+    let mut out: Vec<PathBuf> = Vec::with_capacity(count);
+    let mut pos = 12usize;
+    let mut prev_path: Vec<u8> = Vec::new();
+    for entry_idx in 0..count {
+        let entry_start = pos;
+        // 62-byte fixed prefix: ctime/mtime (16) + dev/ino/mode/uid/gid/size (24) +
+        // sha1 (20) + flags (2).
+        if bytes.len() < pos + 62 {
+            return Err(format!("truncated entry {entry_idx} fixed header"));
+        }
+        let flags = u16::from_be_bytes(bytes[pos + 60..pos + 62].try_into().expect("2-byte slice"));
+        pos += 62;
+        let extended = (flags & 0x4000) != 0;
+        if extended {
+            if version < 3 {
+                return Err(format!("entry {entry_idx} has extended flag in v{version}"));
+            }
+            if bytes.len() < pos + 2 {
+                return Err(format!("truncated entry {entry_idx} extended flags"));
+            }
+            pos += 2;
+        }
+        let stage = ((flags >> 12) & 0x3) as u8;
+        let name_len_hint = (flags & 0x0FFF) as usize;
+
+        let path_bytes: Vec<u8>;
+        if version == 4 {
+            // v4 path compression: chop N bytes off the previous path, then
+            // append a NUL-terminated suffix. No trailing padding.
+            let (chop, consumed) = decode_index_varint(&bytes[pos..])
+                .map_err(|e| format!("entry {entry_idx} varint: {e}"))?;
+            pos += consumed;
+            let keep = prev_path.len().checked_sub(chop).ok_or_else(|| {
+                format!(
+                    "entry {entry_idx} v4 underflow: prev={} chop={chop}",
+                    prev_path.len()
+                )
+            })?;
+            let nul_offset = bytes[pos..]
+                .iter()
+                .position(|b| *b == 0)
+                .ok_or_else(|| format!("entry {entry_idx} missing NUL after v4 suffix"))?;
+            let mut p = Vec::with_capacity(keep + nul_offset);
+            p.extend_from_slice(&prev_path[..keep]);
+            p.extend_from_slice(&bytes[pos..pos + nul_offset]);
+            pos += nul_offset + 1;
+            path_bytes = p;
+        } else {
+            // v2/v3: name is name_len_hint bytes (or longer if the hint is
+            // saturated at 0xFFF), followed by 1-8 NUL bytes padding the
+            // entry to a multiple of 8 from `entry_start`.
+            let name_end = if name_len_hint < 0x0FFF
+                && bytes.len() >= pos + name_len_hint + 1
+                && bytes[pos + name_len_hint] == 0
+            {
+                pos + name_len_hint
+            } else {
+                pos + bytes[pos..]
+                    .iter()
+                    .position(|b| *b == 0)
+                    .ok_or_else(|| format!("entry {entry_idx} missing NUL terminator"))?
+            };
+            path_bytes = bytes[pos..name_end].to_vec();
+            pos = name_end;
+            // Skip 1-8 padding NULs so the entry length is a multiple of 8.
+            let raw = pos - entry_start;
+            let pad = if raw % 8 == 0 { 8 } else { 8 - (raw % 8) };
+            pos += pad;
+        }
+
+        prev_path = path_bytes.clone();
+
+        // Stage 0 = ordinary tracked file; stages 1/2/3 are conflict variants
+        // of the same path. Take stage 0 only so the audit sees each path once.
+        if stage != 0 {
             continue;
         }
-        let rel_text = String::from_utf8(raw.to_vec())
-            .expect("git ls-files emitted a non-UTF-8 path; repository paths must be UTF-8");
-        let rel = PathBuf::from(&rel_text);
-        let path = root.join(&rel);
+        let path_str = std::str::from_utf8(&path_bytes)
+            .map_err(|_| format!("entry {entry_idx} path is not UTF-8"))?;
+        out.push(PathBuf::from(path_str));
+    }
+    Ok(out)
+}
+
+/// Decode the offset-style variable-length integer used by index v4 to encode
+/// the number of bytes to chop off the previous path. Mirrors
+/// `decode_varint` in git's `read-cache.c`. Returns (value, bytes_consumed).
+fn decode_index_varint(buf: &[u8]) -> Result<(usize, usize), String> {
+    let mut consumed = 0usize;
+    if consumed >= buf.len() {
+        return Err("empty buffer".to_string());
+    }
+    let mut c = buf[consumed];
+    consumed += 1;
+    let mut value = (c & 0x7F) as usize;
+    while c & 0x80 != 0 {
+        if consumed >= buf.len() {
+            return Err("truncated varint".to_string());
+        }
+        value += 1;
+        value <<= 7;
+        c = buf[consumed];
+        consumed += 1;
+        value |= (c & 0x7F) as usize;
+    }
+    Ok((value, consumed))
+}
+
+fn scan_for_oversized_tracked_files(root: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
+    for rel in collect_repo_files(root) {
+        let path = root.join(rel);
         let line_count = match count_file_lines(&path) {
             Ok(line_count) => line_count,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
             Err(err) => {
                 panic!(
-                    "failed to read tracked file for line-count audit: {}: {err}",
+                    "failed to read repo file for line-count audit: {}: {err}",
                     rel.display()
                 )
             }
         };
         if line_count > MAX_TRACKED_FILE_LINES {
             offenders.push((
-                rel,
+                rel.clone(),
                 line_count,
                 format!("{line_count} lines; limit is {MAX_TRACKED_FILE_LINES}"),
             ));
@@ -3150,40 +3325,20 @@ fn is_mechanical_part_path(rel: &Path) -> bool {
 /// Ban mechanical file-splitting (`part_<NNN>.rs`, `*_parts/`, `split_parts/`).
 /// HARD ban with NO grandfathering: every such path fails the build. Split each
 /// module by cohesive concern into descriptively-named modules instead. Scans
-/// every `.rs` file tracked anywhere in the repo (src/, tests/, crates/, …), so
-/// no future mechanical split can slip in outside src/. Non-code dataset shards
+/// every `.rs` file anywhere in the repo (src/, tests/, crates/, …), so no
+/// future mechanical split can slip in outside src/. Non-code dataset shards
 /// such as `bench/datasets/*_parts/part_00N.csv` are skipped because the audit
 /// only considers `.rs` files.
 fn scan_for_mechanical_part_files(root: &Path, offenders: &mut Vec<(PathBuf, usize, String)>) {
-    let output = Command::new("git")
-        .arg("-c")
-        .arg("safe.directory=*")
-        .arg("-C")
-        .arg(root)
-        .arg("ls-files")
-        .arg("-z")
-        .output()
-        .expect("failed to list Git-tracked files for mechanical-part audit");
-    assert!(
-        output.status.success(),
-        "git ls-files failed during mechanical-part audit"
-    );
-
-    for raw in output.stdout.split(|b| *b == 0) {
-        if raw.is_empty() {
+    for rel in collect_repo_files(root) {
+        if rel.extension().and_then(OsStr::to_str) != Some("rs") {
             continue;
         }
-        let rel_text = String::from_utf8(raw.to_vec())
-            .expect("git ls-files emitted a non-UTF-8 path; repository paths must be UTF-8");
-        if !rel_text.ends_with(".rs") {
-            continue;
-        }
-        let rel = PathBuf::from(&rel_text);
-        if !is_mechanical_part_path(&rel) {
+        if !is_mechanical_part_path(rel) {
             continue;
         }
         offenders.push((
-            rel,
+            rel.clone(),
             0,
             "mechanical line-count split; decompose by cohesive concern into descriptively-named \
              modules — this is a HARD ban, no grandfathering"

@@ -1,17 +1,17 @@
 Metadata-Version: 2.4
 Name: gliner
-Version: 0.2.26
+Version: 0.2.27
 Summary: Generalist model for NER (Extract any entity types from texts)
 Author: Urchade Zaratiana, Nadi Tomeh, Pierre Holat, Thierry Charnois
 Maintainer: Urchade Zaratiana
 License: Apache-2.0
 Project-URL: Homepage, https://github.com/urchade/GLiNER
 Keywords: named-entity-recognition,ner,data-science,natural-language-processing,artificial-intelligence,nlp,machine-learning,transformers
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.0.0
-Requires-Dist: transformers<5.2.0,>=4.51.3
+Requires-Dist: transformers<5.7.0,>=4.51.3
 Requires-Dist: huggingface_hub>=0.21.4
 Requires-Dist: tqdm
 Requires-Dist: onnxruntime
@@ -32,7 +32,15 @@ Requires-Dist: accelerate; extra == "training"
 Provides-Extra: stanza
 Requires-Dist: stanza; extra == "stanza"
 Requires-Dist: langdetect; extra == "stanza"
+Provides-Extra: serve
+Requires-Dist: ray[serve]>=2.9.0; extra == "serve"
 Dynamic: license-file
+
+<div align="center">
+  <a href="https://pioneer.ai/gliner" target="_blank" rel="noopener noreferrer">
+    <img src="image/GitHub.png" alt="Pioneer AI - Fine-tune GLiNER with a single prompt" width="100%"/>
+  </a>
+</div>
 
 > [!IMPORTANT]
 > **🚀 GLiNER2 is Now Available from [Fastino Labs](https://github.com/fastino-ai)!** A unified multi-task model for NER, Text Classification & Structured Data Extraction. Check out [fastino-ai/GLiNER2 →](https://github.com/fastino-ai/GLiNER2)
@@ -52,6 +60,9 @@ Dynamic: license-file
         <a href="https://colab.research.google.com/drive/1mhalKWzmfSTqMnR0wQBZvt9-ktTsATHB?usp=sharing"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open GLiNER In Colab"></a>
         <a href="https://huggingface.co/spaces/urchade/gliner_mediumv2.1"><img src="https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-sm.svg" alt="Open GLiNER In HF Spaces"></a>
         <a href="https://huggingface.co/models?library=gliner&sort=trending"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Models-yellow" alt="HuggingFace Models"></a>
+        <br>
+        <a href="https://www.reddit.com/r/GLiNER/"><img src="https://img.shields.io/badge/Reddit-r%2FGLiNER-FF4500?logo=reddit&logoColor=white" alt="Reddit r/GLiNER"></a>
+        <a href="https://discord.gg/fastino"><img src="https://img.shields.io/badge/Discord-Fastino%20Community-5865F2?logo=discord&logoColor=white" alt="Fastino Discord"></a>
     </div>
     <br>
 </div>
@@ -68,8 +79,20 @@ Explore various examples including finetuning, ONNX conversion, and synthetic da
 ## 🛠 Installation & Usage
 
 ### Installation
+
+**With pip:**
 ```bash
-!pip install gliner
+pip install gliner
+```
+
+**With uv (faster):**
+```bash
+uv pip install gliner
+```
+
+**With serving support (Ray Serve):**
+```bash
+uv pip install gliner[serve]  # or: pip install gliner ray[serve]
 ```
 
 ### Usage
@@ -113,6 +136,50 @@ UEFA European Championship => competitions
 UEFA Nations League => competitions
 European Championship => competitions
 ```
+
+## 🚀 Serving
+
+GLiNER ships with a production-ready Ray Serve deployment that adds dynamic batching, memory-aware batch sizing, precompiled power-of-two batch sizes, and multi-replica scaling. Install with `pip install gliner[serve]`.
+
+**In-process (vLLM-style):**
+
+```python
+from gliner.serve import GLiNERFactory
+
+with GLiNERFactory(
+    model="urchade/gliner_medium-v2.1",
+    dtype="bfloat16",
+    enable_flashdeberta=True,
+) as llm:
+    outputs = llm.predict(
+        ["John works at Google", "Paris is in France"],
+        labels=["person", "organization", "location"],
+    )
+```
+
+Passing a list of texts preserves dynamic batching — each text is dispatched as a separate request so Ray Serve's `@serve.batch` accumulates them into a single forward pass. Use `predict_async` for concurrent `asyncio` calls and `.handle` to reach the underlying Ray Serve handle.
+
+**Standalone HTTP server:**
+
+```bash
+python -m gliner.serve --model urchade/gliner_small-v2.1 --enable-flashdeberta
+```
+
+```bash
+curl -X POST http://localhost:8000/gliner \
+  -H "Content-Type: application/json" \
+  -d '{"text": "John works at Google", "labels": ["person", "organization"]}'
+```
+
+**Attach a remote client to a running server:**
+
+```python
+from gliner.serve import GLiNERClient
+client = GLiNERClient()
+result = client.predict("John works at Google", labels=["person", "organization"])
+```
+
+For all CLI flags, Docker usage, relation-extraction examples, and tuning knobs (memory fractions, precompiled batch sizes, sequence packing), see the [Serving guide](docs/serving.md).
 
 ## 👨‍💻 Model Authors
 GLiNER was originally developed by:

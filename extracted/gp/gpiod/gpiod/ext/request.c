@@ -82,7 +82,6 @@ static PyObject *request_offsets(request_object *self, void *Py_UNUSED(ignored))
 
 		ret = PyList_SetItem(lines, i, line);
 		if (ret) {
-			Py_DECREF(line);
 			Py_DECREF(lines);
 			PyMem_Free(offsets);
 			return NULL;
@@ -165,6 +164,8 @@ static PyObject *request_get_values(request_object *self, PyObject *args)
 		next = PyIter_Next(iter);
 		if (!next) {
 			Py_DECREF(iter);
+			if (PyErr_Occurred())
+				return NULL;
 			break;
 		}
 
@@ -198,7 +199,6 @@ static PyObject *request_get_values(request_object *self, PyObject *args)
 
 		ret = PyList_SetItem(values, pos, val);
 		if (ret) {
-			Py_DECREF(val);
 			Py_DECREF(type);
 			return NULL;
 		}
@@ -339,7 +339,6 @@ static PyObject *request_read_edge_events(request_object *self, PyObject *args)
 
 		ret = PyList_SetItem(events, i, event_obj);
 		if (ret) {
-			Py_DECREF(event_obj);
 			Py_DECREF(events);
 			Py_DECREF(type);
 			return NULL;

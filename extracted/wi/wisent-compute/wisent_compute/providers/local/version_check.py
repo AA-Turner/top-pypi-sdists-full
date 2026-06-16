@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import json
 import time
+import urllib.error
 import urllib.request
 from importlib.metadata import PackageNotFoundError, version as _local_version
 
-_PACKAGES = ("wisent-compute", "wisent", "wisent-tools", "wisent-extractors")
+_PACKAGES = ("wisent-compute", "wisent", "wisent-tools")
 _CACHE: dict[str, tuple[float, str]] = {}
 # Lower than the previous 300s so a freshly-published wheel reaches
 # running agents within a single agent-loop iteration's network round
@@ -30,9 +31,7 @@ _CACHE: dict[str, tuple[float, str]] = {}
 _CACHE_TTL_SECONDS = 30
 
 
-def _version_tuple(v: str | None) -> tuple:
-    if not v:
-        return ()
+def _version_tuple(v: str) -> tuple:
     parts = []
     for token in v.replace("-", ".").split("."):
         try:
@@ -48,11 +47,12 @@ def _pypi_latest(pkg: str) -> str | None:
         return cached[1]
     try:
         with urllib.request.urlopen(
-            f"https://pypi.org/pypi/{pkg}/json", timeout=20,
+            f"https://pypi.org/pypi/{pkg}/json",
+            timeout=10,
         ) as resp:
             data = json.loads(resp.read())
-    except Exception:
-        return None
+    except (OSError, TimeoutError, urllib.error.URLError, json.JSONDecodeError):
+        return cached[1] if cached else None
     releases = data.get("releases") or {}
     if not releases:
         return None
@@ -73,9 +73,7 @@ def detect_drift() -> dict[str, tuple[str, str]]:
         latest = _pypi_latest(pkg)
         if latest is None:
             continue
-        installed_tuple = _version_tuple(installed)
-        latest_tuple = _version_tuple(latest)
-        if installed_tuple and installed_tuple < latest_tuple:
+        if _version_tuple(installed) < _version_tuple(latest):
             out[pkg] = (installed, latest)
     return out
 
@@ -89,13 +87,10 @@ def wisent_import_ok() -> tuple[bool, str]:
     claiming jobs that will fail their first `python -m wisent...` line.
     """
     import subprocess, sys
-    try:
-        res = subprocess.run(
-            [sys.executable, "-c", "import wisent; import wisent_compute"],
-            capture_output=True, text=True, timeout=60,
-        )
-    except subprocess.TimeoutExpired:
-        return False, "import wisent/wisent_compute timed out after 60s"
+    res = subprocess.run(
+        [sys.executable, "-c", "import wisent; import wisent_compute"],
+        capture_output=True, text=True,
+    )
     if res.returncode == 0:
         return True, ""
     return False, (res.stderr or res.stdout or "(no output)").strip()[:400]
@@ -132,6 +127,15 @@ def maybe_drain_or_upgrade(slots: list, log_fn, kind: str = "local") -> bool:
     Caller MUST advance slots BEFORE calling this so a drained slots
     list triggers the remediation path.
     """
+    # If a job is active, drift cannot be applied yet. Avoid making PyPI a
+    # liveness dependency for running work; a transient PyPI reset used to
+    # raise out of detect_drift() and crash the agent while a slot was active.
+    if slots:
+        ok, err = wisent_import_ok()
+        if ok:
+            return False
+        log_fn(f"venv broken while slots active: {err}")
+        return True
     drift = detect_drift()
     ok, err = wisent_import_ok()
     if not drift and ok:
@@ -179,15 +183,16 @@ def pip_upgrade_and_exec(log_fn) -> None:
     # already-satisfying the requirement, even when pypi has a newer
     # version. The editable install keeps the same code on disk forever.
     # --no-cache-dir avoids serving the same stale wheel from local cache.
-    # --no-deps prevents the pre-claim drift path from doing a full dependency
-    # solve while the GPU is idle; base agent installs already carry deps.
+    # --no-deps is required on the workstation agent: the heavy dependency
+    # graph is already installed, and reinstalling it pulls CUDA wheels into
+    # TMPDIR during drift. Drift upgrades should replace Wisent packages only.
     pip_args = [sys.executable, "-m", "pip", "install", "--upgrade",
                 "--force-reinstall", "--no-cache-dir", "--no-deps", *_PACKAGES]
     if os.geteuid() != 0 and not in_venv:
         pip_args.insert(4, "--user")
     pip_args.append("--break-system-packages")
     log_fn(f"pip_upgrade_and_exec: cmd={' '.join(pip_args)}")
-    res = subprocess.run(pip_args, capture_output=True, text=True, timeout=300)
+    res = subprocess.run(pip_args, capture_output=True, text=True)
     log_fn(f"pip_upgrade_and_exec: rc={res.returncode} "
            f"stdout_tail={(res.stdout or '')[-300:]} "
            f"stderr_tail={(res.stderr or '')[-300:]}")

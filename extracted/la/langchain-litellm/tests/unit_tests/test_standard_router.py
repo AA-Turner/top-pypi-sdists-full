@@ -5,11 +5,10 @@ From LangChain's standard test suite.
 
 from typing import Type
 
-from langchain_core.messages import AIMessage
 from langchain_tests.unit_tests import ChatModelUnitTests
 
 from langchain_litellm.chat_models import ChatLiteLLMRouter
-from tests.utils import test_router
+from tests.utils import make_router
 
 
 class TestChatLiteLLMRouterUnit(ChatModelUnitTests):
@@ -20,7 +19,7 @@ class TestChatLiteLLMRouterUnit(ChatModelUnitTests):
     @property
     def chat_model_params(self) -> dict:
         return {
-            "router": test_router(),
+            "router": make_router(),
         }
 
     @property
@@ -33,15 +32,15 @@ class TestChatLiteLLMRouterUnit(ChatModelUnitTests):
 
     @property
     def has_structured_output(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_json_mode(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_image_inputs(self) -> bool:
-        return False
+        return True
 
     @property
     def returns_usage_metadata(self) -> bool:

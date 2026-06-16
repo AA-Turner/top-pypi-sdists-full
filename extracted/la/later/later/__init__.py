@@ -18,9 +18,10 @@
 
 from .coroutine import coroutine_timer, gather, timeout_context as timeout
 from .event import BiDirectionalEvent
+from .runner import run_nested
 from .task import as_task, cancel, herd, START_TASK, Watcher, WatcherError
 
-__version__ = "26.01.01"
+__version__ = "26.06.01"
 __all__ = [
     "BiDirectionalEvent",
     "START_TASK",
@@ -32,4 +33,5 @@ __all__ = [
     "herd",
     "coroutine_timer",
     "gather",
+    "run_nested",
 ]

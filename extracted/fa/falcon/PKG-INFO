@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: falcon
-Version: 4.3.0
+Version: 4.3.1
 Summary: The ultra-reliable, fast ASGI+WSGI framework for building data plane APIs at scale.
 Author-email: Kurt Griffiths <mail@kgriffs.com>
 License-Expression: Apache-2.0

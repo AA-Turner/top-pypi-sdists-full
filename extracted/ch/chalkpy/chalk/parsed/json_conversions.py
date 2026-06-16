@@ -380,6 +380,9 @@ def convert_type_to_gql(
             numShards=t.num_shards,
             numWorkers=t.num_workers,
             inputSql=t.input_sql,
+            maxRetries=t.max_retries,
+            resources=t.resources.dict() if t.resources is not None else None,
+            environment=t.environment,
         )
 
     if isinstance(t, NamedQuery):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured_ingest
-Version: 1.6.12
+Version: 1.6.15
 Summary: Local ETL data pipeline to get data RAG ready
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
 License-Expression: Apache-2.0
@@ -140,6 +140,7 @@ Provides-Extra: onedrive
 Requires-Dist: msal; extra == 'onedrive'
 Requires-Dist: office365-rest-python-client; extra == 'onedrive'
 Requires-Dist: requests; extra == 'onedrive'
+Requires-Dist: tenacity; extra == 'onedrive'
 Provides-Extra: openai
 Requires-Dist: openai<3,>=2.20; extra == 'openai'
 Requires-Dist: tiktoken; extra == 'openai'
@@ -187,6 +188,7 @@ Provides-Extra: sharepoint
 Requires-Dist: msal; extra == 'sharepoint'
 Requires-Dist: office365-rest-python-client; extra == 'sharepoint'
 Requires-Dist: requests; extra == 'sharepoint'
+Requires-Dist: tenacity; extra == 'sharepoint'
 Provides-Extra: singlestore
 Requires-Dist: pandas; extra == 'singlestore'
 Requires-Dist: singlestoredb; extra == 'singlestore'

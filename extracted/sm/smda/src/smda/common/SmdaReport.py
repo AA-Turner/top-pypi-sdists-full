@@ -1,13 +1,16 @@
+import base64
 import datetime
+import io
 import json
 import logging
 import os
+import zipfile
 from typing import Iterator, Optional
 
 from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64, Cs
 
 from smda.common.BlockLocator import BlockLocator
-from smda.common.CodeXref import CodeXref
+from smda.common.ExceptionHandling import reraise_non_operational_exception
 from smda.DisassemblyStatistics import DisassemblyStatistics
 
 from .BinaryInfo import BinaryInfo
@@ -59,6 +62,19 @@ class SmdaReport:
     capstone = None
 
     def __init__(self, disassembly=None, config=None, buffer=None):
+        # caches owned by SmdaReport but populated lazily by StringExtractor; declared here so
+        # their lifecycle is explicit and every construction path (incl. fromDict via cls(None))
+        # starts with empty caches rather than relying on monkey-patched attributes.
+        self._string_cache = {}
+        self._derefs_cache = {}
+        # start every construction path with an empty CFG so accessors like
+        # num_functions/getFunction work on reports without a disassembly
+        # (e.g. controlled error reports for unsupported architectures);
+        # the regular path and fromDict overwrite this with the real CFG.
+        self.xcfg = {}
+        # likewise keep xmetadata serializable on reports without a disassembly
+        # (it has no class-level default), so toDict()/toFile() never raise.
+        self.xmetadata = {}
         if disassembly is not None:
             self.architecture = disassembly.binary_info.architecture
             self.abi = disassembly.binary_info.abi
@@ -93,9 +109,15 @@ class SmdaReport:
             self.timestamp = datetime.datetime.now(datetime.timezone.utc)
             self.version = disassembly.binary_info.version
             self.xcfg = self._convertCfg(disassembly, config=config)
+            self._num_blocks = sum(f.num_blocks for f in self.xcfg.values())
+            self._num_instructions = sum(f.num_instructions for f in self.xcfg.values())
             self.xheader = disassembly.binary_info.getHeaderBytes()
-            self.data_refs_from = {src: sorted(dst) for src, dst in disassembly.data_refs_from.items()}
-            self.data_refs_to = {dst: sorted(src) for dst, src in disassembly.data_refs_to.items()}
+            pairs = sorted((s, d) for s, ds in disassembly.data_refs_from.items() for d in ds)
+            self.data_refs_from = {}
+            self.data_refs_to = {}
+            for src, dst in pairs:
+                self.data_refs_from.setdefault(src, []).append(dst)
+                self.data_refs_to.setdefault(dst, []).append(src)
             self.xmetadata = {
                 "exported_functions": disassembly.binary_info.getExportedFunctions(),
                 "imported_functions": disassembly.binary_info.getImportedFunctions(),
@@ -122,17 +144,15 @@ class SmdaReport:
 
     @property
     def num_blocks(self):
-        sum_blocks = 0
-        for function in self.getFunctions():
-            sum_blocks += function.num_blocks
-        return sum_blocks
+        if getattr(self, "_num_blocks", None) is None:
+            self._num_blocks = sum(function.num_blocks for function in self.getFunctions())
+        return self._num_blocks
 
     @property
     def num_instructions(self):
-        sum_instructions = 0
-        for function in self.getFunctions():
-            sum_instructions += function.num_instructions
-        return sum_instructions
+        if getattr(self, "_num_instructions", None) is None:
+            self._num_instructions = sum(function.num_instructions for function in self.getFunctions())
+        return self._num_instructions
 
     def getBuffer(self) -> bytes:
         return self.buffer
@@ -141,13 +161,18 @@ class SmdaReport:
         return self.xcfg.get(function_addr, None)
 
     def getFunctions(self) -> Iterator["SmdaFunction"]:
-        for _, smda_function in sorted(self.xcfg.items()):
-            yield smda_function
+        if getattr(self, "_sorted_functions", None) is None:
+            self._sorted_functions = []
+            if self.xcfg:
+                self._sorted_functions = [smda_function for _, smda_function in sorted(self.xcfg.items())]
+        yield from self._sorted_functions
 
     def getExportedFunctions(self):
-        for _, smda_function in sorted(self.xcfg.items()):
-            if smda_function.isExported():
-                yield smda_function
+        if getattr(self, "_sorted_exported_functions", None) is None:
+            self._sorted_exported_functions = [
+                smda_function for smda_function in self.getFunctions() if smda_function.isExported()
+            ]
+        yield from self._sorted_exported_functions
 
     def findFunctionByContainedAddress(self, inner_address) -> Optional["SmdaFunction"]:
         block = self.findBlockByContainedAddress(inner_address)
@@ -179,41 +204,36 @@ class SmdaReport:
 
     def initCodeXrefs(self):
         if not self._has_codexrefs:
-            # create ins2fn map, and offset to SmdaInstruction map
-            ins2fn = {}
-            offset2ins = {}
-            tmp_functions = []
+            # create offset to SmdaInstruction map
+            self._offset2ins = {}
             for function in self.getFunctions():
-                tmp_functions.append(function.offset)
                 for instruction in function.getInstructions():
-                    ins2fn[instruction.offset] = function
-                    offset2ins[instruction.offset] = instruction
-            # for all functions, populate code references
-            for function in self.getFunctions():
-                function.code_inrefs = []
-                for inref in function.inrefs:
-                    if inref in offset2ins:
-                        function.code_inrefs.append(CodeXref(offset2ins[inref], offset2ins[function.offset]))
-                function.code_outrefs = []
-                for outref_src, outref_dsts in function.outrefs.items():
-                    for target in outref_dsts:
-                        if target in offset2ins:
-                            function.code_outrefs.append(CodeXref(offset2ins[outref_src], offset2ins[target]))
+                    self._offset2ins[instruction.offset] = instruction
             self._has_codexrefs = True
 
-    def _packBuffer(self, buffer):
-        # TODO
-        # create zip
-        # XOR with some key
-        # base64
-        return b""
+    @staticmethod
+    def _packBuffer(buffer: bytes) -> str:
+        """Deflate-compress raw buffer bytes and base85-encode them into a JSON-safe string.
 
-    def _unpackBuffer(self, buffer):
-        # TODO
-        # de-base64
-        # XOR with some key
-        # read from zip
-        return b""
+        Mirrors the scheme used by MCRIT so reports can optionally carry a recoverable
+        copy of the analyzed buffer at a fraction of its on-disk footprint.
+        """
+        zip_buffer = io.BytesIO()
+        # write via a ZipInfo with its default fixed timestamp so packing the same bytes is
+        # reproducible across runs; writestr() with a plain str name would stamp the current
+        # time into the entry header and make the output non-deterministic.
+        entry = zipfile.ZipInfo("buffer")
+        entry.compress_type = zipfile.ZIP_DEFLATED
+        with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+            zip_file.writestr(entry, buffer)
+        return base64.b85encode(zip_buffer.getvalue()).decode("ascii")
+
+    @staticmethod
+    def _unpackBuffer(packed: str) -> bytes:
+        """Inverse of :meth:`_packBuffer`: decode base85 and inflate the stored buffer bytes."""
+        zip_buffer = io.BytesIO(base64.b85decode(packed))
+        with zipfile.ZipFile(zip_buffer, "r") as zip_file:
+            return zip_file.read("buffer")
 
     @classmethod
     def fromFile(cls, file_path):
@@ -263,11 +283,18 @@ class SmdaReport:
         smda_report.sha1 = report_dict.get("sha1", None)
         smda_report.md5 = report_dict.get("md5", None)
         smda_report.smda_version = report_dict["smda_version"]
-        smda_report.statistics = DisassemblyStatistics.fromDict(report_dict["statistics"])
+        # mirror toDict: statistics is {} on a report without a disassembly
+        statistics_raw = report_dict.get("statistics")
+        smda_report.statistics = DisassemblyStatistics.fromDict(statistics_raw) if statistics_raw else None
         smda_report.status = report_dict["status"]
-        smda_report.timestamp = datetime.datetime.strptime(report_dict["timestamp"], "%Y-%m-%dT%H-%M-%S")
-        smda_report.data_refs_from = {int(k): v for k, v in report_dict.get("xdata_refs_from", {}).items()}
-        smda_report.data_refs_to = {int(k): v for k, v in report_dict.get("xdata_refs_to", {}).items()}
+        # mirror toDict: a report serialized without a disassembly carries an
+        # empty timestamp, which must round-trip back to None rather than raise
+        timestamp_raw = report_dict.get("timestamp", "")
+        smda_report.timestamp = (
+            datetime.datetime.strptime(timestamp_raw, "%Y-%m-%dT%H-%M-%S") if timestamp_raw else None
+        )
+        smda_report.data_refs_from = {int(k): sorted(v) for k, v in report_dict.get("xdata_refs_from", {}).items()}
+        smda_report.data_refs_to = {int(k): sorted(v) for k, v in report_dict.get("xdata_refs_to", {}).items()}
         binary_info = BinaryInfo(b"")
         binary_info.architecture = smda_report.architecture
         binary_info.abi = smda_report.abi
@@ -283,8 +310,20 @@ class SmdaReport:
             )
             for function_addr, function_dict in report_dict["xcfg"].items()
         }
+        smda_report._num_blocks = sum(f.num_blocks for f in smda_report.xcfg.values())
+        smda_report._num_instructions = sum(f.num_instructions for f in smda_report.xcfg.values())
         smda_report.xheader = bytes.fromhex(report_dict["xheader"]) if "xheader" in report_dict else None
         smda_report.xmetadata = report_dict.get("xmetadata", None)
+        # buffer is only present when the report was serialized with STORE_BUFFER enabled;
+        # older reports omit it and keep buffer == None for backward compatibility.
+        if report_dict.get("buffer") is not None:
+            try:
+                smda_report.buffer = cls._unpackBuffer(report_dict["buffer"])
+            except Exception as exc:
+                # re-raise genuine non-operational errors (MemoryError, etc.); a corrupt/tampered
+                # buffer field is operational and must not abort loading the rest of the report
+                reraise_non_operational_exception(exc)
+                LOGGER.warning("Failed to unpack stored buffer, leaving it unset: %s", exc)
         return smda_report
 
     def toDict(self) -> dict:
@@ -295,7 +334,7 @@ class SmdaReport:
                     transformed_code_sections.append(("", section[1], section[2]))
                 else:
                     transformed_code_sections.append(("", 0, 0))
-        return {
+        report_dict = {
             "architecture": self.architecture,
             "abi": self.abi,
             "base_addr": self.base_addr,
@@ -324,13 +363,19 @@ class SmdaReport:
             "smda_version": self.smda_version,
             "statistics": self.statistics.toDict() if self.statistics else {},
             "status": self.status,
-            "timestamp": self.timestamp.strftime("%Y-%m-%dT%H-%M-%S"),
+            "timestamp": self.timestamp.strftime("%Y-%m-%dT%H-%M-%S") if self.timestamp else "",
             "xcfg": {function_addr: smda_function.toDict() for function_addr, smda_function in self.xcfg.items()},
             "xdata_refs_from": self.data_refs_from if self.data_refs_from is not None else {},
             "xdata_refs_to": self.data_refs_to if self.data_refs_to is not None else {},
             "xheader": self.xheader.hex() if self.xheader else "",
             "xmetadata": self.xmetadata,
         }
+        # only emit the (compressed) buffer when one was retained, e.g. via STORE_BUFFER;
+        # keeps serialized reports unchanged for the default file/memory analysis path.
+        # `is not None` so an intentionally stored empty buffer survives as b"" (not dropped).
+        if self.buffer is not None:
+            report_dict["buffer"] = self._packBuffer(self.buffer)
+        return report_dict
 
     def toFile(self, output_filepath) -> None:
         with open(output_filepath, "w") as fout:

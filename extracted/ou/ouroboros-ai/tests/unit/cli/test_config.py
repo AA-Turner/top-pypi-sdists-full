@@ -177,6 +177,33 @@ class TestConfigBackend:
         assert result.exit_code == 0
         mock_setup.assert_called_once_with("/usr/bin/hermes")
 
+    def test_switch_to_gjc_delegates_to_setup(self, config_dir: Path) -> None:
+        """config backend gjc should delegate to _setup_gjc for install side effects."""
+        with (
+            patch("ouroboros.config.models.get_config_dir", return_value=config_dir),
+            # Isolate from the developer's real ~/.ouroboros config, which may
+            # carry orchestrator.gjc_cli_path and shadow the shutil.which stub.
+            patch("ouroboros.config.get_gjc_cli_path", return_value=None),
+            patch("shutil.which", return_value="/usr/bin/gjc"),
+            patch("ouroboros.cli.commands.setup._setup_gjc") as mock_setup,
+        ):
+            result = runner.invoke(app, ["backend", "gjc"])
+        assert result.exit_code == 0
+        mock_setup.assert_called_once_with("/usr/bin/gjc")
+
+    def test_switch_to_gjc_honors_configured_cli_path(self, config_dir: Path) -> None:
+        """config backend gjc should honor explicit env/config path helpers."""
+        with (
+            patch("ouroboros.config.models.get_config_dir", return_value=config_dir),
+            patch("ouroboros.config.get_gjc_cli_path", return_value="/opt/gjc/bin/gjc"),
+            patch("shutil.which", return_value=None),
+            patch("ouroboros.cli.commands.setup._setup_gjc") as mock_setup,
+        ):
+            result = runner.invoke(app, ["backend", "gjc"])
+
+        assert result.exit_code == 0
+        mock_setup.assert_called_once_with("/opt/gjc/bin/gjc")
+
     def test_switch_to_goose_honors_configured_cli_path(self, config_dir: Path) -> None:
         """config backend goose should honor explicit env/config path helpers."""
         with (
@@ -189,6 +216,31 @@ class TestConfigBackend:
 
         assert result.exit_code == 0
         mock_setup.assert_called_once_with("/opt/goose/bin/goose")
+
+    def test_switch_to_pi_honors_configured_cli_path(self, config_dir: Path) -> None:
+        """config backend pi should honor explicit env/config path helpers."""
+        with (
+            patch("ouroboros.config.models.get_config_dir", return_value=config_dir),
+            patch("ouroboros.config.get_pi_cli_path", return_value="/opt/pi/bin/pi"),
+            patch("shutil.which", return_value=None),
+            patch("ouroboros.cli.commands.setup._setup_pi") as mock_setup,
+        ):
+            result = runner.invoke(app, ["backend", "pi"])
+
+        assert result.exit_code == 0
+        mock_setup.assert_called_once_with("/opt/pi/bin/pi")
+
+    def test_switch_to_pi_reports_missing_cli_path(self, config_dir: Path) -> None:
+        """config backend pi should surface pi-specific guidance when no CLI is found."""
+        with (
+            patch("ouroboros.config.models.get_config_dir", return_value=config_dir),
+            patch("ouroboros.config.get_pi_cli_path", return_value=None),
+            patch("shutil.which", return_value=None),
+        ):
+            result = runner.invoke(app, ["backend", "pi"])
+
+        assert result.exit_code == 1
+        assert "OUROBOROS_PI_CLI_PATH" in result.output
 
     def test_switch_warns_on_setup_print_error(self, config_dir: Path) -> None:
         """config backend should warn when setup emits print_error (non-exception failure)."""
@@ -292,6 +344,22 @@ class TestConfigValidate:
 
         with (
             patch("ouroboros.config.models.get_config_dir", return_value=tmp_path),
+            patch("ouroboros.config.loader.load_config"),
+        ):
+            result = runner.invoke(app, ["validate"])
+        assert result.exit_code == 0
+
+    def test_gjc_runtime_and_llm_backend_are_valid(self, tmp_path: Path) -> None:
+        """validate should accept the config written by `config backend gjc`."""
+        config = {
+            "orchestrator": {"runtime_backend": "gjc", "gjc_cli_path": "/usr/bin/gjc"},
+            "llm": {"backend": "gjc"},
+        }
+        (tmp_path / "config.yaml").write_text(yaml.dump(config))
+
+        with (
+            patch("ouroboros.config.models.get_config_dir", return_value=tmp_path),
+            patch("pathlib.Path.exists", return_value=True),
             patch("ouroboros.config.loader.load_config"),
         ):
             result = runner.invoke(app, ["validate"])

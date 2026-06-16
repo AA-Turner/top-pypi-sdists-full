@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import asyncio
+import csv
+import functools
+import json
 import logging
 import urllib.request
 import datetime
@@ -17,14 +23,23 @@ from gnews.exceptions import (
 )
 from gnews.backends.searchapi import SearchApiBackend
 
-logging.basicConfig(format='%(asctime)s - %(message)s', level=logging.INFO,
-                    datefmt='%m/%d/%Y %I:%M:%S %p')
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class GNews:
-    def __init__(self, language="en", country="US", max_results=100, period=None, start_date=None, end_date=None,
-                 exclude_websites=None, proxy=None, searchapi_key=None):
+    def __init__(
+        self,
+        language: str = "en",
+        country: str = "US",
+        max_results: int = 100,
+        period: str | None = None,
+        start_date: tuple | datetime.datetime | None = None,
+        end_date: tuple | datetime.datetime | None = None,
+        exclude_websites: list[str] | None = None,
+        proxy: dict | None = None,
+        searchapi_key: str | None = None,
+    ) -> None:
         """
         Initialize the GNews client with configuration options.
 
@@ -55,7 +70,7 @@ class GNews:
         self._proxy = proxy if proxy else None
         self._searchapi = SearchApiBackend(searchapi_key) if searchapi_key else None
 
-    def _ceid(self):
+    def _ceid(self) -> str:
         time_query = ''
         if self._start_date or self._end_date:
             if inspect.stack()[2][3] != 'get_news':
@@ -158,35 +173,33 @@ class GNews:
     def country(self, country):
         self._country = AVAILABLE_COUNTRIES.get(country, country)
 
-    def get_full_article(self, url):
-        """
-        Download and parse a full article using newspaper3k.
-        """
+    def get_full_article(self, url: str) -> dict:
         try:
-            import newspaper
+            import trafilatura
         except ImportError as e:
-            raise InvalidConfigError(
-                "get_full_article() requires the `newspaper3k` library. "
-                "Install it via `pip install newspaper3k`."
+            raise ImportError(
+                "get_full_article() requires trafilatura. "
+                "Install it with: pip install gnews[fulltext]"
             ) from e
 
-        try:
-            article = newspaper.Article(url="%s" % url, language=self._language)
-            article.download()
-            article.parse()
-        except Exception as error:
-            raise NetworkError(f"An error occurred while fetching the article: {error}") from error
+        downloaded = trafilatura.fetch_url(url)
+        if not downloaded:
+            raise NetworkError(f"Could not download article from {url}")
 
-        return article
+        text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
+        if not text:
+            raise NetworkError(f"Could not extract article text from {url}")
+
+        return {"text": text, "url": url}
 
     @staticmethod
-    def _clean(html):
+    def _clean(html: str) -> str:
         soup = Soup(html, features="html.parser")
         text = soup.get_text()
         text = text.replace('\xa0', ' ')
         return text
 
-    def _process(self, item):
+    def _process(self, item: dict) -> dict | None:
         url = process_url(item, self._exclude_websites, self._proxy)
         if url:
             title = item.get("title", "")
@@ -214,7 +227,7 @@ class GNews:
                        "{'href': link to publisher's website," + indent2 + "'title': name of the publisher}}")
 
     @docstring_parameter(standard_output)
-    def get_news(self, key):
+    def get_news(self, key: str, page: int = 1) -> list[dict]:
         if key:
             if self._searchapi:
                 return self._searchapi.get_news(
@@ -224,6 +237,7 @@ class GNews:
                     start_date=self.start_date,
                     end_date=self.end_date,
                     max_results=self._max_results,
+                    page=page,
                 )
             if self._max_results > 100:
                 return self._get_news_more_than_100(key)
@@ -232,7 +246,7 @@ class GNews:
             return self._get_news(query)
         raise InvalidConfigError("Search key cannot be empty.")
 
-    def _get_news_more_than_100(self, key):
+    def _get_news_more_than_100(self, key: str) -> list[dict]:
         articles = []
         seen_urls = set()
         earliest_date = None
@@ -274,18 +288,12 @@ class GNews:
         return articles
 
     @docstring_parameter(standard_output)
-    def get_top_news(self):
-        if self._searchapi:
-            return self._searchapi.get_top_news(
-                language=self._language,
-                country=self._country,
-                max_results=self._max_results,
-            )
+    def get_top_news(self) -> list[dict]:
         query = "?"
         return self._get_news(query)
 
     @docstring_parameter(standard_output, ', '.join(TOPICS), ', '.join(SECTIONS.keys()))
-    def get_news_by_topic(self, topic: str):
+    def get_news_by_topic(self, topic: str) -> list[dict]:
         topic = topic.upper()
         if topic in TOPICS:
             query = '/headlines/section/topic/' + topic + '?'
@@ -296,20 +304,54 @@ class GNews:
         raise InvalidConfigError(f"Invalid topic '{topic}'. Must be one of {list(TOPICS) + list(SECTIONS.keys())}.")
 
     @docstring_parameter(standard_output)
-    def get_news_by_location(self, location: str):
+    def get_news_by_location(self, location: str) -> list[dict]:
         if location:
             query = '/headlines/section/geo/' + location + '?'
             return self._get_news(query)
         raise InvalidConfigError("Location cannot be empty.")
 
     @docstring_parameter(standard_output)
-    def get_news_by_site(self, site: str):
+    def get_news_by_site(self, site: str) -> list[dict]:
         if site:
             key = "site:{}".format(site)
             return self.get_news(key)
         raise InvalidConfigError("Site domain cannot be empty.")
 
-    def _get_news(self, query):
+    async def _run_in_executor(self, func, *args):
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, functools.partial(func, *args))
+
+    async def get_news_async(self, key: str, page: int = 1) -> list[dict]:
+        return await self._run_in_executor(self.get_news, key, page)
+
+    async def get_top_news_async(self) -> list[dict]:
+        return await self._run_in_executor(self.get_top_news)
+
+    async def get_news_by_topic_async(self, topic: str) -> list[dict]:
+        return await self._run_in_executor(self.get_news_by_topic, topic)
+
+    async def get_news_by_location_async(self, location: str) -> list[dict]:
+        return await self._run_in_executor(self.get_news_by_location, location)
+
+    async def get_news_by_site_async(self, site: str) -> list[dict]:
+        return await self._run_in_executor(self.get_news_by_site, site)
+
+    def save_to_json(self, articles: list[dict], path: str) -> str:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(articles, f, ensure_ascii=False, indent=2)
+        return path
+
+    def save_to_csv(self, articles: list[dict], path: str) -> str:
+        if not articles:
+            open(path, "w").close()
+            return path
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=articles[0].keys())
+            writer.writeheader()
+            writer.writerows(articles)
+        return path
+
+    def _get_news(self, query: str) -> list[dict]:
         url = BASE_URL + query + self._ceid()
         try:
             if self._proxy:

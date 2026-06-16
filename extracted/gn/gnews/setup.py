@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='gnews',
-    version='0.5.0',
+    version='0.8.0',
     # setup_requires=['setuptools_scm'],
     # use_scm_version={
     #     "local_scheme": "no-local-version"
@@ -21,6 +21,15 @@ setup(
     long_description_content_type="text/markdown",
     packages=find_packages(),
     install_requires=requirements,
+    extras_require={
+        "fulltext": ["trafilatura>=1.6", "lxml_html_clean>=0.3"],
+        "playwright": ["playwright>=1.40"],
+    },
+    entry_points={
+        "console_scripts": [
+            "gnews=gnews.cli:main",
+        ],
+    },
     url='https://github.com/ranahaani/GNews/',
     project_urls={
         'Documentation': 'https://github.com/ranahaani/GNews/blob/master/README.md',
@@ -31,10 +40,11 @@ setup(
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
     ],

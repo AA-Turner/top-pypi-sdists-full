@@ -29,8 +29,6 @@ class Product:
         plans (ProductPlans): Map of plan key to plan definition for this product.
         tagline (None | str | Unset): Short marketing tagline shown on plan-selection surfaces.
         features (list[str] | Unset): Bullet-list feature highlights for the product.
-        coming_soon (bool | Unset): When `true`, the product is listed but not yet available for subscription. Default:
-            False.
         metered_limits (list[str] | Unset): Limit keys on this product that are metered: each includes a monthly
             allotment in the plan price and bills per unit beyond it at the plan's `overage_rates` rate, rather than capping
             hard. Empty for products with no metered limits.
@@ -42,7 +40,6 @@ class Product:
     plans: ProductPlans
     tagline: None | str | Unset = UNSET
     features: list[str] | Unset = UNSET
-    coming_soon: bool | Unset = False
     metered_limits: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -65,8 +62,6 @@ class Product:
         if not isinstance(self.features, Unset):
             features = self.features
 
-        coming_soon = self.coming_soon
-
         metered_limits: list[str] | Unset = UNSET
         if not isinstance(self.metered_limits, Unset):
             metered_limits = self.metered_limits
@@ -85,8 +80,6 @@ class Product:
             field_dict["tagline"] = tagline
         if features is not UNSET:
             field_dict["features"] = features
-        if coming_soon is not UNSET:
-            field_dict["coming_soon"] = coming_soon
         if metered_limits is not UNSET:
             field_dict["metered_limits"] = metered_limits
 
@@ -117,8 +110,6 @@ class Product:
 
         features = cast(list[str], d.pop("features", UNSET))
 
-        coming_soon = d.pop("coming_soon", UNSET)
-
         metered_limits = cast(list[str], d.pop("metered_limits", UNSET))
 
         product = cls(
@@ -128,7 +119,6 @@ class Product:
             plans=plans,
             tagline=tagline,
             features=features,
-            coming_soon=coming_soon,
             metered_limits=metered_limits,
         )
 

@@ -14,11 +14,14 @@ def _get_kwargs(
     path: str,
     *,
     with_starred_info: Union[Unset, None, bool] = UNSET,
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["with_starred_info"] = with_starred_info
+
+    params["get_draft"] = get_draft
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -62,6 +65,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     with_starred_info: Union[Unset, None, bool] = UNSET,
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetScriptByPathResponse200]:
     """get script by path
 
@@ -69,6 +73,7 @@ def sync_detailed(
         workspace (str):
         path (str):
         with_starred_info (Union[Unset, None, bool]):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -82,6 +87,7 @@ def sync_detailed(
         workspace=workspace,
         path=path,
         with_starred_info=with_starred_info,
+        get_draft=get_draft,
     )
 
     response = client.get_httpx_client().request(
@@ -97,6 +103,7 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     with_starred_info: Union[Unset, None, bool] = UNSET,
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetScriptByPathResponse200]:
     """get script by path
 
@@ -104,6 +111,7 @@ def sync(
         workspace (str):
         path (str):
         with_starred_info (Union[Unset, None, bool]):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -118,6 +126,7 @@ def sync(
         path=path,
         client=client,
         with_starred_info=with_starred_info,
+        get_draft=get_draft,
     ).parsed
 
 
@@ -127,6 +136,7 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     with_starred_info: Union[Unset, None, bool] = UNSET,
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Response[GetScriptByPathResponse200]:
     """get script by path
 
@@ -134,6 +144,7 @@ async def asyncio_detailed(
         workspace (str):
         path (str):
         with_starred_info (Union[Unset, None, bool]):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,6 +158,7 @@ async def asyncio_detailed(
         workspace=workspace,
         path=path,
         with_starred_info=with_starred_info,
+        get_draft=get_draft,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -160,6 +172,7 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     with_starred_info: Union[Unset, None, bool] = UNSET,
+    get_draft: Union[Unset, None, bool] = UNSET,
 ) -> Optional[GetScriptByPathResponse200]:
     """get script by path
 
@@ -167,6 +180,7 @@ async def asyncio(
         workspace (str):
         path (str):
         with_starred_info (Union[Unset, None, bool]):
+        get_draft (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -182,5 +196,6 @@ async def asyncio(
             path=path,
             client=client,
             with_starred_info=with_starred_info,
+            get_draft=get_draft,
         )
     ).parsed

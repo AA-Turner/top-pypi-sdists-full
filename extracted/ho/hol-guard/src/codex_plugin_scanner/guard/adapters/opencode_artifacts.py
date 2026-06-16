@@ -10,6 +10,7 @@ from pathlib import Path
 from ..models import GuardArtifact
 from ..runtime.mcp_skill_firewall import enrich_artifact_with_mcp_skill_firewall
 from .base import HarnessContext
+from .mcp_servers import is_guard_proxy_command, is_verified_guard_mcp_companion
 
 CONFIG_FILENAMES = ("opencode.json", "opencode.jsonc")
 PLUGIN_SUFFIXES = {".js", ".ts", ".mjs", ".cjs"}
@@ -246,6 +247,8 @@ def _append_mcp_artifacts(
         if not isinstance(name, str) or not isinstance(server_config, dict):
             continue
         command, args = _command_parts(server_config)
+        if is_verified_guard_mcp_companion(name, command, args):
+            continue
         transport = server_config.get("type") if isinstance(server_config.get("type"), str) else None
         url = server_config.get("url") if isinstance(server_config.get("url"), str) else None
         environment = server_config.get("environment")
@@ -262,6 +265,7 @@ def _append_mcp_artifacts(
             transport=transport or ("remote" if url is not None else "stdio"),
             metadata={
                 "enabled": bool(server_config.get("enabled", True)),
+                "guard_managed_proxy": is_guard_proxy_command(command, args),
                 "env": {
                     str(key): str(value)
                     for key, value in environment.items()

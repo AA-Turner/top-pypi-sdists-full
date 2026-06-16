@@ -21,7 +21,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ...models import JobState
+from ...models import JobState, activation_extraction_must_share_gpu, deprecated_activation_command_reason
 from ...queue.storage import JobStorage
 from .helpers.gpu_probe import smi_job_used_gb
 
@@ -54,13 +54,13 @@ def _gsutil_bin() -> str:
 
 
 def _write_status(store: JobStorage, job_id: str, status: str) -> None:
-    with open("/tmp/wc_status.txt", "w") as f:
-        f.write(status)
-    subprocess.run(
-        [_gsutil_bin(), "cp", "/tmp/wc_status.txt",
-         f"gs://{store.bucket_name}/status/{job_id}/status"],
-        capture_output=True,
-    )
+    if store._sdk_bucket is None:
+        raise RuntimeError(
+            f"_write_status({job_id}): JobStorage has no _sdk_bucket "
+            "— refusing to silently skip the status write"
+        )
+    blob = store._sdk_bucket.blob(f"status/{job_id}/status")
+    blob.upload_from_string(status)
 
 
 def _write_heartbeat(store: JobStorage, job_id: str) -> None:
@@ -251,6 +251,22 @@ def start_slot(store: JobStorage, job, hostname: str, log_fn,
     Returns None when apt-install (job.apt_packages) refuses or fails —
     the caller should leave the job in queue/ for another agent to claim.
     """
+    cmd = getattr(job, "command", "") or ""
+    if activation_extraction_must_share_gpu(cmd):
+        job.exclusive = False
+    for terminal_prefix in ("uploaded", "completed"):
+        if store.read_job(terminal_prefix, job.job_id):
+            store.delete_job("queue", job.job_id)
+            log_fn(f"drop duplicate queued {job.job_id}: already in {terminal_prefix}/")
+            return None
+    reason = deprecated_activation_command_reason(cmd)
+    if reason:
+        job.state = JobState.FAILED.value
+        job.failed_at = datetime.now(timezone.utc).isoformat()
+        job.error = reason
+        store.move_job(job, "queue", "failed")
+        log_fn(f"refuse {job.job_id}: {reason}")
+        return None
     if not _install_apt_packages(job, kind, log_fn):
         return None
     work_dir = f"/tmp/wc-{job.job_id}"
@@ -302,6 +318,22 @@ def advance_slot(slot: dict, store: JobStorage, vast_active: bool, log_fn) -> bo
     """Advance one slot. Returns True if still running, False if completed/failed."""
     proc = slot["proc"]
     job = slot["job"]
+    for terminal_prefix in ("uploaded", "completed"):
+        if store.read_job(terminal_prefix, job.job_id):
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            try:
+                slot["log_file"].flush(); slot["log_file"].close()
+            except Exception:
+                pass
+            try:
+                store.delete_job("running", job.job_id)
+            except Exception:
+                pass
+            log_fn(f"drop duplicate running {job.job_id}: already in {terminal_prefix}/")
+            return False
     if not slot["paused"] and vast_active:
         log_fn(f"Renter detected, pausing job {job.job_id}")
         os.kill(proc.pid, signal.SIGSTOP)
@@ -393,7 +425,15 @@ def advance_slot(slot: dict, store: JobStorage, vast_active: bool, log_fn) -> bo
         # /tmp dir and the operator has zero crash evidence in GCS.
         _log_path = f"/tmp/wc-{job.job_id}/output/command_output.log"
         if store._sdk_bucket is not None and Path(_log_path).exists():
-            _blob = store._sdk_bucket.blob(f"status/{job.job_id}/output/command_output.log")
-            _blob.upload_from_filename(_log_path)
+            try:
+                _blob = store._sdk_bucket.blob(
+                    f"status/{job.job_id}/output/command_output.log"
+                )
+                _blob.upload_from_filename(_log_path, timeout=10)
+            except Exception as e:
+                log_fn(
+                    f"heartbeat log upload failed for {job.job_id}: "
+                    f"{type(e).__name__}: {str(e)[:160]}"
+                )
         slot["last_hb"] = now
     return True

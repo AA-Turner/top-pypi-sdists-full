@@ -1346,6 +1346,23 @@ class TestDateParser(BaseTestCase):
         self.then_date_was_parsed_by_date_parser()
         self.then_date_obj_exactly_is(expected)
 
+    def test_dates_with_no_day_or_month_use_same_current_date_for_month_and_day(self):
+        class ParserDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2026, 5, 31, 12, 0, tzinfo=tz)
+
+        class UtilsDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return datetime(2026, 6, 1, 12, 0, tzinfo=tz)
+
+        with (
+            patch("dateparser.parser.datetime", ParserDateTime),
+            patch("dateparser.utils.datetime", UtilsDateTime),
+        ):
+            self.assertEqual(parse("2014"), datetime(2014, 5, 31))
+
     @parameterized.expand(
         [
             param(
@@ -1459,6 +1476,101 @@ class TestDateParser(BaseTestCase):
             expected_minus,
             minus_result,
             f"'yesterday -1h' should be {expected_minus}, got {minus_result}",
+        )
+
+    @parameterized.expand(
+        [
+            # USE_GIVEN_LANGUAGE_ORDER=True preserves the given order of `languages`.
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 12, 11, 0, 0),
+                languages=["es", "en"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 11, 12, 0, 0),
+                languages=["en", "es"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+            # ... and the given order of `locales`.
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 12, 11, 0, 0),
+                locales=["es", "en"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 11, 12, 0, 0),
+                locales=["en", "es"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+            # Default (False): the most-common-language order is used, regardless
+            # of the order in which languages/locales are given.
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 11, 12, 0, 0),
+                languages=["es", "en"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": False},
+            ),
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 11, 12, 0, 0),
+                locales=["es", "en"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": False},
+            ),
+            # No-op (no error) when no languages/locales are given: there is
+            # nothing to reorder, so the default order is used.
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 11, 12, 0, 0),
+                languages=[],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+            param(
+                "11/12/2020",
+                expected=datetime(2020, 11, 12, 0, 0),
+                languages=None,
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+        ]
+    )
+    def test_use_given_language_order_setting(
+        self, date_string, expected=None, languages=None, locales=None, settings=None
+    ):
+        self.given_parser(languages=languages, locales=locales, settings=settings)
+        self.when_date_is_parsed(date_string)
+        self.then_date_was_parsed_by_date_parser()
+        self.then_date_obj_exactly_is(expected)
+
+    def test_use_given_order_parameter_still_preserves_order_without_setting(self):
+        # The pre-existing ``use_given_order`` constructor argument must keep working
+        # on its own (the new setting is OR-ed with it, not a replacement).
+        self.given_parser(languages=["es", "en"], use_given_order=True)
+        self.when_date_is_parsed("11/12/2020")
+        self.then_date_was_parsed_by_date_parser()
+        self.then_date_obj_exactly_is(datetime(2020, 12, 11, 0, 0))
+
+    def test_use_given_language_order_setting_fixes_top_level_parse(self):
+        # Regression test for https://github.com/scrapinghub/dateparser/issues/770
+        # The top-level ``parse`` must honour the given language order through the
+        # ``USE_GIVEN_LANGUAGE_ORDER`` setting.
+        self.assertEqual(
+            datetime(2020, 12, 11, 0, 0),
+            parse(
+                "11/12/2020",
+                languages=["es", "en"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
+        )
+        self.assertEqual(
+            datetime(2020, 11, 12, 0, 0),
+            parse(
+                "11/12/2020",
+                languages=["en", "es"],
+                settings={"USE_GIVEN_LANGUAGE_ORDER": True},
+            ),
         )
 
     def given_parser(self, *args, **kwds):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.6.0.2
+Version: 1.6.0.3
 Summary: A CLI to work with DataHub metadata
 Home-page: https://docs.datahub.com/
 License-Expression: Apache-2.0
@@ -1010,6 +1010,21 @@ Provides-Extra: thoughtspot
 Requires-Dist: patchy==2.8.0; extra == "thoughtspot"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "thoughtspot"
 Requires-Dist: thoughtspot_rest_api<3.0.0,>=2.0.0; extra == "thoughtspot"
+Provides-Extra: tidb
+Requires-Dist: acryl-datahub-classify==0.0.11; extra == "tidb"
+Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "tidb"
+Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "tidb"
+Requires-Dist: cachetools<6.0.0; extra == "tidb"
+Requires-Dist: greenlet<4.0.0; extra == "tidb"
+Requires-Dist: numpy<2; extra == "tidb"
+Requires-Dist: patchy==2.8.0; extra == "tidb"
+Requires-Dist: pip; extra == "tidb"
+Requires-Dist: pymysql<2.0.0,>=1.0.2; extra == "tidb"
+Requires-Dist: schwifty<2026.0.0; extra == "tidb"
+Requires-Dist: sqlalchemy<2,>=1.4.39; extra == "tidb"
+Requires-Dist: sqlglot[c]==30.8.0; extra == "tidb"
+Requires-Dist: sqlparse<0.6.0; extra == "tidb"
+Requires-Dist: urllib3<3.0,>=1.26; extra == "tidb"
 Provides-Extra: timescaledb
 Requires-Dist: acryl-datahub-classify==0.0.11; extra == "timescaledb"
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "timescaledb"

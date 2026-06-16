@@ -155,6 +155,10 @@ class DelphiPythiaProvider(AbstractLabelProvider):
         if not self._binary or self._bitness not in self._profiles:
             return
 
+        # Cheap Delphi signature check
+        if b"TObject" not in self._binary:
+            return
+
         self._scan_ranges = self._get_scan_ranges(binary_info)
         if not self._scan_ranges:
             return
@@ -476,7 +480,7 @@ class DelphiPythiaProvider(AbstractLabelProvider):
     def isApiProvider(self):
         return False
 
-    def getApi(self, absolute_addr):
+    def getApi(self, to_addr, absolute_addr=None):
         return None
 
     def getSymbol(self, address):
@@ -487,3 +491,6 @@ class DelphiPythiaProvider(AbstractLabelProvider):
 
     def getRelocations(self):
         return {}
+
+    def is_active(self):
+        return bool(self._func_symbols)

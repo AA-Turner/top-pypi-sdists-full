@@ -8,7 +8,7 @@ from typing_extensions import TypeVar
 from workflows.context.state_store import DictState
 from workflows.events import SerializableOptionalException
 
-MODEL_T = TypeVar("MODEL_T", bound=BaseModel, default=DictState)
+MODEL_T = TypeVar("MODEL_T", bound=BaseModel, default=DictState)  # type: ignore[reportGeneralTypeIssues]
 
 
 class SerializedContextV0(BaseModel):
@@ -79,6 +79,10 @@ class SerializedEventAttempt(BaseModel):
     # Per-handler recovery counts on this event's lineage. Maps catch_error
     # handler step name -> invocations so far. Empty on the main graph.
     recovery_counts: dict[str, int] = Field(default_factory=dict)
+    # Absolute time (adapter get_now domain) before which this attempt must not
+    # be dispatched (retry delay), or None if eligible immediately. Additive:
+    # older payloads validate with the default.
+    not_before: float | None = None
 
 
 class SerializedWaiter(BaseModel):

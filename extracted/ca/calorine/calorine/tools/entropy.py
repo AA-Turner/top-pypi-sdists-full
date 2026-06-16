@@ -34,7 +34,10 @@ except ImportError:  # pragma: no cover
     torch = _DummyTorchModule()
 
 try:
-    from tqdm.auto import tqdm
+    import warnings as _warnings
+    with _warnings.catch_warnings():
+        _warnings.filterwarnings('ignore', message='IProgress not found')
+        from tqdm.auto import tqdm
 except ImportError:  # pragma: no cover
     def tqdm(x):
         return x

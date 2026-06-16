@@ -15,6 +15,7 @@ intersphinx_mapping = {
     'loguru': ('https://loguru.readthedocs.io/en/stable/', None),
     'structlog': ('https://www.structlog.org/en/stable/', None),
     'sybil': ('https://sybil.readthedocs.io/en/latest/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
     'pandas': ('https://pandas.pydata.org/docs/', None),
     'polars': ('https://docs.pola.rs/api/python/stable/', None),
 }
@@ -54,6 +55,7 @@ nitpick_ignore = [
     ('py:class', 'testfixtures.comparison.S_'),  # type var
     ('py:class', 'testfixtures.comparison.T'),  # type var
     ('py:class', 'testfixtures.datetime.MockedCurrent'),  # internal class that shouldn't be doc'ed
+    ('py:class', 'testfixtures.command.RunT'),  # type var
     ('py:class', 'testfixtures.replace.R'),  # type var
     ('py:class', 'testfixtures.shouldraise.E'),  # type var
     ('py:class', 'testfixtures.tempdirectory.P'),  # type var

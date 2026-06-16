@@ -1,4 +1,5 @@
 import asyncio
+import threading
 import time
 import uuid
 from typing import Any, List, Optional, cast
@@ -19,7 +20,11 @@ from dbos import (
 from dbos._context import assert_current_dbos_context
 from dbos._dbos import WorkflowHandle
 from dbos._dbos_config import ConfigFile
-from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSException
+from dbos._error import (
+    DBOSAwaitedWorkflowCancelledError,
+    DBOSException,
+    DBOSPatchNondeterminismError,
+)
 from dbos._schemas.system_database import SystemSchema
 
 
@@ -226,6 +231,103 @@ async def test_send_recv_async(dbos: DBOS) -> None:
     with pytest.raises(Exception) as exc_info:
         await dbos.recv_async("test1")
     assert "recv() must be called from within a workflow" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_recv_async_cancelled_during_setup(dbos: DBOS) -> None:
+    """Cancelling recv_async while its setup phase runs in a worker thread
+    must not leave a notifications_map registration behind. Cleanup is
+    synchronous: the moment the cancelled call returns, the entry is gone, so
+    there is no window in which the next recv on the same workflow and topic
+    raises a spurious DBOSWorkflowConflictIDError."""
+
+    @DBOS.workflow()
+    async def noop_workflow() -> None:
+        return None
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        await noop_workflow()
+
+    sys_db = dbos._sys_db
+    topic = "cancel_topic"
+    payload = f"{wfid}::{topic}"
+
+    in_setup = threading.Event()
+    release_setup = threading.Event()
+    original_recv_check = sys_db.recv_check
+
+    # recv_setup calls recv_check after registering in notifications_map,
+    # so blocking here holds the setup thread mid-registration.
+    def blocking_recv_check(*args: Any, **kwargs: Any) -> None:
+        in_setup.set()
+        assert release_setup.wait(timeout=10)
+        original_recv_check(*args, **kwargs)
+
+    sys_db.recv_check = blocking_recv_check  # type: ignore[method-assign]
+    try:
+        recv_task = asyncio.create_task(
+            sys_db.recv_async(wfid, 100, 101, topic, timeout_seconds=10)
+        )
+        assert await asyncio.to_thread(in_setup.wait, 10)
+        # Cancel while the thread is mid-registration, then let it finish so
+        # the cancellation's synchronous cleanup can run to completion.
+        recv_task.cancel()
+        release_setup.set()
+        with pytest.raises(asyncio.CancelledError):
+            await recv_task
+        # Cleanup happened before CancelledError propagated -- no polling
+        # window for a concurrent recv to trip over a stale entry.
+        assert sys_db.notifications_map.get(payload) is None
+    finally:
+        sys_db.recv_check = original_recv_check  # type: ignore[method-assign]
+
+    # A later recv on the same workflow and topic must not see a stale entry.
+    message = await sys_db.recv_async(wfid, 102, 103, topic, timeout_seconds=0.1)
+    assert message is None
+    assert sys_db.notifications_map.get(payload) is None
+
+
+@pytest.mark.asyncio
+async def test_get_event_async_cancelled_during_setup(dbos: DBOS) -> None:
+    """Cancelling get_event_async while its setup phase runs in a worker
+    thread must not leave a workflow_events_map registration behind, and
+    cleanup must complete synchronously before CancelledError propagates."""
+
+    @DBOS.workflow()
+    async def noop_workflow() -> None:
+        return None
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        await noop_workflow()
+
+    sys_db = dbos._sys_db
+    key = "cancel_key"
+    payload = f"{wfid}::{key}"
+
+    in_setup = threading.Event()
+    release_setup = threading.Event()
+    original_get_event_check = sys_db.get_event_check
+
+    def blocking_get_event_check(*args: Any, **kwargs: Any) -> None:
+        in_setup.set()
+        assert release_setup.wait(timeout=10)
+        original_get_event_check(*args, **kwargs)
+
+    sys_db.get_event_check = blocking_get_event_check  # type: ignore[method-assign]
+    try:
+        get_event_task = asyncio.create_task(
+            sys_db.get_event_async(wfid, key, timeout_seconds=10)
+        )
+        assert await asyncio.to_thread(in_setup.wait, 10)
+        get_event_task.cancel()
+        release_setup.set()
+        with pytest.raises(asyncio.CancelledError):
+            await get_event_task
+        assert sys_db.workflow_events_map.get(payload) is None
+    finally:
+        sys_db.get_event_check = original_get_event_check  # type: ignore[method-assign]
 
 
 @pytest.mark.asyncio
@@ -565,7 +667,12 @@ async def test_workflow_timeout_async(dbos: DBOS) -> None:
         await (await DBOS.retrieve_workflow_async(direct_child)).get_result()
     assert "was cancelled" in str(exc_info.value)
 
-    # Verify all timeout tasks completed
+    # Verify all timeout tasks complete. A task may still be finishing its
+    # (redundant) cancellation of an already-cancelled workflow, so allow it
+    # a moment to drain rather than asserting instantaneous emptiness.
+    deadline = time.time() + 30
+    while dbos._timeout_tasks and time.time() < deadline:
+        await asyncio.sleep(0.1)
     assert len(dbos._timeout_tasks) == 0
 
 
@@ -588,10 +695,12 @@ async def test_max_parallel_workflows(dbos: DBOS) -> None:
     for i in range(50):
         assert (await tasks[i].get_result()) == i, f"Task {i} should return {i}"
 
+    # The workflows sleep 5s each, so anything well under the 250s serial
+    # time proves they ran in parallel; the margin absorbs slow CI runners.
     end_time = time.time()
     assert (
-        end_time - begin_time < 10
-    ), "All tasks should complete in less than 10 seconds"
+        end_time - begin_time < 30
+    ), "All tasks should complete in less than 30 seconds"
 
     # Test enqueues
     begin_time = time.time()
@@ -608,8 +717,8 @@ async def test_max_parallel_workflows(dbos: DBOS) -> None:
 
     end_time = time.time()
     assert (
-        end_time - begin_time < 10
-    ), "All enqueued tasks should complete in less than 10 seconds"
+        end_time - begin_time < 30
+    ), "All enqueued tasks should complete in less than 30 seconds"
 
 
 @pytest.mark.asyncio
@@ -985,3 +1094,56 @@ async def test_workflow_recovery_async(dbos: DBOS, config: DBOSConfig) -> None:
     stat = await DBOS.get_workflow_status_async(workflow_id)
     assert stat
     assert stat.recovery_attempts == 2
+
+
+@pytest.mark.asyncio
+async def test_concurrent_patch_async(dbos: DBOS, config: DBOSConfig) -> None:
+    # Calling DBOS.patch_async from concurrent tasks inside one workflow is
+    # inherently nondeterministic: the position each patch marker lands at
+    # depends on task scheduling, so a replay cannot reliably match markers
+    # to patch calls. Instead of recording a scheduling-dependent history
+    # (or corrupting the checkpoint counter and zombie-polling, see #714),
+    # patch_async must detect the interleaving and fail the workflow with a
+    # clean error.
+    DBOS.destroy(destroy_registry=True)
+    config["enable_patching"] = True
+    DBOS(config=config)
+
+    @DBOS.step()
+    async def small_step(tag: str, i: int) -> str:
+        await asyncio.sleep(0)
+        return f"{tag}:{i}"
+
+    async def patch_then_steps(tag: str) -> str:
+        await DBOS.patch_async(tag)
+        for i in range(5):
+            await small_step(tag, i)
+            await asyncio.sleep(0)
+        return tag
+
+    @DBOS.workflow()
+    async def parallel_patch_workflow() -> List[str]:
+        return list(
+            await asyncio.gather(
+                patch_then_steps("a"), patch_then_steps("b"), patch_then_steps("c")
+            )
+        )
+
+    DBOS.launch()
+
+    # The detection is deterministic: the gather schedules all three probes
+    # before any of them can reserve a checkpoint position, so every task
+    # that loses the race observes another task's reservation and raises.
+    # Repeat to exercise many interleavings of which task wins the race.
+    for i in range(15):
+        wfid = f"concurrent-patch-{i}"
+        with SetWorkflowID(wfid):
+            with pytest.raises(DBOSPatchNondeterminismError, match="concurrently"):
+                # The guard is generous because SQLite busy_timeout stalls can
+                # reach 30s; it exists only so a regression cannot hang the test.
+                await asyncio.wait_for(parallel_patch_workflow(), timeout=60.0)
+
+        # The workflow fails cleanly rather than hanging or zombie-polling.
+        status = await DBOS.get_workflow_status_async(wfid)
+        assert status is not None
+        assert status.status == "ERROR"

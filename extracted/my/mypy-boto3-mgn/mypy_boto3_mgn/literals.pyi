@@ -55,6 +55,8 @@ __all__ = (
     "JobLogEventType",
     "JobStatusType",
     "JobTypeType",
+    "LastKnownCheckStatusType",
+    "LastKnownCheckTypeType",
     "LaunchDispositionType",
     "LaunchStatusType",
     "LifeCycleStateType",
@@ -105,6 +107,7 @@ __all__ = (
     "SourceEnvironmentType",
     "SsmDocumentTypeType",
     "SsmParameterStoreParameterTypeType",
+    "StorageTypeType",
     "TargetDeploymentType",
     "TargetInstanceTypeRightSizingMethodType",
     "TargetNetworkTopologyType",
@@ -141,11 +144,13 @@ DataReplicationErrorStringType = Literal[
     "FAILED_TO_AUTHENTICATE_WITH_SERVICE",
     "FAILED_TO_BOOT_REPLICATION_SERVER",
     "FAILED_TO_CONNECT_AGENT_TO_REPLICATION_SERVER",
+    "FAILED_TO_CREATE_FSX_SNAPSHOT",
     "FAILED_TO_CREATE_SECURITY_GROUP",
     "FAILED_TO_CREATE_STAGING_DISKS",
     "FAILED_TO_DOWNLOAD_REPLICATION_SOFTWARE",
     "FAILED_TO_LAUNCH_REPLICATION_SERVER",
     "FAILED_TO_PAIR_REPLICATION_SERVER_WITH_AGENT",
+    "FAILED_TO_SETUP_FSX_PROXY",
     "FAILED_TO_START_DATA_TRANSFER",
     "LAST_SNAPSHOT_JOB_FAILED",
     "NOT_CONVERGING",
@@ -163,6 +168,7 @@ DataReplicationInitiationStepNameType = Literal[
     "DOWNLOAD_REPLICATION_SOFTWARE",
     "LAUNCH_REPLICATION_SERVER",
     "PAIR_REPLICATION_SERVER_WITH_AGENT",
+    "SETUP_FSX_PROXY",
     "START_DATA_TRANSFER",
     "WAIT",
 ]
@@ -231,6 +237,8 @@ JobLogEventType = Literal[
 ]
 JobStatusType = Literal["COMPLETED", "PENDING", "STARTED"]
 JobTypeType = Literal["LAUNCH", "TERMINATE"]
+LastKnownCheckStatusType = Literal["FAILED", "PASSED", "PENDING"]
+LastKnownCheckTypeType = Literal["EC2", "FSx"]
 LaunchDispositionType = Literal["STARTED", "STOPPED"]
 LaunchStatusType = Literal["FAILED", "IN_PROGRESS", "LAUNCHED", "PENDING", "TERMINATED"]
 LifeCycleStateType = Literal[
@@ -303,7 +311,7 @@ ReplicationConfigurationDataPlaneRoutingType = Literal["PRIVATE_IP", "PUBLIC_IP"
 ReplicationConfigurationDefaultLargeStagingDiskTypeType = Literal["GP2", "GP3", "ST1"]
 ReplicationConfigurationEbsEncryptionType = Literal["CUSTOM", "DEFAULT"]
 ReplicationConfigurationReplicatedDiskStagingDiskTypeType = Literal[
-    "AUTO", "GP2", "GP3", "IO1", "IO2", "SC1", "ST1", "STANDARD"
+    "AUTO", "FSX_ONTAP", "GP2", "GP3", "IO1", "IO2", "SC1", "ST1", "STANDARD"
 ]
 ReplicationTypeType = Literal["AGENT_BASED", "SNAPSHOT_SHIPPING"]
 SecurityGroupMappingStrategyType = Literal["MAP", "MAP_DHCP", "SKIP"]
@@ -319,6 +327,7 @@ SourceEnvironmentType = Literal[
 ]
 SsmDocumentTypeType = Literal["AUTOMATION", "COMMAND"]
 SsmParameterStoreParameterTypeType = Literal["SECURE_STRING", "STRING"]
+StorageTypeType = Literal["EBS", "FSX_ONTAP"]
 TargetDeploymentType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 TargetInstanceTypeRightSizingMethodType = Literal["BASIC", "NONE"]
 TargetNetworkTopologyType = Literal["HUB_AND_SPOKE", "ISOLATED_VPC"]

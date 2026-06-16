@@ -10,10 +10,7 @@ from __future__ import annotations
 
 GPU_SIZING = {
     "gcp": {
-        # K80 row removed 2026-06-01: GCP no longer provisions n1-standard-4 +
-        # nvidia-tesla-k80 (deprecated EOL hardware), and submissions auto-sized
-        # to it sat in queue forever because no consumer could claim them. 435
-        # stuck Llama-1B jobs surfaced this. Smallest GCP tier is now T4 at 16.
+        12: ("n1-standard-4", "nvidia-tesla-k80"),
         16: ("n1-standard-4", "nvidia-tesla-t4"),
         24: ("g2-standard-4", "nvidia-l4"),
         32: ("n1-standard-8", "nvidia-tesla-v100"),
@@ -25,7 +22,7 @@ GPU_SIZING = {
         192: ("a4x-highgpu-4g", "nvidia-gb200-192gb"),
     },
     "azure": {
-        # K80 row removed 2026-06-01: Azure Standard_NC6 with K80 is also EOL.
+        12: ("Standard_NC6", "nvidia-tesla-k80"),
         16: ("Standard_NC6s_v3", "nvidia-tesla-v100"),
         22: ("Standard_NC4as_T4_v3", "nvidia-tesla-t4"),
         24: ("Standard_NC8ads_A10_v4", "nvidia-a10"),

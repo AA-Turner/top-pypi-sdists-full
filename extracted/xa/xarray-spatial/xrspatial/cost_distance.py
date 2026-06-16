@@ -29,7 +29,6 @@ time, keeping memory usage bounded regardless of raster size.
 from __future__ import annotations
 
 import math as _math
-from functools import partial
 from math import sqrt
 
 import numpy as np
@@ -48,16 +47,15 @@ except ImportError:
     class cupy:  # type: ignore[no-redef]
         ndarray = False
 
-from xrspatial.utils import (
-    _validate_raster,
-    cuda_args, get_dataarray_resolution, ngjit,
-    has_cuda_and_cupy, is_cupy_array, is_dask_cupy,
-)
 from xrspatial.dataset_support import supports_dataset
+from xrspatial.utils import (_dask_task_name_kwargs, _validate_raster, cuda_args,
+                             get_dataarray_resolution, has_cuda_and_cupy, is_cupy_array,
+                             is_dask_cupy, ngjit)
 
 # ---------------------------------------------------------------------------
 # Numba binary min-heap (three parallel arrays: keys, rows, cols)
 # ---------------------------------------------------------------------------
+
 
 @ngjit
 def _heap_push(keys, rows, cols, size, key, row, col):
@@ -457,8 +455,8 @@ def _cost_distance_cupy(source_data, friction_data, cellsize_x, cellsize_y,
 
 
 def _cost_distance_dask_cupy(source_da, friction_da,
-                              cellsize_x, cellsize_y, max_cost,
-                              target_values, dy, dx, dd):
+                             cellsize_x, cellsize_y, max_cost,
+                             target_values, dy, dx, dd):
     """Dask+CuPy cost distance.
 
     Bounded max_cost: ``da.map_overlap`` with per-chunk GPU relaxation.
@@ -506,6 +504,7 @@ def _cost_distance_dask_cupy(source_da, friction_da,
             boundary=np.nan,
             dtype=np.float32,
             meta=cp.array((), dtype=cp.float32),
+            **_dask_task_name_kwargs('xrspatial.cost_distance'),
         )
 
     # Unbounded or padding too large: convert to dask+numpy, use CPU path
@@ -1000,9 +999,9 @@ def _process_tile(iy, ix, tile_cache,
 
 
 def _cost_distance_dask_iterative(source_da, friction_da,
-                                   cellsize_x, cellsize_y,
-                                   max_cost, target_values,
-                                   dy, dx, dd):
+                                  cellsize_x, cellsize_y,
+                                  max_cost, target_values,
+                                  dy, dx, dd):
     """Iterative boundary-only Dijkstra for arbitrarily large dask arrays.
 
     Memory usage is O(sqrt(N)) for inter-iteration storage.
@@ -1123,6 +1122,7 @@ def _make_chunk_func(cellsize_x, cellsize_y, max_cost, target_values,
 
     def _chunk(source_block, friction_block):
         h, w = source_block.shape
+        _check_memory(h, w)
         return _cost_distance_kernel(
             source_block, friction_block, h, w,
             cellsize_x, cellsize_y, max_cost,
@@ -1158,7 +1158,15 @@ def _cost_distance_dask(source_da, friction_da, cellsize_x, cellsize_y,
 
     pad = int(max_radius + 1) if np.isfinite(max_radius) else max_dim
 
-    if not np.isfinite(max_radius) or pad >= height or pad >= width:
+    # map_overlap's depth must not exceed the chunk size; a larger depth makes
+    # dask rechunk toward bigger (eventually single) blocks, defeating
+    # out-of-core processing.  Compare pad against the chunk size, not the full
+    # array dimensions (matches the dask+cupy guard).
+    max_chunk_y = max(source_da.chunks[0])
+    max_chunk_x = max(source_da.chunks[1])
+
+    if (not np.isfinite(max_radius)
+            or pad >= max_chunk_y or pad >= max_chunk_x):
         # Use iterative tile Dijkstra — bounded memory, no single-chunk rechunk
         import warnings
         warnings.warn(
@@ -1187,6 +1195,7 @@ def _cost_distance_dask(source_da, friction_da, cellsize_x, cellsize_y,
         boundary=np.nan,
         dtype=np.float32,
         meta=np.array((), dtype=np.float32),
+        **_dask_task_name_kwargs('xrspatial.cost_distance'),
     )
     return out
 
@@ -1201,7 +1210,7 @@ def cost_distance(
     friction: xr.DataArray,
     x: str = "x",
     y: str = "y",
-    target_values: list = [],
+    target_values: list = None,
     max_cost: float = np.inf,
     connectivity: int = 8,
 ) -> xr.DataArray:
@@ -1226,7 +1235,7 @@ def cost_distance(
         Name of the y coordinate.
     target_values : list, optional
         Specific pixel values in *raster* to treat as sources.
-        If empty, all non-zero finite pixels are sources.
+        If not provided, all non-zero finite pixels are sources.
     max_cost : float, default=np.inf
         Maximum accumulated cost.  Pixels whose least-cost path exceeds
         this budget are set to NaN.  A finite value enables efficient
@@ -1251,6 +1260,9 @@ def cost_distance(
         )
     if connectivity not in (4, 8):
         raise ValueError("connectivity must be 4 or 8")
+
+    if target_values is None:
+        target_values = []
 
     cellsize_x, cellsize_y = get_dataarray_resolution(raster)
     cellsize_x = abs(float(cellsize_x))
@@ -1329,9 +1341,14 @@ def cost_distance(
     else:
         raise TypeError(f"Unsupported array type: {type(source_data)}")
 
-    return xr.DataArray(
+    result = xr.DataArray(
         result_data,
         coords=raster.coords,
         dims=raster.dims,
         attrs=raster.attrs,
     )
+    # Dask backends leak the internal graph name (e.g. "_trim-..." from
+    # map_overlap) as the DataArray name; force it to the input's name so
+    # all four backends agree.  ``.rename(None)`` is required because the
+    # constructor's ``name=None`` is treated as "infer from data".
+    return result.rename(raster.name)

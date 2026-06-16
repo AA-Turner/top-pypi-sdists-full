@@ -1,12 +1,71 @@
 import contextlib
 import logging
 import sys
+from functools import lru_cache
 
 import lief
 
 from smda.SmdaConfig import SmdaConfig
+from smda.utility.common import mergeCodeAreas
 
 LOGGER = logging.getLogger(__name__)
+
+# Sentinel: distinguishes "caller did not supply parsed" (legacy direct
+# call, do your own lief.parse) from "caller already tried to parse and
+# got None" (e.g. FileLoader saw lief.parse fail; do NOT retry).
+_NOT_PROVIDED = object()
+
+# Single source of truth mapping ELF machine types to (architecture, bitness,
+# has_backend). SMDA ships Intel and AArch64 disassembly backends, but reporting the
+# real architecture for recognized non-Intel ELFs keeps loader metadata honest
+# instead of pretending every ELF is x86. Architectures with has_backend=False
+# intentionally resolve to no disassembler later (controlled error report).
+# A bitness of 0 here means the machine type alone is width-ambiguous; it is
+# then resolved from the ELF class (identity_class) in _resolve_elf_machine().
+_ELF_MACHINE_TYPES = {
+    lief.ELF.ARCH.X86_64: ("intel", 64, True),
+    lief.ELF.ARCH.I386: ("intel", 32, True),
+    lief.ELF.ARCH.AARCH64: ("aarch64", 64, True),
+    lief.ELF.ARCH.ARM: ("arm", 32, False),
+    lief.ELF.ARCH.PPC64: ("ppc", 64, False),
+    lief.ELF.ARCH.PPC: ("ppc", 32, False),
+    lief.ELF.ARCH.SPARCV9: ("sparc", 64, False),
+    lief.ELF.ARCH.SPARC: ("sparc", 32, False),
+    lief.ELF.ARCH.MIPS: ("mips", 0, False),
+    lief.ELF.ARCH.RISCV: ("riscv", 0, False),
+    lief.ELF.ARCH.M68K: ("m68k", 0, False),
+    lief.ELF.ARCH.SH: ("sh", 0, False),
+    lief.ELF.ARCH.ALTERA_NIOS2: ("nios2", 0, False),
+    lief.ELF.ARCH.OPENRISC: ("openrisc", 0, False),
+    lief.ELF.ARCH.XTENSA: ("xtensa", 0, False),
+}
+# NOTE: MicroBlaze (e_machine 189) is intentionally absent: lief has no
+# lief.ELF.ARCH enum value for it and reports the raw integer, so it resolves
+# through the unknown-machine-type fallback below.
+
+
+def _resolve_elf_machine(elffile):
+    """Return (architecture, bitness, has_backend) for a parsed ELF.
+
+    Architecture and support status come from the machine type. Bitness comes
+    from the same mapping when the machine type implies a fixed width; for
+    width-ambiguous architectures (e.g. MIPS, RISC-V) it falls back to the ELF
+    class so the reported bitness stays correct.
+    """
+    # Guard against a missing header (failed parse, or an incomplete/mock
+    # object) so we report unsupported metadata instead of raising. We avoid a
+    # blanket try/except here so genuine parse/memory errors still surface.
+    if elffile is None or not hasattr(elffile, "header"):
+        return "", 0, False
+    header = elffile.header
+    architecture, bitness, has_backend = _ELF_MACHINE_TYPES.get(header.machine_type, ("", 0, False))
+    if architecture and bitness == 0:
+        identity_class = header.identity_class
+        if identity_class == lief.ELF.Header.CLASS.ELF64:
+            bitness = 64
+        elif identity_class == lief.ELF.Header.CLASS.ELF32:
+            bitness = 32
+    return architecture, bitness, has_backend
 
 
 def align(v, alignment):
@@ -17,13 +76,75 @@ def align(v, alignment):
         return v + (alignment - remainder)
 
 
+@lru_cache(maxsize=16)
 def has_bogus_sections(elffile, base_addr=0):
     max_virtual_address = 0
     for section in elffile.sections:
         if section.virtual_address:
             max_virtual_address = max(max_virtual_address, section.size + section.virtual_address)
-    if (max_virtual_address - base_addr) > sys.maxsize:
-        return True
+    return (max_virtual_address - base_addr) > sys.maxsize
+
+
+@lru_cache(maxsize=16)
+def _calculate_base_address(elffile):
+    base_addr = 0
+    candidates = [0xFFFFFFFFFFFFFFFF]
+    if not elffile:
+        return base_addr
+    if not has_bogus_sections(elffile):
+        for section in elffile.sections:
+            if section.virtual_address:
+                addr = section.virtual_address - section.offset
+                if addr >= 0:
+                    candidates.append(addr)
+    else:
+        # go for segments only instead
+        base_addr = 0
+        candidates = [0xFFFFFFFFFFFFFFFF]
+        for segment in elffile.segments:
+            if not segment.virtual_address:
+                continue
+            candidates.append(segment.virtual_address)
+    if len(candidates) > 1:
+        base_addr = min(candidates)
+    return base_addr
+
+
+@lru_cache(maxsize=16)
+def _get_sorted_sections(elffile):
+    return sorted(elffile.sections, key=lambda section: section.size, reverse=True)
+
+
+@lru_cache(maxsize=16)
+def _get_boundaries(elffile, base_addr=0):
+    # find min and max virtual addresses.
+    max_virtual_address = 0
+    min_virtual_address = 0xFFFFFFFFFFFFFFFF
+    min_raw_offset = 0xFFFFFFFFFFFFFFFF
+
+    # find begin of the first section/segment and end of the last section/segment.
+    if not has_bogus_sections(elffile, base_addr):
+        for section in _get_sorted_sections(elffile):
+            if not section.virtual_address:
+                continue
+            LOGGER.debug(f"ELF: section: 0x{section.virtual_address:x} 0x{section.size:x} 0x{section.file_offset:x}")
+            max_virtual_address = max(max_virtual_address, section.size + section.virtual_address)
+            min_virtual_address = min(min_virtual_address, section.virtual_address)
+            min_raw_offset = min(min_raw_offset, section.file_offset)
+    else:
+        LOGGER.warning("ELF: found possibly bogus section information, trying to parse segments.")
+    # parse segments regardless
+    for segment in elffile.segments:
+        if not segment.virtual_address:
+            continue
+        LOGGER.debug(
+            f"ELF: segment: 0x{segment.virtual_address:x} 0x{segment.virtual_size:x} 0x{segment.file_offset:x}"
+        )
+        max_virtual_address = max(max_virtual_address, segment.virtual_size + segment.virtual_address)
+        min_virtual_address = min(min_virtual_address, segment.virtual_address)
+        min_raw_offset = min(min_raw_offset, segment.file_offset)
+
+    return max_virtual_address, min_virtual_address, min_raw_offset
 
 
 class ElfFileLoader:
@@ -33,65 +154,21 @@ class ElfFileLoader:
         return data[:4] == b"\x7fELF"
 
     @staticmethod
-    def getBaseAddress(binary, elffile=None):
-        if elffile is None:
-            elffile = lief.parse(binary)
-        # Determine base address of binary
-        #
-        base_addr = 0
-        candidates = [0xFFFFFFFFFFFFFFFF]
+    def parseBinary(binary):
+        # Single lief.parse entry point so FileLoader can share one parse
+        # across all accessors instead of each accessor re-parsing.
+        return lief.parse(binary)
+
+    @staticmethod
+    def getBaseAddress(binary, parsed=_NOT_PROVIDED):
+        elffile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
         if not elffile:
-            return base_addr
-        if not has_bogus_sections(elffile):
-            for section in elffile.sections:
-                if section.virtual_address:
-                    addr = section.virtual_address - section.offset
-                    if addr >= 0:
-                        candidates.append(addr)
-        else:
-            # go for segments only instead
-            base_addr = 0
-            candidates = [0xFFFFFFFFFFFFFFFF]
-            for segment in elffile.segments:
-                if not segment.virtual_address:
-                    continue
-                candidates.append(segment.virtual_address)
-        if len(candidates) > 1:
-            base_addr = min(candidates)
-        return base_addr
+            return 0
+        return _calculate_base_address(elffile)
 
     @staticmethod
     def _calculate_boundaries(elffile, base_addr=0):
-        # find min and max virtual addresses.
-        max_virtual_address = 0
-        min_virtual_address = 0xFFFFFFFFFFFFFFFF
-        min_raw_offset = 0xFFFFFFFFFFFFFFFF
-
-        # find begin of the first section/segment and end of the last section/segment.
-        if not has_bogus_sections(elffile, base_addr):
-            for section in sorted(elffile.sections, key=lambda section: section.size, reverse=True):
-                if not section.virtual_address:
-                    continue
-                LOGGER.debug(
-                    f"ELF: section: 0x{section.virtual_address:x} 0x{section.size:x} 0x{section.file_offset:x}"
-                )
-                max_virtual_address = max(max_virtual_address, section.size + section.virtual_address)
-                min_virtual_address = min(min_virtual_address, section.virtual_address)
-                min_raw_offset = min(min_raw_offset, section.file_offset)
-        else:
-            LOGGER.warning("ELF: found possibly bogus section information, trying to parse segments.")
-        # parse segments regardless
-        for segment in elffile.segments:
-            if not segment.virtual_address:
-                continue
-            LOGGER.debug(
-                f"ELF: segment: 0x{segment.virtual_address:x} 0x{segment.virtual_size:x} 0x{segment.file_offset:x}"
-            )
-            max_virtual_address = max(max_virtual_address, segment.virtual_size + segment.virtual_address)
-            min_virtual_address = min(min_virtual_address, segment.virtual_address)
-            min_raw_offset = min(min_raw_offset, segment.file_offset)
-
-        return max_virtual_address, min_virtual_address, min_raw_offset
+        return _get_boundaries(elffile, base_addr)
 
     @staticmethod
     def _map_segments(elffile, mapped_binary, base_addr):
@@ -134,7 +211,7 @@ class ElfFileLoader:
         # map sections.
         # may overwrite some segment data, but we expect the content to be identical.
         if not has_bogus_sections(elffile, base_addr):
-            for section in sorted(elffile.sections, key=lambda section: section.size, reverse=True):
+            for section in _get_sorted_sections(elffile):
                 if not section.virtual_address:
                     continue
                 rva = section.virtual_address - base_addr
@@ -153,15 +230,15 @@ class ElfFileLoader:
                 mapped_binary[rva : rva + section.size] = content_to_be_mapped
 
     @staticmethod
-    def mapBinary(binary):
+    def mapBinary(binary, parsed=_NOT_PROVIDED):
         """
         map the ELF file sections and segments into a contiguous bytearray
         as if into virtual memory with the given base address.
         """
-        elffile = lief.parse(binary)
+        elffile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
         if not elffile:
             return b""
-        base_addr = ElfFileLoader.getBaseAddress(binary, elffile=elffile)
+        base_addr = ElfFileLoader.getBaseAddress(binary, parsed=elffile)
 
         LOGGER.debug("ELF: base address: 0x%x", base_addr)
 
@@ -209,10 +286,10 @@ class ElfFileLoader:
         return bytes(mapped_binary)
 
     @staticmethod
-    def getAbi(binary):
+    def getAbi(binary, parsed=_NOT_PROVIDED):
         abi = ""
         try:
-            elffile = lief.parse(binary)
+            elffile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
             if elffile:
                 abi = elffile.header.identity_os_abi.name
         except lief.bad_file as exc:
@@ -220,44 +297,24 @@ class ElfFileLoader:
         return abi
 
     @staticmethod
-    def getArchitecture(binary):
-        architecture = "intel"
-        return architecture
+    def getArchitecture(binary, parsed=_NOT_PROVIDED):
+        elffile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
+        return _resolve_elf_machine(elffile)[0]
 
     @staticmethod
-    def getBitness(binary):
-        # TODO add machine types whenever we add more architectures
-        elffile = lief.parse(binary)
-        if not elffile:
-            return 0
-        machine_type = elffile.header.machine_type
-        if machine_type == lief.ELF.ARCH.X86_64:
-            return 64
-        elif machine_type == lief.ELF.ARCH.I386:
-            return 32
-        return 0
+    def getBitness(binary, parsed=_NOT_PROVIDED):
+        elffile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
+        return _resolve_elf_machine(elffile)[1]
 
     @staticmethod
     def mergeCodeAreas(code_areas):
-        merged_code_areas = sorted(code_areas)
-        result = []
-        index = 0
-        while index < len(merged_code_areas) - 1:
-            this_area = merged_code_areas[index]
-            next_area = merged_code_areas[index + 1]
-            if this_area[1] != next_area[0]:
-                result.append(this_area)
-                index += 1
-            else:
-                merged_code_areas = (
-                    merged_code_areas[:index] + [[this_area[0], next_area[1]]] + merged_code_areas[index + 2 :]
-                )
-        return merged_code_areas
+        return mergeCodeAreas(code_areas)
 
     @staticmethod
-    def getCodeAreas(binary):
-        # TODO add machine types whenever we add more architectures
-        elffile = lief.parse(binary)
+    def getCodeAreas(binary, parsed=_NOT_PROVIDED):
+        elffile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
+        if elffile is None:
+            return []
         code_areas = []
         for section in elffile.sections:
             section_flags = 0

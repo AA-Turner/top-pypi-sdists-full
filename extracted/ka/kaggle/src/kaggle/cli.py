@@ -729,7 +729,9 @@ def parse_datasets(subparsers) -> None:
         parents=[shared_topics],
     )
     parser_datasets_topics_list_optional = parser_datasets_topics_list._action_groups.pop()
-    parser_datasets_topics_list_optional.add_argument("entity_ref", nargs="?", default=None, help=Help.param_dataset)
+    parser_datasets_topics_list_optional.add_argument(
+        "entity_ref", metavar="dataset", nargs="?", default=None, help=Help.param_dataset
+    )
     parser_datasets_topics_list_optional.add_argument(
         "--sort-by",
         dest="sort_by",
@@ -894,6 +896,12 @@ def parse_kernels(subparsers) -> None:
     parser_kernels_output_optional.add_argument(
         "--file-pattern", dest="file_pattern", required=False, help=Help.param_kernel_output_file_pattern
     )
+    parser_kernels_output_optional.add_argument(
+        "--page-size", dest="page_size", default=20, type=int, required=False, help=Help.param_page_size
+    )
+    parser_kernels_output_optional.add_argument(
+        "--page-token", dest="page_token", required=False, help=Help.param_page_token
+    )
     parser_kernels_output._action_groups.append(parser_kernels_output_optional)
     parser_kernels_output.set_defaults(func=api.kernels_output_cli)
 
@@ -938,6 +946,63 @@ def parse_kernels(subparsers) -> None:
     )
     parser_kernels_delete._action_groups.append(parser_kernels_delete_optional)
     parser_kernels_delete.set_defaults(func=api.kernels_delete_cli)
+
+    shared_topics = _get_shared_topics_parser()
+
+    # Kernels discussion topics
+    parser_kernels_topics = subparsers_kernels.add_parser(
+        "topics",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_kernels_topics,
+        parents=[shared_topics],
+    )
+    subparsers_kernels_topics = parser_kernels_topics.add_subparsers(title="commands", dest="command")
+    subparsers_kernels_topics.choices = Help.entity_topics_choices
+
+    # Default action: list topics (when no subcommand given)
+    parser_kernels_topics.set_defaults(func=api.kernel_list_topics_cli)
+
+    # Kernels topics list (explicit)
+    parser_kernels_topics_list = subparsers_kernels_topics.add_parser(
+        "list",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_kernels_topics,
+        parents=[shared_topics],
+    )
+    parser_kernels_topics_list_optional = parser_kernels_topics_list._action_groups.pop()
+    parser_kernels_topics_list_optional.add_argument(
+        "entity_ref", metavar="kernel", nargs="?", default=None, help=Help.param_kernel
+    )
+    parser_kernels_topics_list_optional.add_argument(
+        "--sort-by",
+        dest="sort_by",
+        required=False,
+        help="Sort order. One of: " + ", ".join(KaggleApi.valid_forum_topic_sort_by),
+    )
+    parser_kernels_topics_list_optional.add_argument(
+        "-s", "--search", dest="search", required=False, help=Help.param_search
+    )
+    parser_kernels_topics_list._action_groups.append(parser_kernels_topics_list_optional)
+    parser_kernels_topics_list.set_defaults(func=api.kernel_list_topics_cli)
+
+    # Kernels topics show
+    parser_kernels_topics_show = subparsers_kernels_topics.add_parser(
+        "show",
+        formatter_class=argparse.RawTextHelpFormatter,
+        help=Help.command_entity_topics_show,
+        parents=[shared_topics],
+    )
+    parser_kernels_topics_show_optional = parser_kernels_topics_show._action_groups.pop()
+    parser_kernels_topics_show_optional.add_argument("topic_ref", help=Help.param_topic_ref)
+    parser_kernels_topics_show_optional.add_argument(
+        "topic_id_arg",
+        nargs="?",
+        default=None,
+        type=int,
+        help="Topic ID (when using two-arg form: <kernel> <topic-id>)",
+    )
+    parser_kernels_topics_show._action_groups.append(parser_kernels_topics_show_optional)
+    parser_kernels_topics_show.set_defaults(func=api.forums_topic_show_cli)
 
 
 def parse_models(subparsers) -> None:
@@ -1046,7 +1111,9 @@ def parse_models(subparsers) -> None:
         parents=[shared_topics],
     )
     parser_models_topics_list_optional = parser_models_topics_list._action_groups.pop()
-    parser_models_topics_list_optional.add_argument("entity_ref", nargs="?", default=None, help=Help.param_model)
+    parser_models_topics_list_optional.add_argument(
+        "entity_ref", metavar="model", nargs="?", default=None, help=Help.param_model
+    )
     parser_models_topics_list_optional.add_argument(
         "--sort-by",
         dest="sort_by",
@@ -1381,7 +1448,7 @@ def parse_benchmarks(subparsers) -> None:
     )
     parser_benchmarks_topics_list_optional = parser_benchmarks_topics_list._action_groups.pop()
     parser_benchmarks_topics_list_optional.add_argument(
-        "entity_ref", nargs="?", default=None, help=Help.param_benchmarks_task
+        "entity_ref", metavar="benchmark", nargs="?", default=None, help=Help.param_benchmark
     )
     parser_benchmarks_topics_list_optional.add_argument(
         "--sort-by",
@@ -1882,7 +1949,20 @@ class Help(object):
         "delete",
         "topics",
     ]
-    kernels_choices = ["list", "files", "get", "init", "push", "pull", "output", "status", "logs", "update", "delete"]
+    kernels_choices = [
+        "list",
+        "files",
+        "get",
+        "init",
+        "push",
+        "pull",
+        "output",
+        "status",
+        "logs",
+        "update",
+        "delete",
+        "topics",
+    ]
     models_choices = [
         "instances",
         "i",
@@ -1931,6 +2011,8 @@ class Help(object):
         + "}"
         + "\nkernels {"
         + ", ".join(kernels_choices)
+        + "}\nkernels topics {"
+        + ", ".join(entity_topics_choices)
         + "}\nmodels {"
         + ", ".join(models_choices)
         + "}\nmodels topics {"
@@ -2015,6 +2097,7 @@ class Help(object):
     command_kernels_status = "Display the status of the latest kernel run"
     command_kernels_logs = "Print the execution logs from the latest kernel run"
     command_kernels_delete = "Delete a kernel"
+    command_kernels_topics = "List discussion topics for a kernel"
 
     # Models commands
     command_models_files = "List model files"
@@ -2276,6 +2359,7 @@ class Help(object):
     # Benchmarks params
     param_benchmarks_env_file = "File to write environment variables to (default: .env)"
     param_benchmarks_example_file = "File to write the example benchmark task to (default: example_task.py)"
+    param_benchmark = "Benchmark URL suffix in format <owner>/<benchmark-name>"
     param_benchmarks_task = "Task name (normalized to a URL-safe slug, e.g. 'my_task' or 'My Task' becomes 'my-task')."
     param_benchmarks_file = "Path to the source Python file defining the task"
     param_benchmarks_name_regex = "Filter task names by regular expression"

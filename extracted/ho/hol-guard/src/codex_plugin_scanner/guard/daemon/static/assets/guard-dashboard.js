@@ -12697,6 +12697,9 @@ function HiMiniXCircle(props) {
 function HiMiniWrenchScrewdriver(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M14.5 10a4.5 4.5 0 0 0 4.284-5.882c-.105-.324-.51-.391-.752-.15L15.34 6.66a.454.454 0 0 1-.493.11 3.01 3.01 0 0 1-1.618-1.616.455.455 0 0 1 .11-.494l2.694-2.692c.24-.241.174-.647-.15-.752a4.5 4.5 0 0 0-5.873 4.575c.055.873-.128 1.808-.8 2.368l-7.23 6.024a2.724 2.724 0 1 0 3.837 3.837l6.024-7.23c.56-.672 1.495-.855 2.368-.8.096.007.193.01.291.01ZM5 16a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z", "clipRule": "evenodd" }, "child": [] }, { "tag": "path", "attr": { "d": "M14.5 11.5c.173 0 .345-.007.514-.022l3.754 3.754a2.5 2.5 0 0 1-3.536 3.536l-4.41-4.41 2.172-2.607c.052-.063.147-.138.342-.196.202-.06.469-.087.777-.067.128.008.257.012.387.012ZM6 4.586l2.33 2.33a.452.452 0 0 1-.08.09L6.8 8.214 4.586 6H3.309a.5.5 0 0 1-.447-.276l-1.7-3.402a.5.5 0 0 1 .093-.577l.49-.49a.5.5 0 0 1 .577-.094l3.402 1.7A.5.5 0 0 1 6 3.31v1.277Z" }, "child": [] }] })(props);
 }
+function HiMiniUsers(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM14.5 9a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM1.615 16.428a1.224 1.224 0 0 1-.569-1.175 6.002 6.002 0 0 1 11.908 0c.058.467-.172.92-.57 1.174A9.953 9.953 0 0 1 7 18a9.953 9.953 0 0 1-5.385-1.572ZM14.5 16h-.106c.07-.297.088-.611.048-.933a7.47 7.47 0 0 0-1.588-3.755 4.502 4.502 0 0 1 5.874 2.636.818.818 0 0 1-.36.98A7.465 7.465 0 0 1 14.5 16Z" }, "child": [] }] })(props);
+}
 function HiMiniTrash(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
@@ -12724,8 +12727,17 @@ function HiMiniServerStack(props) {
 function HiMiniRocketLaunch(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M4.606 12.97a.75.75 0 0 1-.134 1.051 2.494 2.494 0 0 0-.93 2.437 2.494 2.494 0 0 0 2.437-.93.75.75 0 1 1 1.186.918 3.995 3.995 0 0 1-4.482 1.332.75.75 0 0 1-.461-.461 3.994 3.994 0 0 1 1.332-4.482.75.75 0 0 1 1.052.134Z", "clipRule": "evenodd" }, "child": [] }, { "tag": "path", "attr": { "fillRule": "evenodd", "d": "M5.752 12A13.07 13.07 0 0 0 8 14.248v4.002c0 .414.336.75.75.75a5 5 0 0 0 4.797-6.414 12.984 12.984 0 0 0 5.45-10.848.75.75 0 0 0-.735-.735 12.984 12.984 0 0 0-10.849 5.45A5 5 0 0 0 1 11.25c.001.414.337.75.751.75h4.002ZM13 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
+function HiMiniQueueList(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M2 4.5A2.5 2.5 0 0 1 4.5 2h11a2.5 2.5 0 0 1 0 5h-11A2.5 2.5 0 0 1 2 4.5ZM2.75 9.083a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5H2.75ZM2.75 12.663a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5H2.75ZM2.75 16.25a.75.75 0 0 0 0 1.5h14.5a.75.75 0 1 0 0-1.5H2.75Z" }, "child": [] }] })(props);
+}
 function HiMiniQuestionMarkCircle(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM8.94 6.94a.75.75 0 1 1-1.061-1.061 3 3 0 1 1 2.871 5.026v.345a.75.75 0 0 1-1.5 0v-.5c0-.72.57-1.172 1.081-1.287A1.5 1.5 0 1 0 8.94 6.94ZM10 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
+function HiMiniPuzzlePiece(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M12 4.467c0-.405.262-.75.559-1.027.276-.257.441-.584.441-.94 0-.828-.895-1.5-2-1.5s-2 .672-2 1.5c0 .362.171.694.456.953.29.265.544.6.544.994a.968.968 0 0 1-1.024.974 39.655 39.655 0 0 1-3.014-.306.75.75 0 0 0-.847.847c.14.993.242 1.999.306 3.014A.968.968 0 0 1 4.447 10c-.393 0-.729-.253-.994-.544C3.194 9.17 2.862 9 2.5 9 1.672 9 1 9.895 1 11s.672 2 1.5 2c.356 0 .683-.165.94-.441.276-.297.622-.559 1.027-.559a.997.997 0 0 1 1.004 1.03 39.747 39.747 0 0 1-.319 3.734.75.75 0 0 0 .64.842c1.05.146 2.111.252 3.184.318A.97.97 0 0 0 10 16.948c0-.394-.254-.73-.545-.995C9.171 15.693 9 15.362 9 15c0-.828.895-1.5 2-1.5s2 .672 2 1.5c0 .356-.165.683-.441.94-.297.276-.559.622-.559 1.027a.998.998 0 0 0 1.03 1.005c1.337-.05 2.659-.162 3.961-.337a.75.75 0 0 0 .644-.644c.175-1.302.288-2.624.337-3.961A.998.998 0 0 0 16.967 12c-.405 0-.75.262-1.027.559-.257.276-.584.441-.94.441-.828 0-1.5-.895-1.5-2s.672-2 1.5-2c.362 0 .694.17.953.455.265.291.601.545.995.545a.97.97 0 0 0 .976-1.024 41.159 41.159 0 0 0-.318-3.184.75.75 0 0 0-.842-.64c-1.228.164-2.473.271-3.734.319A.997.997 0 0 1 12 4.467Z" }, "child": [] }] })(props);
+}
+function HiMiniPlay(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" }, "child": [] }] })(props);
 }
 function HiMiniPencilSquare(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "m5.433 13.917 1.262-3.155A4 4 0 0 1 7.58 9.42l6.92-6.918a2.121 2.121 0 0 1 3 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 0 1-.65-.65Z" }, "child": [] }, { "tag": "path", "attr": { "d": "M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0 0 10 3H4.75A2.75 2.75 0 0 0 2 5.75v9.5A2.75 2.75 0 0 0 4.75 18h9.5A2.75 2.75 0 0 0 17 15.25V10a.75.75 0 0 0-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5Z" }, "child": [] }] })(props);
@@ -12759,6 +12771,9 @@ function HiMiniGlobeAlt(props) {
 }
 function HiMiniFunnel(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
+function HiMiniFolder(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M3.75 3A1.75 1.75 0 0 0 2 4.75v3.26a3.235 3.235 0 0 1 1.75-.51h12.5c.644 0 1.245.188 1.75.51V6.75A1.75 1.75 0 0 0 16.25 5h-4.836a.25.25 0 0 1-.177-.073L9.823 3.513A1.75 1.75 0 0 0 8.586 3H3.75ZM3.75 9A1.75 1.75 0 0 0 2 10.75v4.5c0 .966.784 1.75 1.75 1.75h12.5A1.75 1.75 0 0 0 18 15.25v-4.5A1.75 1.75 0 0 0 16.25 9H3.75Z" }, "child": [] }] })(props);
 }
 function HiMiniEye(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "d": "M10 12.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" }, "child": [] }, { "tag": "path", "attr": { "fillRule": "evenodd", "d": "M.664 10.59a1.651 1.651 0 0 1 0-1.186A10.004 10.004 0 0 1 10 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0 1 10 17c-4.257 0-7.893-2.66-9.336-6.41ZM14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z", "clipRule": "evenodd" }, "child": [] }] })(props);
@@ -13227,11 +13242,11 @@ function scopeLabel(scope, variant = "review") {
       case "workspace":
         return "This project";
       case "harness":
-        return "This app";
+        return "This harness";
       case "publisher":
-        return "This source";
+        return "This cwd";
       case "global":
-        return "Every project";
+        return "Team policy";
       default:
         return scope;
     }
@@ -13614,6 +13629,25 @@ function resolveTerminalLabel(item) {
 }
 function isCodexHarness(harness) {
   return normalizeHarnessSlug(harness) === "codex";
+}
+function summarizeBulkApproveSelection(groups) {
+  return groups.map((group) => ({
+    requestId: group.primary.request_id,
+    title: resolveDecisionV2Title(group.primary) ?? displayArtifactName(group.primary),
+    path: resolveFileReadPath(group.primary),
+    harnessLabel: harnessDisplayName(group.primary.harness),
+    duplicateCount: group.duplicateCount,
+    summary: buildQueueSummary(group.primary)
+  }));
+}
+function buildBulkApproveConsequenceCopy(actionCount) {
+  if (actionCount <= 0) {
+    return "No read-only file reads are selected.";
+  }
+  if (actionCount === 1) {
+    return "Guard will allow one read-only file access and remember this retry only.";
+  }
+  return `Guard will allow ${actionCount} read-only file accesses. Each decision applies to this retry only, not future edits, writes, or different paths.`;
 }
 function buildCodexResumeUx(resume) {
   if (resume.status === "pending" || resume.status === "in_progress") {
@@ -15554,6 +15588,8 @@ function normalizeGuardUpdateStatus(raw) {
     auto_updatable: booleanValue(value.auto_updatable),
     update_available: booleanValue(value.update_available),
     blocked_reason: stringValue(value.blocked_reason),
+    recovery_reinstall_available: value.recovery_reinstall_available === true ? true : void 0,
+    recovery_reinstall_command: typeof value.recovery_reinstall_command === "string" ? value.recovery_reinstall_command : void 0,
     update_in_progress: typeof value.update_in_progress === "boolean" ? value.update_in_progress : void 0
   };
 }
@@ -15578,14 +15614,18 @@ async function fetchGuardUpdateStatus() {
   const payload = await readJson("/v1/update/status");
   return normalizeGuardUpdateStatus(payload);
 }
-async function scheduleGuardUpdate() {
+async function scheduleGuardUpdate(options) {
   if (isGuardDemoMode()) {
     return {
       scheduled: true,
       message: "Demo mode cannot update Guard."
     };
   }
-  const response = await fetchWithGuardAuth("/v1/update", { method: "POST" });
+  const body = options?.forcePypiReinstall === true ? JSON.stringify({ force_pypi_reinstall: true }) : void 0;
+  const response = await fetchWithGuardAuth("/v1/update", {
+    method: "POST",
+    ...body ? { headers: { "Content-Type": "application/json" }, body } : {}
+  });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = stringValue(payload.message) ?? stringValue(payload.error) ?? `Guard update failed with ${response.status}`;
@@ -15937,13 +15977,8 @@ async function fetchPackageFirewallStatus() {
   return normalizePackageFirewallStatus(await readJson("/v1/supply-chain/package-shims"));
 }
 async function startPackageFirewallConnect() {
-  return normalizePackageFirewallConnectFlow(
-    await readJson("/v1/supply-chain/package-shims/connect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({})
-    })
-  );
+  const status = await startGuardCloudConnect();
+  return status.connect_flow;
 }
 async function fetchSupplyChainBundle() {
   const wrapper = await readJson("/v1/supply-chain/bundle");
@@ -16079,6 +16114,75 @@ async function runPackageSync(credentials) {
   }
   return normalizePackageFirewallAction(payloadBody);
 }
+const GITHUB_ISSUE_BASE_URL = "https://github.com/hashgraph-online/hol-guard/issues/new";
+const DEFAULT_ISSUE_BODY = [
+  "## What happened?",
+  "",
+  "",
+  "## Expected behavior",
+  "",
+  "",
+  "## Steps to reproduce",
+  "1.",
+  "2.",
+  "3.",
+  "",
+  "## Environment",
+  "- HOL Guard version:",
+  "- OS:",
+  "- AI app or harness:",
+  "",
+  "## Anything else?",
+  ""
+].join("\n");
+const GITHUB_ISSUE_BUTTON_LABEL = "Report a bug";
+function buildGitHubIssueUrl(options) {
+  const url = new URL(GITHUB_ISSUE_BASE_URL);
+  url.searchParams.set("title", "[Bug]: ");
+  url.searchParams.set("body", DEFAULT_ISSUE_BODY);
+  url.searchParams.set("labels", ["bug", "needs-triage"].join(","));
+  return url.toString();
+}
+const GITHUB_ISSUE_LINK = buildGitHubIssueUrl();
+const SHELL_FOOTER_LICENSE_HREF = "https://github.com/hashgraph-online/hol-guard/blob/main/LICENSE";
+const SHELL_FOOTER_RESOURCE_LINKS = [
+  { href: "https://hol.org/guard/docs", label: "Docs" },
+  { href: "https://hol.org/guard", label: "Guard Cloud" },
+  { href: "https://github.com/hashgraph-online/hol-guard", label: "GitHub" },
+  { href: GITHUB_ISSUE_LINK, label: GITHUB_ISSUE_BUTTON_LABEL },
+  { href: "https://hol.org/points/legal/privacy", label: "Privacy" },
+  { href: "https://hol.org/points/legal/terms", label: "Terms" }
+];
+function ShellFooter() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("footer", { className: "mt-auto border-t border-slate-200 bg-[#f8fafc]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-[11px] font-medium text-slate-400", children: [
+      "HOL Guard is open source under",
+      " ",
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "a",
+        {
+          href: SHELL_FOOTER_LICENSE_HREF,
+          target: "_blank",
+          rel: "noreferrer",
+          className: "rounded-sm text-slate-500 no-underline transition-colors hover:text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/30",
+          children: "Apache-2.0"
+        }
+      ),
+      ". Built by Hashgraph Online."
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("nav", { "aria-label": "Guard resources", className: "flex flex-wrap gap-x-4 gap-y-1", children: SHELL_FOOTER_RESOURCE_LINKS.map((link) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "a",
+      {
+        href: link.href,
+        target: "_blank",
+        rel: "noreferrer",
+        className: "rounded-sm text-[11px] font-medium text-slate-500 no-underline transition-colors hover:text-brand-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/30",
+        children: link.label
+      },
+      link.href
+    )) })
+  ] }) });
+}
 const UPDATE_STATUS_POLL_MS = 6e4;
 const RECONNECT_POLL_MS = 1500;
 const RECONNECT_TIMEOUT_MS = 18e4;
@@ -16104,6 +16208,9 @@ function updateHelpCopy(status, phase) {
   if (status?.update_available) {
     return "This restarts Guard for a moment. Open approvals will stay saved.";
   }
+  if (status && !status.auto_updatable && status.recovery_reinstall_available) {
+    return "This install came from a local folder, so automatic updates are off. Reinstall from PyPI to switch it back to a normal package; Guard restarts briefly and saved approvals stay.";
+  }
   if (status && !status.auto_updatable && status.blocked_reason) {
     return status.blocked_reason;
   }
@@ -16114,6 +16221,8 @@ function GuardUpdatePanel(props) {
   const phase = props.updatePhase ?? "idle";
   const helpCopy = updateHelpCopy(props.updateStatus, phase);
   const showUpdateButton = props.updateStatus?.update_available === true && props.updateStatus.auto_updatable && phase !== "updating" && phase !== "reconnecting";
+  const showReinstallButton = props.updateStatus?.recovery_reinstall_available === true && props.updateStatus.auto_updatable !== true && phase !== "updating" && phase !== "reconnecting";
+  const busy = phase === "updating" || phase === "reconnecting";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: props.compact ? "space-y-1" : "space-y-2", children: [
     version ? /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "font-mono text-[10px] text-brand-dark/60", "aria-label": `Guard version ${version}`, children: [
       "v",
@@ -16133,7 +16242,19 @@ function GuardUpdatePanel(props) {
         ]
       }
     ) : null,
-    (phase === "updating" || phase === "reconnecting") && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "inline-flex min-h-11 items-center gap-2 text-[11px] font-medium text-brand-blue", role: "status", children: [
+    showReinstallButton && props.onReinstallGuard ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: props.onReinstallGuard,
+        className: "inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-brand-blue/30 bg-white px-3 py-2 text-sm font-semibold text-brand-blue transition-colors hover:bg-brand-blue/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue/40",
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniArrowPath, { className: "h-4 w-4 shrink-0", "aria-hidden": "true" }),
+          "Reinstall from PyPI"
+        ]
+      }
+    ) : null,
+    busy && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "inline-flex min-h-11 items-center gap-2 text-[11px] font-medium text-brand-blue", role: "status", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniArrowPath, { className: "h-4 w-4 animate-spin", "aria-hidden": "true" }),
       phase === "updating" ? "Updating Guard…" : "Reconnecting…"
     ] })
@@ -16213,40 +16334,66 @@ function useGuardUpdate(options) {
     },
     [options]
   );
+  const scheduleAndWait = reactExports.useCallback(
+    async (params) => {
+      setUpdatePhase("updating");
+      try {
+        const scheduleResult = await scheduleGuardUpdate(
+          params.forcePypiReinstall === true ? { forcePypiReinstall: true } : void 0
+        );
+        if (scheduleResult.scheduled === false && scheduleResult.error === "update_in_progress") {
+          setUpdatePhase("reconnecting");
+          const redirected2 = await waitForReconnect(
+            params.expectedPreviousVersion,
+            params.expectedLatestVersion
+          );
+          if (!redirected2) {
+            window.location.reload();
+          }
+          return;
+        }
+        if (scheduleResult.scheduled !== true) {
+          throw new Error(scheduleResult.message ?? scheduleResult.error ?? "Guard update was not scheduled.");
+        }
+        setUpdatePhase("reconnecting");
+        const redirected = await waitForReconnect(
+          params.expectedPreviousVersion,
+          params.expectedLatestVersion
+        );
+        if (!redirected) {
+          window.location.reload();
+        }
+      } catch {
+        setUpdatePhase("error");
+      }
+    },
+    [waitForReconnect]
+  );
   const onUpdateGuard = reactExports.useCallback(async () => {
     if (!updateStatus?.update_available || !updateStatus.auto_updatable) {
       return;
     }
-    const expectedPreviousVersion = updateStatus.current_version;
-    const expectedLatestVersion = updateStatus.latest_version;
-    setUpdatePhase("updating");
-    try {
-      const scheduleResult = await scheduleGuardUpdate();
-      if (scheduleResult.scheduled === false && scheduleResult.error === "update_in_progress") {
-        setUpdatePhase("reconnecting");
-        const redirected2 = await waitForReconnect(expectedPreviousVersion, expectedLatestVersion);
-        if (!redirected2) {
-          window.location.reload();
-        }
-        return;
-      }
-      if (scheduleResult.scheduled !== true) {
-        throw new Error(scheduleResult.message ?? scheduleResult.error ?? "Guard update was not scheduled.");
-      }
-      setUpdatePhase("reconnecting");
-      const redirected = await waitForReconnect(expectedPreviousVersion, expectedLatestVersion);
-      if (!redirected) {
-        window.location.reload();
-      }
-    } catch {
-      setUpdatePhase("error");
+    await scheduleAndWait({
+      expectedPreviousVersion: updateStatus.current_version,
+      expectedLatestVersion: updateStatus.latest_version
+    });
+  }, [scheduleAndWait, updateStatus]);
+  const onReinstallGuard = reactExports.useCallback(async () => {
+    if (!updateStatus?.recovery_reinstall_available) {
+      return;
     }
-  }, [updateStatus, waitForReconnect]);
+    await scheduleAndWait({
+      forcePypiReinstall: true,
+      expectedPreviousVersion: "",
+      expectedLatestVersion: null
+    });
+  }, [scheduleAndWait, updateStatus]);
   return {
     guardVersion: updateStatus?.current_version ?? null,
     updateStatus,
     updatePhase,
     onUpdateGuard,
+    onReinstallGuard,
     refreshUpdateStatus
   };
 }
@@ -16305,6 +16452,18 @@ function ShellHeader(props) {
             className: "inline-flex min-h-11 shrink-0 items-center rounded-full border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white no-underline transition-colors duration-150 hover:bg-white/15",
             "aria-label": `${props.queuedCount} Guard actions queued`,
             children: props.queuedCount > 99 ? "99+" : props.queuedCount
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "a",
+          {
+            href: GITHUB_ISSUE_LINK,
+            target: "_blank",
+            rel: "noopener noreferrer",
+            "aria-label": GITHUB_ISSUE_BUTTON_LABEL,
+            title: GITHUB_ISSUE_BUTTON_LABEL,
+            className: "inline-flex min-h-11 shrink-0 items-center rounded-full border border-white/25 bg-white/10 px-3 py-2 text-sm font-semibold text-white no-underline transition-colors duration-150 hover:bg-white/15",
+            children: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniBugAnt, { className: "h-4 w-4", "aria-hidden": "true" })
           }
         ),
         props.guardVersion ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
@@ -16394,9 +16553,10 @@ function ShellSidebar(props) {
       !collapsed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mt-6 space-y-2", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "px-3 font-mono text-[10px] font-semibold uppercase tracking-widest text-slate-400", children: "Quick Actions" }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(SidebarAction, { href: "/", icon: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniCommandLine, { className: "h-4 w-4", "aria-hidden": "true" }), children: "Local dashboard" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(SidebarAction, { href: "https://hol.org/guard", external: true, icon: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniCloud, { className: "h-4 w-4", "aria-hidden": "true" }), children: "Open Guard Cloud" })
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SidebarAction, { href: "https://hol.org/guard", external: true, icon: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniCloud, { className: "h-4 w-4", "aria-hidden": "true" }), children: "Open Guard Cloud" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(SidebarAction, { href: GITHUB_ISSUE_LINK, external: true, icon: /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniBugAnt, { className: "h-4 w-4", "aria-hidden": "true" }), children: GITHUB_ISSUE_BUTTON_LABEL })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-auto pt-6", children: !collapsed ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mx-2 overflow-hidden rounded-xl border border-brand-blue/25 bg-gradient-to-br from-brand-blue/[0.05] to-brand-dark/[0.03]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 px-3 pb-2.5 pt-3", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mt-auto border-t border-slate-200 pt-4", children: !collapsed ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mx-2 overflow-hidden rounded-xl border border-brand-blue/25 bg-gradient-to-br from-brand-blue/[0.05] to-brand-dark/[0.03]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 px-3 pb-2.5 pt-3", children: [
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center justify-between gap-2", children: [
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-center gap-1.5", children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniShieldCheck, { className: "h-3.5 w-3.5 text-brand-blue" }),
@@ -16411,7 +16571,8 @@ function ShellSidebar(props) {
             guardVersion: props.guardVersion,
             updateStatus: props.updateStatus,
             updatePhase: props.updatePhase,
-            onUpdateGuard: props.onUpdateGuard
+            onUpdateGuard: props.onUpdateGuard,
+            onReinstallGuard: props.onReinstallGuard
           }
         )
       ] }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-col items-center gap-2", children: [
@@ -16560,7 +16721,7 @@ function SidebarAction(props) {
     {
       href: props.external ? props.href : guardAwareHref(props.href),
       target: props.external ? "_blank" : void 0,
-      rel: props.external ? "noreferrer" : void 0,
+      rel: props.external ? "noopener noreferrer" : void 0,
       title: collapsed ? String(props.children) : void 0,
       className: `flex min-h-10 items-center rounded-lg border border-slate-200 bg-white no-underline transition-colors duration-150 hover:border-brand-blue/30 hover:text-brand-dark ${collapsed ? "justify-center px-2 py-2" : "gap-2.5 px-3 py-2 text-sm font-medium text-slate-700"}`,
       children: [
@@ -19667,6 +19828,18 @@ function ActionResultPanel({ completed, onDismiss }) {
     }
   );
 }
+const PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE = "Your browser blocked the Guard Cloud sign-in window. Use the manual sign-in link below.";
+function openPackageFirewallAuthorizeWindow(authorizeUrl) {
+  if (!authorizeUrl || typeof window === "undefined") {
+    return false;
+  }
+  const popup = window.open(authorizeUrl, "_blank");
+  if (popup) {
+    popup.opener = null;
+    return true;
+  }
+  return false;
+}
 function FiShare2(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "circle", "attr": { "cx": "18", "cy": "5", "r": "3" }, "child": [] }, { "tag": "circle", "attr": { "cx": "6", "cy": "12", "r": "3" }, "child": [] }, { "tag": "circle", "attr": { "cx": "18", "cy": "19", "r": "3" }, "child": [] }, { "tag": "line", "attr": { "x1": "8.59", "y1": "13.51", "x2": "15.42", "y2": "17.49" }, "child": [] }, { "tag": "line", "attr": { "x1": "15.41", "y1": "6.51", "x2": "8.59", "y2": "10.49" }, "child": [] }] })(props);
 }
@@ -19918,6 +20091,9 @@ function EvidenceInsightsShareModal({
     try {
       const status = await startGuardCloudConnect();
       setConnectFlow(status.connect_flow);
+      if (status.connect_flow?.authorize_url && !openPackageFirewallAuthorizeWindow(status.connect_flow.authorize_url)) {
+        setConnectError(PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE);
+      }
       if (!status.connect_required) {
         await refreshConnectState();
       }
@@ -21436,7 +21612,17 @@ function evidenceTitleForView(view) {
 }
 function EvidenceWorkbench({ receiptItems, runtime, onClearEvidence, onNavigate }) {
   const initial = reactExports.useMemo(() => readEvidenceUrlState(), []);
-  const [filters, setFilters] = reactExports.useState(initial);
+  const [filters, setFilters] = reactExports.useState(() => {
+    const linkedReceipt = initial.selectedId ? receiptItems.find((receipt) => receipt.receipt_id === initial.selectedId) : void 0;
+    if (!linkedReceipt) {
+      return initial;
+    }
+    return {
+      ...initial,
+      view: "actions",
+      harness: linkedReceipt.harness
+    };
+  });
   const [debouncedSearch, setDebouncedSearch] = reactExports.useState(initial.search);
   const [page, setPage] = reactExports.useState(0);
   const [exportOpen, setExportOpen] = reactExports.useState(false);
@@ -21494,9 +21680,8 @@ function EvidenceWorkbench({ receiptItems, runtime, onClearEvidence, onNavigate 
   );
   const selectedReceipt = reactExports.useMemo(() => {
     if (!filters.selectedId) return null;
-    const found = filtered.find((r) => r.receipt_id === filters.selectedId);
-    return found ?? null;
-  }, [filtered, filters.selectedId]);
+    return receiptItems.find((receipt) => receipt.receipt_id === filters.selectedId) ?? filtered.find((receipt) => receipt.receipt_id === filters.selectedId) ?? null;
+  }, [filtered, filters.selectedId, receiptItems]);
   const handleFilterChange = reactExports.useCallback((patch) => {
     setFilters((prev) => ({ ...prev, ...patch }));
   }, []);
@@ -24035,6 +24220,236 @@ function QueueChipFilter(props) {
     ))
   ] });
 }
+function QueueBulkApproveFlow(props) {
+  if (props.step === "completed") {
+    const approvedCount = props.completedActionCount ?? 0;
+    const approvedUnit = approvedCount === 1 ? "action was" : "actions were";
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-xl border border-brand-green/25 bg-brand-green-bg/30 px-4 py-3", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniCheckCircle, { className: "mt-0.5 h-4 w-4 shrink-0 text-brand-green", "aria-hidden": "true" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-sm font-medium text-brand-green-text", children: [
+        approvedCount,
+        " read-only ",
+        approvedUnit,
+        " approved. This bulk approval cannot be repeated."
+      ] })
+    ] }) });
+  }
+  if (props.eligibleGroups.length < 2) {
+    return null;
+  }
+  const selectedActionCount = bulkApproveActionCount(props.selectedGroups);
+  const riskLines = summarizeBulkApproveSelection(props.selectedGroups);
+  const showBulkGateFields = props.approvalGate?.enabled === true && props.approvalGate?.configured === true;
+  if (props.step === "collapsed") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 space-y-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: props.onStart,
+          className: "rounded-full border border-brand-blue/30 bg-white px-4 py-2 text-sm font-medium text-brand-blue shadow-sm transition-colors hover:bg-brand-blue/5",
+          children: "Approve multiple read-only reads"
+        }
+      ),
+      props.sensitiveFileReadCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-brand-attention", children: [
+        props.sensitiveFileReadCount,
+        " sensitive file",
+        " ",
+        props.sensitiveFileReadCount === 1 ? "read is" : "reads are",
+        " excluded from bulk approval. Review those individually."
+      ] })
+    ] });
+  }
+  const previewLines = riskLines.slice(0, 5);
+  const hiddenCount = Math.max(0, riskLines.length - previewLines.length);
+  const selectedCount = props.selectedGroups.length;
+  const selectedUnit = selectedActionCount === 1 ? "action" : "actions";
+  const stepHeading = props.step === "select" ? "Select read-only file reads" : `Review ${selectedActionCount} selected ${selectedUnit}`;
+  const confirmLabel = props.step === "submitting" ? "Approving..." : `Approve ${selectedActionCount} read-only ${selectedUnit}`;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap items-center justify-between gap-2", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-sm font-semibold text-brand-dark", children: stepHeading }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-muted-foreground", children: [
+        "Step ",
+        props.step === "select" ? "1" : "2",
+        " of 2"
+      ] })
+    ] }),
+    props.step === "select" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs leading-5 text-muted-foreground", children: "Choose the non-sensitive file reads you want to allow in one pass. Sensitive paths stay in the queue for individual review." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: props.onSelectAll,
+            className: "rounded-full border border-brand-blue/30 px-3 py-1.5 text-xs font-medium text-brand-blue transition-colors hover:bg-brand-blue/5",
+            children: [
+              "Select all eligible (",
+              props.eligibleGroups.length,
+              ")"
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: props.onClearSelection,
+            disabled: selectedCount === 0,
+            className: "rounded-full px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-brand-dark disabled:opacity-50",
+            children: "Clear selection"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: props.onContinueToReview,
+            disabled: selectedCount === 0,
+            className: "rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-50",
+            children: [
+              "Continue (",
+              selectedCount,
+              " selected)"
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: props.onCancel,
+            className: "rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-brand-dark",
+            children: "Cancel"
+          }
+        )
+      ] })
+    ] }),
+    (props.step === "review" || props.step === "submitting") && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs leading-5 text-muted-foreground", children: buildBulkApproveConsequenceCopy(selectedActionCount) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("ul", { className: "space-y-2 rounded-lg bg-slate-50 px-3 py-2", children: [
+        previewLines.map((line) => /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { className: "text-xs text-brand-dark", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "font-medium", children: line.harnessLabel }),
+          line.path !== null ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-0.5 block truncate font-mono text-[11px] text-brand-dark/70", children: line.path }) : /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-0.5 block text-brand-dark/70", children: line.title }),
+          line.duplicateCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "mt-0.5 block text-muted-foreground", children: [
+            "Includes ",
+            line.duplicateCount,
+            " duplicate ",
+            line.duplicateCount === 1 ? "retry" : "retries",
+            "."
+          ] })
+        ] }, line.requestId)),
+        hiddenCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("li", { className: "text-xs text-muted-foreground", children: [
+          "and ",
+          hiddenCount,
+          " more selected reads"
+        ] })
+      ] }),
+      props.sensitiveFileReadCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start gap-2 rounded-lg bg-brand-attention/[0.06] px-3 py-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(HiMiniExclamationTriangle, { className: "mt-0.5 h-4 w-4 shrink-0 text-brand-attention", "aria-hidden": "true" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-brand-attention", children: [
+          props.sensitiveFileReadCount,
+          " sensitive file",
+          " ",
+          props.sensitiveFileReadCount === 1 ? "read remains" : "reads remain",
+          " in the queue and will not be approved here."
+        ] })
+      ] }),
+      showBulkGateFields && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Approval password" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "password",
+              value: props.bulkApprovePassword,
+              onChange: props.onBulkApprovePasswordChange,
+              placeholder: "Approval password",
+              autoComplete: "current-password",
+              disabled: props.step === "submitting",
+              className: "w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-brand-dark placeholder:text-slate-400 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20 disabled:opacity-60"
+            }
+          )
+        ] }),
+        props.approvalGate?.totp_enabled === true && /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Authenticator code" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "text",
+              inputMode: "numeric",
+              pattern: "[0-9]*",
+              value: props.bulkApproveTotpCode,
+              onChange: props.onBulkApproveTotpCodeChange,
+              placeholder: "Authenticator code",
+              disabled: props.step === "submitting",
+              className: "w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-brand-dark placeholder:text-slate-400 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20 disabled:opacity-60"
+            }
+          )
+        ] }),
+        (props.approvalGate?.cooldown_seconds ?? 0) > 0 && props.approvalGate?.totp_enabled !== true && /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center gap-2 text-xs text-slate-600", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              type: "checkbox",
+              checked: props.bulkApproveUseCooldown,
+              onChange: props.onBulkApproveUseCooldownChange,
+              disabled: props.step === "submitting",
+              className: "rounded"
+            }
+          ),
+          "Skip password for next approvals (use cooldown)"
+        ] })
+      ] }),
+      props.errorMessage !== null && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "text-xs text-brand-purple", role: "alert", children: props.errorMessage }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex flex-wrap gap-2", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: props.onConfirmApprove,
+            disabled: props.step === "submitting",
+            className: "rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-blue/90 disabled:cursor-not-allowed disabled:opacity-60",
+            children: confirmLabel
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: props.onBackToSelect,
+            disabled: props.step === "submitting",
+            className: "rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-brand-dark transition-colors hover:bg-slate-50 disabled:opacity-50",
+            children: "Back"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: props.onCancel,
+            disabled: props.step === "submitting",
+            className: "rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-brand-dark disabled:opacity-50",
+            children: "Cancel"
+          }
+        )
+      ] })
+    ] })
+  ] });
+}
+function buildBulkGateCredentials(showGateFields, password, totpCode, useCooldown) {
+  if (!showGateFields) {
+    return void 0;
+  }
+  return {
+    approval_password: password,
+    approval_totp_code: totpCode,
+    approval_gate_use_cooldown: useCooldown
+  };
+}
 const scopeOptions = [
   {
     value: "artifact",
@@ -24140,7 +24555,8 @@ function ApprovalCenterLayout(props) {
     guardVersion,
     updateStatus,
     updatePhase,
-    onUpdateGuard
+    onUpdateGuard,
+    onReinstallGuard
   } = useGuardUpdate({ onReconnected: props.onGuardReconnected });
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "min-h-screen bg-white text-brand-dark", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -24153,7 +24569,8 @@ function ApprovalCenterLayout(props) {
         guardVersion,
         updateStatus,
         updatePhase,
-        onUpdateGuard
+        onUpdateGuard,
+        onReinstallGuard
       }
     ),
     /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -24166,7 +24583,8 @@ function ApprovalCenterLayout(props) {
         guardVersion,
         updateStatus,
         updatePhase,
-        onUpdateGuard
+        onUpdateGuard,
+        onReinstallGuard
       }
     ),
     mobileQueueOpen && props.view === "inbox" && props.requests.kind === "ready" && /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -24181,34 +24599,37 @@ function ApprovalCenterLayout(props) {
         onBulkBlock: props.onBulkBlock
       }
     ),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `flex flex-col transition-all duration-200 ${sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}`, children: /* @__PURE__ */ jsxRuntimeExports.jsx("main", { id: "main-content", className: "flex-1 p-4 sm:p-6 lg:p-8", tabIndex: -1, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: props.view === "inbox" ? "mx-auto max-w-none" : "mx-auto max-w-6xl", children: props.view === "home" ? props.homeContent : props.view === "evidence" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
-      ReceiptsWorkspace,
-      {
-        receipts: props.receipts,
-        runtime: props.runtime,
-        onClearEvidence: props.onClearEvidence,
-        onNavigate: props.onNavigate
-      }
-    ) : props.view === "fleet" ? props.fleetContent : props.view === "app-detail" ? props.appDetailContent : props.view === "settings" ? props.settingsContent : props.view === "about" ? props.aboutContent ?? null : props.view === "policy" ? props.policyContent ?? null : props.view === "supply-chain" || props.view === "audit" || props.view === "feed-health" ? props.supplyChainHubContent ?? null : props.view === "inbox" ? renderInboxContent(props) : /* @__PURE__ */ jsxRuntimeExports.jsx(
-      QueueWorkspace,
-      {
-        requests: props.requests,
-        detail: props.detail,
-        runtime: props.runtime,
-        activeRequestId: props.activeRequestId,
-        resolutionMessage: props.resolutionMessage,
-        codexResume: props.codexResume,
-        approvalGate: props.approvalGate ?? null,
-        onOpenRequest: props.onOpenRequest,
-        onGoHome: props.onGoHome,
-        onResolve: props.onResolve,
-        onBulkApprove: props.onBulkApprove,
-        onBulkBlock: props.onBulkBlock,
-        onRetry: props.onRetry,
-        onRepair: props.onRepair,
-        onRetryResume: props.onRetryResume
-      }
-    ) }) }) })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `flex flex-col transition-all duration-200 lg:min-h-screen ${sidebarCollapsed ? "lg:pl-20" : "lg:pl-64"}`, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("main", { id: "main-content", className: "flex-1 p-4 sm:p-6 lg:p-8", tabIndex: -1, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: props.view === "inbox" ? "mx-auto max-w-none" : "mx-auto max-w-6xl", children: props.view === "home" ? props.homeContent : props.view === "evidence" ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ReceiptsWorkspace,
+        {
+          receipts: props.receipts,
+          runtime: props.runtime,
+          onClearEvidence: props.onClearEvidence,
+          onNavigate: props.onNavigate
+        }
+      ) : props.view === "fleet" ? props.fleetContent : props.view === "app-detail" ? props.appDetailContent : props.view === "settings" ? props.settingsContent : props.view === "about" ? props.aboutContent ?? null : props.view === "policy" ? props.policyContent ?? null : props.view === "supply-chain" || props.view === "audit" || props.view === "feed-health" ? props.supplyChainHubContent ?? null : props.view === "inbox" ? renderInboxContent(props) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+        QueueWorkspace,
+        {
+          requests: props.requests,
+          detail: props.detail,
+          runtime: props.runtime,
+          activeRequestId: props.activeRequestId,
+          resolutionMessage: props.resolutionMessage,
+          codexResume: props.codexResume,
+          approvalGate: props.approvalGate ?? null,
+          onOpenRequest: props.onOpenRequest,
+          onGoHome: props.onGoHome,
+          onResolve: props.onResolve,
+          onBulkApprove: props.onBulkApprove,
+          onBulkBlock: props.onBulkBlock,
+          onRetry: props.onRetry,
+          onRepair: props.onRepair,
+          onRetryResume: props.onRetryResume
+        }
+      ) }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(ShellFooter, {})
+    ] })
   ] });
 }
 function MobileQueueDrawer(props) {
@@ -24398,9 +24819,13 @@ function QueueBrowser(props) {
   const [sortDirection, setSortDirection] = reactExports.useState("newest");
   const [page, setPage] = reactExports.useState(1);
   const [showFilters, setShowFilters] = reactExports.useState(false);
+  const [bulkFlowStep, setBulkFlowStep] = reactExports.useState("collapsed");
+  const [selectedBulkIds, setSelectedBulkIds] = reactExports.useState(() => /* @__PURE__ */ new Set());
   const [bulkApprovePassword, setBulkApprovePassword] = reactExports.useState("");
   const [bulkApproveTotpCode, setBulkApproveTotpCode] = reactExports.useState("");
   const [bulkApproveUseCooldown, setBulkApproveUseCooldown] = reactExports.useState(false);
+  const [bulkApproveError, setBulkApproveError] = reactExports.useState(null);
+  const [bulkCompletedActionCount, setBulkCompletedActionCount] = reactExports.useState(null);
   const harnesses = Array.from(new Set(props.items.map((item) => item.harness).filter(isDisplayableHarness))).sort();
   const filteredItems = reactExports.useMemo(() => {
     const byHarness = harnessFilter === "all" ? props.items : props.items.filter((item) => item.harness === harnessFilter);
@@ -24450,16 +24875,62 @@ function QueueBrowser(props) {
     () => groups.filter(isReadOnlyGroup),
     [groups, isReadOnlyGroup]
   );
-  const bulkEligibleActionCount = reactExports.useMemo(
-    () => bulkApproveActionCount(bulkEligibleGroups),
-    [bulkEligibleGroups]
-  );
   const sensitiveFileReadCount = reactExports.useMemo(
     () => countSensitiveFileReadGroups(groups),
     [groups]
   );
-  const showBulkApprove = props.onBulkApprove !== void 0 && bulkEligibleGroups.length > 0;
+  const showBulkApprove = props.onBulkApprove !== void 0 && (bulkEligibleGroups.length >= 2 || bulkFlowStep === "completed");
   const showBulkGateFields = showBulkApprove && props.approvalGate?.enabled === true && props.approvalGate.configured === true;
+  const selectedBulkGroups = reactExports.useMemo(
+    () => bulkEligibleGroups.filter((group) => selectedBulkIds.has(group.primary.request_id)),
+    [bulkEligibleGroups, selectedBulkIds]
+  );
+  const resetBulkFlow = reactExports.useCallback(() => {
+    setBulkFlowStep("collapsed");
+    setSelectedBulkIds(/* @__PURE__ */ new Set());
+    setBulkApprovePassword("");
+    setBulkApproveTotpCode("");
+    setBulkApproveUseCooldown(false);
+    setBulkApproveError(null);
+    setBulkCompletedActionCount(null);
+  }, []);
+  const handleBulkFlowStart = reactExports.useCallback(() => {
+    setBulkFlowStep("select");
+    setSelectedBulkIds(/* @__PURE__ */ new Set());
+    setBulkApproveError(null);
+    setBulkCompletedActionCount(null);
+  }, []);
+  const handleBulkSelectAll = reactExports.useCallback(() => {
+    setSelectedBulkIds(new Set(bulkApprovePrimaryIds(bulkEligibleGroups)));
+  }, [bulkEligibleGroups]);
+  const handleBulkClearSelection = reactExports.useCallback(() => {
+    setSelectedBulkIds(/* @__PURE__ */ new Set());
+  }, []);
+  const handleBulkContinueToReview = reactExports.useCallback(() => {
+    if (selectedBulkIds.size === 0) {
+      return;
+    }
+    setBulkFlowStep("review");
+    setBulkApproveError(null);
+  }, [selectedBulkIds.size]);
+  const handleBulkBackToSelect = reactExports.useCallback(() => {
+    if (bulkFlowStep === "submitting" || bulkFlowStep === "completed") {
+      return;
+    }
+    setBulkFlowStep("select");
+    setBulkApproveError(null);
+  }, [bulkFlowStep]);
+  const handleBulkToggleSelect = reactExports.useCallback((requestId) => {
+    setSelectedBulkIds((current) => {
+      const next = new Set(current);
+      if (next.has(requestId)) {
+        next.delete(requestId);
+      } else {
+        next.add(requestId);
+      }
+      return next;
+    });
+  }, []);
   const handleBulkApprovePasswordChange = reactExports.useCallback((event) => {
     setBulkApprovePassword(event.target.value);
   }, []);
@@ -24469,15 +24940,40 @@ function QueueBrowser(props) {
   const handleBulkApproveUseCooldownChange = reactExports.useCallback((event) => {
     setBulkApproveUseCooldown(event.target.checked);
   }, []);
-  const handleBulkApprove = reactExports.useCallback(() => {
-    const ids = bulkApprovePrimaryIds(bulkEligibleGroups);
-    const gateCredentials = showBulkGateFields ? {
-      approval_password: bulkApprovePassword,
-      approval_totp_code: bulkApproveTotpCode,
-      approval_gate_use_cooldown: bulkApproveUseCooldown
-    } : void 0;
-    props.onBulkApprove?.(ids, gateCredentials);
-  }, [props.onBulkApprove, bulkEligibleGroups, showBulkGateFields, bulkApprovePassword, bulkApproveTotpCode, bulkApproveUseCooldown]);
+  const handleBulkConfirmApprove = reactExports.useCallback(async () => {
+    if (bulkFlowStep === "submitting" || bulkFlowStep === "completed" || selectedBulkGroups.length === 0) {
+      return;
+    }
+    const ids = bulkApprovePrimaryIds(selectedBulkGroups);
+    const approvedActionCount = bulkApproveActionCount(selectedBulkGroups);
+    const gateCredentials = buildBulkGateCredentials(
+      showBulkGateFields,
+      bulkApprovePassword,
+      bulkApproveTotpCode,
+      bulkApproveUseCooldown
+    );
+    setBulkFlowStep("submitting");
+    setBulkApproveError(null);
+    try {
+      setBulkCompletedActionCount(approvedActionCount);
+      await props.onBulkApprove?.(ids, gateCredentials);
+      setBulkFlowStep("completed");
+      setBulkApprovePassword("");
+      setBulkApproveTotpCode("");
+      setBulkApproveUseCooldown(false);
+    } catch (error) {
+      setBulkFlowStep("review");
+      setBulkApproveError(error instanceof Error ? error.message : "Bulk approval failed.");
+    }
+  }, [
+    bulkApprovePassword,
+    bulkApproveTotpCode,
+    bulkApproveUseCooldown,
+    bulkFlowStep,
+    props.onBulkApprove,
+    selectedBulkGroups,
+    showBulkGateFields
+  ]);
   const blockEligibleGroups = reactExports.useMemo(() => bulkBlockEligibleGroups(groups), [groups]);
   const blockEligibleActionCount = reactExports.useMemo(() => bulkApproveActionCount(blockEligibleGroups), [blockEligibleGroups]);
   const showBulkBlock = props.onBulkBlock !== void 0 && blockEligibleGroups.length > 0;
@@ -24487,70 +24983,31 @@ function QueueBrowser(props) {
     props.onBulkBlock?.(ids, reason, gateCredentials);
   }, [props.onBulkBlock, blockEligibleGroups]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("section", { children: [
-    showBulkApprove && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mb-4 space-y-2", children: [
-      showBulkGateFields && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "space-y-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2", children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Approval password" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "input",
-            {
-              type: "password",
-              value: bulkApprovePassword,
-              onChange: handleBulkApprovePasswordChange,
-              placeholder: "Approval password",
-              autoComplete: "current-password",
-              className: "w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-brand-dark placeholder:text-slate-400 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-            }
-          )
-        ] }),
-        props.approvalGate?.totp_enabled === true && /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "block", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Authenticator code" }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "input",
-            {
-              type: "text",
-              inputMode: "numeric",
-              pattern: "[0-9]*",
-              value: bulkApproveTotpCode,
-              onChange: handleBulkApproveTotpCodeChange,
-              placeholder: "Authenticator code",
-              className: "w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-brand-dark placeholder:text-slate-400 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/20"
-            }
-          )
-        ] }),
-        (props.approvalGate?.cooldown_seconds ?? 0) > 0 && props.approvalGate?.totp_enabled !== true && /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex items-center gap-2 text-xs text-slate-600", children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx(
-            "input",
-            {
-              type: "checkbox",
-              checked: bulkApproveUseCooldown,
-              onChange: handleBulkApproveUseCooldownChange,
-              className: "rounded"
-            }
-          ),
-          "Skip password for next approvals (use cooldown)"
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "button",
-        {
-          type: "button",
-          onClick: handleBulkApprove,
-          className: "rounded-full border border-brand-blue/30 bg-white px-4 py-2 text-sm font-medium text-brand-blue shadow-sm transition-colors hover:bg-brand-blue/5",
-          children: [
-            "Approve all read-only actions (",
-            bulkEligibleActionCount,
-            ")"
-          ]
-        }
-      ),
-      sensitiveFileReadCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-brand-attention", children: [
+    showBulkApprove && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      QueueBulkApproveFlow,
+      {
+        step: bulkFlowStep,
+        eligibleGroups: bulkEligibleGroups,
+        selectedGroups: selectedBulkGroups,
+        completedActionCount: bulkCompletedActionCount,
         sensitiveFileReadCount,
-        " sensitive file ",
-        sensitiveFileReadCount === 1 ? "read" : "reads",
-        " excluded — review individually for informed consent."
-      ] })
-    ] }),
+        approvalGate: props.approvalGate ?? null,
+        bulkApprovePassword,
+        bulkApproveTotpCode,
+        bulkApproveUseCooldown,
+        errorMessage: bulkApproveError,
+        onStart: handleBulkFlowStart,
+        onSelectAll: handleBulkSelectAll,
+        onClearSelection: handleBulkClearSelection,
+        onContinueToReview: handleBulkContinueToReview,
+        onBackToSelect: handleBulkBackToSelect,
+        onCancel: resetBulkFlow,
+        onConfirmApprove: handleBulkConfirmApprove,
+        onBulkApprovePasswordChange: handleBulkApprovePasswordChange,
+        onBulkApproveTotpCodeChange: handleBulkApproveTotpCodeChange,
+        onBulkApproveUseCooldownChange: handleBulkApproveUseCooldownChange
+      }
+    ),
     !showBulkApprove && sensitiveFileReadCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "mb-4 rounded-lg border border-brand-attention/20 bg-brand-attention/[0.04] px-3 py-2", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "text-xs text-brand-attention", children: [
       sensitiveFileReadCount,
       " sensitive file ",
@@ -24633,7 +25090,11 @@ function QueueBrowser(props) {
       {
         group,
         activeRequestId: props.activeRequestId,
-        onOpenRequest: props.onOpenRequest
+        onOpenRequest: props.onOpenRequest,
+        selectionMode: bulkFlowStep === "select",
+        selectable: isReadOnlyQueueGroup(group),
+        selected: selectedBulkIds.has(group.primary.request_id),
+        onToggleSelect: handleBulkToggleSelect
       },
       group.primary.request_id
     )) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "px-4 py-5", children: /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyState, { title: "No matches", body: "Try a different search or filter to find waiting actions." }) }) }),
@@ -24661,7 +25122,11 @@ function QueueCardRow(props) {
       item: props.group.primary,
       duplicateCount: props.group.duplicateCount,
       active: props.group.primary.request_id === props.activeRequestId,
-      onClick: handleClick
+      onClick: handleClick,
+      selectionMode: props.selectionMode === true,
+      selectable: props.selectable === true,
+      selected: props.selected === true,
+      onToggleSelect: props.onToggleSelect
     }
   );
 }
@@ -24729,11 +25194,38 @@ function QueueCard(props) {
     },
     [props.onClick]
   );
+  const handleCheckboxChange = reactExports.useCallback(
+    (event) => {
+      event.stopPropagation();
+      props.onToggleSelect?.(props.item.request_id);
+    },
+    [props.item.request_id, props.onToggleSelect]
+  );
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     "div",
     {
       className: `group/item w-full border-l-4 px-4 py-3.5 transition-all duration-150 hover:bg-brand-blue/[0.035] ${props.active ? "border-brand-blue bg-brand-blue/[0.06]" : "border-transparent bg-white/70"}`,
       children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "flex items-start justify-between gap-3", children: [
+        props.selectionMode && props.selectable && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "label",
+          {
+            className: "mt-1 shrink-0",
+            onClick: (event) => event.stopPropagation(),
+            onKeyDown: (event) => event.stopPropagation(),
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: props.selected,
+                  onChange: handleCheckboxChange,
+                  className: "h-4 w-4 rounded border-slate-300 text-brand-blue focus:ring-brand-blue/30"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "sr-only", children: "Select for bulk approval" })
+            ]
+          }
+        ),
         /* @__PURE__ */ jsxRuntimeExports.jsxs(
           "div",
           {
@@ -25873,7 +26365,7 @@ const SettingsWorkspace = reactExports.lazy(() => __vitePreload(() => import("./
 const AppDetailWorkspace = reactExports.lazy(() => __vitePreload(() => import("./chunks/app-detail-workspace.js"), true ? [] : void 0).then((m) => ({ default: m.AppDetailWorkspace })));
 const HelpModal = reactExports.lazy(() => __vitePreload(() => import("./chunks/help-modal.js"), true ? [] : void 0).then((m) => ({ default: m.HelpModal })));
 const SupplyChainHubWorkspace = reactExports.lazy(
-  () => __vitePreload(() => import("./chunks/supply-chain-hub-workspace.js").then((n) => n.s), true ? [] : void 0).then((m) => ({ default: m.SupplyChainHubWorkspace }))
+  () => __vitePreload(() => import("./chunks/supply-chain-hub-workspace.js").then((n) => n.a), true ? [] : void 0).then((m) => ({ default: m.SupplyChainHubWorkspace }))
 );
 const PolicyWorkspacePage = reactExports.lazy(
   () => __vitePreload(() => import("./chunks/policy-workspace-page.js"), true ? [] : void 0).then((m) => ({ default: m.PolicyWorkspacePage }))
@@ -26007,6 +26499,7 @@ function App() {
   const [approvalGate, setApprovalGate] = reactExports.useState(null);
   const [guardVersion, setGuardVersion] = reactExports.useState(null);
   const resolutionInFlight = reactExports.useRef(false);
+  const bulkApproveInFlight = reactExports.useRef(false);
   reactExports.useEffect(() => {
     function handleKeyDown(event) {
       const target = event.target;
@@ -26331,17 +26824,29 @@ function App() {
     setCodexResume(updated);
   }, [resolvedRequestId]);
   const handleBulkApprove = reactExports.useCallback(async (ids, gateCredentials) => {
-    const results = await Promise.allSettled(
-      ids.map(
-        (id) => resolveRequestWithQueueResult({ requestId: id, action: "allow", scope: "artifact", reason: "", ...gateCredentials })
-      )
-    );
-    const succeeded = results.filter((r) => r.status === "fulfilled").length;
-    const failed = results.length - succeeded;
-    const label = failed === 0 ? `${succeeded} item${succeeded !== 1 ? "s" : ""} approved.` : `${succeeded} approved, ${failed} failed. Retry the failed items manually.`;
-    setResolutionMessage(label);
-    navigate("/inbox");
-    await refreshStateAfterAction();
+    if (bulkApproveInFlight.current) {
+      return;
+    }
+    bulkApproveInFlight.current = true;
+    try {
+      const results = await Promise.allSettled(
+        ids.map(
+          (id) => resolveRequestWithQueueResult({ requestId: id, action: "allow", scope: "artifact", reason: "", ...gateCredentials })
+        )
+      );
+      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const failed = results.length - succeeded;
+      await refreshStateAfterAction();
+      if (failed > 0) {
+        throw new Error(
+          failed === results.length ? "Bulk approval failed. Retry the selected items manually." : `${succeeded} approved, ${failed} failed. Retry the failed items manually.`
+        );
+      }
+      const label = `${succeeded} item${succeeded !== 1 ? "s" : ""} approved.`;
+      setResolutionMessage(label);
+    } finally {
+      bulkApproveInFlight.current = false;
+    }
   }, [refreshStateAfterAction, setResolutionMessage]);
   const handleBulkBlock = reactExports.useCallback(async (ids, reason, gateCredentials) => {
     const results = await Promise.allSettled(
@@ -26432,7 +26937,8 @@ function App() {
           onClearPolicy: handleClearPolicy,
           onOpenSettings: handleOpenSettings,
           onOpenInbox: handleOpenInbox,
-          onRefreshPolicies: handleRefreshPolicies
+          onRefreshPolicies: handleRefreshPolicies,
+          onNavigate: navigate
         }
       ) });
     }
@@ -26446,7 +26952,8 @@ function App() {
     handleClearPolicy,
     handleOpenSettings,
     handleOpenInbox,
-    handleRefreshPolicies
+    handleRefreshPolicies,
+    navigate
   ]);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(
@@ -26586,7 +27093,7 @@ export {
   fetchRuntimeSnapshot as Z,
   updateSettings as _,
   EvidenceActivityHeatmapMini as a,
-  HiMiniCloudArrowDown as a$,
+  __vitePreload as a$,
   clearReviewQueue as a0,
   revokeApprovalGateCooldown as a1,
   disableApprovalGateTotp as a2,
@@ -26598,32 +27105,32 @@ export {
   exportSettings as a8,
   importSettings as a9,
   HiMiniCommandLine as aA,
-  WorkspacePageHeader as aB,
-  __vitePreload as aC,
-  scopeLabel as aD,
-  HiMiniCloudArrowUp as aE,
-  createCloudExceptionRequest as aF,
-  policyActionLabel as aG,
-  fetchCloudExceptions as aH,
-  fetchCloudExceptionRequests as aI,
-  guardAwareHref as aJ,
-  HiMiniCube as aK,
-  HiMiniDocumentText as aL,
-  HiMiniGlobeAlt as aM,
-  Surface as aN,
-  HiMiniArrowTopRightOnSquare as aO,
-  HiMiniCheckBadge as aP,
-  isSupplyChainAuditIncomplete as aQ,
-  readString$1 as aR,
-  isRecord$2 as aS,
-  HiMiniClock as aT,
-  IconActionButton as aU,
-  HiMiniBeaker as aV,
-  ActivationSummary as aW,
-  ActionResultPanel as aX,
-  HiMiniBugAnt as aY,
-  GuardModalLayer as aZ,
-  ConnectFlowCard as a_,
+  isSupplyChainAuditIncomplete as aB,
+  readString$1 as aC,
+  isRecord$2 as aD,
+  HiMiniClock as aE,
+  IconActionButton as aF,
+  HiMiniBeaker as aG,
+  ActivationSummary as aH,
+  ActionResultPanel as aI,
+  HiMiniBugAnt as aJ,
+  GuardModalLayer as aK,
+  ConnectFlowCard as aL,
+  HiMiniArrowTopRightOnSquare as aM,
+  HiMiniCloudArrowDown as aN,
+  fetchPackageFirewallStatus as aO,
+  runPackageAudit as aP,
+  resolveSupplyChainAuditFailure as aQ,
+  runPackageSync as aR,
+  startPackageFirewallConnect as aS,
+  openPackageFirewallAuthorizeWindow as aT,
+  PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE as aU,
+  runPackageFirewallAction as aV,
+  parseInterceptProofSnapshot as aW,
+  openPackageFirewallShell as aX,
+  EntitlementNotice as aY,
+  fetchReceipts as aZ,
+  WorkspacePageHeader as a_,
   resetSettings as aa,
   setupDesktopNotifications as ab,
   Tag as ac,
@@ -26651,26 +27158,38 @@ export {
   clearLabelForScope as ay,
   formatHarnessCommand as az,
   EmptyState as b,
-  fetchPackageFirewallStatus as b0,
-  runPackageAudit as b1,
-  resolveSupplyChainAuditFailure as b2,
-  runPackageSync as b3,
-  startPackageFirewallConnect as b4,
-  runPackageFirewallAction as b5,
-  parseInterceptProofSnapshot as b6,
-  openPackageFirewallShell as b7,
-  EntitlementNotice as b8,
-  fetchSupplyChainBundle as b9,
-  HiMiniDocumentMagnifyingGlass as ba,
-  HiMiniShieldExclamation as bb,
-  HiMiniComputerDesktop as bc,
-  HiMiniArrowDown as bd,
-  HiMiniArrowUp as be,
-  HiMiniArrowRight as bf,
-  HiMiniInformationCircle as bg,
-  fetchReceipts as bh,
-  runAuditRemediation as bi,
-  HiMiniSignal as bj,
+  scopeLabel as b0,
+  guardAwareHref as b1,
+  HiMiniDocumentText as b2,
+  HiMiniCloudArrowUp as b3,
+  HiMiniCheck as b4,
+  HiMiniCodeBracket as b5,
+  HiMiniClipboardDocument as b6,
+  HiMiniUsers as b7,
+  HiMiniFolder as b8,
+  HiMiniInformationCircle as b9,
+  createCloudExceptionRequest as ba,
+  HiMiniPuzzlePiece as bb,
+  HiMiniGlobeAlt as bc,
+  policyActionLabel as bd,
+  fetchCloudExceptions as be,
+  fetchCloudExceptionRequests as bf,
+  HiMiniNoSymbol as bg,
+  HiMiniCube as bh,
+  HiMiniQueueList as bi,
+  HiMiniArrowRight as bj,
+  HiMiniPlay as bk,
+  Surface as bl,
+  HiMiniCheckBadge as bm,
+  fetchSupplyChainBundle as bn,
+  HiMiniDocumentMagnifyingGlass as bo,
+  HiMiniShieldExclamation as bp,
+  HiMiniComputerDesktop as bq,
+  HiMiniChevronLeft as br,
+  HiMiniArrowDown as bs,
+  HiMiniArrowUp as bt,
+  runAuditRemediation as bu,
+  HiMiniSignal as bv,
   EvidenceInsightsShareModal as c,
   HiMiniCheckCircle as d,
   GuardHero as e,

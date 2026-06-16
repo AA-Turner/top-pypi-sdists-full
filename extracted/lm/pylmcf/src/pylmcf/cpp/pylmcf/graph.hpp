@@ -24,9 +24,12 @@ inline lemon::StaticDigraph make_lemon_graph(LEMON_INDEX no_nodes, const std::sp
         throw std::invalid_argument("All edge arrays must be the same size");
     }
 
-    // Make sure all arcs are valid
+    // Make sure all arcs are valid. LEMON_INDEX is signed, so guard against
+    // negative indices explicitly — they would otherwise pass the upper-bound
+    // check and feed an invalid node id into lemon_graph.build() (UB).
     for (size_t ii = 0; ii < no_edges; ii++) {
-        if (edge_starts[ii] >= no_nodes || edge_ends[ii] >= no_nodes) {
+        if (edge_starts[ii] < 0 || edge_starts[ii] >= no_nodes ||
+            edge_ends[ii] < 0 || edge_ends[ii] >= no_nodes) {
             throw std::invalid_argument("Edge start or end index out of bounds: start=" + std::to_string(edge_starts[ii]) + ", end=" + std::to_string(edge_ends[ii]));
         }
     }
@@ -234,23 +237,23 @@ public:
     }
 
 #ifdef INCLUDE_NANOBIND_STUFF
-    Graph(LEMON_INDEX no_nodes, const nb::ndarray<LEMON_INDEX, nb::shape<-1>> &edge_starts,
-        const nb::ndarray<LEMON_INDEX, nb::shape<-1>> &edge_ends):
+    Graph(LEMON_INDEX no_nodes, const ndarray_1d<LEMON_INDEX> &edge_starts,
+        const ndarray_1d<LEMON_INDEX> &edge_ends):
         Graph(no_nodes, numpy_to_span(edge_starts), numpy_to_span<LEMON_INDEX>(edge_ends)) {};
 
-    void set_node_supply_py(const nb::ndarray<T, nb::shape<-1>> &node_supply) {
+    void set_node_supply_py(const ndarray_1d<T> &node_supply) {
         set_node_supply(numpy_to_span(node_supply));
     }
 
-    void set_edge_capacities_py(const nb::ndarray<T, nb::shape<-1>> &capacities) {
+    void set_edge_capacities_py(const ndarray_1d<T> &capacities) {
         set_edge_capacities(numpy_to_span(capacities));
     }
 
-    void set_edge_minimums_py(const nb::ndarray<T, nb::shape<-1>> &minimums) {
+    void set_edge_minimums_py(const ndarray_1d<T> &minimums) {
         set_edge_minimums(numpy_to_span(minimums));
     }
 
-    void set_edge_costs_py(const nb::ndarray<T, nb::shape<-1>> &costs) {
+    void set_edge_costs_py(const ndarray_1d<T> &costs) {
         set_edge_costs(numpy_to_span(costs));
     }
 

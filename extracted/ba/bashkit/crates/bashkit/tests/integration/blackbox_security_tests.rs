@@ -1375,6 +1375,138 @@ mod parser_edge_cases_passing {
             "Single-quoted heredoc expanded command substitution"
         );
     }
+
+    /// Any quoted byte in the delimiter disables heredoc body expansion.
+    #[tokio::test]
+    async fn heredoc_partially_quoted_delimiter_no_expansion() {
+        let mut bash = tight_bash();
+        let result = bash
+            .exec("cat <<\"EOF\"x\n$(echo INJECTED)\nEOFx\n")
+            .await
+            .unwrap();
+        assert_eq!(
+            result.stdout, "$(echo INJECTED)\n",
+            "partially quoted heredoc delimiter expanded command substitution"
+        );
+    }
+}
+
+mod finding_mixed_quoted_word_quote_metadata {
+    use super::*;
+
+    #[tokio::test]
+    async fn quoted_glob_metacharacter_with_unquoted_suffix_stays_literal() {
+        let mut bash = tight_bash();
+        // Create a file that *x would match if the quoted * were expanded.
+        bash.exec("touch ax").await.unwrap();
+        let result = bash.exec(r#"echo "*"x"#).await.unwrap();
+
+        assert_eq!(
+            result.stdout, "*x\n",
+            "glob metacharacter from quoted segment was expanded"
+        );
+    }
+
+    #[tokio::test]
+    async fn quoted_brace_expression_with_unquoted_suffix_stays_literal() {
+        let mut bash = tight_bash();
+        // Create a file that {1..3}x would match if brace expansion of the quoted
+        // segment fired; the literal pattern should be echoed instead.
+        bash.exec("touch 1x").await.unwrap();
+        let result = bash.exec(r#"echo "{1..3}"x"#).await.unwrap();
+
+        assert_eq!(
+            result.stdout, "{1..3}x\n",
+            "brace expression from quoted segment was expanded"
+        );
+    }
+
+    #[tokio::test]
+    async fn literal_brace_expression_in_quoted_glob_prefix_stays_literal() {
+        // "{a,b}"/*/ is a QuotedGlobWord (unquoted glob suffix `*/`).  The quoted
+        // segment `{a,b}` must NOT brace-expand: the pattern should match the literal
+        // directory name `{a,b}`, not `a` and `b`.
+        //
+        // We create:
+        //   /tmp/tqgb/{a,b}/child   (literal dir named {a,b})
+        //   /tmp/tqgb/a/            (would match if brace-expansion fired)
+        //   /tmp/tqgb/b/            (would match if brace-expansion fired)
+        //
+        // Correct result: only /tmp/tqgb/{a,b}/child found.
+        let mut bash = tight_bash();
+        bash.exec("mkdir -p '/tmp/tqgb/{a,b}/child' /tmp/tqgb/a /tmp/tqgb/b")
+            .await
+            .unwrap();
+        let result = bash
+            .exec(
+                r#"shopt -s nullglob; res=(); for d in "/tmp/tqgb/{a,b}"/*/; do res+=("${d%/}"); done; echo "${res[*]}""#,
+            )
+            .await
+            .unwrap();
+        let stdout = result.stdout.trim().to_string();
+        // If brace-expansion fired incorrectly: matches /tmp/tqgb/a and /tmp/tqgb/b
+        // (but those dirs are empty so nullglob drops them → empty output).
+        // Either way, the literal {a,b}/child should be found.
+        assert!(
+            stdout.contains("/tmp/tqgb/{a,b}/child"),
+            "literal {{a,b}} in quoted glob prefix should not brace-expand; got: {stdout}"
+        );
+    }
+
+    #[tokio::test]
+    async fn subscript_var_expansion_in_quoted_glob_prefix_not_corrupted() {
+        // Regression: escape_glob_metas_in_quoted_ranges was escaping [ ] inside
+        // ${arr[0]}, producing ${arr\[0\]} which is not a valid subscript at runtime.
+        let mut bash = tight_bash();
+        bash.exec("mkdir -p /tmp/tqg4/sub").await.unwrap();
+        let result = bash
+            .exec(r#"dirs=("/tmp/tqg4"); for d in "${dirs[0]}"/sub; do echo "$d"; done"#)
+            .await
+            .unwrap();
+        assert_eq!(
+            result.stdout.trim(),
+            "/tmp/tqg4/sub",
+            "${{dirs[0]}} subscript in quoted glob prefix was not expanded \
+             (brackets escaped by escape_glob_metas_in_quoted_ranges)"
+        );
+    }
+
+    #[tokio::test]
+    async fn var_expansion_in_quoted_glob_prefix_not_corrupted() {
+        // Regression: escape_glob_metas_in_quoted_ranges was escaping { and }
+        // inside ${ } variable references, producing $\{VAR\} which is not
+        // recognised as a variable reference at runtime.  Pattern:
+        //   "${VAR}"/suffix   — quoted prefix + unquoted suffix
+        let mut bash = tight_bash();
+        bash.exec("mkdir -p /tmp/tqg/sub").await.unwrap();
+        let result = bash
+            .exec(r#"MYDIR=/tmp/tqg; for d in "${MYDIR}"/sub; do echo "$d"; done"#)
+            .await
+            .unwrap();
+        assert_eq!(
+            result.stdout.trim(),
+            "/tmp/tqg/sub",
+            "${{MYDIR}} in quoted glob prefix was not expanded (braces escaped by escape_glob_metas_in_quoted_ranges)"
+        );
+    }
+
+    #[tokio::test]
+    async fn var_expansion_in_quoted_glob_prefix_with_star() {
+        // Same regression but with an actual glob in the unquoted suffix.
+        let mut bash = tight_bash();
+        bash.exec("mkdir -p /tmp/tqg2/a /tmp/tqg2/b").await.unwrap();
+        let result = bash
+            .exec(
+                r##"MYDIR=/tmp/tqg2; dirs=(); for d in "${MYDIR}"/*/; do dirs+=("${d%/}"); done; echo "${dirs[*]}""##,
+            )
+            .await
+            .unwrap();
+        let stdout = result.stdout.trim().to_string();
+        assert!(
+            stdout.contains("/tmp/tqg2/a") && stdout.contains("/tmp/tqg2/b"),
+            "glob \"${{MYDIR}}\"/*/  did not expand correctly, got: {stdout}"
+        );
+    }
 }
 
 mod state_isolation_passing {
@@ -1752,5 +1884,56 @@ mod creative_abuse_passing {
             .unwrap();
         assert!(result.stdout.contains("empty: 0"));
         assert!(result.stdout.contains("sparse: sparse"));
+    }
+
+    // --- Input redirect from missing file (#2050) ---
+
+    /// Missing input-redirect target fails the command (exit 1) but does not
+    /// abort the whole exec() call; the script continues.
+    #[tokio::test]
+    async fn input_redirect_missing_file_is_nonfatal() {
+        let mut bash = tight_bash();
+        let result = bash
+            .exec("cat < /no-such-file; echo after=$?")
+            .await
+            .unwrap(); // must NOT return Err
+        assert!(
+            !result.stderr.is_empty(),
+            "expected file-not-found message in stderr, got empty stderr"
+        );
+        assert!(
+            result.stdout.contains("after=1"),
+            "script must continue and report exit 1, got stdout: {:?}",
+            result.stdout
+        );
+        assert_eq!(
+            result.exit_code, 0,
+            "overall exit code must be 0 (from trailing echo), got {}",
+            result.exit_code
+        );
+    }
+
+    /// Compound command with missing input redirect is also non-fatal.
+    #[tokio::test]
+    async fn compound_input_redirect_missing_file_is_nonfatal() {
+        let mut bash = tight_bash();
+        let result = bash
+            .exec("{ cat; } < /no-such-file; echo after=$?")
+            .await
+            .unwrap();
+        assert!(
+            !result.stderr.is_empty(),
+            "expected file-not-found message in stderr, got empty stderr"
+        );
+        assert!(
+            result.stdout.contains("after=1"),
+            "script must continue and report exit 1, got stdout: {:?}",
+            result.stdout
+        );
+        assert_eq!(
+            result.exit_code, 0,
+            "overall exit code must be 0 (from trailing echo), got {}",
+            result.exit_code
+        );
     }
 }

@@ -336,6 +336,7 @@ class DockerEnvironment(MetaflowEnvironment):
             pypi_deco = next(
                 (d for d in step.decorators if isinstance(d, PyPIStepDecorator)), None
             )
+            index_strategy = None
             # if pypi decorator is set and user has specified a python version, we must create a new environment.
             # otherwise rely on the base environment
             if pypi_deco is not None:

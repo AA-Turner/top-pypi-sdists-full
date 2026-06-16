@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bashkit
-Version: 0.10.0
+Version: 0.11.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -27,6 +27,7 @@ Provides-Extra: langchain
 Provides-Extra: pydantic-ai
 Summary: A sandboxed bash interpreter for AI agents
 Keywords: bash,sandbox,ai,agent,shell,interpreter
+Author-email: Mykhailo Chalyi <mike@chaliy.name>
 License: MIT
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
@@ -47,7 +48,7 @@ Homepage: [bashkit.sh](https://bashkit.sh)
 
 - Sandboxed execution in-process, without containers or subprocess orchestration
 - Full bash syntax: variables, pipelines, redirects, loops, functions, and arrays
-- 164 built-in commands including `grep`, `sed`, `awk`, `jq`, `curl`, and `find`
+- 156 built-in commands including `grep`, `sed`, `awk`, `jq`, `curl`, and `find`
 - Persistent interpreter state across calls, including variables, cwd, and VFS contents
 - Direct virtual filesystem APIs, constructor mounts, and live host mounts
 - Snapshot and restore support on `Bash` and `BashTool`
@@ -111,6 +112,8 @@ from bashkit import Bash
 bash = Bash(
     username="agent",
     hostname="sandbox",
+    cwd="/home/agent",
+    env={"LANG": "en_US.UTF-8"},
     max_commands=1000,
     max_loop_iterations=10000,
     max_memory=10 * 1024 * 1024,

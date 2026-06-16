@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-socketio
-Version: 5.16.2
+Version: 5.16.3
 Summary: Socket.IO server and client for Python
 Author-email: Miguel Grinberg <miguel.grinberg@gmail.com>
 License: MIT

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.asset-awscli-v1
-Version: 2.2.283
+Version: 2.2.284
 Summary: A library that contains the AWS CLI for use in Lambda Layers
 Home-page: https://github.com/cdklabs/awscdk-asset-awscli#readme
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>
@@ -22,9 +22,8 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: jsii<2.0.0,>=1.133.0
+Requires-Dist: jsii<2.0.0,>=1.134.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard==2.13.3
 
 aws-cdk.asset-awscli-v1
 =======================

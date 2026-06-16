@@ -3,6 +3,81 @@ use super::family::*;
 use super::gradient_paths::*;
 use super::hessian_paths::*;
 use super::*;
+use crate::util::fnv::Fnv1a;
+use std::sync::{Mutex, OnceLock};
+
+// ── Same-β rigid third/fourth-tensor cache ───────────────────────────
+//
+// The rigid coord_corrections (IFT Hessian-drift) path builds a per-row
+// uncontracted third-derivative tensor over ALL n rows, and the outer-Hessian
+// path builds the per-row fourth tensor likewise. A FRESH `BernoulliRigidRowKernel`
+// (empty `RayonSafeOnce` slots) is constructed on every outer eval
+// (`exact_newton_joint_hessian_workspace*`), so at biobank scale (n≈3e5) the
+// closed-form per-row jet re-runs over every row each eval — the dominant REML
+// `coord_corrections` cost. The tensors are a pure function of the family/data
+// identity and the coefficient state (block β + η), exactly like the same-β
+// exact-cache (`SharedExactCacheStore`); mirror it with a module-level FIFO-2
+// store so the immediate Value→ValueAndGradient pair at one β̂, and any
+// line-search ρ that maps back to a seen β̂, reuse a single n-row build instead
+// of rebuilding. Reuse is gated on exact byte-equality of a content
+// fingerprint over the data-buffer Arc identities, the frailty/latent/deviation
+// discriminants, and every block's β + η, so a hit returns an `Arc` to a
+// bit-identical tensor (or misses).
+type RigidThirdFull = Vec<[[[f64; 2]; 2]; 2]>;
+type RigidFourthFull = Vec<[[[[f64; 2]; 2]; 2]; 2]>;
+
+struct SharedRigidTensorStore {
+    third: Vec<(u64, Arc<RigidThirdFull>)>,
+    fourth: Vec<(u64, Arc<RigidFourthFull>)>,
+}
+
+impl SharedRigidTensorStore {
+    const CAPACITY: usize = 2;
+
+    fn get_third(&self, fp: u64) -> Option<Arc<RigidThirdFull>> {
+        self.third
+            .iter()
+            .find(|(key, _)| *key == fp)
+            .map(|(_, v)| Arc::clone(v))
+    }
+
+    fn insert_third(&mut self, fp: u64, value: Arc<RigidThirdFull>) {
+        if self.third.iter().any(|(key, _)| *key == fp) {
+            return;
+        }
+        if self.third.len() >= Self::CAPACITY {
+            self.third.remove(0);
+        }
+        self.third.push((fp, value));
+    }
+
+    fn get_fourth(&self, fp: u64) -> Option<Arc<RigidFourthFull>> {
+        self.fourth
+            .iter()
+            .find(|(key, _)| *key == fp)
+            .map(|(_, v)| Arc::clone(v))
+    }
+
+    fn insert_fourth(&mut self, fp: u64, value: Arc<RigidFourthFull>) {
+        if self.fourth.iter().any(|(key, _)| *key == fp) {
+            return;
+        }
+        if self.fourth.len() >= Self::CAPACITY {
+            self.fourth.remove(0);
+        }
+        self.fourth.push((fp, value));
+    }
+}
+
+fn shared_rigid_tensor_store() -> &'static Mutex<SharedRigidTensorStore> {
+    static STORE: OnceLock<Mutex<SharedRigidTensorStore>> = OnceLock::new();
+    STORE.get_or_init(|| {
+        Mutex::new(SharedRigidTensorStore {
+            third: Vec::with_capacity(SharedRigidTensorStore::CAPACITY),
+            fourth: Vec::with_capacity(SharedRigidTensorStore::CAPACITY),
+        })
+    })
+}
 
 // ── RowKernel<2> implementation (rigid path only) ────────────────────
 
@@ -18,14 +93,17 @@ pub(super) struct BernoulliRigidRowKernel {
     /// across the full ext-dim sweep, instead of once per (row, ψ-axis) pair.
     /// Per-axis `row_third_contracted` becomes
     /// a 2×2 bilinear contraction against the cached tensor.
-    pub(super) third_full_cache: crate::resource::RayonSafeOnce<Vec<[[[f64; 2]; 2]; 2]>>,
+    /// Holds an `Arc` to the (possibly globally-shared, same-β) tensor so a
+    /// cross-eval hit in [`shared_rigid_tensor_store`] is stored here once and
+    /// then served `O(1)` to every ψ-axis operator that consults this kernel.
+    pub(super) third_full_cache: crate::resource::RayonSafeOnce<Arc<RigidThirdFull>>,
     /// Per-row uncontracted fourth-derivative tensor — the outer-Hessian
     /// analogue of `third_full_cache`. The second-directional-derivative
     /// operator's trace path touches every row × (u, v) pair; with this
     /// cache the heavy 8-direction empirical jet (or closed-form 5-component
     /// build) runs at most once per row, leaving each pair with a cheap
     /// [`contract_fourth_full`] bilinear.
-    pub(super) fourth_full_cache: crate::resource::RayonSafeOnce<Vec<[[[[f64; 2]; 2]; 2]; 2]>>,
+    pub(super) fourth_full_cache: crate::resource::RayonSafeOnce<Arc<RigidFourthFull>>,
 }
 
 impl BernoulliRigidRowKernel {
@@ -43,6 +121,67 @@ impl BernoulliRigidRowKernel {
         }
     }
 
+    /// Content fingerprint of every input the per-row rigid third/fourth jet
+    /// reads: the family/data identity (stable `Arc::as_ptr` of the immutable
+    /// `y`/`z`/`weights` buffers), the probit-frailty scale, the latent-measure
+    /// discriminant, the score-warp / link-deviation presence flags, and every
+    /// block's β + η. `rigid_row_third_full`/`rigid_row_fourth_full` are pure
+    /// functions of exactly these (the per-row build reads `block_states[*].eta`,
+    /// `self.z[row]`/`y[row]`/`weights[row]`, the frailty scale, and the latent
+    /// grid pinned by the data-buffer address), so equal fingerprints ⇒
+    /// bit-identical tensors. The `domain` byte separates the third- and
+    /// fourth-tensor key streams. Mirrors
+    /// `BernoulliMarginalSlopeFamily::shared_exact_cache_fingerprint`.
+    fn rigid_tensor_fingerprint(&self, domain: u8) -> u64 {
+        let mut hash = Fnv1a::new();
+        hash.mix_byte(domain);
+        for &ptr in &[
+            Arc::as_ptr(&self.family.y) as usize,
+            Arc::as_ptr(&self.family.z) as usize,
+            Arc::as_ptr(&self.family.weights) as usize,
+        ] {
+            for b in (ptr as u64).to_le_bytes() {
+                hash.mix_byte(b);
+            }
+        }
+        hash.mix_byte(0xf1);
+        match self.family.gaussian_frailty_sd {
+            Some(sd) => {
+                hash.mix_byte(0x01);
+                hash.mix_f64(sd);
+            }
+            None => hash.mix_byte(0x00),
+        }
+        let latent_byte: u8 = match self.family.latent_measure {
+            LatentMeasureKind::StandardNormal => 0x10,
+            LatentMeasureKind::GlobalEmpirical { .. } => 0x11,
+            LatentMeasureKind::LocalEmpirical { .. } => 0x12,
+        };
+        hash.mix_byte(latent_byte);
+        hash.mix_byte(0xf2);
+        hash.mix_byte(u8::from(self.family.score_warp.is_some()));
+        hash.mix_byte(u8::from(self.family.link_dev.is_some()));
+        hash.mix_byte(0xf3);
+        for b in (self.block_states.len() as u64).to_le_bytes() {
+            hash.mix_byte(b);
+        }
+        for state in &self.block_states {
+            for b in (state.beta.len() as u64).to_le_bytes() {
+                hash.mix_byte(b);
+            }
+            for &v in state.beta.iter() {
+                hash.mix_f64(v);
+            }
+            for b in (state.eta.len() as u64).to_le_bytes() {
+                hash.mix_byte(b);
+            }
+            for &v in state.eta.iter() {
+                hash.mix_f64(v);
+            }
+        }
+        hash.finish_nonzero()
+    }
+
     /// Lazy-build the per-row uncontracted third-derivative tensor cache. The
     /// first caller pays one parallel row pass that materialises the full
     /// `[[[f64; 2]; 2]; 2]` tensor for every observation; subsequent callers
@@ -54,7 +193,23 @@ impl BernoulliRigidRowKernel {
     pub(super) fn third_full_cache(&self) -> &[[[[f64; 2]; 2]; 2]] {
         self.third_full_cache
             .get_or_compute(|| {
-                (0..self.family.y.len())
+                let fp = self.rigid_tensor_fingerprint(0xa3);
+                if let Some(hit) = shared_rigid_tensor_store()
+                    .lock()
+                    .expect("BMS rigid tensor store mutex poisoned on third read")
+                    .get_third(fp)
+                {
+                    return hit;
+                }
+                let n = self.family.y.len();
+                // Named heartbeat scope: this per-row uncontracted third-tensor
+                // build is the rigid coord_corrections cost suspect (one n-row
+                // pass per distinct β̂; reused across the Value/Gradient pair and
+                // line-search re-probes via the same-β store).
+                let scope_guard = crate::process_monitor::track_scope(format!(
+                    "BMS rigid third_full_cache build n={n}"
+                ));
+                let built: RigidThirdFull = (0..n)
                     .into_par_iter()
                     .map(|row| {
                         let marginal_eta = self.block_states[0].eta[row];
@@ -66,7 +221,14 @@ impl BernoulliRigidRowKernel {
                     .expect(
                         "BernoulliRigidRowKernel third-full cache build failed; \
                          per-row jet should not error at the converged β snapshot",
-                    )
+                    );
+                let shared = Arc::new(built);
+                shared_rigid_tensor_store()
+                    .lock()
+                    .expect("BMS rigid tensor store mutex poisoned on third write")
+                    .insert_third(fp, Arc::clone(&shared));
+                drop(scope_guard);
+                shared
             })
             .as_slice()
     }
@@ -81,7 +243,19 @@ impl BernoulliRigidRowKernel {
     pub(super) fn fourth_full_cache(&self) -> &[[[[[f64; 2]; 2]; 2]; 2]] {
         self.fourth_full_cache
             .get_or_compute(|| {
-                (0..self.family.y.len())
+                let fp = self.rigid_tensor_fingerprint(0xa4);
+                if let Some(hit) = shared_rigid_tensor_store()
+                    .lock()
+                    .expect("BMS rigid tensor store mutex poisoned on fourth read")
+                    .get_fourth(fp)
+                {
+                    return hit;
+                }
+                let n = self.family.y.len();
+                let scope_guard = crate::process_monitor::track_scope(format!(
+                    "BMS rigid fourth_full_cache build n={n}"
+                ));
+                let built: RigidFourthFull = (0..n)
                     .into_par_iter()
                     .map(|row| {
                         let marginal_eta = self.block_states[0].eta[row];
@@ -93,7 +267,14 @@ impl BernoulliRigidRowKernel {
                     .expect(
                         "BernoulliRigidRowKernel fourth-full cache build failed; \
                          per-row jet should not error at the converged β snapshot",
-                    )
+                    );
+                let shared = Arc::new(built);
+                shared_rigid_tensor_store()
+                    .lock()
+                    .expect("BMS rigid tensor store mutex poisoned on fourth write")
+                    .insert_fourth(fp, Arc::clone(&shared));
+                drop(scope_guard);
+                shared
             })
             .as_slice()
     }
@@ -336,6 +517,701 @@ impl RowKernel<2> for BernoulliRigidRowKernel {
         jf.slice_mut(s![.., 0..rank]).assign(&jf_marg);
         jf.slice_mut(s![.., rank..2 * rank]).assign(&jf_logs);
         Some(jf)
+    }
+
+    /// BLAS-3 override of the first directional derivative of the dense joint
+    /// Hessian for the rigid marginal-slope kernel (see the trait default for
+    /// the cost argument). The rigid row pullback is a pure pair of design-row
+    /// Grams — `target += h[0][0]·xxᵀ + h[0][1]·(xgᵀ + gxᵀ) + h[1][1]·ggᵀ` —
+    /// with no h/w cross blocks, so `∂H/∂β[d_beta]` is exactly
+    ///
+    /// ```text
+    ///   H_drift = Σ_row Xᵣᵀ · contract_third_full(T³ᵣ, dq_r, dg_r) · Xᵣ,
+    ///   dq_r = marginal_design.row(r)·d_beta[marg],  dg_r = logslope.row(r)·d_beta[logs].
+    /// ```
+    ///
+    /// We accumulate the per-row `2×2` contraction weights `(w_mm, w_mg, w_gg)`
+    /// over a contiguous row chunk, project `(dq, dg)` for the whole chunk in
+    /// two GEMMs, and close each chunk with one pair of
+    /// `Xᵀ diag(w) X` / `Xᵀ diag(w) G` products
+    /// (`add_weighted_design_grams_from_chunks`). The per-row third tensor is
+    /// read from the shared `third_full_cache` (built once per workspace), so
+    /// the `k` Jeffreys columns pay the closed-form third build at most once
+    /// per row. Bit-for-bit the same entries the per-row `add_pullback_hessian`
+    /// scatter writes (`w_mm = t[0][0]`, `w_mg = t[0][1]`, `w_gg = t[1][1]`),
+    /// reduced in a different summation order.
+    ///
+    /// Claims only the full-data unit-weight `RowSet::All` case with dense
+    /// designs; otherwise returns `None` so the generic per-row Horvitz-Thompson
+    /// path runs.
+    fn directional_derivative_dense_override(
+        &self,
+        rows: &crate::families::row_kernel::RowSet,
+        d_beta: &[f64],
+    ) -> Option<Result<Array2<f64>, String>> {
+        if !matches!(rows, crate::families::row_kernel::RowSet::All) {
+            // Diagnostic fires once per process, not once per inner-Newton kernel
+            // call: this dispatch runs on every directional-derivative evaluation,
+            // so an unguarded line floods the biobank fit log with thousands of
+            // identical entries.
+            static DD_NOT_TAKEN_LOGGED: std::sync::Once = std::sync::Once::new();
+            DD_NOT_TAKEN_LOGGED.call_once(|| {
+                log::info!(
+                    "[STAGE] BMS rigid directional_derivative BLAS-3 path NOT taken: RowSet is a \
+                     subsample (generic per-row Horvitz-Thompson scatter)"
+                );
+            });
+            return None;
+        }
+        // The chunked `Xᵀ diag(w) X` Gram slices contiguous design rows via
+        // `try_row_chunk` inside `directional_derivative_dense_blas3` (which
+        // already handles operator-backed / residualised designs row-chunk by
+        // row-chunk), so the only structurally-inapplicable case is a sparse
+        // design block — gate on that, not on the presence of a pre-materialised
+        // `as_dense_ref`. Without this, a biobank rigid fit whose marginal /
+        // logslope design is operator-backed (residualised absorber, overlap-Z)
+        // fell through to the generic per-row third-tensor scatter — the ~8s
+        // per-cycle `gradient_reload` / Jeffreys-column floor.
+        let marginal_sparse = self.family.marginal_design.is_sparse();
+        let logslope_sparse = self.family.logslope_design.is_sparse();
+        if marginal_sparse || logslope_sparse {
+            return None;
+        }
+        Some(self.directional_derivative_dense_blas3(d_beta))
+    }
+
+    /// BLAS-3 override of the dense joint-Hessian assembly for the rigid
+    /// marginal-slope kernel (see the trait default for the cost argument).
+    /// The post-gradient-reload Jeffreys/Firth residual term first materializes
+    /// the observed joint Hessian via this path; the generic per-row
+    /// `add_pullback_hessian` scatter is `n·p²` BLAS-1. Identical pure
+    /// design-row Gram structure as the directional-derivative override and the
+    /// fused dense-H build: gather the per-row contraction weights
+    /// (`w_mm = h[0][0]`, `w_mg = h[0][1]`, `w_gg = h[1][1]`) from the cached
+    /// `K×K` row Hessians and close each chunk with `Xᵀ diag(w) X` /
+    /// `Xᵀ diag(w) G`. Bit-for-bit the same entries the scatter writes, reduced
+    /// in BLAS-3 in-row order. Claims only the full-data unit-weight
+    /// `RowSet::All` dense-design case; otherwise `None` → unchanged generic
+    /// per-row Horvitz-Thompson path.
+    fn hessian_dense_override(
+        &self,
+        rows: &crate::families::row_kernel::RowSet,
+        row_hessians: &[[[f64; 2]; 2]],
+    ) -> Option<Array2<f64>> {
+        // Only the full-data unit-weight measure is BLAS-3 accelerated; a
+        // Horvitz-Thompson subsample keeps the generic per-row HT path.
+        if !matches!(rows, crate::families::row_kernel::RowSet::All) {
+            return None;
+        }
+        if row_hessians.len() != self.family.y.len() {
+            return None;
+        }
+        // The chunked `Xᵀ diag(w) X` build slices contiguous design rows via
+        // `try_row_chunk`, which every dense-backed design (materialised OR
+        // operator-backed / residualised) supports — so the BLAS-3 path fires
+        // for the biobank rigid fit regardless of whether the marginal/logslope
+        // designs expose a pre-materialised `as_dense_ref`. Sparse designs are
+        // the only structurally-inapplicable case; route those to the generic
+        // per-row scatter so the design-row Gram never densifies a sparse block.
+        let marginal_sparse = self.family.marginal_design.is_sparse();
+        let logslope_sparse = self.family.logslope_design.is_sparse();
+        if marginal_sparse || logslope_sparse {
+            // Diagnostic fires once per process, not once per inner-Newton kernel
+            // call: `hessian_dense_override` runs on every joint-Hessian assembly,
+            // so an unguarded line floods the biobank fit log.
+            static H_NOT_TAKEN_LOGGED: std::sync::Once = std::sync::Once::new();
+            H_NOT_TAKEN_LOGGED.call_once(|| {
+                log::info!(
+                    "[STAGE] BMS rigid hessian_dense BLAS-3 path NOT taken: sparse design \
+                     (marginal_sparse={marginal_sparse} logslope_sparse={logslope_sparse}) \
+                     -> generic per-row scatter"
+                );
+            });
+            return None;
+        }
+        // When a CUDA device is present, route the WHOLE `Xᵀ diag(w) X` joint
+        // Hessian through one device dispatch (the embarrassingly-parallel
+        // whole-n GEMM the device wants) rather than per-chunk launches. The
+        // GPU-presence probe is checked first so CPU boxes never pay the three
+        // length-n contracted-weight allocations: `rigid_joint_hessian_on_gpu`
+        // would return `None` there anyway, so the build below is the CPU path.
+        if crate::gpu::runtime::GpuRuntime::global().is_some() {
+            let w_mm: Array1<f64> = row_hessians.iter().map(|h| h[0][0]).collect();
+            let w_mg: Array1<f64> = row_hessians.iter().map(|h| h[0][1]).collect();
+            let w_gg: Array1<f64> = row_hessians.iter().map(|h| h[1][1]).collect();
+            if let Some(joint) = rigid_joint_hessian_on_gpu(
+                &self.family.marginal_design,
+                &self.family.logslope_design,
+                &w_mm,
+                &w_mg,
+                &w_gg,
+            ) {
+                return Some(joint);
+            }
+        }
+        Some(self.hessian_dense_blas3(row_hessians))
+    }
+
+    /// BLAS-3 override of the BATCHED all-axes second directional derivative of
+    /// the dense joint Hessian for the rigid marginal-slope kernel (see the
+    /// trait default for the cost argument). This is the dominant cost of the
+    /// outer-REML Jeffreys `H_Φ` drift (`coord_corrections`): the generic
+    /// per-axis path runs `p` full-data sweeps each scattering the `2×2`
+    /// contracted fourth tensor through `add_pullback_hessian` — `O(p · n · p²)`
+    /// BLAS-1 scatter at biobank scale (`k≈8` drift columns × the inner sweep).
+    ///
+    /// The rigid row pullback is a pure pair of design-row Grams with no h/w
+    /// cross blocks, so for the fixed direction `u` with primary projections
+    /// `(uq_r, ug_r) = (X·u_marg, G·u_logs)` per row, the all-axes object is
+    ///
+    /// ```text
+    ///   H²dot[u, e_a] = Σ_r Xᵣᵀ · contract_fourth_full(T⁴ᵣ, uq_r, ug_r, vq_r, vg_r) · Xᵣ
+    /// ```
+    ///
+    /// where `(vq_r, vg_r) = Jᵣ·e_a` is the swept axis projection. The `2×2`
+    /// weight matrix is LINEAR in the axis projection, and the fourth tensor's
+    /// `u`-side partial contractions
+    ///
+    /// ```text
+    ///   A_r[a][b] = Σ_c T⁴ᵣ[a][b][c][0]·u[c]   (close the last index on the η-unit)
+    ///   B_r[a][b] = Σ_c T⁴ᵣ[a][b][c][1]·u[c]   (close the last index on the g-unit)
+    /// ```
+    ///
+    /// are INDEPENDENT of the swept axis. A marginal-block axis `j` has
+    /// `(vq_r, vg_r) = (X[r,j], 0)` so its row weight is `X[r,j]·A_r`; a
+    /// logslope-block axis `j` has `(0, G[r,j])` so its row weight is
+    /// `G[r,j]·B_r`. Thus we read the cached fourth tensor and build `A_r, B_r`
+    /// ONCE per row (hoisted out of the `p`-loop, the `~p×` reduction), then
+    /// close each axis with the same chunked `Xᵀ diag(w) X` / `Xᵀ diag(w) G`
+    /// BLAS-3 machinery the first-directional override uses
+    /// (`add_weighted_design_grams_from_chunks`). Bit-for-bit the same entries
+    /// the per-row `add_pullback_hessian` scatter writes, reduced in BLAS-3
+    /// in-row order.
+    ///
+    /// Claims only the full-data unit-weight `RowSet::All` dense-design case;
+    /// otherwise `None` → unchanged generic per-axis Horvitz-Thompson sweep.
+    fn second_directional_derivative_all_axes_dense_override(
+        &self,
+        rows: &crate::families::row_kernel::RowSet,
+        d_beta_u: &[f64],
+    ) -> Option<Result<Vec<Array2<f64>>, String>> {
+        if !matches!(rows, crate::families::row_kernel::RowSet::All) {
+            return None;
+        }
+        if d_beta_u.len() != self.slices.total {
+            return None;
+        }
+        // Same structural gate as the first-directional override: the chunked
+        // Gram machinery slices contiguous design rows via `try_row_chunk`,
+        // which every dense-backed design (materialised OR operator-backed)
+        // supports; only a sparse design block is structurally inapplicable.
+        let marginal_sparse = self.family.marginal_design.is_sparse();
+        let logslope_sparse = self.family.logslope_design.is_sparse();
+        if marginal_sparse || logslope_sparse {
+            return None;
+        }
+        Some(self.second_directional_derivative_all_axes_blas3(d_beta_u))
+    }
+}
+
+/// Row-block size for the parallel `Xᵀdiag(w)X` Gram reduction.
+///
+/// The Gram assembly fans contiguous row blocks across the Rayon pool and pins
+/// each block's faer GEMM to `Par::Seq` (see the `with_nested_parallel` guard in
+/// the chunk bodies). For that fan-out to fill the pool without leaving cores
+/// idle on the tail block, the chunk COUNT must comfortably exceed the worker
+/// count; for each chunk's GEMM to stay an efficient BLAS-3 tile (not setup-
+/// bound), the chunk must stay reasonably tall. We therefore target roughly
+/// `OVERSUBSCRIBE × workers` chunks and clamp the per-chunk row span to a band
+/// that keeps the `(rows × p)` weighted-design tile a healthy GEMM without
+/// blowing the `stream_weighted_crossprod_into` working set. At the biobank
+/// rigid scale (n ≈ 1.9e5, ~52 workers) this lands ~208 chunks of ~3.7k rows —
+/// full pool occupancy with load-balancing headroom — versus the prior fixed
+/// 8 192-row split that produced only ~24 chunks (under half a 52-core pool,
+/// with a lopsided tail).
+fn blas3_gram_chunk_rows(n: usize) -> usize {
+    const OVERSUBSCRIBE: usize = 4;
+    const MIN_CHUNK_ROWS: usize = 2_048;
+    const MAX_CHUNK_ROWS: usize = 16_384;
+    let workers = rayon::current_num_threads().max(1);
+    let target_chunks = (workers * OVERSUBSCRIBE).max(1);
+    let by_target = n.div_ceil(target_chunks);
+    by_target.clamp(MIN_CHUNK_ROWS, MAX_CHUNK_ROWS).max(1)
+}
+
+/// Whole-design GPU dispatch for the rigid `Xᵀ diag(w) X` joint Hessian.
+///
+/// The CPU chunked-BLAS3 path (`hessian_dense_blas3` / the directional and
+/// second-directional `_blas3` builders) hand-partitions the n rows into
+/// `blas3_gram_chunk_rows`-sized blocks and fans them across the Rayon pool with
+/// each chunk's faer GEMM pinned to `Par::Seq` — the right design when the Gram
+/// is CPU-bound. But that same fragmentation is actively hostile to the GPU: at
+/// biobank scale it would fire ~208 *independent* tiny `fast_xt_diag_*` calls
+/// concurrently from 208 Rayon workers, each its own host→device staging + cuBLAS
+/// launch + device→host copy, swamping the device with launch/transfer overhead
+/// and contending streams. The embarrassingly-parallel f64 GEMM the device wants
+/// is the WHOLE `Xᵀ diag(w) X` over all n rows as one dispatch.
+///
+/// This helper takes the full-n contracted per-row weights `(w_mm, w_mg, w_gg)`
+/// (the jet output the caller has already materialised) and the two dense design
+/// views and routes the complete joint `(p_m+p_g)²` Hessian through
+/// [`crate::gpu::linalg::try_fast_joint_hessian_2x2`] — the same auto-dispatch
+/// entry the manifold / Arrow-Schur paths use. That entry:
+///   * gates on `GpuRuntime::global()` (a CUDA device was probed at startup — the
+///     runtime auto-detection, NO flag / NO env var) AND the whole-n workload
+///     clearing the dense-reduction flop floor, returning `None` otherwise;
+///   * tiles the row dimension across EVERY usable device via
+///     `pool::scatter_batched` when the pool has >1 GPU;
+///   * assembles the marginal block (`Xᵀ diag(w_mm) X`), the logslope block
+///     (`Gᵀ diag(w_gg) G`) and the cross block (`Xᵀ diag(w_mg) G`) into the full
+///     symmetric Hessian on-device, exactly the three blocks `to_dense` lays out;
+///   * returns `None` on any backend failure (OOM, launch error, below-gate
+///     shape) so the caller runs the deterministic CPU chunked-BLAS3 fallback.
+///
+/// f64 throughout: identical arithmetic to the CPU faer Grams modulo IEEE-754
+/// reduction order — the same GPU/CPU parity the codebase already accepts for the
+/// manifold dense reductions (a tile-order reassociation, never a precision
+/// downgrade). The fused entry mirrors the upper triangle into the lower, so the
+/// returned matrix is the full symmetric joint Hessian ready to return directly.
+///
+/// Returns `None` (CPU fallback) whenever either design is operator-backed /
+/// residualised (no `as_dense_ref`): the device path needs a contiguous host
+/// matrix to stage, and densifying an operator design here would defeat the
+/// memory contract the chunked `try_row_chunk` path exists to honour.
+#[inline]
+fn rigid_joint_hessian_on_gpu(
+    marginal_design: &crate::linalg::matrix::DesignMatrix,
+    logslope_design: &crate::linalg::matrix::DesignMatrix,
+    w_mm: &Array1<f64>,
+    w_mg: &Array1<f64>,
+    w_gg: &Array1<f64>,
+) -> Option<Array2<f64>> {
+    let x_full = marginal_design.as_dense_ref()?;
+    let g_full = logslope_design.as_dense_ref()?;
+    crate::gpu::linalg::try_fast_joint_hessian_2x2(
+        x_full.view(),
+        g_full.view(),
+        w_mm.view(),
+        w_mg.view(),
+        w_gg.view(),
+    )
+}
+
+impl BernoulliRigidRowKernel {
+    /// Chunked BLAS-3 implementation backing
+    /// [`RowKernel::hessian_dense_override`]. `row_hessians[row]` is the cached
+    /// primary `2×2` row Hessian; `RowSet::All` (unit weights) is guaranteed by
+    /// the caller, and the caller resolved both designs to dense contiguous
+    /// views, so the build is infallible.
+    fn hessian_dense_blas3(&self, row_hessians: &[[[f64; 2]; 2]]) -> Array2<f64> {
+        let slices = &self.slices;
+        let n = self.family.y.len();
+
+        let chunk_rows = blas3_gram_chunk_rows(n);
+        let chunks = (0..n)
+            .step_by(chunk_rows)
+            .map(|start| (start, (start + chunk_rows).min(n)))
+            .collect::<Vec<_>>();
+        // Each chunk slices a contiguous block of design rows. For a
+        // materialised-dense design that is a zero-copy `ArrayView2`; for an
+        // operator-backed / residualised design it is one `try_row_chunk`
+        // materialisation of just `CHUNK_ROWS` rows — the same mechanism the
+        // directional-derivative BLAS-3 override and `add_weighted_hw_cross_terms`
+        // already use, so the gate fires for the biobank rigid fit regardless of
+        // whether the designs expose a pre-materialised `as_dense_ref`. The gate
+        // in `hessian_dense_override` excludes sparse designs, so `try_row_chunk`
+        // here never densifies a sparse block. A failed chunk materialisation at
+        // the converged β snapshot is a hard numerical-contract violation — the
+        // design row buffer is fixed and finite for the whole fit — so it
+        // surfaces by panic, mirroring every other kernel-level contract here.
+        let chunk_body = |(start, end): (usize, usize)| -> BernoulliBlockHessianAccumulator {
+            // Pin the per-chunk faer Gram GEMMs to `Par::Seq` for the duration of
+            // this chunk body. The outer `chunks.into_par_iter()` already fans the
+            // row-blocks (sized by `blas3_gram_chunk_rows` to fill the pool)
+            // across the full Rayon pool, so each chunk runs on its own worker;
+            // without the nested-parallel marker the `Xᵀdiag(w)X` GEMM
+            // inside `add_weighted_design_grams_from_chunks` re-consults
+            // `effective_global_parallelism()` with no marker active and gets
+            // `Par::rayon(0)` = "fan across every worker" — multiplying the live
+            // thread count (chunks × pool) into the documented
+            // Rayon-pool × faer-pool oversubscription (304 threads on a 52-core
+            // box) that stalls this otherwise BLAS-3-bound cycle-0 assembly.
+            // Exactness-preserving: faer partitions the GEMM *output*, never the
+            // contracted row axis, so `Par::Seq` and `Par::rayon` produce
+            // bit-identical Grams.
+            crate::faer_ndarray::with_nested_parallel(|| {
+                let len = end - start;
+                let mut acc = BernoulliBlockHessianAccumulator::new(slices);
+                let mut w_mm = Array1::<f64>::zeros(len);
+                let mut w_mg = Array1::<f64>::zeros(len);
+                let mut w_gg = Array1::<f64>::zeros(len);
+                let x_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                    match self.family.marginal_design.as_dense_ref() {
+                        Some(x_full) => x_full.slice(s![start..end, ..]).into(),
+                        None => self
+                            .family
+                            .marginal_design
+                            .try_row_chunk(start..end)
+                            .map(Into::into)
+                            .unwrap_or_else(|e| {
+                                std::panic::panic_any(format!(
+                                    "bernoulli rigid hessian_dense_blas3 marginal_design \
+                                     try_row_chunk({start}..{end}): {e}"
+                                ))
+                            }),
+                    };
+                let g_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                    match self.family.logslope_design.as_dense_ref() {
+                        Some(g_full) => g_full.slice(s![start..end, ..]).into(),
+                        None => self
+                            .family
+                            .logslope_design
+                            .try_row_chunk(start..end)
+                            .map(Into::into)
+                            .unwrap_or_else(|e| {
+                                std::panic::panic_any(format!(
+                                    "bernoulli rigid hessian_dense_blas3 logslope_design \
+                                     try_row_chunk({start}..{end}): {e}"
+                                ))
+                            }),
+                    };
+                for row in start..end {
+                    let local = row - start;
+                    let h = &row_hessians[row];
+                    w_mm[local] = h[0][0];
+                    w_mg[local] = h[0][1];
+                    w_gg[local] = h[1][1];
+                }
+                acc.add_weighted_design_grams_from_chunks(&x_chunk, &g_chunk, &w_mm, &w_mg, &w_gg);
+                acc
+            })
+        };
+
+        let run_serial =
+            rayon::current_thread_index().is_some() || rayon::current_num_threads() <= 1;
+        if run_serial {
+            let mut acc = BernoulliBlockHessianAccumulator::new(slices);
+            for chunk in chunks {
+                acc.add(&chunk_body(chunk));
+            }
+            return acc.to_dense(slices);
+        }
+        let acc = chunks.into_par_iter().map(chunk_body).reduce(
+            || BernoulliBlockHessianAccumulator::new(slices),
+            |mut left, right| {
+                left.add(&right);
+                left
+            },
+        );
+        acc.to_dense(slices)
+    }
+
+    /// Chunked BLAS-3 implementation backing
+    /// [`RowKernel::directional_derivative_dense_override`].
+    fn directional_derivative_dense_blas3(&self, d_beta: &[f64]) -> Result<Array2<f64>, String> {
+        let slices = &self.slices;
+        let n = self.family.y.len();
+        let d_beta = ndarray::ArrayView1::from(d_beta);
+        // Single-column `(p_block × 1)` direction blocks so the per-chunk
+        // projection `X_chunk · dir` is one GEMM each (matching the per-row
+        // `dot_row_view` the scalar path used).
+        let marginal_dir_mat = d_beta
+            .slice(s![slices.marginal.clone()])
+            .to_owned()
+            .insert_axis(ndarray::Axis(1));
+        let logslope_dir_mat = d_beta
+            .slice(s![slices.logslope.clone()])
+            .to_owned()
+            .insert_axis(ndarray::Axis(1));
+        // Force the shared per-row third tensor build at top-level rayon before
+        // any chunk fold (a single n-row par pass), so chunk bodies do an O(1)
+        // lookup instead of triggering the build nested in a worker.
+        let third_full = self.third_full_cache();
+
+        let chunk_rows = blas3_gram_chunk_rows(n);
+        let chunks = (0..n)
+            .step_by(chunk_rows)
+            .map(|start| (start, (start + chunk_rows).min(n)))
+            .collect::<Vec<_>>();
+        let chunk_body =
+            |(start, end): (usize, usize)| -> Result<BernoulliBlockHessianAccumulator, String> {
+                // Same nested-parallel pin as `hessian_dense_blas3`: the per-chunk
+                // projection (`fast_ab`) and `Xᵀdiag(w)X` Grams run on the owning
+                // Rayon worker at `Par::Seq` so they do not re-fan the global pool
+                // against the outer `chunks.into_par_iter()`. Exactness-preserving:
+                // faer partitions the GEMM output, not the contracted row axis.
+                crate::faer_ndarray::with_nested_parallel(|| {
+                    let len = end - start;
+                    let mut acc = BernoulliBlockHessianAccumulator::new(slices);
+                    let mut w_mm = Array1::<f64>::zeros(len);
+                    let mut w_mg = Array1::<f64>::zeros(len);
+                    let mut w_gg = Array1::<f64>::zeros(len);
+                    let x_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                        match self.family.marginal_design.as_dense_ref() {
+                            Some(x_full) => x_full.slice(s![start..end, ..]).into(),
+                            None => self
+                                .family
+                                .marginal_design
+                                .try_row_chunk(start..end)
+                                .map_err(|e| {
+                                    format!("bernoulli marginal_design try_row_chunk: {e}")
+                                })?
+                                .into(),
+                        };
+                    let g_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                        match self.family.logslope_design.as_dense_ref() {
+                            Some(g_full) => g_full.slice(s![start..end, ..]).into(),
+                            None => self
+                                .family
+                                .logslope_design
+                                .try_row_chunk(start..end)
+                                .map_err(|e| {
+                                    format!("bernoulli logslope_design try_row_chunk: {e}")
+                                })?
+                                .into(),
+                        };
+                    let marginal_projected =
+                        crate::faer_ndarray::fast_ab(&x_chunk, &marginal_dir_mat);
+                    let logslope_projected =
+                        crate::faer_ndarray::fast_ab(&g_chunk, &logslope_dir_mat);
+                    for row in start..end {
+                        let local = row - start;
+                        let dq = marginal_projected[[local, 0]];
+                        let dg = logslope_projected[[local, 0]];
+                        let t = contract_third_full(&third_full[row], dq, dg);
+                        w_mm[local] = t[0][0];
+                        w_mg[local] = t[0][1];
+                        w_gg[local] = t[1][1];
+                    }
+                    acc.add_weighted_design_grams_from_chunks(
+                        &x_chunk, &g_chunk, &w_mm, &w_mg, &w_gg,
+                    );
+                    Ok(acc)
+                })
+            };
+
+        // Parallel over chunks: each chunk body is an independent BLAS-3 GEMM
+        // pair over `CHUNK_ROWS` rows reading the already-built shared third
+        // tensor, so the fold has no nested cache contention. Fall back to a
+        // serial chunk loop when already inside a Rayon worker (the outer
+        // joint-Newton / ψ-sweep par_iter holds the pool) so a nested
+        // `into_par_iter` does not starve the pool — the same guard the batched
+        // builder uses.
+        let run_serial =
+            rayon::current_thread_index().is_some() || rayon::current_num_threads() <= 1;
+        if run_serial {
+            let mut acc = BernoulliBlockHessianAccumulator::new(slices);
+            for chunk in chunks {
+                let partial = chunk_body(chunk)?;
+                acc.add(&partial);
+            }
+            return Ok(acc.to_dense(slices));
+        }
+        let acc = chunks.into_par_iter().map(chunk_body).try_reduce(
+            || BernoulliBlockHessianAccumulator::new(slices),
+            |mut left, right| {
+                left.add(&right);
+                Ok(left)
+            },
+        )?;
+        Ok(acc.to_dense(slices))
+    }
+
+    /// Chunked BLAS-3 implementation backing
+    /// [`RowKernel::second_directional_derivative_all_axes_dense_override`].
+    ///
+    /// Returns the `p` dense matrices `{H²dot[u, e_a]}_{a=0..p}` for the fixed
+    /// direction `u = d_beta_u`. The per-row `u`-projection
+    /// `(uq_r, ug_r) = (X·u_marg, G·u_logs)` is built ONCE (one chunked GEMM per
+    /// design block, hoisted out of the `p`-axis loop — the dominant
+    /// `O(p·n)` jet-projection redundancy of the generic per-axis sweep). Each
+    /// axis then closes its design-row Gram with the same BLAS-3 machinery the
+    /// first-directional override uses, replacing the `O(p·n·p²)` BLAS-1
+    /// `add_pullback_hessian` scatter with `p` BLAS-3 `Xᵀ diag(w) X` builds.
+    ///
+    /// Bit-exactness: each axis's per-row weight is
+    /// `contract_fourth_full(T⁴ᵣ, uq_r, ug_r, vq_r, vg_r)` with the SAME
+    /// arguments the generic `row_fourth_contracted` receives — `dir_u` is the
+    /// row `u`-projection, `dir_v` is the row `e_a`-projection
+    /// (`(X[r,j], 0)` for a marginal axis, `(0, G[r,j])` for a logslope axis,
+    /// the exact value `jacobian_action(row, e_a)` returns). The Gram swap from
+    /// BLAS-1 syr scatter to `fast_xt_diag_*` reduces in the identical in-row
+    /// order (same contract as `hessian_dense_blas3`), so axis `a` matches
+    /// `row_kernel_second_directional_derivative(self, All, u, e_a)`
+    /// bit-for-bit.
+    fn second_directional_derivative_all_axes_blas3(
+        &self,
+        d_beta_u: &[f64],
+    ) -> Result<Vec<Array2<f64>>, String> {
+        let slices = &self.slices;
+        let n = self.family.y.len();
+        let p_m = slices.marginal.len();
+        let p_g = slices.logslope.len();
+        let d_beta_u = ndarray::ArrayView1::from(d_beta_u);
+        // Fixed-direction blocks for the single-column `u`-projection GEMMs.
+        let u_marg_mat = d_beta_u
+            .slice(s![slices.marginal.clone()])
+            .to_owned()
+            .insert_axis(ndarray::Axis(1));
+        let u_logs_mat = d_beta_u
+            .slice(s![slices.logslope.clone()])
+            .to_owned()
+            .insert_axis(ndarray::Axis(1));
+        // Force the shared per-row fourth tensor build at top-level rayon before
+        // any chunk/axis fold, so the bodies do an O(1) lookup.
+        let fourth_full = self.fourth_full_cache();
+        if fourth_full.len() != n {
+            return Err(format!(
+                "bernoulli rigid second_directional_derivative_all_axes_blas3: fourth cache \
+                 length {} != n {n}",
+                fourth_full.len()
+            ));
+        }
+
+        let chunk_rows = blas3_gram_chunk_rows(n);
+        let chunks = (0..n)
+            .step_by(chunk_rows)
+            .map(|start| (start, (start + chunk_rows).min(n)))
+            .collect::<Vec<_>>();
+
+        // Hoisted per-row `u`-projection `(uq_r, ug_r)`, built ONCE via one
+        // chunked GEMM per block. `uq[r] = X.row(r)·u_marg`, `ug[r] = G.row(r)·u_logs`
+        // — bit-identical to `jacobian_action(row, d_beta_u)` (a single design-row
+        // dot per axis), just batched.
+        let mut uq = Array1::<f64>::zeros(n);
+        let mut ug = Array1::<f64>::zeros(n);
+        for &(start, end) in &chunks {
+            crate::faer_ndarray::with_nested_parallel(|| -> Result<(), String> {
+                let x_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                    match self.family.marginal_design.as_dense_ref() {
+                        Some(x_full) => x_full.slice(s![start..end, ..]).into(),
+                        None => self
+                            .family
+                            .marginal_design
+                            .try_row_chunk(start..end)
+                            .map_err(|e| format!("bernoulli marginal_design try_row_chunk: {e}"))?
+                            .into(),
+                    };
+                let g_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                    match self.family.logslope_design.as_dense_ref() {
+                        Some(g_full) => g_full.slice(s![start..end, ..]).into(),
+                        None => self
+                            .family
+                            .logslope_design
+                            .try_row_chunk(start..end)
+                            .map_err(|e| format!("bernoulli logslope_design try_row_chunk: {e}"))?
+                            .into(),
+                    };
+                let uq_chunk = crate::faer_ndarray::fast_ab(&x_chunk, &u_marg_mat);
+                let ug_chunk = crate::faer_ndarray::fast_ab(&g_chunk, &u_logs_mat);
+                for row in start..end {
+                    uq[row] = uq_chunk[[row - start, 0]];
+                    ug[row] = ug_chunk[[row - start, 0]];
+                }
+                Ok(())
+            })?;
+        }
+
+        // One axis = one independent full-data design-row Gram. Marginal axes
+        // are `e_a` with the unit in the marginal block (axis projection
+        // `(X[r,j], 0)`); logslope axes have it in the logslope block
+        // (`(0, G[r,j])`). Fan the `p` axes across the pool (each is a pure
+        // evaluation reading the shared `uq/ug` and the cached fourth tensor);
+        // the nested-BLAS guard pins each axis's chunk GEMMs to `Par::Seq`.
+        // Index-ordered collection keeps the output bit-identical to a serial
+        // axis loop.
+        let build_axis = |axis_global: usize| -> Result<Array2<f64>, String> {
+            crate::faer_ndarray::with_nested_parallel(|| {
+                // Resolve the axis to its block and the local design column.
+                let marginal_axis = axis_global < p_m;
+                let local_col = if marginal_axis {
+                    axis_global
+                } else {
+                    axis_global - p_m
+                };
+                let axis_chunk_body =
+                    |(start, end): (usize, usize)| -> Result<BernoulliBlockHessianAccumulator, String> {
+                        let len = end - start;
+                        let mut acc = BernoulliBlockHessianAccumulator::new(slices);
+                        let x_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                            match self.family.marginal_design.as_dense_ref() {
+                                Some(x_full) => x_full.slice(s![start..end, ..]).into(),
+                                None => self
+                                    .family
+                                    .marginal_design
+                                    .try_row_chunk(start..end)
+                                    .map_err(|e| {
+                                        format!("bernoulli marginal_design try_row_chunk: {e}")
+                                    })?
+                                    .into(),
+                            };
+                        let g_chunk: ndarray::CowArray<'_, f64, ndarray::Ix2> =
+                            match self.family.logslope_design.as_dense_ref() {
+                                Some(g_full) => g_full.slice(s![start..end, ..]).into(),
+                                None => self
+                                    .family
+                                    .logslope_design
+                                    .try_row_chunk(start..end)
+                                    .map_err(|e| {
+                                        format!("bernoulli logslope_design try_row_chunk: {e}")
+                                    })?
+                                    .into(),
+                            };
+                        let mut w_mm = Array1::<f64>::zeros(len);
+                        let mut w_mg = Array1::<f64>::zeros(len);
+                        let mut w_gg = Array1::<f64>::zeros(len);
+                        for row in start..end {
+                            let local = row - start;
+                            // `dir_v = jacobian_action(row, e_a)`: a unit pick of
+                            // one design column, zero in the other block. Read the
+                            // exact same scalar the generic per-axis path reads.
+                            let (vq, vg) = if marginal_axis {
+                                (x_chunk[[local, local_col]], 0.0)
+                            } else {
+                                (0.0, g_chunk[[local, local_col]])
+                            };
+                            // Identical args to the generic `row_fourth_contracted`:
+                            // `(dir_u = (uq, ug), dir_v = (vq, vg))`.
+                            let m = contract_fourth_full(
+                                &fourth_full[row],
+                                uq[row],
+                                ug[row],
+                                vq,
+                                vg,
+                            );
+                            w_mm[local] = m[0][0];
+                            w_mg[local] = m[0][1];
+                            w_gg[local] = m[1][1];
+                        }
+                        acc.add_weighted_design_grams_from_chunks(
+                            &x_chunk, &g_chunk, &w_mm, &w_mg, &w_gg,
+                        );
+                        Ok(acc)
+                    };
+                // Serial chunk fold within an axis: the axis fan-out already
+                // occupies the pool, and a serial in-order chunk reduce matches
+                // the `directional_derivative_dense_blas3` chunk-accumulation
+                // order exactly (bit-for-bit against the generic per-axis path).
+                let mut acc = BernoulliBlockHessianAccumulator::new(slices);
+                for chunk in &chunks {
+                    let partial = axis_chunk_body(*chunk)?;
+                    acc.add(&partial);
+                }
+                Ok(acc.to_dense(slices))
+            })
+        };
+
+        let p_total = p_m + p_g;
+        let run_serial =
+            rayon::current_thread_index().is_some() || rayon::current_num_threads() <= 1;
+        if run_serial {
+            (0..p_total).map(build_axis).collect::<Result<Vec<_>, _>>()
+        } else {
+            (0..p_total)
+                .into_par_iter()
+                .map(build_axis)
+                .collect::<Result<Vec<_>, _>>()
+        }
     }
 }
 

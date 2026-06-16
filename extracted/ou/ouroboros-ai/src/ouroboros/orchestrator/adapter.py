@@ -21,6 +21,7 @@ import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from enum import StrEnum
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
@@ -28,6 +29,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from ouroboros.core.errors import ProviderError
 from ouroboros.core.types import Result
 from ouroboros.observability.logging import get_logger
+from ouroboros.orchestrator.backend_limits import resolve_backend_limits
 from ouroboros.orchestrator.rate_limit import (
     DEFAULT_ANTHROPIC_RPM_CEILING,
     DEFAULT_ANTHROPIC_TPM_CEILING,
@@ -257,6 +259,8 @@ _RUNTIME_HANDLE_BACKEND_ALIASES = {
     "goose_cli": "goose",
     "pi": "pi",
     "pi_cli": "pi",
+    "gjc": "gjc",
+    "gjc_cli": "gjc",
 }
 
 
@@ -692,6 +696,28 @@ class TaskResult:
     resume_handle: RuntimeHandle | None = None
 
 
+class ParamSupport(StrEnum):
+    """How a runtime honors a given execution parameter.
+
+    Used for observability only: the orchestrator surfaces non-``NATIVE``
+    handling so an operator can see when a parameter is not honored in the form
+    they supplied it. It does **not** change what is passed to the runtime.
+
+    Values:
+        NATIVE: The runtime honors the parameter directly (e.g. a separate
+            system-prompt field, a real tool allow-list, a permission flag).
+        TRANSLATED: The runtime honors it only through a lossy adaptation —
+            e.g. embedding the system prompt into the user message, or mapping
+            a permission mode onto coarser CLI flags. The intent is partially
+            preserved but the supplied form is not.
+        IGNORED: The runtime silently drops the parameter.
+    """
+
+    NATIVE = "native"
+    TRANSLATED = "translated"
+    IGNORED = "ignored"
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeCapabilities:
     """Declarative feature contract surfaced by an ``AgentRuntime``.
@@ -709,11 +735,23 @@ class RuntimeCapabilities:
         structured_output: Runtime emits structured JSONL events
             (tool calls, thread ids, per-item events). ``False`` means
             plain-text stdout lines only.
+        system_prompt_support: How the runtime honors the ``system_prompt``
+            execution parameter (see :class:`ParamSupport`).
+        tool_restriction_support: How the runtime honors the ``tools``
+            allow-list passed to ``execute_task``.
+        permission_mode_support: How the runtime honors ``permission_mode``.
+
+    The three ``*_support`` fields default to :attr:`ParamSupport.NATIVE` so
+    existing runtimes and ``FULL_CAPABILITIES`` are unchanged; a runtime opts in
+    to a non-native value only when its handling is demonstrably lossy.
     """
 
     skill_dispatch: bool
     targeted_resume: bool
     structured_output: bool
+    system_prompt_support: ParamSupport = ParamSupport.NATIVE
+    tool_restriction_support: ParamSupport = ParamSupport.NATIVE
+    permission_mode_support: ParamSupport = ParamSupport.NATIVE
 
 
 # Default capability profile for first-class backends (Claude, Codex).
@@ -856,6 +894,11 @@ class ClaudeAgentAdapter:
     _runtime_backend = "claude"
     _provider_name = "claude"
 
+    #: This adapter runs its own shared RPM/TPM bucket
+    #: (:meth:`_build_rate_limit_bucket`), so the parallel executor must NOT add a
+    #: second dispatch-level rate gate for it (that would double-limit Claude).
+    self_governs_rate_limit = True
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -954,16 +997,26 @@ class ClaudeAgentAdapter:
         return parsed
 
     def _build_rate_limit_bucket(self) -> SharedRateLimitBucket:
-        """Create the shared Anthropic rate-limit bucket for orchestrator workers."""
+        """Create the shared rate-limit bucket for orchestrator workers.
+
+        RPM/TPM defaults are sourced from the backend-limits registry (the
+        single source of truth for per-backend constraints) and may be
+        overridden per deployment via the ``OUROBOROS_ANTHROPIC_*`` env knobs
+        (``0`` disables that limit). For the native Claude backend this resolves
+        to the same Anthropic ceilings as before.
+        """
+        limits = resolve_backend_limits(self._runtime_backend)
+        rpm_default = limits.requests_per_minute or DEFAULT_ANTHROPIC_RPM_CEILING
+        tpm_default = limits.tokens_per_minute or DEFAULT_ANTHROPIC_TPM_CEILING
         return SharedRateLimitBucket(
             runtime_backend=self._runtime_backend,
             request_limit=self._parse_optional_positive_int(
                 "OUROBOROS_ANTHROPIC_RPM_CEILING",
-                default=DEFAULT_ANTHROPIC_RPM_CEILING,
+                default=rpm_default,
             ),
             token_limit=self._parse_optional_positive_int(
                 "OUROBOROS_ANTHROPIC_TPM_CEILING",
-                default=DEFAULT_ANTHROPIC_TPM_CEILING,
+                default=tpm_default,
             ),
         )
 
@@ -1666,6 +1719,7 @@ __all__ = [
     "ClaudeCodeRuntime",
     "DEFAULT_TOOLS",
     "FULL_CAPABILITIES",
+    "ParamSupport",
     "RuntimeCapabilities",
     "RuntimeHandle",
     "SkillDispatchHandler",

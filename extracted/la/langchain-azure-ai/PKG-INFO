@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-azure-ai
-Version: 1.2.6
+Version: 1.2.7
 Summary: An integration package to support Microsoft Foundry (formerly Azure AI) capabilities in LangChain/LangGraph ecosystem.
 License-Expression: MIT
 License-File: LICENSE
@@ -45,7 +45,7 @@ Requires-Dist: opentelemetry-instrumentation-threading (>=0.58b0) ; extra == "op
 Requires-Dist: opentelemetry-semantic-conventions (>=0.58b0) ; extra == "opentelemetry"
 Requires-Dist: opentelemetry-semantic-conventions-ai (>=0.4.2,<0.5.0) ; extra == "opentelemetry"
 Requires-Dist: six (>=1.17.0,<2.0.0)
-Requires-Dist: starlette (>=1.2.1) ; extra == "hosting"
+Requires-Dist: starlette (>=1.3.1) ; extra == "hosting"
 Requires-Dist: wrapt (>=1.14.0) ; extra == "opentelemetry"
 Project-URL: Repository, https://github.com/langchain-ai/langchain-azure
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
@@ -255,6 +255,10 @@ Azure AI Content Understanding is also available as a document loader via `Azure
 
 
 ## Changelog
+
+- **1.2.7**:
+
+  - **[NEW]** We extended `AzureAIProjectToolbox` with skills support: new `get_skills`/`aget_skills` methods load toolbox skills as DeepAgents-ready file mappings, and new `get_resources`/`aget_resources` methods fetch toolbox resources (such as skills) as LangChain `Blob` objects with flexible URI-scheme filtering. [#700](https://github.com/langchain-ai/langchain-azure/pull/700)
 
 - **1.2.6**:
 

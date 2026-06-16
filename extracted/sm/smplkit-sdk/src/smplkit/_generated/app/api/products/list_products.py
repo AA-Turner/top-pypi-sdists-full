@@ -101,8 +101,7 @@ def sync_detailed(
 ) -> Response[ErrorResponse | ProductListResponse]:
     """List Products
 
-     Return all flag-enabled products with their plans, limits, and
-    marketing content.
+     Return all products with their plans, limits, and marketing content.
 
     Default sort is `display_name` ascending.
 
@@ -153,8 +152,7 @@ def sync(
 ) -> ErrorResponse | ProductListResponse | None:
     """List Products
 
-     Return all flag-enabled products with their plans, limits, and
-    marketing content.
+     Return all products with their plans, limits, and marketing content.
 
     Default sort is `display_name` ascending.
 
@@ -200,8 +198,7 @@ async def asyncio_detailed(
 ) -> Response[ErrorResponse | ProductListResponse]:
     """List Products
 
-     Return all flag-enabled products with their plans, limits, and
-    marketing content.
+     Return all products with their plans, limits, and marketing content.
 
     Default sort is `display_name` ascending.
 
@@ -250,8 +247,7 @@ async def asyncio(
 ) -> ErrorResponse | ProductListResponse | None:
     """List Products
 
-     Return all flag-enabled products with their plans, limits, and
-    marketing content.
+     Return all products with their plans, limits, and marketing content.
 
     Default sort is `display_name` ascending.
 

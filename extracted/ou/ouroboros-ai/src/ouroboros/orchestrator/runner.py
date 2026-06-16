@@ -50,6 +50,10 @@ from ouroboros.orchestrator.adapter import (
     AgentRuntime,
     RuntimeHandle,
 )
+from ouroboros.orchestrator.backend_limits import (
+    plan_fan_out_concurrency,
+    resolve_backend_limits,
+)
 from ouroboros.orchestrator.capabilities import (
     CapabilityGraph,
     build_capability_graph,
@@ -97,6 +101,9 @@ from ouroboros.orchestrator.runtime_message_projection import (
     message_tool_name,
     normalized_message_type,
     project_runtime_message,
+)
+from ouroboros.orchestrator.runtime_param_negotiation import (
+    announce_execution_param_degradations,
 )
 from ouroboros.orchestrator.session import SessionRepository, SessionStatus, SessionTracker
 from ouroboros.orchestrator.workflow_state import coerce_ac_marker_update
@@ -402,6 +409,15 @@ _USAGE_LIMIT_TEXT_PATTERNS = (
         re.IGNORECASE,
     ),
 )
+_USAGE_LIMIT_WINDOW_CONTEXT_PATTERN = re.compile(
+    r"\b(?:usage|quota|allowance|rate|request)\s+"
+    r"(?:limit|quota|cap|window|allowance)\b.{0,120}"
+    r"\b(?:reached|exceeded|exhausted|depleted|hit|reset|resets|available|renews)\b"
+    r"|\b(?:reached|exceeded|exhausted|depleted|hit|reset|resets|available|renews)\b"
+    r".{0,120}\b(?:usage|quota|allowance|rate|request)\s+"
+    r"(?:limit|quota|cap|window|allowance)\b",
+    re.IGNORECASE,
+)
 
 
 class OrchestratorRunner:
@@ -478,8 +494,37 @@ class OrchestratorRunner:
         self._max_decomposition_depth = max(0, max_decomposition_depth)
         self._max_parallel_workers = max(1, max_parallel_workers)
         self._fat_harness_mode = fat_harness_mode
+        self._announced_param_degradations: set[tuple[str, str]] = set()
         # Track active session for external cancellation by execution_id
         self._active_sessions: dict[str, str] = {}  # execution_id -> session_id
+
+    def _announce_param_degradations(
+        self,
+        *,
+        system_prompt: str | None,
+        tools: list[str] | None,
+    ) -> None:
+        """Surface requested execution params this runtime will degrade."""
+        announce_execution_param_degradations(
+            self._adapter,
+            system_prompt=system_prompt,
+            tools=tools,
+            announced=self._announced_param_degradations,
+            console=self._console,
+            log_event="orchestrator.runner.param_degraded",
+        )
+
+    def _plan_parallel_workers(self) -> int:
+        """Return the effective fan-out worker count for the connected backend.
+
+        Ouroboros caps delivery fan-out to the connected backend's known
+        concurrency limit so it does not stampede the LLM's rate/quota window
+        (R3). Backends whose underlying LLM limits are unknown — the CLI
+        runtimes — serialize by default and are raised only via
+        ``OUROBOROS_MAX_CONCURRENCY``.
+        """
+        limits = resolve_backend_limits(self._adapter.runtime_backend)
+        return plan_fan_out_concurrency(self._max_parallel_workers, limits)
 
     @property
     def mcp_manager(self) -> MCPClientManager | None:
@@ -1143,14 +1188,7 @@ class OrchestratorRunner:
             )
             is not None
         )
-        mentions_limit_window = (
-            re.search(
-                r"\b(?:usage|quota|allowance|rate|request)\s+"
-                r"(?:limit|quota|cap|window|allowance)\b",
-                normalized,
-            )
-            is not None
-        )
+        mentions_limit_window = _USAGE_LIMIT_WINDOW_CONTEXT_PATTERN.search(normalized) is not None
 
         if has_quota_phrase and (has_runtime_error_shape or duration_seconds is not None):
             return True
@@ -2237,6 +2275,10 @@ class OrchestratorRunner:
                 nonlocal tracker
 
                 active_runtime_handle = resume_handle
+                self._announce_param_degradations(
+                    system_prompt=system_prompt,
+                    tools=merged_tools,
+                )
                 async with aclosing(
                     self._adapter.execute_task(  # type: ignore[type-var]
                         prompt=prompt,
@@ -2764,13 +2806,29 @@ class OrchestratorRunner:
 
         execution_profile = _execution_profile_for_seed(seed)
 
+        # Cap fan-out to the connected backend's concurrency constraints so a
+        # parallel dispatch never stampedes the LLM's rate/quota window (R3).
+        effective_workers = self._plan_parallel_workers()
+        if effective_workers < self._max_parallel_workers:
+            self._console.print(
+                f"[yellow]Fan-out capped to {effective_workers} worker(s) for backend "
+                f"'{self._adapter.runtime_backend}' (requested {self._max_parallel_workers}). "
+                f"Override with OUROBOROS_MAX_CONCURRENCY.[/yellow]"
+            )
+            log.info(
+                "orchestrator.runner.fan_out_capped",
+                runtime_backend=self._adapter.runtime_backend,
+                requested_workers=self._max_parallel_workers,
+                effective_workers=effective_workers,
+            )
+
         # Execute in parallel
         parallel_executor = ParallelACExecutor(
             adapter=self._adapter,
             event_store=self._event_store,
             console=self._console,
             enable_decomposition=self._enable_decomposition,
-            max_concurrent=self._max_parallel_workers,
+            max_concurrent=effective_workers,
             max_decomposition_depth=self._max_decomposition_depth,
             inherited_runtime_handle=self._inherited_runtime_handle,
             task_cwd=self._effective_cwd(),
@@ -2845,6 +2903,7 @@ class OrchestratorRunner:
             "total_levels": execution_plan.total_stages,
             "max_decomposition_depth": self._max_decomposition_depth,
             "max_parallel_workers": self._max_parallel_workers,
+            "effective_parallel_workers": effective_workers,
             "verification_report": verification_report,
             **self._task_summary(),
         }
@@ -3140,6 +3199,10 @@ Note: This is a resumed session. Please continue from where execution was interr
                 console=self._console,
                 spinner="dots",
             ) as status:
+                self._announce_param_degradations(
+                    system_prompt=system_prompt,
+                    tools=merged_tools,
+                )
                 async with aclosing(
                     self._adapter.execute_task(  # type: ignore[type-var]
                         prompt=resume_prompt,

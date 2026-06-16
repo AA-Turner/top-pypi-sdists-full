@@ -234,12 +234,17 @@ class DelphiReSymProvider(AbstractLabelProvider):
 
     def update(self, binary_info):
         """Parse Delphi metadata from the given binary."""
+        self._func_symbols = {}
         self._binary = binary_info.binary
         self._base_addr = binary_info.base_addr
         self._bitness = binary_info.bitness
 
         # Only process PE files with .text sections
         if not self._is_compatible():
+            return
+
+        # Cheap Delphi signature check
+        if b"TObject" not in self._binary:
             return
 
         # Determine code areas
@@ -686,7 +691,7 @@ class DelphiReSymProvider(AbstractLabelProvider):
     def isApiProvider(self):
         return False
 
-    def getApi(self, absolute_addr):
+    def getApi(self, to_addr, absolute_addr=None):
         return None
 
     def getSymbol(self, address):
@@ -701,3 +706,6 @@ class DelphiReSymProvider(AbstractLabelProvider):
 
     def getRelocations(self):
         return {}
+
+    def is_active(self):
+        return bool(self._func_symbols)

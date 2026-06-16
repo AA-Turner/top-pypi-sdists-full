@@ -18,7 +18,6 @@ Key features:
 from __future__ import annotations
 
 import asyncio
-import codecs
 from collections import deque
 from collections.abc import AsyncIterator
 import contextlib
@@ -37,7 +36,10 @@ from ouroboros.core.errors import ProviderError
 from ouroboros.core.types import Result
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.adapter import (
+    FULL_CAPABILITIES,
     AgentMessage,
+    ParamSupport,
+    RuntimeCapabilities,
     RuntimeHandle,
     SkillDispatchHandler,
     TaskResult,
@@ -45,6 +47,10 @@ from ouroboros.orchestrator.adapter import (
 from ouroboros.orchestrator.opencode_event_normalizer import (
     OpenCodeEventContext,
     OpenCodeEventNormalizer,
+)
+from ouroboros.providers.codex_cli_stream import (
+    iter_runtime_stream_lines,
+    terminate_runtime_process,
 )
 from ouroboros.router import (
     InvalidInputReason,
@@ -54,11 +60,16 @@ from ouroboros.router import (
     ResolveRequest,
     resolve_skill_dispatch,
 )
+from ouroboros.runtime.child_env import build_child_env
 
 log = get_logger(__name__)
 
 _SAFE_SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 _MAX_LINE_BUFFER_BYTES = 50 * 1024 * 1024  # 50 MB
+# Child-env strip set for OpenCode.  OpenCode does NOT strip CLAUDECODE (unlike
+# codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
+# are removed.
+_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
 
 _INTERVIEW_SESSION_METADATA_KEY = "ouroboros_interview_session_id"
 
@@ -163,6 +174,7 @@ class OpenCodeRuntime:
                 MCP tool handlers.
         """
         self._cli_path = self._resolve_cli_path(cli_path)
+        self._permission_mode_requested = permission_mode is not None
         self._permission_mode = permission_mode or "bypassPermissions"
         self._model = model
         self._cwd = str(Path(cwd).expanduser()) if cwd is not None else os.getcwd()
@@ -192,6 +204,18 @@ class OpenCodeRuntime:
         return self._runtime_handle_backend
 
     @property
+    def capabilities(self) -> RuntimeCapabilities:
+        # OpenCode composes the system prompt and tool guidance into the user
+        # message rather than passing native runtime parameters; surface those
+        # as TRANSLATED while preserving the default feature flags.
+        return replace(
+            FULL_CAPABILITIES,
+            system_prompt_support=ParamSupport.TRANSLATED,
+            tool_restriction_support=ParamSupport.TRANSLATED,
+            permission_mode_support=ParamSupport.IGNORED,
+        )
+
+    @property
     def llm_backend(self) -> str | None:
         return self._llm_backend
 
@@ -212,6 +236,11 @@ class OpenCodeRuntime:
             Permission mode string (e.g. ``"bypassPermissions"``).
         """
         return self._permission_mode
+
+    @property
+    def permission_mode_requested(self) -> bool:
+        """Return whether permission mode was supplied by the caller."""
+        return self._permission_mode_requested
 
     # -- CLI resolution ----------------------------------------------------
 
@@ -430,19 +459,13 @@ class OpenCodeRuntime:
             RuntimeError: If the nesting depth exceeds
                 ``_max_ouroboros_depth``.
         """
-        env = os.environ.copy()
-        for key in ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND"):
-            env.pop(key, None)
-        # Track and enforce recursion depth
-        try:
-            depth = int(env.get("_OUROBOROS_DEPTH", "0")) + 1
-        except (ValueError, TypeError):
-            depth = 1
-        if depth > self._max_ouroboros_depth:
-            msg = f"Maximum Ouroboros nesting depth ({self._max_ouroboros_depth}) exceeded"
-            raise RuntimeError(msg)
-        env["_OUROBOROS_DEPTH"] = str(depth)
-        return env
+        return build_child_env(
+            strip_keys=_CHILD_ENV_STRIP_KEYS,
+            max_depth=self._max_ouroboros_depth,
+            depth_error_factory=lambda _depth, max_depth: RuntimeError(
+                f"Maximum Ouroboros nesting depth ({max_depth}) exceeded"
+            ),
+        )
 
     # -- Stream parsing ----------------------------------------------------
 
@@ -477,61 +500,17 @@ class OpenCodeRuntime:
             TimeoutError: If a timeout is exceeded.
             ProviderError: If the internal line buffer overflows.
         """
-        if stream is None:
-            return
-
-        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-        buffer = ""
-        buffer_byte_estimate = 0
-        saw_chunk = False
-
-        while True:
-            timeout_seconds: float | None = None
-            if not saw_chunk:
-                timeout_seconds = first_chunk_timeout_seconds
-            elif chunk_timeout_seconds is not None:
-                timeout_seconds = chunk_timeout_seconds
-
-            try:
-                if timeout_seconds is None:
-                    chunk = await stream.read(chunk_size)
-                else:
-                    chunk = await asyncio.wait_for(
-                        stream.read(chunk_size),
-                        timeout=timeout_seconds,
-                    )
-            except TimeoutError as exc:
-                phase = "startup" if not saw_chunk else "idle"
-                raise TimeoutError(
-                    f"{self._display_name} produced no stdout during {phase} "
-                    f"window ({timeout_seconds:.0f}s)"
-                ) from exc
-            if not chunk:
-                break
-
-            saw_chunk = True
-            decoded = decoder.decode(chunk)
-            buffer += decoded
-            buffer_byte_estimate += len(decoded) * 4
-            if buffer_byte_estimate > _MAX_LINE_BUFFER_BYTES:
-                log.error(
-                    f"{self._log_namespace}.line_buffer_overflow",
-                    buffer_size=len(buffer),
-                    limit=_MAX_LINE_BUFFER_BYTES,
-                )
-                raise ProviderError(f"JSONL line buffer exceeded {_MAX_LINE_BUFFER_BYTES} bytes")
-            while True:
-                newline_index = buffer.find("\n")
-                if newline_index < 0:
-                    break
-                line = buffer[:newline_index]
-                buffer = buffer[newline_index + 1 :]
-                buffer_byte_estimate = len(buffer) * 4
-                yield line.rstrip("\r")
-
-        buffer += decoder.decode(b"", final=True)
-        if buffer:
-            yield buffer.rstrip("\r")
+        async for line in iter_runtime_stream_lines(
+            stream,
+            display_name=self._display_name,
+            chunk_size=chunk_size,
+            first_chunk_timeout_seconds=first_chunk_timeout_seconds,
+            chunk_timeout_seconds=chunk_timeout_seconds,
+            max_buffer_bytes=_MAX_LINE_BUFFER_BYTES,
+            logger=log,
+            log_namespace=self._log_namespace,
+        ):
+            yield line
 
     async def _collect_stream_lines(
         self,
@@ -637,45 +616,12 @@ class OpenCodeRuntime:
             process: Subprocess object (must expose ``terminate``,
                 ``kill``, and ``wait`` methods).
         """
-        if getattr(process, "returncode", None) is not None:
-            return
-
-        terminate = getattr(process, "terminate", None)
-        kill = getattr(process, "kill", None)
-
-        try:
-            if callable(terminate):
-                terminate()
-            elif callable(kill):
-                kill()
-            else:
-                return
-        except ProcessLookupError:
-            return
-        except Exception as exc:
-            log.warning(
-                f"{self._log_namespace}.process_terminate_failed",
-                error=str(exc),
-            )
-            return
-
-        try:
-            await asyncio.wait_for(
-                process.wait(),
-                timeout=self._process_shutdown_timeout_seconds,
-            )
-            return
-        except (TimeoutError, ProcessLookupError):
-            pass
-
-        if callable(kill):
-            with contextlib.suppress(ProcessLookupError, Exception):
-                kill()
-            with contextlib.suppress(asyncio.TimeoutError, ProcessLookupError, Exception):
-                await asyncio.wait_for(
-                    process.wait(),
-                    timeout=self._process_shutdown_timeout_seconds,
-                )
+        await terminate_runtime_process(
+            process,
+            shutdown_timeout=self._process_shutdown_timeout_seconds,
+            logger=log,
+            log_namespace=self._log_namespace,
+        )
 
     # -- Event conversion --------------------------------------------------
 

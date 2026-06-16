@@ -11,11 +11,11 @@ def read(fname: str) -> str:
 
 setup(
     name="pytest-unordered",
-    version="0.7.0",
+    version="0.8.0",
     author="Ivan Zaikin",
-    author_email="ut@pyngo.tom.ru",
+    author_email="utapyngo@gmail.com",
     maintainer="Ivan Zaikin",
-    maintainer_email="ut@pyngo.tom.ru",
+    maintainer_email="utapyngo@gmail.com",
     license="MIT",
     url="https://github.com/utapyngo/pytest-unordered",
     description="Test equality of unordered collections in pytest",
@@ -39,6 +39,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries",
         "Topic :: Software Development :: Testing",

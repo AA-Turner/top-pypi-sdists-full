@@ -1,0 +1,29 @@
+[package]
+name = "fastwarc-py"
+edition = "2024"
+publish = false
+
+[lib]
+name = "fastwarc"
+path = "src/lib.rs"
+crate-type = [
+    "cdylib",
+    "rlib",
+]
+
+[dependencies]
+fastwarc = "1.0.8"
+pyo3 = "0.28"
+
+[dependencies.time]
+version = "0.3"
+features = [
+    "formatting",
+    "parsing",
+    "macros",
+]
+
+[build-dependencies]
+pyo3-build-config = "0.28"
+
+[workspace]

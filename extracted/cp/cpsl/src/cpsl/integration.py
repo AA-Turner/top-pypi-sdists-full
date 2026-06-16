@@ -224,8 +224,15 @@ def Linear(
     )
 
 
-def Tailscale() -> IntegrationConfig:
-    return IntegrationConfig(type=Integration.TAILSCALE, mode=MODE_SECRET)
+def Tailscale(*, advertise_tags: bool = False) -> IntegrationConfig:
+    fields = list(KNOWN_SECRET_INTEGRATIONS[INTEGRATION_TAILSCALE])
+    if advertise_tags:
+        fields.append("advertise_tags")
+    return IntegrationConfig(
+        type=Integration.TAILSCALE,
+        fields=fields,
+        mode=MODE_SECRET,
+    )
 
 
 def AWS() -> IntegrationConfig:

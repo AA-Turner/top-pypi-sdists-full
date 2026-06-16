@@ -9,6 +9,48 @@ if TYPE_CHECKING:
 
 
 
+class AccessSettings(TLObject):
+    CONSTRUCTOR_ID = 0xdd1fbf93
+    SUBCLASS_OF_ID = 0xeca109c2
+
+    def __init__(self, restricted: Optional[bool]=None, add_users: Optional[List['TypeUser']]=None):
+        """
+        Constructor for bots.AccessSettings: Instance of AccessSettings.
+        """
+        self.restricted = restricted
+        self.add_users = add_users
+
+    def to_dict(self):
+        return {
+            '_': 'AccessSettings',
+            'restricted': self.restricted,
+            'add_users': [] if self.add_users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.add_users]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x93\xbf\x1f\xdd',
+            struct.pack('<I', (0 if self.restricted is None or self.restricted is False else 1) | (0 if self.add_users is None or self.add_users is False else 2)),
+            b'' if self.add_users is None or self.add_users is False else b''.join((b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.add_users)),b''.join(x._bytes() for x in self.add_users))),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        flags = reader.read_int()
+
+        _restricted = bool(flags & 1)
+        if flags & 2:
+            reader.read_int()
+            _add_users = []
+            for _ in range(reader.read_int()):
+                _x = reader.tgread_object()
+                _add_users.append(_x)
+
+        else:
+            _add_users = None
+        return cls(restricted=_restricted, add_users=_add_users)
+
+
 class BotInfo(TLObject):
     CONSTRUCTOR_ID = 0xe8a775b0
     SUBCLASS_OF_ID = 0xca7b2235

@@ -29,6 +29,8 @@ class JumpTableAnalyzer:
         jmp     rcx
     """
 
+    RE_CMP_SIZE = re.compile(r"[a-z0-9]{2,4}, (([0-9])|(0x[0-9a-f]+))")
+
     def __init__(self, disassembler):
         self.disassembler = disassembler
         self.disassembly = self.disassembler.disassembly
@@ -52,7 +54,7 @@ class JumpTableAnalyzer:
         for instr in backtracked[::-1]:
             if instr[2].startswith("ret"):
                 break
-            if instr[2] == "cmp" and re.match(r"[a-z0-9]{2,4}, (([0-9])|(0x[0-9a-f]+))", instr[3]):
+            if instr[2] == "cmp" and self.RE_CMP_SIZE.match(instr[3]):
                 jumptable_size = int(instr[3].split(",")[-1].strip(), base=16) + 1
                 # print("  0x%x: found potential jump table size with backtracking: 0x%x (%s %s)" % (instr[0], jumptable_size, instr[2], instr[3]))
                 break
@@ -84,10 +86,8 @@ class JumpTableAnalyzer:
                 if target_register and target_register not in instr[3]:
                     continue
                 data_ref_instruction_addr = instr[0]
+                # getReferencedAddr() preserves the displacement sign
                 offset = self.disassembler.getReferencedAddr(instr[3])
-                rip_sign = "+" if "+" in instr[3] else "-"
-                if rip_sign == "-":
-                    offset = offset * -1
                 off_jumptable = instr[0] + instr[1] + offset
                 state.addDataRef(data_ref_instruction_addr, off_jumptable, size=4)
                 # print("  0x%x: _addHandler() found potential jump table offset (mov) with backtracking: 0x%x (%s %s)" % (instr[0], off_jumptable, instr[2], instr[3]))
@@ -142,19 +142,21 @@ class JumpTableAnalyzer:
         jumptable_size = jumptable_size if jumptable_size is not None else 0xFF
         jumptable_addresses = []
         bitness = self.disassembly.binary_info.bitness
-        entry_size = 4 if bitness == 32 else 8
+        if bitness == 32:
+            entry_size = 4
+            entry_format = "I"
+        elif bitness == 64:
+            entry_size = 8
+            entry_format = "Q"
+        else:
+            LOGGER.warning("Unsupported %s-bit jump table analysis", bitness)
+            return jumptable_addresses
         if self.disassembly.isAddrWithinMemoryImage(jumptable_address):
             for i in range(jumptable_size):
-                if bitness == 32:
-                    table_entry = struct.unpack(
-                        "I",
-                        self.disassembly.getBytes(jumptable_address + i * entry_size, entry_size),
-                    )[0]
-                elif bitness == 64:
-                    table_entry = struct.unpack(
-                        "Q",
-                        self.disassembly.getBytes(jumptable_address + i * entry_size, entry_size),
-                    )[0]
+                table_entry = struct.unpack(
+                    entry_format,
+                    self.disassembly.getBytes(jumptable_address + i * entry_size, entry_size),
+                )[0]
                 if not self.disassembly.isAddrWithinMemoryImage(table_entry):
                     break
                 state.addDataRef(

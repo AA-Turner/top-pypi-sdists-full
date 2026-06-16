@@ -153,23 +153,41 @@ class Workspace:
 
     @staticmethod
     def _cleanup_stale_mount(path: Path) -> None:
-        """Unmount a stale FUSE mount if present."""
+        """Unmount a leftover FUSE mount (dead or live) at ``path``.
+
+        Two flavors of staleness:
+        - dead mount: the owning FUSE process is gone, ``stat`` raises
+          ENOTCONN ("Transport endpoint is not connected");
+        - live mount: a previous world process exited without unmounting
+          (e.g. a ``chronos dev`` hot-reload restart) and the lazydvc FUSE
+          daemon is still serving it. ``stat`` succeeds, but the restore
+          that follows must replace the directory wholesale —
+          ``shutil.rmtree`` on a mountpoint fails with EBUSY ("Device or
+          resource busy"). Unmount it first; the caller re-creates the dir.
+        """
+        import subprocess
+
+        stale = False
         try:
             path.stat()
         except FileNotFoundError:
-            pass
+            return
         except OSError as e:
             if e.errno == 107:  # ENOTCONN — dead FUSE mount
-                import subprocess
+                stale = True
+        if not stale and os.path.ismount(path):
+            stale = True
+        if not stale:
+            return
 
-                logger.warning("Cleaning up stale FUSE mount at %s", path)
-                # Use lazy unmount to detach immediately even if busy
-                subprocess.run(["fusermount3", "-uz", str(path)], check=False)
-                # Remove the stale mount point so mkdir can recreate it
-                try:
-                    path.rmdir()
-                except OSError:
-                    pass
+        logger.warning("Cleaning up stale FUSE mount at %s", path)
+        # Use lazy unmount to detach immediately even if busy
+        subprocess.run(["fusermount3", "-uz", str(path)], check=False)
+        # Remove the stale mount point so mkdir can recreate it
+        try:
+            path.rmdir()
+        except OSError:
+            pass
 
     # ------------------------------------------------------------------
     # Init

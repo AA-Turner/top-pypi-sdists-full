@@ -21,6 +21,7 @@ use crate::{
     statsig_metadata::StatsigMetadata,
     write_lock_or_noop, EventLoggingAdapter, StatsigErr, StatsigOptions, StatsigRuntime,
 };
+use chrono::Utc;
 use parking_lot::RwLock;
 use std::{collections::HashMap, sync::Arc};
 use std::{
@@ -387,10 +388,19 @@ impl EventLogger {
             flush_type.to_string(),
         );
 
-        let result = self
-            .logging_adapter
-            .log_events(batch.get_log_event_request(statsig_metadata))
-            .await;
+        let request = batch.get_log_event_request(statsig_metadata);
+        let max_event_queue_time_ms =
+            batch.get_max_event_queue_time_ms(Utc::now().timestamp_millis() as u64);
+        let observability_tags = self.logging_adapter.get_observability_tags();
+
+        self.ops_stats.log_event_request_batch_stats(
+            batch.events.len(),
+            max_event_queue_time_ms,
+            flush_type,
+            observability_tags.clone(),
+        );
+
+        let result = self.logging_adapter.log_events(request).await;
 
         batch.attempts += 1;
 
@@ -398,7 +408,8 @@ impl EventLogger {
             Ok(true) => {
                 self.ops_stats.log_event_request_success(
                     batch.events.len(),
-                    self.logging_adapter.get_observability_tags(),
+                    flush_type,
+                    observability_tags,
                 );
                 Ok(())
             }

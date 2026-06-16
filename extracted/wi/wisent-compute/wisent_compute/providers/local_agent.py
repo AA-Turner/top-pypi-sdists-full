@@ -15,6 +15,7 @@ import time
 from datetime import datetime, timezone
 
 from ..config import BUCKET, estimate_gpu_memory
+from ..models import activation_extraction_must_share_gpu
 from ..queue.capacity import publish_capacity
 from ..queue.storage import JobStorage
 from .local.helpers import (
@@ -30,7 +31,7 @@ from .local.helpers import (
     _staging_size_gb,
     _vast_has_renter,
 )
-from .local.disk.staging import flush_fleet_staging, setup_agent_staging
+from .local.disk.staging import setup_agent_staging
 
 
 POLL_INTERVAL = 10
@@ -40,7 +41,15 @@ HEARTBEAT_INTERVAL = 300
 # decides whether to claim again. Empirically a torch model load starts
 # allocating GPU memory within ~5 seconds of subprocess start.
 SETTLE_AFTER_CLAIM_SECONDS = 5
-# Admission reserve; also leaves room for driver/runtime baseline usage.
+# Hard VRAM safety buffer at admission. The agent refuses to claim a
+# job if accepting it would leave less than this margin between
+# declared total VRAM use and the GPU's physical capacity. Catches the
+# class of failure where neighbor processes' actual peak exceeds their
+# declared gpu_mem_gb (estimate_gpu_memory has been observed to
+# under-call by 5-10 GB on 7-8B activation extraction workloads). The
+# buffer is independent of the per-job multipliers because it's the
+# LAST line of defense — if the per-job estimate is wrong, this catches
+# it before the n+1th job OOMs the entire VM.
 VRAM_SAFETY_BUFFER_GB = 8
 
 
@@ -110,8 +119,6 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
         gpu_type = _detect_gpu_type()
     total_vram_gb = max(1, _detect_local_vram_gb())
     hard_slot_cap = int(os.environ.get("WC_LOCAL_SLOTS", "0") or 0)
-    if kind == "local" and hard_slot_cap <= 0:
-        hard_slot_cap = 1
     _log(f"Agent started. kind={kind}  GPU: {gpu_type}  vram_gb={total_vram_gb}  hard_slot_cap={hard_slot_cap}")
     setup_agent_staging(_log)
 
@@ -134,16 +141,6 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
 
     _last_cap = None
     while True:
-        if _last_cap is not None:
-            try:
-                publish_capacity(
-                    store, consumer_id, kind, _last_cap["free_slots"],
-                    free_vram_gb=_last_cap["free_vram_gb"],
-                    total_vram_gb=_last_cap["total_vram_gb"],
-                    diag=_last_cap["diag"],
-                )
-            except Exception:
-                pass
         # Phase breadcrumbs for the 40GB a2-highgpu-1g first-iter hang.
         _log("loop: iter-start")
         try:
@@ -154,8 +151,23 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
         except Exception:
             pass
         _reap_dead_pid_workdirs()
+        if _last_cap is not None:
+            try:
+                publish_capacity(
+                    store, consumer_id, kind, _last_cap["free_slots"],
+                    free_vram_gb=_last_cap["free_vram_gb"],
+                    total_vram_gb=_last_cap["total_vram_gb"],
+                    diag=_last_cap["diag"],
+                )
+            except Exception:
+                pass
         if time.time() - last_fleet_flush > FLEET_FLUSH_INTERVAL or _staging_size_gb(fleet_staging) > 5:
-            flush_fleet_staging(fleet_staging, _log)
+            from wisent.core.reading.modules.utilities.data.sources.hf.hf_writers import flush_staging_dir
+            if os.path.isdir(fleet_staging) and any(os.scandir(fleet_staging)):
+                flush_staging_dir(fleet_staging)
+                shutil.rmtree(fleet_staging)
+                os.makedirs(fleet_staging, exist_ok=True)
+                _log("flushed fleet staging dir to HF (1 commit)")
             last_fleet_flush = time.time()
         t = lookup_self(hostname, source="auto")
         if t and t.kind == "local":
@@ -217,10 +229,19 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
                          free_vram_gb=free_vram_gb, total_vram_gb=total_vram_gb, diag=dict(agent_diag))
         _last_cap = {"free_slots": free_slots, "free_vram_gb": free_vram_gb, "total_vram_gb": total_vram_gb, "diag": dict(agent_diag)}
 
-        if free_vram_gb <= 0 or (hard_slot_cap > 0 and len(slots) >= hard_slot_cap):
+        all_active_share_gpu = all(
+            activation_extraction_must_share_gpu(
+                getattr(s.get("job"), "command", "") or ""
+            )
+            for s in slots
+        )
+        slot_cap_reached = hard_slot_cap > 0 and len(slots) >= hard_slot_cap
+        if free_vram_gb <= 0 or (slot_cap_reached and not all_active_share_gpu):
             time.sleep(10)
             continue
-        # RAM gate: refuse new slots when MemAvailable drops below reserve.
+        # RAM gate: refuse new slots when system free RAM (MemAvailable, which
+        # captures the forked-worker procs + page-cache the per-slot RSS sum
+        # missed) drops below a MemTotal reserve. Prevents the ~100G OOM.
         _fr = _free_ram_gb()
         if 0 <= _fr < _total_ram_gb() * 0.30:
             time.sleep(10); continue
@@ -236,22 +257,21 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
         diag_eligibility_rejected = 0
         diag_eligible = 0
         for job in queued:
-            if hard_slot_cap > 0 and len(slots) >= hard_slot_cap:
-                break
-            stored_need = int(getattr(job, "gpu_mem_gb", 0) or 0)
-            estimated_need = estimate_gpu_memory(getattr(job, "command", "") or "")
-            need = max(stored_need, estimated_need)
-            full_card_probe = (
-                stored_need == 0 and estimated_need >= total_vram_gb and not slots
+            cmd = getattr(job, "command", "") or ""
+            if slot_cap_reached and not (
+                all_active_share_gpu and activation_extraction_must_share_gpu(cmd)
+            ):
+                continue
+            need = max(
+                int(getattr(job, "gpu_mem_gb", 0) or 0),
+                estimate_gpu_memory(cmd),
             )
-            if (need > free_vram_gb and full_card_probe
-                    and free_vram_gb >= total_vram_gb - VRAM_SAFETY_BUFFER_GB):
-                need = total_vram_gb - VRAM_SAFETY_BUFFER_GB
-                agent_diag["last_full_card_probe_job_id"] = job.job_id
-                agent_diag["last_full_card_probe_at"] = datetime.now(timezone.utc).isoformat()
-            elif need > free_vram_gb:
+            if need > free_vram_gb:
                 diag_vram_rejected += 1
                 continue
+            # Hard VRAM safety buffer: refuse if declared use after admission
+            # would leave less than VRAM_SAFETY_BUFFER_GB, catching neighbor
+            # jobs whose actual peak exceeds their declared gpu_mem_gb.
             projected_used = sum(_slot_vram(s) for s in slots) + need
             if projected_used > total_vram_gb - VRAM_SAFETY_BUFFER_GB:
                 diag_vram_rejected += 1
@@ -266,6 +286,8 @@ def run_agent(gpu_type: str = "", idle_shutdown: bool = False, kind: str = "loca
             diag_eligible += 1
             new_slot = start_slot(store, job, hostname, _log, kind=kind)
             if new_slot is None:
+                # apt-install refused or failed; job stays in queue/ for
+                # another (cloud-kind or registry-fixed) agent to claim.
                 continue
             slots.append(new_slot)
             free_vram_gb -= need

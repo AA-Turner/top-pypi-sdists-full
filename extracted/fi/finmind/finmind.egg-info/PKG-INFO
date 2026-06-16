@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: finmind
-Version: 2.0.1
+Version: 2.0.3
 Summary: financial mining
 Author-email: linsam <finmind.tw@gmail.com>
 License:                                  Apache License
@@ -219,17 +219,16 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pandas<3.0.0,>=2.0.0
-Requires-Dist: numpy<2.0.0,>=1.19.5
+Requires-Dist: numpy<3.0.0,>=1.19.5
 Requires-Dist: requests<3.0.0,>=2.23.0
-Requires-Dist: pydantic<2.0.0,>=1.6.1
+Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: ta<1.0.0,>=0.11.0
 Requires-Dist: lxml<5.0.0,>=4.6.3
 Requires-Dist: pyecharts<2.0.0,>=1.9.0
 Requires-Dist: ipython<8.0.0,>=7.16.1
 Requires-Dist: loguru<1.0.0,>=0.5.3
 Requires-Dist: aiohttp<4.0.0,>=3.7.4.post0
-Requires-Dist: importlib-metadata<5.0.0,>=4.8.1
-Requires-Dist: Flask<3.0.0,>=2.0.2
+Requires-Dist: importlib-metadata<9.0.0,>=4.8.1
 Requires-Dist: typing-extensions<5.0.0,>=4.0.0
 Requires-Dist: tqdm
 Requires-Dist: nest-asyncio==1.6.0

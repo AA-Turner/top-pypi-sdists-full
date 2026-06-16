@@ -68,6 +68,11 @@ class Schedule:
         dynamic_skip (Union[Unset, None, str]): Path to a script that validates scheduled datetimes. Receives
             scheduled_for datetime and returns boolean to skip (true) or run (false)
         labels (Union[Unset, List[str]]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            schedule at the same path. Frontend renders a "Draft" badge.
+        is_draft (Union[Unset, bool]): True when the authed user has a per-user draft at this path
+            (over a deployed row or a synthesized draft-only row).
+            Frontend appends a `*` to the displayed name.
         inherited_labels (Union[Unset, List[str]]): Labels inherited from the parent folder, computed at read time.
             Read-only — edit them on the folder.
     """
@@ -104,6 +109,8 @@ class Schedule:
     cron_version: Union[Unset, None, str] = UNSET
     dynamic_skip: Union[Unset, None, str] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    is_draft: Union[Unset, bool] = UNSET
     inherited_labels: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -163,6 +170,8 @@ class Schedule:
         if not isinstance(self.labels, Unset):
             labels = self.labels
 
+        draft_only = self.draft_only
+        is_draft = self.is_draft
         inherited_labels: Union[Unset, List[str]] = UNSET
         if not isinstance(self.inherited_labels, Unset):
             inherited_labels = self.inherited_labels
@@ -226,6 +235,10 @@ class Schedule:
             field_dict["dynamic_skip"] = dynamic_skip
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if is_draft is not UNSET:
+            field_dict["is_draft"] = is_draft
         if inherited_labels is not UNSET:
             field_dict["inherited_labels"] = inherited_labels
 
@@ -347,6 +360,10 @@ class Schedule:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        is_draft = d.pop("is_draft", UNSET)
+
         inherited_labels = cast(List[str], d.pop("inherited_labels", UNSET))
 
         schedule = cls(
@@ -382,6 +399,8 @@ class Schedule:
             cron_version=cron_version,
             dynamic_skip=dynamic_skip,
             labels=labels,
+            draft_only=draft_only,
+            is_draft=is_draft,
             inherited_labels=inherited_labels,
         )
 

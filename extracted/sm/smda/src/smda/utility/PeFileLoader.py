@@ -4,8 +4,14 @@ import struct
 import lief
 
 from smda.SmdaConfig import SmdaConfig
+from smda.utility.common import mergeCodeAreas
 
 LOGGER = logging.getLogger(__name__)
+
+# Sentinel: distinguishes "caller did not supply parsed" (legacy direct
+# call, do your own lief.parse) from "caller already tried to parse and got
+# None" (e.g. FileLoader saw lief.parse fail; do NOT retry).
+_NOT_PROVIDED = object()
 
 
 class PeFileLoader:
@@ -16,7 +22,13 @@ class PeFileLoader:
         return data[:2] == b"MZ"
 
     @staticmethod
-    def mapBinary(binary):
+    def parseBinary(binary):
+        # Single lief.parse entry point so FileLoader can share one parse
+        # across all accessors instead of each accessor re-parsing.
+        return lief.parse(binary)
+
+    @staticmethod
+    def mapBinary(binary, parsed=_NOT_PROVIDED):
         # This is a pretty rough implementation but does the job for now
         mapped_binary = bytearray([])
         pe_offset = PeFileLoader.getPeOffset(binary)
@@ -88,7 +100,7 @@ class PeFileLoader:
         return bytes(mapped_binary)
 
     @staticmethod
-    def getBitness(binary):
+    def getBitness(binary, parsed=_NOT_PROVIDED):
         bitness_id = 0
         pe_offset = PeFileLoader.getPeOffset(binary)
         if pe_offset and len(binary) >= pe_offset + 0x6:
@@ -96,13 +108,14 @@ class PeFileLoader:
         return PeFileLoader.BITNESS_MAP.get(bitness_id, 0)
 
     @staticmethod
-    def getBaseAddress(binary):
+    def getBaseAddress(binary, parsed=_NOT_PROVIDED):
         base_addr = 0
         pe_offset = PeFileLoader.getPeOffset(binary)
         if pe_offset and len(binary) >= pe_offset + 0x38:
-            if PeFileLoader.getBitness(binary) == 32:
+            bitness = PeFileLoader.getBitness(binary)
+            if bitness == 32:
                 base_addr = struct.unpack("I", binary[pe_offset + 0x34 : pe_offset + 0x38])[0]
-            elif PeFileLoader.getBitness(binary) == 64:
+            elif bitness == 64:
                 base_addr = struct.unpack("Q", binary[pe_offset + 0x30 : pe_offset + 0x38])[0]
         if base_addr:
             LOGGER.debug(
@@ -128,13 +141,13 @@ class PeFileLoader:
         return oep_rva
 
     @staticmethod
-    def getAbi(binary):
+    def getAbi(binary, parsed=_NOT_PROVIDED):
         return ""
 
     @staticmethod
-    def getArchitecture(binary):
+    def getArchitecture(binary, parsed=_NOT_PROVIDED):
         architecture = "intel"
-        pefile = lief.parse(binary)
+        pefile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
         if pefile:
             for d in pefile.data_directories:
                 if d.type == lief.PE.DataDirectory.TYPES.CLR_RUNTIME_HEADER and d.size > 0:
@@ -150,8 +163,8 @@ class PeFileLoader:
         return False
 
     @staticmethod
-    def getCodeAreas(binary):
-        pefile = lief.parse(binary)
+    def getCodeAreas(binary, parsed=_NOT_PROVIDED):
+        pefile = lief.parse(binary) if parsed is _NOT_PROVIDED else parsed
         code_areas = []
         base_address = PeFileLoader.getBaseAddress(binary)
         if pefile and pefile.sections:
@@ -168,15 +181,4 @@ class PeFileLoader:
 
     @staticmethod
     def mergeCodeAreas(code_areas):
-        if not code_areas:
-            return []
-        sorted_areas = sorted(code_areas)
-        result = [sorted_areas[0]]
-        for i in range(1, len(sorted_areas)):
-            last_area = result[-1]
-            current_area = sorted_areas[i]
-            if last_area[1] == current_area[0]:
-                result[-1] = [last_area[0], current_area[1]]
-            else:
-                result.append(current_area)
-        return result
+        return mergeCodeAreas(code_areas)

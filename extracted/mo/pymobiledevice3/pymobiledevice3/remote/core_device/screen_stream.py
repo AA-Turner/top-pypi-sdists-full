@@ -14,17 +14,30 @@ Layering::
 
 import asyncio
 import contextlib
+import datetime
+import importlib.resources
+import ipaddress
 import json
 import logging
+import os
 import socket
+import ssl
+import tempfile
 import uuid
 from collections import deque
 from pathlib import Path
 from typing import Optional
 
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
+
+import pymobiledevice3.resources
+from pymobiledevice3.lockdown import create_using_usbmux as _create_lockdown_usbmux
 from pymobiledevice3.remote.core_device.aac_eld import AAC_ELD_ASC_48K_STEREO_480, AACELDDecoder
+from pymobiledevice3.remote.core_device.configuration_service import ConfigurationService
 from pymobiledevice3.remote.core_device.display_service import DisplayService
-from pymobiledevice3.remote.core_device.hevc_phantom import build_phantoms_for_bootstrap
 from pymobiledevice3.remote.core_device.hid_service import (
     DIGITIZER_SURFACE_MAIN_TOUCHSCREEN,
     HID_BUTTON_STATE_DOWN,
@@ -34,19 +47,29 @@ from pymobiledevice3.remote.core_device.hid_service import (
     IndigoHIDService,
     UniversalHIDServiceService,
 )
+from pymobiledevice3.remote.core_device.orientation_service import OrientationService
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
+from pymobiledevice3.services.accessibilityaudit import AccessibilityAudit
+from pymobiledevice3.services.power_assertion import PowerAssertionService
 
-# Named iOS hardware buttons → (usage_page, usage_code). Mirrors the table in
-# cli/developer/core_device.py so the browser viewer can offer a friendly UI.
-_NAMED_BUTTONS: dict[str, tuple[int, int]] = {
-    "home": (0x0C, 0x40),
-    "power": (0x0C, 0x30),
-    "lock": (0x0C, 0x30),
-    "sleep": (0x0C, 0x32),
-    "volume-up": (0x0C, 0xE9),
-    "volume-down": (0x0C, 0xEA),
-    "mute": (0x0C, 0xE2),
-    "siri": (0x0C, 0xCF),
+# Named iOS hardware buttons → (usage_page, usage_code, hold_seconds).
+# Mirrors the table in cli/developer/core_device.py so the browser viewer
+# can offer a friendly UI.
+#
+# ``hold_seconds`` is how long to keep the button "pressed" between the
+# DOWN and UP IndigoButtonEvents. Most buttons want a near-instant tap
+# (0.05 s -- long enough that iOS doesn't reject it as a debounce
+# bounce, short enough to feel like a tap). Lock and Siri are explicit
+# press-and-holds: iOS won't sleep / start Siri on a microsecond-long
+# tap, because the same usage on real hardware is "side button held for
+# N ms". Empirically, 0.5 s sleeps the device, 1.0 s starts Siri.
+_NAMED_BUTTONS: dict[str, tuple[int, int, float]] = {
+    "home": (0x0C, 0x40, 0.05),
+    "lock": (0x0C, 0x30, 0.5),
+    "volume-up": (0x0C, 0xE9, 0.05),
+    "volume-down": (0x0C, 0xEA, 0.05),
+    "mute": (0x0C, 0xE2, 0.05),
+    "siri": (0x0C, 0xCF, 1.0),
 }
 
 logger = logging.getLogger(__name__)
@@ -58,9 +81,7 @@ logger = logging.getLogger(__name__)
 _HEVC_NAL_IDR_W_RADL = 19
 _HEVC_NAL_IDR_N_LP = 20
 _HEVC_NAL_CRA = 21
-_HEVC_NAL_VPS = 32
 _HEVC_NAL_SPS = 33
-_HEVC_NAL_PPS = 34
 _HEVC_NAL_AP = 48  # Aggregation Packet
 _HEVC_NAL_FU = 49  # Fragmentation Unit
 
@@ -152,562 +173,93 @@ def hevc_codec_string_from_sps(sps_nal: bytes) -> str:
 # ---------------------------------------------------------------------------
 # Built-in HTML viewer (Canvas + WebCodecs decoder)
 # ---------------------------------------------------------------------------
-# WebCodecs uses the OS hardware HEVC decoder (VideoToolbox on macOS / Media
-# Foundation on Windows) so playback latency is minimal and there's no external
-# ffmpeg/ffplay/VLC needed.
-# Non-ASCII glyphs (← / → arrows on the swipe buttons, plus em-dashes
-# in JS comments) require a str literal -- bytes literals are
-# ASCII-only. Encoded to UTF-8 at the end of the template so the rest
-# of the file's .replace() / len() byte ops keep working as-is.
-VIEWER_HTML = r"""<!doctype html>
-<html><head><meta charset="utf-8"><title>iPhone screen</title>
-<style>
- body{margin:0;background:#111;color:#ccc;font-family:system-ui;
-      display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-      min-height:100vh;gap:8px;padding:8px;box-sizing:border-box}
- /* Stage: device-side-mounted buttons flanking the canvas, matching
-    where they live on an iPhone. Vol/Mute on the left side, Power/
-    Siri on the right side. Home + utility actions sit below. */
- #stage{display:flex;align-items:stretch;justify-content:center;gap:8px;
-        max-width:100vw}
- .side{display:flex;flex-direction:column;gap:6px;padding-top:18%}
- #side-left{align-items:flex-end}
- #side-right{align-items:flex-start}
- canvas{max-width:calc(100vw - 160px);max-height:calc(100vh - 120px);
-        image-rendering:auto;touch-action:none;cursor:crosshair;background:#000}
- #bottom-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
-             max-width:100vw}
- button.btn{background:#222;color:#ddd;border:1px solid #444;border-radius:6px;
-            padding:8px 14px;font-size:13px;cursor:pointer;white-space:nowrap}
- button.btn:hover{background:#333}
- button.btn:active{background:#4a4a4a}
- /* Utility tray pinned to top-right: sound-toggle / forced-reset /
-    force-restart -- low-frequency controls, kept out of the main
-    button areas so the bottom row can stay device-only (Home). */
- #util-tray{position:fixed;top:8px;right:8px;display:flex;gap:6px;z-index:10}
- /* On narrow viewports give up the side-mounted layout and let the
-    buttons wrap below the canvas like before. */
- @media (max-width: 700px){
-  #stage{flex-direction:column;align-items:center}
-  .side{flex-direction:row;flex-wrap:wrap;justify-content:center;padding-top:0}
-  canvas{max-width:100vw;max-height:calc(100vh - 200px)}
- }
- /* Status / log overlay: pinned to top-left and capped at 220 px
-    so it stays clear of the left-flank Vol / Mute buttons. */
- #status{position:fixed;top:8px;left:12px;font-size:12px;opacity:.8;
-         background:#0008;padding:4px 8px;border-radius:4px;white-space:pre;
-         width:220px;max-width:40vw;overflow:hidden;user-select:text;
-         -webkit-user-select:text;cursor:text;pointer-events:auto;
-         z-index:10}
-</style></head>
-<body>
-<div id="stage">
- <!-- Left side of the device: mute switch + volume rocker -->
- <div id="side-left" class="side">
-  <button class="btn" data-btn="mute" title="Ctrl+\">Mute</button>
-  <button class="btn" data-btn="volume-up" title="Ctrl+]">Vol +</button>
-  <button class="btn" data-btn="volume-down" title="Ctrl+[">Vol -</button>
- </div>
- <canvas id="c"></canvas>
- <!-- Right side of the device: side / power button (and Siri lives here too) -->
- <div id="side-right" class="side">
-  <button class="btn" data-btn="power">Power</button>
-  <button class="btn" data-btn="lock" title="Ctrl+L">Lock</button>
-  <button class="btn" data-btn="sleep">Sleep</button>
-  <button class="btn" data-btn="siri" title="Ctrl+S">Siri</button>
- </div>
-</div>
-<div id="bottom-row">
- <button class="btn" data-swipe="left" title="Swipe left across the middle of the screen">Swipe ←</button>
- <button class="btn" data-btn="home" title="Ctrl+H">Home</button>
- <button class="btn" data-swipe="right" title="Swipe right across the middle of the screen">Swipe →</button>
-</div>
-<div id="util-tray">
- <button class="btn" id="sound-toggle" type="button">Enable Sound</button>
- <button class="btn" id="forced-reset" type="button" title="rebuild decoder + new IDR">Forced Reset</button>
- <button class="btn" id="restart" type="button" title="full DisplayService restart">Force Restart</button>
-</div>
-<div id="status">connecting...</div>
-<script>
-window.AUDIO_DEFAULT_ON = __AUDIO_DEFAULT_ON__;
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const statusEl = document.getElementById('status');
-let frameCount = 0;
-const lines = ['connecting...'];
-function log(msg) { lines.push(msg); if (lines.length > 8) lines.shift(); render(); }
-function render() { statusEl.textContent = `frames: ${frameCount}\n` + lines.join('\n'); }
-setInterval(render, 250);
+# The viewer is three files under ``pymobiledevice3/resources/serve_web/`` --
+# ``viewer.html`` (markup), ``viewer.css`` (styling), ``viewer.js`` (the
+# WebCodecs decoder + input/audio wiring). The HTTP server below serves
+# each at ``/``, ``/viewer.css`` and ``/viewer.js``. Edit the files
+# directly; this module just hands them out.
+_VIEWER_DIR = importlib.resources.files(pymobiledevice3.resources) / "serve_web"
+VIEWER_HTML = (_VIEWER_DIR / "viewer.html").read_bytes()
+VIEWER_CSS = (_VIEWER_DIR / "viewer.css").read_bytes()
+VIEWER_JS_TEMPLATE = (_VIEWER_DIR / "viewer.js").read_bytes()
 
-function hex(u8, n=24) {
-    let s = '';
-    for (let i = 0; i < Math.min(u8.length, n); i++) s += u8[i].toString(16).padStart(2,'0');
-    return s;
-}
 
-// ----- input: pointer -> /touch, hardware-buttons -> /button -----
-// HID coords are UInt16 (0..65535) normalised across the device screen.
-// We project from the canvas's CSS bounding box, NOT canvas.width/.height,
-// because the canvas is auto-scaled by max-width/max-height.
-function touchCoords(e) {
-    const rect = canvas.getBoundingClientRect();
-    const xn = (e.clientX - rect.left) / rect.width;
-    const yn = (e.clientY - rect.top) / rect.height;
-    return {
-        x: Math.max(0, Math.min(65535, Math.round(xn * 65535))),
-        y: Math.max(0, Math.min(65535, Math.round(yn * 65535))),
-    };
-}
-
-async function postJson(path, payload) {
-    // Note: do NOT pass {keepalive: true} -- that triggers fetch's
-    // "send during page unload" path which has body-size limits and
-    // queues requests differently; we want plain HTTP/1.1 keep-alive
-    // (the default) so pointer events stream over one TCP.
-    try {
-        await fetch(path, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(payload),
-        });
-    } catch (e) { log(path + ' err: ' + e.message); }
-}
-
-let activePointer = null;
-canvas.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;   // primary button only
-    e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
-    activePointer = e.pointerId;
-    const c = touchCoords(e);
-    postJson('/touch', {type: 'contact', x: c.x, y: c.y});
-});
-canvas.addEventListener('pointermove', (e) => {
-    if (e.pointerId !== activePointer) return;
-    e.preventDefault();
-    const c = touchCoords(e);
-    postJson('/touch', {type: 'contact', x: c.x, y: c.y});
-});
-function endContact(e) {
-    if (e.pointerId !== activePointer) return;
-    e.preventDefault();
-    activePointer = null;
-    const c = touchCoords(e);
-    postJson('/touch', {type: 'release', x: c.x, y: c.y});
-}
-canvas.addEventListener('pointerup', endContact);
-canvas.addEventListener('pointercancel', endContact);
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-
-document.querySelectorAll('button[data-btn]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const name = btn.dataset.btn;
-        postJson('/button', {name, state: 'press'}).then(() => log('button: ' + name));
-    });
-});
-
-// Swipe synthesis: contact at the start edge, 10 intermediate
-// contacts along the path, release at the end edge. ~200 ms total
-// is in the same ballpark as a finger swipe, so iOS recognises it
-// as a real gesture (faster gets misread as a flick + page snap,
-// slower as a drag). Y stays at the vertical midpoint; X sweeps
-// nearly edge-to-edge.
-async function swipe(direction) {
-    const yMid = 32768;
-    const xStart = direction === 'left' ? 60000 : 5000;
-    const xEnd   = direction === 'left' ? 5000  : 60000;
-    const steps = 10;
-    const dt = 20;  // ms between samples
-    await postJson('/touch', {type: 'contact', x: xStart, y: yMid});
-    for (let i = 1; i <= steps; i++) {
-        const x = Math.round(xStart + (xEnd - xStart) * (i / steps));
-        await new Promise(r => setTimeout(r, dt));
-        await postJson('/touch', {type: 'contact', x, y: yMid});
-    }
-    await postJson('/touch', {type: 'release', x: xEnd, y: yMid});
-    log('swipe ' + direction);
-}
-document.querySelectorAll('button[data-swipe]').forEach(btn => {
-    btn.addEventListener('click', () => swipe(btn.dataset.swipe));
-});
-
-// Ctrl-hotkeys mirroring serve-vnc's _CTRL_COMBO_TO_HID:
-//   Ctrl+H = Home, Ctrl+L = Lock, Ctrl+[ = Vol Down, Ctrl+] = Vol Up,
-//   Ctrl+\ = Mute, Ctrl+S = Siri.
-// Tooltips on the buttons advertise these. We use ctrlKey on every
-// platform (Cmd is intercepted by browser shortcuts on macOS), match
-// case-insensitively for letters, and preventDefault so we don't
-// trigger the browser's own bindings (Ctrl+S = save, Ctrl+L = focus
-// address bar in some browsers, etc.).
-const CTRL_HOTKEYS = {
-    'h': 'home',
-    'l': 'lock',
-    '[': 'volume-down',
-    ']': 'volume-up',
-    '\\': 'mute',
-    's': 'siri',
-};
-window.addEventListener('keydown', (e) => {
-    if (!e.ctrlKey || e.altKey || e.metaKey) return;
-    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
-    const name = CTRL_HOTKEYS[key];
-    if (!name) return;
-    e.preventDefault();
-    postJson('/button', {name, state: 'press'}).then(() => log('hotkey: ' + name));
-});
-
-// ----- Forced Reset: tell the server to spin up a fresh video stream
-// (new IDR will reach this still-open /stream.bin connection via the
-// type=2 reset path -- no page reload, audio context preserved).
-// Fire-and-forget: the server's /restart endpoint responds 202 right
-// away and runs the actual restart in the background, so the click
-// feels instant.
-document.getElementById('forced-reset').addEventListener('click', () => {
-    log('forced reset');
-    fetch('/restart', {method: 'POST', cache: 'no-store'})
-        .then(r => log('forced reset: HTTP ' + r.status))
-        .catch(e => log('forced reset err: ' + (e.message || e)));
-});
-
-// ----- Force Restart: drop the current video stream + reload the page.
-// Heavier hammer than Forced Reset -- wipes all client-side state too.
-document.getElementById('restart').addEventListener('click', async () => {
-    log('forcing restart + reload...');
-    try {
-        await fetch('/restart', {method: 'POST', cache: 'no-store'});
-    } catch (e) { log('restart err: ' + e.message); }
-    setTimeout(() => location.reload(), 100);
-});
-
-// ----- Sound toggle: connect to /audio.bin which streams PRE-DECODED
-// PCM (s16le, 48 kHz, stereo interleaved). The server uses pyav's
-// aac_at codec (macOS AudioToolbox, hardware-backed) to decode AAC-ELD
-// because Chrome's WebCodecs doesn't recognise mp4a.40.39 -- AAC-ELD
-// isn't in its supported AAC object types. Decoding host-side is
-// trivially cheap and adds ~1.5 Mbps over localhost.
-let audioCtx = null;
-let audioAbort = null;
-let audioActive = false;
-let audioReconnectPending = false;
-const soundBtn = document.getElementById('sound-toggle');
-
-async function startAudio() {
-    if (audioActive) return;
-    audioActive = true;
-    soundBtn.textContent = 'Disable Sound';
-    audioAbort = new AbortController();
-    try {
-        audioCtx = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
-        await audioCtx.resume();
-    } catch (e) { log('audioCtx err: ' + e.message); stopAudio(); return; }
-    let nextStart = audioCtx.currentTime + 0.1; // 100 ms initial buffer
-    let totalSamples = 0;
-
-    const playPcm = (pcmBytes) => {
-        // pcmBytes is interleaved int16 little-endian, stereo, 48 kHz.
-        const i16 = new Int16Array(pcmBytes.buffer, pcmBytes.byteOffset,
-                                   pcmBytes.byteLength >> 1);
-        const frames = i16.length >> 1; // 2 channels
-        if (frames === 0) return;
-        const buf = audioCtx.createBuffer(2, frames, 48000);
-        const left = buf.getChannelData(0);
-        const right = buf.getChannelData(1);
-        const INV = 1 / 32768;
-        for (let i = 0, j = 0; i < frames; i++, j += 2) {
-            left[i] = i16[j] * INV;
-            right[i] = i16[j + 1] * INV;
-        }
-        const src = audioCtx.createBufferSource();
-        src.buffer = buf;
-        src.connect(audioCtx.destination);
-        if (nextStart < audioCtx.currentTime) {
-            // Schedule fell behind (UI stall) -- jump forward to keep latency bounded.
-            nextStart = audioCtx.currentTime + 0.05;
-        }
-        src.start(nextStart);
-        nextStart += buf.duration;
-        totalSamples += frames;
-    };
-
-    try {
-        const resp = await fetch('/audio.bin', { signal: audioAbort.signal });
-        if (!resp.ok) {
-            const body = await resp.text();
-            log('audio HTTP ' + resp.status + ': ' + body.trim());
-            stopAudio();
-            return;
-        }
-        const reader = resp.body.getReader();
-        let buf = new Uint8Array(0);
-        log('audio stream open');
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            const merged = new Uint8Array(buf.length + value.length);
-            merged.set(buf); merged.set(value, buf.length);
-            buf = merged;
-            while (buf.length >= 4) {
-                const len = (buf[0]<<24)|(buf[1]<<16)|(buf[2]<<8)|buf[3];
-                if (buf.length < 4 + len) break;
-                const pcmBytes = buf.slice(4, 4 + len);
-                buf = buf.subarray(4 + len);
-                if (!pcmBytes.length) continue;
-                try { playPcm(pcmBytes); }
-                catch (e) { log('audio play err: ' + e.message); }
-            }
-        }
-    } catch (e) {
-        if (e.name !== 'AbortError') log('audio fetch err: ' + e.message);
-    }
-    log('audio stream closed (' + totalSamples + ' samples)');
-    // If we didn't stop voluntarily (e.g. server tore down audio after a
-    // /restart), auto-reconnect after a short delay -- iOS needs ~1 s
-    // between sessions to come back cleanly. The reconnect is cancelled
-    // if the user clicks Disable Sound in the interim.
-    const wasActive = audioActive;
-    audioActive = false;
-    soundBtn.textContent = 'Enable Sound';
-    if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
-    audioAbort = null;
-    if (wasActive) {
-        audioReconnectPending = true;
-        log('audio: auto-reconnecting in 1 s');
-        setTimeout(() => {
-            if (audioReconnectPending) {
-                audioReconnectPending = false;
-                startAudio();
-            }
-        }, 1000);
-    }
-}
-
-function stopAudio() {
-    audioActive = false;
-    audioReconnectPending = false;
-    soundBtn.textContent = 'Enable Sound';
-    if (audioAbort) { try { audioAbort.abort(); } catch (_) {} audioAbort = null; }
-    if (audioCtx) { try { audioCtx.close(); } catch (_) {} audioCtx = null; }
-}
-
-soundBtn.addEventListener('click', () => {
-    if (audioActive) stopAudio(); else startAudio();
-});
-
-// AUDIO_DEFAULT_ON is templated by the server at request time (replaced
-// in the HTML body by the /index.html handler). When true, we start the
-// audio pipeline immediately so the browser is already buffering PCM by
-// the time the user does something -- their first gesture resumes the
-// suspended AudioContext and they hear audio with no extra clicks.
-if (window.AUDIO_DEFAULT_ON) {
-    startAudio();
-    function resumeAudioOnGesture() {
-        if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume().then(() => log('audio resumed (state=' + audioCtx.state + ')'));
-        }
-    }
-    ['pointerdown', 'click', 'keydown', 'touchstart'].forEach(ev => {
-        document.addEventListener(ev, resumeAudioOnGesture, { capture: true });
-    });
-}
-
-async function fetchCodecWithRetry() {
-    // /codec triggers a device-side stream restart on first call -- on a
-    // cold daemon that can take 6-10 s, and sometimes the RemoteXPC
-    // handshake just fails outright. Retry with backoff so a transient
-    // failure doesn't leave the viewer permanently dead.
-    const delays = [200, 500, 1000, 2000, 3000, 4000];
-    let lastErr = '';
-    for (let attempt = 0; attempt <= delays.length; attempt++) {
-        if (attempt > 0) {
-            log('codec retry #' + attempt + ' in ' + delays[attempt - 1] + 'ms (' + lastErr + ')');
-            await new Promise(r => setTimeout(r, delays[attempt - 1]));
-        }
-        try {
-            const resp = await fetch('/codec', { cache: 'no-store' });
-            if (!resp.ok) { lastErr = 'HTTP ' + resp.status; continue; }
-            const codec = (await resp.text()).trim();
-            if (!codec) { lastErr = 'empty body (SPS not yet seen)'; continue; }
-            return codec;
-        } catch (e) {
-            lastErr = e.message || String(e);
-        }
-    }
-    throw new Error('codec unreachable after retries: ' + lastErr);
-}
-
-async function run() {
-    log('userAgent: ' + navigator.userAgent.slice(0, 80));
-    const codec = await fetchCodecWithRetry();
-    log('codec: ' + codec);
-
-    let support;
-    try {
-        support = await VideoDecoder.isConfigSupported({ codec });
-    } catch (e) {
-        log('isConfigSupported threw: ' + e.message); return;
-    }
-    log('isConfigSupported: ' + JSON.stringify(support));
-    if (!support.supported) { log('FAIL: codec not supported'); return; }
-
-    let decodeErrCount = 0;
-    let needsResync = false;     // skip deltas until we see the next key after an error
-    let autoRestartUsed = false; // self-heal once if the bootstrap path errors
-    const buildDecoder = () => new VideoDecoder({
-        output: (frame) => {
-            // Apple's encoder signals slightly different displayWidth/Height
-            // across frames (we've measured 1264x2752 oscillating with
-            // 1264x2736 mid-stream as the iOS home indicator toggles). If
-            // we resize the canvas on every change the entire <canvas>
-            // visibly shrinks/expands -- that's the "screen changing size"
-            // pattern the user sees. Lock the canvas to the largest size
-            // we've seen so frames just draw into the existing surface.
-            // Resize the canvas buffer to match each frame's exact
-            // dimensions. We used to lock the canvas to the largest size
-            // ever seen (to keep the page layout from jittering when iOS
-            // toggles the home-indicator between 2752/2736 pixels mid-
-            // stream), but that left the canvas buffer at max-ever size
-            // forever -- and even with drawImage-stretch fillout, the
-            // browser still carries stale GPU-side state from prior
-            // frames that shows up as torn strips during motion.
-            // Reassigning canvas.width/.height resets the entire buffer
-            // and reattaches a fresh GPU texture, mirroring what a full
-            // page reload does. Page layout stability comes from the
-            // canvas CSS (max-width/max-height + aspect-ratio if you want
-            // to lock that explicitly).
-            if (frame.displayWidth !== canvas.width || frame.displayHeight !== canvas.height) {
-                canvas.width = frame.displayWidth;
-                canvas.height = frame.displayHeight;
-            }
-            ctx.drawImage(frame, 0, 0);
-            frame.close();
-            frameCount++;
-        },
-        // Decoder errors propagate asynchronously via this callback. After one,
-        // the decoder transitions to 'closed' -- we re-create it and wait for
-        // the next keyframe before feeding it again.
-        error: (e) => {
-            decodeErrCount++;
-            log('decode err #' + decodeErrCount + ': ' + e.message);
-            needsResync = true;
-            // Bootstrap-failure self-heal: if we error out before we've
-            // shown even a handful of frames, Apple's encoder almost
-            // certainly emitted a POC chain WebCodecs can't follow (the
-            // server-side phantom synthesis didn't bridge it cleanly for
-            // this device's encoder). Asking the server for a fresh
-            // stream often produces a sequential POC chain that decodes
-            // cleanly. Do it at most once -- if it errors again the
-            // problem isn't transient and the user can click "Forced
-            // Reset" manually.
-            if (!autoRestartUsed && frameCount < 5) {
-                autoRestartUsed = true;
-                log('auto /restart (bootstrap decode err)');
-                fetch('/restart', {method: 'POST', cache: 'no-store'})
-                    .then(r => log('auto restart: HTTP ' + r.status))
-                    .catch(err => log('auto restart err: ' + err.message));
-            } else {
-                // Post-bootstrap decode error: kick the device for a
-                // fresh IDR via the lightweight /pli path (no full
-                // session restart). The next IDR triggers the
-                // `needsResync` rebuild below in the data loop.
-                fetch('/pli', {method: 'POST', cache: 'no-store'})
-                    .catch(err => log('/pli err: ' + err.message));
-            }
-        },
-    });
-    let decoder = buildDecoder();
-    decoder.configure({ codec, optimizeForLatency: true });
-    log('state after configure: ' + decoder.state);
-
-    // /stream.bin can return 503 if the force-restart on the server failed
-    // (e.g. RemoteXPC handshake stuck) -- retry with backoff so a flaky
-    // device daemon doesn't leave the viewer permanently dead.
-    let resp = null;
-    const streamDelays = [200, 500, 1000, 2000, 3000, 5000];
-    for (let a = 0; a <= streamDelays.length; a++) {
-        if (a > 0) {
-            log('stream retry #' + a + ' in ' + streamDelays[a - 1] + 'ms');
-            await new Promise(r => setTimeout(r, streamDelays[a - 1]));
-        }
-        try {
-            const r = await fetch('/stream.bin', { cache: 'no-store' });
-            if (r.ok) { resp = r; break; }
-            const body = await r.text();
-            log('stream HTTP ' + r.status + ': ' + body.slice(0, 80));
-        } catch (e) {
-            log('stream fetch err: ' + (e.message || e));
-        }
-    }
-    if (!resp) { log('FAIL: /stream.bin unreachable'); return; }
-    const reader = resp.body.getReader();
-    let buf = new Uint8Array(0);
-    let timestamp = 0;
-    let gotKey = false;
-    let sentCount = 0;
-    while (true) {
-        const { value, done } = await reader.read();
-        if (done) { log('stream ended'); break; }
-        const merged = new Uint8Array(buf.length + value.length);
-        merged.set(buf); merged.set(value, buf.length);
-        buf = merged;
-        while (buf.length >= 4) {
-            const len = (buf[0]<<24)|(buf[1]<<16)|(buf[2]<<8)|buf[3];
-            if (buf.length < 4 + len) break;
-            const type = buf[4];
-            const data = buf.slice(5, 4 + len);  // .slice copies the backing buffer
-            buf = buf.subarray(4 + len);
-            // type:
-            //   0 = key (IDR) -- decode normally
-            //   1 = delta
-            //   2 = key WITH RESET -- server detected an upstream drop; the
-            //       decoder's reference state may be silently stale, so
-            //       rebuild before decoding this IDR. (VideoToolbox often
-            //       renders torn frames without firing the error callback.)
-            if (type === 2) {
-                try { decoder.close(); } catch (e) {}
-                decoder = buildDecoder();
-                decoder.configure({ codec, optimizeForLatency: true });
-                needsResync = false;
-                gotKey = true;
-                log('forced reset @ key after upstream drop');
-            } else if (type === 0) {
-                gotKey = true;
-                if (needsResync) {
-                    try { decoder.close(); } catch (e) {}
-                    decoder = buildDecoder();
-                    decoder.configure({ codec, optimizeForLatency: true });
-                    needsResync = false;
-                    log('resynced @ key after ' + decodeErrCount + ' decode err(s)');
-                }
-            }
-            if (!gotKey) continue;
-            if (needsResync) continue;
-            if (decoder.state !== 'configured') {
-                log('decoder ' + decoder.state + ' @' + sentCount + ' - rebuilding');
-                try { decoder.close(); } catch (e) {}
-                decoder = buildDecoder();
-                decoder.configure({ codec, optimizeForLatency: true });
-                needsResync = true;
-                continue;
-            }
-            try {
-                decoder.decode(new EncodedVideoChunk({
-                    type: (type === 0 || type === 2) ? 'key' : 'delta',
-                    timestamp: timestamp,
-                    data: data,
-                }));
-                timestamp += 16666;
-                sentCount++;
-            } catch (e) {
-                log('sync decode err @' + sentCount + ': ' + e.message);
-                needsResync = true;
-            }
-        }
-    }
-}
-run().catch(e => log('fatal: ' + e.message));
-</script>
-</body></html>
-""".encode()
+# ---------------------------------------------------------------------------
+# Self-signed HTTPS for the WebCodecs secure-context requirement
+# ---------------------------------------------------------------------------
+# Browsers refuse to expose WebCodecs on plain http:// from any origin that
+# isn't a loopback address. To make the viewer reachable from another machine
+# on the LAN we need TLS. Generate an ephemeral RSA-2048 self-signed cert
+# covering the bind address + common SANs; the browser will warn on first
+# visit and remember the override after the user accepts it. (ed25519 was
+# tried first and produced "connection unexpectedly closed" errors in some
+# Chrome/Safari builds -- ed25519 server certs are still spotty in 2026.)
+def _build_self_signed_ssl_context(bind: str) -> ssl.SSLContext:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "pymobiledevice3 serve-web")])
+    san_entries: list[x509.GeneralName] = [
+        x509.DNSName("localhost"),
+        x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
+        x509.IPAddress(ipaddress.IPv6Address("::1")),
+    ]
+    # If bind is a concrete address, include it; if it's the 0.0.0.0 wildcard,
+    # enumerate every local interface IP so the cert SAN covers whatever LAN
+    # address the user types in their browser. Without this Chrome shows a
+    # "Not private" warning for the typed IP even when the cert would otherwise
+    # be acceptable, and Safari may refuse the connection outright.
+    extra: set[str] = set()
+    if bind and bind not in ("0.0.0.0", "::"):
+        extra.add(bind)
+    else:
+        with contextlib.suppress(OSError):
+            for info in socket.getaddrinfo(socket.gethostname(), None):
+                extra.add(info[4][0])
+        # Probe the routable outbound IP via a UDP socket (no packets actually
+        # sent -- `connect` on UDP just fills the local address from routing).
+        with contextlib.suppress(OSError):
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                probe.connect(("8.8.8.8", 80))
+                extra.add(probe.getsockname()[0])
+            finally:
+                probe.close()
+    for ip in extra:
+        try:
+            san_entries.append(x509.IPAddress(ipaddress.ip_address(ip)))
+        except ValueError:
+            san_entries.append(x509.DNSName(ip))
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (
+        x509
+        .CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=5))
+        .not_valid_after(now + datetime.timedelta(days=365))
+        .add_extension(x509.SubjectAlternativeName(san_entries), critical=False)
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .sign(key, algorithm=hashes.SHA256())
+    )
+    # ssl.SSLContext.load_cert_chain only accepts file paths, not bytes. Drop
+    # the PEM into a closed-then-unlinked tempfile and load before deleting.
+    cert_pem = cert.public_bytes(serialization.Encoding.PEM)
+    key_pem = key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as f:
+        f.write(cert_pem + key_pem)
+        path = f.name
+    try:
+        ctx.load_cert_chain(certfile=path, keyfile=path)
+    finally:
+        with contextlib.suppress(OSError):
+            os.unlink(path)
+    return ctx
 
 
 # ---------------------------------------------------------------------------
@@ -869,16 +421,27 @@ class ScreenStreamServer:
         self,
         rsd: RemoteServiceDiscoveryService,
         *,
-        bind: str = "127.0.0.1",
+        bind: str = "0.0.0.0",
         http_port: int = 8080,
         display_id: int = 1,
         audio_default_on: bool = True,
+        allow_rtcp_fb: bool = False,
+        ltrp_enabled: bool = False,
+        https: bool = False,
     ) -> None:
         self._rsd = rsd
         self._bind = bind
         self._http_port = http_port
         self._display_id = display_id
         self._audio_default_on = audio_default_on
+        self._https = https
+        # Protobuf-level negotiation knobs forwarded to every
+        # ``DisplayService.start_video_stream`` we issue. ``ltrp_enabled=False``
+        # default came out of on-device probing: the device honours the
+        # request and LTRP-off eliminates mid-stream tearing under UDP loss.
+        # See media_stream_offer.py for the full schema notes.
+        self._allow_rtcp_fb = allow_rtcp_fb
+        self._ltrp_enabled = ltrp_enabled
         self._sender_ip = rsd.service.address[0]
 
         # Broadcast state — each subscriber gets framed access units written as:
@@ -891,16 +454,6 @@ class ScreenStreamServer:
         self._codec_string: Optional[str] = None
         self._saw_first_key = False
         self._stream_ready = asyncio.Event()
-        # Raw parameter-set / IDR NALs cached for phantom synthesis. The
-        # phantom NAL block bridges the bootstrap POC gap (Apple's encoder
-        # emits IDR=POC0 then jumps the first delta to POC=~163 with refs
-        # to a sparse set the decoder never received). Synthesising
-        # phantoms at the needed POCs lets WebCodecs decode the chain.
-        self._cached_vps_nal: Optional[bytes] = None
-        self._cached_sps_nal: Optional[bytes] = None
-        self._cached_pps_nal: Optional[bytes] = None
-        self._cached_idr_nal: Optional[bytes] = None
-        self._phantoms_built = False
 
         # Active device-stream session.
         self._active_service: Optional[DisplayService] = None
@@ -972,8 +525,11 @@ class ScreenStreamServer:
         self._uhs: Optional[UniversalHIDServiceService] = None
         self._indigo: Optional[IndigoHIDService] = None
         self._hid_lock = asyncio.Lock()
+        # _ServiceID dtuhidd assigned to our host-registered virtual
+        # keyboard. Lazily filled on the first /key POST.
+        self._kb_service_id: Optional[int] = None
 
-        # HID input queue. We accept /touch and /button POSTs into this
+        # HID input queue. We accept /touch /button /key POSTs into this
         # queue and return 200 immediately, then a single worker task
         # dispatches them via the XPC connection. This decouples HTTP
         # handling latency from device-write latency so a touch flood
@@ -988,6 +544,24 @@ class ScreenStreamServer:
         self._last_good_au_t: float = 0.0
         self._last_restart_t: float = 0.0
         self._consecutive_restarts: int = 0
+
+        # Lazy lockdown handle + AccessibilityAudit cache for the
+        # accessibility sidebar -- opened on the first /accessibility
+        # request so a serve-web run without any accessibility use
+        # never has to touch usbmuxd. The audit's DTX reader tasks are
+        # closed during shutdown; otherwise they trigger a flurry of
+        # CancelledError tracebacks from the connection-cleanup path.
+        self._lockdown = None
+        self._accessibility: Optional[AccessibilityAudit] = None
+        self._accessibility_lock = asyncio.Lock()
+
+        # Background task that holds an IOPMAssertion on the device so
+        # iOS auto-lock doesn't kick in mid-session. Without this the
+        # display sleeps after the user's auto-lock timeout (typically
+        # 30 s -- 2 min) and the encoder stops emitting AUs; restarts
+        # also can't recover because a locked device won't start a
+        # fresh DisplayService session cleanly.
+        self._keep_awake_task: Optional[asyncio.Task] = None
 
     # ----- per-session UDP receiver -----------------------------------------
     async def _udp_recv_and_depacketize(self, sock: socket.socket) -> None:
@@ -1079,7 +653,7 @@ class ScreenStreamServer:
             now = loop.time()
             if now - stats_last_log > 5.0:
                 if stats_forward_gaps or stats_reorders or stats_corrupt_aus:
-                    logger.info(
+                    logger.debug(
                         "RTP stats (last %.1fs): packets=%d forward_gaps=%d reorders=%d dropped_AUs=%d",
                         now - stats_last_log,
                         stats_packets,
@@ -1105,16 +679,6 @@ class ScreenStreamServer:
                         logger.info(f"WebCodecs codec string: {self._codec_string}")
                     except Exception as exc:
                         logger.warning(f"failed to parse SPS: {exc}")
-                # Cache the parameter sets + IDR slice as raw NALs so we
-                # can synthesise phantoms later from the captured IDR body.
-                if nt == _HEVC_NAL_VPS:
-                    self._cached_vps_nal = bytes(nal)
-                elif nt == _HEVC_NAL_SPS:
-                    self._cached_sps_nal = bytes(nal)
-                elif nt == _HEVC_NAL_PPS:
-                    self._cached_pps_nal = bytes(nal)
-                elif _is_key_nal(nt):
-                    self._cached_idr_nal = bytes(nal)
                 if _is_key_nal(nt):
                     au_is_key = True
                 current_au.append(nal)
@@ -1130,15 +694,17 @@ class ScreenStreamServer:
                     pli_task = asyncio.create_task(self._send_rtcp_pli())
                     self._pli_tasks.add(pli_task)
                     pli_task.add_done_callback(self._pli_tasks.discard)
-                    # Also force every connected subscriber to wait for the
-                    # next IDR before feeding the decoder again. VideoToolbox
-                    # often *doesn't* throw on a broken-reference delta -- it
-                    # renders visible tearing without firing the error
-                    # callback -- so we can't rely on the browser to notice
-                    # on its own. Marking needs_key here means: skip frames
-                    # until our PLI-induced IDR arrives, then full reset.
-                    for state in self._subscribers.values():
-                        state.needs_key = True
+                    # Note: we DON'T set ``state.needs_key = True`` on
+                    # subscribers here anymore. With the live broadcast loop
+                    # only dropping the *current* corrupt AU (not subsequent
+                    # ones), the next IDR from the PLI lands as a normal
+                    # type=0 key — the browser's decoder absorbs it as a
+                    # fresh DPB anchor without rebuilding, eliminating the
+                    # visible chop that the rebuild-on-needs_key path was
+                    # producing on every UDP gap during heavy motion.
+                    # If references really were lost the decoder will throw
+                    # a decode err, which the browser-side error handler
+                    # already turns into a /pli call.
                 if current_au and not au_corrupt:
                     annexb = b"".join(b"\x00\x00\x00\x01" + nal for nal in current_au)
                     # Three framing types:
@@ -1160,51 +726,6 @@ class ScreenStreamServer:
                     # reads this to know when motion settles.
                     self._au_byte_window.append((self._last_good_au_t, len(annexb)))
                     if self._saw_first_key:
-                        # First non-key AU after the IDR is the moment we
-                        # can synthesise phantoms (we need the delta's
-                        # slice header to know which POCs are referenced).
-                        phantom_msgs: list[bytes] = []
-                        if (
-                            not au_is_key
-                            and not self._phantoms_built
-                            and self._cached_vps_nal is not None
-                            and self._cached_sps_nal is not None
-                            and self._cached_pps_nal is not None
-                            and self._cached_idr_nal is not None
-                        ):
-                            try:
-                                first_delta_nal = current_au[0]
-                                phantoms = build_phantoms_for_bootstrap(
-                                    self._cached_vps_nal,
-                                    self._cached_sps_nal,
-                                    self._cached_pps_nal,
-                                    self._cached_idr_nal,
-                                    first_delta_nal,
-                                )
-                                logger.info(
-                                    "Phantom synthesis: first delta NAL %d B (type=%d), produced %d phantoms",
-                                    len(first_delta_nal),
-                                    (first_delta_nal[0] >> 1) & 0x3F,
-                                    len(phantoms),
-                                )
-                            except Exception:
-                                logger.exception("phantom synthesis failed")
-                                phantoms = []
-                            if phantoms:
-                                logger.info(
-                                    "Synthesised %d phantom NALs for bootstrap",
-                                    len(phantoms),
-                                )
-                                for ph in phantoms:
-                                    ph_annexb = b"\x00\x00\x00\x01" + ph
-                                    ph_msg = (len(ph_annexb) + 1).to_bytes(4, "big") + b"\x00" + ph_annexb
-                                    phantom_msgs.append(ph_msg)
-                                # Bake into init_sequence so late-joining
-                                # subscribers also get them.
-                                if self._init_sequence is not None:
-                                    self._init_sequence = self._init_sequence + b"".join(phantom_msgs)
-                            self._phantoms_built = True
-
                         for q, state in list(self._subscribers.items()):
                             if q.full():
                                 while not q.empty():
@@ -1222,8 +743,6 @@ class ScreenStreamServer:
                                 # holds stale reference frames.
                                 q.put_nowait(msg_reset)
                                 continue
-                            for pm in phantom_msgs:
-                                q.put_nowait(pm)
                             q.put_nowait(msg)
                 current_au = []
                 au_is_key = False
@@ -1265,7 +784,7 @@ class ScreenStreamServer:
         try:
             loop = asyncio.get_running_loop()
             await loop.sock_sendto(sock, self._build_rtcp_pli(), (*self._rtcp_dest, 0, 0))
-            logger.info("sent RTCP PLI (requested fresh keyframe)")
+            logger.debug("sent RTCP PLI (requested fresh keyframe)")
         except OSError as exc:
             logger.debug("PLI send failed (%s)", exc)
 
@@ -1492,11 +1011,14 @@ class ScreenStreamServer:
             with contextlib.suppress(Exception):
                 sock.close()
         if svc is not None:
-            with contextlib.suppress(Exception):
-                if sid is not None:
-                    await svc.stop_media_stream(sid)
-            with contextlib.suppress(Exception):
-                await svc.close()
+            # Bound the device-side RPCs. A wedged CoreDevice daemon
+            # can hang the XPC response wait indefinitely, holding
+            # _audio_lock and preventing recovery.
+            if sid is not None:
+                with contextlib.suppress(asyncio.TimeoutError, Exception):
+                    await asyncio.wait_for(svc.stop_media_stream(sid), timeout=2.0)
+            with contextlib.suppress(asyncio.TimeoutError, Exception):
+                await asyncio.wait_for(svc.close(), timeout=2.0)
 
     async def _ensure_audio_stream(self) -> None:
         async with self._audio_lock:
@@ -1587,11 +1109,18 @@ class ScreenStreamServer:
             with contextlib.suppress(Exception):
                 sock_to_close.close()
         if svc is not None:
-            with contextlib.suppress(Exception):
-                if sid is not None:
-                    await svc.stop_media_stream(sid)
-            with contextlib.suppress(Exception):
-                await svc.close()
+            # Bound the device-side RPCs. The stall watchdog calls us
+            # precisely when the CoreDevice daemon has stopped feeding
+            # AUs -- i.e. the state in which stop_media_stream / close
+            # are most likely to hang on their XPC response wait. An
+            # unbounded await here holds _stream_lock forever and
+            # leaves /codec and /stream.bin replying 503 with no path
+            # to recovery short of restarting the server.
+            if sid is not None:
+                with contextlib.suppress(asyncio.TimeoutError, Exception):
+                    await asyncio.wait_for(svc.stop_media_stream(sid), timeout=2.0)
+            with contextlib.suppress(asyncio.TimeoutError, Exception):
+                await asyncio.wait_for(svc.close(), timeout=2.0)
 
     async def _ensure_fresh_stream(self, force: bool = False) -> None:
         async with self._stream_lock:
@@ -1613,11 +1142,6 @@ class ScreenStreamServer:
             self._codec_string = None
             self._saw_first_key = False
             self._stream_ready.clear()
-            self._cached_vps_nal = None
-            self._cached_sps_nal = None
-            self._cached_pps_nal = None
-            self._cached_idr_nal = None
-            self._phantoms_built = False
             # Preserve any connected subscribers across the restart — flush
             # their queues and flag them needs_key so they'll lock onto the
             # first IDR from the new stream instead of seeing the connection
@@ -1653,6 +1177,8 @@ class ScreenStreamServer:
                 sender_ip=self._sender_ip,
                 display_id=self._display_id,
                 client_session_id=self._shared_session_id,
+                allow_rtcp_fb=self._allow_rtcp_fb,
+                ltrp_enabled=self._ltrp_enabled,
             )
             sid = answer["connection"]["options"]["avcMediaStreamOptionClientSessionID"]["uuid"]
             if not isinstance(sid, uuid.UUID):
@@ -1691,6 +1217,59 @@ class ScreenStreamServer:
             self._stream_dirty = False
 
     # ----- HID (touch + buttons) -------------------------------------------
+    # ----- Accessibility settings (lockdown / DTX) --------------------------
+    async def _ensure_accessibility(self) -> AccessibilityAudit:
+        """Lazy-open the lockdown + AccessibilityAudit handles. Cached
+        for the server's lifetime so we don't churn the DTX channel on
+        every panel interaction; closed in :meth:`serve`'s shutdown."""
+        if self._accessibility is None:
+            if self._lockdown is None:
+                self._lockdown = await _create_lockdown_usbmux(self._rsd.udid)
+            self._accessibility = AccessibilityAudit(self._lockdown)
+        return self._accessibility
+
+    async def _accessibility_list(self) -> list[dict]:
+        async with self._accessibility_lock:
+            audit = await self._ensure_accessibility()
+            settings = await audit.settings()
+        out: list[dict] = []
+        for s in settings:
+            val = s.value
+            # Whitelist serialisable scalars; everything else is dropped so
+            # bad responses don't break json.dumps for the whole list.
+            if isinstance(val, (bool, int, float, str)):
+                out.append({"key": s.key, "value": val})
+        return out
+
+    async def _accessibility_set(self, key: str, value) -> None:
+        async with self._accessibility_lock:
+            audit = await self._ensure_accessibility()
+            await audit.set_setting(key, value)
+
+    async def _accessibility_reset(self) -> None:
+        async with self._accessibility_lock:
+            audit = await self._ensure_accessibility()
+            await audit.reset_settings()
+
+    async def _stop_accessibility(self) -> None:
+        """Tear down the cached AccessibilityAudit (closes its DTX reader
+        task) so shutdown doesn't drag stale channels into the cancel
+        path -- their reader-loop CancelledError would otherwise log a
+        full traceback at ERROR level for each open channel.
+
+        Acquires ``_accessibility_lock`` first so an in-flight panel
+        request can finish before we pull the underlying DTX channel
+        out from under it; closing mid-decode produces a 'coroutine
+        ignored GeneratorExit' warning on Python 3.14 when the
+        in-flight bplist read can't unwind cleanly."""
+        with contextlib.suppress(Exception):
+            async with self._accessibility_lock:
+                audit = self._accessibility
+                self._accessibility = None
+                if audit is not None:
+                    with contextlib.suppress(Exception):
+                        await audit.close()
+
     async def _ensure_hid(self) -> None:
         """Lazily open the HID services + worker on first input event."""
         async with self._hid_lock:
@@ -1724,6 +1303,12 @@ class ScreenStreamServer:
                 with contextlib.suppress(Exception):
                     await self._indigo.close()
                 self._indigo = None
+            # The keyboard surface is host-registered against the live
+            # media stream; after a stream restart that ID points at a
+            # stale dtuhidd session and every report posted to it is
+            # silently dropped. Forget it so _ensure_keyboard re-creates
+            # one against the new stream on the next /key.
+            self._kb_service_id = None
 
     async def _hid_worker(self) -> None:
         """Single consumer that serially dispatches queued HID requests so
@@ -1736,7 +1321,12 @@ class ScreenStreamServer:
                 try:
                     if self._uhs is None or self._indigo is None:
                         await self._ensure_hid()
-                    handler = self._handle_touch if path == "/touch" else self._handle_button
+                    if path == "/touch":
+                        handler = self._handle_touch
+                    elif path == "/button":
+                        handler = self._handle_button
+                    else:
+                        handler = self._handle_key
                     code, msg = await handler(body)
                     if code != 200:
                         logger.warning("queued %s -> %d %s", path, code, msg.decode("utf-8", "replace"))
@@ -1786,12 +1376,38 @@ class ScreenStreamServer:
             return 400, f"unknown touch type {op!r}".encode()
         return 200, b"ok"
 
+    async def _ensure_keyboard(self) -> None:
+        await self._ensure_hid()
+        if self._kb_service_id is None:
+            async with self._hid_lock:
+                if self._kb_service_id is None:
+                    assert self._uhs is not None
+                    self._kb_service_id = await self._uhs.create_keyboard_service()
+
+    async def _handle_key(self, body: bytes) -> tuple[int, bytes]:
+        """POST /key — JSON ``{usages: [int, int, ...]}``.
+
+        The browser sends the *full set* of HID Keyboard usages currently
+        held down; we forward verbatim. Empty list = all keys released.
+        Translating browser KeyboardEvents to HID usages happens client-side
+        so the server has no per-connection state to keep in sync.
+        """
+        try:
+            data = json.loads(body)
+            usages = [int(u) for u in data.get("usages", [])]
+        except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            return 400, f"invalid key request: {exc}".encode()
+        await self._ensure_keyboard()
+        assert self._uhs is not None and self._kb_service_id is not None
+        await self._uhs.send_keyboard(self._kb_service_id, usages)
+        return 200, b"ok"
+
     async def _handle_button(self, body: bytes) -> tuple[int, bytes]:
         """POST /button — JSON ``{name, state}``.
 
-        ``name`` is one of the keys in :data:`_NAMED_BUTTONS` (home, power,
-        lock, sleep, volume-up, volume-down, mute, siri). ``state`` is one of
-        ``"press"`` (default — fires down then up), ``"down"``, ``"up"``.
+        ``name`` is one of the keys in :data:`_NAMED_BUTTONS` (home, lock,
+        volume-up, volume-down, mute, siri). ``state`` is one of ``"press"``
+        (default — fires down then up), ``"down"``, ``"up"``.
         """
         try:
             data = json.loads(body)
@@ -1801,11 +1417,16 @@ class ScreenStreamServer:
             return 400, f"invalid button request: {exc}".encode()
         if name not in _NAMED_BUTTONS:
             return 400, f"unknown button {name!r}".encode()
-        usage_page, usage_code = _NAMED_BUTTONS[name]
+        usage_page, usage_code, hold_seconds = _NAMED_BUTTONS[name]
         await self._ensure_hid()
         assert self._indigo is not None
         if state == "press":
             await self._indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+            # Hold matters: Home is a tap (fires on any duration), but Lock
+            # wants ~0.5 s for iOS to sleep the device and Siri ~1.0 s for
+            # iOS to start listening. A 70 µs DOWN→UP gap (no sleep) is
+            # treated as bounce-noise for these buttons.
+            await asyncio.sleep(hold_seconds)
             await self._indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
         elif state == "down":
             await self._indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
@@ -1816,6 +1437,15 @@ class ScreenStreamServer:
         return 200, b"ok"
 
     @staticmethod
+    def _send_static(writer: asyncio.StreamWriter, body: bytes, content_type: bytes) -> None:
+        writer.write(
+            b"HTTP/1.1 200 OK\r\n"
+            b"Content-Type: " + content_type + b"\r\n"
+            b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+            b"Connection: close\r\n\r\n" + body
+        )
+
+    @staticmethod
     async def _read_body(reader: asyncio.StreamReader, headers: dict[str, str]) -> bytes:
         try:
             length = int(headers.get("content-length", "0"))
@@ -1823,12 +1453,12 @@ class ScreenStreamServer:
             length = 0
         if length <= 0:
             return b""
-        # Cap the body to a sane size — touch/button POSTs are tens of bytes.
+        # Cap the body to a sane size — touch/button/key POSTs are tens of bytes.
         return await reader.readexactly(min(length, 65536))
 
     # ----- HTTP request handler ---------------------------------------------
     async def _handle_http(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        # POSTs to /touch and /button support keep-alive: one TCP carries
+        # POSTs to /touch /button /key support keep-alive: one TCP carries
         # many requests, which is what the browser uses for pointermove.
         # Everything else (/, /codec, /stream.bin) is one-and-done.
         while True:
@@ -1850,9 +1480,9 @@ class ScreenStreamServer:
             method = parts[0].decode() if parts else "GET"
             path = parts[1].decode() if len(parts) >= 2 else "/"
 
-            if method == "POST" and path in ("/touch", "/button"):
+            if method == "POST" and path in ("/touch", "/button", "/key"):
                 body = await self._read_body(reader, headers)
-                logger.info("enqueue %s body=%r conn=%s", path, body[:80], headers.get("connection", "?"))
+                logger.debug("enqueue %s body=%r conn=%s", path, body[:80], headers.get("connection", "?"))
                 # Fire-and-forget: drop into the queue and answer 200 NOW.
                 # The single HID worker will dispatch in order without
                 # blocking the HTTP-server loop or starving the stream
@@ -1875,16 +1505,25 @@ class ScreenStreamServer:
             break
 
         if path in ("/", "/index.html"):
-            body = VIEWER_HTML.replace(
+            self._send_static(writer, VIEWER_HTML, b"text/html; charset=utf-8")
+            await writer.drain()
+            writer.close()
+            return
+        if path == "/viewer.css":
+            self._send_static(writer, VIEWER_CSS, b"text/css; charset=utf-8")
+            await writer.drain()
+            writer.close()
+            return
+        if path == "/viewer.js":
+            # The `__AUDIO_DEFAULT_ON__` placeholder used to be in the
+            # inline <script> block; now it lives in viewer.js and gets
+            # substituted per-request so the server's `_audio_default_on`
+            # flag still controls the initial audio state.
+            body = VIEWER_JS_TEMPLATE.replace(
                 b"__AUDIO_DEFAULT_ON__",
                 b"true" if self._audio_default_on else b"false",
             )
-            writer.write(
-                b"HTTP/1.1 200 OK\r\n"
-                b"Content-Type: text/html; charset=utf-8\r\n"
-                b"Content-Length: " + str(len(body)).encode() + b"\r\n"
-                b"Connection: close\r\n\r\n" + body
-            )
+            self._send_static(writer, body, b"application/javascript; charset=utf-8")
             await writer.drain()
             writer.close()
             return
@@ -1940,7 +1579,7 @@ class ScreenStreamServer:
                 # browser's /audio.bin reconnect leaves the device with
                 # an unpaired lone video session, which iOS treats as a
                 # second-class client and throttles. Symptom was the
-                # browser sticking on "frames: 1" after a Forced Reset
+                # browser sticking on "frames: 1" after a /restart
                 # until the user reloaded and re-attached /audio.bin.
                 with contextlib.suppress(Exception):
                     await self._ensure_fresh_stream(force=True)
@@ -1949,6 +1588,121 @@ class ScreenStreamServer:
             self._pli_tasks.add(bg)  # piggy-back on the existing keep-alive set
             bg.add_done_callback(self._pli_tasks.discard)
             writer.write(b"HTTP/1.1 202 Accepted\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+            await writer.drain()
+            writer.close()
+            return
+        if path.startswith("/accessibility"):
+            try:
+                resp_body: bytes
+                if path == "/accessibility" and method == "GET":
+                    settings = await self._accessibility_list()
+                    resp_body = json.dumps({"settings": settings}).encode()
+                elif path == "/accessibility/set" and method == "POST":
+                    body = await self._read_body(reader, headers)
+                    payload = json.loads(body)
+                    key = str(payload["key"])
+                    value = payload["value"]
+                    await self._accessibility_set(key, value)
+                    resp_body = b'{"ok":true}'
+                elif path == "/accessibility/reset" and method == "POST":
+                    await self._accessibility_reset()
+                    resp_body = b'{"ok":true}'
+                else:
+                    writer.write(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                    await writer.drain()
+                    writer.close()
+                    return
+                writer.write(
+                    b"HTTP/1.1 200 OK\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Cache-Control: no-store\r\n"
+                    b"Content-Length: " + str(len(resp_body)).encode() + b"\r\n"
+                    b"Connection: close\r\n\r\n" + resp_body
+                )
+            except Exception as exc:
+                logger.exception("accessibility endpoint failed")
+                err = f"accessibility error: {exc}".encode()
+                writer.write(
+                    b"HTTP/1.1 500 Internal\r\n"
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Length: " + str(len(err)).encode() + b"\r\n"
+                    b"Connection: close\r\n\r\n" + err
+                )
+            await writer.drain()
+            writer.close()
+            return
+        if path == "/style":
+            try:
+                if method == "POST":
+                    body = await self._read_body(reader, headers)
+                    try:
+                        style = str(json.loads(body)["style"])
+                    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                        writer.write(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                        await writer.drain()
+                        writer.close()
+                        logger.debug("style POST: bad body %r (%s)", body, exc)
+                        return
+                    async with ConfigurationService(self._rsd) as cfg:
+                        await cfg.set_user_interface_style(style)
+                    resp_body = json.dumps({"style": style}).encode()
+                else:
+                    async with ConfigurationService(self._rsd) as cfg:
+                        style = await cfg.get_user_interface_style()
+                    resp_body = json.dumps({"style": style}).encode()
+                writer.write(
+                    b"HTTP/1.1 200 OK\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Cache-Control: no-store\r\n"
+                    b"Content-Length: " + str(len(resp_body)).encode() + b"\r\n"
+                    b"Connection: close\r\n\r\n" + resp_body
+                )
+            except Exception as exc:
+                logger.exception("style endpoint failed")
+                err = f"style endpoint error: {exc}".encode()
+                writer.write(
+                    b"HTTP/1.1 500 Internal\r\n"
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Length: " + str(len(err)).encode() + b"\r\n"
+                    b"Connection: close\r\n\r\n" + err
+                )
+            await writer.drain()
+            writer.close()
+            return
+        if path == "/rotate" and method == "POST":
+            # 90 degree rotation step. JSON body: ``{"direction": "left"|"right"}``.
+            # The reply is the device's resulting orientation, which the viewer
+            # uses to apply a matching CSS transform to the canvas so the user
+            # sees the rotated content upright in the browser too.
+            body = await self._read_body(reader, headers)
+            try:
+                direction = str(json.loads(body)["direction"])
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                writer.write(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                await writer.drain()
+                writer.close()
+                logger.debug("rotate POST: bad body %r (%s)", body, exc)
+                return
+            try:
+                async with OrientationService(self._rsd) as svc:
+                    state = await svc.rotate(direction)
+                resp_body = json.dumps({k: v for k, v in state.items() if isinstance(v, (str, bool))}).encode()
+                writer.write(
+                    b"HTTP/1.1 200 OK\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Cache-Control: no-store\r\n"
+                    b"Content-Length: " + str(len(resp_body)).encode() + b"\r\n"
+                    b"Connection: close\r\n\r\n" + resp_body
+                )
+            except Exception as exc:
+                logger.exception("rotate endpoint failed")
+                err = f"rotate error: {exc}".encode()
+                writer.write(
+                    b"HTTP/1.1 500 Internal\r\n"
+                    b"Content-Type: text/plain\r\n"
+                    b"Content-Length: " + str(len(err)).encode() + b"\r\n"
+                    b"Connection: close\r\n\r\n" + err
+                )
             await writer.drain()
             writer.close()
             return
@@ -2095,6 +1849,31 @@ class ScreenStreamServer:
         state = _SubState()
         state.needs_key = True
         self._subscribers[queue] = state
+
+        # PLI-retry: the device's encoder occasionally ignores a single
+        # PLI (we've seen the post-connect PLI go unanswered, leaving the
+        # subscriber stuck on init_sequence forever — only a manual page
+        # reload resolved it). Spam another PLI every 700 ms until the
+        # broadcast loop clears this subscriber's needs_key (= an IDR
+        # arrived and was delivered as msg_reset).
+        async def _bootstrap_pli_retry():
+            for _ in range(6):
+                await asyncio.sleep(0.7)
+                if not state.needs_key:
+                    return
+                if self._active_service is None or self._rtcp_dest is None:
+                    return
+                if queue not in self._subscribers:
+                    return
+                logger.debug("/stream.bin: subscriber still needs_key, re-PLI")
+                pt = asyncio.create_task(self._send_rtcp_pli())
+                self._pli_tasks.add(pt)
+                pt.add_done_callback(self._pli_tasks.discard)
+
+        retry_task = asyncio.create_task(_bootstrap_pli_retry())
+        self._pli_tasks.add(retry_task)
+        retry_task.add_done_callback(self._pli_tasks.discard)
+
         try:
             while True:
                 msg = await queue.get()
@@ -2104,52 +1883,56 @@ class ScreenStreamServer:
             pass
         finally:
             self._subscribers.pop(queue, None)
+            retry_task.cancel()
             with contextlib.suppress(Exception):
                 writer.close()
 
     async def _decoder_refresh_loop(self) -> None:
-        """Force connected browsers to rebuild their video decoders
-        WHEN it's likely to help, not on a fixed timer.
+        """IDR refresh: PLI on sustained motion + on settle + slow heartbeat.
 
-        VideoToolbox (and Safari's WebCodecs wrapper around it) silently
-        accumulates stale long-term-reference-picture state under heavy
-        motion -- decode reports success on every frame but the rendered
-        pixels are torn. There's no error callback; the only known
-        recovery is to rebuild the decoder around a fresh IDR (what a
-        manual page reload achieves).
-
-        Each rebuild has a small cost: a ~30 ms frame gap while we wait
-        for the IDR + the new decoder's first output. At high cadences
-        (e.g. 2 refreshes/sec) the gap becomes visible "chop". The
-        smoothest experience is one rebuild per motion event, fired
-        right after motion settles -- the same UX pattern as a manual
-        reload after the user finishes interacting.
-
-        We use the device's RTP byte rate as the motion signal (works
-        for ANY motion source -- browser /touch, finger on the device,
-        a system animation). Idle is ~30-60 KB/s, motion is 150+ KB/s.
+        Each PLI gives the browser's WebCodecs decoder a fresh DPB anchor.
+        Without refresh the decoder accumulates prediction drift across
+        each high-motion burst (quick swipes etc.) and renders torn
+        pixels — Chrome doesn't throw on the bad reference, just shows
+        the artifact.
 
         Triggers:
-        1. Active: motion is currently happening and ``active_interval``
-           has passed since the last refresh. Without this, tears
-           accumulate the entire time the user is interacting; the next
-           refresh wouldn't come until motion ends + settle_delay or
-           the heartbeat fires (up to 10 s later).
-        2. Motion settled: AU byte rate dropped below the threshold
-           AFTER having been above it, and ``settle_delay`` has passed.
-        3. Heartbeat: max ``heartbeat`` seconds between refreshes as a
-           safety net for slow-creeping tears that don't correlate with
-           our motion signal.
+          1. **Active** — byte rate has been above
+             ``motion_threshold_bps`` continuously for at least
+             ``active_interval``. Catches sustained motion (rapid
+             back-to-back swipes) where settle never fires.
+          2. **Settle** — byte rate was above threshold and just
+             dropped for at least ``settle_delay``. One PLI per real
+             motion event ending, when accumulated drift is visible
+             against the now-static screen.
+          3. **Heartbeat** — backstop every ``heartbeat`` seconds.
+             Also handles bootstrap (``_last_refresh_t == 0.0`` at
+             start so the first eligible tick fires a PLI; the
+             broadcast loop needs that fresh IDR to clear
+             ``needs_key`` on a subscriber that connected after the
+             natural startup IDR has already passed).
 
+        ``motion_threshold_bps = 500_000`` (500 KB/s) sits well above
+        the measured iPhone 12 mini idle byte-rate (60-100 KB/s), so
+        the previous always-on settle churn at 100 KB/s doesn't recur.
+        Real motion bursts go several MB/s on this device.
         ``min_interval`` caps back-to-back refreshes regardless of
         trigger.
         """
         loop = asyncio.get_running_loop()
-        motion_threshold_bps = 100_000  # 100 KB/s = motion
-        active_interval = 1.5  # fire this often during sustained motion
-        settle_delay = 0.4  # wait after motion ends before refresh
-        heartbeat = 10.0  # max between refreshes when idle
-        min_interval = 1.0  # don't fire more often than this
+        # Threshold above measured idle (≈60-100 KB/s) but below normal
+        # motion bursts (200-400 KB/s on iPhone 12 mini / iOS 27 under
+        # quick swipes). At this threshold settle fires once per real
+        # motion event ending; with ``_fire_decoder_refresh`` no longer
+        # flushing subscriber queues, each PLI's fresh IDR is delivered
+        # as a transparent DPB refresh (type=0 key), not a decoder
+        # rebuild — so frequent firing here is no longer chop-visible.
+        motion_threshold_bps = 200_000
+        active_interval = 1.0  # fire mid-motion at this cadence
+        settle_delay = 0.3  # wait after motion ends before refresh
+        heartbeat = 10.0  # backstop cadence when nothing else fires
+        min_interval = 0.7  # don't fire more often than this
+        motion_started_t = 0.0
         while True:
             try:
                 await asyncio.sleep(0.1)
@@ -2160,19 +1943,26 @@ class ScreenStreamServer:
             if self._active_service is None or self._rtcp_dest is None:
                 continue
             now = loop.time()
-            # Prune the byte window to the last 1 s.
+            # Prune the byte-rate window to the last 1 s.
             while self._au_byte_window and self._au_byte_window[0][0] < now - 1.0:
                 self._au_byte_window.popleft()
             window_bytes = sum(s for _, s in self._au_byte_window)
             currently_active = window_bytes >= motion_threshold_bps
-            # Detect active->idle transition (motion just ended).
+            # Track motion transitions for settle detection + active duration.
+            if currently_active and not self._motion_active:
+                motion_started_t = now
             if self._motion_active and not currently_active:
                 self._motion_ended_t = now
             self._motion_active = currently_active
             since_refresh = now - self._last_refresh_t
             if since_refresh < min_interval:
                 continue
-            active = currently_active and since_refresh >= active_interval
+            active = (
+                currently_active
+                and motion_started_t > 0
+                and (now - motion_started_t) >= active_interval
+                and since_refresh >= active_interval
+            )
             settled = self._motion_ended_t > self._last_refresh_t and (now - self._motion_ended_t) >= settle_delay
             heartbeat_due = since_refresh >= heartbeat
             if not (active or settled or heartbeat_due):
@@ -2181,20 +1971,20 @@ class ScreenStreamServer:
             self._fire_decoder_refresh(now, reason=reason)
 
     def _fire_decoder_refresh(self, now: float, *, reason: str) -> None:
-        for q, state in self._subscribers.items():
-            while not q.empty():
-                with contextlib.suppress(asyncio.QueueEmpty):
-                    q.get_nowait()
-            state.needs_key = True
+        # Just send the PLI — DON'T flush subscriber queues or set
+        # needs_key. The fresh IDR will be broadcast as a normal type=0
+        # key (msg, not msg_reset), so the browser absorbs it without
+        # rebuilding its decoder — the rebuild is what was producing
+        # visible chop and looked like tearing during sustained motion.
+        # A subscriber whose state really IS stale (after a queue-full
+        # flush or AU corruption) is still handled correctly by the
+        # other code paths that set ``state.needs_key = True``.
         pli_task = asyncio.create_task(self._send_rtcp_pli())
         self._pli_tasks.add(pli_task)
         pli_task.add_done_callback(self._pli_tasks.discard)
         self._last_refresh_t = now
-        # Window-bytes here are just the current 1 s sum; useful when
-        # tuning the motion threshold against real byte-rates from the
-        # device's encoder under various activity levels.
         window_bps = sum(s for _, s in self._au_byte_window)
-        logger.info(
+        logger.debug(
             "decoder-refresh (%s): %d subscriber(s), %d B/s window",
             reason,
             len(self._subscribers),
@@ -2241,8 +2031,57 @@ class ScreenStreamServer:
                 _MAX_STALL_RESTARTS,
             )
             self._last_restart_t = now
-            with contextlib.suppress(Exception):
-                await self._ensure_fresh_stream(force=True)
+            # Bound the whole restart so a hang on the device side
+            # (cleanup or start) can't hold _stream_lock forever and
+            # silently block subsequent /codec and /stream.bin paths.
+            # The inner _stop_active_stream already bounds its own
+            # XPC calls; this is the outer safety net covering the
+            # start side too (connect / start_video_stream).
+            try:
+                await asyncio.wait_for(self._ensure_fresh_stream(force=True), timeout=10.0)
+            except asyncio.TimeoutError:
+                logger.warning("stall-watchdog restart did not complete within 10s")
+            except Exception:
+                logger.exception("stall-watchdog restart failed")
+
+    async def _keep_awake_loop(self) -> None:
+        """Hold a PreventUserIdleSystemSleep IOPMAssertion on the device
+        so it doesn't auto-lock mid-session.
+
+        Without this iOS sleeps the display after the user's auto-lock
+        timer (often 2 minutes) and the screen-capture pipeline halts:
+        AUs stop arriving, the stall watchdog fires, and the restart
+        also can't complete because a locked device won't start a fresh
+        DisplayService session cleanly. End result is the server going
+        silently unresponsive until the user manually wakes the device.
+
+        Renewal cadence is well under the requested timeout so a single
+        slow renewal cycle can't drop the assertion."""
+        assertion_timeout = 300  # 5 min — long enough that a missed renew is harmless
+        refresh_interval = 120  # 2 min — well under timeout
+        try:
+            if self._lockdown is None:
+                self._lockdown = await _create_lockdown_usbmux(self._rsd.udid)
+            while True:
+                try:
+                    svc = PowerAssertionService(self._lockdown)
+                    async with svc.create_power_assertion(
+                        "PreventUserIdleSystemSleep",
+                        "pymobiledevice3.serve-web",
+                        assertion_timeout,
+                        "serve-web keeping device awake for screen mirroring",
+                    ):
+                        pass
+                except Exception:
+                    logger.debug("keep-awake renew failed; will retry", exc_info=True)
+                try:
+                    await asyncio.sleep(refresh_interval)
+                except asyncio.CancelledError:
+                    return
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logger.warning("keep-awake loop crashed (device may auto-lock)", exc_info=True)
 
     async def _eager_stream_start(self) -> None:
         """Bring the device-side streams up at server boot.
@@ -2273,9 +2112,16 @@ class ScreenStreamServer:
 
     async def serve(self) -> None:
         """Run the HTTP server until cancelled / Ctrl-C."""
-        http_server = await asyncio.start_server(self._handle_http, self._bind, self._http_port)
+        ssl_ctx = _build_self_signed_ssl_context(self._bind) if self._https else None
+        http_server = await asyncio.start_server(
+            self._handle_http,
+            self._bind,
+            self._http_port,
+            ssl=ssl_ctx,
+        )
         watchdog = asyncio.create_task(self._stall_watchdog())
         decoder_refresh = asyncio.create_task(self._decoder_refresh_loop())
+        self._keep_awake_task = asyncio.create_task(self._keep_awake_loop())
         # Eagerly start the HID worker so queued /touch requests are
         # processed even before the device-stream is fully up.
         self._hid_worker_task = asyncio.create_task(self._hid_worker())
@@ -2320,31 +2166,36 @@ class ScreenStreamServer:
         # (the straggler cancel at the end of this function mops it up).
         serve_task = asyncio.create_task(http_server.serve_forever(), name="serve_forever")
         try:
-            logger.info(f"Open http://{self._bind}:{self._http_port}/ in Safari/Chrome. Ctrl-C to stop.")
+            scheme = "https" if self._https else "http"
+            logger.info(f"Open {scheme}://{self._bind}:{self._http_port}/ in Safari/Chrome. Ctrl-C to stop.")
             await stop_event.wait()
         except (KeyboardInterrupt, asyncio.CancelledError):
             pass
         finally:
             if not serve_task.done():
                 serve_task.cancel()
-            logger.info("shutdown: cancelling watchdog")
+            logger.debug("shutdown: cancelling watchdog")
             watchdog.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await watchdog
             decoder_refresh.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await decoder_refresh
-            logger.info("shutdown: cancelling eager_start")
+            if self._keep_awake_task is not None:
+                self._keep_awake_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await self._keep_awake_task
+            logger.debug("shutdown: cancelling eager_start")
             eager_start.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await eager_start
             # Close the HTTP listener first so no new connections come in
             # while we tear the device-side streams down.
-            logger.info("shutdown: closing HTTP server")
+            logger.debug("shutdown: closing HTTP server")
             http_server.close()
             with contextlib.suppress(Exception):
                 await asyncio.wait_for(http_server.wait_closed(), timeout=2.0)
-            logger.info("shutdown: stopping HID")
+            logger.debug("shutdown: stopping HID")
             await _bounded(self._stop_hid(), "_stop_hid")
             task = self._hid_worker_task
             self._hid_worker_task = None
@@ -2364,10 +2215,19 @@ class ScreenStreamServer:
                 async with self._audio_lock:
                     await self._stop_audio_stream()
 
-            logger.info("shutdown: stopping video stream")
+            logger.debug("shutdown: stopping video stream")
             await _bounded(_stop_video(), "_stop_active_stream")
-            logger.info("shutdown: stopping audio stream")
+            logger.debug("shutdown: stopping audio stream")
             await _bounded(_stop_audio(), "_stop_audio_stream")
+            # Close the accessibility audit BEFORE cancelling stragglers --
+            # otherwise its DTX reader task is one of the stragglers and
+            # its cancellation logs a 'Channel reader loop cancelled'
+            # ERROR-with-traceback. Closing first sets _closed=True on
+            # the channel so the reader exits silently. Any in-flight
+            # /accessibility request gets an exception out of its
+            # await audit.* call and falls through to its try/except.
+            logger.debug("shutdown: closing accessibility audit")
+            await _bounded(self._stop_accessibility(), "_stop_accessibility")
             # Cancel any lingering connection-handler tasks that the
             # HTTP server's wait_closed couldn't drain (e.g. a
             # /stream.bin or /audio.bin handler blocked in queue.get()
@@ -2377,7 +2237,7 @@ class ScreenStreamServer:
             current = asyncio.current_task()
             stragglers = [t for t in asyncio.all_tasks(loop) if t is not current and not t.done()]
             if stragglers:
-                logger.info("shutdown: cancelling %d straggler task(s)", len(stragglers))
+                logger.debug("shutdown: cancelling %d straggler task(s)", len(stragglers))
                 for t in stragglers:
                     t.cancel()
                 with contextlib.suppress(Exception):

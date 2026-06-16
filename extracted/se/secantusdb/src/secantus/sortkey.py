@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import math
+import re as _re
 import struct
 from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
@@ -214,12 +215,19 @@ def _encode_objectid(oid: ObjectId) -> bytes:
     return oid.binary  # 12 bytes, already byte-sortable
 
 
+_EPOCH_NAIVE = _dt.datetime(1970, 1, 1)
+_EPOCH_AWARE = _dt.datetime(1970, 1, 1, tzinfo=_dt.timezone.utc)
+
+
 def _encode_date(d: _dt.datetime) -> bytes:
-    if d.tzinfo is not None:
-        ms = int(d.timestamp() * 1000)
-    else:
-        epoch = _dt.datetime(1970, 1, 1)
-        ms = int((d - epoch).total_seconds() * 1000)
+    # Integer-exact millis, matching what BSON stores and what mongod sorts by.
+    # The previous ``total_seconds() * 1000`` float path rounded sub-second
+    # values off by up to 1ms (e.g. .449s -> 448ms), so a date's sort key could
+    # disagree with its own stored millisecond. ``timedelta`` normalises
+    # seconds/microseconds non-negative with ``days`` carrying the sign, so
+    # this stays exact for pre-epoch dates too.
+    delta = d - (_EPOCH_AWARE if d.tzinfo is not None else _EPOCH_NAIVE)
+    ms = delta.days * 86_400_000 + delta.seconds * 1000 + delta.microseconds // 1000
     return _signed_int64_sortable(ms)
 
 
@@ -245,10 +253,32 @@ def _encode_array(arr: list[Any]) -> bytes:
     return _escape(bson.encode({str(i): v for i, v in enumerate(arr)}))
 
 
+# re flag bit -> option char, in pymongo's on-the-wire order ("ilmsux"). After
+# a BSON round-trip ``Regex.flags`` is an int, so the old ``bytes(r.flags)``
+# branch turned e.g. flags=10 into ten NUL bytes instead of "im". Reconstruct
+# the option string the way pymongo serialises it so the key matches the stored
+# regex (and mongod's ordering).
+_RE_FLAG_CHARS = (
+    (_re.I, "i"),
+    (_re.L, "l"),
+    (_re.M, "m"),
+    (_re.S, "s"),
+    (_re.U, "u"),
+    (_re.X, "x"),
+)
+
+
+def _regex_options(flags: Any) -> bytes:
+    if isinstance(flags, str):
+        return flags.encode("utf-8")
+    if isinstance(flags, (bytes, bytearray)):
+        return bytes(flags)
+    return "".join(c for bit, c in _RE_FLAG_CHARS if flags & bit).encode("utf-8")
+
+
 def _encode_regex(r: Regex) -> bytes:
     pattern = r.pattern.encode("utf-8") if isinstance(r.pattern, str) else bytes(r.pattern)
-    flags = r.flags.encode("utf-8") if isinstance(r.flags, str) else bytes(r.flags)
-    return _escape(pattern) + b"\x00\x00" + _escape(flags)
+    return _escape(pattern) + b"\x00\x00" + _escape(_regex_options(r.flags))
 
 
 def encode_value(value: Any, *, collation: Any = None) -> bytes:

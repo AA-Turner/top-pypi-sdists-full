@@ -5,6 +5,8 @@ protocol using the MCP SDK (FastMCP). It handles tool registration, resource
 handling, and server lifecycle.
 """
 
+from __future__ import annotations
+
 import asyncio
 from collections.abc import Sequence
 import inspect
@@ -12,10 +14,12 @@ import keyword
 import os
 from pathlib import Path
 import re
-from typing import Any
+import time
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from ouroboros.config._model_defaults import DEFAULT_SONNET_MODEL
 from ouroboros.core.types import Result
 from ouroboros.events.io import new_call_id
 from ouroboros.events.io_recorder import IOJournalRecorder, use_io_journal_recorder
@@ -39,6 +43,9 @@ from ouroboros.mcp.types import (
 )
 from ouroboros.orchestrator.agent_runtime_context import AgentRuntimeContext
 from ouroboros.orchestrator.control_bus import ControlBus, ControlBusDrainError
+
+if TYPE_CHECKING:
+    from ouroboros.mcp.job_manager import JobManager
 
 log = structlog.get_logger(__name__)
 
@@ -597,6 +604,8 @@ class MCPServerAdapter:
         self._mcp_server: Any = None
         self._owned_resources: list[Any] = []  # objects with async close()
         self._runtime_context: AgentRuntimeContext | None = None
+        self._job_manager: JobManager | None = None
+        self._last_tool_activity = time.monotonic()
 
         # Initialize security layer
         self._security = SecurityLayer(
@@ -722,6 +731,7 @@ class MCPServerAdapter:
         Returns:
             Result containing the tool result or an error.
         """
+        self._last_tool_activity = time.monotonic()
         handler = self._tool_handlers.get(name)
         if not handler:
             return Result.err(
@@ -1030,6 +1040,26 @@ class MCPServerAdapter:
         """Register a resource whose ``close()`` will be called on shutdown."""
         self._owned_resources.append(resource)
 
+    @property
+    def job_manager(self) -> JobManager | None:
+        """Return the background-job manager owned by this server, if any.
+
+        Exposed so the serve shutdown path can drain live jobs *before* the
+        EventStore closes; job tasks killed by ``asyncio.run`` teardown after
+        the store is gone fail their terminal appends and leave RUNNING
+        zombie rows in the DB.
+        """
+        return self._job_manager
+
+    def set_job_manager(self, job_manager: JobManager) -> None:
+        """Attach the background-job manager to the server object graph."""
+        self._job_manager = job_manager
+
+    @property
+    def seconds_since_last_tool_call(self) -> float:
+        """Seconds since the last tool call (or server creation) — idle gauge."""
+        return time.monotonic() - self._last_tool_activity
+
     def _io_recorder_for_tool_call(
         self,
         name: str,
@@ -1316,7 +1346,7 @@ def create_ouroboros_server(
     # Use Sonnet for execution (frugal) — Opus is overkill for code generation.
     execution_model = os.environ.get("OUROBOROS_EXECUTION_MODEL")
     if execution_model is None and resolved_runtime_backend == "claude":
-        execution_model = "claude-sonnet-4-6"
+        execution_model = DEFAULT_SONNET_MODEL
     # Use stderr console: in MCP stdio mode, stdout is the JSON-RPC channel.
     # Any non-protocol output on stdout corrupts the MCP communication.
     # Stage 1 (mechanical checks: lint/build/test) can be enabled via env var.
@@ -1572,7 +1602,7 @@ def create_ouroboros_server(
         # Use Sonnet for validation fixes — import error resolution doesn't need Opus
         validation_model = os.environ.get("OUROBOROS_VALIDATION_MODEL")
         if validation_model is None and resolved_runtime_backend == "claude":
-            validation_model = "claude-sonnet-4-6"
+            validation_model = DEFAULT_SONNET_MODEL
         validation_adapter = create_agent_runtime(
             backend=resolved_runtime_backend,
             model=validation_model,
@@ -1878,6 +1908,7 @@ def create_ouroboros_server(
         control=control_bus,
     )
     server.set_runtime_context(agent_runtime_context)
+    server.set_job_manager(job_manager)
 
     # Close the reactive control surface before stores/bridges it may
     # reference from subscriber tasks.

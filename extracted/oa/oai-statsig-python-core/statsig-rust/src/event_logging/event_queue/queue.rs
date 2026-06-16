@@ -122,7 +122,7 @@ impl EventQueue {
     }
 
     pub fn reconcile_batching(&self) -> QueueReconcileResult {
-        let mut pending_events: VecDeque<StatsigEventInternal> = self
+        let pending_events: VecDeque<StatsigEventInternal> = self
             .take_all_pending_events()
             .into_iter()
             .map(|evt| evt.into_statsig_event_internal())
@@ -140,11 +140,13 @@ impl EventQueue {
             .into_iter()
             .partition(|batch| batch.events.len() >= self.batch_size);
 
+        let mut events_to_batch = VecDeque::new();
         for batch in partial_batches {
-            pending_events.extend(batch.events);
+            events_to_batch.extend(batch.events);
         }
+        events_to_batch.extend(pending_events);
 
-        let new_batches = self.create_batches(pending_events);
+        let new_batches = self.create_batches(events_to_batch);
 
         batches.extend(full_batches);
         batches.extend(new_batches);

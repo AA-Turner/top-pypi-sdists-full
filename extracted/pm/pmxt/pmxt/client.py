@@ -825,11 +825,17 @@ class Exchange(ABC):
             return "opinion_buy"
         if self.exchange_name == "opinion" and side == "sell":
             return "opinion_sell_polygon"
-        raise NotSupported("Hosted trading is only supported for Polymarket and Opinion.")
+        if self.exchange_name == "limitless" and side == "buy":
+            return "limitless_buy"
+        if self.exchange_name == "limitless" and side == "sell":
+            return "limitless_sell_polygon"
+        raise NotSupported(f"Hosted trading not supported for {self.exchange_name}.")
 
     def _hosted_order_pull_validation_route(self, side: str) -> Optional[str]:
         if self.exchange_name == "opinion" and side == "sell":
             return "opinion_sell_bsc_pull"
+        if self.exchange_name == "limitless" and side == "sell":
+            return "limitless_sell_base_pull"
         return None
 
     def _hosted_cancel_validation_routes(self) -> Tuple[str, Optional[str]]:
@@ -1432,7 +1438,7 @@ class Exchange(ABC):
         except ApiException as e:
             raise self._parse_api_exception(e) from None
 
-    def fetch_order_book(self, outcome_id: Union[str, "MarketOutcome"] = _UNSET, limit: Optional[float] = None, params: Optional[dict] = None, **kwargs) -> Union[OrderBook, List[OrderBook]]:
+    def fetch_order_book(self, outcome_id: Union[str, "MarketOutcome"] = _UNSET, limit: Optional[float] = None, params: Optional[FetchOrderBookParams] = None, **kwargs) -> Union[OrderBook, List[OrderBook]]:
         try:
             args = []
             if kwargs:
@@ -1484,8 +1490,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def cancel_order(self, order_id: str) -> Order:
-        if self.is_hosted:
-            return self._hosted_cancel_order(order_id)
         try:
             args = []
             args.append(order_id)
@@ -1506,12 +1510,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_order(self, order_id: str) -> Order:
-        if self.is_hosted:
-            payload = self._hosted_request(
-                "fetch_order",
-                path_params={"order_id": order_id},
-            )
-            return self._hosted_single(payload, "order", order_from_v0)
         try:
             args = []
             args.append(order_id)
@@ -1532,13 +1530,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_open_orders(self, market_id: Optional[str] = None) -> List[Order]:
-        if self.is_hosted:
-            address = resolve_wallet_address(self)
-            params: Dict[str, Any] = {"address": address}
-            if market_id is not None:
-                params["market_id"] = market_id
-            payload = self._hosted_request("fetch_open_orders", params=params)
-            return self._hosted_collection(payload, "orders", order_from_v0)
         try:
             args = []
             if market_id is not None:
@@ -1560,21 +1551,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_my_trades(self, params: Optional[dict] = None, **kwargs) -> List[UserTrade]:
-        if self.is_hosted:
-            merged = dict(params or {})
-            if kwargs:
-                merged.update(kwargs)
-            address = merged.pop("address", None) or merged.pop("addr", None)
-            resolved_address = resolve_wallet_address(self, address)
-            query_params = {
-                key: value for key, value in merged.items() if value is not None
-            }
-            payload = self._hosted_request(
-                "fetch_my_trades",
-                path_params={"address": resolved_address},
-                params=query_params if query_params else None,
-            )
-            return self._hosted_collection(payload, "trades", user_trade_from_v0)
         try:
             args = []
             if kwargs:
@@ -1598,11 +1574,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_closed_orders(self, params: Optional[dict] = None, **kwargs) -> List[Order]:
-        if self.is_hosted:
-            raise NotSupported(
-                "fetch_closed_orders is not available in hosted mode; "
-                "settled orders are modeled as trades, use fetch_my_trades() instead."
-            )
         try:
             args = []
             if kwargs:
@@ -1626,11 +1597,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_all_orders(self, params: Optional[dict] = None, **kwargs) -> List[Order]:
-        if self.is_hosted:
-            raise NotSupported(
-                "fetch_all_orders is not available in hosted mode; "
-                "use fetch_open_orders() and fetch_my_trades() separately."
-            )
         try:
             args = []
             if kwargs:
@@ -1654,13 +1620,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_positions(self, address: Optional[str] = None) -> List[Position]:
-        if self.is_hosted:
-            resolved_address = resolve_wallet_address(self, address)
-            payload = self._hosted_request(
-                "fetch_positions",
-                path_params={"address": resolved_address},
-            )
-            return self._hosted_collection(payload, "positions", position_from_v0)
         try:
             args = []
             if address is not None:
@@ -1682,25 +1641,6 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_balance(self, address: Optional[str] = None) -> List[Balance]:
-        if self.is_hosted:
-            resolved_address = resolve_wallet_address(self, address)
-            payload = self._hosted_request(
-                "fetch_balance",
-                path_params={"address": resolved_address},
-            )
-            data = self._hosted_response_data(payload, "balances")
-            if data is None:
-                return []
-            if isinstance(data, dict) and "balances" in data:
-                data = data["balances"]
-            if isinstance(data, dict):
-                # Some servers return a single balance object rather than a list.
-                return [balance_from_v0(data)]
-            if not isinstance(data, list):
-                raise PmxtError(
-                    "Hosted fetch_balance response must be a list or dict"
-                )
-            return [balance_from_v0(item) for item in data]
         try:
             args = []
             if address is not None:

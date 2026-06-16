@@ -2,6 +2,7 @@ use crate::compression::compression_helper::{compress_data, get_compression_form
 use crate::event_logging_adapter::EventLoggingAdapter;
 use crate::log_event_payload::LogEventRequest;
 use crate::networking::{NetworkClient, NetworkError, RequestArgs};
+use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::statsig_metadata::StatsigMetadata;
 use crate::{log_d, StatsigErr, StatsigOptions, StatsigRuntime};
 use async_trait::async_trait;
@@ -22,6 +23,7 @@ const TAG: &str = stringify!(StatsigHttpEventLoggingAdapter);
 pub struct StatsigHttpEventLoggingAdapter {
     log_event_url: String,
     network: NetworkClient,
+    ops_stats: Arc<OpsStatsForInstance>,
 }
 
 impl StatsigHttpEventLoggingAdapter {
@@ -37,9 +39,14 @@ impl StatsigHttpEventLoggingAdapter {
             .map(|u| u.to_string())
             .unwrap_or_else(|| DEFAULT_LOG_EVENT_URL.to_string());
 
+        let sdk_instance_id = options
+            .map(|opts| opts.get_sdk_instance_id(sdk_key))
+            .unwrap_or(sdk_key);
+
         Self {
             log_event_url,
             network: NetworkClient::new(sdk_key, Some(headers), options),
+            ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
         }
     }
 
@@ -70,6 +77,13 @@ impl StatsigHttpEventLoggingAdapter {
         // Compress data before sending it
         let bytes = serde_json::to_vec(&request.payload)
             .map_err(|e| StatsigErr::SerializationError(e.to_string()))?;
+        self.ops_stats
+            .log_event_request_uncompressed_body_size_bytes(
+                bytes.len(),
+                get_request_flush_type(request),
+                self.get_observability_tags(),
+            );
+
         let compressed = match compress_data(&bytes) {
             Ok(c) => c,
             Err(e) => return Err(e),
@@ -116,6 +130,16 @@ impl StatsigHttpEventLoggingAdapter {
             ))
         }
     }
+}
+
+fn get_request_flush_type(request: &LogEventRequest) -> String {
+    request
+        .payload
+        .statsig_metadata
+        .get("flushType")
+        .and_then(|value| value.as_str())
+        .unwrap_or("unknown")
+        .to_string()
 }
 
 #[async_trait]

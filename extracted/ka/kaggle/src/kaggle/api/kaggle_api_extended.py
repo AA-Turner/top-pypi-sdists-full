@@ -109,10 +109,14 @@ from kagglesdk.discussions.types.discussions_api_service import (
     ApiDiscussionTopic,
     ApiGetTopicRequest,
     ApiGetTopicResponse,
+    ApiListBenchmarkTopicsRequest,
     ApiListCommentsRequest,
     ApiListCommentsResponse,
+    ApiListDatasetTopicsRequest,
+    ApiListKernelTopicsRequest,
     ApiListForumsRequest,
     ApiListForumsResponse,
+    ApiListModelTopicsRequest,
     ApiListTopicsRequest,
     ApiListTopicsResponse,
 )
@@ -157,7 +161,12 @@ from kagglesdk.datasets.types.dataset_enums import (
     DatasetFileTypeGroup,
     DatasetLicenseGroup,
 )
-from kagglesdk.datasets.types.dataset_types import DatasetSettings, SettingsLicense, DatasetCollaborator
+from kagglesdk.datasets.types.dataset_types import (
+    DatasetSettings,
+    SettingsLicense,
+    DatasetCollaborator,
+    DatasetSettingsFile,
+)
 from kagglesdk.kaggle_object import KaggleObject
 from kagglesdk.kernels.types.kernels_api_service import (
     ApiListKernelsRequest,
@@ -2448,6 +2457,162 @@ class KaggleApi:
                 request.group = TopicListGroup["TOPIC_LIST_GROUP_" + group.upper()]
             return kaggle.discussions.discussion_api_client.list_topics(request)
 
+    def dataset_list_topics(
+        self,
+        dataset: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a dataset.
+
+        Args:
+            dataset (str): Dataset slug (e.g. 'zillow/zecon').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, dataset_slug, _ = self.split_dataset_string(dataset)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListDatasetTopicsRequest()
+            request.owner_slug = owner_slug
+            request.dataset_slug = dataset_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_dataset_topics(request)
+
+    def kernel_list_topics(
+        self,
+        kernel: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a kernel.
+
+        Args:
+            kernel (str): Kernel slug (e.g. 'owner/kernel-slug').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, kernel_slug, _ = self.parse_kernel_string(kernel)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListKernelTopicsRequest()
+            request.owner_slug = owner_slug
+            request.kernel_slug = kernel_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_kernel_topics(request)
+
+    def model_list_topics(
+        self,
+        model: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a model.
+
+        Args:
+            model (str): Model slug (e.g. 'google/gemma').
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, model_slug = self.split_model_string(model)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListModelTopicsRequest()
+            request.owner_slug = owner_slug
+            request.model_slug = model_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_model_topics(request)
+
+    def benchmark_list_topics(
+        self,
+        benchmark: str,
+        sort_by: Optional[str] = None,
+        page_size: Optional[int] = None,
+        page_token: Optional[str] = None,
+        search: Optional[str] = None,
+    ):
+        """List discussion topics for a benchmark.
+
+        Args:
+            benchmark (str): Benchmark slug.
+            sort_by (Optional[str]): Sort order; one of valid_forum_topic_sort_by.
+            page_size (Optional[int]): Number of results per page.
+            page_token (Optional[str]): Page token for pagination.
+            search (Optional[str]): Search query to filter topics.
+
+        Returns:
+            ApiListTopicsResponse: response with topics, total_count, and next_page_token.
+        """
+        owner_slug, benchmark_slug = self.split_benchmark_string(benchmark)
+        with self.build_kaggle_client() as kaggle:
+            request = ApiListBenchmarkTopicsRequest()
+            request.owner_slug = owner_slug
+            request.benchmark_slug = benchmark_slug
+            if sort_by:
+                if sort_by not in self.valid_forum_topic_sort_by:
+                    raise ValueError(
+                        "Invalid sort_by specified. Valid options are " + str(self.valid_forum_topic_sort_by)
+                    )
+                request.sort_by = TopicListSortBy["TOPIC_LIST_SORT_BY_" + sort_by.upper()]
+            if page_size is not None:
+                request.page_size = page_size
+            if page_token:
+                request.page_token = page_token
+            if search:
+                request.search_query = search
+            return kaggle.discussions.discussion_api_client.list_benchmark_topics(request)
+
     def forums_list_topics_cli(
         self,
         forum=None,
@@ -2689,8 +2854,45 @@ class KaggleApi:
         if entity_ref is None:
             raise ValueError("No dataset specified")
 
-        response = self.forums_list_topics(
-            forum_slug=entity_ref,
+        response = self.dataset_list_topics(
+            dataset=entity_ref,
+            sort_by=sort_by,
+            page_size=page_size,
+            page_token=page_token,
+            search=search,
+        )
+        topics = response.topics
+        if topics:
+            fields = self.forum_topic_fields
+            if csv_display:
+                self.print_csv(topics, fields)
+            else:
+                self.print_table(topics, fields)
+            if not quiet and response.next_page_token:
+                print(f"Next page token: {response.next_page_token}")
+        else:
+            print("No topics found")
+
+    def kernel_list_topics_cli(
+        self,
+        entity_ref=None,
+        sort_by=None,
+        page_size=None,
+        page_token=None,
+        search=None,
+        csv_display=False,
+        quiet=False,
+    ):
+        """CLI wrapper that lists discussion topics for a kernel.
+
+        Args:
+            entity_ref (str): Kernel slug (e.g. 'owner/kernel-slug').
+        """
+        if entity_ref is None:
+            raise ValueError("No kernel specified")
+
+        response = self.kernel_list_topics(
+            kernel=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
@@ -2726,8 +2928,8 @@ class KaggleApi:
         if entity_ref is None:
             raise ValueError("No model specified")
 
-        response = self.forums_list_topics(
-            forum_slug=entity_ref,
+        response = self.model_list_topics(
+            model=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
@@ -2763,8 +2965,8 @@ class KaggleApi:
         if entity_ref is None:
             raise ValueError("No benchmark specified")
 
-        response = self.forums_list_topics(
-            forum_slug=entity_ref,
+        response = self.benchmark_list_topics(
+            benchmark=entity_ref,
             sort_by=sort_by,
             page_size=page_size,
             page_token=page_token,
@@ -2972,7 +3174,31 @@ class KaggleApi:
                 if metadata.get("collaborators")
                 else []
             )
-            update_settings.data = metadata.get("data")
+            resources = metadata.get("resources")
+            data = metadata.get("data")
+            if resources and not data:
+                converted_data = []
+                for r in resources:
+                    file_entry = {}
+                    if "path" in r:
+                        file_entry["name"] = r["path"]
+                    if "description" in r:
+                        file_entry["description"] = r["description"]
+                    if "schema" in r and "fields" in r["schema"]:
+                        columns = []
+                        for f in r["schema"]["fields"]:
+                            col = {}
+                            if "name" in f:
+                                col["name"] = f["name"]
+                            col["description"] = f.get("description") or f.get("title") or ""
+                            if "type" in f:
+                                col["type"] = f["type"]
+                            columns.append(col)
+                        file_entry["columns"] = columns
+                    converted_data.append(file_entry)
+                update_settings.data = [DatasetSettingsFile.from_dict(d) for d in converted_data]
+            elif data:
+                update_settings.data = [DatasetSettingsFile.from_dict(d) for d in data]
             # This *should* be a list of sources, but we store them as a single string in dataset version metadata,
             # so we treat it as a different / special property than Data Package's "sources" for now:
             # https://specs.frictionlessdata.io//data-package/#sources
@@ -4265,6 +4491,7 @@ class KaggleApi:
             "enable_gpu": "false",
             "enable_tpu": "false",
             "enable_internet": "true",
+            "machine_shape": "",
             "dataset_sources": [],
             "competition_sources": [],
             "kernel_sources": [],
@@ -4607,7 +4834,14 @@ class KaggleApi:
             print("Source code downloaded to " + effective_path)
 
     def kernels_output(
-        self, kernel: str, path: str, file_pattern: Optional[str] = None, force: bool = False, quiet: bool = True
+        self,
+        kernel: str,
+        path: str,
+        file_pattern: Optional[str] = None,
+        force: bool = False,
+        quiet: bool = True,
+        page_token: Optional[str] = None,
+        page_size: int = 20,
     ) -> Tuple[List[str], str]:
         """Retrieves the output for a specified kernel.
 
@@ -4617,6 +4851,8 @@ class KaggleApi:
             file_pattern (str): Optional regex pattern to match against filenames. Only files matching the pattern will be downloaded.
             force (bool): If True, force an overwrite if the output already exists (default is False).
             quiet (bool): Suppress verbose output (default is True).
+            page_token (str): Optional page token for downloading a specific page of output files.
+            page_size (int): The number of items to request per page.
 
         Returns:
             Tuple[List[str], str]: A tuple containing a list of output files and a string indicating the response status.
@@ -4644,11 +4880,14 @@ class KaggleApi:
         else:
             compiled_pattern = None
 
-        token = None
+        token = page_token
         with self.build_kaggle_client() as kaggle:
             request = ApiListKernelSessionOutputRequest()
             request.user_name = owner_slug
             request.kernel_slug = kernel_slug
+            request.page_size = page_size
+            if token:
+                request.page_token = token
             try:
                 response = kaggle.kernels.kernels_api_client.list_kernel_session_output(request)
             except HTTPError as e:
@@ -4678,8 +4917,20 @@ class KaggleApi:
                 if not quiet:
                     print("Output file downloaded to %s" % outfile)
 
+        while token and page_token is None:
+            page_outfiles, token = self.kernels_output(
+                kernel,
+                path,
+                file_pattern=file_pattern,
+                force=force,
+                quiet=quiet,
+                page_token=token,
+                page_size=page_size,
+            )
+            outfiles.extend(page_outfiles)
+
         log = response.log
-        if log:
+        if log and page_token is None:
             outfile = os.path.join(target_dir, kernel_slug + ".log")
             outfiles.append(outfile)
             with open(outfile, "w") as out:
@@ -4689,7 +4940,17 @@ class KaggleApi:
 
         return outfiles, token  # Breaking change, we need to get the token to the UI
 
-    def kernels_output_cli(self, kernel, kernel_opt=None, path=None, force=False, quiet=False, file_pattern=None):
+    def kernels_output_cli(
+        self,
+        kernel,
+        kernel_opt=None,
+        path=None,
+        force=False,
+        quiet=False,
+        file_pattern=None,
+        page_token=None,
+        page_size=20,
+    ):
         """A client wrapper for kernels_output.
 
         This method is a client wrapper for the kernels_output function.
@@ -4702,9 +4963,13 @@ class KaggleApi:
             force: If True, force an overwrite if the output already exists (default is False).
             quiet: Suppress verbose output (default is False).
             file_pattern: Regex pattern to match against filenames. Only files matching the pattern will be downloaded.
+            page_token: Page token for downloading a specific page of output files.
+            page_size: The number of items to request per page.
         """
         kernel = kernel or kernel_opt
-        _, token = self.kernels_output(kernel, path, file_pattern, force, quiet)
+        _, token = self.kernels_output(
+            kernel, path, file_pattern, force, quiet, page_token=page_token, page_size=page_size
+        )
         if token:
             print(f"Next page token: {token}")
 
@@ -6254,7 +6519,9 @@ class KaggleApi:
         """
         processed_column = ApiDatasetColumn()
         processed_column.name = self.get_or_fail(column, "name")
-        processed_column.description = self.get_or_default(column, "description", "")
+        processed_column.description = self.get_or_default(
+            column, "description", self.get_or_default(column, "title", "")
+        )
 
         if "type" in column:
             original_type = column["type"].lower()
@@ -6457,6 +6724,41 @@ class KaggleApi:
             return model_urls[0], model_urls[1]
         else:
             return self.get_config_value(self.CONFIG_NAME_USER), model
+
+    def validate_benchmark_string(self, benchmark: str) -> None:
+        """Validates a benchmark string.
+
+        A benchmark string is valid if it is in the format {owner}/{benchmark-slug}.
+
+        Args:
+            benchmark (str): The benchmark name to validate.
+
+        Returns:
+            None:
+        """
+        if benchmark:
+            if benchmark.count("/") != 1:
+                raise ValueError("Benchmark must be specified in the form of " "'{owner}/{benchmark-slug}'")
+
+            split = benchmark.split("/")
+            if not split[0] or not split[1]:
+                raise ValueError("Invalid benchmark specification " + benchmark)
+
+    def split_benchmark_string(self, benchmark: str) -> Tuple[Union[str, None], str]:
+        """Splits a benchmark string into owner_slug and benchmark_slug.
+
+        Args:
+            benchmark (str): The benchmark name to split.
+
+        Returns:
+            Tuple[Union[str, None], str]: A tuple containing the owner_slug and benchmark_slug.
+        """
+        if "/" in benchmark:
+            self.validate_benchmark_string(benchmark)
+            benchmark_urls = benchmark.split("/")
+            return benchmark_urls[0], benchmark_urls[1]
+        else:
+            return self.get_config_value(self.CONFIG_NAME_USER), benchmark
 
     def validate_model_instance_string(self, model_instance: str) -> None:
         """Validates a model instance string.
@@ -6770,7 +7072,7 @@ class KaggleApi:
 
     @staticmethod
     def _format_state(state) -> str:
-        """Render an enum state in Titlecase (e.g. ``Completed``)."""
+        """Render an enum state in Titlecase (e.g. ``Completed``, ``Kernel_Without_Run``)."""
         return KaggleApi._clean_enum_str(state).title()
 
     @staticmethod
@@ -7185,8 +7487,13 @@ class KaggleApi:
 
     # -- Public CLI methods --
 
-    def _fetch_model_proxy_env(self):
+    def _fetch_model_proxy_env(self, source):
         with self.build_kaggle_client() as kaggle:
+            # Tag this request so kaggle-analytics can distinguish
+            # `kaggle benchmarks init` from `kaggle benchmarks auth` — both hit
+            # the same endpoint via this helper and would otherwise be
+            # indistinguishable in request logs.
+            kaggle.http_client()._session.headers["X-Kaggle-CLI-Source"] = f"benchmarks-{source}"
             request = ApiCreateDefaultModelProxyTokenRequest()
             try:
                 response = kaggle.models.model_proxy_api_client.create_default_model_proxy_token(request)
@@ -7309,13 +7616,13 @@ class KaggleApi:
             print(f"Syntax reference has been written to {ref_file}.")
 
     def benchmarks_auth_cli(self, no_confirm=False, env_file=".env"):
-        env_vars = self._fetch_model_proxy_env()
+        env_vars = self._fetch_model_proxy_env(source="auth")
         self._write_benchmarks_env(env_vars, no_confirm, env_file)
 
     def benchmarks_init_cli(self, no_confirm=False, env_file=".env", example_file="example_task.py"):
         print("Initializing Kaggle Benchmarks environment")
         print(f"  Target:  {os.path.abspath(env_file)}\n")
-        env_vars = self._fetch_model_proxy_env()
+        env_vars = self._fetch_model_proxy_env(source="init")
         env_vars.update(
             {
                 "LLM_DEFAULT": "google/gemini-3-flash-preview",
@@ -7457,8 +7764,8 @@ class KaggleApi:
                     f"Task '{task}' is not ready to run (status: {self._clean_enum_str(state)}). "
                     f"Only completed tasks can be run."
                 )
-                if state == self._TASK_CREATION_ERRORED:
-                    error_msg += f"\n  Task Info: {task_info}"
+                if task_info.creation_error_message:
+                    error_msg += f"\n  Error: {task_info.creation_error_message}"
                 raise ValueError(error_msg)
 
             if not models:
@@ -7569,6 +7876,8 @@ class KaggleApi:
             version = task_info.slug.version_number or "unset"
             print(f"Version:  {version}")
             print(f"Status:   {self._format_state(task_info.creation_state)}")
+            if task_info.creation_error_message:
+                print(f"Error:    {task_info.creation_error_message}")
             print(f"Created:  {self._format_time(task_info.create_time)}")
             print(f"Public:   {getattr(task_info, 'is_public', False)}")
             url = getattr(task_info, "url", None)

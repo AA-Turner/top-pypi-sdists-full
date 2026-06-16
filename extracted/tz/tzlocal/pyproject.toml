@@ -6,24 +6,23 @@ build-backend = "setuptools.build_meta"
 name = "tzlocal"
 description = "tzinfo object for the local timezone"
 readme = "README.rst"
-version = "5.3.1"
+version = "5.4"
 authors = [{name = "Lennart Regebro", email = "regebro@gmail.com"}]
-license = {text = "MIT"}
+license = "MIT"
 keywords = ["timezone"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",
     "Operating System :: MacOS :: MacOS X",
     "Typing :: Typed",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
 dependencies = [
     "tzdata; platform_system == 'Windows'",
 ]
@@ -34,16 +33,31 @@ Changelog = "https://github.com/regebro/tzlocal/blob/master/CHANGES.txt"
 "Issue tracker" = "https://github.com/regebro/tzlocal/issues"
 
 [project.optional-dependencies]
-devenv = [
+testing = [
     "pytest >= 4.3",
     "pytest-mock >= 3.3",
     "pytest-cov",
     "check_manifest",
+    "pyroma",
+    "ruff",
+]
+devenv = [
     "zest.releaser",
 ]
 
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["tzlocal*"]
+
+[tool.setuptools.package-data]
+"tzlocal.tests" = ["test_data/**/*"]
+
 [tool.ruff]
 line-length = 120
+
+[lint]
 select = [
     "E", "F", "W",  # default flake-8
     "I",            # isort
@@ -58,4 +72,4 @@ ignore = ["UP015"]
 create-wheel = true
 
 [tool.pytest.ini_options]
-testpaths = "tests"
+testpaths = "tzlocal/tests"

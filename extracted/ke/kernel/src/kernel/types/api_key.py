@@ -28,6 +28,12 @@ class APIKey(BaseModel):
 
     created_by: CreatedBy
 
+    deleted_at: Optional[datetime] = None
+    """When the API key was deleted (soft-deleted).
+
+    Null for keys that have not been deleted.
+    """
+
     expires_at: Optional[datetime] = None
     """When the API key expires"""
 

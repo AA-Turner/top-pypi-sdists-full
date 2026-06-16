@@ -9,7 +9,7 @@ from typing import Any
 
 from mashumaro.mixins.orjson import DataClassORJSONMixin
 
-from .enums import MediaType, ProviderFeature, ProviderStage, ProviderType
+from .enums import ProviderFeature, ProviderStage, ProviderType
 from .translations import resolve_translation
 
 
@@ -90,29 +90,6 @@ class ProviderInstance(DataClassORJSONMixin):
     instance_id: str
     supported_features: set[ProviderFeature]
     available: bool
-    icon: str | None = None
     is_streaming_provider: bool | None = None  # music providers only
-
-    def __post_serialize__(self, d: dict[Any, Any]) -> dict[Any, Any]:
-        """Execute action(s) on serialization."""
-        # add lookup_key for backwards compatibility
-        d["lookup_key"] = self.domain if self.is_streaming_provider else self.instance_id
-        return d
-
-
-@dataclass
-class SyncTask:
-    """Description of a Sync task/job of a musicprovider."""
-
-    provider_domain: str
-    provider_instance: str
-    media_types: tuple[MediaType, ...]
-    task: asyncio.Task[None] | None
-
-    def to_dict(self) -> dict[str, Any]:
-        """Return SyncTask as (serializable) dict."""
-        return {
-            "provider_domain": self.provider_domain,
-            "provider_instance": self.provider_instance,
-            "media_types": [x.value for x in self.media_types],
-        }
+    # lookup_key: kept for backwards compatibility; mirrors the server wire value (== instance_id)
+    lookup_key: str | None = None

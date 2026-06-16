@@ -864,7 +864,9 @@ def _finalize_daemon_guard_connect_payload(
         }
     )
     oauth_health = store.get_oauth_local_credential_health()
-    if str(oauth_health.get("state") or "") == "degraded":
+    if store.get_cloud_sync_profile() is None and (
+        oauth_health.get("state") == "degraded" or not oauth_health.get("configured")
+    ):
         repair_message = (
             "Guard Cloud authorization did not persist locally. "
             "Start Guard Cloud connect again to repair local sign-in."
@@ -2311,6 +2313,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             result=result,
             managers=managers,
             workspace_dir=context.workspace_dir,
+            store=self.server.store,  # type: ignore[attr-defined]
         )
         receipt = self._record_headless_receipt(
             harness="package-firewall",

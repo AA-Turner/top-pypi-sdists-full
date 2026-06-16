@@ -30,15 +30,15 @@ class TestChatLiteLLMIntegration(ChatModelIntegrationTests):
 
     @property
     def has_structured_output(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_json_mode(self) -> bool:
-        return False
+        return True
 
     @property
     def supports_image_inputs(self) -> bool:
-        return False
+        return True
 
     @property
     def returns_usage_metadata(self) -> bool:

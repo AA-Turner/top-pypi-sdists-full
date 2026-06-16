@@ -19,6 +19,7 @@ from typing import (
 from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
+from sqlalchemy.orm import Session
 
 from dbos._context import MaxPriority, MinPriority
 from dbos._core import DEFAULT_POLLING_INTERVAL
@@ -38,7 +39,6 @@ if TYPE_CHECKING:
 from dbos._croniter import croniter  # type: ignore
 from dbos._dbos_config import get_system_database_url, is_valid_database_url
 from dbos._error import DBOSException, DBOSNonExistentWorkflowError
-from dbos._registrations import DEFAULT_MAX_RECOVERY_ATTEMPTS
 from dbos._scheduler import backfill_schedule, trigger_schedule
 from dbos._serialization import (
     DefaultSerializer,
@@ -196,14 +196,13 @@ class DBOSClient:
     def destroy(self) -> None:
         self._sys_db.destroy()
 
-    def _enqueue(self, options: EnqueueOptions, *args: Any, **kwargs: Any) -> str:
+    def _build_enqueue_status(
+        self, options: EnqueueOptions, *args: Any, **kwargs: Any
+    ) -> tuple[str, WorkflowStatusInternal]:
         validate_enqueue_options(options)
         workflow_name = options["workflow_name"]
         queue_name = options["queue_name"]
 
-        max_recovery_attempts = options.get("max_recovery_attempts")
-        if max_recovery_attempts is None:
-            max_recovery_attempts = DEFAULT_MAX_RECOVERY_ATTEMPTS
         workflow_id = options.get("workflow_id")
         if workflow_id is None:
             workflow_id = generate_uuid()
@@ -270,13 +269,32 @@ class DBOSClient:
             "owner_xid": None,
             "delay_until_epoch_ms": delay_until_epoch_ms,
         }
+        return workflow_id, status
 
+    def _enqueue(self, options: EnqueueOptions, *args: Any, **kwargs: Any) -> str:
+        workflow_id, status = self._build_enqueue_status(options, *args, **kwargs)
         self._sys_db.init_workflow(
             status,
             max_recovery_attempts=None,
             owner_xid=None,
             is_dequeued_request=False,
             is_recovery_request=False,
+        )
+        return workflow_id
+
+    def _enqueue_with_connection(
+        self,
+        conn_or_session: Union[sa.Connection, Session],
+        options: EnqueueOptions,
+        *args: Any,
+        **kwargs: Any,
+    ) -> str:
+        workflow_id, status = self._build_enqueue_status(options, *args, **kwargs)
+        self._sys_db.init_workflow_with_connection(
+            status,
+            conn_or_session,
+            max_recovery_attempts=None,
+            owner_xid=None,
         )
         return workflow_id
 
@@ -291,6 +309,28 @@ class DBOSClient:
     ) -> "WorkflowHandleAsync[R]":
         workflow_id = await asyncio.to_thread(self._enqueue, options, *args, **kwargs)
         return WorkflowHandleClientAsyncPolling[R](workflow_id, self._sys_db)
+
+    def enqueue_in_transaction(
+        self,
+        conn_or_session: Union[sa.Connection, Session],
+        options: EnqueueOptions,
+        *args: Any,
+        **kwargs: Any,
+    ) -> "WorkflowHandle[R]":
+        """
+        Enqueue a workflow within a caller-owned synchronous SQLAlchemy transaction.
+
+        The caller must commit or roll back the transaction. The returned handle
+        is not valid until the transaction commits. ``conn_or_session`` must
+        target the DBOS system database.
+
+        From an async context, bridge to this synchronous method with
+        ``await async_conn.run_sync(lambda sync_conn: client.enqueue_in_transaction(sync_conn, options, *args))``.
+        """
+        workflow_id = self._enqueue_with_connection(
+            conn_or_session, options, *args, **kwargs
+        )
+        return WorkflowHandleClientPolling[R](workflow_id, self._sys_db)
 
     def register_queue(
         self,
@@ -587,17 +627,29 @@ class DBOSClient:
             self.get_event, workflow_id, key, timeout_seconds
         )
 
-    def cancel_workflow(self, workflow_id: str) -> None:
-        self._sys_db.cancel_workflows([workflow_id])
+    def cancel_workflow(
+        self, workflow_id: str, *, cancel_children: bool = False
+    ) -> None:
+        self._sys_db.cancel_workflows([workflow_id], cancel_children=cancel_children)
 
-    async def cancel_workflow_async(self, workflow_id: str) -> None:
-        await asyncio.to_thread(self.cancel_workflow, workflow_id)
+    async def cancel_workflow_async(
+        self, workflow_id: str, *, cancel_children: bool = False
+    ) -> None:
+        await asyncio.to_thread(
+            self.cancel_workflow, workflow_id, cancel_children=cancel_children
+        )
 
-    def cancel_workflows(self, workflow_ids: List[str]) -> None:
-        self._sys_db.cancel_workflows(workflow_ids)
+    def cancel_workflows(
+        self, workflow_ids: List[str], *, cancel_children: bool = False
+    ) -> None:
+        self._sys_db.cancel_workflows(workflow_ids, cancel_children=cancel_children)
 
-    async def cancel_workflows_async(self, workflow_ids: List[str]) -> None:
-        await asyncio.to_thread(self._sys_db.cancel_workflows, workflow_ids)
+    async def cancel_workflows_async(
+        self, workflow_ids: List[str], *, cancel_children: bool = False
+    ) -> None:
+        await asyncio.to_thread(
+            self.cancel_workflows, workflow_ids, cancel_children=cancel_children
+        )
 
     def delete_workflow(
         self, workflow_id: str, *, delete_children: bool = False
@@ -1005,6 +1057,7 @@ class DBOSClient:
             The values written to the stream in order
         """
         event, payload = self._sys_db.register_stream_listener(workflow_id, key)
+        final_read = False
         try:
             while True:
                 # Clear before reading so a notification arriving after the read
@@ -1017,6 +1070,8 @@ class DBOSClient:
                     yield value
                     offset += 1
                 except ValueError:
+                    if final_read:
+                        break
                     # No value yet: stop if the workflow is done, else wait for a
                     # notification. Workflow completion fires none, so the wait
                     # is bounded by the polling interval to notice termination.
@@ -1024,7 +1079,11 @@ class DBOSClient:
                     if status is None:
                         break
                     if not workflow_is_active(status.status):
-                        break
+                        # The workflow may have written between the read above and
+                        # this status check; all its writes are committed by now,
+                        # so read to the end of the stream before stopping.
+                        final_read = True
+                        continue
                     event.wait(
                         timeout=self._sys_db._notification_listener_polling_interval_sec
                     )
@@ -1048,6 +1107,7 @@ class DBOSClient:
             The values written to the stream in order
         """
         event, payload = self._sys_db.register_stream_listener(workflow_id, key)
+        final_read = False
         try:
             while True:
                 # Clear before reading so a notification arriving after the read
@@ -1062,6 +1122,8 @@ class DBOSClient:
                     yield value
                     offset += 1
                 except ValueError:
+                    if final_read:
+                        break
                     # No value yet: stop if the workflow is done, else wait for a
                     # notification. Poll the event with short asyncio sleeps (no
                     # held thread), bounded by the fallback re-check interval.
@@ -1071,7 +1133,11 @@ class DBOSClient:
                     if status is None:
                         break
                     if not workflow_is_active(status.status):
-                        break
+                        # The workflow may have written between the read above and
+                        # this status check; all its writes are committed by now,
+                        # so read to the end of the stream before stopping.
+                        final_read = True
+                        continue
                     deadline = (
                         time.time()
                         + self._sys_db._notification_listener_polling_interval_sec

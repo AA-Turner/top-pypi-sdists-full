@@ -67,11 +67,25 @@ def _write_structure_in_nep_format(structure: Atoms, f: TextIO) -> None:
     #       species:S:1                      (mandatory)
     #       pos:R:3                          (mandatory)
     #       force:R:3 or forces:R:3          (mandatory)
+
+    # If a structure is to be used for training, it needs to either have target
+    #   1. energies and forces,
+    #   2. dipole, denoted `dipole="dx dy dz"` in the info string, or
+    #   3. polarizability/susceptibility, denoted `pol="pxx pxy pxz pyx pyy pyz pzx pzy pzz"`
+    #      in the info string.
+    has_energies_and_forces = True
     try:
         structure.get_potential_energy()
         structure.get_forces()  # calculate forces to have them on the Atoms object
     except RuntimeError:
-        raise RuntimeError('Failed to retrieve energy and/or forces for structure')
+        has_energies_and_forces = False
+
+    has_dipole = 'dipole' in structure.info.keys()
+    has_pol = 'pol' in structure.info.keys()
+
+    if not has_energies_and_forces and not has_dipole and not has_pol:
+        raise RuntimeError('Failed to retrieve target energies/forces,'
+                           ' dipoles, or polarizabilities for structure')
     if np.isclose(structure.get_volume(), 0):
         raise ValueError('Structure cell must have a non-zero volume!')
     try:
@@ -109,7 +123,7 @@ def write_nepfile(parameters: NamedTuple, dirname: str) -> None:
     with open(join_path(dirname, 'nep.in'), 'w') as f:
         for key, val in parameters.items():
             f.write(f'{key}  ')
-            if isinstance(val, Iterable):
+            if isinstance(val, Iterable) and not isinstance(val, str):
                 f.write(' '.join([f'{v}' for v in val]))
             else:
                 f.write(f'{val}')
@@ -127,7 +141,7 @@ def read_nepfile(filename: str) -> dict[str, Any]:
     int_vals = ['version', 'neuron', 'generation', 'batch', 'population',
                 'mode', 'model_type', 'charge_mode']
     float_vals = ['lambda_1', 'lambda_2', 'lambda_e', 'lambda_f', 'lambda_v',
-                  'lambda_q', 'lambda_shear', 'force_delta']
+                  'lambda_q', 'lambda_shear', 'force_delta', 'atomic_v', 'zbl']
     settings = {}
     with open(filename) as f:
         for line in f.readlines():
@@ -142,7 +156,7 @@ def read_nepfile(filename: str) -> dict[str, Any]:
             settings[key] = int(val)
         elif key in float_vals:
             settings[key] = float(val)
-        elif key in ['cutoff', 'n_max', 'l_max', 'basis_size', 'zbl', 'type_weight']:
+        elif key in ['cutoff', 'n_max', 'l_max', 'basis_size', 'type_weight']:
             settings[key] = [float(v) for v in val.split()]
         elif key == 'type':
             types = val.split()
@@ -193,9 +207,13 @@ def read_structures(dirname: str) -> tuple[list[Atoms], list[Atoms]]:
     elif model_type == 1:
         # files to parse: (sname, size, includes_target, per_atom)
         files_to_parse = [('dipole', 3, True, True, False)]
+        if nep_info.get('atomic_v', 0) == 1:
+            files_to_parse = [('dipole', 3, True, True, True)]
     elif model_type == 2:
         # files to parse: (sname, size, includes_target, per_atom)
         files_to_parse = [('polarizability', 6, True, True, False)]
+        if nep_info.get('atomic_v', 0) == 1:
+            files_to_parse = [('polarizability', 6, True, True, True)]
     else:
         raise ValueError(f'Unknown model_type: {model_type}')
 
@@ -241,10 +259,10 @@ def read_structures(dirname: str) -> tuple[list[Atoms], list[Atoms]]:
                 for structure in structures[stype]:
                     nat = len(structure)
                     if ts is not None:
-                        structure.info[f'{sname}_target'] = \
-                            np.array(ts[n: n + nat]).reshape(nat, size)
-                    structure.info[f'{sname}_predicted'] = \
-                        np.array(ps[n: n + nat]).reshape(nat, size)
+                        t = np.array(ts[n: n + nat]).reshape(nat, size)
+                        structure.new_array(f'{sname}_target', t)
+                    p = np.array(ps[n: n + nat]).reshape(nat, size)
+                    structure.new_array(f'{sname}_predicted', p)
                     n += nat
             else:
                 # data per structure, e.g., energy, virials, stress
@@ -261,15 +279,29 @@ def read_structures(dirname: str) -> tuple[list[Atoms], list[Atoms]]:
                     structure.info[f'{sname}_predicted'] = p
 
         # special handling of target data for BECs
-        # The target data for BECs need not be complete. In this case nep writes
-        # zeros for every component (not optimal). If we encounter such a case we set
-        # all components to nan instead in order to be able to quickly filter for
-        # this case when analyzing data.
+        # If a structure has no 'bec' array in the xyz file, no target BEC data was provided.
+        # In that case nep writes zeros for both predicted and target columns. Replace both
+        # with NaN so callers can easily identify and filter out structures without BEC targets.
         for s in structures[stype]:
-            if 'bec_target' in s.info and np.allclose(s.info['bec_target'], 0):
+            if 'bec_target' in s.arrays and 'bec' not in s.arrays:
                 nat = len(s)
-                size = 9
-                s.info['bec_target'] = np.array(size * nat * [np.nan]).reshape(nat, size)
+                s.arrays['bec_target'] = np.full((nat, 9), np.nan)
+                s.arrays['bec_predicted'] = np.full((nat, 9), np.nan)
+
+            # special handling of per-atom TNEP
+            # Data has to be loaded as dipole/polarizability since NEP saves them in dipole_*.out
+            # Dipole/polarizability arrays are therefore moved to atomic_v here
+            if nep_info.get('atomic_v', 0) == 1:
+                if model_type == 1:
+                    s.new_array('atomic_v_target', s.arrays['dipole_target'])
+                    s.new_array('atomic_v_predicted', s.arrays['dipole_predicted'])
+                    del s.arrays['dipole_target']
+                    del s.arrays['dipole_predicted']
+                if model_type == 2:
+                    s.new_array('atomic_v_target', s.arrays['polarizability_target'])
+                    s.new_array('atomic_v_predicted', s.arrays['polarizability_predicted'])
+                    del s.arrays['polarizability_target']
+                    del s.arrays['polarizability_predicted']
 
     return structures['train'], structures['test']
 
@@ -323,7 +355,8 @@ def get_parity_data(
     structures
         List of structures as read with :func:`read_structures <calorine.nep.read_structures>`.
     property
-        One of `energy`, `force`, `virial`, `stress`, `bec`, `dipole`, or `polarizability`.
+        One of `energy`, `force`, `virial`, `stress`, `bec`, `dipole`,
+        `polarizability`, or `atomic_v`.
     selection
         A list containing which components to return, and/or the norm.
         Possible values are `x`, `y`, `z`, `xx`, `yy`,
@@ -335,10 +368,12 @@ def get_parity_data(
     voigt_mapping = {
         'x': 0, 'y': 1, 'z': 2, 'xx': 0, 'yy': 1, 'zz': 2,  'yz': 3, 'xz': 4, 'xy': 5,
     }
-    if property not in ('energy', 'force', 'virial', 'stress', 'polarizability', 'dipole', 'bec'):
+    global_properties = ['energy', 'virial', 'stress', 'polarizability', 'dipole']
+    per_atom_properties = ['force', 'bec', 'atomic_v']
+    if property not in global_properties + per_atom_properties:
         raise ValueError(
-            "`property` must be one of 'energy', 'force', 'virial', 'stress',"
-            " 'polarizability', 'dipole', or 'bec'."
+            '`property` must be one of the following:'
+            + ', '.join(global_properties + per_atom_properties)
         )
     if property in ['energy'] and selection:
         raise ValueError('Selection cannot be applied to scalars.')
@@ -354,21 +389,26 @@ def get_parity_data(
             data['species'].extend(np.repeat(structure.symbols, size).tolist())
         for stype in ['predicted', 'target']:
             property_with_stype = f'{property}_{stype}'
-            if property_with_stype not in structure.info.keys():
-                raise KeyError(f'{property_with_stype} not available in info field of structure')
-            extracted_property = np.array(structure.info[property_with_stype])
+            if property in global_properties:
+                if property_with_stype not in structure.info.keys():
+                    raise KeyError(f'{property_with_stype} not'
+                                   ' available in info field of structure')
+                extracted_property = np.array(structure.info[property_with_stype])
+            else:
+                if property_with_stype not in structure.arrays:
+                    raise KeyError(f'{property_with_stype} not available in arrays of structure')
+                extracted_property = np.array(structure.arrays[property_with_stype])
 
             if selection is None or len(selection) == 0:
                 data[stype].append(extracted_property)
                 continue
 
+            if property in ['force', 'bec', 'atomic_v']:
+                extracted_property = extracted_property.T
             selected_values = []
             for select in selection:
-                if property in ['force', 'bec']:
-                    # flip to get (n_components, n_structures)
-                    extracted_property = extracted_property.T
                 if select == 'norm':
-                    if property == 'force':
+                    if property in ['force', 'atomic_v']:
                         selected_values.append(np.linalg.norm(extracted_property, axis=0))
                     elif property in ['virial', 'stress']:
                         full_tensor = voigt_6_to_full_3x3_stress(extracted_property)
@@ -400,15 +440,21 @@ def get_parity_data(
             value = data[stype]
             if len(np.shape(value[0])) > 0:
                 data[stype] = np.concatenate(value).ravel().tolist()
-        if property in ['force']:
-            n = len(data['target']) // 3
-            data['component'] = ['x', 'y', 'z'] * n
+        if property in ['force', 'atomic_v']:
+            default_labels = ['x', 'y', 'z']
+            labels = selection if selection else default_labels
+            n = len(data['target']) // len(labels)
+            data['component'] = list(labels) * n
         elif property in ['virial', 'stress']:
-            n = len(data['target']) // 6
-            data['component'] = ['xx', 'yy', 'zz', 'yz', 'xz', 'xy'] * n
+            default_labels = ['xx', 'yy', 'zz', 'yz', 'xz', 'xy']
+            labels = selection if selection else default_labels
+            n = len(data['target']) // len(labels)
+            data['component'] = list(labels) * n
         elif property in ['bec']:
-            n = len(data['target']) // 9
-            data['component'] = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz'] * n
+            default_labels = ['xx', 'xy', 'xz', 'yx', 'yy', 'yz', 'zx', 'zy', 'zz']
+            labels = selection if selection else default_labels
+            n = len(data['target']) // len(labels)
+            data['component'] = list(labels) * n
     df = DataFrame(data)
     # In case of flatten, cast to float64 for compatibility
     # with e.g. seaborn.

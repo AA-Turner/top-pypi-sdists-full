@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.33.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-06-09T20:21:00.395603                                                            #
+# Generated on 2026-06-15T21:55:43.400147                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import typing
     import metaflow.events
+    import metaflow
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
     import metaflow.metaflow_current
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
+    import typing
     import metaflow.plugins.cards.component_serializer
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
 
 
 TYPE_CHECKING: bool
@@ -232,17 +232,6 @@ class Current(object, metaclass=type):
     def perimeter(_, v = None):
         ...
     @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
-        """
-        (only in the presence of the @app_deploy_internal decorator)
-        
-        
-        Returns
-        ----------
-        FlowAppManager
-        """
-        ...
-    @property
     def card(self) -> "metaflow.plugins.cards.component_serializer.CardComponentCollector":
         """
         (only in the presence of the @card decorator)
@@ -261,21 +250,19 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
+    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
         """
-        (only in the presence of the @checkpoint decorator)
+        (only in the presence of the @model decorator)
         
-        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
-        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
-        
-        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
-        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
-        where the checkpoint maybe loaded or saved.
+        The object used for loading / saving models.
+        `current.model` exposes a `save` method to save models and a `load` method to load models.
+        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
+        or models loaded via `current.model.load`.
         
         Returns
         ----------
-        CurrentCheckpointer
-            The object for handling checkpointing within a step.
+        ModelSerializer
+            The object used for loading / saving models.
         """
         ...
     @property
@@ -305,6 +292,17 @@ class Current(object, metaclass=type):
         (only in the presence of the @parallel decorator)
         
         True if the current step is a @parallel step.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
+        """
+        (only in the presence of the @app_deploy_internal decorator)
+        
+        
+        Returns
+        ----------
+        FlowAppManager
         """
         ...
     @property
@@ -358,25 +356,27 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def model(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core.ModelSerializer":
+    def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
         """
-        (only in the presence of the @model decorator)
+        (only in the presence of the @checkpoint decorator)
         
-        The object used for loading / saving models.
-        `current.model` exposes a `save` method to save models and a `load` method to load models.
-        `current.model.loaded` exposes the paths to the models loaded via the `load` argument in the @model decorator
-        or models loaded via `current.model.load`.
+        The `@checkpoint` decorator makes saving/loading checkpoints available through the `current.checkpoint`.
+        The object exposes `save`/`load`/`list` methods for saving/loading checkpoints.
+        
+        You can check if a checkpoint is loaded by `current.checkpoint.is_loaded` and get the checkpoint information
+        by using `current.checkpoint.info`. The `current.checkpoint.directory` returns the path to the checkpoint directory
+        where the checkpoint maybe loaded or saved.
         
         Returns
         ----------
-        ModelSerializer
-            The object used for loading / saving models.
+        CurrentCheckpointer
+            The object for handling checkpointing within a step.
         """
         ...
     @property
     def trigger(self) -> "metaflow.events.Trigger":
         """
-        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        (only in the presence of the @trigger_on_finish, or @trigger decorators)
         
         Returns `Trigger` if the current run is triggered by an event
         

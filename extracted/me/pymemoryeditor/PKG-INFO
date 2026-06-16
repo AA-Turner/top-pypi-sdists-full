@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyMemoryEditor
-Version: 2.0.0
+Version: 2.0.1
 Summary: Read, write and scan process memory in a few lines of Python — Cheat Engine-style scans, pointer chains and AOB search on Windows, Linux and macOS.
 Project-URL: Homepage, https://github.com/JeanExtreme002/PyMemoryEditor
 Project-URL: Documentation, https://pymemoryeditor.readthedocs.io

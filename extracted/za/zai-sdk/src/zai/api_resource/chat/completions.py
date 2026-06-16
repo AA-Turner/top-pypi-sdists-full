@@ -66,7 +66,8 @@ class Completions(BaseAPI):
 		response_format: object | None = None,
 		thinking: object | None = None,
 		watermark_enabled: Optional[bool] | NotGiven = NOT_GIVEN,
-        tool_stream: bool | NotGiven = NOT_GIVEN,
+		tool_stream: bool | NotGiven = NOT_GIVEN,
+		reasoning_effort: Optional[str] | NotGiven = NOT_GIVEN,
 	) -> Completion | StreamResponse[ChatCompletionChunk]:
 		"""
 		Create a chat completion
@@ -95,6 +96,7 @@ class Completions(BaseAPI):
 			thinking (Optional[object]): Configuration parameters for model reasoning
 			watermark_enabled (Optional[bool]): Whether to enable watermark on generated audio
 			tool_stream (Optional[bool]): Whether to enable tool streaming
+			reasoning_effort (Optional[str]): Reasoning effort level, supports none, minimal, low, medium, high, xhigh, max. Effective for glm-5.2 and above models.
 		"""
 		logger.debug(f'temperature:{temperature}, top_p:{top_p}')
 		if temperature is not None and temperature != NOT_GIVEN:
@@ -143,7 +145,8 @@ class Completions(BaseAPI):
 				'response_format': response_format,
 				'thinking': thinking,
 				'watermark_enabled': watermark_enabled,
-                'tool_stream': tool_stream,
+				'tool_stream': tool_stream,
+				'reasoning_effort': reasoning_effort,
 			}
 		)
 		return self._post(

@@ -2,10 +2,10 @@
 #include "nep_utilities.h"
 #include "nep.cpp"
 #include "nep.h"
-#include "neighbor.cpp"
-#include "neighbor.h"
-#include "ewald.cpp"
-#include "ewald.h"
+#include "neighbor_nep.cpp"
+#include "neighbor_nep.h"
+#include "ewald_nep.cpp"
+#include "ewald_nep.h"
 #include <cmath>
 #include <pybind11/iostream.h>
 #include <pybind11/numpy.h>

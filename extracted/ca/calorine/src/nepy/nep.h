@@ -16,9 +16,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include "ewald.h"
-
-// #define USE_TABLE_FOR_RADIAL_FUNCTIONS
+#include "ewald_nep.h"
 
 class NEP
 {
@@ -37,6 +35,12 @@ public:
     int n_max_radial = 0;
     int n_max_angular = 0;
     int L_max = 0;
+    int has_q_222 = 0;
+    int has_q_1111 = 0;
+    int has_q_112 = 0;
+    int has_q_123 = 0;
+    int has_q_233 = 0;
+    int has_q_134 = 0;
     int dim_angular;
     int num_L;
     int basis_size_radial = 8;
@@ -208,7 +212,7 @@ public:
   ANN annmb;
   ZBL zbl;
   Charge_Para charge_para;
-  Ewald ewald;
+  EwaldNep ewald;
   DFTD3 dftd3;
   std::vector<int> NN_radial, NL_radial, NN_angular, NL_angular;
   std::vector<double> r12;

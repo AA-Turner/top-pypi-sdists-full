@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: singer-sdk
-Version: 0.54.4
+Version: 0.54.5
 Summary: A framework for building Singer taps and targets
 Project-URL: Homepage, https://sdk.meltano.com/en/latest/
 Project-URL: Repository, https://github.com/meltano/sdk
@@ -62,7 +62,7 @@ Requires-Dist: sqlalchemy>=2; extra == 'sql'
 Provides-Extra: ssh
 Requires-Dist: paramiko>=3.3.0; extra == 'ssh'
 Provides-Extra: testing
-Requires-Dist: pytest>=9; extra == 'testing'
+Requires-Dist: pytest>=9.1; extra == 'testing'
 Description-Content-Type: text/markdown
 
 <h1 align="center">Meltano Singer SDK</h1>

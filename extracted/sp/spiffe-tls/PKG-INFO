@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spiffe-tls
-Version: 0.3.2
+Version: 0.4.0
 Summary: TLS Support using SPIFFE
 Author-email: Max Lambrecht <maxlambrecht@gmail.com>
 License-Expression: Apache-2.0
@@ -8,7 +8,7 @@ Project-URL: Repository, https://github.com/HewlettPackard/py-spiffe
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: spiffe<0.3.0,>=0.2.9
+Requires-Dist: spiffe<0.4.0,>=0.3.0
 Requires-Dist: pyOpenSSL<27,>=26
 Requires-Dist: idna<4,>=3
 Dynamic: license-file

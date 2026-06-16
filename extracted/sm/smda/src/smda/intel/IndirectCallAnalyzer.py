@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 import struct
@@ -21,10 +22,30 @@ class IndirectCallAnalyzer:
         self.state = None
 
     def searchBlock(self, analysis_state, address):
-        for block in analysis_state.getBlocks():
-            if address in [i[0] for i in block]:
-                return block
-        return []
+        # Lazy-cache an {instruction_addr: containing_block} index on the
+        # analysis_state so subsequent lookups during the same function
+        # analysis are O(1) instead of O(blocks * instructions). The cache
+        # lives on the state (not on self) so the analyzer stays
+        # re-entrancy-safe and the index can't outlive the function being
+        # analyzed.
+        block_index = getattr(analysis_state, "_block_index", None)
+        if not isinstance(block_index, dict):
+            block_index = {}
+            # Preserve "first matching block wins" — overlapping
+            # potential_starts in FunctionAnalysisState.getBlocks() can
+            # place the same instruction in more than one block; the
+            # legacy linear scan returned the first.
+            for block in analysis_state.getBlocks():
+                for ins in block:
+                    addr = ins[0]
+                    if addr not in block_index:
+                        block_index[addr] = block
+            # Objects with __slots__ or read-only attribute surfaces (and some
+            # test doubles) reject the assignment; the lookup below still works
+            # on the freshly built index.
+            with contextlib.suppress(AttributeError):
+                analysis_state._block_index = block_index
+        return block_index.get(address, [])
 
     def getDword(self, addr):
         if not self.disassembly.isAddrWithinMemoryImage(addr):
@@ -177,11 +198,11 @@ class IndirectCallAnalyzer:
                 return True
         # process previous blocks
         if depth >= 0:
-            refs_in = [
-                fr
-                for (fr, to) in analysis_state.code_refs
-                if to == block[0][0] and fr not in [ins[0] for block in processed for ins in block]
-            ]
+            processed_addrs = frozenset(ins[0] for blk in processed for ins in blk)
+            # Use the reverse index (addr_to -> {addr_from}) maintained by
+            # add/removeCodeRef instead of scanning the full code_refs set per block.
+            # Default to () (cached singleton, no allocation) since we only iterate it.
+            refs_in = [fr for fr in analysis_state.code_refs_to.get(block[0][0], ()) if fr not in processed_addrs]
             LOGGER.debug(
                 "start processing previous blocks, searching in %d in_refs with remaining depth: %d",
                 len(refs_in),

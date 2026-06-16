@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -7,13 +7,15 @@ from dateutil.parser import isoparse
 
 from ..models.get_http_trigger_response_200_authentication_method import GetHttpTriggerResponse200AuthenticationMethod
 from ..models.get_http_trigger_response_200_http_method import GetHttpTriggerResponse200HttpMethod
-from ..models.get_http_trigger_response_200_mode import GetHttpTriggerResponse200Mode
 from ..models.get_http_trigger_response_200_request_type import GetHttpTriggerResponse200RequestType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_http_trigger_response_200_draft import GetHttpTriggerResponse200Draft
     from ..models.get_http_trigger_response_200_error_handler_args import GetHttpTriggerResponse200ErrorHandlerArgs
-    from ..models.get_http_trigger_response_200_extra_perms import GetHttpTriggerResponse200ExtraPerms
+    from ..models.get_http_trigger_response_200_other_drafts_users_item import (
+        GetHttpTriggerResponse200OtherDraftsUsersItem,
+    )
     from ..models.get_http_trigger_response_200_retry import GetHttpTriggerResponse200Retry
     from ..models.get_http_trigger_response_200_static_asset_config import GetHttpTriggerResponse200StaticAssetConfig
 
@@ -37,16 +39,7 @@ class GetHttpTriggerResponse200:
         workspaced_route (bool): If true, the route includes the workspace ID in the path
         wrap_body (bool): If true, wraps the request body in a 'body' parameter
         raw_string (bool): If true, passes the request body as a raw string instead of parsing as JSON
-        path (str): The unique Windmill path for this trigger. Must be of the form `u/<user>/<path>` or
-            `f/<folder>/<path>`. This is the trigger object path, not the HTTP route path.
-        script_path (str): Path to the script or flow to execute when triggered
-        permissioned_as (str): The user or group this trigger runs as (permissioned_as)
-        extra_perms (GetHttpTriggerResponse200ExtraPerms): Additional permissions for this trigger
-        workspace_id (str): The workspace this trigger belongs to
-        edited_by (str): Username of the last person who edited this trigger
-        edited_at (datetime.datetime): Timestamp of the last edit
-        is_flow (bool): True if script_path points to a flow, false if it points to a script
-        mode (GetHttpTriggerResponse200Mode): job trigger mode
+        is_draft (bool):
         static_asset_config (Union[Unset, None, GetHttpTriggerResponse200StaticAssetConfig]): Configuration for serving
             static assets (s3 bucket, storage path, filename)
         authentication_resource_path (Union[Unset, None, str]): Path to the resource containing authentication
@@ -57,7 +50,15 @@ class GetHttpTriggerResponse200:
         error_handler_args (Union[Unset, GetHttpTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, GetHttpTriggerResponse200Retry]): Retry configuration for failed module executions
-        labels (Union[Unset, List[str]]):
+        draft_saved_at (Union[Unset, datetime.datetime]):
+        no_deployed (Union[Unset, bool]):
+        draft (Union[Unset, GetHttpTriggerResponse200Draft]):
+        other_drafts_users (Union[Unset, List['GetHttpTriggerResponse200OtherDraftsUsersItem']]): Other workspace users
+            (and the legacy NULL-email row, if any)
+            with a saved draft at the same path. Populated only on the
+            authed user's "get by path" responses for kinds the editor
+            surfaces a fork banner for (script, flow, app, raw_app).
+            Empty / omitted for kinds without that UI.
     """
 
     route_path: str
@@ -68,15 +69,7 @@ class GetHttpTriggerResponse200:
     workspaced_route: bool
     wrap_body: bool
     raw_string: bool
-    path: str
-    script_path: str
-    permissioned_as: str
-    extra_perms: "GetHttpTriggerResponse200ExtraPerms"
-    workspace_id: str
-    edited_by: str
-    edited_at: datetime.datetime
-    is_flow: bool
-    mode: GetHttpTriggerResponse200Mode
+    is_draft: bool
     static_asset_config: Union[Unset, None, "GetHttpTriggerResponse200StaticAssetConfig"] = UNSET
     authentication_resource_path: Union[Unset, None, str] = UNSET
     summary: Union[Unset, None, str] = UNSET
@@ -84,7 +77,10 @@ class GetHttpTriggerResponse200:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GetHttpTriggerResponse200ErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GetHttpTriggerResponse200Retry"] = UNSET
-    labels: Union[Unset, List[str]] = UNSET
+    draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    no_deployed: Union[Unset, bool] = UNSET
+    draft: Union[Unset, "GetHttpTriggerResponse200Draft"] = UNSET
+    other_drafts_users: Union[Unset, List["GetHttpTriggerResponse200OtherDraftsUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -99,18 +95,7 @@ class GetHttpTriggerResponse200:
         workspaced_route = self.workspaced_route
         wrap_body = self.wrap_body
         raw_string = self.raw_string
-        path = self.path
-        script_path = self.script_path
-        permissioned_as = self.permissioned_as
-        extra_perms = self.extra_perms.to_dict()
-
-        workspace_id = self.workspace_id
-        edited_by = self.edited_by
-        edited_at = self.edited_at.isoformat()
-
-        is_flow = self.is_flow
-        mode = self.mode.value
-
+        is_draft = self.is_draft
         static_asset_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.static_asset_config, Unset):
             static_asset_config = self.static_asset_config.to_dict() if self.static_asset_config else None
@@ -127,9 +112,22 @@ class GetHttpTriggerResponse200:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
-        labels: Union[Unset, List[str]] = UNSET
-        if not isinstance(self.labels, Unset):
-            labels = self.labels
+        draft_saved_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_saved_at, Unset):
+            draft_saved_at = self.draft_saved_at.isoformat()
+
+        no_deployed = self.no_deployed
+        draft: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.draft, Unset):
+            draft = self.draft.to_dict()
+
+        other_drafts_users: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.other_drafts_users, Unset):
+            other_drafts_users = []
+            for other_drafts_users_item_data in self.other_drafts_users:
+                other_drafts_users_item = other_drafts_users_item_data.to_dict()
+
+                other_drafts_users.append(other_drafts_users_item)
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -143,15 +141,7 @@ class GetHttpTriggerResponse200:
                 "workspaced_route": workspaced_route,
                 "wrap_body": wrap_body,
                 "raw_string": raw_string,
-                "path": path,
-                "script_path": script_path,
-                "permissioned_as": permissioned_as,
-                "extra_perms": extra_perms,
-                "workspace_id": workspace_id,
-                "edited_by": edited_by,
-                "edited_at": edited_at,
-                "is_flow": is_flow,
-                "mode": mode,
+                "is_draft": is_draft,
             }
         )
         if static_asset_config is not UNSET:
@@ -168,15 +158,24 @@ class GetHttpTriggerResponse200:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
-        if labels is not UNSET:
-            field_dict["labels"] = labels
+        if draft_saved_at is not UNSET:
+            field_dict["draft_saved_at"] = draft_saved_at
+        if no_deployed is not UNSET:
+            field_dict["no_deployed"] = no_deployed
+        if draft is not UNSET:
+            field_dict["draft"] = draft
+        if other_drafts_users is not UNSET:
+            field_dict["other_drafts_users"] = other_drafts_users
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_http_trigger_response_200_draft import GetHttpTriggerResponse200Draft
         from ..models.get_http_trigger_response_200_error_handler_args import GetHttpTriggerResponse200ErrorHandlerArgs
-        from ..models.get_http_trigger_response_200_extra_perms import GetHttpTriggerResponse200ExtraPerms
+        from ..models.get_http_trigger_response_200_other_drafts_users_item import (
+            GetHttpTriggerResponse200OtherDraftsUsersItem,
+        )
         from ..models.get_http_trigger_response_200_retry import GetHttpTriggerResponse200Retry
         from ..models.get_http_trigger_response_200_static_asset_config import (
             GetHttpTriggerResponse200StaticAssetConfig,
@@ -199,23 +198,7 @@ class GetHttpTriggerResponse200:
 
         raw_string = d.pop("raw_string")
 
-        path = d.pop("path")
-
-        script_path = d.pop("script_path")
-
-        permissioned_as = d.pop("permissioned_as")
-
-        extra_perms = GetHttpTriggerResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
-
-        workspace_id = d.pop("workspace_id")
-
-        edited_by = d.pop("edited_by")
-
-        edited_at = isoparse(d.pop("edited_at"))
-
-        is_flow = d.pop("is_flow")
-
-        mode = GetHttpTriggerResponse200Mode(d.pop("mode"))
+        is_draft = d.pop("is_draft")
 
         _static_asset_config = d.pop("static_asset_config", UNSET)
         static_asset_config: Union[Unset, None, GetHttpTriggerResponse200StaticAssetConfig]
@@ -248,7 +231,30 @@ class GetHttpTriggerResponse200:
         else:
             retry = GetHttpTriggerResponse200Retry.from_dict(_retry)
 
-        labels = cast(List[str], d.pop("labels", UNSET))
+        _draft_saved_at = d.pop("draft_saved_at", UNSET)
+        draft_saved_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_saved_at, Unset):
+            draft_saved_at = UNSET
+        else:
+            draft_saved_at = isoparse(_draft_saved_at)
+
+        no_deployed = d.pop("no_deployed", UNSET)
+
+        _draft = d.pop("draft", UNSET)
+        draft: Union[Unset, GetHttpTriggerResponse200Draft]
+        if isinstance(_draft, Unset):
+            draft = UNSET
+        else:
+            draft = GetHttpTriggerResponse200Draft.from_dict(_draft)
+
+        other_drafts_users = []
+        _other_drafts_users = d.pop("other_drafts_users", UNSET)
+        for other_drafts_users_item_data in _other_drafts_users or []:
+            other_drafts_users_item = GetHttpTriggerResponse200OtherDraftsUsersItem.from_dict(
+                other_drafts_users_item_data
+            )
+
+            other_drafts_users.append(other_drafts_users_item)
 
         get_http_trigger_response_200 = cls(
             route_path=route_path,
@@ -259,15 +265,7 @@ class GetHttpTriggerResponse200:
             workspaced_route=workspaced_route,
             wrap_body=wrap_body,
             raw_string=raw_string,
-            path=path,
-            script_path=script_path,
-            permissioned_as=permissioned_as,
-            extra_perms=extra_perms,
-            workspace_id=workspace_id,
-            edited_by=edited_by,
-            edited_at=edited_at,
-            is_flow=is_flow,
-            mode=mode,
+            is_draft=is_draft,
             static_asset_config=static_asset_config,
             authentication_resource_path=authentication_resource_path,
             summary=summary,
@@ -275,7 +273,10 @@ class GetHttpTriggerResponse200:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
-            labels=labels,
+            draft_saved_at=draft_saved_at,
+            no_deployed=no_deployed,
+            draft=draft,
+            other_drafts_users=other_drafts_users,
         )
 
         get_http_trigger_response_200.additional_properties = d

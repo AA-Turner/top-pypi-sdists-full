@@ -50,6 +50,7 @@ from ouroboros.orchestrator.adapter import (
     RuntimeHandle,
     runtime_handle_tool_catalog,
 )
+from ouroboros.orchestrator.backend_limits import resolve_backend_limits
 from ouroboros.orchestrator.capabilities import (
     build_capability_graph,
     serialize_capability_graph,
@@ -106,8 +107,17 @@ from ouroboros.orchestrator.policy import (
     evaluate_capability_policy,
 )
 from ouroboros.orchestrator.profile_loader import EvidenceSchema, ExecutionProfile
+from ouroboros.orchestrator.rate_limit import (
+    RateLimitBackoff,
+    RateLimitGate,
+    build_rate_limit_gate,
+    estimate_runtime_request_tokens,
+)
 from ouroboros.orchestrator.runtime_message_projection import (
     project_runtime_message,
+)
+from ouroboros.orchestrator.runtime_param_negotiation import (
+    announce_execution_param_degradations,
 )
 from ouroboros.orchestrator.verifier import (
     Verifier,
@@ -2462,6 +2472,89 @@ class ParallelACExecutor:
         self._ac_runtime_handles: dict[str, RuntimeHandle] = {}
         self._checkpoint_store = checkpoint_store
         self._execution_counters_lock = asyncio.Lock()
+        self._dispatch_rate_gate = self._build_dispatch_rate_gate(adapter)
+        # Param degradations already surfaced this run, keyed by (param, support),
+        # so the operator is told once rather than on every dispatch.
+        self._announced_param_degradations: set[tuple[str, str]] = set()
+
+    @staticmethod
+    def _build_dispatch_rate_gate(adapter: AgentRuntime) -> RateLimitGate:
+        """Build the shared dispatch rate gate for non-self-governing backends.
+
+        Ouroboros — not the runtime — paces delivery within the backend's
+        declared RPM/TPM budget. Native adapters that already run their own
+        shared bucket (Claude) advertise ``self_governs_rate_limit`` and are left
+        alone so they are never double-limited. Every other backend gets a gate
+        that stays dormant until an RPM/TPM is configured for it (registry,
+        ``~/.ouroboros/backend_limits.yaml``, or ``OUROBOROS_<BACKEND>_RPM/TPM``),
+        so the default behavior is unchanged.
+        """
+        backend_attr = getattr(adapter, "runtime_backend", "")
+        backend = backend_attr if isinstance(backend_attr, str) and backend_attr else "unknown"
+
+        if getattr(adapter, "self_governs_rate_limit", False):
+            return build_rate_limit_gate(backend, request_limit=None, token_limit=None)
+
+        limits = resolve_backend_limits(backend)
+        return build_rate_limit_gate(
+            backend,
+            request_limit=limits.requests_per_minute,
+            token_limit=limits.tokens_per_minute,
+        )
+
+    async def _await_dispatch_rate_budget(
+        self,
+        *,
+        prompt: str,
+        system_prompt: str | None,
+    ) -> None:
+        """Wait for shared rate-limit headroom before dispatching a runtime call.
+
+        No-op when the gate is dormant (the default for backends with no
+        configured RPM/TPM). When active, paces dispatch across all concurrent
+        workers (they share this executor's single gate instance) and logs each
+        backoff for observability.
+        """
+        if not self._dispatch_rate_gate.enabled:
+            return
+
+        estimated_tokens = estimate_runtime_request_tokens(prompt, system_prompt=system_prompt)
+
+        def _log_backoff(backoff: RateLimitBackoff) -> None:
+            log.info(
+                "orchestrator.parallel_executor.rate_limit_backoff",
+                runtime_backend=backoff.snapshot.runtime_backend,
+                forced=backoff.forced,
+                wait_seconds=backoff.wait_seconds,
+                total_waited=backoff.total_waited,
+                requests_in_window=backoff.snapshot.requests_in_window,
+                request_limit=backoff.snapshot.request_limit,
+                tokens_in_window=backoff.snapshot.tokens_in_window,
+                token_limit=backoff.snapshot.token_limit,
+            )
+
+        await self._dispatch_rate_gate.acquire(estimated_tokens, on_backoff=_log_backoff)
+
+    def _announce_param_degradations(
+        self,
+        *,
+        system_prompt: str | None,
+        tools: list[str] | None,
+    ) -> None:
+        """Surface (once per run) execution params the runtime won't honor natively.
+
+        Observability only — nothing here changes what is passed to the runtime.
+        It makes previously silent degradation (e.g. a CLI runtime folding the
+        system prompt into the user message) visible in logs and the console.
+        """
+        announce_execution_param_degradations(
+            self._adapter,
+            system_prompt=system_prompt,
+            tools=tools,
+            announced=self._announced_param_degradations,
+            console=self._console,
+            log_event="orchestrator.parallel_executor.param_degraded",
+        )
 
     def _flush_console(self) -> None:
         """Flush console output to ensure progress is visible immediately."""
@@ -4587,10 +4680,16 @@ class ParallelACExecutor:
 {ac_content}
 
 ## Instructions
-If this AC is complex (requires multiple distinct steps that could run independently),
-decompose it into {MIN_SUB_ACS}-{MAX_SUB_ACS} smaller Sub-ACs.
+Default to ATOMIC. Each Sub-AC you create becomes a separate agent session with
+its own full context, so decomposing has a real token cost — only split when it
+clearly pays for itself.
 
-If the AC is simple/atomic (can be done in one focused task), respond with: ATOMIC
+Decompose into {MIN_SUB_ACS}-{MAX_SUB_ACS} Sub-ACs ONLY if this AC bundles
+multiple independently *valuable* outcomes that would each be verified
+differently. Needing several steps, or touching several files, is NOT by itself a
+reason to decompose — the executor handles multi-step work within one unit.
+
+If the AC is a single focused outcome (the common case), respond with: ATOMIC
 
 If decomposing, respond with ONLY a JSON array of Sub-AC descriptions:
 ["Sub-AC 1: description", "Sub-AC 2: description", ...]
@@ -4603,6 +4702,17 @@ Each Sub-AC should be:
 
 Respond with either "ATOMIC" or the JSON array only, nothing else.
 """
+
+        self._announce_param_degradations(
+            system_prompt=decomposition_system_prompt,
+            tools=[],
+        )
+        # Pace this backend request within the shared budget before starting the
+        # decomposition timeout, so rate-limit waiting never eats into it.
+        await self._await_dispatch_rate_budget(
+            prompt=decompose_prompt,
+            system_prompt=decomposition_system_prompt,
+        )
 
         try:
             response_text = ""
@@ -4634,10 +4744,40 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                         else:
                             response_text = message.content
 
-            # Parse response
+            # Parse response.
+            #
+            # Check for an explicit Sub-AC JSON array FIRST, before the ATOMIC
+            # verdict. A bare ``"ATOMIC" in text`` substring match (the previous
+            # behavior) mis-reads a legitimate split such as
+            # ``"NOT ATOMIC, decompose into: [...]"`` — or an array element that
+            # merely mentions the word "atomic" — as a verdict of atomic. By
+            # parsing the array first and only then accepting an ATOMIC verdict
+            # that the response *starts with*, both false-atomic and false-split
+            # directions are closed. Anything we cannot parse fails closed to
+            # atomic (no split): an erroneous split multiplies token cost across
+            # the whole subtree, so atomic is the frugal default.
             response_text = response_text.strip()
 
-            if "ATOMIC" in response_text.upper():
+            json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
+            if json_match:
+                try:
+                    sub_acs = json.loads(json_match.group())
+                except json.JSONDecodeError:
+                    sub_acs = None
+                if (
+                    isinstance(sub_acs, list)
+                    and all(isinstance(s, str) for s in sub_acs)
+                    and min_sub_acs <= len(sub_acs) <= max_sub_acs
+                ):
+                    log.info(
+                        "parallel_executor.decomposition.success",
+                        ac_index=ac_index,
+                        sub_ac_count=len(sub_acs),
+                        **profile_metadata,
+                    )
+                    return sub_acs
+
+            if response_text.upper().startswith("ATOMIC"):
                 log.info(
                     "parallel_executor.decomposition.atomic",
                     ac_index=ac_index,
@@ -4645,22 +4785,8 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
                 )
                 return None
 
-            # Try to extract JSON array
-            json_match = re.search(r"\[.*\]", response_text, re.DOTALL)
-            if json_match:
-                sub_acs = json.loads(json_match.group())
-                if isinstance(sub_acs, list) and all(isinstance(s, str) for s in sub_acs):
-                    if min_sub_acs <= len(sub_acs) <= max_sub_acs:
-                        log.info(
-                            "parallel_executor.decomposition.success",
-                            ac_index=ac_index,
-                            sub_ac_count=len(sub_acs),
-                            **profile_metadata,
-                        )
-                        return sub_acs
-
             log.warning(
-                "parallel_executor.decomposition.parse_failed",
+                "parallel_executor.decomposition.unparseable_defaulting_atomic",
                 ac_index=ac_index,
                 response_preview=response_text[:100],
                 **profile_metadata,
@@ -5366,6 +5492,10 @@ Files present:
         exec_start = time.monotonic()
 
         await self._wait_for_memory(label)
+        self._announce_param_degradations(system_prompt=system_prompt, tools=tools)
+        # Pace delivery within the backend's shared rate budget (dormant unless
+        # an RPM/TPM is configured for this backend) before the stall-scoped run.
+        await self._await_dispatch_rate_budget(prompt=prompt, system_prompt=system_prompt)
 
         try:
             with anyio.CancelScope(

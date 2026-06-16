@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeBotCommand, TypeBotCommandScope, TypeBotMenuButton, TypeChatAdminRights, TypeDataJSON, TypeEmojiStatus, TypeInputMedia, TypeInputPeer, TypeInputUser, TypeKeyboardButton
+    from ...tl.types import TypeBotCommand, TypeBotCommandScope, TypeBotMenuButton, TypeChatAdminRights, TypeDataJSON, TypeEmojiStatus, TypeInputMedia, TypeInputPeer, TypeInputUser, TypeJoinChatBotResult, TypeKeyboardButton
 
 
 
@@ -305,6 +305,61 @@ class DeletePreviewMediaRequest(TLRequest):
         return cls(bot=_bot, lang_code=_lang_code, media=_media)
 
 
+class EditAccessSettingsRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x31813cd8
+    SUBCLASS_OF_ID = 0xf5b399ac
+
+    def __init__(self, bot: 'TypeInputUser', restricted: Optional[bool]=None, add_users: Optional[List['TypeInputUser']]=None):
+        """
+        :returns Bool: This type has no constructors.
+        """
+        self.bot = bot
+        self.restricted = restricted
+        self.add_users = add_users
+
+    async def resolve(self, client, utils):
+        self.bot = utils.get_input_user(await client.get_input_entity(self.bot))
+        if self.add_users:
+            _tmp = []
+            for _x in self.add_users:
+                _tmp.append(utils.get_input_user(await client.get_input_entity(_x)))
+
+            self.add_users = _tmp
+
+    def to_dict(self):
+        return {
+            '_': 'EditAccessSettingsRequest',
+            'bot': self.bot.to_dict() if isinstance(self.bot, TLObject) else self.bot,
+            'restricted': self.restricted,
+            'add_users': [] if self.add_users is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.add_users]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xd8<\x811',
+            struct.pack('<I', (0 if self.restricted is None or self.restricted is False else 1) | (0 if self.add_users is None or self.add_users is False else 2)),
+            self.bot._bytes(),
+            b'' if self.add_users is None or self.add_users is False else b''.join((b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.add_users)),b''.join(x._bytes() for x in self.add_users))),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        flags = reader.read_int()
+
+        _restricted = bool(flags & 1)
+        _bot = reader.tgread_object()
+        if flags & 2:
+            reader.read_int()
+            _add_users = []
+            for _ in range(reader.read_int()):
+                _x = reader.tgread_object()
+                _add_users.append(_x)
+
+        else:
+            _add_users = None
+        return cls(bot=_bot, restricted=_restricted, add_users=_add_users)
+
+
 class EditPreviewMediaRequest(TLRequest):
     CONSTRUCTOR_ID = 0x8525606f
     SUBCLASS_OF_ID = 0x562abc2d
@@ -383,6 +438,37 @@ class ExportBotTokenRequest(TLRequest):
         _bot = reader.tgread_object()
         _revoke = reader.tgread_bool()
         return cls(bot=_bot, revoke=_revoke)
+
+
+class GetAccessSettingsRequest(TLRequest):
+    CONSTRUCTOR_ID = 0x213853a3
+    SUBCLASS_OF_ID = 0xeca109c2
+
+    def __init__(self, bot: 'TypeInputUser'):
+        """
+        :returns bots.AccessSettings: Instance of AccessSettings.
+        """
+        self.bot = bot
+
+    async def resolve(self, client, utils):
+        self.bot = utils.get_input_user(await client.get_input_entity(self.bot))
+
+    def to_dict(self):
+        return {
+            '_': 'GetAccessSettingsRequest',
+            'bot': self.bot.to_dict() if isinstance(self.bot, TLObject) else self.bot
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xa3S8!',
+            self.bot._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _bot = reader.tgread_object()
+        return cls(bot=_bot)
 
 
 class GetAdminedBotsRequest(TLRequest):
@@ -1146,6 +1232,38 @@ class SetCustomVerificationRequest(TLRequest):
         else:
             _custom_description = None
         return cls(peer=_peer, enabled=_enabled, bot=_bot, custom_description=_custom_description)
+
+
+class SetJoinChatResultsRequest(TLRequest):
+    CONSTRUCTOR_ID = 0xe71a4810
+    SUBCLASS_OF_ID = 0xf5b399ac
+
+    def __init__(self, query_id: int, result: 'TypeJoinChatBotResult'):
+        """
+        :returns Bool: This type has no constructors.
+        """
+        self.query_id = query_id
+        self.result = result
+
+    def to_dict(self):
+        return {
+            '_': 'SetJoinChatResultsRequest',
+            'query_id': self.query_id,
+            'result': self.result.to_dict() if isinstance(self.result, TLObject) else self.result
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\x10H\x1a\xe7',
+            struct.pack('<q', self.query_id),
+            self.result._bytes(),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _query_id = reader.read_long()
+        _result = reader.tgread_object()
+        return cls(query_id=_query_id, result=_result)
 
 
 class ToggleUserEmojiStatusPermissionRequest(TLRequest):

@@ -495,6 +495,34 @@ class SuiBets(Exchange):
         )
 
 
+class Rain(Exchange):
+    """Rain exchange client."""
+
+    def __init__(
+        self,
+        private_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        auto_start_server: Optional[bool] = None,
+        pmxt_api_key: Optional[str] = None,
+    ) -> None:
+        """
+        Initialize Rain client.
+
+        Args:
+            private_key: Private key for authentication (optional)
+            base_url: Base URL of the PMXT sidecar server
+            auto_start_server: Automatically start server if not running (default: True)
+            pmxt_api_key: Hosted PMXT API key (optional; enables hosted mode)
+        """
+        super().__init__(
+            exchange_name="rain",
+            private_key=private_key,
+            base_url=base_url,
+            auto_start_server=auto_start_server,
+            pmxt_api_key=pmxt_api_key,
+        )
+
+
 class Mock(Exchange):
     """Mock exchange client."""
 

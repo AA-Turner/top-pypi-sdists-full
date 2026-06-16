@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ariadne
-Version: 1.0.1
+Version: 1.1.0
 Summary: Ariadne is a Python library for implementing GraphQL servers.
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne
@@ -33,6 +33,9 @@ Provides-Extra: asgi-file-uploads
 Requires-Dist: python-multipart>=0.0.13; extra == 'asgi-file-uploads'
 Provides-Extra: dev
 Requires-Dist: ipdb; extra == 'dev'
+Provides-Extra: sqlalchemy
+Requires-Dist: aiodataloader>=0.2.0; extra == 'sqlalchemy'
+Requires-Dist: sqlalchemy>=2.0.0; extra == 'sqlalchemy'
 Provides-Extra: telemetry
 Requires-Dist: opentelemetry-api; extra == 'telemetry'
 Provides-Extra: test
@@ -97,6 +100,7 @@ Documentation is available [here](https://ariadnegraphql.org).
 - Loading schema from `.graphql`, `.gql`, and `.graphqls` files.
 - ASGI and WSGI support, with integrations for Django, FastAPI, Flask, and Starlette.
 - Opt-in automatic resolvers mapping between `camelCase123` and `snake_case_123`.
+- Automated integration with **SQLAlchemy 2.0** for zero-boilerplate resolvers and N+1 prevention.
 - [OpenTelemetry](https://opentelemetry.io/) extension for API monitoring.
 - Built-in [GraphiQL](https://github.com/graphql/graphiql) explorer for development and testing.
 - GraphQL syntax validation via `gql()` helper function.
@@ -192,5 +196,14 @@ For guidance and instructions, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Website and the docs have their own GitHub repository: [mirumee/ariadne-website](https://github.com/mirumee/ariadne-website)
 
-**Crafted with ❤️ by [Mirumee Software](http://mirumee.com)**
+## Creators
+
+Ariadne GraphQL is brought to you by [Mirumee](https://mirumee.com/?utm_campaign=ariadne&utm_medium=github&utm_source=about_creators_link).
+
+![Mirumee](https://ariadnegraphql.org/img/mirumee_minilogo.svg)
+
+Mirumee is an Agent-Native Engineering Lab with 15+ years of experience in delivering technologies. We provide the architectural expertise needed to build critical systems for Commerce and MedTech. Scaling a complex platform? [Consult us](https://mirumee.com/contact?utm_campaign=ariadne&utm_medium=github&utm_source=CTA).
+
+Created with ❤️ by [Mirumee](https://mirumee.com/?utm_campaign=ariadne&utm_medium=github&utm_source=about_creators_link)
+
 ariadne@mirumee.com

@@ -134,12 +134,18 @@ class LLMConfig(BaseModel, frozen=True):
         "hermes",
         "goose",
         "pi",
+        "ourocode",
+        "gjc",
     ] = "claude_code"
     permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "default"
     opencode_permission_mode: Literal["default", "acceptEdits", "bypassPermissions"] = "acceptEdits"
     qa_model: str = DEFAULT_SONNET_MODEL
-    dependency_analysis_model: str = DEFAULT_OPUS_MODEL
-    ontology_analysis_model: str = DEFAULT_OPUS_MODEL
+    # Dependency and ontology analysis are bounded structured-extraction tasks;
+    # Sonnet is sufficient and Opus is waste. (The "stable tier for reproducible
+    # grading" rationale covers evaluation/consensus, not these.) Effort-first:
+    # the floor should not start at the most expensive tier.
+    dependency_analysis_model: str = DEFAULT_SONNET_MODEL
+    ontology_analysis_model: str = DEFAULT_SONNET_MODEL
     context_compression_model: str = "gpt-4"
 
 
@@ -157,6 +163,7 @@ class LLMProviderProfileConfig(BaseModel, frozen=True):
     max_tokens: int | None = Field(default=None, ge=1)
     top_p: float | None = Field(default=None, ge=0.0, le=1.0)
     max_turns: int | None = Field(default=None, ge=1)
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
 
 
 class LLMTaskProfileConfig(BaseModel, frozen=True):
@@ -167,6 +174,7 @@ class LLMTaskProfileConfig(BaseModel, frozen=True):
     max_tokens: int | None = Field(default=None, ge=1)
     top_p: float | None = Field(default=None, ge=0.0, le=1.0)
     max_turns: int | None = Field(default=None, ge=1)
+    reasoning_effort: Literal["low", "medium", "high"] | None = None
     providers: dict[str, LLMProviderProfileConfig] = Field(default_factory=dict)
 
 
@@ -192,16 +200,10 @@ class ExecutionConfig(BaseModel, frozen=True):
     Attributes:
         max_iterations_per_ac: Maximum iterations per acceptance criteria
         retrospective_interval: Iterations between retrospectives
-        atomicity_model: Default model for atomicity analysis
-        decomposition_model: Default model for AC decomposition
-        double_diamond_model: Default model for Double Diamond phases
     """
 
     max_iterations_per_ac: int = Field(default=10, ge=1)
     retrospective_interval: int = Field(default=3, ge=1)
-    atomicity_model: str = DEFAULT_OPUS_MODEL
-    decomposition_model: str = DEFAULT_OPUS_MODEL
-    double_diamond_model: str = DEFAULT_OPUS_MODEL
 
 
 class ResilienceConfig(BaseModel, frozen=True):
@@ -367,6 +369,8 @@ VALID_RUNTIME_BACKENDS = frozenset(
         "goose_cli",
         "pi",
         "pi_cli",
+        "gjc",
+        "gjc_cli",
     }
 )
 
@@ -491,7 +495,7 @@ class OrchestratorConfig(BaseModel, frozen=True):
     """
 
     runtime_backend: Literal[
-        "claude", "codex", "opencode", "hermes", "gemini", "kiro", "copilot", "goose", "pi"
+        "claude", "codex", "opencode", "hermes", "gemini", "kiro", "copilot", "goose", "pi", "gjc"
     ] = "claude"
     runtime_profile: RuntimeProfileConfig | None = None
 
@@ -520,6 +524,8 @@ class OrchestratorConfig(BaseModel, frozen=True):
     kiro_cli_path: str | None = None
     goose_cli_path: str | None = None
     pi_cli_path: str | None = None
+    gjc_cli_path: str | None = None
+    ourocode_cli_path: str | None = None
     default_max_turns: int = Field(default=10, ge=1)
     max_parallel_workers: int = Field(default=3, ge=1)
     usage_limit_pause_hours: float = Field(default=5.0, gt=0.0)
@@ -538,6 +544,8 @@ class OrchestratorConfig(BaseModel, frozen=True):
         "kiro_cli_path",
         "goose_cli_path",
         "pi_cli_path",
+        "gjc_cli_path",
+        "ourocode_cli_path",
     )
     @classmethod
     def expand_cli_path(cls, v: str | None) -> str | None:

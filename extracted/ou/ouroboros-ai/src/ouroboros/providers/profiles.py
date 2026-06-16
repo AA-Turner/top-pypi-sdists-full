@@ -29,6 +29,9 @@ _BACKEND_ALIASES = {
     "opencode_cli": "opencode",
     "pi": "pi",
     "pi_cli": "pi",
+    "gjc": "gjc",
+    "gjc_cli": "gjc",
+    "ourocode": "ourocode",
     "litellm": "litellm",
     "openai": "litellm",
     "openrouter": "litellm",
@@ -158,6 +161,11 @@ def resolve_completion_profile(
             provider.max_turns if provider is not None else None,
             profile.max_turns,
             config.max_turns,
+        ),
+        reasoning_effort=_coalesce(
+            provider.reasoning_effort if provider is not None else None,
+            profile.reasoning_effort,
+            config.reasoning_effort,
         ),
     )
 

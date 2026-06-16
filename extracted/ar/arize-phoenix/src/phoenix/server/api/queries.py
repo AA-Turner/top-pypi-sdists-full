@@ -456,7 +456,7 @@ class Query:
             # The end_time comes from the Trace model, and we need to get the max end_time for
             # each project
             end_time_subq = (
-                select(func.max(models.Trace.end_time))
+                select(func.max(models.Trace.start_time))
                 .where(models.Trace.project_rowid == models.Project.id)
                 .scalar_subquery()
             )
@@ -1534,6 +1534,9 @@ class Query:
             has_dataset_context=bool(resolved_input and resolved_input.has_dataset_context),
             has_llm_evaluator_context=bool(
                 resolved_input and resolved_input.has_llm_evaluator_context
+            ),
+            has_code_evaluator_context=bool(
+                resolved_input and resolved_input.has_code_evaluator_context
             ),
         )
         return [

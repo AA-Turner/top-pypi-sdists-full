@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ouroboros-ai
-Version: 0.41.0
+Version: 0.42.0
 Summary: Specification-first workflow engine for AI coding agents. Works with Claude Code and Codex CLI.
 Author-email: Q00 <jqyu.lee@gmail.com>
 License-File: LICENSE
@@ -12,27 +12,29 @@ Requires-Dist: jsonschema<5.0.0,>=4.21.0
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
-Requires-Dist: rich<15.0.0,>=13.0.0
+Requires-Dist: rich<16.0.0,>=13.0.0
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0
 Requires-Dist: structlog<26.0.0,>=24.0.0
-Requires-Dist: typer<0.26.0,>=0.12.0
+Requires-Dist: typer<0.27.0,>=0.12.0
 Provides-Extra: all
-Requires-Dist: anthropic<1.0.0,>=0.52.0; extra == 'all'
-Requires-Dist: claude-agent-sdk<1.0.0,>=0.1.0; extra == 'all'
-Requires-Dist: litellm<=1.82.6,>=1.80.0; extra == 'all'
-Requires-Dist: mcp<2.0.0,>=1.26.0; extra == 'all'
-Requires-Dist: textual<9.0.0,>=1.0.0; extra == 'all'
+Requires-Dist: anthropic==0.105.2; extra == 'all'
+Requires-Dist: claude-agent-sdk==0.2.87; extra == 'all'
+Requires-Dist: litellm==1.86.2; extra == 'all'
+Requires-Dist: mcp==1.27.2; extra == 'all'
+Requires-Dist: textual-serve==1.1.3; extra == 'all'
+Requires-Dist: textual==8.2.7; extra == 'all'
 Provides-Extra: claude
-Requires-Dist: anthropic<1.0.0,>=0.52.0; extra == 'claude'
-Requires-Dist: claude-agent-sdk<1.0.0,>=0.1.0; extra == 'claude'
+Requires-Dist: anthropic==0.105.2; extra == 'claude'
+Requires-Dist: claude-agent-sdk==0.2.87; extra == 'claude'
 Provides-Extra: copilot
 Provides-Extra: dashboard
 Provides-Extra: litellm
-Requires-Dist: litellm<=1.82.6,>=1.80.0; extra == 'litellm'
+Requires-Dist: litellm==1.86.2; extra == 'litellm'
 Provides-Extra: mcp
-Requires-Dist: mcp<2.0.0,>=1.26.0; extra == 'mcp'
+Requires-Dist: mcp==1.27.2; extra == 'mcp'
 Provides-Extra: tui
-Requires-Dist: textual<9.0.0,>=1.0.0; extra == 'tui'
+Requires-Dist: textual-serve==1.1.3; extra == 'tui'
+Requires-Dist: textual==8.2.7; extra == 'tui'
 Description-Content-Type: text/markdown
 
 <p align="right">

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "2.0.707"
+version = "2.0.742"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -27,12 +27,12 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = [
-    "rich>=13.0",
-    "cryptography>=47.0.0",
+    "rich>=15.0.0",
+    "cryptography>=49.0.0",
     "keyring>=25.0",
     "packaging>=24.0",
     "tomli>=2.0; python_version < '3.11'",
-    "cisco-ai-skill-scanner~=2.0.9",
+    "cisco-ai-skill-scanner~=2.0.11",
 ]
 
 [project.optional-dependencies]

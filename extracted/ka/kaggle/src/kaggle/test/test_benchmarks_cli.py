@@ -566,11 +566,25 @@ class TestRun:
         with pytest.raises(ValueError, match="--poll-interval must be a positive integer"):
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"], poll_interval=interval)
 
-    def test_run_errored_task_includes_task_info(self, api):
-        """ERRORED task error message includes task info."""
-        api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=ERRORED)
-        with pytest.raises(ValueError, match="Task Info:"):
+    def test_run_errored_task_surfaces_creation_error_message(self, api):
+        """When task creation failed, run shows status (kind) and Error (server message) separately."""
+        task = _make_task(state=ERRORED)
+        task.creation_error_message = "Notebook produced no run output"
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+        with pytest.raises(ValueError) as exc_info:
             api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
+        msg = str(exc_info.value)
+        assert "status: ERRORED" in msg
+        assert "Error: Notebook produced no run output" in msg
+
+    def test_run_errored_task_without_creation_error_message(self, api):
+        """When creation_error_message is empty, no Error line is appended."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task(state=ERRORED)
+        with pytest.raises(ValueError) as exc_info:
+            api.benchmarks_tasks_run_cli("my-task", ["gemini-pro"])
+        msg = str(exc_info.value)
+        assert "status: ERRORED" in msg
+        assert "Error:" not in msg
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_run_task_not_found(self, api, status_code):
@@ -1085,6 +1099,59 @@ class TestStatus:
         output = capsys.readouterr().out
         assert "gemini-1" in output
         assert "gemini-2" in output
+
+    def test_status_shows_creation_error_message(self, api, capsys):
+        """Failed task creation surfaces creation_error_message in the header."""
+        task = _make_task(state=ERRORED)
+        task.creation_error_message = "Kernel produced no run output"
+        api._mock_benchmarks.get_benchmark_task.return_value = task
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Error:    Kernel produced no run output" in output
+
+    def test_status_omits_error_when_empty(self, api, capsys):
+        """No Error line when creation_error_message is empty."""
+        api._mock_benchmarks.get_benchmark_task.return_value = _make_task()
+        _setup_runs_response(api, [])
+        api.benchmarks_tasks_status_cli("my-task")
+        output = capsys.readouterr().out
+        assert "Error:" not in output
+
+
+class TestFormatState:
+    """``KaggleApi._format_state`` renders the raw cleaned enum (the error *kind*).
+
+    Explanatory messages belong in ``creation_error_message`` on the task
+    object and are displayed by callers as a separate ``Error:`` line.
+    """
+
+    @pytest.mark.parametrize(
+        "state, expected",
+        [
+            (COMPLETED, "Completed"),
+            (QUEUED, "Queued"),
+            (RUNNING, "Running"),
+            (ERRORED, "Errored"),
+        ],
+    )
+    def test_known_creation_states(self, state, expected):
+        assert KaggleApi._format_state(state) == expected
+
+    @pytest.mark.parametrize(
+        "raw, expected",
+        [
+            ("KERNEL_WITHOUT_RUN", "Kernel_Without_Run"),
+            ("NO_MODEL_SPECIFIED", "No_Model_Specified"),
+            ("VALIDATION_FAILED", "Validation_Failed"),
+            ("ERRORED", "Errored"),
+            ("COMPLETED", "Completed"),
+            ("SOMETHING_NEW", "Something_New"),
+            ("PENDING", "Pending"),
+        ],
+    )
+    def test_renders_cleaned_enum(self, raw, expected):
+        assert KaggleApi._format_state(raw) == expected
 
 
 # ============================================================
@@ -1619,10 +1686,10 @@ class TestLog:
         _setup_runs_response(api, [_make_run(model="gemini-pro", state=RUN_QUEUED, run_id=1)])
         api._mock_benchmarks.get_benchmark_task_run_logs.side_effect = HTTPError(response=MagicMock(status_code=404))
         api.benchmarks_tasks_log_cli("my-task")
-        output = capsys.readouterr().out
-        assert "No logs available" in output
-        assert "404" in output
-        assert "0 lines" in output
+        captured = capsys.readouterr()
+        assert "No logs available" in captured.err
+        assert "404" in captured.err
+        assert "0 lines" in captured.out
 
     def test_log_json_list_with_data_key(self, api, capsys):
         """JSON response containing list of {"data": ...} entries prints each entry."""
@@ -1824,7 +1891,7 @@ class TestDelete:
     def test_delete_prints_stub_message(self, api, capsys, no_confirm):
         """Delete always prints stub message; -y flag is accepted but has no effect."""
         api.benchmarks_tasks_delete_cli("my-task", no_confirm=no_confirm)
-        assert "Delete is not supported by the server yet." in capsys.readouterr().out
+        assert "Delete is not supported by the server yet." in capsys.readouterr().err
 
 
 # ============================================================
@@ -2084,6 +2151,13 @@ class TestBenchmarksAuth:
         out = capsys.readouterr().out
         assert "custom.env" in out
 
+    def test_sets_source_header_for_analytics(self, api, mock_token, tmp_path):
+        """The token request carries ``X-Kaggle-CLI-Source: benchmarks-auth`` so
+        kaggle-analytics can separate it from `kaggle benchmarks init`."""
+        api.benchmarks_auth_cli(no_confirm=True, env_file=str(tmp_path / ".env"))
+        headers = api._mock_client.http_client.return_value._session.headers
+        headers.__setitem__.assert_any_call("X-Kaggle-CLI-Source", "benchmarks-auth")
+
     def test_friendly_error_on_404_lists_both_causes(self, api, tmp_path):
         """404 maps to a message listing both beta-access and stale-CLI as possibilities."""
         api._mock_client.models.model_proxy_api_client.create_default_model_proxy_token.side_effect = HTTPError(
@@ -2209,6 +2283,17 @@ class TestBenchmarksInit:
         api.benchmarks_init_cli(no_confirm=True, env_file=env_file, example_file=example_file)
         content = (tmp_path / "my_task.py").read_text()
         assert "import kaggle_benchmarks as kbench" in content
+
+    def test_sets_source_header_for_analytics(self, api, mock_token, tmp_path):
+        """The token request carries ``X-Kaggle-CLI-Source: benchmarks-init`` so
+        kaggle-analytics can separate it from `kaggle benchmarks auth`."""
+        api.benchmarks_init_cli(
+            no_confirm=True,
+            env_file=str(tmp_path / ".env"),
+            example_file=str(tmp_path / "example_task.py"),
+        )
+        headers = api._mock_client.http_client.return_value._session.headers
+        headers.__setitem__.assert_any_call("X-Kaggle-CLI-Source", "benchmarks-init")
 
     def test_aborted_on_no_confirm(self, api, mock_token, capsys, tmp_path):
         env_file = str(tmp_path / ".env")
@@ -2690,8 +2775,8 @@ class TestPublish:
         task, resp = self._setup_publish(api)
         resp.is_backing_notebook_published = False
         api.benchmarks_tasks_publish_cli("my-task", publish_backing_notebook=True)
-        output = capsys.readouterr().out
-        assert "No backing notebook is associated" in output
+        captured = capsys.readouterr()
+        assert "No backing notebook is associated" in captured.err
 
     @pytest.mark.parametrize("status_code", [403, 404], ids=["forbidden", "not_found"])
     def test_publish_task_not_found(self, api, status_code):

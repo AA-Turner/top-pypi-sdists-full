@@ -15,6 +15,8 @@ _HOOK_ARGV_ENV = "HOL_GUARD_HOOK_ARGV"
 _INHERIT_ENV_KEYS = ("PATH", "HOME", "USER", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "SYSTEMROOT")
 
 _PLUGIN_TEMPLATE = """// Managed by HOL Guard. Re-run `hol-guard install opencode` after moving Guard home.
+import { spawn as nodeSpawn } from "node:child_process";
+
 const GUARD_HOME = __GUARD_HOME__;
 const GUARD_PYTHON = __GUARD_PYTHON__;
 const GUARD_HOOK_LAUNCHER = __GUARD_HOOK_LAUNCHER__;
@@ -44,6 +46,37 @@ function normalizeCommand(command: unknown): string | null {
   return null;
 }
 
+async function spawnGuardProcess(options: {
+  command: string[];
+  cwd: string;
+  env: Record<string, string>;
+  stdin: string;
+}): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = nodeSpawn(options.command[0], options.command.slice(1), {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    proc.stdout?.setEncoding("utf8");
+    proc.stderr?.setEncoding("utf8");
+    proc.stdout?.on("data", (chunk: string) => {
+      stdout += chunk;
+    });
+    proc.stderr?.on("data", (chunk: string) => {
+      stderr += chunk;
+    });
+    proc.on("error", reject);
+    proc.on("close", (code: number | null) => {
+      resolve({ exitCode: code ?? 1, stdout, stderr });
+    });
+    proc.stdin?.on("error", () => {});
+    proc.stdin?.end(options.stdin);
+  });
+}
+
 async function runGuardHook(directory: string, payload: Record<string, unknown>) {
   const workspace = directory?.trim() || process.cwd();
   const guardArgv = [
@@ -57,19 +90,12 @@ async function runGuardHook(directory: string, payload: Record<string, unknown>)
     workspace,
     "--json",
   ];
-  const proc = Bun.spawn([GUARD_PYTHON, "-c", GUARD_HOOK_LAUNCHER], {
+  return spawnGuardProcess({
+    command: [GUARD_PYTHON, "-c", GUARD_HOOK_LAUNCHER],
     cwd: GUARD_HOME,
     env: hookProcessEnv(guardArgv),
-    stdin: new Blob([JSON.stringify(payload)]),
-    stdout: "pipe",
-    stderr: "pipe",
+    stdin: JSON.stringify(payload),
   });
-  const stdoutPromise = new Response(proc.stdout).text();
-  const stderrPromise = new Response(proc.stderr).text();
-  const exitCode = await proc.exited;
-  const stdout = await stdoutPromise;
-  const stderr = await stderrPromise;
-  return { exitCode, stdout, stderr };
 }
 
 function parseGuardPayload(stdout: string): Record<string, unknown> | null {

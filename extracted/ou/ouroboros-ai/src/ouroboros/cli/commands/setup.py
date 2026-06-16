@@ -235,6 +235,17 @@ def _detect_runtimes() -> dict[str, str | None]:
         pi_path = None
     runtimes["pi"] = (pi_path if pi_path and shutil.which(pi_path) else None) or shutil.which("pi")
 
+    # GJC: explicit-path config first, then PATH.
+    try:
+        from ouroboros.config import get_gjc_cli_path
+
+        gjc_path = get_gjc_cli_path()
+    except Exception:
+        gjc_path = None
+    runtimes["gjc"] = (gjc_path if gjc_path and shutil.which(gjc_path) else None) or shutil.which(
+        "gjc"
+    )
+
     return runtimes
 
 
@@ -348,19 +359,16 @@ _MISSING = object()
 _CODEX_ROLE_MODEL_OVERRIDE_DEFAULTS: dict[str, tuple[tuple[tuple[str, ...], object], ...]] = {
     "ambiguity": ((("clarification", "default_model"), DEFAULT_OPUS_MODEL),),
     "assertion_extraction": ((("evaluation", "assertion_extraction_model"), DEFAULT_SONNET_MODEL),),
-    "atomicity": ((("execution", "atomicity_model"), DEFAULT_OPUS_MODEL),),
     "brownfield_explore": ((("clarification", "default_model"), DEFAULT_OPUS_MODEL),),
     "clarification": ((("clarification", "default_model"), DEFAULT_OPUS_MODEL),),
     "consensus_advocate": ((("consensus", "advocate_model"), DEFAULT_CONSENSUS_OPUS_MODEL),),
     "consensus_judge": ((("consensus", "judge_model"), "openrouter/google/gemini-2.5-pro"),),
     "consensus_vote": ((("consensus", "models"), _DEFAULT_CONSENSUS_MODELS),),
     "context_compression": ((("llm", "context_compression_model"), "gpt-4"),),
-    "decomposition": ((("execution", "decomposition_model"), DEFAULT_OPUS_MODEL),),
-    "dependency_analysis": ((("llm", "dependency_analysis_model"), DEFAULT_OPUS_MODEL),),
-    "double_diamond": ((("execution", "double_diamond_model"), DEFAULT_OPUS_MODEL),),
+    "dependency_analysis": ((("llm", "dependency_analysis_model"), DEFAULT_SONNET_MODEL),),
     "mechanical_detection": ((("evaluation", "assertion_extraction_model"), DEFAULT_SONNET_MODEL),),
     "ontology_analysis": (
-        (("llm", "ontology_analysis_model"), DEFAULT_OPUS_MODEL),
+        (("llm", "ontology_analysis_model"), DEFAULT_SONNET_MODEL),
         (("consensus", "devil_model"), "openrouter/openai/gpt-4o"),
     ),
     "pm_interview": ((("clarification", "default_model"), DEFAULT_OPUS_MODEL),),
@@ -1237,6 +1245,7 @@ def _install_runtime_instruction_artifact(backend: str, **kwargs: object) -> Non
     from ouroboros.runtime_instruction_artifacts import (
         install_copilot_instruction_artifact,
         install_gemini_instruction_artifact,
+        install_gjc_instruction_artifact,
         install_kiro_instruction_artifact,
         install_opencode_instruction_artifact,
     )
@@ -1246,6 +1255,7 @@ def _install_runtime_instruction_artifact(backend: str, **kwargs: object) -> Non
         "gemini": install_gemini_instruction_artifact,
         "kiro": install_kiro_instruction_artifact,
         "copilot": install_copilot_instruction_artifact,
+        "gjc": install_gjc_instruction_artifact,
     }
     installer = installers.get(backend)
     if installer is None:
@@ -1629,17 +1639,14 @@ def _register_copilot_mcp_server() -> None:
 
 _COPILOT_DEFAULT_MODEL_TARGETS: tuple[tuple[str, str, str], ...] = (
     ("llm", "qa_model", DEFAULT_SONNET_MODEL),
-    ("llm", "dependency_analysis_model", DEFAULT_OPUS_MODEL),
-    ("llm", "ontology_analysis_model", DEFAULT_OPUS_MODEL),
+    ("llm", "dependency_analysis_model", DEFAULT_SONNET_MODEL),
+    ("llm", "ontology_analysis_model", DEFAULT_SONNET_MODEL),
     ("llm", "context_compression_model", "gpt-4"),
     ("clarification", "default_model", DEFAULT_OPUS_MODEL),
     ("evaluation", "semantic_model", DEFAULT_OPUS_MODEL),
     ("evaluation", "assertion_extraction_model", DEFAULT_SONNET_MODEL),
     ("resilience", "wonder_model", DEFAULT_OPUS_MODEL),
     ("resilience", "reflect_model", DEFAULT_OPUS_MODEL),
-    ("execution", "atomicity_model", DEFAULT_OPUS_MODEL),
-    ("execution", "decomposition_model", DEFAULT_OPUS_MODEL),
-    ("execution", "double_diamond_model", DEFAULT_OPUS_MODEL),
     ("consensus", "advocate_model", DEFAULT_CONSENSUS_OPUS_MODEL),
     ("consensus", "devil_model", "openrouter/openai/gpt-4o"),
     ("consensus", "judge_model", "openrouter/google/gemini-2.5-pro"),
@@ -1807,6 +1814,8 @@ def _setup_copilot(copilot_path: str, *, non_interactive: bool = False) -> None:
 
 
 _PI_OOO_BRIDGE_FILENAME = "ouroboros-ooo-bridge.ts"
+_GJC_OOO_BRIDGE_SUBDIR = "ouroboros-ooo-bridge"
+_GJC_OOO_BRIDGE_FILENAME = "index.ts"
 
 
 def _detect_pi_bridge_dispatch_entry() -> tuple[str, list[str]]:
@@ -1938,6 +1947,123 @@ def _install_pi_ooo_bridge() -> bool:
     )
     print_info("Restart Pi or run /reload in an existing Pi session to load the bridge.")
     return True
+
+
+def _detect_gjc_bridge_dispatch_entry() -> tuple[str, list[str]]:
+    """Return the launcher a managed GJC bridge should use for this install."""
+    if _is_source_tree_ouroboros_build():
+        return sys.executable, ["-m", "ouroboros"]
+    try:
+        version = importlib_metadata.version("ouroboros-ai")
+    except importlib_metadata.PackageNotFoundError:
+        return sys.executable, ["-m", "ouroboros"]
+    if ".dev" in version:
+        return sys.executable, ["-m", "ouroboros"]
+    return shutil.which("ouroboros") or "ouroboros", []
+
+
+def _gjc_bridge_source_text() -> str | None:
+    """Return the packaged managed GJC bridge extension source."""
+    from importlib import resources
+
+    try:
+        source = (
+            resources.files("ouroboros.gjc_bridge")
+            .joinpath(_GJC_OOO_BRIDGE_FILENAME)
+            .read_text(encoding="utf-8")
+        )
+    except (FileNotFoundError, ModuleNotFoundError, OSError):
+        dev = Path(__file__).resolve().parents[2] / "gjc_bridge" / _GJC_OOO_BRIDGE_FILENAME
+        try:
+            source = dev.read_text(encoding="utf-8") if dev.exists() else None
+        except OSError:
+            return None
+    if source is None:
+        return None
+    command, args = _detect_gjc_bridge_dispatch_entry()
+    return source.replace(
+        'const DEFAULT_COMMAND = "ouroboros";',
+        f"const DEFAULT_COMMAND = {json.dumps(command)};",
+    ).replace(
+        "const DEFAULT_ARGS: string[] = [];",
+        f"const DEFAULT_ARGS: string[] = {json.dumps(args)};",
+    )
+
+
+def _install_gjc_ooo_bridge() -> bool:
+    """Install the managed GJC extension that routes interactive ``ooo`` input."""
+    import hashlib
+
+    from ouroboros.runtime_instruction_artifacts import gjc_agent_dir
+
+    dest = gjc_agent_dir() / "extensions" / _GJC_OOO_BRIDGE_SUBDIR / _GJC_OOO_BRIDGE_FILENAME
+    content = _gjc_bridge_source_text()
+    if content is None:
+        print_warning("Could not locate packaged GJC ooo bridge source.")
+        return False
+
+    new_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    existing_hash: str | None = None
+    if dest.exists():
+        try:
+            existing_hash = hashlib.sha256(dest.read_bytes()).hexdigest()
+        except OSError:
+            existing_hash = None
+
+    if existing_hash == new_hash:
+        print_info(f"GJC ooo bridge already up to date: {dest}")
+        return True
+
+    try:
+        _atomic_write_text(dest, content)
+    except OSError as exc:
+        print_warning(f"Could not install GJC ooo bridge at {dest}: {exc}")
+        return False
+
+    print_success(
+        f"{'Updated' if existing_hash is not None else 'Installed'} GJC ooo bridge: {dest}"
+    )
+    print_info("Restart GJC or run /reload in an existing GJC session to load the bridge.")
+    return True
+
+
+def _setup_gjc(gjc_path: str) -> None:
+    """Configure Ouroboros for the GJC CLI runtime."""
+    from ouroboros.config.loader import create_default_config, ensure_config_dir
+
+    config_dir = ensure_config_dir()
+    config_path = config_dir / "config.yaml"
+
+    if config_path.exists():
+        config_dict = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    else:
+        create_default_config(config_dir)
+        config_dict = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+
+    if not isinstance(config_dict, dict):
+        print_error("~/.ouroboros/config.yaml top-level is not a mapping — aborting GJC setup.")
+        return
+
+    orch = config_dict.get("orchestrator")
+    if not isinstance(orch, dict):
+        orch = {}
+        config_dict["orchestrator"] = orch
+    orch["runtime_backend"] = "gjc"
+    orch["gjc_cli_path"] = gjc_path
+
+    llm = config_dict.get("llm")
+    if not isinstance(llm, dict):
+        llm = {}
+        config_dict["llm"] = llm
+    llm["backend"] = "gjc"
+
+    with config_path.open("w", encoding="utf-8") as f:
+        yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+
+    print_success(f"Configured GJC runtime (CLI: {gjc_path})")
+    print_info(f"Config saved to: {config_path}")
+    _install_runtime_instruction_artifact("gjc")
+    _install_gjc_ooo_bridge()
 
 
 def _setup_gemini(gemini_path: str) -> None:
@@ -2808,7 +2934,7 @@ def setup(
         typer.Option(
             "--runtime",
             "-r",
-            help="Runtime backend to configure (claude, codex, opencode, hermes, gemini, goose, kiro, copilot, pi).",
+            help="Runtime backend to configure (claude, codex, opencode, hermes, gemini, goose, kiro, copilot, pi, gjc).",
         ),
     ] = None,
     non_interactive: Annotated[
@@ -2835,7 +2961,7 @@ def setup(
 ) -> None:
     """Set up Ouroboros for your environment.
 
-    Detects available runtimes (Claude Code, Codex, OpenCode, Hermes, Gemini, Kiro, Copilot, Goose, Pi)
+    Detects available runtimes (Claude Code, Codex, OpenCode, Hermes, Gemini, Kiro, Copilot, Goose, Pi, GJC)
     and configures Ouroboros to use the selected backend.
 
     [dim]Examples:[/dim]
@@ -2848,6 +2974,7 @@ def setup(
     [dim]    ouroboros setup --runtime copilot    # use GitHub Copilot CLI[/dim]
     [dim]    ouroboros setup --runtime pi         # use Pi CLI[/dim]
     [dim]    ouroboros setup --runtime goose      # use Goose[/dim]
+    [dim]    ouroboros setup --runtime gjc        # use GJC[/dim]
     [dim]    ouroboros setup scan               # scan brownfield repos[/dim]
     [dim]    ouroboros setup list               # list brownfield repos[/dim]
     [dim]    ouroboros setup default            # toggle default repos[/dim]
@@ -2928,7 +3055,8 @@ def setup(
                 "  • Gemini CLI:  npm install -g @google/gemini-cli\n"
                 "  • Kiro CLI:    https://kiro.dev/docs/cli/\n"
                 "  • Copilot CLI: https://docs.github.com/copilot/github-copilot-in-the-cli\n"
-                "  • Pi CLI:      npm install -g --ignore-scripts @earendil-works/pi-coding-agent"
+                "  • Pi CLI:      npm install -g --ignore-scripts @earendil-works/pi-coding-agent\n"
+                "  • GJC CLI:     npm install -g gajae-code"
             )
             raise typer.Exit(1)
 
@@ -3024,6 +3152,15 @@ def setup(
             )
             raise typer.Exit(1)
         _setup_pi(pi_path)
+    elif selected in ("gjc", "gajae-code", "gajae_code"):
+        gjc_path = available.get("gjc")
+        if not gjc_path:
+            print_error(
+                "GJC CLI not found.\n"
+                "Install it, set OUROBOROS_GJC_CLI_PATH, or configure orchestrator.gjc_cli_path."
+            )
+            raise typer.Exit(1)
+        _setup_gjc(gjc_path)
     elif selected in ("goose", "goose_cli"):
         goose_path = available.get("goose")
         if not goose_path:

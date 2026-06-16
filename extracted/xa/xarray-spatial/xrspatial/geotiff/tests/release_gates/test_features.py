@@ -1519,7 +1519,8 @@ class TestGDALMetadata:
             attrs={'gdal_metadata': meta},
         )
         path = str(tmp_path / 'da_meta.tif')
-        to_geotiff(da, path, compression='none')
+        # gdal_metadata dict is an experimental rich-tag write (#3320).
+        to_geotiff(da, path, compression='none', allow_experimental_codecs=True)
 
         result = open_geotiff(path)
         assert result.attrs['gdal_metadata']['Source'] == 'test'
@@ -2818,6 +2819,10 @@ class TestPublicAPI:
             # importing from the private ``_errors`` module.
             'ConflictingCRSError',
             'ConflictingNodataError',
+            # Read-side fail-closed on a zero or non-finite ModelPixelScale
+            # / ModelTransformation diagonal (issue #3331), replacing the
+            # legacy silent build of a constant or all-NaN coordinate axis.
+            'DegeneratePixelSizeError',
             # Issue #2483: read-side fail-closed on TIFF directories that
             # repeat a tag, replacing the legacy silent last-wins parse.
             'DuplicateIFDTagError',

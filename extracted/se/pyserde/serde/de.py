@@ -81,6 +81,7 @@ from .core import (
     TypeCheck,
     add_func,
     coerce_object,
+    deserialize_enum,
     strict,
     get_transparent_field,
     has_default,
@@ -323,6 +324,7 @@ def deserialize(
         g["TypeCheck"] = TypeCheck
         g["disabled"] = disabled
         g["coerce_object"] = coerce_object
+        g["deserialize_enum"] = deserialize_enum
         g["_exists_by_aliases"] = _exists_by_aliases
         g["_get_by_aliases"] = _get_by_aliases
         g["_project_flattened_data"] = _project_flattened_data
@@ -464,6 +466,22 @@ class Deserializer(Generic[T], metaclass=abc.ABCMeta):
         raise NotImplementedError
 
 
+def find_global_class_deserializer(typ: type[Any]) -> ClassDeserializer | None:
+    """Return a globally registered class deserializer that handles ``typ``, if any.
+
+    This mirrors the lookup used when rendering dataclass fields, so a deserializer
+    registered with ``serde.add_deserializer`` also applies when ``typ`` is passed
+    directly to ``from_dict``/``from_tuple`` instead of nested in a dataclass
+    (https://github.com/yukinarit/pyserde/issues/514).
+    """
+    for class_deserializer in GLOBAL_CLASS_DESERIALIZER:
+        for method in class_deserializer.__class__.deserialize.methods:  # type: ignore[attr-defined]
+            # signature.types[1] is ``type[X]``; unwrap it to the value type ``X``.
+            if get_args(method.signature.types[1])[0] is typ:
+                return class_deserializer
+    return None
+
+
 def from_obj(
     c: type[T],
     o: Any,
@@ -481,6 +499,11 @@ def from_obj(
     """
 
     res: Any
+
+    # A PEP 695 type alias (``type T = Foo | Bar``) is a TypeAliasType, not the
+    # aliased type itself, so unwrap it to recognize e.g. a union.
+    if is_pep695_type_alias(c):
+        c = c.__value__  # type: ignore[attr-defined]
 
     # It is possible that the parser already generates the correct data type requested
     # by the caller. Hence, it should be checked early to avoid doing anymore work.
@@ -521,7 +544,10 @@ def from_obj(
             reuse_instances=reuse_instances,
             deserialize_numbers=deserialize_numbers,
         )
-        if is_dataclass_without_de(c):
+        class_deserializer = find_global_class_deserializer(c)
+        if class_deserializer is not None:
+            res = class_deserializer.deserialize(c, o)
+        elif is_dataclass_without_de(c):
             # Do not automatically implement beartype if dataclass without serde decorator
             # is passed, because it is surprising for users
             # See https://github.com/yukinarit/pyserde/issues/480
@@ -1134,7 +1160,15 @@ class Renderer:
             return f"{{{self.render(k)}: {self.render(v)} for k, v in {arg.data}.items()}}"
 
     def enum(self, arg: DeField[Any]) -> str:
-        return f"{typename(arg.type)}({self.primitive(arg)})"
+        # Pass the raw data to ``deserialize_enum``, which constructs the enum
+        # member itself. Coercing the value beforehand (e.g. via ``coerce_object``)
+        # would eagerly call ``EnumType(value)`` and fail for stringified keys of
+        # ``IntEnum``/``IntFlag`` produced by JSON (e.g. ``"1"``).
+        dat = arg.data
+        if arg.alias:
+            aliases = (f'"{s}"' for s in [arg.name, *arg.alias])
+            dat = f"_get_by_aliases(data, [{','.join(aliases)}])"
+        return f"deserialize_enum({typename(arg.type)}, {dat})"
 
     def primitive(self, arg: DeField[Any], suppress_coerce: bool = False) -> str:
         """

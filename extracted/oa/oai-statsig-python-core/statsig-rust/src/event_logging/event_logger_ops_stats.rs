@@ -27,16 +27,55 @@ impl OpsStatsForInstance {
         });
     }
 
+    pub fn log_event_request_batch_stats(
+        &self,
+        event_count: usize,
+        max_event_queue_time_ms: u64,
+        flush_type: FlushType,
+        tags: Option<HashMap<String, String>>,
+    ) {
+        let tags = Some(get_event_request_tags(tags, flush_type));
+
+        self.log(OpsStatsEvent::Observability(ObservabilityEvent {
+            metric_type: MetricType::Dist,
+            metric_name: "log_event_request_event_count".to_string(),
+            value: event_count as f64,
+            tags: tags.clone(),
+        }));
+
+        self.log(OpsStatsEvent::Observability(ObservabilityEvent {
+            metric_type: MetricType::Dist,
+            metric_name: "log_event_request_max_event_queue_time_ms".to_string(),
+            value: max_event_queue_time_ms as f64,
+            tags,
+        }));
+    }
+
     pub fn log_event_request_success(
         &self,
         event_count: usize,
+        flush_type: FlushType,
         tags: Option<HashMap<String, String>>,
     ) {
         self.log(OpsStatsEvent::Observability(ObservabilityEvent {
             metric_type: MetricType::Increment,
             metric_name: "events_successfully_sent_count".to_string(),
             value: event_count as f64,
-            tags,
+            tags: Some(get_event_request_tags(tags, flush_type)),
+        }))
+    }
+
+    pub fn log_event_request_uncompressed_body_size_bytes(
+        &self,
+        uncompressed_body_size_bytes: usize,
+        flush_type: String,
+        tags: Option<HashMap<String, String>>,
+    ) {
+        self.log(OpsStatsEvent::Observability(ObservabilityEvent {
+            metric_type: MetricType::Dist,
+            metric_name: "log_event_request_uncompressed_body_size_bytes".to_string(),
+            value: uncompressed_body_size_bytes as f64,
+            tags: Some(get_event_request_tags(tags, flush_type)),
         }))
     }
 
@@ -73,4 +112,13 @@ impl OpsStatsForInstance {
             ])),
         });
     }
+}
+
+fn get_event_request_tags(
+    tags: Option<HashMap<String, String>>,
+    flush_type: impl ToString,
+) -> HashMap<String, String> {
+    let mut tags = tags.unwrap_or_default();
+    tags.insert("flush_type".to_string(), flush_type.to_string());
+    tags
 }

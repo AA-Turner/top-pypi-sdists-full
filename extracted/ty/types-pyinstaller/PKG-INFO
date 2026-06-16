@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-pyinstaller
-Version: 6.20.0.20260518
+Version: 6.21.0.20260616
 Summary: Typing stubs for pyinstaller
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -21,7 +21,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`pyinstaller`](https://github.com/pyinstaller/pyinstaller) package. It can be used by type checkers
 to check code that uses `pyinstaller`. This version of
 `types-pyinstaller` aims to provide accurate annotations for
-`pyinstaller==6.20.*`.
+`pyinstaller==6.21.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -32,7 +32,7 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`c0826a2a33b0aeaf9620002c1b0e9f51dc1c95f4`](https://github.com/python/typeshed/commit/c0826a2a33b0aeaf9620002c1b0e9f51dc1c95f4).

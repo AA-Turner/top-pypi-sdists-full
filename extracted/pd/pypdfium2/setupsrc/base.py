@@ -40,8 +40,8 @@ PDFIUM_MIN_REQ = 6635
 # Then, make a branch and run "Sourcebuild", "Sourcebuild Native" and "CIBW" on CI to see if all targets continue to work.
 # Commit the new version to the main branch only when all is green. Better stay on an older version for a while than break a target.
 # Updating and testing the patch sets can be a lot of work, so we might not want to do this too frequrently.
-SBUILD_NATIVE_PIN = 7841
-SBUILD_TOOLCHAINED_PIN = 7191
+SBUILD_NATIVE_PIN = 7891
+SBUILD_TOOLCHAINED_PIN = 7891
 
 PlatSpec_EnvVar = "PDFIUM_PLATFORM"
 PlatSpec_VerSep = ":"
@@ -168,83 +168,15 @@ PdfiumBinariesMap.update({
 })
 
 
-def _manylinux_tag(arch, glibc="2_17"):
-    return f"manylinux_{glibc}_{arch}.manylinux2014_{arch}"
-
-PlatToWheeltag = {
-    # AOTW, pdfium-binaries/steps/05-configure.sh defines mac_deployment_target = "11.0.0"
-    PlatNames.darwin_x64:       "macosx_11_0_x86_64",
-    # macOS 11 is the first version available on arm64
-    PlatNames.darwin_arm64:     "macosx_11_0_arm64",
-    # universal binary format (combo of x64 and arm64) - we prefer arch-specific wheels, but allow callers to build a universal wheel if they want to
-    PlatNames.darwin_univ2:     "macosx_11_0_universal2",
-    
-    PlatNames.windows_x64:      "win_amd64",
-    PlatNames.windows_arm64:    "win_arm64",
-    PlatNames.windows_x86:      "win32",
-    
-    PlatNames.linux_x64:        _manylinux_tag("x86_64"),
-    PlatNames.linux_x86:        _manylinux_tag("i686"),
-    PlatNames.linux_arm64:      _manylinux_tag("aarch64"),
-    PlatNames.linux_arm32:      _manylinux_tag("armv7l"),
-    PlatNames.linux_ppc64le:    _manylinux_tag("ppc64le"),
-    
-    # pdfium-binaries statically link musl, so we can declare the lowest possible requirement.
-    # The builds have been confirmed to work in a musllinux_1_1 container, as of Nov 2025.
-    PlatNames.linux_musl_x64:   "musllinux_1_1_x86_64",
-    PlatNames.linux_musl_x86:   "musllinux_1_1_i686",
-    PlatNames.linux_musl_arm64: "musllinux_1_1_aarch64",
-    
-    # Android - see PEP 738 # Packaging
-    # AOTW, pdfium-binaries/steps/05-configure.sh defines default_min_sdk_version = 23
-    PlatNames.android_arm64:    "android_23_arm64_v8a",
-    PlatNames.android_arm32:    "android_23_armeabi_v7a",
-    PlatNames.android_x64:      "android_23_x86_64",
-    PlatNames.android_x86:      "android_23_x86",
-    
-    # iOS - see PEP 730 # Packaging
-    # We do not currently build wheels for iOS, but again, add the handlers so it could be done on demand. Untested. Note that the PEP says:
-    # "These wheels can include binary modules in-situ (i.e., co-located with the Python source, in the same way as wheels for a desktop platform); however, they will need to be post-processed as binary modules need to be moved into the “Frameworks” location for distribution. This can be automated with an Xcode build step."
-    # I take it this means you'd need to change the library search path to that Frameworks location in bindings.
-    PlatNames.ios_arm64_dev:    "ios_12_0_arm64_iphoneos",
-    PlatNames.ios_arm64_simu:   "ios_12_0_arm64_iphonesimulator",
-    PlatNames.ios_x64_simu:     "ios_12_0_x86_64_iphonesimulator",
-}
-
-
 def log(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
-def mkdir(path, exist_ok=True, parents=True):
-    path.mkdir(exist_ok=exist_ok, parents=parents)
-
-def read_json(fp):
-    with open(fp, "r") as buf:
-        return json.load(buf)
-
-def write_json(fp, data, indent=2):
-    with open(fp, "w") as buf:
-        return json.dump(data, buf, indent=indent)
-
-def env_prepend(key, value, sep):
-    orig = os.environ.get(key, "")
-    if orig:
-        orig = sep + orig
-    os.environ[key] = value + orig
-
-def env_append(key, value, sep):
-    orig = os.environ.get(key, "")
-    if orig:
-        orig += sep
-    os.environ[key] = orig + value
-
-def set_envs(**kwargs):
-    for key, value in kwargs.items():
-        os.environ[key] = value
-
-def query_envs(**kwargs):
-    return {k: os.environ.get(k, d) for k, d in kwargs.items()}
-
+def plat_to_system(pl_name):
+    if pl_name == ExtPlats.sourcebuild:
+        # Note, this may be None if on an unknown host
+        return Host.system
+    # other ExtPlats intentionally not handled here
+    return getattr(SysNames, pl_name.split("_", maxsplit=1)[0])
 
 def libname_for_system(system, name="pdfium", prefix=None):
     # Map system to pdfium shared library name
@@ -265,6 +197,37 @@ def libname_for_system(system, name="pdfium", prefix=None):
         # as a downstream fallback, we could also list the dir in question and pick the file that contains the libname
         log(f"Unhandled system {Host._raw_system!r} ({sys.platform!r})" + " - assuming 'lib{}.so' pattern. Set $LIBNAME_PATTERN if this is not right.")
         return f"lib{name}.so"
+
+
+def mkdir(path, exist_ok=True, parents=True):
+    path.mkdir(exist_ok=exist_ok, parents=parents)
+
+def read_json(fp):
+    with open(fp, "r") as buf:
+        return json.load(buf)
+
+def write_json(fp, data, indent=2):
+    with open(fp, "w") as buf:
+        return json.dump(data, buf, indent=indent)
+
+def env_prepend(key, value, sep):
+    tail = os.environ.get(key, "")
+    if tail:
+        tail = sep + tail
+    os.environ[key] = value + tail
+
+def env_append(key, value, sep):
+    head = os.environ.get(key, "")
+    if head:
+        head += sep
+    os.environ[key] = head + value
+
+def set_envs(**kwargs):
+    for key, value in kwargs.items():
+        os.environ[key] = value
+
+def query_envs(**kwargs):
+    return {k: os.environ.get(k, d) for k, d in kwargs.items()}
 
 
 IGNORE_FULLVER = bool(int(os.environ.get("IGNORE_FULLVER", 0)))
@@ -408,32 +371,27 @@ def parse_git_tag():
 
 def get_helpers_info():
     
-    # TODO add some checks against record?
-    
-    have_git_describe = False
     if (ProjectDir/".git").exists():
         try:
             helpers_info = parse_git_tag()
         except subprocess.CalledProcessError as e:
             log(str(e))
-            log("Version uncertain: git describe failure - possibly a shallow checkout")
         else:
-            have_git_describe = True
             helpers_info["data_source"] = "git"
-    else:
-        log("Version uncertain: git repo not available.")
+            return helpers_info
     
-    if not have_git_describe:
-        ver_file = ModuleDir_Helpers / VersionFN
-        if ver_file.exists():
-            log("Falling back to given version info (e.g. sdist).")
-            helpers_info = read_json(ver_file)
-            helpers_info["data_source"] = "given"
-        else:
-            log("Falling back to autorelease record.")
-            record = read_json(AR_RecordFile)
-            helpers_info = parse_given_tag(record["tag"])
-            helpers_info["data_source"] = "record"
+    log("Unable to use SCM version (e.g. tarball or shallow clone).")
+    
+    ver_file = ModuleDir_Helpers / VersionFN
+    if ver_file.exists():
+        log("Falling back to given version info (e.g. sdist).")
+        helpers_info = read_json(ver_file)
+        helpers_info["data_source"] = "given"
+    else:
+        log("Falling back to autorelease record.")
+        record = read_json(AR_RecordFile)
+        helpers_info = parse_given_tag(record["tag"])
+        helpers_info["data_source"] = "record"
     
     return helpers_info
 
@@ -461,14 +419,6 @@ def merge_tag(info, mode):
             log("Warning: Ignored post-tag desc. This should not happen in autorelease CI.")
     
     return tag
-
-
-def plat_to_system(pl_name):
-    if pl_name == ExtPlats.sourcebuild:
-        # Note, this may be None if on an unknown host
-        return Host.system
-    # other ExtPlats intentionally not handled here
-    return getattr(SysNames, pl_name.split("_", maxsplit=1)[0])
 
 
 # platform.libc_ver() currently returns an empty string for musl, so use the packaging module to confirm.
@@ -599,7 +549,7 @@ class _host_platform:
                 return self._handle_linux("x86")
             elif self._raw_machine == "aarch64":
                 return self._handle_linux("arm64")
-            elif self._raw_machine == "armv7l":
+            elif self._raw_machine in ("armv7l", "armv8l"):
                 return self._handle_linux("arm32", musl_ok=False)
             elif self._raw_machine == "ppc64le":
                 return self._handle_linux("ppc64le", musl_ok=False)
@@ -636,17 +586,21 @@ class _host_platform:
 Host = _host_platform()
 
 
-def run_cmd(command, cwd, capture=False, check=True, str_cast=True, stderr=None, **kwargs):
+def run_cmd(command, cwd, capture=False, check=True, str_cast=True, stderr=None, silent=False, **kwargs):
     
     if str_cast:
         command = [str(c) for c in command]
+    if not silent:
+        log(f"{command} (cwd={cwd!r})")
     
-    log(f"{command} (cwd={cwd!r})")
     if capture:
         kwargs["stdout"] = subprocess.PIPE
         if stderr is not None:
             # allow the caller to pass e.g. subprocess.STDOUT
             kwargs["stderr"] = stderr
+    elif silent:
+        kwargs["stdout"] = subprocess.DEVNULL
+        kwargs["stderr"] = subprocess.DEVNULL
     
     comp_process = subprocess.run(command, cwd=cwd, check=check, **kwargs)
     if capture:
@@ -812,10 +766,6 @@ def clean_platfiles():
             shutil.rmtree(fp)
 
 
-def build_pl_suffix(version, use_v8):
-    return (PlatSpec_V8Sym if use_v8 else "") + PlatSpec_VerSep + str(version)
-
-
 def parse_pl_spec(pl_spec):
     
     # TODO split up in individual env vars after all?
@@ -849,16 +799,6 @@ def parse_pl_spec(pl_spec):
     return pl_name, subspec, req_ver, flags
 
 
-def parse_modspec(modspec):
-    if modspec:
-        modnames = modspec.split(",")
-        assert set(modnames).issubset(ModulesAll)
-        assert len(modnames) in (1, 2)
-    else:
-        modnames = ModulesAll
-    return modnames
-
-
 def get_next_changelog(flush=False):
     
     content = ChangelogStaging.read_text()
@@ -874,158 +814,7 @@ def get_next_changelog(flush=False):
     return devel_msg
 
 
-def git_apply_patch(patch, cwd, git_args=()):
-    run_cmd(["git", *git_args, "apply", "--ignore-space-change", "--ignore-whitespace", "-v", patch], cwd=cwd, check=True)
-
-
-def git_clone_rev(url, rev, target_dir, depth=1):
-    # https://stackoverflow.com/questions/31278902/how-to-shallow-clone-a-specific-commit-with-depth-1
-    # NOTE Once we can require git >= 2.49.0, `git clone --depth <n> --revision <sha>` will do. (The author currently uses git 2.42.0.)
-    mkdir(target_dir)
-    depth_param = ["--depth", str(depth)] if depth else []
-    run_cmd(["git", "-c", "advice.defaultBranchName=false", "init"], cwd=target_dir)
-    run_cmd(["git", "remote", "add", "origin", url], cwd=target_dir)
-    run_cmd(["git", "fetch", *depth_param, "origin", rev], cwd=target_dir)
-    run_cmd(["git", "-c", "advice.detachedHead=false", "checkout", "FETCH_HEAD"], cwd=target_dir)
-
-
-def _to_gn(value):
-    if isinstance(value, bool):
-        return str(value).lower()
-    elif isinstance(value, str):
-        return f'"{value}"'
-    elif isinstance(value, int):
-        return str(value)
-    elif isinstance(value, list):
-        return f"[{','.join(_to_gn(v) for v in value)}]"
-    else:
-        raise TypeError(f"Not sure how to serialize type {type(value).__name__}")
-
-def serialize_gn_config(config_dict):
-    parts = []
-    for key, value in config_dict.items():
-        parts.append(f"{key} = {_to_gn(value)}")
-    result = "\n".join(parts)
-    log(f"\nBuild config:\n{result}\n")
-    return result
-
-
-_SHIMHEADERS_URL = "https://raw.githubusercontent.com/chromium/chromium/{rev}/tools/generate_shim_headers/generate_shim_headers.py"
-
-def get_shimheaders_tool(pdfium_dir, rev="main"):
-
-    tools_dir = pdfium_dir / "tools" / "generate_shim_headers"
-    shimheaders_file = tools_dir / "generate_shim_headers.py"
-    shimheaders_url = _SHIMHEADERS_URL.format(rev=rev)
-
-    if not shimheaders_file.exists():
-        log(f"Downloading {shimheaders_file.name} at revision {rev}")
-        mkdir(tools_dir)
-        url_request.urlretrieve(shimheaders_url, shimheaders_file)
-
-
 def purge_dir(dir):
     if dir.exists():
         shutil.rmtree(dir)
     dir.mkdir(parents=True)
-
-
-def git_get_hash(repo_dir, n_digits=None):
-    short = f"--short={n_digits}" if n_digits else "--short"
-    return "g" + run_cmd(["git", "rev-parse", short, "HEAD"], cwd=repo_dir, capture=True)
-
-
-def handle_sbuild_vers(short_ver):
-    if short_ver == "main":
-        full_ver = PdfiumVer.get_latest_upstream()
-        pdfium_rev = short_ver
-        chromium_rev = short_ver
-    else:
-        assert str(short_ver).isnumeric()
-        full_ver = PdfiumVer.to_full(short_ver)
-        full_ver_str = str(full_ver)
-        pdfium_rev = f"chromium/{short_ver}"
-        chromium_rev = full_ver_str
-    return full_ver, pdfium_rev, chromium_rev
-
-
-def pack_sourcebuild(
-        pdfium_dir, build_dir, sub_target,
-        full_ver, build_ver=None, post_ver=None,
-        load_lib=True,
-    ):
-    log("Packing data files for sourcebuild...")
-    
-    if not post_ver:
-        assert build_ver
-        if build_ver == "main":
-            log("Warning: Don't know how to get number of commits with shallow checkout. A NaN placeholder will be set.")
-            post_ver = dict(n_commits=NaN, hash=git_get_hash(pdfium_dir, n_digits=11))
-        else:
-            post_ver = dict(n_commits=0, hash=None)
-    
-    dest_dir = DataDir/ExtPlats.sourcebuild
-    purge_dir(dest_dir)
-    
-    libname = libname_for_system(Host.system)
-    shutil.copy(build_dir/libname, dest_dir/libname)
-    
-    # We want to use local headers instead of downloading with build_pdfium_bindings(), therefore call run_ctypesgen() directly
-    ct_paths = (dest_dir/CTG_LIBPATTERN, ) if load_lib else ()
-    run_ctypesgen(dest_dir/BindingsFN, headers_dir=pdfium_dir/"public", ct_paths=ct_paths, version=full_ver.build)
-    write_pdfium_info(dest_dir, full_ver, origin=f"sourcebuild-{sub_target}", **post_ver)
-    
-    return full_ver, post_ver
-
-
-def _install_dep(exename, pkgname=None, skip_if_present=True):
-    pkgname = pkgname or exename
-    which_exe = shutil.which(exename)
-    if skip_if_present and which_exe:
-        log(f"+ {exename} found at {which_exe}")
-        return
-    # https://github.com/scikit-build/ninja-python-distributions
-    log(f"- {exename} not found, installing...")
-    run_cmd([sys.executable, "-m", "pip", "install", pkgname], cwd=None)
-
-def install_buildtools():
-    log("Bootstrapping build tools...")
-    _install_dep("ninja")
-    _install_dep("gn", "gn-dist")
-
-
-def autopatch(file, pattern, repl, is_regex, exp_count=None):
-    log(f"Patch {pattern!r} -> {repl!r} (is_regex={is_regex}) on {file}")
-    content = file.read_text()
-    if is_regex:
-        content, n_subs = re.subn(pattern, repl, content)
-    else:
-        n_subs = content.count(pattern)
-        content = content.replace(pattern, repl)
-    if exp_count is not None:
-        assert n_subs == exp_count
-    file.write_text(content)
-
-def autopatch_dir(dir, globexpr, pattern, repl, is_regex, exp_count=None):
-    for file in dir.glob(globexpr):
-        autopatch(file, pattern, repl, is_regex, exp_count)
-
-def shared_autopatches(pdfium_dir):
-    autopatch_dir(
-        pdfium_dir/"public"/"cpp", "*.h",
-        r'"public/(.+)"', r'"../\1"',
-        is_regex=True, exp_count=None,
-    )
-    # bundle dependencies (e.g. abseil) into the pdfium DLL
-    autopatch(
-        pdfium_dir/"BUILD.gn",
-        'component("pdfium")',
-        'shared_library("pdfium")',
-        is_regex=False, exp_count=1,
-    )
-    autopatch(
-        pdfium_dir/"public"/"fpdfview.h",
-        "#if defined(COMPONENT_BUILD)",
-        "#if 1  // defined(COMPONENT_BUILD)",
-        is_regex=False, exp_count=1,
-    )

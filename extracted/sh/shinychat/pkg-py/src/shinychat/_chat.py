@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -29,6 +31,7 @@ from htmltools import (
     TagList,
     css,
 )
+from pydantic import ValidationError
 
 from . import _utils
 from ._chat_bookmark import (
@@ -40,20 +43,13 @@ from ._chat_bookmark import (
     set_chatlas_state,
 )
 from ._chat_normalize import message_content, message_content_chunk
-from ._chat_provider_types import (
-    AnthropicMessage,  # pyright: ignore[reportAttributeAccessIssue]
-    GoogleMessage,
-    LangChainMessage,
-    OllamaMessage,
-    OpenAIMessage,
-    ProviderMessage,
-    ProviderMessageFormat,
-    as_provider_message,
-)
-from ._chat_tokenizer import (
-    TokenEncoding,
-    TokenizersEncoding,
-    get_default_tokenizer,
+from ._chat_segments import (
+    append_to_segments,
+    copy_segments,
+    has_mixed_content_types,
+    segments_content,
+    segments_deps,
+    serialize_segments,
 )
 from ._chat_types import (
     ChatAction,
@@ -61,25 +57,28 @@ from ._chat_types import (
     ChatMessage,
     ChatMessageDict,
     ClearAction,
-    ContentType,
+    ContentSegment,
     GreetingOptions,
     MessagePayload,
+    SerializedDep,
+    SlashCommandDef,
     StoredMessage,
     chat_greeting,
 )
 from ._html_deps_py_shiny import shinychat_dependency
 from ._typing_extensions import TypeGuard
-from ._utils_types import MISSING, MISSING_TYPE
+from ._utils_types import DEPRECATED, DEPRECATED_TYPE, MISSING, MISSING_TYPE
 
 if TYPE_CHECKING:
     import chatlas
-    from chatlas.types import ContentThinkingDelta
     from shiny.bookmark import BookmarkState, RestoreState
     from shiny.bookmark._types import BookmarkStore
     from shiny.reactive import ExtendedTask
     from shiny.reactive._reactives import Effect_
     from shiny.types import Jsonifiable
     from shiny.ui.css import CssUnit
+
+    from ._chat_client import ChatClient
 
 
 else:
@@ -128,6 +127,14 @@ UserSubmitFunction = Union[
     UserSubmitFunction0,
     UserSubmitFunction1,
 ]
+
+
+@dataclass(frozen=True)
+class SlashCommandRegistration:
+    handler: UserSubmitFunction | None
+    takes_args: bool
+    definition: SlashCommandDef
+
 
 ChunkOption = Literal["start", "end", True, False]
 
@@ -220,6 +227,26 @@ class Chat:
     id
         A unique identifier for the chat session. In Shiny Core, make sure this id
         matches a corresponding :func:`~shiny.ui.chat_ui` call in the UI.
+    client
+        A chatlas client (e.g., ``chatlas.ChatOpenAI()``). When provided,
+        streaming, cancellation, and bookmarking are wired up automatically.
+        This includes registering an :meth:`~shinychat.Chat.on_user_submit`
+        callback that streams the client's response to each user message, so you
+        don't need to write one yourself. Any additional ``@chat.on_user_submit``
+        handlers you register still run, in addition to (not in place of) this
+        one.
+        The resulting :attr:`chat.client` exposes a
+        :class:`~shinychat.types.ChatClient` wrapper for swapping models
+        mid-session (``.set()``) and resetting the conversation (``.clear()``).
+    greeting
+        Content to display as a welcome message before any conversation. Can be
+        a string, :class:`~htmltools.HTML`, :class:`~htmltools.Tag`,
+        :class:`~htmltools.TagList`, :class:`~shinychat.chat_greeting`, or a
+        callable that returns one of those types. A callable greeting is invoked
+        when the chat is visible and empty; if the callable accepts a ``client``
+        parameter (and ``client=`` was provided), a deep-copy of the chatlas
+        client with empty turns is passed so the greeting can be LLM-generated
+        without polluting conversation history.
     messages
         Deprecated. Use `chat.ui(messages=...)` instead.
     on_error
@@ -233,17 +260,19 @@ class Chat:
         * `"sanitize"`: Sanitize the error message before displaying it to the user.
         * `"unhandled"`: Do not display any error message to the user.
     tokenizer
-        Deprecated. Token counting and message trimming features will be removed in a
-        future version.
+        Removed. Raises ``TypeError`` if provided. Use your LLM provider
+        (e.g., chatlas, LangChain) to manage token limits instead.
     """
 
     def __init__(
         self,
         id: str,
         *,
+        client: "chatlas.Chat[Any, Any] | None" = None,
+        greeting: "str | HTML | Tag | TagList | ChatGreeting | Callable[..., Any] | None" = None,
         messages: Sequence[Any] = (),
         on_error: Literal["auto", "actual", "sanitize", "unhandled"] = "auto",
-        tokenizer: TokenEncoding | None = None,
+        tokenizer: DEPRECATED_TYPE = DEPRECATED,
     ):
         from shiny._deprecated import warn_deprecated
         from shiny.module import ResolvedId, resolve_id
@@ -257,19 +286,20 @@ class Chat:
                 "`Chat(messages=...)` is deprecated. Use `.ui(messages=...)` instead."
             )
 
-        if tokenizer is not None:
-            warn_deprecated(
-                "`Chat(tokenizer=...)` is deprecated. "
-                "This is only relevant for `.messages(token_limits=...)` which is also now deprecated."
+        if not isinstance(tokenizer, DEPRECATED_TYPE):
+            raise TypeError(
+                "`Chat(tokenizer=...)` has been removed. "
+                "Token counting and message trimming are no longer supported by shinychat. "
+                "Use your LLM provider (e.g., chatlas, LangChain) to manage conversation context instead."
             )
 
         self.id = resolve_id(id)
         self.user_input_id = ResolvedId(f"{self.id}_user_input")
+        self._slash_command_id = ResolvedId(f"{self.id}_slash_command")
         self._transform_user: TransformUserInputAsync | None = None
         self._transform_assistant: (
             TransformAssistantResponseChunkAsync | None
         ) = None
-        self._tokenizer = tokenizer
 
         # TODO: remove the `None` when this PR lands:
         # https://github.com/posit-dev/py-shiny/pull/793/files
@@ -285,18 +315,12 @@ class Chat:
         self.on_error = on_error
 
         # Chunked messages get accumulated (using this property) before changing state
-        self._current_stream_message: str = ""
-        self._current_stream_deps: list[HTMLDependency] = []
+        self._current_stream_segments: list[ContentSegment] = []
         self._current_stream_id: str | None = None
         self._pending_messages: list[PendingMessage] = []
 
         # For tracking message stream state when entering/exiting nested streams
-        self._message_stream_checkpoint: str = ""
-        self._message_stream_deps_checkpoint: list[HTMLDependency] = []
-
-        # If a user input message is transformed into a response, we need to cancel
-        # the next user input submit handling
-        self._suspend_input_handler: bool = False
+        self._message_stream_segments_checkpoint: list[ContentSegment] = []
 
         # Keep track of effects so we can destroy them when the chat is destroyed
         self._effects: list["Effect_"] = []
@@ -311,6 +335,14 @@ class Chat:
             self._messages: reactive.Value[tuple[StoredMessage, ...]] = (
                 reactive.Value(())
             )
+
+            # `None` until the first registration, which lets us skip the
+            # redundant initial sync (the client already initializes to `[]`).
+            # An empty dict, by contrast, is sent so that removing the last
+            # command clears the client's palette.
+            self._slash_commands: reactive.Value[
+                dict[str, SlashCommandRegistration] | None
+            ] = reactive.Value(None)
 
             self._latest_user_input: reactive.Value[
                 StoredMessage | None
@@ -337,29 +369,58 @@ class Chat:
             self._append_init_messages = _append_init_messages
             self._init_chat = _init_chat
 
-            # When user input is submitted, transform, and store it in the chat state
-            # (and make sure this runs before other effects since when the user
-            #  calls `.messages()`, they should get the latest user input)
+            # When user input is submitted, store it in the chat state
+            # (runs before other effects so `.messages()` includes the latest input)
             @reactive.effect(priority=9999)
             @reactive.event(self._user_input)
             async def _on_user_input():
                 msg = ChatMessage(content=self._user_input(), role="user")
-                # It's possible that during the transform, a message is appended, so get
-                # the length now, so we can insert the new message at the right index
-                n_pre = len(self._messages())
-                msg_post = await self._transform_message(msg)
-                if msg_post is not None:
-                    self._store_message(msg_post)
-                    self._suspend_input_handler = False
-                else:
-                    # A transformed value of None is a special signal to suspend input
-                    # handling (i.e., don't generate a response)
-                    self._store_message(msg, index=n_pre)
+                self._store_message(msg)
+
+            @reactive.effect
+            async def _sync_slash_commands():
+                cmds = self._slash_commands()
+                if cmds is None:
+                    return
+                await self._send_action(
+                    {
+                        "type": "update_slash_commands",
+                        "commands": [reg.definition for reg in cmds.values()],
+                    }
+                )
+
+            @reactive.effect
+            @reactive.event(self._slash_command_input)
+            async def _on_slash_command():
+                data = self._slash_command_input()
+                command = data.get("command", "")
+                user_text = data.get("userText", "")
+                echo = bool(data.get("echo", True))
+                if echo:
+                    full_text = f"/{command} {user_text}".rstrip()
+                    msg = ChatMessage(content=full_text, role="user")
+                    self._store_message(msg)
+                cmds = self._slash_commands()
+                reg = cmds.get(command) if cmds else None
+                try:
+                    if reg is not None and reg.handler is not None:
+                        if reg.takes_args:
+                            await _utils.wrap_async(
+                                cast(UserSubmitFunction1, reg.handler)
+                            )(user_text)
+                        else:
+                            await _utils.wrap_async(
+                                cast(UserSubmitFunction0, reg.handler)
+                            )()
+                except Exception as e:
+                    await self._raise_exception(e)
+                finally:
                     await self._remove_loading_message()
-                    self._suspend_input_handler = True
 
             self._effects.append(_init_chat)
             self._effects.append(_on_user_input)
+            self._effects.append(_sync_slash_commands)
+            self._effects.append(_on_slash_command)
 
         # Prevent repeated calls to Chat() with the same id from accumulating effects
         instance_id = self.id + "_session" + self._session.id
@@ -367,6 +428,83 @@ class Chat:
         if instance is not None:
             instance.destroy()
         CHAT_INSTANCES[instance_id] = self
+
+        self.client: "ChatClient | None" = None
+        if client is not None:
+            self._setup_client(client)
+
+        if greeting is not None:
+            from ._chat_client import setup_greeting
+
+            setup_greeting(self, greeting, self._session)
+
+    def _setup_client(
+        self,
+        client: "chatlas.Chat[Any, Any]",
+    ) -> None:
+        from chatlas import StreamController
+        from shiny import reactive
+        from shiny.session import session_context
+
+        from ._chat_client import ChatClient
+
+        chat_client = ChatClient(
+            chat=self,
+            client=client,
+        )
+        self.client = chat_client
+
+        controller = StreamController()
+        cancel_input_id = f"{self.id}_cancel"
+
+        # Match the rest of `__init__`: create these effects under the chat's
+        # own session so they attach correctly even when `Chat(...)` is
+        # constructed outside that session's reactive context.
+        with session_context(self._session):
+
+            @self.on_user_submit
+            async def _on_user_submit(user_input: str) -> None:
+                response = await chat_client.value.stream_async(
+                    user_input,
+                    content="all",
+                    controller=controller,
+                )
+                await self.append_message_stream(response)
+
+            # A `client=` wires up cancellation, so enable the stop button
+            # without requiring `enable_cancel=True` in `chat_ui()`. It only
+            # surfaces while streaming, so sending this once at session start
+            # (the effect has no reactive dependencies) is enough.
+            @reactive.effect
+            async def _enable_cancel_ui() -> None:
+                await self._send_action(
+                    {"type": "update_cancel", "enable_cancel": True}
+                )
+
+            @reactive.effect
+            @reactive.event(self._session.input[cancel_input_id])
+            async def _on_cancel() -> None:
+                controller.cancel()
+
+            @reactive.effect
+            async def _on_stream_complete() -> None:
+                status = self.latest_message_stream.status()
+                if status == "running":
+                    return
+
+                swap = chat_client._pending_swap
+                if swap is None:
+                    return
+                chat_client._pending_swap = None
+                new_client, sync = swap
+                chat_client._swap_client(new_client, sync=sync)
+
+            self._effects.append(_enable_cancel_ui)
+            self._effects.append(_on_cancel)
+            self._effects.append(_on_stream_complete)
+
+            cancel_bm = self.enable_bookmarking(client, bookmark_on="response")
+            chat_client._cancel_bookmarking = cancel_bm
 
     @overload
     def on_user_submit(self, fn: UserSubmitFunction) -> Effect_: ...
@@ -415,21 +553,13 @@ class Chat:
             @reactive.effect
             @reactive.event(self._user_input)
             async def handle_user_input():
-                if self._suspend_input_handler:
-                    from shiny import req
-
-                    req(False)
                 try:
                     if len(fn_params) > 1:
                         raise ValueError(
                             "A on_user_submit function should not take more than 1 argument"
                         )
                     elif len(fn_params) == 1:
-                        input = self.user_input()
-                        # The line immediately below handles the possibility of input
-                        # being transformed to None. Technically, input should never be
-                        # None at this point (since the handler should be suspended).
-                        input = "" if input is None else input
+                        input = self.user_input() or ""
                         afunc = _utils.wrap_async(cast(UserSubmitFunction1, fn))
                         await afunc(input)
                     else:
@@ -447,6 +577,139 @@ class Chat:
         else:
             return create_effect(fn)
 
+    @overload
+    def slash_command(
+        self,
+        name: str,
+        description: str,
+        *,
+        echo: bool | None = None,
+        force: bool = False,
+    ) -> Callable[[UserSubmitFunction], UserSubmitFunction]: ...
+
+    @overload
+    def slash_command(
+        self,
+        name: str,
+        description: str,
+        fn: UserSubmitFunction | None,
+        *,
+        echo: bool | None = None,
+        force: bool = False,
+    ) -> Callable[[], None]: ...
+
+    def slash_command(
+        self,
+        name: str,
+        description: str,
+        fn: UserSubmitFunction | None | MISSING_TYPE = MISSING,
+        *,
+        echo: bool | None = None,
+        force: bool = False,
+    ) -> Callable[[UserSubmitFunction], UserSubmitFunction] | Callable[[], None]:
+        """
+        Register a slash command and its handler.
+
+        Can be used as a decorator (handler supplied by decoration) or called
+        directly with ``fn=``. Pass ``fn=None`` to register a *client-side*
+        command — one with no server handler, handled in JavaScript via the
+        ``shiny:chat-slash-command`` DOM event (see the docs).
+
+        Parameters
+        ----------
+        name
+            The slash command name (without the leading ``/``). Must contain only
+            alphanumeric characters, underscores, or hyphens.
+        description
+            A short description shown in the command palette.
+        fn
+            The handler function (0 or 1 argument; one argument receives the text
+            after the command name). Omit it to use ``slash_command`` as a
+            decorator. Pass ``None`` explicitly to register a client-side command
+            with no server handler.
+        echo
+            Whether invoking the command participates in the conversation: adds
+            the ``/cmd user_input`` user message, shows a loading state, and stores the
+            invocation in history. Defaults to ``True`` when a handler is provided
+            and ``False`` otherwise. Set ``echo=False`` for a server handler that
+            runs purely for its side effects (e.g. opening a modal).
+        force
+            Whether to overwrite an existing command with the same name.
+
+        Returns
+        -------
+        :
+            A decorator when ``fn`` is omitted; otherwise a callable that removes
+            the command.
+        """
+
+        from shiny import reactive
+
+        def _register(handler: UserSubmitFunction | None) -> None:
+            if not re.fullmatch(r"[a-zA-Z0-9_-]+", name):
+                raise ValueError(
+                    f"Slash command name must contain only alphanumeric characters, underscores, or hyphens, got {name!r}"
+                )
+            with reactive.isolate():
+                cmds = dict(self._slash_commands() or {})
+            if not force and name in cmds:
+                raise ValueError(
+                    f"Slash command {name!r} is already registered. "
+                    f"Use `force=True` to overwrite it."
+                )
+            resolved_echo = (handler is not None) if echo is None else echo
+            cmd_def = SlashCommandDef(
+                name=name, description=description, echo=resolved_echo
+            )
+            takes_args = False
+            if handler is not None:
+                n_params = len(inspect.signature(handler).parameters)
+                if n_params > 1:
+                    raise ValueError(
+                        f"Slash command handler for {name!r} must accept 0 or 1 "
+                        f"argument, got {n_params}"
+                    )
+                takes_args = n_params >= 1
+            cmds[name] = SlashCommandRegistration(
+                handler=handler,
+                takes_args=takes_args,
+                definition=cmd_def,
+            )
+            self._slash_commands.set(cmds)
+
+        if isinstance(fn, MISSING_TYPE):
+
+            def decorator(handler: UserSubmitFunction) -> UserSubmitFunction:
+                _register(handler)
+                return handler
+
+            return decorator
+        else:
+            _register(fn)
+            return self._remove_slash_command_fn(name)
+
+    def remove_slash_command(self, name: str) -> None:
+        """
+        Remove a previously registered slash command by name.
+
+        Parameters
+        ----------
+        name
+            The name of the command to remove (without the leading ``/``).
+        """
+        from shiny import reactive
+
+        with reactive.isolate():
+            cmds = dict(self._slash_commands() or {})
+        cmds.pop(name, None)
+        self._slash_commands.set(cmds)
+
+    def _remove_slash_command_fn(self, name: str) -> Callable[[], None]:
+        def remove() -> None:
+            self.remove_slash_command(name)
+
+        return remove
+
     async def _raise_exception(
         self,
         e: BaseException,
@@ -461,60 +724,12 @@ class Chat:
             msg = f"Error in Chat('{self.id}'): {str(e)}"
             raise NotifyException(msg, sanitize=sanitize) from e
 
-    @overload
     def messages(
         self,
         *,
-        format: Literal["anthropic"],
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[AnthropicMessage, ...]: ...
-
-    @overload
-    def messages(
-        self,
-        *,
-        format: Literal["google"],
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[GoogleMessage, ...]: ...
-
-    @overload
-    def messages(
-        self,
-        *,
-        format: Literal["langchain"],
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[LangChainMessage, ...]: ...
-
-    @overload
-    def messages(
-        self,
-        *,
-        format: Literal["openai"],
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[OpenAIMessage, ...]: ...
-
-    @overload
-    def messages(
-        self,
-        *,
-        format: Literal["ollama"],
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[OllamaMessage, ...]: ...
-
-    @overload
-    def messages(
-        self,
-        *,
-        format: MISSING_TYPE = MISSING,
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[ChatMessageDict, ...]: ...
-
-    def messages(
-        self,
-        *,
-        format: "MISSING_TYPE | ProviderMessageFormat" = MISSING,
-        token_limits: tuple[int, int] | None = None,
-    ) -> tuple[ChatMessageDict | ProviderMessage, ...]:
+        format: DEPRECATED_TYPE = DEPRECATED,
+        token_limits: DEPRECATED_TYPE = DEPRECATED,
+    ) -> tuple[ChatMessageDict, ...]:
         """
         Reactively read chat messages
 
@@ -523,11 +738,12 @@ class Chat:
         Parameters
         ----------
         format
-            Deprecated. Provider-specific message formatting will be removed in a future
-            version.
+            Removed. Raises ``TypeError`` if provided. Use your LLM provider
+            (e.g., chatlas, LangChain) to manage message formatting instead.
         token_limits
-            Deprecated. Token counting and message trimming features will be removed in
-            a future version.
+            Removed. Raises ``TypeError`` if provided. Use your LLM provider
+            (e.g., chatlas, LangChain) to manage token limits instead.
+
         Note
         ----
         Messages are listed in the order they were added. As a result, when this method
@@ -536,40 +752,30 @@ class Chat:
 
         Returns
         -------
-        tuple[ChatMessage, ...]
+        tuple[ChatMessageDict, ...]
             A tuple of chat messages.
         """
-        from shiny._deprecated import warn_deprecated
-
-        if not isinstance(format, MISSING_TYPE):
-            warn_deprecated(
-                "`.messages(format=...)` is deprecated. "
-                "Provider-specific message formatting will be removed in a future version. "
-                "See here for more details: https://github.com/posit-dev/shinychat/pull/91"
+        if not isinstance(format, DEPRECATED_TYPE):
+            raise TypeError(
+                "`.messages(format=...)` has been removed. "
+                "Provider-specific message formatting is no longer supported by shinychat. "
+                "Use your LLM provider (e.g., chatlas, LangChain) to manage conversation state instead."
             )
 
-        if token_limits is not None:
-            warn_deprecated(
-                "`.messages(token_limits=...)` is deprecated. "
-                "Token counting and message trimming features will be removed in a future version. "
-                "See here for more details: https://github.com/posit-dev/shinychat/pull/91"
+        if not isinstance(token_limits, DEPRECATED_TYPE):
+            raise TypeError(
+                "`.messages(token_limits=...)` has been removed. "
+                "Token counting and message trimming are no longer supported by shinychat. "
+                "Use your LLM provider (e.g., chatlas, LangChain) to manage conversation context instead."
             )
 
         messages = self._messages()
 
-        if format == "anthropic":
-            messages = self._trim_anthropic_messages(messages)
-
-        if token_limits is not None:
-            messages = self._trim_messages(messages, token_limits, format)
-
-        res: list[ChatMessageDict | ProviderMessage] = []
+        res: list[ChatMessageDict] = []
         for m in messages:
             chat_msg = ChatMessageDict(content=str(m.content), role=m.role)
             if m.html_deps:
                 chat_msg["html_deps"] = m.html_deps
-            if not isinstance(format, MISSING_TYPE):
-                chat_msg = as_provider_message(chat_msg, format)
             res.append(chat_msg)
 
         return tuple(res)
@@ -671,7 +877,7 @@ class Chat:
             * Compared to `.append_message_stream()` this method is more flexible but
               isn't non-blocking by default (i.e., it doesn't launch an extended task).
         2. Be nested within itself
-            * Nesting is primarily useful for making checkpoints to `.clear()` back
+            * Nesting is primarily useful for making checkpoints to `.replace()` back
               to (see the example below).
         3. Be used from within a `.append_message_stream()`
             * Useful for inserting additional content from another context into the
@@ -681,9 +887,9 @@ class Chat:
         ------
         :
             A `MessageStream` class instance, which has a method for `.append()`ing
-            message content chunks to as well as way to `.clear()` the stream back to
-            it's initial state. Note that `.append()` supports the same message content
-            types as `.append_message()`.
+            message content chunks to as well as a `.replace()` method to reset the
+            stream back to its initial state (via `.replace("")`). Note that
+            `.append()` supports the same message content types as `.append_message()`.
 
         Example
         -------
@@ -705,8 +911,8 @@ class Chat:
                     for x in [0, 50, 100]:
                         await progress.append(f" {x}%")
                         await asyncio.sleep(1)
-                        await progress.clear()
-                await msg.clear()
+                        await progress.replace("")
+                await msg.replace("")
                 await msg.append("Completed stream")
         ```
 
@@ -716,14 +922,21 @@ class Chat:
         display using `.message_stream_context()` while the the response generation is
         happening through `.append_message_stream()`. This allows the tool to display
         things like progress updates (or other "ephemeral" content) and optionally
-        `.clear()` the stream back to it's initial state when ready to display the
+        `.replace("")` the stream back to it's initial state when ready to display the
         "final" content.
+
+        Note
+        ----
+        `.replace()` resets the stream to the checkpoint captured when this context was
+        entered. It raises `ValueError` if the stream's content since that checkpoint
+        spans multiple content types (e.g. thinking followed by markdown), because the
+        replace wire action carries a single content type. Open a fresh
+        `.message_stream_context()` before the mixed content if you need a clean
+        checkpoint to replace back to.
         """
-        # Checkpoint the current stream state so operation="replace"  can return to it
-        old_checkpoint = self._message_stream_checkpoint
-        old_deps_checkpoint = self._message_stream_deps_checkpoint.copy()
-        self._message_stream_checkpoint = self._current_stream_message
-        self._message_stream_deps_checkpoint = self._current_stream_deps.copy()
+        # Checkpoint the current stream state so operation="replace" can return to it
+        old_checkpoint = self._message_stream_segments_checkpoint
+        self._message_stream_segments_checkpoint = copy_segments(self._current_stream_segments)
 
         # No stream currently exists, start one
         stream_id = self._current_stream_id
@@ -738,8 +951,7 @@ class Chat:
             yield MessageStream(self, stream_id)
         finally:
             # Restore the checkpoint
-            self._message_stream_checkpoint = old_checkpoint
-            self._message_stream_deps_checkpoint = old_deps_checkpoint
+            self._message_stream_segments_checkpoint = old_checkpoint
 
             # If this was the root stream, end it
             if is_root_stream:
@@ -775,24 +987,38 @@ class Chat:
             await self._hide_tool_request(message.request.id)  # type: ignore
 
         if operation == "replace":
-            self._current_stream_message = (
-                self._message_stream_checkpoint + msg.content
+            if has_mixed_content_types(
+                self._message_stream_segments_checkpoint
+            ):
+                raise ValueError(
+                    "Cannot `.replace()` a stream whose checkpoint spans multiple "
+                    "content types (e.g. thinking followed by markdown). The replace "
+                    "wire action carries a single content type, so a mixed checkpoint "
+                    "cannot be restored. Open a `.message_stream_context()` before the "
+                    "mixed content to get a clean checkpoint, or use `.append()`."
+                )
+            self._current_stream_segments = copy_segments(
+                self._message_stream_segments_checkpoint
             )
-            self._current_stream_deps = [
-                *self._message_stream_deps_checkpoint,
-                *chunk_deps,
-            ]
-            msg.content = self._current_stream_message
-        elif msg.content_type != "thinking":
-            self._current_stream_message += msg.content
-            self._current_stream_deps.extend(chunk_deps)
+
+        append_to_segments(
+            self._current_stream_segments,
+            msg.content,
+            msg.content_type,
+            chunk_deps or None,
+        )
+
+        stream_content = segments_content(self._current_stream_segments)
+
+        if operation == "replace":
+            msg.content = stream_content
 
         try:
             if self._needs_transform(msg):
                 # Transforming may change the meaning of msg.content to be a *replace*
                 # not *append*. So, update msg.content and the operation accordingly.
                 chunk_content = msg.content
-                msg.content = self._current_stream_message
+                msg.content = stream_content
                 operation = "replace"
                 msg = await self._transform_message(
                     msg, chunk=chunk, chunk_content=chunk_content
@@ -801,20 +1027,22 @@ class Chat:
                 if msg is None:
                     return
                 if chunk == "end":
-                    self._store_message(
-                        msg,
-                        deps=self._current_stream_deps
-                        if self._current_stream_deps
-                        else None,
-                    )
+                    stream_deps = segments_deps(self._current_stream_segments)
+                    serialized_deps = self._serialize_html_deps(stream_deps)
+                    # _transform_message returns a single-segment StoredMessage, so all stream
+                    # deps belong on segments[0].
+                    if serialized_deps and msg.segments:
+                        msg.segments[0].html_deps = serialized_deps
+                    self._store_message(msg)
             elif chunk == "end":
                 # When `operation="append"`, msg.content is just a chunk, but we must
                 # store the full message
+                segs = serialize_segments(self._current_stream_segments, self._serialize_html_deps)
                 self._store_message(
-                    ChatMessage(
-                        content=self._current_stream_message, role=msg.role
+                    StoredMessage(
+                        role=msg.role,
+                        segments=segs,
                     ),
-                    deps=self._current_stream_deps if self._current_stream_deps else None,
                 )
 
             # Send the message to the client
@@ -827,10 +1055,8 @@ class Chat:
         finally:
             if chunk == "end":
                 self._current_stream_id = None
-                self._current_stream_message = ""
-                self._current_stream_deps = []
-                self._message_stream_checkpoint = ""
-                self._message_stream_deps_checkpoint = []
+                self._current_stream_segments = []
+                self._message_stream_segments_checkpoint = []
 
     async def append_message_stream(
         self,
@@ -974,34 +1200,12 @@ class Chat:
             empty, chunk="start", stream_id=id, icon=icon
         )
 
-        # TODO: this is a pragmatic hack to store thinking state in a way that it
-        # can be restored later. Longer term, stored message state should support
-        # mixed content types (the thinking handling here could then be removed)
-        def flush_thinking(thinking_buffer: str) -> None:
-            self._current_stream_message += (
-                f"<thinking>\n{thinking_buffer}\n</thinking>\n\n"
-            )
-
         try:
-            thinking_buffer = ""
             async for msg in message:
-                if is_thinking_delta(msg):
-                    thinking_buffer += msg.thinking
-                    await self._append_message_chunk(
-                        msg, chunk=True, stream_id=id
-                    )
-                    continue
-
-                if thinking_buffer:
-                    flush_thinking(thinking_buffer)
-                    thinking_buffer = ""
-
                 await self._append_message_chunk(msg, chunk=True, stream_id=id)
-
-            if thinking_buffer:
-                flush_thinking(thinking_buffer)
-
-            return self._current_stream_message
+            # The string returned to the caller mirrors StoredMessage.content
+            # (thinking wrapped in <thinking> tags), not segments_content's bare join.
+            return "".join(str(s) for s in self._current_stream_segments)
         finally:
             await self._append_message_chunk(empty, chunk="end", stream_id=id)
             await self._flush_pending_messages()
@@ -1028,23 +1232,23 @@ class Chat:
         operation: Literal["append", "replace"] = "append",
         icon: HTML | Tag | TagList | None = None,
     ):
-        content_type: ContentType = (
-            message.content_type
-            if isinstance(message, ChatMessage)
-            else "html" if isinstance(message.content, HTML) else "markdown"
-        )
         message = self._as_stored_message(message)
 
         if message.role == "system":
-            # System messages are not displayed in the UI
             return
 
-        content = message.content
+        # Bare segment content (no <thinking> wrapping): on the wire, thinking
+        # travels as raw text paired with content_type="thinking", and the
+        # client builds the thinking block from that type. StoredMessage.content
+        # is the flat-string form that re-wraps thinking in tags instead.
+        content = "".join(s.content for s in message.segments)
+        content_type = (
+            message.segments[-1].content_type if message.segments else "markdown"
+        )
 
         msg_payload: MessagePayload = {
             "role": message.role,
-            "content": str(content),
-            "content_type": content_type,
+            "segments": message.wire_segments(),
         }
         if icon is not None:
             msg_payload["icon"] = str(icon)
@@ -1053,10 +1257,10 @@ class Chat:
             action: ChatAction = {"type": "chunk_start", "message": msg_payload}
             await self._send_action(action, message.html_deps)
         elif chunk == "end":
-            if str(content):
+            if content:
                 chunk_action: ChatAction = {
                     "type": "chunk",
-                    "content": str(content),
+                    "content": content,
                     "operation": operation,
                     "content_type": content_type,
                 }
@@ -1065,47 +1269,40 @@ class Chat:
         elif chunk is True:
             chunk_action = {
                 "type": "chunk",
-                "content": str(content),
+                "content": content,
                 "operation": operation,
                 "content_type": content_type,
             }
             await self._send_action(chunk_action, message.html_deps)
         else:
-            # chunk == False: complete message
             action = {"type": "message", "message": msg_payload}
             await self._send_action(action, message.html_deps)
 
-    @overload
-    def transform_user_input(
-        self, fn: TransformUserInput | TransformUserInputAsync
-    ) -> None: ...
+    def _messages_for_bookmark(self) -> list[dict[str, Any]]:
+        from shiny import reactive
 
-    @overload
-    def transform_user_input(
-        self,
-    ) -> Callable[[TransformUserInput | TransformUserInputAsync], None]: ...
+        with reactive.isolate():
+            messages = self._messages()
 
-    def transform_user_input(
-        self, fn: TransformUserInput | TransformUserInputAsync | None = None
-    ) -> None | Callable[[TransformUserInput | TransformUserInputAsync], None]:
-        """
-        Deprecated. User input transformation features will be removed in a future version.
-        """
-        from shiny._deprecated import warn_deprecated
+        return [m.model_dump(exclude_none=True) for m in messages]
 
-        warn_deprecated(
-            "The `.transform_user_input` decorator is deprecated. "
-            "User input transformation features will be removed in a future version. "
-            "See here for more details: https://github.com/posit-dev/shinychat/pull/91"
+    async def _restore_bookmark_message(self, message_dict: Any) -> None:
+        try:
+            stored = StoredMessage.model_validate(message_dict)
+        except ValidationError as e:
+            raise ValueError(
+                "Cannot restore bookmark message: invalid or missing fields "
+                "(bookmark likely written by an incompatible shinychat version)."
+            ) from e
+        self._store_message(stored)
+        await self._send_append_message(stored)
+
+    def transform_user_input(self, *args: object, **kwargs: object) -> object:
+        raise TypeError(
+            "`.transform_user_input()` has been removed. "
+            "Instead, transform user input manually before passing it to your "
+            "LLM provider (e.g., chatlas, LangChain)."
         )
-
-        def _set_transform(fn: TransformUserInput | TransformUserInputAsync):
-            self._transform_user = _utils.wrap_async(fn)
-
-        if fn is None:
-            return _set_transform
-        else:
-            return _set_transform(fn)
 
     @overload
     def transform_assistant_response(
@@ -1180,9 +1377,7 @@ class Chat:
     ) -> StoredMessage | None:
         res = self._as_stored_message(message)
 
-        if message.role == "user" and self._transform_user is not None:
-            content = await self._transform_user(message.content)
-        elif (
+        if (
             message.role == "assistant"
             and self._transform_assistant is not None
         ):
@@ -1197,159 +1392,51 @@ class Chat:
         if content is None:
             return None
 
-        res.content = content
-        return res
+        return StoredMessage.from_chat_message(
+            ChatMessage(content=content, role=res.role),
+            html_deps=res.html_deps,
+        )
 
     def _needs_transform(self, message: ChatMessage) -> bool:
-        if message.role == "user" and self._transform_user is not None:
-            return True
-        elif (
+        return (
             message.role == "assistant"
             and self._transform_assistant is not None
-        ):
-            return True
-        return False
+        )
 
     def _serialize_html_deps(
         self, deps: list[HTMLDependency] | None
-    ) -> list[dict[str, object]] | None:
+    ) -> list[SerializedDep] | None:
         if not deps:
             return None
         if self._session is None:
             return None
         processed = self._session._process_ui(TagList(*deps))
-        return cast(list[dict[str, object]], processed["deps"])
+        return cast(list[SerializedDep], processed["deps"])
 
     def _as_stored_message(
         self,
         message: StoredMessage | ChatMessage,
-        deps: list[HTMLDependency] | None = None,
     ) -> StoredMessage:
         if isinstance(message, StoredMessage):
-            if deps is not None:
-                message.html_deps = self._serialize_html_deps(deps)
             return message
 
-        html_deps = self._serialize_html_deps(
-            deps if deps is not None else message.html_deps
-        )
+        html_deps = self._serialize_html_deps(message.html_deps)
         return StoredMessage.from_chat_message(message, html_deps=html_deps)
 
-    # Just before storing, handle chunk msg type and calculate tokens
     def _store_message(
         self,
         message: StoredMessage | ChatMessage,
-        index: int | None = None,
-        deps: list[HTMLDependency] | None = None,
     ) -> None:
         from shiny import reactive
 
-        message = self._as_stored_message(message, deps=deps)
+        message = self._as_stored_message(message)
 
         with reactive.isolate():
             messages = self._messages()
 
-        if index is None:
-            index = len(messages)
-
-        messages = list(messages)
-        messages.insert(index, message)
-
-        self._messages.set(tuple(messages))
+        self._messages.set((*messages, message))
         if message.role == "user":
             self._latest_user_input.set(message)
-
-        return None
-
-    def _trim_messages(
-        self,
-        messages: tuple[StoredMessage, ...],
-        token_limits: tuple[int, int],
-        format: MISSING_TYPE | ProviderMessageFormat,
-    ) -> tuple[StoredMessage, ...]:
-        n_total, n_reserve = token_limits
-        if n_total <= n_reserve:
-            raise ValueError(
-                f"Invalid token limits: {token_limits}. The 1st value must be greater "
-                "than the 2nd value."
-            )
-
-        # Since don't trim system messages, 1st obtain their total token count
-        # (so we can determine how many non-system messages can fit)
-        n_system_tokens: int = 0
-        n_system_messages: int = 0
-        n_other_messages: int = 0
-        token_counts: list[int] = []
-        for m in messages:
-            count = self._get_token_count(str(m.content))
-            token_counts.append(count)
-            if m.role == "system":
-                n_system_tokens += count
-                n_system_messages += 1
-            else:
-                n_other_messages += 1
-
-        remaining_non_system_tokens = n_total - n_reserve - n_system_tokens
-
-        if remaining_non_system_tokens <= 0:
-            raise ValueError(
-                f"System messages exceed `.messages(token_limits={token_limits})`. "
-                "Consider increasing the 1st value of `token_limit` or setting it to "
-                "`token_limit=None` to disable token limits."
-            )
-
-        # Now, iterate through the messages in reverse order and appending
-        # until we run out of tokens
-        messages2: list[StoredMessage] = []
-        n_other_messages2: int = 0
-        token_counts.reverse()
-        for i, m in enumerate(reversed(messages)):
-            if m.role == "system":
-                messages2.append(m)
-                continue
-            remaining_non_system_tokens -= token_counts[i]
-            if remaining_non_system_tokens >= 0:
-                messages2.append(m)
-                n_other_messages2 += 1
-
-        messages2.reverse()
-
-        if len(messages2) == n_system_messages and n_other_messages2 > 0:
-            raise ValueError(
-                f"Only system messages fit within `.messages(token_limits={token_limits})`. "
-                "Consider increasing the 1st value of `token_limit` or setting it to "
-                "`token_limit=None` to disable token limits."
-            )
-
-        return tuple(messages2)
-
-    def _trim_anthropic_messages(
-        self,
-        messages: tuple[StoredMessage, ...],
-    ) -> tuple[StoredMessage, ...]:
-        if any(m.role == "system" for m in messages):
-            raise ValueError(
-                "Anthropic requires a system prompt to be specified in it's `.create()` method "
-                "(not in the chat messages with `role: system`)."
-            )
-        for i, m in enumerate(messages):
-            if m.role == "user":
-                return messages[i:]
-
-        return ()
-
-    def _get_token_count(
-        self,
-        content: str,
-    ) -> int:
-        if self._tokenizer is None:
-            self._tokenizer = get_default_tokenizer()
-
-        encoded = self._tokenizer.encode(content)
-        if isinstance(encoded, TokenizersEncoding):
-            return len(encoded.ids)
-        else:
-            return len(encoded)
 
     def user_input(self) -> str | None:
         """
@@ -1377,6 +1464,9 @@ class Chat:
     def _user_input(self) -> str:
         id = self.user_input_id
         return cast(str, self._session.input[id]())
+
+    def _slash_command_input(self) -> dict[str, Any]:
+        return self._session.input[self._slash_command_id]()
 
     def update_user_input(
         self,
@@ -1633,7 +1723,7 @@ class Chat:
     async def _send_action(
         self,
         action: ChatAction,
-        html_deps: list[dict[str, object]] | None = None,
+        html_deps: list[SerializedDep] | None = None,
     ):
         envelope: dict[str, object] = {
             "id": self.id,
@@ -1690,12 +1780,6 @@ class Chat:
         if session is None or session.is_stub_session():
             return BookmarkCancelCallback(lambda: None)
 
-        if session.bookmark.store == "disable":
-            raise ValueError(
-                "Bookmarking requires a `bookmark_store` to be set. "
-                "Please set `bookmark_store=` in `shiny.App()` or `shiny.express.app_opts()."
-            )
-
         resolved_bookmark_id_str = str(self.id)
         resolved_bookmark_id_msgs_str = resolved_bookmark_id_str + "--msgs"
         get_state: Callable[[], Awaitable[Jsonifiable]]
@@ -1739,10 +1823,10 @@ class Chat:
 
             @reactive.effect
             @reactive.event(
-                lambda: self.messages(format=MISSING), ignore_init=True
+                self.messages, ignore_init=True
             )
             async def _():
-                messages = self.messages(format=MISSING)
+                messages = self.messages()
 
                 if len(messages) == 0:
                     return
@@ -1788,9 +1872,7 @@ class Chat:
                 # This does NOT contain the `chat.ui(messages=)` values.
                 # When restoring, the `chat.ui(messages=)` values will need to be kept
                 # and the `ui.Chat(messages=)` values will need to be reset
-                state.values[resolved_bookmark_id_msgs_str] = self.messages(
-                    format=MISSING
-                )
+                state.values[resolved_bookmark_id_msgs_str] = self._messages_for_bookmark()
 
         # Attempt to stop the initialization of the `ui.Chat(messages=)` messages
         self._init_chat.destroy()
@@ -1817,13 +1899,7 @@ class Chat:
                 )
 
             for message_dict in msgs:
-                stored = StoredMessage(
-                    content=message_dict["content"],
-                    role=message_dict.get("role", "assistant"),
-                    html_deps=message_dict.get("html_deps"),
-                )
-                self._store_message(stored)
-                await self._send_append_message(stored)
+                await self._restore_bookmark_message(message_dict)
 
         def _cancel_bookmarking():
             _on_bookmark_client()
@@ -1850,7 +1926,8 @@ class ChatExpress(Chat):
         height: "CssUnit" = "auto",
         fill: bool = True,
         icon_assistant: HTML | Tag | TagList | None = None,
-        enable_cancel: bool = False,
+        enable_cancel: "bool | MISSING_TYPE" = MISSING,
+        submit_key: 'Literal["enter", "enter+modifier"]' = "enter",
         footer: Optional[TagChild] = None,
         **kwargs: TagAttrValue,
     ) -> Tag:
@@ -1887,7 +1964,14 @@ class ChatExpress(Chat):
             button in place of the send button while streaming. You must observe
             ``input.<id>_cancel`` on the server and call ``ctrl.cancel()`` on a
             chatlas ``StreamController`` to actually stop the stream. Defaults to
-            ``False``.
+            ``True`` when a ``client=`` was provided to :class:`~shinychat.Chat`,
+            ``False`` otherwise.
+        submit_key
+            Controls which key combination submits the chat message:
+
+            - ``"enter"`` (default): Enter submits, Shift+Enter adds a newline.
+            - ``"enter+modifier"``: Ctrl+Enter (Cmd+Enter on Mac) submits,
+              plain Enter adds a newline.
         footer
             Optional HTML content to display below the chat input.
             This can be any HTML content (tags, tag lists, or strings).
@@ -1899,6 +1983,9 @@ class ChatExpress(Chat):
             Additional attributes for the chat container element.
         """
 
+        # Don't resolve a default here: when `enable_cancel` is unset, a
+        # `client=` enables the stop button at runtime via `update_cancel`
+        # (see `_setup_client`). Forward the tri-state and let the client decide.
         return chat_ui(
             id=self.id,
             messages=messages,
@@ -1909,6 +1996,7 @@ class ChatExpress(Chat):
             fill=fill,
             icon_assistant=icon_assistant,
             enable_cancel=enable_cancel,
+            submit_key=submit_key,
             footer=footer,
             **kwargs,
         )
@@ -1978,7 +2066,8 @@ def chat_ui(
     height: "CssUnit" = "auto",
     fill: bool = True,
     icon_assistant: Optional[HTML | Tag | TagList] = None,
-    enable_cancel: bool = False,
+    enable_cancel: "bool | MISSING_TYPE" = MISSING,
+    submit_key: 'Literal["enter", "enter+modifier"]' = "enter",
     footer: Optional[TagChild] = None,
     **kwargs: TagAttrValue,
 ) -> Tag:
@@ -2038,8 +2127,16 @@ def chat_ui(
         cancel the in-progress response. When ``True``, the chat UI shows a stop
         button in place of the send button while streaming. You must observe
         ``input.<id>_cancel`` on the server and call ``ctrl.cancel()`` on a
-        chatlas ``StreamController`` to actually stop the stream. Defaults to
-        ``False``.
+        chatlas ``StreamController`` to actually stop the stream. When left
+        unset (the default), a chat driven by a ``client=`` enables the stop
+        button automatically; otherwise it stays hidden. Passing an explicit
+        ``True``/``False`` always wins over that automatic behavior.
+    submit_key
+        Controls which key combination submits the chat message:
+
+        - ``"enter"`` (default): Enter submits, Shift+Enter adds a newline.
+        - ``"enter+modifier"``: Ctrl+Enter (Cmd+Enter on Mac) submits,
+          plain Enter adds a newline.
     footer
         Optional HTML content to display below the chat input.
         This can be any HTML content (tags, tag lists, or strings).
@@ -2083,6 +2180,15 @@ def chat_ui(
     if footer is not None:
         footer_tag = Tag("shiny-chat-footer", footer)
 
+    # Tri-state attribute: omitted = "no explicit preference" (lets a `client=`
+    # auto-enable the stop button at runtime), "true"/"false" = explicit choice
+    # that the client honors over any `update_cancel` message.
+    enable_cancel_attr: Optional[str] = (
+        None
+        if isinstance(enable_cancel, MISSING_TYPE)
+        else ("true" if enable_cancel else "false")
+    )
+
     greeting_attr: Optional[str] = None
     greeting_deps: list[HTMLDependency] = []
     if greeting is not None:
@@ -2125,10 +2231,11 @@ def chat_ui(
         placeholder=placeholder,
         fill=fill,
         greeting=greeting_attr,
-        enable_cancel=enable_cancel,
+        enable_cancel=enable_cancel_attr,
         # Also include icon on the parent so that when messages are dynamically added,
         # we know the default icon has changed
         icon_assistant=icon_attr,
+        submit_key=submit_key if submit_key != "enter" else None,
         **kwargs,
     )
 
@@ -2175,14 +2282,6 @@ class MessageStream:
             message_chunk,
             stream_id=self._stream_id,
         )
-
-
-def is_thinking_delta(msg: Any) -> TypeGuard[ContentThinkingDelta]:
-    try:
-        from chatlas.types import ContentThinkingDelta
-        return isinstance(msg, ContentThinkingDelta)
-    except ImportError:
-        return False
 
 
 def is_tool_result(val: object) -> "TypeGuard[chatlas.ContentToolResult]":

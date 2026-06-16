@@ -40,10 +40,6 @@ if [ -z "$GCLOUD_BIN" ]; then
     echo "host_health_beacon: no gcloud found; aborting" >&2
     exit 1
 fi
-TIMEOUT_BIN=""
-for cand in /usr/bin/timeout /bin/timeout; do
-    if [ -x "$cand" ]; then TIMEOUT_BIN="$cand"; break; fi
-done
 
 reported_at=$(/bin/date -u +%Y-%m-%dT%H:%M:%SZ)
 
@@ -54,34 +50,6 @@ disk_pct="${disk_pct_str%%%}"
 # Avail in GB (rounded down).
 disk_avail_gb=$(( ${disk_avail_kb:-0} / 1024 / 1024 ))
 
-reread_root_disk() {
-    disk_line=$(/bin/df -k / 2>/dev/null | /usr/bin/awk 'NR==2 {print $3, $4, $5}')
-    read -r disk_used_kb disk_avail_kb disk_pct_str <<<"$disk_line"
-    disk_pct="${disk_pct_str%%%}"
-    disk_avail_gb=$(( ${disk_avail_kb:-0} / 1024 / 1024 ))
-}
-
-active_extraction_has_open_under() {
-    prefix="$1"
-    for p in $(/usr/bin/pgrep -f "wisent.scripts.activations.extract_and_upload" 2>/dev/null || true); do
-        for fd in /proc/"$p"/fd/*; do
-            target=$(/usr/bin/readlink "$fd" 2>/dev/null || true)
-            case "$target" in
-                "$prefix"/*) return 0 ;;
-            esac
-        done
-    done
-    return 1
-}
-
-remove_cache_if_idle() {
-    target="$1"
-    [ -e "$target" ] || return 0
-    if ! active_extraction_has_open_under "$target"; then
-        /bin/rm -rf "$target" 2>/dev/null || true
-    fi
-}
-
 # Self-heal: when disk is 90%+ full AND the wisent-agent unit has been
 # stuck for at least one restart, evict caches before reporting. Without
 # this the agent restart-loops forever on a full disk (the workstation
@@ -91,19 +59,9 @@ remove_cache_if_idle() {
 # cache. All are reproducible from the upstream source on next access.
 SELF_HEAL_DISK_PCT_THRESHOLD=85
 HOME_DIR="${HOME:-/home/ubuntu}"
-primary_unit="${UNITS_TO_WATCH%%,*}"
-
-# Self-heal a stopped agent even when disk is not critically full. The
-# old self-heal only restarted when disk_pct >= 85, which left the box
-# idle if the agent exited cleanly or got stopped while disk had already
-# recovered below that threshold. This beacon is intentionally out of
-# band; if it can report "inactive", it can also restart the service.
-if ! /usr/bin/systemctl is-active "$primary_unit" >/dev/null 2>&1; then
-    /usr/bin/systemctl restart "$primary_unit" >/dev/null 2>&1 || true
-fi
-
 if [ "${disk_pct:-0}" -ge "$SELF_HEAL_DISK_PCT_THRESHOLD" ]; then
     # Only run if wisent-agent is NOT actively serving (state != active).
+    primary_unit="${UNITS_TO_WATCH%%,*}"
     if ! /usr/bin/systemctl is-active "$primary_unit" >/dev/null 2>&1; then
         for tgt in "$HOME_DIR/.cache/huggingface/hub" \
                    "$HOME_DIR/.cache/pip" \
@@ -117,43 +75,11 @@ if [ "${disk_pct:-0}" -ge "$SELF_HEAL_DISK_PCT_THRESHOLD" ]; then
         /usr/bin/systemctl restart "$primary_unit" >/dev/null 2>&1 || true
         # Re-read disk after eviction so the same beacon tick reports
         # the post-heal state.
-        reread_root_disk
+        disk_line=$(/bin/df -k / 2>/dev/null | /usr/bin/awk 'NR==2 {print $3, $4, $5}')
+        read -r disk_used_kb disk_avail_kb disk_pct_str <<<"$disk_line"
+        disk_pct="${disk_pct_str%%%}"
+        disk_avail_gb=$(( ${disk_avail_kb:-0} / 1024 / 1024 ))
     fi
-fi
-
-# Clean known stale top-level /tmp payloads under root-disk pressure.
-# Active jobs keep logs under /tmp/wc-<jid>/; do not touch those dirs.
-# The stale files observed on ubuntu-server were /tmp/file* sort/tmp
-# chunks and old /tmp/ZIT-*.safetensors files. If any active extraction
-# process has one open, skip the cleanup and only report disk state.
-if [ "${disk_pct:-0}" -ge 80 ] || [ "${disk_avail_gb:-999999}" -lt 30 ]; then
-    open_tmp_junk=0
-    for p in $(/usr/bin/pgrep -f "wisent.scripts.activations.extract_and_upload" 2>/dev/null || true); do
-        for fd in /proc/"$p"/fd/*; do
-            target=$(/usr/bin/readlink "$fd" 2>/dev/null || true)
-            case "$target" in
-                /tmp/file*|/tmp/ZIT-*.safetensors) open_tmp_junk=1 ;;
-            esac
-        done
-    done
-    if [ "$open_tmp_junk" -eq 0 ]; then
-        /usr/bin/find /tmp -xdev -maxdepth 1 -type f \
-            \( -name "file*" -o -name "ZIT-*.safetensors" \) -delete 2>/dev/null || true
-        reread_root_disk
-    fi
-fi
-
-# Safe cache/log cleanup for the root filesystem. These are reproducible
-# caches or bounded systemd journals; active extraction open-FD checks
-# prevent deleting cache trees currently being read by a running job.
-if [ "${disk_pct:-0}" -ge 80 ] || [ "${disk_avail_gb:-999999}" -lt 30 ]; then
-    remove_cache_if_idle "$HOME_DIR/.cache/huggingface/xet"
-    remove_cache_if_idle "$HOME_DIR/.cache/pip"
-    remove_cache_if_idle "$HOME_DIR/.cache/vllm"
-    remove_cache_if_idle /root/.cache/huggingface/xet
-    remove_cache_if_idle /root/.cache/pip
-    /usr/bin/journalctl --vacuum-size=512M >/dev/null 2>&1 || true
-    reread_root_disk
 fi
 
 # systemctl unit states (one entry per UNITS_TO_WATCH item, comma-sep).
@@ -186,19 +112,17 @@ done
 
 # Top disk consumers under $HOME and /var, capped to 10 each, so the
 # operator can see what is filling the disk without needing to SSH in.
-# Only computed when disk remains tight after cleanup; avoids running du
-# on every beacon tick once cleanup has restored breathing room.
+# Only computed when disk is tight (>80%); avoids running du on every
+# beacon tick on a healthy host.
 top_consumers='[]'
-if [ "${disk_pct:-0}" -ge 80 ] || [ "${disk_avail_gb:-999999}" -lt 15 ]; then
+if [ "${disk_pct:-0}" -ge 80 ]; then
     top_consumers=$(
-        for p in "$HOME_DIR" "$HOME_DIR/.local" "$HOME_DIR/.cache" \
-                 "$HOME_DIR/.cache/huggingface" "$HOME_DIR/.cache/huggingface/xet" \
-                 "$HOME_DIR/.cache/pip" "$HOME_DIR/.cache/vllm" \
-                 "$HOME_DIR/.rustup" "$HOME_DIR/google-cloud-sdk" \
-                 "$HOME_DIR/compute.wisent.com" "$HOME_DIR/.cargo" \
-                 /var /var/log /var/log/journal /var/cache /var/lib /opt /tmp; do
-            [ -e "$p" ] && /usr/bin/du -s -h "$p" 2>/dev/null
-        done | /usr/bin/sort -hr \
+        {
+            /usr/bin/du -h --max-depth=1 "$HOME_DIR" 2>/dev/null
+            /usr/bin/du -h --max-depth=1 /var 2>/dev/null
+            /usr/bin/du -h --max-depth=1 /opt 2>/dev/null
+            /usr/bin/du -h --max-depth=1 /tmp 2>/dev/null
+        } | /usr/bin/sort -hr | /usr/bin/head -n 20 \
           | /usr/bin/python3 -c '
 import json, sys
 out = []
@@ -206,8 +130,6 @@ for line in sys.stdin:
     parts = line.strip().split(None, 1)
     if len(parts) == 2:
         out.append({"size": parts[0], "path": parts[1]})
-        if len(out) >= 20:
-            break
 print(json.dumps(out))
 ' 2>/dev/null
     )
@@ -227,11 +149,6 @@ cat > "$tmpfile" <<EOF
 }
 EOF
 
-if [ -n "$TIMEOUT_BIN" ]; then
-    "$TIMEOUT_BIN" 45s "$GCLOUD_BIN" --quiet --project="$PROJECT" storage cp \
-        "$tmpfile" "gs://$BUCKET/host_health/${HOST_SLUG}.json" >/dev/null 2>&1 || true
-else
-    "$GCLOUD_BIN" --quiet --project="$PROJECT" storage cp \
-        "$tmpfile" "gs://$BUCKET/host_health/${HOST_SLUG}.json" >/dev/null 2>&1 || true
-fi
+"$GCLOUD_BIN" --quiet --project="$PROJECT" storage cp \
+    "$tmpfile" "gs://$BUCKET/host_health/${HOST_SLUG}.json" >/dev/null 2>&1
 rm -f "$tmpfile"

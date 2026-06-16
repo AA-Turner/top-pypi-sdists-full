@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyulog
-Version: 1.2.2
+Version: 1.2.3
 Summary: Python log parser for ULog
 Maintainer-email: James Goppert <james.goppert@gmail.com>, Beat Kueng <beat-kueng@gmx.net>
 License-Expression: BSD-3-Clause

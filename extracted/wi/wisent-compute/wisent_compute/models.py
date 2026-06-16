@@ -37,6 +37,37 @@ from ._catalog.gpu_sku import (  # noqa: E402
 )
 
 
+DEPRECATED_ACTIVATION_ENTRYPOINT = "wisent.scripts.activations." + "extract_and_upload"
+
+
+def deprecated_activation_command_reason(command: str) -> str:
+    if DEPRECATED_ACTIVATION_ENTRYPOINT not in (command or ""):
+        return ""
+    if (
+        "WISENT_FLEET_STAGING_DIR" in command
+        and "unset WISENT_FLEET_STAGING_DIR" not in command
+    ):
+        return ""
+    return (
+        "refusing deprecated foreground activation uploader; use "
+        "wisent.scripts.activations.raw.extract_and_upload so extraction "
+        "hands upload to the detached worker pool"
+    )
+
+
+def activation_extraction_must_share_gpu(command: str) -> bool:
+    """Activation extraction jobs are VRAM-sized, not whole-GPU-exclusive."""
+    command = command or ""
+    return (
+        "wisent.scripts.activations.raw.extract_and_upload" in command
+        or (
+            DEPRECATED_ACTIVATION_ENTRYPOINT in command
+            and "WISENT_FLEET_STAGING_DIR" in command
+            and "unset WISENT_FLEET_STAGING_DIR" not in command
+        )
+    )
+
+
 @dataclass
 class Job:
     job_id: str
@@ -155,13 +186,6 @@ class Job:
     # trusts ONLY peaks with this flag True so a poisoned historical
     # sample can never dominate the max(). Default False = legacy/untrusted.
     peak_vram_per_gpu: bool = False
-    # Provenance for re-submissions. When this job was queued as a re-run of
-    # a prior failure, re_submission_of holds the ORIGINAL failed job_id.
-    # The tracker (.work/tracker/build_tracker.sh) joins on this field to
-    # report "for each entry in failed/, did its re-submission complete?".
-    # Without it, the tracker has to guess by (task, prompt_format) match.
-    # Empty string = not a re-submission (the default for fresh jobs).
-    re_submission_of: str = ""
 
     def __post_init__(self):
         if not self.created_at:

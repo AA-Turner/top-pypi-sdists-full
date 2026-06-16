@@ -34,9 +34,19 @@ def _resolve_policy_expiry(args: argparse.Namespace) -> str | None:
     return (datetime.now(timezone.utc) + timedelta(hours=float(hours))).isoformat()
 
 def _guard_doctor_connect_health_payload(store: GuardStore) -> dict[str, object]:
-    latest_state = store.get_effective_guard_connect_state(now=_now())
+    oauth_storage_health = store.get_oauth_local_credential_health()
+    cloud_profile = store.get_cloud_sync_profile()
+    effective_connect_state = store.get_effective_guard_connect_state(now=_now())
+    latest_state = normalize_connect_state_for_missing_oauth(
+        latest_state=effective_connect_state,
+        oauth_storage_health=oauth_storage_health,
+        oauth_required=connect_state_requires_oauth(
+            latest_state=effective_connect_state,
+            cloud_profile=cloud_profile,
+        ),
+    )
     payload: dict[str, object] = {
-        "oauth_storage_health": _guard_doctor_oauth_storage_health_payload(store),
+        "oauth_storage_health": _guard_doctor_oauth_storage_health_payload_from_health(oauth_storage_health),
         "connect_recovery_command": connect_recovery_command(latest_state),
     }
     if isinstance(latest_state, dict):
@@ -44,7 +54,11 @@ def _guard_doctor_connect_health_payload(store: GuardStore) -> dict[str, object]
     return payload
 
 def _guard_doctor_oauth_storage_health_payload(store: GuardStore) -> dict[str, str]:
-    oauth_storage_health = store.get_oauth_local_credential_health()
+    return _guard_doctor_oauth_storage_health_payload_from_health(
+        store.get_oauth_local_credential_health(),
+    )
+
+def _guard_doctor_oauth_storage_health_payload_from_health(oauth_storage_health: dict[str, object]) -> dict[str, str]:
     state = "unknown"
     if isinstance(oauth_storage_health, dict):
         raw_state = oauth_storage_health.get("state")
@@ -92,6 +106,32 @@ def _synced_policy_payload(store: GuardStore) -> dict[str, object] | None:
     payload = store.get_sync_payload("policy")
     return payload if isinstance(payload, dict) else None
 
+
+_PERSISTED_POLICY_BUNDLE_REJECTION_REASONS = frozenset(
+    {
+        "bundle_hash_mismatch",
+        "bundle_version_downgrade",
+        "invalid_acknowledgements",
+        "invalid_bundle_hash",
+        "invalid_bundle_version",
+        "invalid_cloud_exceptions",
+        "invalid_expires_at",
+        "invalid_issued_at",
+        "invalid_policy_bundle",
+        "invalid_policy_defaults",
+        "invalid_rollout_state",
+        "invalid_rules",
+        "invalid_verifier",
+        "invalid_workspace_id",
+        "missing_required_field",
+        "payload_hash_mismatch",
+        "unsupported_contract_version",
+        "unsupported_daemon_version",
+        "wrong_workspace",
+    }
+)
+
+
 def _refresh_cloud_policy_bundle(store: GuardStore) -> None:
     if store.get_cloud_sync_profile() is None:
         return
@@ -138,11 +178,7 @@ def _refresh_cloud_policy_bundle(store: GuardStore) -> None:
         if isinstance(policy_bundle_last_error, dict)
         else None
     )
-    if policy_bundle_rejection_reason not in {
-        "bundle_version_downgrade",
-        "invalid_policy_bundle",
-        "unsupported_daemon_version",
-    }:
+    if policy_bundle_rejection_reason not in _PERSISTED_POLICY_BUNDLE_REJECTION_REASONS:
         store.set_sync_payload("policy_bundle_last_error", {}, now)
 
 def _guard_cloud_urls_for_connect(connect_url: str) -> dict[str, str]:
@@ -187,7 +223,9 @@ def _finalize_guard_connect_payload(
     )
     oauth_health = store.get_oauth_local_credential_health()
     oauth_state = str(oauth_health.get("state") or "")
-    if store.get_cloud_sync_profile() is None and oauth_state == "degraded":
+    if store.get_cloud_sync_profile() is None and (
+        oauth_state == "degraded" or not oauth_health.get("configured")
+    ):
         repair_message = (
             "Guard Cloud authorization did not persist locally. "
             "Run hol-guard connect again to repair local sign-in."
@@ -217,6 +255,7 @@ def _finalize_guard_connect_payload(
         sync_payload = sync_local_guard_cloud_proof(
             store,
             auth_context=resolved_sync_auth_context,
+            now=now,
         )
     except GuardSyncNotAvailableError as error:
         store.record_latest_guard_connect_sync_result(

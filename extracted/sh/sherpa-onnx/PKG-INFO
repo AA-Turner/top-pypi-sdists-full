@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: sherpa_onnx
-Version: 1.13.2
+Version: 1.13.3
 Home-page: https://github.com/k2-fsa/sherpa-onnx
 Author: The sherpa-onnx development team
 Author-email: dpovey@gmail.com
@@ -320,6 +320,15 @@ for 新一代 Kaldi **微信交流群** and **QQ 交流群**.
 
 ## Projects using sherpa-onnx
 
+### [Sherpa Voice / @siteed/sherpa-onnx.rn](https://github.com/deeeed/audiolab)
+
+> React Native wrapper and demo app for validating sherpa-onnx on iOS,
+> Android, and Web, including ASR, TTS, VAD, KWS, speaker ID, diarization,
+> language ID, punctuation, audio tagging, and speech enhancement.
+
+- [NPM package](https://www.npmjs.com/package/@siteed/sherpa-onnx.rn)
+- [Live demo](https://deeeed.github.io/audiolab/sherpa-voice/)
+
 ### [Speed of Sound](https://github.com/zugaldia/speedofsound)
 
 > A voice-typing application for the Linux desktop (GTK4/Adwaita).
@@ -333,7 +342,7 @@ for 新一代 Kaldi **微信交流群** and **QQ 交流群**.
 > It supports Kokoro-82M, Piper, and VITS engines with multilingual support including
 > Hindi, English, British English, Japanese, Chinese and 50+ more languages.
 
-- [Download APK v1.0-beta](https://huggingface.co/CodeBySonu95/Sherpa-onnx-models/resolve/main/VoxSherpa-TTS_test.apk)
+- [Download APK (All Versions)](https://github.com/CodeBySonu95/VoxSherpa-TTS/releases)
 - Android 11+ · 100% offline · No telemetry
 
 <div align="center">

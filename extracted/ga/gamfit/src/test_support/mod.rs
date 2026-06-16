@@ -310,6 +310,30 @@ pub mod debug_stash {
         /// the IFT direction taken from the kernel's own pseudo-inverse
         /// `v = H_pen⁺·coord.g` instead of the full `hop.solve`.
         pub correction_tr_proj: Option<f64>,
+        /// HVP ψ-gradient attribution (#740): the cost-derivative `a` term that
+        /// enters the outer gradient as `a + ½·logdet_h − ½·logdet_s`. Exposed
+        /// so a per-component FD of the outer VALUE can be matched against each
+        /// analytic piece (`a` ↔ FD of `−ℓ(β̂)+½β̂ᵀSλβ̂`, `½·production_tr` ↔ FD
+        /// of `½log|H+Sλ|`, `½·ld_s` ↔ FD of `½log|Sλ|₊`) to localize the
+        /// disagreement to a single term rather than the assembled gradient.
+        pub coord_a: Option<f64>,
+        /// HVP ψ-gradient attribution (#740): the `∂log|Sλ|₊/∂ψ` penalty-logdet
+        /// derivative `ld_s` for this coordinate (see [`Self::coord_a`]).
+        pub coord_ld_s: Option<f64>,
+        /// HVP ψ-gradient attribution (#740): the VALUE component `log|H+Sλ|₊`
+        /// (the `½` factor lives in the outer cost). FD of this across ψ±eps (β̂
+        /// re-solved each side) is the TOTAL logdet-H ψ-derivative (frozen B_i +
+        /// IFT) and is matched against `production_tr` to test probe (b) — is the
+        /// frozen `∂W/∂ψ` logdet-H drift the true frozen-β logdet derivative.
+        pub coord_log_det_h: Option<f64>,
+        /// HVP ψ-gradient attribution (#740): the VALUE component `log|Sλ|₊`.
+        pub coord_log_det_s: Option<f64>,
+        /// HVP ψ-gradient attribution (#740): the TOTAL outer cost (objective)
+        /// `[−ℓ(β̂)+½β̂ᵀSλβ̂] + ½log|H+Sλ|₊ − ½log|Sλ|₊`. FD of
+        /// `cost − ½·log_det_h + ½·log_det_s` (the logdet-EXCLUDED cost piece)
+        /// across ψ±eps is matched against `coord_a` to test probe (a) — does the
+        /// `a` term carry the full likelihood/penalty-vs-ψ derivative at β̂.
+        pub coord_cost: Option<f64>,
     }
 
     thread_local! {
@@ -322,11 +346,38 @@ pub mod debug_stash {
             frozen_tr: None,
             correction_tr: None,
             correction_tr_proj: None,
+            coord_a: None,
+            coord_ld_s: None,
+            coord_log_det_h: None,
+            coord_log_det_s: None,
+            coord_cost: None,
         }) };
     }
 
     pub fn take_terms() -> TermStash {
         TERMS.with(|cell| std::mem::take(&mut *cell.borrow_mut()))
+    }
+
+    /// HVP ψ-gradient attribution (#740): global sink for the `a`-channel split
+    /// `(a_likelihood, a_penalty_quadratic)` of the FIRST ψ (ext) coordinate.
+    /// Written from `build_psi_hyper_coords` (which may run on a different thread
+    /// than the gradient par_iter that fills [`TermStash`], so a process-global
+    /// `Mutex` is used rather than the per-thread `TERMS` slot) and read by the
+    /// diagnostic test. Only set while a [`CaptureGuard`] is live.
+    static A_SPLIT_SINK: std::sync::Mutex<Option<(f64, f64)>> = std::sync::Mutex::new(None);
+
+    /// Record the first ψ-coordinate's `a = a_likelihood + a_penalty_quadratic`
+    /// split. Overwrites; the assembly visits coordinates in θ order, so the
+    /// caller gates this to the first ext coordinate.
+    pub fn store_a_split(a_likelihood: f64, a_penalty_quadratic: f64) {
+        if let Ok(mut slot) = A_SPLIT_SINK.lock() {
+            *slot = Some((a_likelihood, a_penalty_quadratic));
+        }
+    }
+
+    /// Drain the recorded `a`-channel split.
+    pub fn take_a_split() -> Option<(f64, f64)> {
+        A_SPLIT_SINK.lock().ok().and_then(|mut slot| slot.take())
     }
 
     /// Replace the calling thread's `TermStash` with `stash`. Called by

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery
-Version: 3.41.0
+Version: 3.42.0
 Summary: Google BigQuery API client library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -9,8 +9,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -18,11 +16,11 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: google-api-core[grpc]<3.0.0,>=2.11.1
-Requires-Dist: google-auth<3.0.0,>=2.14.1
+Requires-Dist: google-auth[pyopenssl]<3.0.0,>=2.14.1
 Requires-Dist: google-cloud-core<3.0.0,>=2.4.1
 Requires-Dist: google-resumable-media<3.0.0,>=2.0.0
 Requires-Dist: packaging>=24.2.0
@@ -52,8 +50,7 @@ Provides-Extra: ipython
 Requires-Dist: ipython>=7.23.1; extra == "ipython"
 Requires-Dist: bigquery-magics>=0.6.0; extra == "ipython"
 Provides-Extra: matplotlib
-Requires-Dist: matplotlib<=3.9.2,>=3.7.1; python_version == "3.9" and extra == "matplotlib"
-Requires-Dist: matplotlib>=3.10.3; python_version >= "3.10" and extra == "matplotlib"
+Requires-Dist: matplotlib>=3.10.3; extra == "matplotlib"
 Provides-Extra: tqdm
 Requires-Dist: tqdm<5.0.0,>=4.23.4; extra == "tqdm"
 Provides-Extra: opentelemetry
@@ -121,11 +118,11 @@ dependencies.
 
 Supported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Python >= 3.9
+Python >= 3.10
 
 Unsupported Python Versions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Python == 2.7, Python == 3.5, Python == 3.6, Python == 3.7, and Python == 3.8.
+Python <= 3.9.
 
 The last version of this library compatible with Python 2.7 and 3.5 is
 `google-cloud-bigquery==1.28.0`.

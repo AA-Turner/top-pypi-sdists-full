@@ -30,6 +30,7 @@ from ..process.scanning import (
 from ..process.thread_info import ThreadInfo
 from ..util import (
     _validate_pytype,
+    as_writable_c_buffer,
     get_c_type_of,
     values_to_bytes,
 )
@@ -187,13 +188,13 @@ def get_memory_regions(pid: int) -> Generator["MemoryRegion", None, None]:
 
     with mapping_file:
         for line in mapping_file:
-            region_information = line.split()
+            region_information = line.split(maxsplit=5)
 
             try:
                 addressing_range, privileges, offset, device, inode = (
                     region_information[0:5]
                 )
-                path = region_information[5] if len(region_information) >= 6 else ""
+                path = region_information[5].strip() if len(region_information) >= 6 else ""
 
                 start_address, end_address = [
                     int(addr, 16) for addr in addressing_range.split("-")
@@ -376,6 +377,18 @@ def read_process_memory(pid: int, address: int, pytype: Type[T], bufflength: int
         return bytes(data)
     else:
         return data.value
+
+
+def read_process_memory_into(pid: int, address: int, buffer) -> int:
+    """
+    Read ``len(buffer)`` bytes from ``address`` directly into the writable
+    ``buffer``, with no intermediate allocation. Returns the number of bytes
+    read (always the buffer's byte length on success; a short read raises
+    ``_LinuxPartialIOError``).
+    """
+    c_buffer = as_writable_c_buffer(buffer)
+    size = len(c_buffer)
+    return _process_vm_readv(pid, addressof(c_buffer), address, size)
 
 
 def search_addresses_by_value(

@@ -49,6 +49,7 @@ from ouroboros.providers.base import (
 )
 from ouroboros.providers.codex_cli_stream import iter_stream_lines, terminate_process
 from ouroboros.providers.profiles import resolve_completion_profile_result
+from ouroboros.runtime.child_env import build_child_env
 
 log = structlog.get_logger()
 
@@ -78,6 +79,10 @@ _MAX_RESPONSE_BYTES = MAX_LLM_RESPONSE_LENGTH
 
 # Guard against recursive ouroboros invocations
 _MAX_OUROBOROS_DEPTH = 5
+# Child-env strip set for Gemini.  Gemini does NOT strip CLAUDECODE (unlike
+# codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
+# are removed.
+_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
 
 
 class GeminiCLIAdapter:
@@ -326,7 +331,7 @@ class GeminiCLIAdapter:
         error_seen: str | None = None
         total_bytes = 0
 
-        async for line in iter_stream_lines(process.stdout):
+        async for line in iter_stream_lines(process.stdout, provider=self._provider_name):
             line = line.strip()
             if not line:
                 continue
@@ -421,7 +426,7 @@ class GeminiCLIAdapter:
         # A non-zero exit code always means failure.
         if returncode != 0:
             stderr_lines: list[str] = []
-            async for line in iter_stream_lines(process.stderr):
+            async for line in iter_stream_lines(process.stderr, provider=self._provider_name):
                 if line.strip():
                     stderr_lines.append(line.strip())
             stderr_text = "\n".join(stderr_lines[:10])
@@ -583,22 +588,15 @@ class GeminiCLIAdapter:
         Raises:
             ProviderError: If ``_OUROBOROS_DEPTH`` exceeds the limit.
         """
-        env = os.environ.copy()
-        # Strip vars that could trigger recursive ouroboros startup
-        for key in ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND"):
-            env.pop(key, None)
-        try:
-            depth = int(env.get("_OUROBOROS_DEPTH", "0")) + 1
-        except (ValueError, TypeError):
-            depth = 1
-        if depth > _MAX_OUROBOROS_DEPTH:
-            raise ProviderError(
-                message=f"Maximum Ouroboros nesting depth ({_MAX_OUROBOROS_DEPTH}) exceeded",
+        return build_child_env(
+            strip_keys=_CHILD_ENV_STRIP_KEYS,
+            max_depth=_MAX_OUROBOROS_DEPTH,
+            depth_error_factory=lambda depth, max_depth: ProviderError(
+                message=f"Maximum Ouroboros nesting depth ({max_depth}) exceeded",
                 provider=self._provider_name,
                 details={"depth": depth},
-            )
-        env["_OUROBOROS_DEPTH"] = str(depth)
-        return env
+            ),
+        )
 
     def _resolve_model(self, config_model: str) -> str:
         """Select the effective Gemini model name.

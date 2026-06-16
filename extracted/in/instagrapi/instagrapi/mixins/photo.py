@@ -11,11 +11,12 @@ import requests
 
 from instagrapi import config
 from instagrapi.exceptions import (
+    ClientError,
     PhotoConfigureError,
     PhotoConfigureStoryError,
     PhotoNotUpload,
 )
-from instagrapi.image_util import prepare_image
+from instagrapi.image_util import prepare_image, prepare_story_image_fit
 from instagrapi.types import (
     Location,
     Media,
@@ -45,7 +46,16 @@ class DownloadPhotoMixin:
     Helpers for downloading photo
     """
 
-    def photo_download(self, media_pk: int, folder: Path = "", overwrite: bool = True) -> Path:
+    def _photo_download_media_info(self, media_pk: str) -> Media:
+        try:
+            media = self.media_info_gql(media_pk)
+        except ClientError:
+            media = None
+        if media and media.media_type == 1 and media.thumbnail_url:
+            return media
+        return self.media_info(media_pk)
+
+    def photo_download(self, media_pk: Union[int, str], folder: Path = "", overwrite: bool = True) -> Path:
         """
         Download photo using media pk
 
@@ -65,10 +75,13 @@ class DownloadPhotoMixin:
         Path
             Path for the file downloaded
         """
-        media = self.media_info(media_pk)
+        media_pk_str = self.media_pk(str(media_pk))
+        media = self._photo_download_media_info(media_pk_str)
         assert media.media_type == 1, "Must been photo"
-        filename = "{username}_{media_pk}".format(username=media.user.username, media_pk=media_pk)
-        return self.photo_download_by_url(media.thumbnail_url, filename, folder, overwrite=overwrite)
+        if not media.thumbnail_url:
+            raise Exception("Photo thumbnail URL is empty")
+        filename = "{username}_{media_pk}".format(username=media.user.username, media_pk=media_pk_str)
+        return self.photo_download_by_url(str(media.thumbnail_url), filename, folder, overwrite=overwrite)
 
     def photo_download_by_url(
         self,
@@ -129,7 +142,7 @@ class DownloadPhotoMixin:
 
 class UploadPhotoMixin:
     """
-    Helpers for downloading photo
+    Helpers for uploading photo
     """
 
     def photo_rupload(
@@ -138,6 +151,7 @@ class UploadPhotoMixin:
         upload_id: str = "",
         to_album: bool = False,
         for_story: bool = False,
+        resize_mode: str = "fill",
     ) -> tuple:
         """
         Upload photo to Instagram
@@ -151,6 +165,8 @@ class UploadPhotoMixin:
         to_album: bool, optional
         for_story: bool, optional
             Useful for resize util only
+        resize_mode: str, optional
+            Story resize mode: "fill" crops oversized Story media to fill the canvas, "fit" letterboxes it.
 
         Returns
         -------
@@ -158,6 +174,10 @@ class UploadPhotoMixin:
             (Upload ID for the media, width, height)
         """
         assert isinstance(path, Path), f"Path must been Path, now {path} ({type(path)})"
+        if resize_mode not in {"fill", "fit"}:
+            raise ValueError('resize_mode must be "fill" or "fit"')
+        if resize_mode == "fit" and not for_story:
+            raise ValueError('resize_mode="fit" is only supported for story uploads')
         valid_extensions = [".jpg", ".jpeg", ".png", ".webp"]
         if path.suffix.lower() not in valid_extensions:
             raise ValueError("Invalid file format. Only JPG/JPEG/PNG/WEBP files are supported.")
@@ -183,7 +203,9 @@ class UploadPhotoMixin:
         }
         if to_album:
             rupload_params["is_sidecar"] = "1"
-        if for_story:
+        if for_story and resize_mode == "fit":
+            photo_data, photo_size = prepare_story_image_fit(str(path))
+        elif for_story:
             photo_data, photo_size = prepare_image(
                 str(path),
                 max_side=1080,
@@ -193,17 +215,19 @@ class UploadPhotoMixin:
         else:
             photo_data, photo_size = prepare_image(str(path), max_side=1080)
         photo_len = str(len(photo_data))
-        headers = {
-            "Accept-Encoding": "gzip",
-            "X-Instagram-Rupload-Params": json.dumps(rupload_params),
-            "X_FB_PHOTO_WATERFALL_ID": waterfall_id,
-            "X-Entity-Type": image_type,
-            "Offset": "0",
-            "X-Entity-Name": upload_name,
-            "X-Entity-Length": photo_len,
-            "Content-Type": "application/octet-stream",
-            "Content-Length": photo_len,
-        }
+        headers = self.private_headers(
+            {
+                "Accept-Encoding": "gzip",
+                "X-Instagram-Rupload-Params": json.dumps(rupload_params),
+                "X_FB_PHOTO_WATERFALL_ID": waterfall_id,
+                "X-Entity-Type": image_type,
+                "Offset": "0",
+                "X-Entity-Name": upload_name,
+                "X-Entity-Length": photo_len,
+                "Content-Type": "application/octet-stream",
+                "Content-Length": photo_len,
+            }
+        )
         response = self.private.post(
             "https://{domain}/rupload_igphoto/{name}".format(domain=config.API_DOMAIN, name=upload_name),
             data=photo_data,
@@ -214,8 +238,11 @@ class UploadPhotoMixin:
             self.logger.error("Photo Upload failed with the following response: %s", response)
             last_json = self.last_json  # local variable for read in sentry
             raise PhotoNotUpload(response.text, response=response, **last_json)
-        with Image.open(path) as im:
-            width, height = im.size
+        if for_story and resize_mode == "fit":
+            width, height = photo_size
+        else:
+            with Image.open(path) as im:
+                width, height = im.size
         return upload_id, width, height
 
     def photo_upload(
@@ -462,6 +489,7 @@ class UploadPhotoMixin:
         medias: List[StoryMedia] = [],
         polls: List[StoryPoll] = [],
         extra_data: Dict[str, str] = {},
+        resize_mode: str = "fill",
     ) -> Story:
         """
         Upload photo as a story and configure it
@@ -490,6 +518,8 @@ class UploadPhotoMixin:
             List of polls to be included on this upload, default is empty list.
         extra_data: Dict[str, str], optional
             Dict of extra data, if you need to add your params, like {"share_to_facebook": 1}.
+        resize_mode: str, optional
+            Story resize mode: "fill" crops oversized media to fill the Story canvas, "fit" letterboxes it.
 
         Returns
         -------
@@ -497,7 +527,7 @@ class UploadPhotoMixin:
             An object of Media class
         """
         path = Path(path)
-        upload_id, width, height = self.photo_rupload(path, upload_id, for_story=True)
+        upload_id, width, height = self.photo_rupload(path, upload_id, for_story=True, resize_mode=resize_mode)
         previous_story_ids = self._current_story_ids()
         story_kwargs = {
             "links": links,

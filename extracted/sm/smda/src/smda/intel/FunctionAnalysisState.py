@@ -6,6 +6,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FunctionAnalysisState:
+    # Mnemonic sets consulted by getBlocks() for basic-block boundary decisions.
+    # Exposed as class attributes (defaulting to the x86 sets) so other architecture
+    # backends can subclass this state and override them without re-implementing
+    # getBlocks(). Calls must NOT terminate a block; ret/trap instructions must.
+    CALL_MNEMONICS = CALL_INS
+    END_MNEMONICS = END_INS
+
     def __init__(self, start_addr, disassembly):
         self.start_addr = start_addr
         self.disassembly = disassembly
@@ -14,6 +21,7 @@ class FunctionAnalysisState:
         self.blocks = []
         self.num_blocks_analyzed = 0
         self.instructions = []
+        self._instructions_sorted = True
         self.instruction_start_bytes = set()
         self.processed_blocks = set()
         self.processed_bytes = set()
@@ -58,16 +66,16 @@ class FunctionAnalysisState:
     def addInstruction(self, i_address, i_size, i_mnemonic, i_op_str, i_bytes):
         ins = (i_address, i_size, i_mnemonic, i_op_str, i_bytes)
         self.instructions.append(ins)
+        self._instructions_sorted = False
         self.instruction_start_bytes.add(ins[0])
         self.current_block.append(ins)
-        for byte in range(i_size):
-            self.processed_bytes.add(i_address + byte)
+        self.processed_bytes.update(range(i_address, i_address + i_size))
         if self.is_next_instruction_reachable:
             self.addCodeRef(i_address, i_address + i_size, self.is_jmp)
         self.is_jmp = False
 
     def addCodeRef(self, addr_from, addr_to, by_jump=False):
-        self.code_refs.update([(addr_from, addr_to)])
+        self.code_refs.add((addr_from, addr_to))
         refs_from = self.code_refs_from.get(addr_from, set())
         refs_from.update([addr_to])
         self.code_refs_from[addr_from] = refs_from
@@ -94,18 +102,29 @@ class FunctionAnalysisState:
             self.data_bytes.update([addr_to + i])
 
     def backtrackInstructions(self, addr_from, num_instructions):
-        backtracked = []
-        for instruction in sorted(self.instructions, key=lambda x: x[0]):
-            if instruction[0] >= addr_from:
-                break
-            backtracked.append(instruction)
-        return backtracked[-num_instructions:]
+        if not self._instructions_sorted:
+            self.instructions.sort(key=lambda x: x[0])
+            self._instructions_sorted = True
+        # Binary search for the first instruction with address >= addr_from
+        low = 0
+        high = len(self.instructions)
+        while low < high:
+            mid = (low + high) // 2
+            if self.instructions[mid][0] < addr_from:
+                low = mid + 1
+            else:
+                high = mid
+        return self.instructions[max(0, low - num_instructions) : low]
 
     def identifyCallConflicts(self, all_refs):
         conflicts = {}
         non_instruction_start_bytes = self.processed_bytes.difference(self.instruction_start_bytes)
-        conflict_addrs = set(all_refs.keys()).intersection(non_instruction_start_bytes)
-        for candidate_source_ref in conflict_addrs:
+        # iterate this function's processed bytes (bounded by the function size)
+        # instead of rebuilding a set from the whole-binary all_refs on every call;
+        # same conflict set, but avoids an O(total_refs) copy per analyzed function.
+        for candidate_source_ref in non_instruction_start_bytes:
+            if candidate_source_ref not in all_refs:
+                continue
             candidate = all_refs[candidate_source_ref]
             if candidate not in conflicts:
                 conflicts[candidate] = []
@@ -194,7 +213,9 @@ class FunctionAnalysisState:
         """
         if self.blocks:
             return self.blocks
-        self.instructions.sort()
+        if not self._instructions_sorted:
+            self.instructions.sort(key=lambda x: x[0])
+            self._instructions_sorted = True
         ins = {i[0]: ind for ind, i in enumerate(self.instructions)}
         potential_starts = {self.start_addr}
         potential_starts.update(list(self.jump_targets))
@@ -209,7 +230,7 @@ class FunctionAnalysisState:
                 # if one code reference is to another address than the next
                 if (
                     current[0] in self.code_refs_from
-                    and current[2] not in CALL_INS
+                    and current[2] not in self.CALL_MNEMONICS
                     and i != len(self.instructions) - 1
                     and any(r != self.instructions[i + 1][0] for r in self.code_refs_from[current[0]])
                 ):
@@ -231,7 +252,7 @@ class FunctionAnalysisState:
                     )
                 ):
                     break
-                if current[2] in END_INS:
+                if current[2] in self.END_MNEMONICS:
                     break
             if block:
                 blocks.append(block)

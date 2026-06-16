@@ -78,6 +78,7 @@ __all__ = (
     "RegionName",
     "ResourceServiceName",
     "S3TableIntegrationSourceStatusType",
+    "ScheduleTypeType",
     "ScheduledQueryDestinationTypeType",
     "ScheduledQueryStateType",
     "ScopeType",
@@ -170,6 +171,7 @@ QueryStatusType = Literal[
 S3TableIntegrationSourceStatusType = Literal[
     "ACTIVE", "DATA_SOURCE_DELETE_IN_PROGRESS", "FAILED", "UNHEALTHY"
 ]
+ScheduleTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 ScheduledQueryDestinationTypeType = Literal["S3"]
 ScheduledQueryStateType = Literal["DISABLED", "ENABLED"]
 ScopeType = Literal["ALL"]

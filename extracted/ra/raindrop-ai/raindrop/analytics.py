@@ -165,6 +165,7 @@ def _remove_instrumentation_filters() -> None:
     otel_attrs_logger.removeFilter(_noise_filter)
 
 write_key = None
+project_id: str | None = None
 _wizard_session = None
 api_url = "https://api.raindrop.ai/v1/"
 local_workshop_url: str | None = None
@@ -190,6 +191,38 @@ _partial_timers: dict[str, Timer] = {}
 # interaction.finish() stays O(1) for the caller.
 _partial_flush_queue: list[PartialTrackAIEvent] = []
 _PARTIAL_TIMEOUT = 2  # 2 seconds
+
+# Optional first-class-projects routing. When ``project_id`` is set, every
+# outbound request carries ``X-Raindrop-Project-Id: <slug>`` so the ingest
+# boundary routes events to the named project; when unset, no header is sent
+# and the server falls back to the org's default project (fully backward
+# compatible — existing callers are byte-identical on the wire).
+PROJECT_ID_HEADER = "X-Raindrop-Project-Id"
+_PROJECT_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+def _project_id_headers() -> Dict[str, str]:
+    pid = project_id
+    if pid:
+        return {PROJECT_ID_HEADER: pid}
+    return {}
+
+
+def _resolve_project_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    if not _PROJECT_ID_PATTERN.match(trimmed):
+        logger.warning(
+            "[raindrop] Ignoring invalid project_id %r: must match "
+            "%s. No X-Raindrop-Project-Id header will be sent.",
+            trimmed,
+            _PROJECT_ID_PATTERN.pattern,
+        )
+        return None
+    return trimmed
 
 # --- Outbound HTTP bounds ---------------------------------------------------
 # Telemetry must never wedge the host app: every cloud POST gets a finite
@@ -561,7 +594,7 @@ def _post_local_mirror(path: str, payload: Any) -> None:
     # validate cloud credentials, and the mirror URL can come from env vars
     # or user input — never let a misconfigured RAINDROP_LOCAL_DEBUGGER /
     # RAINDROP_WORKSHOP host receive the cloud write key.
-    headers = {"Content-Type": "application/json"}
+    headers = {"Content-Type": "application/json", **_project_id_headers()}
     try:
         requests.post(url, json=payload, headers=headers, timeout=timeout)
     except Exception as exc:
@@ -589,6 +622,7 @@ def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {write_key}",
+        **_project_id_headers(),
     }
     # Never log the raw URL: a caller-configured endpoint may embed userinfo
     # credentials (https://user:pass@host/...).
@@ -1287,6 +1321,7 @@ def init(
     endpoint: str | None = None,
     local_workshop_url: Any = UNSET,
     max_text_field_chars: int | None = None,
+    project_id: str | None = None,
     **traceloop_kwargs,
 ):
     """Initialize Raindrop with Traceloop integration.
@@ -1314,6 +1349,13 @@ def init(
             input/output and serialized tool/LLM span content BEFORE (or
             during) serialization, so oversized payloads cost the cap — not
             the payload — on the calling thread. Defaults to 1,000,000.
+        project_id: Optional Raindrop project slug. When set, every outbound
+            request attaches an ``X-Raindrop-Project-Id`` header so events
+            route to the named project instead of the org default. Slugs must
+            match ``^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$``; invalid values
+            are logged as a warning and ignored (no exception, no header).
+            Omitting it is fully backward compatible: no header is sent and
+            the server falls back to the default project.
         **traceloop_kwargs: Extra kwargs forwarded to Traceloop.init().
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
@@ -1331,6 +1373,9 @@ def init(
 
     global write_key
     write_key = api_key or None
+
+    resolved_project_id = _resolve_project_id(project_id)
+    globals()["project_id"] = resolved_project_id
 
     global api_url
     if endpoint is not None:
@@ -1377,6 +1422,29 @@ def init(
 
     parsed_url = urllib.parse.urlparse(api_url)
     api_endpoint = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+    # Route auto-instrumented OTEL spans to the same project as manual events.
+    if resolved_project_id:
+        caller_headers = traceloop_kwargs.get("headers")
+        if not caller_headers:
+            # No caller headers: Traceloop only synthesizes the bearer
+            # ``Authorization`` header when none are supplied, so we re-add it
+            # alongside the project header. The no-project path stays
+            # byte-identical (we don't touch ``headers`` at all there).
+            traceloop_kwargs["headers"] = {
+                "Authorization": f"Bearer {api_key}",
+                PROJECT_ID_HEADER: resolved_project_id,
+            }
+        elif isinstance(caller_headers, dict):
+            # Merge into caller-owned headers so OTEL spans route consistently
+            # with manual events. A copy (not in-place mutation) avoids
+            # surprising the caller's dict; their own values win, so an
+            # explicit project/Authorization header passed by the caller is
+            # left untouched.
+            traceloop_kwargs["headers"] = {
+                PROJECT_ID_HEADER: resolved_project_id,
+                **caller_headers,
+            }
 
     with _temp_env("TRACELOOP_METRICS_ENABLED", "false"):
         Traceloop.init(

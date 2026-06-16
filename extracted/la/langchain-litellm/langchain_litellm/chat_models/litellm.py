@@ -1,4 +1,4 @@
-"""Wrapper around LiteLLM's model I/O library."""
+"""LiteLLM chat model integration for LangChain."""
 
 from __future__ import annotations
 
@@ -23,12 +23,14 @@ from typing import (
     cast,
 )
 
+import litellm
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
 )
 from langchain_core.exceptions import OutputParserException
 from langchain_core.language_models import LanguageModelInput
+from langchain_core.language_models.base import LangSmithParams
 from langchain_core.language_models.chat_models import (
     BaseChatModel,
     agenerate_from_stream,
@@ -78,14 +80,16 @@ from langchain_core.utils import get_from_dict_or_env, pre_init
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import TypeBaseModel, is_basemodel_subclass
 from litellm.types.utils import Delta
-from pydantic import BaseModel, Field
-from typing_extensions import is_typeddict
+from pydantic import BaseModel, Field, model_validator
+from typing_extensions import Self, is_typeddict
+
+from langchain_litellm._version import __version__
 
 logger = logging.getLogger(__name__)
 
 
 class ChatLiteLLMException(Exception):
-    """Error with the `LiteLLM I/O` library"""
+    """Exception raised for errors in the LiteLLM integration."""
 
 
 def _create_retry_decorator(
@@ -94,8 +98,7 @@ def _create_retry_decorator(
         Union[AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun]
     ] = None,
 ) -> Callable[[Any], Any]:
-    """Returns a tenacity retry decorator, preconfigured to handle PaLM exceptions"""
-    import litellm
+    """Return a tenacity retry decorator preconfigured for LiteLLM transient errors."""
 
     errors = [
         litellm.Timeout,
@@ -307,7 +310,7 @@ def _convert_delta_to_message_chunk(
         return default_class(content=content)  # type: ignore[call-arg]
 
 
-def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict:
+def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> Dict[str, Any]:
     return {
         "type": "function",
         "id": tool_call["id"],
@@ -318,7 +321,7 @@ def _lc_tool_call_to_openai_tool_call(tool_call: ToolCall) -> dict:
     }
 
 
-def _convert_message_to_dict(message: BaseMessage) -> dict:
+def _convert_message_to_dict(message: BaseMessage) -> Dict[str, Any]:
     # Capture the original content from the message
     content = message.content
 
@@ -340,7 +343,12 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
                 # Skip tool_use / tool_call blocks — these are handled via
                 # message.tool_calls and must not leak into content sent to
                 # providers that don't understand them (e.g. OpenAI).
-                elif item.get("type") in ("tool_use", "tool_call", "thinking", "redacted_thinking"):
+                elif item.get("type") in (
+                    "tool_use",
+                    "tool_call",
+                    "thinking",
+                    "redacted_thinking",
+                ):
                     continue
 
                 # Pass through standard text blocks or other unrecognized dict formats unchanged
@@ -377,7 +385,9 @@ def _convert_message_to_dict(message: BaseMessage) -> dict:
         # Forward reasoning_content so LiteLLM can inject thinking blocks for
         # Anthropic while leaving OpenAI-bound messages clean.
         if "reasoning_content" in message.additional_kwargs:
-            message_dict["reasoning_content"] = message.additional_kwargs["reasoning_content"]
+            message_dict["reasoning_content"] = message.additional_kwargs[
+                "reasoning_content"
+            ]
     elif isinstance(message, SystemMessage):
         message_dict["role"] = "system"
     elif isinstance(message, FunctionMessage):
@@ -448,7 +458,7 @@ class ChatLiteLLM(BaseChatModel):
 
     @property
     def _default_params(self) -> Dict[str, Any]:
-        """Get the default parameters for calling OpenAI API."""
+        """Get the default parameters for the LiteLLM completion call."""
         set_model_value = self.model
         if self.model_name is not None:
             set_model_value = self.model_name
@@ -467,7 +477,7 @@ class ChatLiteLLM(BaseChatModel):
 
     @property
     def _client_params(self) -> Dict[str, Any]:
-        """Get the parameters used for the OpenAI client."""
+        """Get the per-call parameters passed to litellm.completion."""
         creds: Dict[str, Any] = {
             "timeout": self.request_timeout,
             "api_base": self.api_base,
@@ -502,17 +512,15 @@ class ChatLiteLLM(BaseChatModel):
 
         return await _completion_with_retry(**kwargs)
 
+    @model_validator(mode="after")
+    def _set_litellm_version(self) -> Self:
+        """Set package version in metadata."""
+        self._add_version("langchain-litellm", __version__)
+        return self
+
     @pre_init
     def validate_environment(cls, values: Dict) -> Dict:
         """Validate api key, python package exists, temperature, top_p, and top_k."""
-        try:
-            import litellm
-        except ImportError:
-            raise ChatLiteLLMException(
-                "Could not import litellm python package. "
-                "Please install it with `pip install litellm`"
-            )
-
         values["openai_api_key"] = get_from_dict_or_env(
             values, "openai_api_key", "OPENAI_API_KEY", default=""
         )
@@ -791,22 +799,22 @@ class ChatLiteLLM(BaseChatModel):
 
         Args:
             tools: A list of tool definitions to bind to this chat model.
-                Can be  a dictionary, pydantic model, callable, or BaseTool. Pydantic
+                Can be a dictionary, pydantic model, callable, or BaseTool. Pydantic
                 models, callables, and BaseTools will be automatically converted to
                 their schema dictionary representation.
-            tool_choice: Which tool to require the model to call. Options are:
+            tool_choice: Controls tool-calling behavior. Options are:
                 - str of the form ``"<<tool_name>>"``: calls <<tool_name>> tool.
                 - ``"auto"``:
                     automatically selects a tool (including no tool).
                 - ``"none"``:
                     does not call a tool.
                 - ``"any"`` or ``"required"`` or ``True``:
-                    forces least one tool to be called.
+                    forces at least one tool to be called.
                 - dict of the form:
                 ``{"type": "function", "function": {"name": <<tool_name>>}}``
                 - ``False`` or ``None``: no effect
             **kwargs: Any additional parameters to pass to the
-                :class:`~langchain.runnable.Runnable` constructor.
+                :class:`~langchain_core.runnables.Runnable` constructor.
         """
 
         formatted_tools = [convert_to_openai_tool(tool) for tool in tools]
@@ -894,7 +902,7 @@ class ChatLiteLLM(BaseChatModel):
                     "Claude models when `thinking` is enabled. Tool calls may be "
                     "omitted; this runnable will raise OutputParserException when "
                     "no tool call is returned. Consider disabling `thinking` or "
-                    "using `method=\"json_schema\"`."
+                    'using `method="json_schema"`.'
                 )
                 warnings.warn(warning_message, stacklevel=2)
                 bind_kwargs = {}
@@ -999,12 +1007,12 @@ class ChatLiteLLM(BaseChatModel):
             "n": self.n,
             "num_ctx": self.num_ctx,
         }
-    
+
     def _get_ls_params(
         self,
         stop: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> LangSmithParams:
         """Return LangSmith tracing parameters for this model.
 
         Overrides the base implementation to set ``ls_provider`` to ``"litellm"``
@@ -1019,7 +1027,7 @@ class ChatLiteLLM(BaseChatModel):
         params["ls_provider"] = "litellm"
         params["ls_model_name"] = self.model_name or self.model
         return params
-    
+
     @property
     def _llm_type(self) -> str:
         return "litellm-chat"
@@ -1096,7 +1104,7 @@ def _create_usage_metadata(token_usage: Any) -> UsageMetadata:
     return usage_metadata
 
 
-def _ensure_additional_properties_false(schema_dict: dict) -> dict:
+def _ensure_additional_properties_false(schema_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Recursively ensure additionalProperties is set to false for all objects."""
     if isinstance(schema_dict, dict):
         result = schema_dict.copy()

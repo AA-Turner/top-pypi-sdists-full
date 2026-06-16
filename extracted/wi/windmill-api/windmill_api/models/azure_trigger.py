@@ -46,6 +46,13 @@ class AzureTrigger:
         error_handler_args (Union[Unset, AzureTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, AzureTriggerRetry]): Retry configuration for failed module executions
         labels (Union[Unset, List[str]]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            trigger at the same path. Set by list endpoints when
+            `include_draft_only=true` synthesizes the row from the
+            draft. Frontend renders a "Draft" badge.
+        is_draft (Union[Unset, bool]): True when the authed user has a per-user draft at this path
+            (over a deployed row or a synthesized draft-only row).
+            Frontend appends a `*` to the displayed name.
     """
 
     azure_resource_path: str
@@ -70,6 +77,8 @@ class AzureTrigger:
     error_handler_args: Union[Unset, "AzureTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "AzureTriggerRetry"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    is_draft: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -117,6 +126,9 @@ class AzureTrigger:
         if not isinstance(self.labels, Unset):
             labels = self.labels
 
+        draft_only = self.draft_only
+        is_draft = self.is_draft
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -154,6 +166,10 @@ class AzureTrigger:
             field_dict["retry"] = retry
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if is_draft is not UNSET:
+            field_dict["is_draft"] = is_draft
 
         return field_dict
 
@@ -223,6 +239,10 @@ class AzureTrigger:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        is_draft = d.pop("is_draft", UNSET)
+
         azure_trigger = cls(
             azure_resource_path=azure_resource_path,
             azure_mode=azure_mode,
@@ -246,6 +266,8 @@ class AzureTrigger:
             error_handler_args=error_handler_args,
             retry=retry,
             labels=labels,
+            draft_only=draft_only,
+            is_draft=is_draft,
         )
 
         azure_trigger.additional_properties = d

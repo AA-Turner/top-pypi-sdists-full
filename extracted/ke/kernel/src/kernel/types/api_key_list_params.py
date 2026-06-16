@@ -8,6 +8,13 @@ __all__ = ["APIKeyListParams"]
 
 
 class APIKeyListParams(TypedDict, total=False):
+    include_deleted: bool
+    """Deprecated: use status=all instead.
+
+    When true, include deleted (soft-deleted) API keys in the results for audit
+    purposes.
+    """
+
     limit: int
     """Maximum number of results to return"""
 
@@ -25,3 +32,11 @@ class APIKeyListParams(TypedDict, total=False):
 
     sort_direction: Literal["asc", "desc"]
     """Sort direction for API keys."""
+
+    status: Literal["active", "deleted", "all"]
+    """Filter API keys by status.
+
+    "active" returns keys that are not deleted (default; expired-but-not-deleted
+    keys are still included), "deleted" returns only soft-deleted keys, "all"
+    returns both.
+    """

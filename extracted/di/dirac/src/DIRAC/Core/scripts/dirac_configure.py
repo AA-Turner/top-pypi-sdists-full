@@ -164,7 +164,7 @@ class Params:
 
     def setIssuer(self, optionValue):
         # If the user selects the issuer, it means that there will be authorization through tokens
-        os.environ["DIRAC_USE_ACCESS_TOKEN"] = "True"
+        os.environ["DIRAC_USE_ACCESS_TOKEN"] = "True"  # nosec
         # Allow the user to enter only the server domain
         if not optionValue.startswith(("http://", "https://")):
             optionValue = f"https://{optionValue.lstrip('/')}"
@@ -255,7 +255,7 @@ def runConfigurationWizard(params):
                 input=userPasswd,
                 encoding="utf-8",
                 check=False,
-            )
+            )  # nosec: B603
             if result.returncode == 0:
                 break
             print_formatted_text(HTML("<red>Wizard failed, retrying...</red> (press Control + C to exit)\n"))
@@ -287,7 +287,7 @@ def runConfigurationWizard(params):
         input=userPasswd,
         encoding="utf-8",
         check=False,
-    )
+    )  # nosec: B603
     sys.exit(result.returncode)
 
 

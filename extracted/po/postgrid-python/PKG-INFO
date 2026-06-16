@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: postgrid-python
-Version: 2.2.0
+Version: 2.3.0
 Summary: The official Python library for the PostGrid API
 Project-URL: Homepage, https://github.com/postgrid/postgrid-python
 Project-URL: Repository, https://github.com/postgrid/postgrid-python
@@ -246,6 +246,25 @@ response = client.address_verification.verify(
 )
 print(response.address)
 ```
+
+## File uploads
+
+Request parameters that correspond to file uploads can be passed as `bytes`, or a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance or a tuple of `(filename, contents, media type)`.
+
+```python
+from pathlib import Path
+from postgrid import PostGrid
+
+client = PostGrid()
+
+client.bulk_verification.upload(
+    file=Path("/path/to/file"),
+    mappings={"line1": "line1"},
+    name="name",
+)
+```
+
+The async client uses the exact same interface. If you pass a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance, the file contents will be read asynchronously automatically.
 
 ## Handling errors
 

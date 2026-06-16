@@ -10,6 +10,7 @@ import org.junit.runners.Suite.SuiteClasses;
     MainTest.class,
     FileChunkStreamerTest.class,
     SSLBypassTest.class,
+    GitFileTest.class,
     ProgressReportingConsumerTest.class
 })
 public class AllTests {}

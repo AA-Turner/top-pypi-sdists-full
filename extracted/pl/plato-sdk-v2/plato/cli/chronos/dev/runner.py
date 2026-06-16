@@ -929,6 +929,38 @@ class DevRunner:
         except Exception as e:
             _warn(f"Failed to write startup profile JSON: {e}")
 
+    async def _sweep_stale_agent_vms(self) -> None:
+        """Remove agent (warm-pool) VMs left running by a dead world run.
+
+        Clean world exits release their warm pools through the stage
+        teardown; this only catches abrupt deaths (OOM, force-kill, crashes
+        that skip cleanup). It runs while no world process exists, so any
+        non-terminal warm-pool job is stale by definition. Best-effort —
+        a sweep failure must never block the next run.
+        """
+        if not self.session:
+            return
+        try:
+            jobs = await self.session.list_jobs()
+        except Exception as exc:
+            _warn(f"Stale agent VM sweep skipped (list_jobs failed): {exc}")
+            return
+        stale = [
+            j
+            for j in jobs
+            if (j.alias or "").startswith("warm-pool-")
+            and not any(terminal in str(j.status or "").upper() for terminal in ("COMPLETED", "FAILED", "CANCELLED"))
+        ]
+        if not stale:
+            return
+        _step(f"Sweeping {len(stale)} stale warm-pool VM(s) from the previous run")
+        for job in stale:
+            try:
+                await self.session.remove_job(job.job_id)
+                _info(f"Removed stale agent VM {job.alias} ({job.job_id})")
+            except Exception as exc:
+                _warn(f"Failed to remove stale agent VM {job.alias}: {exc}")
+
     async def _run_with_hot_reload(self) -> None:
         """Run the world with hot reload watching."""
         if not self.sync_manager:
@@ -954,6 +986,15 @@ class DevRunner:
 
                 run_label = f" [dim](run #{run_count})[/dim]" if run_count > 1 else ""
                 console.rule(f"[bold]{world_name}[/bold]{run_label}", style="blue")
+
+                # While no world process is running, any agent VM still alive
+                # was leaked by an abrupt world death (OOM, force-kill, crash
+                # that skipped stage cleanup) — clean exits release their warm
+                # pools themselves. Sweep before every run (including the
+                # first: a prior force-killed dev invocation on the same
+                # session leaves leaks behind) so Enter/r restarts don't
+                # accumulate N agent VMs per crash.
+                await self._sweep_stale_agent_vms()
 
                 # Re-read config from disk so env var / .env changes take effect
                 old_config = self.config

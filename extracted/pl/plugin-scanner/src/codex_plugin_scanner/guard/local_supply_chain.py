@@ -93,6 +93,29 @@ _LOCKFILE_CANDIDATES = (
     "composer.lock",
     "Gemfile.lock",
 )
+_WORKSPACE_AUDIT_DISCOVERY_SKIP_DIRS = frozenset(
+    {
+        ".git",
+        ".hg",
+        ".svn",
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".tox",
+        "dist",
+        "build",
+        ".next",
+        "target",
+        ".guard",
+        ".worktrees",
+        "worktrees",
+    }
+)
+_WORKSPACE_AUDIT_DISCOVERY_MAX_DEPTH = 3
+_MANIFEST_CANDIDATE_SET = frozenset(_MANIFEST_CANDIDATES)
+_LOCKFILE_CANDIDATE_SET = frozenset(_LOCKFILE_CANDIDATES)
+_INFORMATIONAL_REASON_CODES = frozenset({"unknown_package", "no_cached_match"})
 _PACKAGE_MANAGER_BY_ECOSYSTEM = {
     "npm": "npm",
     "pypi": "pip",
@@ -493,22 +516,186 @@ def _audit_lockfile_warnings(
     return tuple(warnings)
 
 
+def _package_advisory_ids(package: dict[str, object]) -> list[str]:
+    advisory_ids: list[str] = []
+    seen: set[str] = set()
+
+    def add_id(value: object) -> None:
+        if not isinstance(value, str):
+            return
+        trimmed = value.strip()
+        if not trimmed or trimmed in seen:
+            return
+        seen.add(trimmed)
+        advisory_ids.append(trimmed)
+
+    for key in ("advisoryIds", "advisory_ids", "relatedAdvisoryIds", "related_advisory_ids"):
+        raw = package.get(key)
+        if isinstance(raw, list):
+            for entry in raw:
+                add_id(entry)
+    add_id(package.get("advisoryId"))
+    add_id(package.get("advisory_id"))
+    reasons = package.get("reasons")
+    if isinstance(reasons, list):
+        for reason in reasons:
+            if not isinstance(reason, dict):
+                continue
+            add_id(reason.get("advisoryId"))
+            add_id(reason.get("advisory_id"))
+    return advisory_ids
+
+
+def _cached_supply_chain_bundle_payload(store: GuardStore) -> dict[str, object] | None:
+    workspace_id = store.get_cloud_workspace_id()
+    if workspace_id is None:
+        return None
+    cached_bundle = store.get_cached_supply_chain_bundle(workspace_id)
+    if not isinstance(cached_bundle, dict):
+        return None
+    bundle_payload = cached_bundle.get("bundle")
+    if isinstance(bundle_payload, dict):
+        return bundle_payload
+    return None
+
+
+def _resolve_advisory_aliases_from_bundle(
+    bundle: dict[str, object] | None,
+    advisory_ids: list[str],
+) -> list[str]:
+    aliases: list[str] = []
+    seen: set[str] = set()
+    lookup: dict[str, tuple[str, ...]] = {}
+    if isinstance(bundle, dict):
+        advisories = bundle.get("advisories")
+        if isinstance(advisories, list):
+            for advisory in advisories:
+                if not isinstance(advisory, dict):
+                    continue
+                advisory_id = advisory.get("advisoryId")
+                if not isinstance(advisory_id, str) or not advisory_id.strip():
+                    continue
+                raw_aliases = advisory.get("aliases")
+                alias_tuple: tuple[str, ...] = (advisory_id,)
+                if isinstance(raw_aliases, list):
+                    alias_tuple = (
+                        advisory_id,
+                        *[alias for alias in raw_aliases if isinstance(alias, str) and alias.strip()],
+                    )
+                upper_tuple = tuple(alias.upper() for alias in alias_tuple)
+                lookup[advisory_id.upper()] = upper_tuple
+                for alias in alias_tuple:
+                    lookup.setdefault(alias.upper(), upper_tuple)
+
+    def add_alias(value: str) -> None:
+        trimmed = value.strip().upper()
+        if not trimmed or trimmed in seen:
+            return
+        seen.add(trimmed)
+        aliases.append(trimmed)
+
+    for advisory_id in advisory_ids:
+        add_alias(advisory_id)
+        resolved = lookup.get(advisory_id.upper())
+        if resolved is None:
+            continue
+        for alias in resolved:
+            add_alias(alias)
+    return aliases
+
+
+def _enrich_package_with_advisory_aliases(
+    package: dict[str, object],
+    *,
+    bundle: dict[str, object] | None,
+) -> dict[str, object]:
+    existing_aliases = package.get("advisoryAliases")
+    if isinstance(existing_aliases, list) and existing_aliases:
+        return package
+    advisory_ids = _package_advisory_ids(package)
+    if not advisory_ids:
+        return package
+    aliases = _resolve_advisory_aliases_from_bundle(bundle, advisory_ids)
+    if not aliases:
+        return package
+    enriched = dict(package)
+    enriched["advisoryAliases"] = aliases
+    return enriched
+
+
+def _enrich_evaluation_packages_with_advisory_aliases(
+    evaluation: dict[str, object],
+    store: GuardStore,
+) -> dict[str, object]:
+    packages = evaluation.get("packages")
+    if not isinstance(packages, list):
+        return evaluation
+    bundle = _cached_supply_chain_bundle_payload(store)
+    enriched_packages: list[dict[str, object]] = []
+    for package in packages:
+        if not isinstance(package, dict):
+            continue
+        enriched_packages.append(_enrich_package_with_advisory_aliases(package, bundle=bundle))
+    return {**evaluation, "packages": enriched_packages}
+
+
+def _package_reason_codes(item: dict[str, object]) -> frozenset[str]:
+    reasons = item.get("reasons")
+    if not isinstance(reasons, list):
+        return frozenset()
+    codes: set[str] = set()
+    for reason in reasons:
+        if not isinstance(reason, dict):
+            continue
+        code = str(reason.get("code") or "").strip()
+        if code:
+            codes.add(code)
+    return frozenset(codes)
+
+
+def _is_actionable_package_finding(item: dict[str, object]) -> bool:
+    decision = str(item.get("decision") or "monitor")
+    if decision in {"block", "ask", "warn"}:
+        return True
+    reason_codes = _package_reason_codes(item)
+    if not reason_codes:
+        return decision not in {"allow", "monitor"}
+    return not reason_codes.issubset(_INFORMATIONAL_REASON_CODES)
+
+
+def _audit_package_inventory_for_receipt(
+    package_items: list[dict[str, object]],
+    *,
+    limit: int = 500,
+    bundle: dict[str, object] | None = None,
+) -> list[dict[str, object]]:
+    ranked = sorted(
+        package_items,
+        key=lambda item: (
+            str(item.get("ecosystem") or ""),
+            str(item.get("name") or ""),
+        ),
+    )
+    return [_enrich_package_with_advisory_aliases(item, bundle=bundle) for item in ranked[:limit]]
+
+
 def _audit_package_findings_for_receipt(
     package_items: list[dict[str, object]],
     *,
     limit: int = 100,
+    bundle: dict[str, object] | None = None,
 ) -> list[dict[str, object]]:
     decision_rank_map = {"block": 4, "ask": 3, "warn": 2, "monitor": 1, "allow": 0}
     ranked: list[tuple[int, int, dict[str, object]]] = []
     for item in package_items:
-        decision = str(item.get("decision") or "monitor")
-        if decision in {"allow", "monitor"} and not item.get("reasons"):
+        if not _is_actionable_package_finding(item):
             continue
+        decision = str(item.get("decision") or "monitor")
         severity_rank = _package_severity_rank(item)
         decision_rank = decision_rank_map.get(decision, 0)
         ranked.append((decision_rank, severity_rank, item))
     ranked.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
-    return [item for _, _, item in ranked[:limit]]
+    return [_enrich_package_with_advisory_aliases(item, bundle=bundle) for _, _, item in ranked[:limit]]
 
 
 def workspace_audit_path_hashes(
@@ -591,6 +778,7 @@ def audit_receipt_metadata(
     result: dict[str, object],
     *,
     workspace_dir: Path | None = None,
+    store: GuardStore | None = None,
 ) -> dict[str, object]:
     evaluation = result.get("evaluation")
     if not isinstance(evaluation, dict):
@@ -599,7 +787,9 @@ def audit_receipt_metadata(
     packages = evaluation.get("packages")
     package_items = [item for item in packages if isinstance(item, dict)] if isinstance(packages, list) else []
     blocked_packages = [item for item in package_items if str(item.get("decision") or "") == "block"]
-    package_findings = _audit_package_findings_for_receipt(package_items)
+    bundle = _cached_supply_chain_bundle_payload(store) if store is not None else None
+    package_findings = _audit_package_findings_for_receipt(package_items, bundle=bundle)
+    package_inventory = _audit_package_inventory_for_receipt(package_items, bundle=bundle)
     policy_decision = "allow"
     if decision == "block":
         policy_decision = "block"
@@ -626,6 +816,7 @@ def audit_receipt_metadata(
             "manifest_hashes": path_hashes["manifest_hashes"],
             "lockfile_hashes": path_hashes["lockfile_hashes"],
             "total_packages": inventory_summary.get("total_packages", len(package_items)),
+            "package_inventory": package_inventory,
             "package_findings": package_findings,
         },
     }
@@ -753,6 +944,7 @@ def build_workspace_audit_payload(
             command_name=command_name,
             now=now,
         )
+    evaluation = _enrich_evaluation_packages_with_advisory_aliases(evaluation, store)
     payload = {
         "generated_at": now,
         "mode": command_name,
@@ -1422,7 +1614,32 @@ def _workspace_scan_intent(
     )
 
 
+def _discover_workspace_audit_paths(workspace_dir: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    workspace_root = workspace_dir.expanduser().resolve()
+    manifests: list[str] = []
+    lockfiles: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(workspace_root, topdown=True):
+        current = Path(dirpath)
+        try:
+            depth = len(current.relative_to(workspace_root).parts)
+        except ValueError:
+            continue
+        if depth >= _WORKSPACE_AUDIT_DISCOVERY_MAX_DEPTH:
+            dirnames[:] = []
+        dirnames[:] = [name for name in dirnames if name not in _WORKSPACE_AUDIT_DISCOVERY_SKIP_DIRS]
+        for filename in filenames:
+            relative = (current / filename).relative_to(workspace_root).as_posix()
+            if filename in _MANIFEST_CANDIDATE_SET and relative not in manifests:
+                manifests.append(relative)
+            elif filename in _LOCKFILE_CANDIDATE_SET and relative not in lockfiles:
+                lockfiles.append(relative)
+    return tuple(manifests), tuple(lockfiles)
+
+
 def _workspace_files(workspace_dir: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    discovered = _discover_workspace_audit_paths(workspace_dir)
+    if discovered[0] or discovered[1]:
+        return discovered
     return (
         existing_relative_paths(workspace_dir, _MANIFEST_CANDIDATES),
         existing_relative_paths(workspace_dir, _LOCKFILE_CANDIDATES),

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pytest-unordered
-Version: 0.7.0
+Version: 0.8.0
 Summary: Test equality of unordered collections in pytest
 Home-page: https://github.com/utapyngo/pytest-unordered
 Author: Ivan Zaikin
-Author-email: ut@pyngo.tom.ru
+Author-email: utapyngo@gmail.com
 Maintainer: Ivan Zaikin
-Maintainer-email: ut@pyngo.tom.ru
+Maintainer-email: utapyngo@gmail.com
 License: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: Pytest
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing

@@ -24,12 +24,11 @@ class ProductResource:
     """JSON:API resource envelope for a product catalog entry.
 
     Example:
-        {'attributes': {'coming_soon': False, 'description': 'Feature flag management', 'display_name': 'Smpl Flags',
-            'features': ['Targeted rollouts', 'Experiment toggles', 'Environment controls'], 'limits': {'flags':
-            {'description': 'Maximum number of feature flags', 'display_name': 'Feature Flags', 'unit': 'flags'}}, 'plans':
-            {'free': {'limits': {'flags': 10}, 'price_monthly_cents': 0}, 'pro': {'limits': {'flags': -1},
-            'price_monthly_cents': 2900}}, 'tagline': 'Feature flag delivery for safer rollouts and controlled
-            experiments.'}, 'id': 'flags', 'type': 'product'}
+        {'attributes': {'description': 'Feature flag management', 'display_name': 'Smpl Flags', 'features': ['Targeted
+            rollouts', 'Experiment toggles', 'Environment controls'], 'limits': {'flags': {'description': 'Maximum number of
+            feature flags', 'display_name': 'Feature Flags', 'unit': 'flags'}}, 'plans': {'free': {'limits': {'flags': 10},
+            'price_monthly_cents': 0}, 'pro': {'limits': {'flags': -1}, 'price_monthly_cents': 2900}}, 'tagline': 'Feature
+            flag delivery for safer rollouts and controlled experiments.'}, 'id': 'flags', 'type': 'product'}
 
     Attributes:
         type_ (ProductResourceType):

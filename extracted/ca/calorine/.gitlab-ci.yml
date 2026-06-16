@@ -203,8 +203,9 @@ scheduled:build-gpumd:
   services:
     - docker:24.0.2-dind
   tags:
-    # 2 vCPUs, 8GB RAM, 30GB storage
-    - saas-linux-small-amd64
+    # 4 vCPUs, 16GB RAM, 50GB storage
+    # Job might fail if not enough disk space
+    - saas-linux-medium-amd64
   extends: 
     - .scheduled-job
   script:

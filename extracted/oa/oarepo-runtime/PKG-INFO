@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: oarepo-runtime
-Version: 6.0.0
+Version: 7.0.0
 Summary: A set of runtime extensions of Invenio repository
 Project-URL: Homepage, https://github.com/oarepo/oarepo-runtime
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: <3.15,>=3.14
 Requires-Dist: invenio-app<4.0.0,>=3.0.0
-Requires-Dist: invenio-rdm-records<32.0.0,>=31.0.0
+Requires-Dist: invenio-rdm-records<33.0.0,>=32.0.1
 Requires-Dist: invenio-search<4.0.0,>=3.0.0
 Requires-Dist: langcodes>=3.5.0
 Requires-Dist: oarepo-invenio-typing-stubs>=0.1.0

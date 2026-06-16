@@ -24,9 +24,13 @@ else:
 __all__ = (
     "ActionValueType",
     "AssociatedResourceTypeType",
+    "BlockchainChainType",
     "BodyParsingFallbackBehaviorType",
     "ComparisonOperatorType",
     "CountryCodeType",
+    "CryptoCurrencyType",
+    "CurrencyModeType",
+    "CurrencyType",
     "DataProtectionActionType",
     "FailureReasonType",
     "FallbackBehaviorType",
@@ -34,8 +38,10 @@ __all__ = (
     "FilterBehaviorType",
     "FilterRequirementType",
     "ForwardedIPPositionType",
+    "GroupByTypeType",
     "IPAddressVersionType",
     "InspectionLevelType",
+    "IntervalTypeType",
     "JsonMatchScopeType",
     "LabelMatchScopeType",
     "LogScopeType",
@@ -46,6 +52,8 @@ __all__ = (
     "PayloadTypeType",
     "PlatformType",
     "PositionalConstraintType",
+    "RankingSortByType",
+    "RankingStatisticTypeType",
     "RateBasedStatementAggregateKeyTypeType",
     "RegionName",
     "ResourceServiceName",
@@ -55,13 +63,19 @@ __all__ = (
     "SensitivityLevelType",
     "SensitivityToActType",
     "ServiceName",
+    "SettlementSortByType",
+    "SettlementStatusType",
     "SizeInspectionLimitType",
+    "SortOrderType",
     "TextTransformationTypeType",
+    "TimeSeriesStatisticTypeType",
     "UsageOfActionType",
     "WAFV2ServiceName",
 )
 
-ActionValueType = Literal["ALLOW", "BLOCK", "CAPTCHA", "CHALLENGE", "COUNT", "EXCLUDED_AS_COUNT"]
+ActionValueType = Literal[
+    "ALLOW", "BLOCK", "CAPTCHA", "CHALLENGE", "COUNT", "EXCLUDED_AS_COUNT", "MONETIZE"
+]
 AssociatedResourceTypeType = Literal[
     "API_GATEWAY",
     "APP_RUNNER_SERVICE",
@@ -69,6 +83,7 @@ AssociatedResourceTypeType = Literal[
     "COGNITO_USER_POOL",
     "VERIFIED_ACCESS_INSTANCE",
 ]
+BlockchainChainType = Literal["BASE", "BASE_SEPOLIA", "SOLANA", "SOLANA_DEVNET"]
 BodyParsingFallbackBehaviorType = Literal["EVALUATE_AS_STRING", "MATCH", "NO_MATCH"]
 ComparisonOperatorType = Literal["EQ", "GE", "GT", "LE", "LT", "NE"]
 CountryCodeType = Literal[
@@ -323,6 +338,9 @@ CountryCodeType = Literal[
     "ZM",
     "ZW",
 ]
+CryptoCurrencyType = Literal["USDC"]
+CurrencyModeType = Literal["REAL", "TEST"]
+CurrencyType = Literal["USDC"]
 DataProtectionActionType = Literal["HASH", "SUBSTITUTION"]
 FailureReasonType = Literal[
     "TOKEN_DOMAIN_MISMATCH", "TOKEN_EXPIRED", "TOKEN_INVALID", "TOKEN_MISSING"
@@ -334,8 +352,10 @@ FieldToProtectTypeType = Literal[
 FilterBehaviorType = Literal["DROP", "KEEP"]
 FilterRequirementType = Literal["MEETS_ALL", "MEETS_ANY"]
 ForwardedIPPositionType = Literal["ANY", "FIRST", "LAST"]
+GroupByTypeType = Literal["CATEGORY", "INTENT", "NAME", "ORGANIZATION", "WEBACL"]
 IPAddressVersionType = Literal["IPV4", "IPV6"]
 InspectionLevelType = Literal["COMMON", "TARGETED"]
+IntervalTypeType = Literal["DAILY", "FIVE_MINUTELY", "HOURLY", "MINUTELY"]
 JsonMatchScopeType = Literal["ALL", "KEY", "VALUE"]
 LabelMatchScopeType = Literal["LABEL", "NAMESPACE"]
 LogScopeType = Literal["CLOUDWATCH_TELEMETRY_RULE_MANAGED", "CUSTOMER", "SECURITY_LAKE"]
@@ -348,6 +368,8 @@ PlatformType = Literal["ANDROID", "IOS"]
 PositionalConstraintType = Literal[
     "CONTAINS", "CONTAINS_WORD", "ENDS_WITH", "EXACTLY", "STARTS_WITH"
 ]
+RankingSortByType = Literal["NAME", "PERCENTAGE", "REVENUE"]
+RankingStatisticTypeType = Literal["TOP_PATHS_BY_REVENUE", "TOP_SOURCES_BY_REVENUE"]
 RateBasedStatementAggregateKeyTypeType = Literal["CONSTANT", "CUSTOM_KEYS", "FORWARDED_IP", "IP"]
 ResourceTypeType = Literal[
     "AMPLIFY",
@@ -362,7 +384,12 @@ ResponseContentTypeType = Literal["APPLICATION_JSON", "TEXT_HTML", "TEXT_PLAIN"]
 ScopeType = Literal["CLOUDFRONT", "REGIONAL"]
 SensitivityLevelType = Literal["HIGH", "LOW"]
 SensitivityToActType = Literal["HIGH", "LOW", "MEDIUM"]
+SettlementSortByType = Literal["AMOUNT", "NAME", "STATUS", "TIMESTAMP"]
+SettlementStatusType = Literal[
+    "DUPLICATE", "FAILED", "PENDING", "SERVICE_ERROR", "SETTLED", "SKIPPED_ORIGIN_ERROR"
+]
 SizeInspectionLimitType = Literal["KB_16", "KB_32", "KB_48", "KB_64"]
+SortOrderType = Literal["ASC", "DESC"]
 TextTransformationTypeType = Literal[
     "BASE64_DECODE",
     "BASE64_DECODE_EXT",
@@ -386,6 +413,7 @@ TextTransformationTypeType = Literal[
     "URL_DECODE_UNI",
     "UTF8_TO_UNICODE",
 ]
+TimeSeriesStatisticTypeType = Literal["DATE_HISTOGRAM", "PAYMENT_TRAFFIC"]
 UsageOfActionType = Literal["DISABLED", "ENABLED"]
 WAFV2ServiceName = Literal["wafv2"]
 ServiceName = Literal[

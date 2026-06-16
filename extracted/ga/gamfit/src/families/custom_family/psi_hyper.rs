@@ -115,7 +115,19 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
             // 3. Build HyperCoord using block-local S_ψ (avoids full p×p materialization).
             let beta_block = beta_flat.slice(ndarray::s![start..end]);
             let s_psi_beta_local = s_psi_local.dot(&beta_block);
-            let a = psi_terms.objective_psi + 0.5 * beta_block.dot(&s_psi_beta_local);
+            let a_penalty_quadratic = 0.5 * beta_block.dot(&s_psi_beta_local);
+            let a = psi_terms.objective_psi + a_penalty_quadratic;
+            // HVP ψ-gradient attribution (#740): record the first ψ coordinate's
+            // `a = a_likelihood + a_penalty_quadratic` split so a failing
+            // `coord_a` FD can be attributed to the per-row likelihood channel
+            // (`objective_psi`) vs the penalty-quadratic channel. Diagnostic
+            // only; gated to a live capture guard so production never pays.
+            if psi_global == 0 && crate::test_support::debug_stash::capture_requested() {
+                crate::test_support::debug_stash::store_a_split(
+                    psi_terms.objective_psi,
+                    a_penalty_quadratic,
+                );
+            }
             // Embed s_psi_beta into full p-vector for the score.
             let mut s_psi_beta = Array1::zeros(total);
             s_psi_beta
@@ -1075,9 +1087,38 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                     .as_ref()
                     .map(|(_phi, hphi, _completion)| hphi),
             );
+        // The batched outer-gradient override produces the ENVELOPE gradient
+        // `objective_θ + ½tr[..] − ½ld_s` only — it omits the KKT-residual
+        // (one-step Newton profile) correction `−coord.gᵀq + ½qᵀ Ḣ q` that the
+        // unified evaluator applies (cost-side `−½rᵀH⁻¹r`, ρ AND ψ gradient
+        // derivatives) whenever the inner solve exits at β̂ with a nonzero KKT
+        // residual `r = ∇_β L_pen(β̂)`. At exact KKT (`r ≈ 0`) the correction is
+        // identically zero and the batched envelope gradient equals the unified
+        // gradient, so the fast path is used. When the inner exit accepts a
+        // non-negligible residual (near-singular blocks), the omitted term is
+        // amplified by `‖H⁻¹‖·‖r‖` and the envelope gradient diverges from the
+        // true derivative of the corrected objective — so fall back to the
+        // unified evaluator (which carries the correction for every coordinate).
+        let inner_kkt_residual_is_negligible = match inner.kkt_residual.as_ref() {
+            None => true,
+            Some(residual) => {
+                let r = residual.as_array();
+                let r_inf = r.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+                // The KKT correction's leading term `−coord.gᵀ(H⁻¹r)` is bounded
+                // by `‖H⁻¹‖·‖coord.g‖·‖r‖`; treat the residual as exact only when
+                // its inf-norm is at the inner solve's own KKT tolerance floor
+                // (defaulting to a tight `1e-8` when the producer attached none),
+                // so the fast batched path is taken on well-converged fits and
+                // the unified correction path is taken whenever `r` is materially
+                // nonzero.
+                let tol = residual.residual_tol().unwrap_or(1.0e-8).max(1.0e-12);
+                r_inf <= tol
+            }
+        };
         let mut batched_gradient_override: Option<Array1<f64>> = None;
         if !has_configured_rho_prior
             && batched_gradient_contract_allows_override
+            && inner_kkt_residual_is_negligible
             && (eval_mode == EvalMode::ValueAndGradient
                 || eval_mode == EvalMode::ValueGradientHessian)
             && let Ok(Some(batch)) = family.batched_outer_gradient_terms(
@@ -1388,7 +1429,12 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                 eval_mode,
             )?,
             robust_jeffreys_hphi,
-            custom_family_outer_jeffreys_hphi_drift(family, &inner.block_states, specs, &ranges)?,
+            custom_family_outer_jeffreys_hphi_drift_batched(
+                family,
+                &inner.block_states,
+                specs,
+                &ranges,
+            )?,
         )?;
         if let Some(gradient) = batched_gradient_override {
             eval_result.gradient = gradient;
@@ -1645,7 +1691,12 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                 eval_mode,
             )?,
             custom_family_outer_jeffreys_hphi(family, &inner.block_states, specs, &ranges)?,
-            custom_family_outer_jeffreys_hphi_drift(family, &inner.block_states, specs, &ranges)?,
+            custom_family_outer_jeffreys_hphi_drift_batched(
+                family,
+                &inner.block_states,
+                specs,
+                &ranges,
+            )?,
         )?;
 
         let mut eval_result = eval_result;
@@ -1957,7 +2008,12 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
             eval_mode,
         )?,
         robust_jeffreys_hphi,
-        custom_family_outer_jeffreys_hphi_drift(family, &inner.block_states, specs, &ranges)?,
+        custom_family_outer_jeffreys_hphi_drift_batched(
+            family,
+            &inner.block_states,
+            specs,
+            &ranges,
+        )?,
     )?;
 
     Ok(eval_result)

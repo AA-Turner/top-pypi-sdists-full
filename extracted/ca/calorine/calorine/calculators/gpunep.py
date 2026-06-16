@@ -7,10 +7,11 @@ from typing import Any, List, Tuple, Union
 
 import numpy as np
 from ase import Atoms
-from ase.calculators.calculator import FileIOCalculator, OldShellProfile
+from ase.calculators.calculator import FileIOCalculator, OldShellProfile, all_changes
 from ase.io import read as ase_read
 from ase.units import GPa
 
+from calorine.nep.model import _get_nep_contents
 from ..gpumd import write_xyz
 
 
@@ -84,19 +85,19 @@ class GPUNEP(FileIOCalculator):
     """
 
     command = 'gpumd'
-    implemented_properties = ['energy', 'forces', 'stress']
+    base_implemented_properties = ['energy', 'forces', 'stress']
     discard_results_on_any_change = True
 
     # We use list of tuples to define parameters for
     # MD simulations. Looks like a dictionary, but sometimes
     # we want to repeat the same keyword.
-    single_point_parameters = [('dump_thermo', 1),
-                               ('dump_force', 1),
-                               ('dump_position', 1),
-                               ('velocity', 1e-24),
-                               ('time_step', 1e-6),  # 1 zeptosecond
-                               ('ensemble', 'nve'),
-                               ('run', 1)]
+    base_single_point_parameters = [('dump_thermo', 1),
+                                    ('dump_force', 1),
+                                    ('dump_position', 1),
+                                    ('velocity', 1e-24),
+                                    ('time_step', 1e-6),  # 1 zeptosecond
+                                    ('ensemble', 'nve'),
+                                    ('run', 1)]
 
     def __init__(self,
                  model_filename: str,
@@ -106,6 +107,25 @@ class GPUNEP(FileIOCalculator):
                  command: str = command,
                  gpu_identifier_index: Union[int, None] = 0
                  ):
+        if not os.path.exists(model_filename):
+            raise FileNotFoundError(f'{model_filename} does not exist.')
+        self.model_filename = str(model_filename)
+
+        # Get model type from first row in nep.txt
+        header, _ = _get_nep_contents(self.model_filename)
+        self.model_type = header['model_type']
+        self.supported_species = set(header['types'])
+        self.nep_version = header['version']
+        self.model_filename = model_filename
+
+        self.implemented_properties = list(self.base_implemented_properties)
+        self.single_point_parameters = self.base_single_point_parameters
+        if 'charge' in self.model_type:
+            # Only available for charge models
+            self.implemented_properties.extend(
+                ['charges', 'born_effective_charges'])
+            qnep_parameters = [('dump_xyz', (-1, 1, 1, 'charges_and_bec.xyz', 'charge', 'bec'))]
+            self.single_point_parameters = qnep_parameters + self.base_single_point_parameters
 
         # Determine run command
         # Determine whether to save stdout or not
@@ -115,7 +135,6 @@ class GPUNEP(FileIOCalculator):
         elif '>' not in command:
             command += ' > stdout'
         self.command = command
-        self.model_filename = model_filename
 
         # Determine directory to run in
         self._use_temporary_directory = directory is None
@@ -135,18 +154,6 @@ class GPUNEP(FileIOCalculator):
                                   label=label,
                                   atoms=atoms,
                                   profile=profile)
-
-        # If the model file is missing we should abort immediately
-        # such that we can provide a more clear error message
-        # (otherwise the code would fail without telling what is wrong).
-        if not os.path.exists(model_filename):
-            raise FileNotFoundError(f'{model_filename} does not exist.')
-
-        # Read species from nep.txt
-        with open(model_filename, 'r') as f:
-            for line in f:
-                if 'nep' in line:
-                    self.species = line.split()[2:]
 
     def run_custom_md(
         self,
@@ -176,7 +183,7 @@ class GPUNEP(FileIOCalculator):
             If ``True`` the last saved snapshot will be returned.
         only_prepare
             If ``True`` the necessary input files will be written
-             but theMD run will not be executed.
+             but the MD run will not be executed.
 
         Returns
         -------
@@ -294,12 +301,29 @@ class GPUNEP(FileIOCalculator):
         """Reads forces (the last snapshot in force.out) in eV/A"""
         self.results['forces'] = self.get_forces_from_file()
 
+    def get_charges_and_becs_from_file(self):
+        """Extract charges and Born Effective Charges from last
+        snapshot in `charges_and_bec.xyz`"""
+        structure = ase_read(os.path.join(self._directory, 'charges_and_bec.xyz'), '-1')
+        charges = structure.get_charges()
+        becs = structure.get_array('bec')
+        return charges, becs
+
+    def _read_charges_and_becs(self):
+        """Reads charges and Born Effective Charges from file."""
+        charges, becs = self.get_charges_and_becs_from_file()
+        self.results['charges'] = charges
+        self.results['born_effective_charges'] = becs
+
     def read_results(self):
         """
         Read results from last step of MD calculation.
         """
         self._read_potential_energy_and_stresses()
         self._read_forces()
+
+        if 'charge' in self.model_type:
+            self._read_charges_and_becs()
         if self._use_temporary_directory:
             self._clean()
 
@@ -339,3 +363,27 @@ class GPUNEP(FileIOCalculator):
         self._use_temporary_directory = False
         self._potential_path = os.path.relpath(os.path.abspath(self.model_filename),
                                                self._directory)
+
+    def get_born_effective_charges(
+        self,
+        atoms: Atoms = None,
+        properties: List[str] = None,
+        system_changes: List[str] = all_changes,
+    ) -> np.ndarray:
+        """Calculates (if needed) and returns the Born effective charges.
+        Note that this requires a qNEP model.
+
+        Parameters
+        ----------
+        atoms
+            System for which to calculate properties, by default `None`.
+        properties
+            Properties to calculate, by default `None`.
+        system_changes
+            Changes to the system since last call, by default all_changes.
+        """
+        if 'born_effective_charges' not in self.implemented_properties:
+            raise ValueError(
+                'This model does not support the calculation of Born effective charges.')
+        self.calculate(atoms, properties, system_changes)
+        return self.results['born_effective_charges']

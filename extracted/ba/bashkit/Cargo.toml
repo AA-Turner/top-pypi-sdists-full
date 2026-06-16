@@ -7,10 +7,10 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
-version = "0.10.0"
+version = "0.11.0"
 edition = "2024"
 license = "MIT"
-authors = ["Everruns"]
+authors = ["Mykhailo Chalyi <mike@chaliy.name>", "Everruns"]
 repository = "https://github.com/everruns/bashkit"
 description = "Awesomely fast virtual sandbox with bash and file system"
 keywords = ["bash", "virtual", "ai", "agent", "everruns"]

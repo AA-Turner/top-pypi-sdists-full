@@ -11195,7 +11195,17 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
 
 
 class GetAgentGraphInput(sgqlc.types.Input):
-    """Input parameters for GetAgentGraph query."""
+    """Input parameters shared by GetAgentGraph and
+    GetAgentGraphInsights.  ``getAgentGraph`` reads a daily-refreshed
+    snapshot of the fused graph for the trailing 7 days and ignores
+    ``startTime``, ``endTime``, ``maxTraces``, and
+    ``includeFrameworkNodes`` — the snapshot window and shape are
+    fixed server-side (framework wrappers collapsed, up to 1000
+    traces). ``getAgentGraphInsights`` fuses traces live and honors
+    all fields; ``startTime`` / ``endTime`` are required there
+    (enforced at the resolver — the shared schema type can no longer
+    mark them non-null).
+    """
 
     __schema__ = schema
     __field_names__ = (
@@ -11217,24 +11227,33 @@ class GetAgentGraphInput(sgqlc.types.Input):
     query.
     """
 
-    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
-    """Start of time range (inclusive)"""
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """Start of time range (inclusive). Required by
+    getAgentGraphInsights. Ignored by getAgentGraph — the snapshot
+    window is fixed at the trailing 7 days.
+    """
 
-    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
-    """End of time range (inclusive)"""
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """End of time range (inclusive). Required by getAgentGraphInsights.
+    Ignored by getAgentGraph.
+    """
 
     workflows = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
     )
-    """Optional list of workflow names to narrow the trace pool (OR logic
-    — matches traces containing any listed workflow). When omitted or
-    empty, all of the agent's traces in the time window are fused.
-    Same semantics as `filters.workflows` on getTraces.
+    """Optional list of workflow names. getAgentGraph reads the matching
+    per-workflow snapshot and supports at most one name today —
+    supplying more raises a validation error; omit or pass an empty
+    list to read the unfiltered snapshot. getAgentGraphInsights
+    narrows the live trace pool (OR logic — matches traces containing
+    any listed workflow), same semantics as `filters.workflows` on
+    getTraces.
     """
 
     max_traces = sgqlc.types.Field(Int, graphql_name="maxTraces")
     """Maximum number of most-recent traces to fuse into the graph.
-    Capped at 100; values above 100 are clamped server-side.
+    Capped at 100; values above 100 are clamped server-side. Ignored
+    by getAgentGraph — snapshots always fuse up to 1000 traces.
     """
 
     include_framework_nodes = sgqlc.types.Field(Boolean, graphql_name="includeFrameworkNodes")
@@ -11244,7 +11263,8 @@ class GetAgentGraphInput(sgqlc.types.Input):
     graph behaves as if the wrappers were never emitted. When true,
     wrappers appear as their own nodes flagged via `frameworkNode`,
     and counts / edges / cluster sizes reflect the full uncollapsed
-    tree.
+    tree. Ignored by getAgentGraph — snapshots store the collapsed
+    graph only.
     """
 
 
@@ -30918,6 +30938,7 @@ class EtlJobRunV3(sgqlc.types.Type):
         "error",
         "attributes",
         "job_mcon",
+        "is_failure",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
     """Stable opaque identifier derived from `(globalId, startedAt)` —
@@ -30964,6 +30985,9 @@ class EtlJobRunV3(sgqlc.types.Type):
 
     job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
     """MCON of the parent ETL job."""
+
+    is_failure = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFailure")
+    """Whether this run ended in a failure-terminal status."""
 
 
 class EtlJobRunV3Connection(sgqlc.types.relay.Connection):
@@ -31111,6 +31135,7 @@ class EtlTaskRunV3(sgqlc.types.Type):
         "error",
         "attributes",
         "job_mcon",
+        "is_failure",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
     """Stable opaque identifier derived from `(globalId, startedAt)` —
@@ -31159,6 +31184,9 @@ class EtlTaskRunV3(sgqlc.types.Type):
 
     job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
     """MCON of the parent ETL job."""
+
+    is_failure = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFailure")
+    """Whether this run ended in a failure-terminal status."""
 
 
 class EtlTaskRunV3Connection(sgqlc.types.relay.Connection):
@@ -62110,6 +62138,90 @@ class PiiFilteringPreferencesOutput(sgqlc.types.Type):
     """
 
 
+class PiiScanColumnSummary(sgqlc.types.Type):
+    """Server-side aggregate summary for one table column with PII
+    findings
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "table_mcon",
+        "full_table_id",
+        "project_name",
+        "dataset",
+        "table_name",
+        "field",
+        "field_key",
+        "finding_count",
+        "pii_types",
+        "metrics",
+        "max_match_rate",
+        "scanned_row_count",
+        "first_detected_at",
+        "last_scanned_at",
+        "monitor_count",
+        "bulk_monitor_names",
+        "bulk_monitor_uuids",
+        "alert_uuids",
+    )
+    table_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="tableMcon")
+
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+
+    project_name = sgqlc.types.Field(String, graphql_name="projectName")
+
+    dataset = sgqlc.types.Field(String, graphql_name="dataset")
+
+    table_name = sgqlc.types.Field(String, graphql_name="tableName")
+
+    field = sgqlc.types.Field(String, graphql_name="field")
+    """Display column name for this grouped finding."""
+
+    field_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fieldKey")
+    """Normalized lowercase column key used to group findings."""
+
+    finding_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="findingCount")
+
+    pii_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="piiTypes",
+    )
+
+    metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="metrics",
+    )
+
+    max_match_rate = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="maxMatchRate")
+    """Highest PII match rate across findings in this grouped row."""
+
+    scanned_row_count = sgqlc.types.Field(BigInt, graphql_name="scannedRowCount")
+    """Rows scanned for the grouped table, if available."""
+
+    first_detected_at = sgqlc.types.Field(DateTime, graphql_name="firstDetectedAt")
+
+    last_scanned_at = sgqlc.types.Field(DateTime, graphql_name="lastScannedAt")
+
+    monitor_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorCount")
+
+    bulk_monitor_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="bulkMonitorNames",
+    )
+    """Names of PII bulk monitors contributing to this grouped row."""
+
+    bulk_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="bulkMonitorUuids",
+    )
+    """UUIDs of PII bulk monitors contributing to this grouped row."""
+
+    alert_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="alertUuids",
+    )
+
+
 class PiiScanFinding(sgqlc.types.Type):
     """A latest nonzero finding from a PII scan monitor"""
 
@@ -62162,7 +62274,15 @@ class PiiScanFindingsSummary(sgqlc.types.Type):
     """Latest nonzero PII scan findings for a PII bulk monitor"""
 
     __schema__ = schema
-    __field_names__ = ("findings", "latest_scan_time", "has_more", "totals", "tables")
+    __field_names__ = (
+        "findings",
+        "latest_scan_time",
+        "has_more",
+        "totals",
+        "tables",
+        "columns",
+        "filter_options",
+    )
     findings = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanFinding))),
         graphql_name="findings",
@@ -62181,6 +62301,36 @@ class PiiScanFindingsSummary(sgqlc.types.Type):
         graphql_name="tables",
     )
 
+    columns = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PiiScanColumnSummary))),
+        graphql_name="columns",
+    )
+
+    filter_options = sgqlc.types.Field(
+        sgqlc.types.non_null("PiiScanInventoryFilterOptions"), graphql_name="filterOptions"
+    )
+
+
+class PiiScanInventoryFilterOptions(sgqlc.types.Type):
+    """Available scope filters for PII inventory"""
+
+    __schema__ = schema
+    __field_names__ = ("warehouses", "project_names", "datasets")
+    warehouses = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PiiScanWarehouseOption"))),
+        graphql_name="warehouses",
+    )
+
+    project_names = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="projectNames",
+    )
+
+    datasets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="datasets",
+    )
+
 
 class PiiScanInventoryTotals(sgqlc.types.Type):
     """Server-side aggregate totals for PII scan findings"""
@@ -62190,6 +62340,8 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
         "total_tables_with_pii",
         "total_columns_with_pii",
         "total_findings",
+        "total_tables_scanned",
+        "total_rows_scanned",
         "monitor_count",
         "pii_types",
         "first_detected_at",
@@ -62204,6 +62356,12 @@ class PiiScanInventoryTotals(sgqlc.types.Type):
     )
 
     total_findings = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalFindings")
+
+    total_tables_scanned = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalTablesScanned"
+    )
+
+    total_rows_scanned = sgqlc.types.Field(BigInt, graphql_name="totalRowsScanned")
 
     monitor_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorCount")
 
@@ -62252,6 +62410,16 @@ class PiiScanTableSummary(sgqlc.types.Type):
     last_scanned_at = sgqlc.types.Field(DateTime, graphql_name="lastScannedAt")
 
     monitor_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorCount")
+
+
+class PiiScanWarehouseOption(sgqlc.types.Type):
+    """Available warehouse scope for PII inventory filters"""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    name = sgqlc.types.Field(String, graphql_name="name")
 
 
 class PiiTypeInfo(sgqlc.types.Type):
@@ -63143,6 +63311,7 @@ class Query(sgqlc.types.Type):
         "get_pii_types",
         "get_pii_scan_findings",
         "get_pii_scan_inventory",
+        "get_pii_scan_inventory_export_csv",
         "bulk_monitor",
         "bulk_monitors",
         "get_bulk_monitor",
@@ -64513,12 +64682,15 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Fuse the most recent traces of a workflow into a
-    single directed graph. Nodes group spans by (kind, name) — and
+    """(experimental) Read the daily-refreshed snapshot of an agent's
+    fused trace graph. Nodes group spans by (kind, name) — and
     additionally by model for LLM spans — and edges record sibling-
     sequence transitions within each trace. Returns per-node counts,
     error rates, duration/token statistics, and per-trace iteration
-    stats so cycles are visible. Capped at 100 traces.
+    stats so cycles are visible. Snapshots cover the trailing 7 days,
+    fuse up to 1000 traces, and are refreshed daily; an agent or
+    workflow without a computed snapshot yet returns an 'Agent graph
+    snapshot not found' error.
 
     Arguments:
 
@@ -64542,11 +64714,12 @@ class Query(sgqlc.types.Type):
     """(experimental) Derive developer-facing insights from a fused agent
     graph. Computes parallel-cluster chokepoints, sequential
     bottlenecks, loop saturation, tool hotspots, tool timeouts, model
-    inconsistencies, and error concentration from the same fusion that
-    powers `getAgentGraph`. Adds a single-paragraph natural-language
-    summary at resolver time. Trace-level rate insights require at
-    least 5 fused traces. Same input and access scope as
-    `getAgentGraph`.
+    inconsistencies, and error concentration from the same live trace
+    fusion that previously powered `getAgentGraph`. Adds a single-
+    paragraph natural-language summary at resolver time. Trace-level
+    rate insights require at least 5 fused traces. Same input type and
+    access scope as `getAgentGraph`, but `startTime` and `endTime` are
+    required here.
 
     Arguments:
 
@@ -66373,6 +66546,26 @@ class Query(sgqlc.types.Type):
                     "bulk_monitor_uuid",
                     sgqlc.types.Arg(UUID, graphql_name="bulkMonitorUuid", default=None),
                 ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
+                ),
+                (
+                    "project_names",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="projectNames",
+                        default=None,
+                    ),
+                ),
+                (
+                    "datasets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="datasets",
+                        default=None,
+                    ),
+                ),
                 ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=500)),
             )
         ),
@@ -66384,7 +66577,65 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `bulk_monitor_uuid` (`UUID`)None
+    * `warehouse_uuid` (`UUID`): Limit inventory to one warehouse.
+      Null means all accessible warehouses.
+    * `project_names` (`[String!]`): Limit inventory to
+      database/project names. Null or an empty list means no
+      database/project filter.
+    * `datasets` (`[String!]`): Limit inventory to schema/dataset
+      names. Null or an empty list means no schema/dataset filter.
     * `limit` (`Int`)None (default: `500`)
+    """
+
+    get_pii_scan_inventory_export_csv = sgqlc.types.Field(
+        sgqlc.types.non_null(String),
+        graphql_name="getPiiScanInventoryExportCsv",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "bulk_monitor_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="bulkMonitorUuid", default=None),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="warehouseUuid", default=None),
+                ),
+                (
+                    "project_names",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="projectNames",
+                        default=None,
+                    ),
+                ),
+                (
+                    "datasets",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="datasets",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Return CSV for grouped PII scan inventory rows
+    using the same server-side scope filters as getPiiScanInventory.
+    Columns are ordered as table, database, schema, column, piiTypes,
+    metrics, maxMatchRate, rowsScanned, findings, monitors,
+    alertUuids, firstDetectedAt, lastScannedAt; multi-value fields are
+    pipe-delimited.
+
+    Arguments:
+
+    * `bulk_monitor_uuid` (`UUID`)None
+    * `warehouse_uuid` (`UUID`): Limit export rows to one warehouse.
+      Null means all accessible warehouses.
+    * `project_names` (`[String!]`): Limit export rows to
+      database/project names. Null or an empty list means no
+      database/project filter.
+    * `datasets` (`[String!]`): Limit export rows to schema/dataset
+      names. Null or an empty list means no schema/dataset filter.
     """
 
     bulk_monitor = sgqlc.types.Field(
@@ -72766,6 +73017,10 @@ class Query(sgqlc.types.Type):
                     "ingestion_end_time",
                     sgqlc.types.Arg(DateTime, graphql_name="ingestionEndTime", default=None),
                 ),
+                (
+                    "collection_lag_hours",
+                    sgqlc.types.Arg(Int, graphql_name="collectionLagHours", default=0),
+                ),
             )
         ),
     )
@@ -72796,6 +73051,13 @@ class Query(sgqlc.types.Type):
       start time (inclusive)
     * `ingestion_end_time` (`DateTime`): Exclusive upper bound on
       conversation turn time
+    * `collection_lag_hours` (`Int`): Optional completeness settle, in
+      hours: conversations whose last turn is newer than this are held
+      back as still in progress. Opt-in — defaults to 0 (no settle) so
+      the preview surfaces the newest conversations; set it to mirror
+      a saved monitor's collection_lag. Applies only when no explicit
+      time range is given; an explicit range is treated as
+      authoritative. (default: `0`)
     """
 
     evaluate_agent_monitor_data_source = sgqlc.types.Field(

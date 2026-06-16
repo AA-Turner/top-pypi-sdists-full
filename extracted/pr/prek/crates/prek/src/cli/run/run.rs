@@ -35,7 +35,7 @@ use crate::hook::{Hook, InstalledHook};
 use crate::printer::Printer;
 use crate::run::{CONCURRENCY, USE_COLOR};
 use crate::store::Store;
-use crate::workspace::{Project, Workspace};
+use crate::workspace::{HookInitFilters, Project, Workspace};
 use crate::{fs, git, hooks, warn_user};
 
 #[allow(clippy::too_many_arguments, clippy::fn_params_excessive_bools)]
@@ -89,8 +89,7 @@ pub(crate) async fn run(
     let selectors = Selectors::load(&includes, &skips, &workspace_root)?;
     let group_filters = GroupFilters::parse(&groups, &no_groups)?;
     let has_group_filters = group_filters.has_filters();
-    let mut workspace =
-        Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
+    let workspace = Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
 
     if should_stash {
         workspace.check_configs_staged().await?;
@@ -99,10 +98,19 @@ pub(crate) async fn run(
     let reporter = HookInitReporter::new(printer);
     let hooks = {
         let _lock = store.lock_async().await?;
-        store.track_configs(workspace.projects().iter().map(|p| p.config_file()))?;
+        store.track_configs(
+            workspace
+                .projects()
+                .iter()
+                .map(|project| project.config_file()),
+        )?;
 
         workspace
-            .init_hooks(store, Some(&reporter))
+            .init_hooks(
+                store,
+                HookInitFilters::new(Some(&selectors), Some(&group_filters)),
+                Some(&reporter),
+            )
             .await
             .context("Failed to init hooks")?
     };
@@ -408,7 +416,7 @@ fn select_hooks_to_install<'paths>(
         match input {
             RunInput::Files(files) => {
                 let mut project_consumed_files = FxHashSet::default();
-                let Some(hooks) = project_to_hooks.remove(project) else {
+                let Some(hooks) = project_to_hooks.remove(project.as_ref()) else {
                     ProjectFiles::consume_for_project(
                         files.iter(),
                         project,
@@ -421,7 +429,6 @@ fn select_hooks_to_install<'paths>(
 
                 let mut candidates = hooks
                     .into_iter()
-                    .filter(|hook| hook.language.supported())
                     .map(|hook| {
                         let matches = hook.always_run;
                         (hook, matches)
@@ -463,12 +470,12 @@ fn select_hooks_to_install<'paths>(
                 }
             }
             RunInput::MessageFile(_) => {
-                let Some(hooks) = project_to_hooks.remove(project) else {
+                let Some(hooks) = project_to_hooks.remove(project.as_ref()) else {
                     continue;
                 };
 
                 let project_input = ProjectHookInput::new(input, project, None, None)?;
-                for hook in hooks.into_iter().filter(|hook| hook.language.supported()) {
+                for hook in hooks {
                     if hook.always_run || project_input.matches_hook(&hook, tag_cache) {
                         hooks_to_install.push(hook);
                     }
@@ -530,7 +537,7 @@ async fn run_hooks<'paths>(
         let mut project_runs = Vec::new();
 
         for project in projects {
-            let Some(mut hooks) = project_to_hooks.remove(project) else {
+            let Some(mut hooks) = project_to_hooks.remove(project.as_ref()) else {
                 if let RunInput::Files(files) = input {
                     ProjectFiles::consume_for_project(
                         files.iter(),
@@ -582,18 +589,18 @@ async fn run_hooks<'paths>(
 }
 
 struct ProjectDepthGroups<'a> {
-    projects: &'a [Project],
+    projects: &'a [Arc<Project>],
     idx: usize,
 }
 
 impl<'a> ProjectDepthGroups<'a> {
-    fn new(projects: &'a [Project]) -> Self {
+    fn new(projects: &'a [Arc<Project>]) -> Self {
         Self { projects, idx: 0 }
     }
 }
 
 impl<'a> Iterator for ProjectDepthGroups<'a> {
-    type Item = &'a [Project];
+    type Item = &'a [Arc<Project>];
 
     fn next(&mut self) -> Option<Self::Item> {
         let first = self.projects.get(self.idx)?;
@@ -667,7 +674,6 @@ struct HookRunSession<'a> {
     verbose: bool,
     success: bool,
     file_modified: bool,
-    has_unimplemented: bool,
 }
 
 impl<'a> HookRunSession<'a> {
@@ -692,7 +698,6 @@ impl<'a> HookRunSession<'a> {
             verbose,
             success: true,
             file_modified: false,
-            has_unimplemented: false,
         }
     }
 
@@ -923,8 +928,6 @@ impl<'a> HookRunSession<'a> {
             .suspend(|| self.render_priority_group(&results, modified_files, hook_prefix))?;
 
         for RunResult { status, .. } in &results {
-            self.has_unimplemented |= status.is_unimplemented();
-
             let ok = if modified_files {
                 false
             } else {
@@ -990,7 +993,7 @@ impl<'a> HookRunSession<'a> {
             self.status_printer
                 .write(&result.hook.name, &prefix, status)?;
 
-            if matches!(status, RunStatus::NoFiles | RunStatus::Unimplemented) {
+            if matches!(status, RunStatus::NoFiles) {
                 continue;
             }
 
@@ -1070,13 +1073,6 @@ impl<'a> HookRunSession<'a> {
         show_diff_on_failure: bool,
     ) -> Result<ExitStatus> {
         self.reporter.on_complete();
-
-        if self.has_unimplemented {
-            warn_user!(
-                "Some hooks were skipped because their languages are unimplemented.\nWe're working hard to support more languages. Check out current support status at {}.",
-                "https://prek.j178.dev/languages/".cyan().underline()
-            );
-        }
 
         if !self.success && show_diff_on_failure && self.file_modified {
             if EnvVars::is_under_ci() {
@@ -1199,6 +1195,8 @@ impl<'a> ProjectHookInput<'a> {
     fn run_input_for_hook(&self, hook: &Hook, tag_cache: &FileTagCache<'a>) -> HookRunInput<'a> {
         match self {
             Self::Files(project_files) => match hook.pass_filenames {
+                // Always-run hooks without filename arguments run regardless of file matches.
+                PassFilenames::None if hook.always_run => HookRunInput::without_filenames(true),
                 PassFilenames::None => HookRunInput::without_filenames(
                     project_files.has_matching_file(hook, tag_cache),
                 ),
@@ -1290,23 +1288,15 @@ enum RunStatus {
     Failed,
     DryRun,
     NoFiles,
-    Unimplemented,
 }
 
 impl RunStatus {
     fn as_bool(self) -> bool {
-        matches!(
-            self,
-            Self::Success | Self::NoFiles | Self::DryRun | Self::Unimplemented
-        )
-    }
-
-    fn is_unimplemented(self) -> bool {
-        matches!(self, Self::Unimplemented)
+        matches!(self, Self::Success | Self::NoFiles | Self::DryRun)
     }
 
     fn is_skipped(self) -> bool {
-        matches!(self, Self::DryRun | Self::NoFiles | Self::Unimplemented)
+        matches!(self, Self::DryRun | Self::NoFiles)
     }
 }
 
@@ -1321,7 +1311,6 @@ impl StatusPrinter {
     const SKIPPED: &'static str = "Skipped";
     const DRY_RUN: &'static str = "Dry Run";
     const NO_FILES: &'static str = "(no files to check)";
-    const UNIMPLEMENTED: &'static str = "(unimplemented yet)";
 
     fn for_hooks<T>(hooks: &[T], printer: Printer) -> Self
     where
@@ -1358,11 +1347,6 @@ impl StatusPrinter {
             RunStatus::NoFiles => (
                 Self::NO_FILES,
                 Self::SKIPPED.black().on_cyan().to_string(),
-                Self::SKIPPED.width(),
-            ),
-            RunStatus::Unimplemented => (
-                Self::UNIMPLEMENTED,
-                Self::SKIPPED.black().on_yellow().to_string(),
                 Self::SKIPPED.width(),
             ),
             RunStatus::DryRun => (
@@ -1443,10 +1427,6 @@ async fn run_hook(
     if !matched && !hook.always_run {
         return Ok(RunResult::from_status(hook, RunStatus::NoFiles));
     }
-    if !hook.language.supported() {
-        return Ok(RunResult::from_status(hook, RunStatus::Unimplemented));
-    }
-
     let start = std::time::Instant::now();
     input.shuffle();
 

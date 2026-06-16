@@ -26,9 +26,11 @@ from botocore.response import StreamingBody
 from .literals import (
     ActionValueType,
     AssociatedResourceTypeType,
+    BlockchainChainType,
     BodyParsingFallbackBehaviorType,
     ComparisonOperatorType,
     CountryCodeType,
+    CurrencyModeType,
     DataProtectionActionType,
     FailureReasonType,
     FallbackBehaviorType,
@@ -36,7 +38,9 @@ from .literals import (
     FilterBehaviorType,
     FilterRequirementType,
     ForwardedIPPositionType,
+    GroupByTypeType,
     InspectionLevelType,
+    IntervalTypeType,
     IPAddressVersionType,
     JsonMatchScopeType,
     LabelMatchScopeType,
@@ -47,14 +51,20 @@ from .literals import (
     PayloadTypeType,
     PlatformType,
     PositionalConstraintType,
+    RankingSortByType,
+    RankingStatisticTypeType,
     RateBasedStatementAggregateKeyTypeType,
     ResourceTypeType,
     ResponseContentTypeType,
     ScopeType,
     SensitivityLevelType,
     SensitivityToActType,
+    SettlementSortByType,
+    SettlementStatusType,
     SizeInspectionLimitType,
+    SortOrderType,
     TextTransformationTypeType,
+    TimeSeriesStatisticTypeType,
     UsageOfActionType,
 )
 
@@ -143,6 +153,8 @@ __all__ = (
     "CreateRuleGroupResponseTypeDef",
     "CreateWebACLRequestTypeDef",
     "CreateWebACLResponseTypeDef",
+    "CryptoConfigOutputTypeDef",
+    "CryptoConfigTypeDef",
     "CustomHTTPHeaderTypeDef",
     "CustomRequestHandlingOutputTypeDef",
     "CustomRequestHandlingTypeDef",
@@ -151,6 +163,7 @@ __all__ = (
     "CustomResponseOutputTypeDef",
     "CustomResponseTypeDef",
     "CustomResponseUnionTypeDef",
+    "DataPointEntryTypeDef",
     "DataProtectionConfigOutputTypeDef",
     "DataProtectionConfigTypeDef",
     "DataProtectionConfigUnionTypeDef",
@@ -209,6 +222,12 @@ __all__ = (
     "GetRateBasedStatementManagedKeysResponseTypeDef",
     "GetRegexPatternSetRequestTypeDef",
     "GetRegexPatternSetResponseTypeDef",
+    "GetRevenueStatisticsRequestTypeDef",
+    "GetRevenueStatisticsResponseTypeDef",
+    "GetRevenueStatisticsSummaryRequestTypeDef",
+    "GetRevenueStatisticsSummaryResponseTypeDef",
+    "GetRevenueStatisticsTimeSeriesRequestTypeDef",
+    "GetRevenueStatisticsTimeSeriesResponseTypeDef",
     "GetRuleGroupRequestTypeDef",
     "GetRuleGroupResponseTypeDef",
     "GetSampledRequestsRequestTypeDef",
@@ -265,6 +284,8 @@ __all__ = (
     "ListResourcesForWebACLResponseTypeDef",
     "ListRuleGroupsRequestTypeDef",
     "ListRuleGroupsResponseTypeDef",
+    "ListSettlementRecordsRequestTypeDef",
+    "ListSettlementRecordsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ListWebACLsRequestTypeDef",
@@ -287,6 +308,11 @@ __all__ = (
     "ManagedRuleSetTypeDef",
     "ManagedRuleSetVersionTypeDef",
     "MobileSdkReleaseTypeDef",
+    "MonetizationConfigOutputTypeDef",
+    "MonetizationConfigTypeDef",
+    "MonetizationConfigUnionTypeDef",
+    "MonetizationFilterTypeDef",
+    "MonetizeActionTypeDef",
     "NotStatementOutputTypeDef",
     "NotStatementTypeDef",
     "NotStatementUnionTypeDef",
@@ -299,7 +325,10 @@ __all__ = (
     "OverrideActionUnionTypeDef",
     "PasswordFieldTypeDef",
     "PathStatisticsTypeDef",
+    "PaymentNetworkOutputTypeDef",
+    "PaymentNetworkTypeDef",
     "PhoneNumberFieldTypeDef",
+    "PriceTypeDef",
     "PutLoggingConfigurationRequestTypeDef",
     "PutLoggingConfigurationResponseTypeDef",
     "PutManagedRuleSetVersionsRequestTypeDef",
@@ -361,6 +390,8 @@ __all__ = (
     "ResponseInspectionTypeDef",
     "ResponseInspectionUnionTypeDef",
     "ResponseMetadataTypeDef",
+    "RevenueBreakdownTypeDef",
+    "RevenuePathStatisticsTypeDef",
     "RuleActionOutputTypeDef",
     "RuleActionOverrideOutputTypeDef",
     "RuleActionOverrideTypeDef",
@@ -377,11 +408,13 @@ __all__ = (
     "RuleTypeDef",
     "RuleUnionTypeDef",
     "SampledHTTPRequestTypeDef",
+    "SettlementRecordTypeDef",
     "SingleHeaderTypeDef",
     "SingleQueryArgumentTypeDef",
     "SizeConstraintStatementOutputTypeDef",
     "SizeConstraintStatementTypeDef",
     "SizeConstraintStatementUnionTypeDef",
+    "SourceStatisticsTypeDef",
     "SqliMatchStatementOutputTypeDef",
     "SqliMatchStatementTypeDef",
     "SqliMatchStatementUnionTypeDef",
@@ -599,6 +632,16 @@ class CustomHTTPHeaderTypeDef(TypedDict):
     Value: str
 
 
+class DataPointEntryTypeDef(TypedDict):
+    Date: NotRequired[datetime]
+    MonetizeServedCount: NotRequired[int]
+    SettledCount: NotRequired[int]
+    TotalAmount: NotRequired[str]
+    Category: NotRequired[str]
+    Intent: NotRequired[str]
+    GroupByValue: NotRequired[str]
+
+
 class FieldToProtectOutputTypeDef(TypedDict):
     FieldType: FieldToProtectTypeType
     FieldKeys: NotRequired[list[str]]
@@ -796,6 +839,39 @@ class GetRegexPatternSetRequestTypeDef(TypedDict):
     Id: str
 
 
+class MonetizationFilterTypeDef(TypedDict):
+    Name: str
+    Values: Sequence[str]
+
+
+class RevenuePathStatisticsTypeDef(TypedDict):
+    Path: str
+    Percentage: float
+    Amount: str
+    RequestCount: int
+
+
+class SourceStatisticsTypeDef(TypedDict):
+    SourceName: str
+    Percentage: float
+    Amount: str
+    RequestCount: int
+    SourceCategory: NotRequired[str]
+    Intent: NotRequired[str]
+    Organization: NotRequired[str]
+    Verified: NotRequired[bool]
+    GroupByValue: NotRequired[str]
+
+
+class RevenueBreakdownTypeDef(TypedDict):
+    TotalAmount: NotRequired[str]
+    VerifiedAmount: NotRequired[str]
+    UnverifiedAmount: NotRequired[str]
+    Currency: NotRequired[Literal["USDC"]]
+    TotalSettled: NotRequired[int]
+    TotalMonetizeServed: NotRequired[int]
+
+
 class GetRuleGroupRequestTypeDef(TypedDict):
     Name: NotRequired[str]
     Scope: NotRequired[ScopeType]
@@ -949,6 +1025,26 @@ class ListRuleGroupsRequestTypeDef(TypedDict):
     Limit: NotRequired[int]
 
 
+class SettlementRecordTypeDef(TypedDict):
+    Timestamp: datetime
+    Status: SettlementStatusType
+    Amount: str
+    PayerAddress: NotRequired[str]
+    WalletAddress: NotRequired[str]
+    Currency: NotRequired[Literal["USDC"]]
+    Network: NotRequired[str]
+    TransactionId: NotRequired[str]
+    RequestId: NotRequired[str]
+    SourceName: NotRequired[str]
+    Organization: NotRequired[str]
+    SourceCategory: NotRequired[str]
+    Intent: NotRequired[str]
+    Verified: NotRequired[bool]
+    ContentPath: NotRequired[str]
+    WebAclArn: NotRequired[str]
+    RequestTimestamp: NotRequired[datetime]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     ResourceARN: str
     NextMarker: NotRequired[str]
@@ -978,6 +1074,10 @@ class ManagedRuleSetVersionTypeDef(TypedDict):
     ExpiryTimestamp: NotRequired[datetime]
 
 
+class MonetizeActionTypeDef(TypedDict):
+    PriceMultiplier: NotRequired[str]
+
+
 class NotStatementOutputTypeDef(TypedDict):
     Statement: dict[str, Any]
 
@@ -992,6 +1092,11 @@ class OrStatementOutputTypeDef(TypedDict):
 
 class OrStatementTypeDef(TypedDict):
     Statements: Sequence[Mapping[str, Any]]
+
+
+class PriceTypeDef(TypedDict):
+    Amount: str
+    Currency: Literal["USDC"]
 
 
 class PhoneNumberFieldTypeDef(TypedDict):
@@ -1394,6 +1499,12 @@ class CustomResponseTypeDef(TypedDict):
     ResponseHeaders: NotRequired[Sequence[CustomHTTPHeaderTypeDef]]
 
 
+class GetRevenueStatisticsTimeSeriesResponseTypeDef(TypedDict):
+    DataPoints: list[DataPointEntryTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DataProtectionOutputTypeDef(TypedDict):
     Field: FieldToProtectOutputTypeDef
     Action: DataProtectionActionType
@@ -1435,6 +1546,18 @@ class GetIPSetResponseTypeDef(TypedDict):
 class GetRateBasedStatementManagedKeysResponseTypeDef(TypedDict):
     ManagedKeysIPV4: RateBasedStatementManagedKeysIPSetTypeDef
     ManagedKeysIPV6: RateBasedStatementManagedKeysIPSetTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRevenueStatisticsResponseTypeDef(TypedDict):
+    SourceStatistics: list[SourceStatisticsTypeDef]
+    RevenuePathStatistics: list[RevenuePathStatisticsTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetRevenueStatisticsSummaryResponseTypeDef(TypedDict):
+    RevenueBreakdown: RevenueBreakdownTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1496,6 +1619,12 @@ class ListMobileSdkReleasesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListSettlementRecordsResponseTypeDef(TypedDict):
+    Settlements: list[SettlementRecordTypeDef]
+    NextMarker: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class RequestInspectionTypeDef(TypedDict):
     PayloadType: PayloadTypeType
     UsernameField: UsernameFieldTypeDef
@@ -1514,6 +1643,18 @@ class ManagedRuleSetTypeDef(TypedDict):
 
 NotStatementUnionTypeDef = Union[NotStatementTypeDef, NotStatementOutputTypeDef]
 OrStatementUnionTypeDef = Union[OrStatementTypeDef, OrStatementOutputTypeDef]
+
+
+class PaymentNetworkOutputTypeDef(TypedDict):
+    Chain: BlockchainChainType
+    WalletAddress: str
+    Prices: list[PriceTypeDef]
+
+
+class PaymentNetworkTypeDef(TypedDict):
+    Chain: BlockchainChainType
+    WalletAddress: str
+    Prices: Sequence[PriceTypeDef]
 
 
 class RequestInspectionACFPOutputTypeDef(TypedDict):
@@ -1748,6 +1889,14 @@ class GetManagedRuleSetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CryptoConfigOutputTypeDef(TypedDict):
+    PaymentNetworks: list[PaymentNetworkOutputTypeDef]
+
+
+class CryptoConfigTypeDef(TypedDict):
+    PaymentNetworks: Sequence[PaymentNetworkTypeDef]
+
+
 RequestInspectionACFPUnionTypeDef = Union[
     RequestInspectionACFPTypeDef, RequestInspectionACFPOutputTypeDef
 ]
@@ -1858,6 +2007,7 @@ class RuleActionOutputTypeDef(TypedDict):
     Count: NotRequired[CountActionOutputTypeDef]
     Captcha: NotRequired[CaptchaActionOutputTypeDef]
     Challenge: NotRequired[ChallengeActionOutputTypeDef]
+    Monetize: NotRequired[MonetizeActionTypeDef]
 
 
 class BlockActionTypeDef(TypedDict):
@@ -1917,7 +2067,51 @@ class XssMatchStatementOutputTypeDef(TypedDict):
 
 
 JsonBodyUnionTypeDef = Union[JsonBodyTypeDef, JsonBodyOutputTypeDef]
+
+
+class MonetizationConfigOutputTypeDef(TypedDict):
+    CryptoConfig: NotRequired[CryptoConfigOutputTypeDef]
+    CurrencyMode: NotRequired[CurrencyModeType]
+
+
+class MonetizationConfigTypeDef(TypedDict):
+    CryptoConfig: NotRequired[CryptoConfigTypeDef]
+    CurrencyMode: NotRequired[CurrencyModeType]
+
+
 ResponseInspectionUnionTypeDef = Union[ResponseInspectionTypeDef, ResponseInspectionOutputTypeDef]
+
+
+class GetRevenueStatisticsRequestTypeDef(TypedDict):
+    StatisticType: RankingStatisticTypeType
+    TimeWindow: TimeWindowUnionTypeDef
+    Scope: ScopeType
+    Currency: Literal["USDC"]
+    GroupBy: NotRequired[GroupByTypeType]
+    Filters: NotRequired[Sequence[MonetizationFilterTypeDef]]
+    NextMarker: NotRequired[str]
+    Limit: NotRequired[int]
+    SortBy: NotRequired[RankingSortByType]
+    SortOrder: NotRequired[SortOrderType]
+
+
+class GetRevenueStatisticsSummaryRequestTypeDef(TypedDict):
+    TimeWindow: TimeWindowUnionTypeDef
+    Scope: ScopeType
+    Currency: Literal["USDC"]
+    Filters: NotRequired[Sequence[MonetizationFilterTypeDef]]
+
+
+class GetRevenueStatisticsTimeSeriesRequestTypeDef(TypedDict):
+    StatisticType: TimeSeriesStatisticTypeType
+    TimeWindow: TimeWindowUnionTypeDef
+    Scope: ScopeType
+    Interval: IntervalTypeType
+    Currency: Literal["USDC"]
+    GroupBy: NotRequired[GroupByTypeType]
+    Filters: NotRequired[Sequence[MonetizationFilterTypeDef]]
+    Limit: NotRequired[int]
+    NextMarker: NotRequired[str]
 
 
 class GetSampledRequestsRequestTypeDef(TypedDict):
@@ -1938,6 +2132,17 @@ class GetTopPathStatisticsByTrafficRequestTypeDef(TypedDict):
     BotCategory: NotRequired[str]
     BotOrganization: NotRequired[str]
     BotName: NotRequired[str]
+    NextMarker: NotRequired[str]
+
+
+class ListSettlementRecordsRequestTypeDef(TypedDict):
+    TimeWindow: TimeWindowUnionTypeDef
+    Scope: ScopeType
+    Currency: Literal["USDC"]
+    Filters: NotRequired[Sequence[MonetizationFilterTypeDef]]
+    SortBy: NotRequired[SettlementSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    Limit: NotRequired[int]
     NextMarker: NotRequired[str]
 
 
@@ -2011,6 +2216,9 @@ class FieldToMatchTypeDef(TypedDict):
     JA3Fingerprint: NotRequired[JA3FingerprintTypeDef]
     JA4Fingerprint: NotRequired[JA4FingerprintTypeDef]
     UriFragment: NotRequired[UriFragmentTypeDef]
+
+
+MonetizationConfigUnionTypeDef = Union[MonetizationConfigTypeDef, MonetizationConfigOutputTypeDef]
 
 
 class AWSManagedRulesACFPRuleSetTypeDef(TypedDict):
@@ -2100,6 +2308,7 @@ class RuleActionTypeDef(TypedDict):
     Count: NotRequired[CountActionUnionTypeDef]
     Captcha: NotRequired[CaptchaActionUnionTypeDef]
     Challenge: NotRequired[ChallengeActionUnionTypeDef]
+    Monetize: NotRequired[MonetizeActionTypeDef]
 
 
 DefaultActionUnionTypeDef = Union[DefaultActionTypeDef, DefaultActionOutputTypeDef]
@@ -2269,6 +2478,7 @@ class RuleGroupTypeDef(TypedDict):
     CustomResponseBodies: NotRequired[dict[str, CustomResponseBodyTypeDef]]
     AvailableLabels: NotRequired[list[LabelSummaryTypeDef]]
     ConsumedLabels: NotRequired[list[LabelSummaryTypeDef]]
+    MonetizationConfig: NotRequired[MonetizationConfigOutputTypeDef]
 
 
 class WebACLTypeDef(TypedDict):
@@ -2293,6 +2503,7 @@ class WebACLTypeDef(TypedDict):
     RetrofittedByFirewallManager: NotRequired[bool]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
     ApplicationConfig: NotRequired[ApplicationConfigOutputTypeDef]
+    MonetizationConfig: NotRequired[MonetizationConfigOutputTypeDef]
 
 
 RuleActionOverrideUnionTypeDef = Union[RuleActionOverrideTypeDef, RuleActionOverrideOutputTypeDef]
@@ -2391,6 +2602,7 @@ class CreateRuleGroupRequestTypeDef(TypedDict):
     Rules: NotRequired[Sequence[RuleUnionTypeDef]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     CustomResponseBodies: NotRequired[Mapping[str, CustomResponseBodyTypeDef]]
+    MonetizationConfig: NotRequired[MonetizationConfigUnionTypeDef]
 
 
 class CreateWebACLRequestTypeDef(TypedDict):
@@ -2409,6 +2621,7 @@ class CreateWebACLRequestTypeDef(TypedDict):
     AssociationConfig: NotRequired[AssociationConfigUnionTypeDef]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
     ApplicationConfig: NotRequired[ApplicationConfigUnionTypeDef]
+    MonetizationConfig: NotRequired[MonetizationConfigUnionTypeDef]
 
 
 class UpdateRuleGroupRequestTypeDef(TypedDict):
@@ -2420,6 +2633,7 @@ class UpdateRuleGroupRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     Rules: NotRequired[Sequence[RuleUnionTypeDef]]
     CustomResponseBodies: NotRequired[Mapping[str, CustomResponseBodyTypeDef]]
+    MonetizationConfig: NotRequired[MonetizationConfigUnionTypeDef]
 
 
 class UpdateWebACLRequestTypeDef(TypedDict):
@@ -2439,3 +2653,4 @@ class UpdateWebACLRequestTypeDef(TypedDict):
     AssociationConfig: NotRequired[AssociationConfigUnionTypeDef]
     OnSourceDDoSProtectionConfig: NotRequired[OnSourceDDoSProtectionConfigTypeDef]
     ApplicationConfig: NotRequired[ApplicationConfigUnionTypeDef]
+    MonetizationConfig: NotRequired[MonetizationConfigUnionTypeDef]

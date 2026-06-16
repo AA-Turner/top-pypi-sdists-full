@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.6.14
+Version: 2.6.16
 Summary: The programming language for agentic software.
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License:                                  Apache License
@@ -398,7 +398,7 @@ Requires-Dist: notion-client; extra == "notion"
 Provides-Extra: opencv
 Requires-Dist: opencv-python; extra == "opencv"
 Provides-Extra: parallel
-Requires-Dist: parallel-web; extra == "parallel"
+Requires-Dist: parallel-web>=1.0; extra == "parallel"
 Provides-Extra: psycopg
 Requires-Dist: psycopg-binary; extra == "psycopg"
 Requires-Dist: psycopg; extra == "psycopg"
@@ -667,7 +667,7 @@ Requires-Dist: openinference-instrumentation-agno; extra == "demo"
 Requires-Dist: opentelemetry-api; extra == "demo"
 Requires-Dist: opentelemetry-sdk; extra == "demo"
 Requires-Dist: pandas; extra == "demo"
-Requires-Dist: parallel-web; extra == "demo"
+Requires-Dist: parallel-web>=1.0; extra == "demo"
 Requires-Dist: pgvector; extra == "demo"
 Requires-Dist: pillow; extra == "demo"
 Requires-Dist: psycopg[binary]; extra == "demo"

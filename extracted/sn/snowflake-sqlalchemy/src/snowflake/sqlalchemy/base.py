@@ -152,7 +152,7 @@ class SnowflakeSelectState(SelectState):
                     raw_columns, left, right, onclause
                 )
             else:
-                (replace_from_obj_index) = self._join_place_explicit_left_side(left)
+                replace_from_obj_index = self._join_place_explicit_left_side(left)
 
             if replace_from_obj_index is not None:
                 # splice into an existing element in the
@@ -793,7 +793,7 @@ class SnowflakeCompiler(compiler.SQLCompiler):
         pattern = self.process(binary.right, **kw)
         flags = binary.modifiers["flags"]
         if flags is not None:
-            flags = self.process(flags, **kw)
+            flags = self.render_literal_value(flags, sqltypes.STRINGTYPE)
         return string, pattern, flags
 
     def visit_regexp_match_op_binary(self, binary, operator, **kw):

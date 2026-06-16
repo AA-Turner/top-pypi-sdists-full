@@ -23,7 +23,12 @@ from ouroboros.core.seed import (
 from ouroboros.core.types import Result
 from ouroboros.core.worktree import TaskWorkspace
 from ouroboros.events.base import BaseEvent
-from ouroboros.orchestrator.adapter import AgentMessage, RuntimeHandle
+from ouroboros.orchestrator.adapter import (
+    AgentMessage,
+    ParamSupport,
+    RuntimeCapabilities,
+    RuntimeHandle,
+)
 from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
 
 # TODO: uncomment when OpenCode runtime is shipped
@@ -37,6 +42,7 @@ from ouroboros.orchestrator.runner import (
     build_system_prompt,
     build_task_prompt,
 )
+from ouroboros.orchestrator.runtime_error import classify_subprocess_failure
 from ouroboros.orchestrator.session import SessionStatus, SessionTracker
 
 
@@ -313,6 +319,28 @@ class TestOrchestratorRunner:
     ) -> OrchestratorRunner:
         """Create a runner with mocked dependencies."""
         return OrchestratorRunner(mock_adapter, mock_event_store, mock_console)
+
+    def test_param_degradation_notice_surfaces_for_serial_runner(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+    ) -> None:
+        mock_adapter.capabilities = RuntimeCapabilities(
+            skill_dispatch=True,
+            targeted_resume=True,
+            structured_output=True,
+            system_prompt_support=ParamSupport.TRANSLATED,
+        )
+        runner = OrchestratorRunner(mock_adapter, mock_event_store, mock_console)
+
+        runner._announce_param_degradations(system_prompt="be terse", tools=None)
+        runner._announce_param_degradations(system_prompt="be terse", tools=None)
+
+        assert mock_console.print.call_count == 1
+        notice = mock_console.print.call_args.args[0]
+        assert "system_prompt" in notice
+        assert "opencode" in notice
 
     @pytest.mark.asyncio
     async def test_execute_seed_success(
@@ -1476,6 +1504,76 @@ class TestOrchestratorRunner:
         assert pause.pause_kind == "usage_limit"
         assert pause.pause_seconds == 18000
         assert pause.resume_after == now + timedelta(hours=5)
+
+    def test_recoverable_failure_detects_hermes_usage_limit_exit(
+        self,
+        runner: OrchestratorRunner,
+    ) -> None:
+        """Regression for issue 1.1: a hermes non-zero exit carrying a Z.AI/GLM
+        usage-limit 429 must pause, not hard-fail. Before the typed-error
+        contract the hermes path emitted only ``{"subtype","exit_code"}``, which
+        the classifier rejected for lacking runtime-error shape."""
+        now = datetime(2026, 1, 1, tzinfo=UTC)
+        failure_text = (
+            "API call failed after 3 retries:\n"
+            "HTTP 429: Usage limit reached for 5 hour.\n"
+            "Your limit will reset at 2026-06-07 21:41:18"
+        )
+        message = AgentMessage(
+            type="result",
+            content=f"Hermes execution failed:\n{failure_text}",
+            data=classify_subprocess_failure(failure_text, exit_code=1),
+        )
+
+        pause = runner._recoverable_failure_pause(message, now=now)
+
+        assert pause is not None
+        assert pause.pause_kind == "usage_limit"
+        assert pause.pause_seconds == 18000
+        assert pause.resume_after == now + timedelta(hours=5)
+
+    def test_recoverable_failure_ignores_ordinary_hermes_exit(
+        self,
+        runner: OrchestratorRunner,
+    ) -> None:
+        """A typed-but-ordinary hermes failure must not trigger a usage pause."""
+        message = AgentMessage(
+            type="result",
+            content="Hermes execution failed:\nTraceback: ValueError: bad config",
+            data=classify_subprocess_failure(
+                "Traceback: ValueError: bad config",
+                exit_code=1,
+            ),
+        )
+
+        pause = runner._recoverable_failure_pause(
+            message,
+            now=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+        assert pause is None
+
+    def test_recoverable_failure_ignores_hermes_task_text_about_usage_limits(
+        self,
+        runner: OrchestratorRunner,
+    ) -> None:
+        """Hermes task text mentioning usage-limit copy is not a provider pause."""
+        failure_text = (
+            "Tests failed while updating usage limit copy. "
+            "Please try again in 5 hours after the flaky suite is fixed."
+        )
+        message = AgentMessage(
+            type="result",
+            content=f"Hermes execution failed:\n{failure_text}",
+            data=classify_subprocess_failure(failure_text, exit_code=1),
+        )
+
+        pause = runner._recoverable_failure_pause(
+            message,
+            now=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+        assert pause is None
 
     def test_recoverable_failure_sums_compound_retry_window(
         self,
@@ -2709,6 +2807,61 @@ class TestOrchestratorRunner:
             max_turns=1,
             allowed_tools=[],
         )
+
+    def test_plan_parallel_workers_serializes_cli_backend(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+    ) -> None:
+        """A CLI backend (no known LLM limits) is serialized regardless of the
+        configured worker count (R3 stampede guard)."""
+        mock_adapter.runtime_backend = "hermes_cli"
+        runner = OrchestratorRunner(
+            mock_adapter,
+            mock_event_store,
+            mock_console,
+            max_parallel_workers=3,
+        )
+
+        assert runner._plan_parallel_workers() == 1
+
+    def test_plan_parallel_workers_respects_native_claude(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+    ) -> None:
+        """The native Claude backend is governed by its rate bucket, so fan-out
+        is not concurrency-capped here."""
+        mock_adapter.runtime_backend = "claude"
+        runner = OrchestratorRunner(
+            mock_adapter,
+            mock_event_store,
+            mock_console,
+            max_parallel_workers=3,
+        )
+
+        assert runner._plan_parallel_workers() == 3
+
+    def test_plan_parallel_workers_honors_env_override(
+        self,
+        mock_adapter: MagicMock,
+        mock_event_store: AsyncMock,
+        mock_console: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Operators can raise the cap for a CLI backend via env override."""
+        monkeypatch.setenv("OUROBOROS_MAX_CONCURRENCY", "2")
+        mock_adapter.runtime_backend = "hermes_cli"
+        runner = OrchestratorRunner(
+            mock_adapter,
+            mock_event_store,
+            mock_console,
+            max_parallel_workers=5,
+        )
+
+        assert runner._plan_parallel_workers() == 2
 
     def test_build_dependency_analyzer_catches_expected_exceptions(
         self,

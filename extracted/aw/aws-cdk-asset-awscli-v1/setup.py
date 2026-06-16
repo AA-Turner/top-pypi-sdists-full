@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.asset-awscli-v1",
-    "version": "2.2.283",
+    "version": "2.2.284",
     "description": "A library that contains the AWS CLI for use in Lambda Layers",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/awscdk-asset-awscli#readme",
@@ -25,14 +25,13 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.asset_awscli_v1._jsii": [
-            "asset-awscli-v1@2.2.283.jsii.tgz"
+            "asset-awscli-v1@2.2.284.jsii.tgz"
         ]
     },
     "python_requires": ">=3.10",
     "install_requires": [
-        "jsii>=1.133.0, <2.0.0",
-        "publication>=0.0.3",
-        "typeguard==2.13.3"
+        "jsii>=1.134.0, <2.0.0",
+        "publication>=0.0.3"
     ],
     "classifiers": [
         "Intended Audience :: Developers",

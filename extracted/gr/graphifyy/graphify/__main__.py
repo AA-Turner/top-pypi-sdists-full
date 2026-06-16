@@ -94,9 +94,16 @@ def _enforce_graph_size_cap_or_exit(gp: Path) -> None:
 def _check_skill_version(skill_dst: Path) -> None:
     """Warn if the installed skill is from an older graphify version."""
     version_file = skill_dst.parent / ".graphify_version"
-    if not version_file.exists():
+    try:
+        if not version_file.exists():
+            return
+    except OSError:
         return
-    if not skill_dst.exists():
+    try:
+        skill_exists = skill_dst.exists()
+    except OSError:
+        return
+    if not skill_exists:
         print("  warning: skill dir exists but SKILL.md is missing. Run 'graphify install' to repair.")
         return
     # A progressive SKILL.md links to its references/ sidecar. If the body points
@@ -108,7 +115,10 @@ def _check_skill_version(skill_dst: Path) -> None:
         body = ""
     if "references/" in body and not (skill_dst.parent / "references").exists():
         print("  warning: skill references/ sidecar is missing. Run 'graphify install' to repair.", file=sys.stderr)
-    installed = version_file.read_text(encoding="utf-8").strip()
+    try:
+        installed = version_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return
     if installed != __version__:
         print(f"  warning: skill is from graphify {installed}, package is {__version__}. Run 'graphify install' to update.", file=sys.stderr)
 
@@ -2172,6 +2182,11 @@ def main() -> None:
         print("    --label NAME            project label in header")
         print("  extract <path>          headless full extraction (AST + semantic LLM) for CI/scripts")
         print("    --backend B             gemini|kimi|claude|openai|deepseek|ollama (default: whichever API key is set)")
+        print("                            openai also reaches self-hosted OpenAI-compatible servers (llama.cpp,")
+        print("                            vLLM, LM Studio): set OPENAI_BASE_URL (e.g. http://localhost:8080/v1)")
+        print("                            and OPENAI_MODEL to the model name your server serves")
+        print("                            claude also reaches custom Anthropic-compatible endpoints (LiteLLM")
+        print("                            proxy, gateways): set ANTHROPIC_BASE_URL and ANTHROPIC_MODEL")
         print("    --model M               override backend default model")
         print("    --mode deep             aggressive INFERRED-edge semantic extraction")
         print("    --max-workers N         AST extraction subprocess count (default: cpu_count)")
@@ -2955,7 +2970,7 @@ def main() -> None:
             f"  Source:    {d.get('source_file', '')} {d.get('source_location', '')}".rstrip()
         )
         print(f"  Type:      {d.get('file_type', '')}")
-        print(f"  Community: {d.get('community', '')}")
+        print(f"  Community: {d.get('community_name') or d.get('community', '')}")
         print(f"  Degree:    {G.degree(nid)}")
         from graphify.build import edge_data
         connections: list[tuple[str, str, dict]] = []  # (direction, neighbor_id, edge_data)
@@ -3265,7 +3280,7 @@ def main() -> None:
         (out / "GRAPH_REPORT.md").write_text(report, encoding="utf-8")
         from graphify.export import backup_if_protected as _backup
         _backup(out)
-        to_json(G, communities, str(out / "graph.json"))
+        to_json(G, communities, str(out / "graph.json"), community_labels=labels)
         labels_path.write_text(json.dumps({str(k): v for k, v in labels.items()}, ensure_ascii=False), encoding="utf-8")
 
         # Mirror watch.py pattern: gate to_html so core outputs (graph.json +
@@ -4410,7 +4425,11 @@ def main() -> None:
         if no_cluster:
             # --no-cluster: dump the raw merged extraction as graph.json.
             # No NetworkX, no community detection, no analysis sidecar.
+            # Dedupe parallel edges so counts match the clustered path (whose
+            # DiGraph collapses them) and stay deterministic across modes (#1317).
+            from graphify.build import dedupe_edges as _dedupe_edges
             from graphify.export import backup_if_protected as _backup
+            merged["edges"] = _dedupe_edges(merged["edges"])
             _backup(graphify_out)
             graph_json_path.write_text(
                 json.dumps(merged, indent=2), encoding="utf-8"

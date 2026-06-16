@@ -31,7 +31,6 @@ class NewScript:
         lock (Union[Unset, str]):
         kind (Union[Unset, NewScriptKind]):
         tag (Union[Unset, str]):
-        draft_only (Union[Unset, bool]):
         envs (Union[Unset, List[str]]):
         concurrent_limit (Union[Unset, int]):
         concurrency_time_window_s (Union[Unset, int]):
@@ -76,7 +75,6 @@ class NewScript:
     lock: Union[Unset, str] = UNSET
     kind: Union[Unset, NewScriptKind] = UNSET
     tag: Union[Unset, str] = UNSET
-    draft_only: Union[Unset, bool] = UNSET
     envs: Union[Unset, List[str]] = UNSET
     concurrent_limit: Union[Unset, int] = UNSET
     concurrency_time_window_s: Union[Unset, int] = UNSET
@@ -126,7 +124,6 @@ class NewScript:
             kind = self.kind.value
 
         tag = self.tag
-        draft_only = self.draft_only
         envs: Union[Unset, List[str]] = UNSET
         if not isinstance(self.envs, Unset):
             envs = self.envs
@@ -199,8 +196,6 @@ class NewScript:
             field_dict["kind"] = kind
         if tag is not UNSET:
             field_dict["tag"] = tag
-        if draft_only is not UNSET:
-            field_dict["draft_only"] = draft_only
         if envs is not UNSET:
             field_dict["envs"] = envs
         if concurrent_limit is not UNSET:
@@ -299,8 +294,6 @@ class NewScript:
 
         tag = d.pop("tag", UNSET)
 
-        draft_only = d.pop("draft_only", UNSET)
-
         envs = cast(List[str], d.pop("envs", UNSET))
 
         concurrent_limit = d.pop("concurrent_limit", UNSET)
@@ -381,7 +374,6 @@ class NewScript:
             lock=lock,
             kind=kind,
             tag=tag,
-            draft_only=draft_only,
             envs=envs,
             concurrent_limit=concurrent_limit,
             concurrency_time_window_s=concurrency_time_window_s,

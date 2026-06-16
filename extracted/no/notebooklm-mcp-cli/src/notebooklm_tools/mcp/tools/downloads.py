@@ -1,12 +1,10 @@
 """Download tools - Consolidated download_artifact for all artifact types."""
 
 import asyncio
-from urllib.parse import quote
 
 from ...services import ServiceError, ValidationError
 from ...services import downloads as downloads_service
-from ...services.downloads import poll_download_artifact
-from ._utils import PUBLIC_DIR, ResultDict, error_result, get_client, get_mcp_base_url, logged_tool
+from ._utils import ResultDict, error_result, get_client, logged_tool
 
 
 @logged_tool()
@@ -17,9 +15,6 @@ def download_artifact(
     artifact_id: str | None = None,
     output_format: str = "json",
     slide_deck_format: str = "pdf",
-    wait: bool = True,
-    wait_timeout: float = 180.0,
-    poll_interval: float = 5.0,
 ) -> ResultDict:
     """Download any NotebookLM artifact to a file.
 
@@ -43,9 +38,6 @@ def download_artifact(
         artifact_id: Optional specific artifact ID (uses latest if not provided)
         output_format: For quiz/flashcards only: json|markdown|html (default: json)
         slide_deck_format: For slide_deck only: pdf (default) or pptx
-        wait: If True, poll while NotebookLM is still generating or propagating the artifact.
-        wait_timeout: Maximum seconds to wait when wait=True.
-        poll_interval: Seconds between readiness checks.
 
     Returns:
         dict with status and saved file path
@@ -58,7 +50,7 @@ def download_artifact(
     try:
         client = get_client()
         download_result = asyncio.run(
-            poll_download_artifact(
+            downloads_service.download_async(
                 client,
                 notebook_id,
                 artifact_type,
@@ -66,39 +58,9 @@ def download_artifact(
                 artifact_id=artifact_id,
                 output_format=output_format,
                 slide_deck_format=slide_deck_format,
-                wait=wait,
-                wait_timeout=wait_timeout,
-                poll_interval=poll_interval,
             )
         )
-
-        saved_path = download_result["path"]
-
-        # Presentation: copy to PUBLIC_DIR and generate download_url
-        try:
-            import shutil
-            from pathlib import Path
-
-            PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
-            pub_path = PUBLIC_DIR / Path(saved_path).name
-            shutil.copy2(saved_path, pub_path)
-
-            base_url = get_mcp_base_url()
-            if base_url:
-                return {
-                    "status": "success",
-                    **download_result,
-                    "download_url": f"{base_url}/artifacts/{quote(pub_path.name)}",
-                }
-        except Exception as e:
-            import logging
-
-            logging.getLogger("notebooklm_tools.mcp").warning(
-                f"Failed to copy public artifact: {e}"
-            )
-
         return {"status": "success", **download_result}
-
     except ValidationError as e:
         message = str(e)
         if message.startswith("Unknown artifact type "):

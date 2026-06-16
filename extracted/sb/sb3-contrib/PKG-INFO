@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sb3_contrib
-Version: 2.8.0
+Version: 2.9.0
 Summary: Contrib package of Stable Baselines3, experimental code.
 Home-page: https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
 Author: Antonin Raffin
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: stable_baselines3<3.0,>=2.8.0
+Requires-Dist: stable_baselines3<3.0,>=2.9.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

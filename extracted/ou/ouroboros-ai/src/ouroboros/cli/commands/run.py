@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
 from ouroboros.cli.formatters import console
 from ouroboros.cli.formatters.panels import print_error, print_info, print_success, print_warning
+from ouroboros.config._model_defaults import DEFAULT_SONNET_MODEL
 from ouroboros.config.loader import get_max_parallel_workers
 from ouroboros.core.errors import ConfigError
 from ouroboros.core.project_paths import resolve_path_against_base, resolve_seed_project_path
@@ -41,7 +42,7 @@ def _resolve_execution_model(runtime_backend: str | None) -> str | None:
         stripped = execution_model.strip()
         return stripped or None
     if runtime_backend == "claude":
-        return "claude-sonnet-4-6"
+        return DEFAULT_SONNET_MODEL
     return None
 
 
@@ -80,6 +81,7 @@ class AgentRuntimeBackend(str, Enum):  # noqa: UP042
     GOOSE = "goose"
     KIRO = "kiro"
     PI = "pi"
+    GJC = "gjc"
 
 
 def _derive_quality_bar(seed: "Seed") -> str:
@@ -803,7 +805,7 @@ def workflow(
         AgentRuntimeBackend | None,
         typer.Option(
             "--runtime",
-            help="Agent runtime backend for orchestrator mode (claude, codex, opencode, hermes, gemini, copilot, goose, kiro, or pi).",
+            help="Agent runtime backend for orchestrator mode (claude, codex, opencode, hermes, gemini, copilot, goose, kiro, pi, or gjc).",
             case_sensitive=False,
         ),
     ] = None,

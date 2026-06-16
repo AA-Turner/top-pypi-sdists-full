@@ -46,6 +46,13 @@ class ListNatsTriggersResponse200Item:
             script or flow
         retry (Union[Unset, ListNatsTriggersResponse200ItemRetry]): Retry configuration for failed module executions
         labels (Union[Unset, List[str]]):
+        draft_only (Union[Unset, bool]): True when this row is a per-user draft with no deployed
+            trigger at the same path. Set by list endpoints when
+            `include_draft_only=true` synthesizes the row from the
+            draft. Frontend renders a "Draft" badge.
+        is_draft (Union[Unset, bool]): True when the authed user has a per-user draft at this path
+            (over a deployed row or a synthesized draft-only row).
+            Frontend appends a `*` to the displayed name.
     """
 
     nats_resource_path: str
@@ -69,6 +76,8 @@ class ListNatsTriggersResponse200Item:
     error_handler_args: Union[Unset, "ListNatsTriggersResponse200ItemErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "ListNatsTriggersResponse200ItemRetry"] = UNSET
     labels: Union[Unset, List[str]] = UNSET
+    draft_only: Union[Unset, bool] = UNSET
+    is_draft: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -109,6 +118,9 @@ class ListNatsTriggersResponse200Item:
         if not isinstance(self.labels, Unset):
             labels = self.labels
 
+        draft_only = self.draft_only
+        is_draft = self.is_draft
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -145,6 +157,10 @@ class ListNatsTriggersResponse200Item:
             field_dict["retry"] = retry
         if labels is not UNSET:
             field_dict["labels"] = labels
+        if draft_only is not UNSET:
+            field_dict["draft_only"] = draft_only
+        if is_draft is not UNSET:
+            field_dict["is_draft"] = is_draft
 
         return field_dict
 
@@ -214,6 +230,10 @@ class ListNatsTriggersResponse200Item:
 
         labels = cast(List[str], d.pop("labels", UNSET))
 
+        draft_only = d.pop("draft_only", UNSET)
+
+        is_draft = d.pop("is_draft", UNSET)
+
         list_nats_triggers_response_200_item = cls(
             nats_resource_path=nats_resource_path,
             use_jetstream=use_jetstream,
@@ -236,6 +256,8 @@ class ListNatsTriggersResponse200Item:
             error_handler_args=error_handler_args,
             retry=retry,
             labels=labels,
+            draft_only=draft_only,
+            is_draft=is_draft,
         )
 
         list_nats_triggers_response_200_item.additional_properties = d

@@ -7,13 +7,15 @@ from dateutil.parser import isoparse
 
 from ..models.get_kafka_trigger_response_200_auto_offset_reset import GetKafkaTriggerResponse200AutoOffsetReset
 from ..models.get_kafka_trigger_response_200_filter_logic import GetKafkaTriggerResponse200FilterLogic
-from ..models.get_kafka_trigger_response_200_mode import GetKafkaTriggerResponse200Mode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.get_kafka_trigger_response_200_draft import GetKafkaTriggerResponse200Draft
     from ..models.get_kafka_trigger_response_200_error_handler_args import GetKafkaTriggerResponse200ErrorHandlerArgs
-    from ..models.get_kafka_trigger_response_200_extra_perms import GetKafkaTriggerResponse200ExtraPerms
     from ..models.get_kafka_trigger_response_200_filters_item import GetKafkaTriggerResponse200FiltersItem
+    from ..models.get_kafka_trigger_response_200_other_drafts_users_item import (
+        GetKafkaTriggerResponse200OtherDraftsUsersItem,
+    )
     from ..models.get_kafka_trigger_response_200_retry import GetKafkaTriggerResponse200Retry
 
 
@@ -28,16 +30,7 @@ class GetKafkaTriggerResponse200:
         group_id (str): Kafka consumer group ID for this trigger
         topics (List[str]): Array of Kafka topic names to subscribe to
         filters (List['GetKafkaTriggerResponse200FiltersItem']):
-        path (str): The unique Windmill path for this trigger. Must be of the form `u/<user>/<path>` or
-            `f/<folder>/<path>`. This is the trigger object path, not the HTTP route path.
-        script_path (str): Path to the script or flow to execute when triggered
-        permissioned_as (str): The user or group this trigger runs as (permissioned_as)
-        extra_perms (GetKafkaTriggerResponse200ExtraPerms): Additional permissions for this trigger
-        workspace_id (str): The workspace this trigger belongs to
-        edited_by (str): Username of the last person who edited this trigger
-        edited_at (datetime.datetime): Timestamp of the last edit
-        is_flow (bool): True if script_path points to a flow, false if it points to a script
-        mode (GetKafkaTriggerResponse200Mode): job trigger mode
+        is_draft (bool):
         filter_logic (Union[Unset, GetKafkaTriggerResponse200FilterLogic]): Logic to apply when evaluating filters.
             'and' requires all filters to match, 'or' requires any filter to match. Default:
             GetKafkaTriggerResponse200FilterLogic.AND.
@@ -53,22 +46,22 @@ class GetKafkaTriggerResponse200:
         error_handler_args (Union[Unset, GetKafkaTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
             script or flow
         retry (Union[Unset, GetKafkaTriggerResponse200Retry]): Retry configuration for failed module executions
-        labels (Union[Unset, List[str]]):
+        draft_saved_at (Union[Unset, datetime.datetime]):
+        no_deployed (Union[Unset, bool]):
+        draft (Union[Unset, GetKafkaTriggerResponse200Draft]):
+        other_drafts_users (Union[Unset, List['GetKafkaTriggerResponse200OtherDraftsUsersItem']]): Other workspace users
+            (and the legacy NULL-email row, if any)
+            with a saved draft at the same path. Populated only on the
+            authed user's "get by path" responses for kinds the editor
+            surfaces a fork banner for (script, flow, app, raw_app).
+            Empty / omitted for kinds without that UI.
     """
 
     kafka_resource_path: str
     group_id: str
     topics: List[str]
     filters: List["GetKafkaTriggerResponse200FiltersItem"]
-    path: str
-    script_path: str
-    permissioned_as: str
-    extra_perms: "GetKafkaTriggerResponse200ExtraPerms"
-    workspace_id: str
-    edited_by: str
-    edited_at: datetime.datetime
-    is_flow: bool
-    mode: GetKafkaTriggerResponse200Mode
+    is_draft: bool
     filter_logic: Union[Unset, GetKafkaTriggerResponse200FilterLogic] = GetKafkaTriggerResponse200FilterLogic.AND
     auto_offset_reset: Union[
         Unset, GetKafkaTriggerResponse200AutoOffsetReset
@@ -80,7 +73,10 @@ class GetKafkaTriggerResponse200:
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GetKafkaTriggerResponse200ErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GetKafkaTriggerResponse200Retry"] = UNSET
-    labels: Union[Unset, List[str]] = UNSET
+    draft_saved_at: Union[Unset, datetime.datetime] = UNSET
+    no_deployed: Union[Unset, bool] = UNSET
+    draft: Union[Unset, "GetKafkaTriggerResponse200Draft"] = UNSET
+    other_drafts_users: Union[Unset, List["GetKafkaTriggerResponse200OtherDraftsUsersItem"]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -94,18 +90,7 @@ class GetKafkaTriggerResponse200:
 
             filters.append(filters_item)
 
-        path = self.path
-        script_path = self.script_path
-        permissioned_as = self.permissioned_as
-        extra_perms = self.extra_perms.to_dict()
-
-        workspace_id = self.workspace_id
-        edited_by = self.edited_by
-        edited_at = self.edited_at.isoformat()
-
-        is_flow = self.is_flow
-        mode = self.mode.value
-
+        is_draft = self.is_draft
         filter_logic: Union[Unset, str] = UNSET
         if not isinstance(self.filter_logic, Unset):
             filter_logic = self.filter_logic.value
@@ -130,9 +115,22 @@ class GetKafkaTriggerResponse200:
         if not isinstance(self.retry, Unset):
             retry = self.retry.to_dict()
 
-        labels: Union[Unset, List[str]] = UNSET
-        if not isinstance(self.labels, Unset):
-            labels = self.labels
+        draft_saved_at: Union[Unset, str] = UNSET
+        if not isinstance(self.draft_saved_at, Unset):
+            draft_saved_at = self.draft_saved_at.isoformat()
+
+        no_deployed = self.no_deployed
+        draft: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.draft, Unset):
+            draft = self.draft.to_dict()
+
+        other_drafts_users: Union[Unset, List[Dict[str, Any]]] = UNSET
+        if not isinstance(self.other_drafts_users, Unset):
+            other_drafts_users = []
+            for other_drafts_users_item_data in self.other_drafts_users:
+                other_drafts_users_item = other_drafts_users_item_data.to_dict()
+
+                other_drafts_users.append(other_drafts_users_item)
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -142,15 +140,7 @@ class GetKafkaTriggerResponse200:
                 "group_id": group_id,
                 "topics": topics,
                 "filters": filters,
-                "path": path,
-                "script_path": script_path,
-                "permissioned_as": permissioned_as,
-                "extra_perms": extra_perms,
-                "workspace_id": workspace_id,
-                "edited_by": edited_by,
-                "edited_at": edited_at,
-                "is_flow": is_flow,
-                "mode": mode,
+                "is_draft": is_draft,
             }
         )
         if filter_logic is not UNSET:
@@ -171,18 +161,27 @@ class GetKafkaTriggerResponse200:
             field_dict["error_handler_args"] = error_handler_args
         if retry is not UNSET:
             field_dict["retry"] = retry
-        if labels is not UNSET:
-            field_dict["labels"] = labels
+        if draft_saved_at is not UNSET:
+            field_dict["draft_saved_at"] = draft_saved_at
+        if no_deployed is not UNSET:
+            field_dict["no_deployed"] = no_deployed
+        if draft is not UNSET:
+            field_dict["draft"] = draft
+        if other_drafts_users is not UNSET:
+            field_dict["other_drafts_users"] = other_drafts_users
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
+        from ..models.get_kafka_trigger_response_200_draft import GetKafkaTriggerResponse200Draft
         from ..models.get_kafka_trigger_response_200_error_handler_args import (
             GetKafkaTriggerResponse200ErrorHandlerArgs,
         )
-        from ..models.get_kafka_trigger_response_200_extra_perms import GetKafkaTriggerResponse200ExtraPerms
         from ..models.get_kafka_trigger_response_200_filters_item import GetKafkaTriggerResponse200FiltersItem
+        from ..models.get_kafka_trigger_response_200_other_drafts_users_item import (
+            GetKafkaTriggerResponse200OtherDraftsUsersItem,
+        )
         from ..models.get_kafka_trigger_response_200_retry import GetKafkaTriggerResponse200Retry
 
         d = src_dict.copy()
@@ -199,23 +198,7 @@ class GetKafkaTriggerResponse200:
 
             filters.append(filters_item)
 
-        path = d.pop("path")
-
-        script_path = d.pop("script_path")
-
-        permissioned_as = d.pop("permissioned_as")
-
-        extra_perms = GetKafkaTriggerResponse200ExtraPerms.from_dict(d.pop("extra_perms"))
-
-        workspace_id = d.pop("workspace_id")
-
-        edited_by = d.pop("edited_by")
-
-        edited_at = isoparse(d.pop("edited_at"))
-
-        is_flow = d.pop("is_flow")
-
-        mode = GetKafkaTriggerResponse200Mode(d.pop("mode"))
+        is_draft = d.pop("is_draft")
 
         _filter_logic = d.pop("filter_logic", UNSET)
         filter_logic: Union[Unset, GetKafkaTriggerResponse200FilterLogic]
@@ -260,22 +243,37 @@ class GetKafkaTriggerResponse200:
         else:
             retry = GetKafkaTriggerResponse200Retry.from_dict(_retry)
 
-        labels = cast(List[str], d.pop("labels", UNSET))
+        _draft_saved_at = d.pop("draft_saved_at", UNSET)
+        draft_saved_at: Union[Unset, datetime.datetime]
+        if isinstance(_draft_saved_at, Unset):
+            draft_saved_at = UNSET
+        else:
+            draft_saved_at = isoparse(_draft_saved_at)
+
+        no_deployed = d.pop("no_deployed", UNSET)
+
+        _draft = d.pop("draft", UNSET)
+        draft: Union[Unset, GetKafkaTriggerResponse200Draft]
+        if isinstance(_draft, Unset):
+            draft = UNSET
+        else:
+            draft = GetKafkaTriggerResponse200Draft.from_dict(_draft)
+
+        other_drafts_users = []
+        _other_drafts_users = d.pop("other_drafts_users", UNSET)
+        for other_drafts_users_item_data in _other_drafts_users or []:
+            other_drafts_users_item = GetKafkaTriggerResponse200OtherDraftsUsersItem.from_dict(
+                other_drafts_users_item_data
+            )
+
+            other_drafts_users.append(other_drafts_users_item)
 
         get_kafka_trigger_response_200 = cls(
             kafka_resource_path=kafka_resource_path,
             group_id=group_id,
             topics=topics,
             filters=filters,
-            path=path,
-            script_path=script_path,
-            permissioned_as=permissioned_as,
-            extra_perms=extra_perms,
-            workspace_id=workspace_id,
-            edited_by=edited_by,
-            edited_at=edited_at,
-            is_flow=is_flow,
-            mode=mode,
+            is_draft=is_draft,
             filter_logic=filter_logic,
             auto_offset_reset=auto_offset_reset,
             auto_commit=auto_commit,
@@ -285,7 +283,10 @@ class GetKafkaTriggerResponse200:
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,
-            labels=labels,
+            draft_saved_at=draft_saved_at,
+            no_deployed=no_deployed,
+            draft=draft,
+            other_drafts_users=other_drafts_users,
         )
 
         get_kafka_trigger_response_200.additional_properties = d

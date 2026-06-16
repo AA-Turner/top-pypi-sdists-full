@@ -17,6 +17,8 @@ use crate::hooks;
 use crate::store::{CacheBucket, Store, ToolBucket};
 
 mod bun;
+mod conda;
+mod coursier;
 mod dart;
 mod deno;
 mod docker;
@@ -28,8 +30,10 @@ mod haskell;
 mod julia;
 mod lua;
 mod node;
+mod perl;
 mod pygrep;
 mod python;
+mod r;
 mod ruby;
 mod rust;
 mod script;
@@ -38,6 +42,8 @@ mod system;
 pub(crate) mod version;
 
 static BUN: bun::Bun = bun::Bun;
+static CONDA: conda::Conda = conda::Conda;
+static COURSIER: coursier::Coursier = coursier::Coursier;
 static DART: dart::Dart = dart::Dart;
 static DENO: deno::Deno = deno::Deno;
 static DOCKER: docker::Docker = docker::Docker;
@@ -49,14 +55,15 @@ static HASKELL: haskell::Haskell = haskell::Haskell;
 static JULIA: julia::Julia = julia::Julia;
 static LUA: lua::Lua = lua::Lua;
 static NODE: node::Node = node::Node;
+static PERL: perl::Perl = perl::Perl;
 static PYGREP: pygrep::Pygrep = pygrep::Pygrep;
 static PYTHON: python::Python = python::Python;
+static R: r::R = r::R;
 static RUBY: ruby::Ruby = ruby::Ruby;
 static RUST: rust::Rust = rust::Rust;
 static SCRIPT: script::Script = script::Script;
 static SWIFT: swift::Swift = swift::Swift;
 static SYSTEM: system::System = system::System;
-static UNIMPLEMENTED: Unimplemented = Unimplemented;
 
 trait LanguageImpl {
     async fn install(
@@ -77,41 +84,10 @@ trait LanguageImpl {
     ) -> Result<(i32, Vec<u8>)>;
 }
 
-#[derive(thiserror::Error, Debug)]
-#[error("Language `{0}` is not implemented yet")]
-struct UnimplementedError(String);
-
-struct Unimplemented;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ShellSupport {
     Supported,
     Unsupported(&'static str),
-}
-
-impl LanguageImpl for Unimplemented {
-    async fn install(
-        &self,
-        hook: Arc<Hook>,
-        _store: &Store,
-        _reporter: &HookInstallReporter,
-    ) -> Result<InstalledHook> {
-        Ok(InstalledHook::NoNeedInstall(hook))
-    }
-
-    async fn check_health(&self, _info: &InstallInfo) -> Result<()> {
-        Ok(())
-    }
-
-    async fn run(
-        &self,
-        hook: &InstalledHook,
-        _filenames: &[&Path],
-        _store: &Store,
-        _reporter: &HookRunReporter,
-    ) -> Result<(i32, Vec<u8>)> {
-        anyhow::bail!(UnimplementedError(format!("{}", hook.language)))
-    }
 }
 
 // `pre-commit` language support:
@@ -138,31 +114,6 @@ impl LanguageImpl for Unimplemented {
 // system: only system version, no env, no additional deps
 
 impl Language {
-    pub(crate) fn supported(self) -> bool {
-        match self {
-            Self::Bun
-            | Self::Dart
-            | Self::Deno
-            | Self::Docker
-            | Self::DockerImage
-            | Self::Dotnet
-            | Self::Fail
-            | Self::Golang
-            | Self::Haskell
-            | Self::Julia
-            | Self::Lua
-            | Self::Node
-            | Self::Pygrep
-            | Self::Python
-            | Self::Ruby
-            | Self::Rust
-            | Self::Script
-            | Self::Swift
-            | Self::System => true,
-            Self::Conda | Self::Coursier | Self::Perl | Self::R => false,
-        }
-    }
-
     pub(crate) fn supports_install_env(self) -> bool {
         match self {
             Self::Bun
@@ -191,20 +142,23 @@ impl Language {
     pub(crate) fn shell_support(self) -> ShellSupport {
         match self {
             Self::Bun
+            | Self::Conda
+            | Self::Coursier
             | Self::Deno
             | Self::Dotnet
             | Self::Golang
             | Self::Haskell
             | Self::Lua
             | Self::Node
+            | Self::Perl
             | Self::Python
             | Self::Ruby
             | Self::Script
             | Self::Swift
             | Self::System => ShellSupport::Supported,
-            Self::Conda | Self::Coursier | Self::Perl | Self::R => {
-                ShellSupport::Unsupported("no runner is implemented yet")
-            }
+            Self::R => ShellSupport::Unsupported(
+                "`entry` must use the R backend's `Rscript -e <expr>` or `Rscript <file>` forms",
+            ),
             Self::Dart => ShellSupport::Unsupported(
                 "`--packages` injection requires the resolved argv to contain `dart` directly",
             ),
@@ -248,6 +202,7 @@ impl Language {
 
     pub(crate) fn cache_buckets(self) -> &'static [CacheBucket] {
         match self {
+            Self::Coursier => &[CacheBucket::Coursier],
             Self::Deno => &[CacheBucket::Deno],
             Self::Golang => &[CacheBucket::Go],
             Self::Node => &[CacheBucket::Npm],
@@ -255,7 +210,6 @@ impl Language {
             Self::Rust => &[CacheBucket::Cargo],
             Self::Bun
             | Self::Conda
-            | Self::Coursier
             | Self::Dart
             | Self::Docker
             | Self::DockerImage
@@ -345,6 +299,7 @@ impl Language {
         match self {
             Self::Dart => DART.install(hook, store, reporter).await,
             Self::Bun => BUN.install(hook, store, reporter).await,
+            Self::Coursier => COURSIER.install(hook, store, reporter).await,
             Self::Deno => DENO.install(hook, store, reporter).await,
             Self::Docker => DOCKER.install(hook, store, reporter).await,
             Self::DockerImage => DOCKER_IMAGE.install(hook, store, reporter).await,
@@ -355,16 +310,16 @@ impl Language {
             Self::Julia => JULIA.install(hook, store, reporter).await,
             Self::Lua => LUA.install(hook, store, reporter).await,
             Self::Node => NODE.install(hook, store, reporter).await,
+            Self::Perl => PERL.install(hook, store, reporter).await,
             Self::Pygrep => PYGREP.install(hook, store, reporter).await,
             Self::Python => PYTHON.install(hook, store, reporter).await,
+            Self::R => R.install(hook, store, reporter).await,
             Self::Ruby => RUBY.install(hook, store, reporter).await,
             Self::Rust => RUST.install(hook, store, reporter).await,
             Self::Script => SCRIPT.install(hook, store, reporter).await,
             Self::Swift => SWIFT.install(hook, store, reporter).await,
             Self::System => SYSTEM.install(hook, store, reporter).await,
-            Self::Conda | Self::Coursier | Self::Perl | Self::R => {
-                UNIMPLEMENTED.install(hook, store, reporter).await
-            }
+            Self::Conda => CONDA.install(hook, store, reporter).await,
         }
     }
 
@@ -372,6 +327,7 @@ impl Language {
         match self {
             Self::Dart => DART.check_health(info).await,
             Self::Bun => BUN.check_health(info).await,
+            Self::Coursier => COURSIER.check_health(info).await,
             Self::Deno => DENO.check_health(info).await,
             Self::Docker => DOCKER.check_health(info).await,
             Self::DockerImage => DOCKER_IMAGE.check_health(info).await,
@@ -382,16 +338,16 @@ impl Language {
             Self::Julia => JULIA.check_health(info).await,
             Self::Lua => LUA.check_health(info).await,
             Self::Node => NODE.check_health(info).await,
+            Self::Perl => PERL.check_health(info).await,
             Self::Pygrep => PYGREP.check_health(info).await,
             Self::Python => PYTHON.check_health(info).await,
+            Self::R => R.check_health(info).await,
             Self::Ruby => RUBY.check_health(info).await,
             Self::Rust => RUST.check_health(info).await,
             Self::Script => SCRIPT.check_health(info).await,
             Self::Swift => SWIFT.check_health(info).await,
             Self::System => SYSTEM.check_health(info).await,
-            Self::Conda | Self::Coursier | Self::Perl | Self::R => {
-                UNIMPLEMENTED.check_health(info).await
-            }
+            Self::Conda => CONDA.check_health(info).await,
         }
     }
 
@@ -428,6 +384,7 @@ impl Language {
         match self {
             Self::Dart => DART.run(hook, filenames, store, reporter).await,
             Self::Bun => BUN.run(hook, filenames, store, reporter).await,
+            Self::Coursier => COURSIER.run(hook, filenames, store, reporter).await,
             Self::Deno => DENO.run(hook, filenames, store, reporter).await,
             Self::Docker => DOCKER.run(hook, filenames, store, reporter).await,
             Self::DockerImage => DOCKER_IMAGE.run(hook, filenames, store, reporter).await,
@@ -438,16 +395,16 @@ impl Language {
             Self::Julia => JULIA.run(hook, filenames, store, reporter).await,
             Self::Lua => LUA.run(hook, filenames, store, reporter).await,
             Self::Node => NODE.run(hook, filenames, store, reporter).await,
+            Self::Perl => PERL.run(hook, filenames, store, reporter).await,
             Self::Pygrep => PYGREP.run(hook, filenames, store, reporter).await,
             Self::Python => PYTHON.run(hook, filenames, store, reporter).await,
+            Self::R => R.run(hook, filenames, store, reporter).await,
             Self::Ruby => RUBY.run(hook, filenames, store, reporter).await,
             Self::Rust => RUST.run(hook, filenames, store, reporter).await,
             Self::Script => SCRIPT.run(hook, filenames, store, reporter).await,
             Self::Swift => SWIFT.run(hook, filenames, store, reporter).await,
             Self::System => SYSTEM.run(hook, filenames, store, reporter).await,
-            Self::Conda | Self::Coursier | Self::Perl | Self::R => {
-                UNIMPLEMENTED.run(hook, filenames, store, reporter).await
-            }
+            Self::Conda => CONDA.run(hook, filenames, store, reporter).await,
         }
     }
 }

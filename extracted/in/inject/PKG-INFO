@@ -1,8 +1,10 @@
 Metadata-Version: 2.4
 Name: inject
-Version: 5.3.0
+Version: 5.4.0
 Summary: Python dependency injection framework.
-Project-URL: Homepage, https://github.com/ivankorobkov/python-inject
+Project-URL: homepage, https://github.com/ivankorobkov/python-inject
+Project-URL: source, https://github.com/ivankorobkov/python-inject
+Project-URL: issues, https://github.com/ivankorobkov/python-inject/issues
 Author-email: Ivan Korobkov <ivan.korobkov@gmail.com>
 Maintainer-email: Ivan Korobkov <ivan.korobkov@gmail.com>
 License-Expression: Apache-2.0
@@ -12,10 +14,15 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 # python-inject [![Build Status](https://travis-ci.org/ivankorobkov/python-inject.svg?branch=master)](https://travis-ci.org/ivankorobkov/python-inject)
