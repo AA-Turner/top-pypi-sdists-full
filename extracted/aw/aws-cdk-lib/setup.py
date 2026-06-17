@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk-lib",
-    "version": "2.259.0",
+    "version": "2.260.0",
     "description": "Version 2 of the AWS Cloud Development Kit library",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -268,6 +268,7 @@ kwargs = json.loads(
         "aws_cdk.aws_refactorspaces",
         "aws_cdk.aws_rekognition",
         "aws_cdk.aws_resiliencehub",
+        "aws_cdk.aws_resiliencehubv2",
         "aws_cdk.aws_resourceexplorer2",
         "aws_cdk.aws_resourcegroups",
         "aws_cdk.aws_robomaker",
@@ -377,6 +378,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_backup",
         "aws_cdk.interfaces.aws_backupgateway",
         "aws_cdk.interfaces.aws_batch",
+        "aws_cdk.interfaces.aws_bcm",
         "aws_cdk.interfaces.aws_bcmdataexports",
         "aws_cdk.interfaces.aws_bcmpricingcalculator",
         "aws_cdk.interfaces.aws_bedrock",
@@ -568,6 +570,7 @@ kwargs = json.loads(
         "aws_cdk.interfaces.aws_refactorspaces",
         "aws_cdk.interfaces.aws_rekognition",
         "aws_cdk.interfaces.aws_resiliencehub",
+        "aws_cdk.interfaces.aws_resiliencehubv2",
         "aws_cdk.interfaces.aws_resourceexplorer2",
         "aws_cdk.interfaces.aws_resourcegroups",
         "aws_cdk.interfaces.aws_robomaker",
@@ -638,7 +641,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk._jsii": [
-            "aws-cdk-lib@2.259.0.jsii.tgz"
+            "aws-cdk-lib@2.260.0.jsii.tgz"
         ],
         "aws_cdk": [
             "py.typed"

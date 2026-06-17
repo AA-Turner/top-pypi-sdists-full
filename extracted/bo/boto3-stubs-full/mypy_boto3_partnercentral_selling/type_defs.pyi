@@ -46,6 +46,8 @@ from .literals import (
     OpportunityTypeType,
     ParticipantTypeType,
     PrimaryNeedFromAwsType,
+    ProspectingFromEngagementTaskSortNameType,
+    ProspectingTaskStatusType,
     ReasonCodeType,
     ReceiverResponsibilityType,
     RelatedEntityTypeType,
@@ -122,6 +124,7 @@ __all__ = (
     "EngagementInvitationSummaryTypeDef",
     "EngagementMemberSummaryTypeDef",
     "EngagementMemberTypeDef",
+    "EngagementProspectingResultTypeDef",
     "EngagementResourceAssociationSummaryTypeDef",
     "EngagementSortTypeDef",
     "EngagementSummaryTypeDef",
@@ -135,6 +138,8 @@ __all__ = (
     "GetEngagementResponseTypeDef",
     "GetOpportunityRequestTypeDef",
     "GetOpportunityResponseTypeDef",
+    "GetProspectingFromEngagementTaskRequestTypeDef",
+    "GetProspectingFromEngagementTaskResponseTypeDef",
     "GetResourceSnapshotJobRequestTypeDef",
     "GetResourceSnapshotJobResponseTypeDef",
     "GetResourceSnapshotRequestTypeDef",
@@ -148,6 +153,7 @@ __all__ = (
     "LeadContextTypeDef",
     "LeadContextUnionTypeDef",
     "LeadCustomerTypeDef",
+    "LeadInsightsTypeDef",
     "LeadInteractionOutputTypeDef",
     "LeadInteractionTypeDef",
     "LeadInteractionUnionTypeDef",
@@ -186,6 +192,9 @@ __all__ = (
     "ListOpportunityFromEngagementTasksRequestPaginateTypeDef",
     "ListOpportunityFromEngagementTasksRequestTypeDef",
     "ListOpportunityFromEngagementTasksResponseTypeDef",
+    "ListProspectingFromEngagementTasksRequestPaginateTypeDef",
+    "ListProspectingFromEngagementTasksRequestTypeDef",
+    "ListProspectingFromEngagementTasksResponseTypeDef",
     "ListResourceSnapshotJobsRequestPaginateTypeDef",
     "ListResourceSnapshotJobsRequestTypeDef",
     "ListResourceSnapshotJobsResponseTypeDef",
@@ -208,6 +217,7 @@ __all__ = (
     "OpportunityInvitationPayloadOutputTypeDef",
     "OpportunityInvitationPayloadTypeDef",
     "OpportunityInvitationPayloadUnionTypeDef",
+    "OpportunityQualityTypeDef",
     "OpportunitySortTypeDef",
     "OpportunitySummaryTypeDef",
     "OpportunitySummaryViewTypeDef",
@@ -224,9 +234,22 @@ __all__ = (
     "ProjectTypeDef",
     "ProjectUnionTypeDef",
     "ProjectViewTypeDef",
+    "ProspectingFromEngagementTaskSortTypeDef",
+    "ProspectingInsightsTypeDef",
+    "ProspectingResultAwsOutputTypeDef",
+    "ProspectingResultAwsTypeDef",
+    "ProspectingResultAwsUnionTypeDef",
+    "ProspectingResultCustomerOutputTypeDef",
+    "ProspectingResultCustomerTypeDef",
+    "ProspectingResultCustomerUnionTypeDef",
+    "ProspectingResultOutputTypeDef",
+    "ProspectingResultTypeDef",
+    "ProspectingResultUnionTypeDef",
+    "ProspectingTaskSummaryTypeDef",
     "PutSellingSystemSettingsRequestTypeDef",
     "PutSellingSystemSettingsResponseTypeDef",
     "ReceiverTypeDef",
+    "RecommendationTypeDef",
     "RejectEngagementInvitationRequestTypeDef",
     "RelatedEntityIdentifiersTypeDef",
     "ResourceSnapshotJobSummaryTypeDef",
@@ -244,6 +267,8 @@ __all__ = (
     "StartEngagementFromOpportunityTaskResponseTypeDef",
     "StartOpportunityFromEngagementTaskRequestTypeDef",
     "StartOpportunityFromEngagementTaskResponseTypeDef",
+    "StartProspectingFromEngagementTaskRequestTypeDef",
+    "StartProspectingFromEngagementTaskResponseTypeDef",
     "StartResourceSnapshotJobRequestTypeDef",
     "StopResourceSnapshotJobRequestTypeDef",
     "SubmitOpportunityRequestTypeDef",
@@ -300,6 +325,19 @@ class ContactTypeDef(TypedDict):
     LastName: NotRequired[str]
     BusinessTitle: NotRequired[str]
     Phone: NotRequired[str]
+
+class OpportunityQualityTypeDef(TypedDict):
+    Score: NotRequired[int]
+    Trend: NotRequired[str]
+
+RecommendationTypeDef = TypedDict(
+    "RecommendationTypeDef",
+    {
+        "Type": str,
+        "Details": str,
+        "Attributes": NotRequired[dict[str, str]],
+    },
+)
 
 class ProfileNextStepsHistoryTypeDef(TypedDict):
     Value: str
@@ -381,6 +419,13 @@ class EngagementMemberTypeDef(TypedDict):
     WebsiteUrl: NotRequired[str]
     AccountId: NotRequired[str]
 
+class EngagementProspectingResultTypeDef(TypedDict):
+    EngagementIdentifier: str
+    Status: ProspectingTaskStatusType
+    EngagementContextId: NotRequired[str]
+    ReasonCode: NotRequired[str]
+    Message: NotRequired[str]
+
 class EngagementResourceAssociationSummaryTypeDef(TypedDict):
     Catalog: str
     EngagementId: NotRequired[str]
@@ -436,6 +481,10 @@ class RelatedEntityIdentifiersTypeDef(TypedDict):
     Solutions: NotRequired[list[str]]
     AwsProducts: NotRequired[list[str]]
 
+class GetProspectingFromEngagementTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    TaskIdentifier: str
+
 class GetResourceSnapshotJobRequestTypeDef(TypedDict):
     Catalog: str
     ResourceSnapshotJobIdentifier: str
@@ -457,6 +506,9 @@ class LeadContactTypeDef(TypedDict):
     FirstName: str
     LastName: str
     Phone: NotRequired[str]
+
+class LeadInsightsTypeDef(TypedDict):
+    LeadReadinessScore: NotRequired[str]
 
 class LeadInvitationCustomerTypeDef(TypedDict):
     CompanyName: str
@@ -563,6 +615,20 @@ class ListOpportunityFromEngagementTaskSummaryTypeDef(TypedDict):
     EngagementId: NotRequired[str]
     ContextId: NotRequired[str]
 
+class ProspectingFromEngagementTaskSortTypeDef(TypedDict):
+    SortOrder: SortOrderType
+    SortBy: ProspectingFromEngagementTaskSortNameType
+
+class ProspectingTaskSummaryTypeDef(TypedDict):
+    TaskId: str
+    TaskArn: str
+    TaskName: str
+    StartTime: datetime
+    TotalEngagementCount: int
+    CompletedEngagementCount: int
+    FailedEngagementCount: int
+    EndTime: NotRequired[datetime]
+
 class SortObjectTypeDef(TypedDict):
     SortBy: NotRequired[Literal["CreatedDate"]]
     SortOrder: NotRequired[SortOrderType]
@@ -625,6 +691,38 @@ class SenderContactTypeDef(TypedDict):
     BusinessTitle: NotRequired[str]
     Phone: NotRequired[str]
 
+class ProspectingInsightsTypeDef(TypedDict):
+    MarketplaceEngagementScore: NotRequired[str]
+    SolutionScore: NotRequired[str]
+    SolutionCategory: NotRequired[str]
+    SolutionSubCategory: NotRequired[str]
+
+class ProspectingResultCustomerOutputTypeDef(TypedDict):
+    AccountName: NotRequired[str]
+    Geo: NotRequired[str]
+    Region: NotRequired[str]
+    SubRegion: NotRequired[str]
+    Country: NotRequired[CountryCodeType]
+    Industry: NotRequired[IndustryType]
+    SubIndustry: NotRequired[str]
+    Segment: NotRequired[str]
+    CompanySize: NotRequired[str]
+    EligiblePrograms: NotRequired[list[str]]
+    PublicProfileSummary: NotRequired[str]
+
+class ProspectingResultCustomerTypeDef(TypedDict):
+    AccountName: NotRequired[str]
+    Geo: NotRequired[str]
+    Region: NotRequired[str]
+    SubRegion: NotRequired[str]
+    Country: NotRequired[CountryCodeType]
+    Industry: NotRequired[IndustryType]
+    SubIndustry: NotRequired[str]
+    Segment: NotRequired[str]
+    CompanySize: NotRequired[str]
+    EligiblePrograms: NotRequired[Sequence[str]]
+    PublicProfileSummary: NotRequired[str]
+
 class PutSellingSystemSettingsRequestTypeDef(TypedDict):
     Catalog: str
     ResourceSnapshotJobRoleIdentifier: NotRequired[str]
@@ -633,6 +731,12 @@ class RejectEngagementInvitationRequestTypeDef(TypedDict):
     Catalog: str
     Identifier: str
     RejectionReason: NotRequired[str]
+
+class StartProspectingFromEngagementTaskRequestTypeDef(TypedDict):
+    Catalog: str
+    Identifiers: Sequence[str]
+    TaskName: str
+    ClientToken: str
 
 class StartResourceSnapshotJobRequestTypeDef(TypedDict):
     Catalog: str
@@ -819,6 +923,17 @@ class StartOpportunityFromEngagementTaskResponseTypeDef(TypedDict):
     ContextId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartProspectingFromEngagementTaskResponseTypeDef(TypedDict):
+    Identifiers: list[str]
+    TaskName: str
+    Message: str
+    ReasonCode: str
+    StartTime: datetime
+    TaskId: str
+    TaskArn: str
+    TaskStatus: ProspectingTaskStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateEngagementContextResponseTypeDef(TypedDict):
     EngagementId: str
     EngagementArn: str
@@ -888,6 +1003,15 @@ class ListEngagementMembersResponseTypeDef(TypedDict):
     EngagementMemberList: list[EngagementMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class GetProspectingFromEngagementTaskResponseTypeDef(TypedDict):
+    TaskId: str
+    TaskArn: str
+    TaskName: str
+    StartTime: datetime
+    EndTime: datetime
+    Engagements: list[EngagementProspectingResultTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEngagementResourceAssociationsResponseTypeDef(TypedDict):
     EngagementResourceAssociationSummaries: list[EngagementResourceAssociationSummaryTypeDef]
@@ -1116,6 +1240,30 @@ class ListOpportunityFromEngagementTasksResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListProspectingFromEngagementTasksRequestPaginateTypeDef(TypedDict):
+    Catalog: str
+    TaskIdentifier: NotRequired[Sequence[str]]
+    TaskName: NotRequired[Sequence[str]]
+    StartAfter: NotRequired[TimestampTypeDef]
+    StartBefore: NotRequired[TimestampTypeDef]
+    Sort: NotRequired[ProspectingFromEngagementTaskSortTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListProspectingFromEngagementTasksRequestTypeDef(TypedDict):
+    Catalog: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    TaskIdentifier: NotRequired[Sequence[str]]
+    TaskName: NotRequired[Sequence[str]]
+    StartAfter: NotRequired[TimestampTypeDef]
+    StartBefore: NotRequired[TimestampTypeDef]
+    Sort: NotRequired[ProspectingFromEngagementTaskSortTypeDef]
+
+class ListProspectingFromEngagementTasksResponseTypeDef(TypedDict):
+    TaskSummaries: list[ProspectingTaskSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListResourceSnapshotJobsRequestPaginateTypeDef(TypedDict):
     Catalog: str
     EngagementIdentifier: NotRequired[str]
@@ -1170,6 +1318,19 @@ class SoftwareRevenueTypeDef(TypedDict):
     Value: NotRequired[MonetaryValueTypeDef]
     EffectiveDate: NotRequired[str]
     ExpirationDate: NotRequired[str]
+
+class ProspectingResultAwsOutputTypeDef(TypedDict):
+    StartTime: NotRequired[datetime]
+    EndTime: NotRequired[datetime]
+    TaskId: NotRequired[str]
+    TaskArn: NotRequired[str]
+    TaskName: NotRequired[str]
+    Customer: NotRequired[ProspectingResultCustomerOutputTypeDef]
+    Insights: NotRequired[ProspectingInsightsTypeDef]
+
+ProspectingResultCustomerUnionTypeDef = Union[
+    ProspectingResultCustomerTypeDef, ProspectingResultCustomerOutputTypeDef
+]
 
 class EngagementInvitationSummaryTypeDef(TypedDict):
     Id: str
@@ -1254,9 +1415,22 @@ ProjectUnionTypeDef = Union[ProjectTypeDef, ProjectOutputTypeDef]
 class LeadContextOutputTypeDef(TypedDict):
     Customer: LeadCustomerTypeDef
     Interactions: list[LeadInteractionOutputTypeDef]
+    Insights: NotRequired[LeadInsightsTypeDef]
     QualificationStatus: NotRequired[str]
 
 LeadInteractionUnionTypeDef = Union[LeadInteractionTypeDef, LeadInteractionOutputTypeDef]
+
+class ProspectingResultOutputTypeDef(TypedDict):
+    Aws: NotRequired[ProspectingResultAwsOutputTypeDef]
+
+class ProspectingResultAwsTypeDef(TypedDict):
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+    TaskId: NotRequired[str]
+    TaskArn: NotRequired[str]
+    TaskName: NotRequired[str]
+    Customer: NotRequired[ProspectingResultCustomerUnionTypeDef]
+    Insights: NotRequired[ProspectingInsightsTypeDef]
 
 class ListEngagementInvitationsResponseTypeDef(TypedDict):
     EngagementInvitationSummaries: list[EngagementInvitationSummaryTypeDef]
@@ -1321,19 +1495,26 @@ class AwsProductsSpendInsightsBySourceTypeDef(TypedDict):
 
 LifeCycleUnionTypeDef = Union[LifeCycleTypeDef, LifeCycleOutputTypeDef]
 
-class EngagementContextPayloadOutputTypeDef(TypedDict):
-    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
-    Lead: NotRequired[LeadContextOutputTypeDef]
-
 class LeadContextTypeDef(TypedDict):
     Customer: LeadCustomerTypeDef
     Interactions: Sequence[LeadInteractionUnionTypeDef]
+    Insights: NotRequired[LeadInsightsTypeDef]
     QualificationStatus: NotRequired[str]
 
 class UpdateLeadContextTypeDef(TypedDict):
     Customer: LeadCustomerTypeDef
     QualificationStatus: NotRequired[str]
     Interaction: NotRequired[LeadInteractionUnionTypeDef]
+    Insights: NotRequired[LeadInsightsTypeDef]
+
+class EngagementContextPayloadOutputTypeDef(TypedDict):
+    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+    Lead: NotRequired[LeadContextOutputTypeDef]
+    ProspectingResult: NotRequired[ProspectingResultOutputTypeDef]
+
+ProspectingResultAwsUnionTypeDef = Union[
+    ProspectingResultAwsTypeDef, ProspectingResultAwsOutputTypeDef
+]
 
 class ListOpportunitiesResponseTypeDef(TypedDict):
     OpportunitySummaries: list[OpportunitySummaryTypeDef]
@@ -1368,6 +1549,8 @@ class AwsOpportunityInsightsTypeDef(TypedDict):
     NextBestActions: NotRequired[str]
     EngagementScore: NotRequired[EngagementScoreType]
     AwsProductsSpendInsightsBySource: NotRequired[AwsProductsSpendInsightsBySourceTypeDef]
+    OpportunityQuality: NotRequired[OpportunityQualityTypeDef]
+    Recommendations: NotRequired[list[RecommendationTypeDef]]
 
 class CreateOpportunityRequestTypeDef(TypedDict):
     Catalog: str
@@ -1399,6 +1582,7 @@ class UpdateOpportunityRequestTypeDef(TypedDict):
     SoftwareRevenue: NotRequired[SoftwareRevenueTypeDef]
     LifeCycle: NotRequired[LifeCycleUnionTypeDef]
 
+LeadContextUnionTypeDef = Union[LeadContextTypeDef, LeadContextOutputTypeDef]
 EngagementContextDetailsOutputTypeDef = TypedDict(
     "EngagementContextDetailsOutputTypeDef",
     {
@@ -1407,11 +1591,9 @@ EngagementContextDetailsOutputTypeDef = TypedDict(
         "Payload": NotRequired[EngagementContextPayloadOutputTypeDef],
     },
 )
-LeadContextUnionTypeDef = Union[LeadContextTypeDef, LeadContextOutputTypeDef]
 
-class UpdateEngagementContextPayloadTypeDef(TypedDict):
-    Lead: NotRequired[UpdateLeadContextTypeDef]
-    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+class ProspectingResultTypeDef(TypedDict):
+    Aws: NotRequired[ProspectingResultAwsUnionTypeDef]
 
 class PayloadTypeDef(TypedDict):
     OpportunityInvitation: NotRequired[OpportunityInvitationPayloadUnionTypeDef]
@@ -1429,6 +1611,7 @@ class AwsOpportunitySummaryFullViewTypeDef(TypedDict):
     RelatedEntityIds: NotRequired[AwsOpportunityRelatedEntitiesTypeDef]
     Customer: NotRequired[AwsOpportunityCustomerTypeDef]
     Project: NotRequired[AwsOpportunityProjectTypeDef]
+    CosellMotion: NotRequired[str]
 
 class GetAwsOpportunitySummaryResponseTypeDef(TypedDict):
     RelatedOpportunityId: str
@@ -1442,6 +1625,7 @@ class GetAwsOpportunitySummaryResponseTypeDef(TypedDict):
     RelatedEntityIds: AwsOpportunityRelatedEntitiesTypeDef
     Customer: AwsOpportunityCustomerTypeDef
     Project: AwsOpportunityProjectTypeDef
+    CosellMotion: str
     Catalog: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1458,30 +1642,22 @@ class GetEngagementResponseTypeDef(TypedDict):
     Contexts: list[EngagementContextDetailsOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class EngagementContextPayloadTypeDef(TypedDict):
-    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
-    Lead: NotRequired[LeadContextUnionTypeDef]
-
-UpdateEngagementContextRequestTypeDef = TypedDict(
-    "UpdateEngagementContextRequestTypeDef",
-    {
-        "Catalog": str,
-        "EngagementIdentifier": str,
-        "ContextIdentifier": str,
-        "EngagementLastModifiedAt": TimestampTypeDef,
-        "Type": EngagementContextTypeType,
-        "Payload": UpdateEngagementContextPayloadTypeDef,
-    },
-)
+ProspectingResultUnionTypeDef = Union[ProspectingResultTypeDef, ProspectingResultOutputTypeDef]
 PayloadUnionTypeDef = Union[PayloadTypeDef, PayloadOutputTypeDef]
 
 class ResourceSnapshotPayloadTypeDef(TypedDict):
     OpportunitySummary: NotRequired[OpportunitySummaryViewTypeDef]
     AwsOpportunitySummaryFullView: NotRequired[AwsOpportunitySummaryFullViewTypeDef]
 
-EngagementContextPayloadUnionTypeDef = Union[
-    EngagementContextPayloadTypeDef, EngagementContextPayloadOutputTypeDef
-]
+class EngagementContextPayloadTypeDef(TypedDict):
+    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+    Lead: NotRequired[LeadContextUnionTypeDef]
+    ProspectingResult: NotRequired[ProspectingResultUnionTypeDef]
+
+class UpdateEngagementContextPayloadTypeDef(TypedDict):
+    Lead: NotRequired[UpdateLeadContextTypeDef]
+    CustomerProject: NotRequired[CustomerProjectsContextTypeDef]
+    ProspectingResult: NotRequired[ProspectingResultUnionTypeDef]
 
 class InvitationTypeDef(TypedDict):
     Message: str
@@ -1502,6 +1678,27 @@ class GetResourceSnapshotResponseTypeDef(TypedDict):
     TargetMemberAccounts: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+EngagementContextPayloadUnionTypeDef = Union[
+    EngagementContextPayloadTypeDef, EngagementContextPayloadOutputTypeDef
+]
+UpdateEngagementContextRequestTypeDef = TypedDict(
+    "UpdateEngagementContextRequestTypeDef",
+    {
+        "Catalog": str,
+        "EngagementIdentifier": str,
+        "ContextIdentifier": str,
+        "EngagementLastModifiedAt": TimestampTypeDef,
+        "Type": EngagementContextTypeType,
+        "Payload": UpdateEngagementContextPayloadTypeDef,
+    },
+)
+
+class CreateEngagementInvitationRequestTypeDef(TypedDict):
+    Catalog: str
+    ClientToken: str
+    EngagementIdentifier: str
+    Invitation: InvitationTypeDef
+
 CreateEngagementContextRequestTypeDef = TypedDict(
     "CreateEngagementContextRequestTypeDef",
     {
@@ -1520,13 +1717,6 @@ EngagementContextDetailsTypeDef = TypedDict(
         "Payload": NotRequired[EngagementContextPayloadUnionTypeDef],
     },
 )
-
-class CreateEngagementInvitationRequestTypeDef(TypedDict):
-    Catalog: str
-    ClientToken: str
-    EngagementIdentifier: str
-    Invitation: InvitationTypeDef
-
 EngagementContextDetailsUnionTypeDef = Union[
     EngagementContextDetailsTypeDef, EngagementContextDetailsOutputTypeDef
 ]

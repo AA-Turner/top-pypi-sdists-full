@@ -245,47 +245,6 @@ class AdfTaskRunModelStatus(sgqlc.types.Enum):
     )
 
 
-class AgentGraphInsightCategory(sgqlc.types.Enum):
-    """Categories of derived findings about a fused agent graph.
-
-    Enumeration Choices:
-
-    * `CHOKEPOINT`None
-    * `ERROR_CONCENTRATION`None
-    * `LOOP_SATURATION`None
-    * `MODEL_INCONSISTENCY`None
-    * `POLLING_GAP`None
-    * `SEQUENTIAL_BOTTLENECK`None
-    * `TOOL_HOTSPOT`None
-    * `TOOL_TIMEOUT`None
-    """
-
-    __schema__ = schema
-    __choices__ = (
-        "CHOKEPOINT",
-        "ERROR_CONCENTRATION",
-        "LOOP_SATURATION",
-        "MODEL_INCONSISTENCY",
-        "POLLING_GAP",
-        "SEQUENTIAL_BOTTLENECK",
-        "TOOL_HOTSPOT",
-        "TOOL_TIMEOUT",
-    )
-
-
-class AgentGraphInsightSeverity(sgqlc.types.Enum):
-    """Severity tiers for ordering insights — high first, then medium.
-
-    Enumeration Choices:
-
-    * `HIGH`None
-    * `MEDIUM`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("HIGH", "MEDIUM")
-
-
 class AgentGraphNodeKind(sgqlc.types.Enum):
     """Kind of a fused agent-graph node — derived from the underlying
     span.  `is_llm_call=True` → LLM; `is_tool_call=True` → TOOL;
@@ -9784,6 +9743,7 @@ class ConversationFiltersInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = (
         "conversation_id_search",
+        "trace_id",
         "workflows",
         "statuses",
         "has_errors",
@@ -9796,6 +9756,11 @@ class ConversationFiltersInput(sgqlc.types.Input):
     )
     conversation_id_search = sgqlc.types.Field(String, graphql_name="conversationIdSearch")
     """Case-insensitive substring search on conversation_id"""
+
+    trace_id = sgqlc.types.Field(String, graphql_name="traceId")
+    """Filter by exact trace ID (hex-encoded) — returns the conversation
+    that contains this trace
+    """
 
     workflows = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
@@ -11195,22 +11160,23 @@ class FreshnessExplicitAlertConditionInput(sgqlc.types.Input):
 
 
 class GetAgentGraphInput(sgqlc.types.Input):
-    """Input parameters shared by GetAgentGraph and
-    GetAgentGraphInsights.  ``getAgentGraph`` reads a daily-refreshed
-    snapshot of the fused graph for the trailing 7 days and ignores
-    ``startTime``, ``endTime``, ``maxTraces``, and
+    """Input parameters for GetAgentGraph.  ``getAgentGraph`` reads a
+    daily-refreshed snapshot of the fused graph for the trailing 7
+    days and ignores ``startTime``, ``endTime``, ``maxTraces``, and
     ``includeFrameworkNodes`` — the snapshot window and shape are
     fixed server-side (framework wrappers collapsed, up to 1000
-    traces). ``getAgentGraphInsights`` fuses traces live and honors
-    all fields; ``startTime`` / ``endTime`` are required there
-    (enforced at the resolver — the shared schema type can no longer
-    mark them non-null).
+    traces). Set ``liveGraph`` true to bypass the snapshot and fuse
+    traces on the fly; in that mode all of those fields are honored
+    and ``startTime`` / ``endTime`` are required (enforced at the
+    resolver — the shared schema type can no longer mark them non-
+    null).
     """
 
     __schema__ = schema
     __field_names__ = (
         "agent_name",
         "trace_table_mcon",
+        "live_graph",
         "start_time",
         "end_time",
         "workflows",
@@ -11227,24 +11193,33 @@ class GetAgentGraphInput(sgqlc.types.Input):
     query.
     """
 
+    live_graph = sgqlc.types.Field(Boolean, graphql_name="liveGraph")
+    """When true, bypass the stored daily snapshot and fuse the graph on
+    the fly from the other window/filter args (`startTime`, `endTime`,
+    `workflows`, `maxTraces`, `includeFrameworkNodes`). Live fusion is
+    capped at 100 most-recent traces and requires `startTime` /
+    `endTime`. When false (the default) those fields are ignored and
+    the fixed-window snapshot is returned.
+    """
+
     start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
-    """Start of time range (inclusive). Required by
-    getAgentGraphInsights. Ignored by getAgentGraph — the snapshot
-    window is fixed at the trailing 7 days.
+    """Start of time range (inclusive). Required when `liveGraph` is
+    true. Ignored otherwise — the snapshot window is fixed at the
+    trailing 7 days.
     """
 
     end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
-    """End of time range (inclusive). Required by getAgentGraphInsights.
-    Ignored by getAgentGraph.
+    """End of time range (inclusive). Required when `liveGraph` is true.
+    Ignored otherwise.
     """
 
     workflows = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
     )
-    """Optional list of workflow names. getAgentGraph reads the matching
-    per-workflow snapshot and supports at most one name today —
-    supplying more raises a validation error; omit or pass an empty
-    list to read the unfiltered snapshot. getAgentGraphInsights
+    """Optional list of workflow names. The snapshot read uses the
+    matching per-workflow snapshot and supports at most one name today
+    — supplying more raises a validation error; omit or pass an empty
+    list to read the unfiltered snapshot. With `liveGraph` true this
     narrows the live trace pool (OR logic — matches traces containing
     any listed workflow), same semantics as `filters.workflows` on
     getTraces.
@@ -11252,8 +11227,9 @@ class GetAgentGraphInput(sgqlc.types.Input):
 
     max_traces = sgqlc.types.Field(Int, graphql_name="maxTraces")
     """Maximum number of most-recent traces to fuse into the graph.
-    Capped at 100; values above 100 are clamped server-side. Ignored
-    by getAgentGraph — snapshots always fuse up to 1000 traces.
+    Capped at 100; values above 100 are clamped server-side. Only
+    honored when `liveGraph` is true — the snapshot always fuses up to
+    1000 traces.
     """
 
     include_framework_nodes = sgqlc.types.Field(Boolean, graphql_name="includeFrameworkNodes")
@@ -11263,8 +11239,8 @@ class GetAgentGraphInput(sgqlc.types.Input):
     graph behaves as if the wrappers were never emitted. When true,
     wrappers appear as their own nodes flagged via `frameworkNode`,
     and counts / edges / cluster sizes reflect the full uncollapsed
-    tree. Ignored by getAgentGraph — snapshots store the collapsed
-    graph only.
+    tree. Only honored when `liveGraph` is true — the snapshot stores
+    the collapsed graph only.
     """
 
 
@@ -14859,6 +14835,7 @@ class TraceFiltersInput(sgqlc.types.Input):
         "min_total_tokens",
         "max_total_tokens",
         "conversation_id",
+        "trace_id",
         "statuses",
         "root_statuses",
         "search_query",
@@ -14904,6 +14881,9 @@ class TraceFiltersInput(sgqlc.types.Input):
 
     conversation_id = sgqlc.types.Field(String, graphql_name="conversationId")
     """Filter by exact conversation ID"""
+
+    trace_id = sgqlc.types.Field(String, graphql_name="traceId")
+    """Filter by exact trace ID (hex-encoded)"""
 
     statuses = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="statuses"
@@ -18629,115 +18609,6 @@ class AgentGraphErrorSpan(sgqlc.types.Type):
 
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
     """span_id of the error span. Always a member of traceId."""
-
-
-class AgentGraphInsight(sgqlc.types.Type):
-    """One derived finding about the fused agent graph."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "category",
-        "severity",
-        "title",
-        "detail",
-        "evidence_node_ids",
-        "metrics_json",
-    )
-    category = sgqlc.types.Field(
-        sgqlc.types.non_null(AgentGraphInsightCategory), graphql_name="category"
-    )
-
-    severity = sgqlc.types.Field(
-        sgqlc.types.non_null(AgentGraphInsightSeverity), graphql_name="severity"
-    )
-
-    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
-    """Short one-line headline suitable for a list view."""
-
-    detail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="detail")
-    """1–2 sentence explanation referencing concrete numbers. Inline code
-    (backticks) wraps node / tool names so the UI can render verbatim.
-    """
-
-    evidence_node_ids = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="evidenceNodeIds",
-    )
-    """Node ids on the underlying AgentGraph that motivated this insight.
-    Useful for highlighting them in a graph rendering.
-    """
-
-    metrics_json = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="metricsJson")
-    """Category-specific numeric metrics encoded as a JSON object (e.g.
-    `savings_ms`, `wait_ms`, `share`). Schema-opaque on purpose —
-    adding a new metric to a detector does not require a GraphQL
-    schema change. Keys are documented per category in
-    `monolith.service.agent_observability.agent_graph_insights`.
-    """
-
-
-class AgentGraphInsights(sgqlc.types.Type):
-    """Derived insights about a fused agent graph plus an optional prose
-    summary.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "insights",
-        "headline_critical_path",
-        "summary",
-        "trace_count",
-        "span_count",
-        "window_start",
-        "window_end",
-    )
-    insights = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentGraphInsight))),
-        graphql_name="insights",
-    )
-    """Insights sorted by severity (high → low), then by a per-category
-    numeric salience tiebreaker.
-    """
-
-    headline_critical_path = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="headlineCriticalPath",
-    )
-    """Ordered list of node ids on the optimization spine, root → target.
-    When a `CHOKEPOINT` or `SEQUENTIAL_BOTTLENECK` insight fires, the
-    chain ends at that insight's target — so the headline always
-    agrees with the insight on which node to highlight. When neither
-    qualifies (purely sequential workflow with no dominant step, or
-    all clusters below the savings threshold), the chain falls back to
-    the longest end-time path root → leaf — filtered by trace coverage
-    so rare optional branches don't win — so a UI can still draw
-    something.
-    """
-
-    summary = sgqlc.types.Field(String, graphql_name="summary")
-    """Single-paragraph natural-language summary of the insights,
-    generated by an LLM at resolver time. Null when there are no
-    insights to summarize, or when the LLM call failed (the structured
-    `insights` field is still returned).
-    """
-
-    trace_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="traceCount")
-    """Number of traces fused — echoed from the underlying graph."""
-
-    span_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="spanCount")
-    """Total spans across all fused traces — echoed from the underlying
-    graph.
-    """
-
-    window_start = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowStart")
-    """Earliest start time across the fused traces — echoed from the
-    underlying graph.
-    """
-
-    window_end = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="windowEnd")
-    """Latest end time across the fused traces — echoed from the
-    underlying graph.
-    """
 
 
 class AgentGraphNode(sgqlc.types.Type):
@@ -22685,6 +22556,40 @@ class BillingMonitorUsageResults(sgqlc.types.Type):
     """List of daily monitor usage data points."""
 
 
+class BranchAttribution(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "label", "sql", "condition")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Auxiliary metric name for one top-level OR branch — format
+    `branch_<8-char-content-hash>_<rule_uuid>`. Used as the lookup key
+    for the branch's count in
+    `EventModel.data["condition_breakdown"]`.
+    """
+
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+    """Human-readable description of the OR branch's predicate, rendered
+    from the rule's `alert_condition` tree at query time.
+    """
+
+    sql = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sql")
+    """SQL form of the OR branch's predicate (e.g. `total_points > 5`),
+    rendered from the rule's `alert_condition` tree using the
+    predicate catalog's SQL templates. Matches the format used by
+    `getCustomSqlOutputSample.matches[].sql` so the FE can render both
+    surfaces with the same component.
+    """
+
+    condition = sgqlc.types.Field(FilterInterface, graphql_name="condition")
+    """Structured tree node for the OR branch this attribution describes
+    (`FilterBinary` / `FilterUnary` / `FilterSql` / `FilterGroup`).
+    Matched against the live rule's `alertCondition.conditions` by
+    8-char content hash. Null when the rule has been edited since the
+    metric name was emitted and the hash no longer matches any live
+    branch — in that case consumers should fall back to `sql` /
+    `label` text.
+    """
+
+
 class BridgeTokenOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("token", "expires_at")
@@ -25559,9 +25464,14 @@ class CreateOrUpdateDomain(sgqlc.types.Type):
     """Create or update a domain"""
 
     __schema__ = schema
-    __field_names__ = ("domain",)
+    __field_names__ = ("domain", "resource_counts")
     domain = sgqlc.types.Field("DomainOutput", graphql_name="domain")
-    """Created or updated domain"""
+    """Created or updated domain (null on dry run)"""
+
+    resource_counts = sgqlc.types.Field("DomainTableCounts", graphql_name="resourceCounts")
+    """Warehouse-table counts the domain would include for its selection
+    rules. Only populated when `dryRun` is true.
+    """
 
 
 class CreateOrUpdateFieldQualityRule(sgqlc.types.Type):
@@ -26435,6 +26345,7 @@ class CustomRuleComparison(sgqlc.types.Type):
         "percentage_baseline_sql",
         "breach_count_metric",
         "baseline_metric",
+        "branch_attributions",
         "upper_threshold",
         "lower_threshold",
         "baseline_agg_function",
@@ -26505,6 +26416,18 @@ class CustomRuleComparison(sgqlc.types.Type):
 
     baseline_metric = sgqlc.types.Field(String, graphql_name="baselineMetric")
     """Auxiliary metric name storing baseline values for percentage mode."""
+
+    branch_attributions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(BranchAttribution)),
+        graphql_name="branchAttributions",
+    )
+    """Per-OR-branch attributions for multi-condition validation monitors
+    (YET-1399). One entry per top-level OR child in the rule's
+    `alert_condition`, with the branch's auxiliary metric name and a
+    render-time label. `null` for single-condition / non-validation /
+    top-level-AND rules, or any dialect that fell through the no-
+    sampling safety net.
+    """
 
     upper_threshold = sgqlc.types.Field(Float, graphql_name="upperThreshold")
     """Upper threshold value"""
@@ -31396,6 +31319,36 @@ class EvaluationResult(sgqlc.types.Type):
     """Brief natural-language explanation for the score, produced by the
     LLM judge alongside the structured score field. Useful for
     debugging score drops in baseline diffs.
+    """
+
+
+class EventConditionBreakdownEntry(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("name", "count", "label", "sql")
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Auxiliary metric name for the OR branch — format `branch_<8-char-
+    content-hash>_<rule_uuid>`. Stable across rule edits that don't
+    change the branch's content.
+    """
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(BigInt), graphql_name="count")
+    """Number of rows that matched this branch's predicate at incident
+    time.
+    """
+
+    label = sgqlc.types.Field(String, graphql_name="label")
+    """Human-readable description of the branch's predicate, snapshotted
+    at incident emission time. Null on pre-YET-1399 events that
+    predate the snapshot — consumers should fall back to looking up
+    the live rule's `comparisons.branchAttributions` by `name` in that
+    case.
+    """
+
+    sql = sgqlc.types.Field(String, graphql_name="sql")
+    """SQL form of the branch's predicate (e.g. `total_points > 5`),
+    snapshotted at incident emission time. Null on pre-YET-1399 events
+    that predate the snapshot — consumers should fall back to looking
+    up the live rule's `comparisons.branchAttributions` by `name`.
     """
 
 
@@ -54235,6 +54188,7 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 ("description", sgqlc.types.Arg(String, graphql_name="description", default=None)),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
                 (
                     "excluded_assignments",
                     sgqlc.types.Arg(
@@ -54274,6 +54228,10 @@ class Mutation(sgqlc.types.Type):
     * `assignments` (`[String]`): Objects assigned to domain (as
       MCONs)
     * `description` (`String`): Description of the domain
+    * `dry_run` (`Boolean`): When true, do not persist anything.
+      Instead, resolve the given selection rules and return how many
+      warehouse tables the domain would include via `resourceCounts`.
+      `domain` is null on a dry run. (default: `false`)
     * `excluded_assignments` (`[String]`): Objects excluded from
       domain (as MCONs)
     * `excluded_tags` (`[TagKeyValuePairInput]`): Filter out by tag
@@ -63250,7 +63208,6 @@ class Query(sgqlc.types.Type):
         "get_traces_filters_data",
         "get_traces",
         "get_agent_graph",
-        "get_agent_graph_insights",
         "get_trace_time_series",
         "get_trace_overview",
         "get_tool_call_overview",
@@ -64690,36 +64647,10 @@ class Query(sgqlc.types.Type):
     stats so cycles are visible. Snapshots cover the trailing 7 days,
     fuse up to 1000 traces, and are refreshed daily; an agent or
     workflow without a computed snapshot yet returns an 'Agent graph
-    snapshot not found' error.
-
-    Arguments:
-
-    * `input` (`GetAgentGraphInput!`)None
-    """
-
-    get_agent_graph_insights = sgqlc.types.Field(
-        AgentGraphInsights,
-        graphql_name="getAgentGraphInsights",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "input",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(GetAgentGraphInput), graphql_name="input", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Derive developer-facing insights from a fused agent
-    graph. Computes parallel-cluster chokepoints, sequential
-    bottlenecks, loop saturation, tool hotspots, tool timeouts, model
-    inconsistencies, and error concentration from the same live trace
-    fusion that previously powered `getAgentGraph`. Adds a single-
-    paragraph natural-language summary at resolver time. Trace-level
-    rate insights require at least 5 fused traces. Same input type and
-    access scope as `getAgentGraph`, but `startTime` and `endTime` are
-    required here.
+    snapshot not found' error. Set `liveGraph` true to skip the
+    snapshot and fuse the graph on the fly from the window/filter args
+    (`startTime`/`endTime` required, capped at 100 most-recent
+    traces).
 
     Arguments:
 
@@ -102273,6 +102204,7 @@ class Event(sgqlc.types.Type, Node):
         "mentioned_users",
         "agent_span_filters",
         "filters",
+        "condition_breakdown",
     )
     event_type = sgqlc.types.Field(
         sgqlc.types.non_null(EventModelEventType), graphql_name="eventType"
@@ -102430,6 +102362,19 @@ class Event(sgqlc.types.Type, Node):
 
     filters = sgqlc.types.Field("FilterGroup", graphql_name="filters")
     """filters used on the monitor"""
+
+    condition_breakdown = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(EventConditionBreakdownEntry)),
+        graphql_name="conditionBreakdown",
+    )
+    """Per-OR-branch breach counts for multi-condition validation
+    monitors, persisted at incident emission time. Each entry is
+    `{name, count, label, sql}`; `label` and `sql` are null on pre-
+    YET-1399 events. Returns null for non-validation rules / single-
+    condition rules / rules that hit the sampling path (which doesn't
+    widen the count query) — same gate as `condition_breakdown` being
+    absent from `event.data`.
+    """
 
 
 class EventDataIncidentCommentTimeline(sgqlc.types.Type, IEventDataBaseTimeline):

@@ -15,12 +15,15 @@ from openviking.service.task_store import PersistentTaskStore
 from openviking.service.task_tracker import (
     TaskStatus,
     TaskTracker,
+    _build_default_task_tracker,
     _sanitize_error,
     get_task_tracker,
     reset_task_tracker,
     set_task_tracker,
 )
+from openviking.utils.agfs_utils import RagfsBindingConfig
 from openviking_cli.session.user_id import UserIdentifier
+from openviking_cli.utils.config import AGFSConfig
 
 pytestmark = pytest.mark.asyncio
 
@@ -47,7 +50,7 @@ def _owner_kwargs(account_id: str = "acme", user_id: str = "alice"):
 
 def _make_ctx(account_id: str = "acme", user_id: str = "alice") -> RequestContext:
     return RequestContext(
-        user=UserIdentifier(account_id, user_id, "agent-1"),
+        user=UserIdentifier(account_id, user_id),
         role=Role.ADMIN,
     )
 
@@ -148,7 +151,28 @@ async def test_complete_task(tracker: TaskTracker):
     retrieved = await tracker.get(task.task_id)
     assert retrieved is not None
     assert retrieved.status == TaskStatus.COMPLETED
+    assert retrieved.stage == "completed"
     assert retrieved.result == {"memories_extracted": 3}
+
+
+async def test_task_result_redacts_user_key(tracker: TaskTracker):
+    task = await tracker.create("legacy_migration", **_owner_kwargs())
+    await tracker.complete(
+        task.task_id,
+        {
+            "created_users": [{"account_id": "acme", "user_id": "bob", "user_key": "secret-key"}],
+            "nested": {"user_key": "nested-secret"},
+        },
+    )
+
+    retrieved = await tracker.get(task.task_id)
+
+    assert retrieved is not None
+    assert retrieved.result == {
+        "created_users": [{"account_id": "acme", "user_id": "bob"}],
+        "nested": {},
+    }
+    assert "user_key" not in json.dumps(retrieved.to_dict())
 
 
 async def test_fail_task(tracker: TaskTracker):
@@ -158,6 +182,7 @@ async def test_fail_task(tracker: TaskTracker):
     retrieved = await tracker.get(task.task_id)
     assert retrieved is not None
     assert retrieved.status == TaskStatus.FAILED
+    assert retrieved.stage == "failed"
     assert "LLM timeout" in retrieved.error
 
 
@@ -403,6 +428,40 @@ async def test_singleton_reset():
     reset_task_tracker()
     t2 = _set_fake_global_tracker()
     assert t1 is not t2
+
+
+async def test_build_default_task_tracker_wraps_agfs_config_for_binding(monkeypatch):
+    captured = {}
+    fake_agfs = object()
+
+    class _FakeStorage:
+        def __init__(self):
+            self.agfs = AGFSConfig(backend="memory")
+
+        def build_task_tracker(self, agfs):
+            captured["build_arg"] = agfs
+            return "fake-tracker"
+
+    class _FakeConfig:
+        def __init__(self):
+            self.storage = _FakeStorage()
+
+    def _fake_create_agfs_client(config):
+        captured["binding_config"] = config
+        return fake_agfs
+
+    monkeypatch.setattr("openviking.utils.agfs_utils.create_agfs_client", _fake_create_agfs_client)
+    monkeypatch.setattr(
+        "openviking_cli.utils.config.get_openviking_config",
+        lambda: _FakeConfig(),
+    )
+
+    tracker = _build_default_task_tracker()
+
+    assert tracker == "fake-tracker"
+    assert captured["build_arg"] is fake_agfs
+    assert isinstance(captured["binding_config"], RagfsBindingConfig)
+    assert isinstance(captured["binding_config"].agfs, AGFSConfig)
 
 
 async def test_persistent_store_cross_tracker_visibility():

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 1.3.0
+Version: 1.4.0
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://pipecat.ai
@@ -33,51 +33,49 @@ Requires-Dist: pyloudnorm~=0.2.0
 Requires-Dist: resampy~=0.4.3
 Requires-Dist: soxr~=1.0.0
 Requires-Dist: openai<3,>=1.74.0
+Requires-Dist: typing_extensions>=4.9
 Requires-Dist: numba<1,>=0.61.2
 Requires-Dist: wait_for2<1,>=0.4.1; python_version < "3.12"
+Requires-Dist: websockets>=13.1
+Requires-Dist: pyyaml<7,>=6
+Requires-Dist: pyyaml-include<2,>=1.4
 Requires-Dist: onnxruntime~=1.24.3
 Provides-Extra: aic
-Requires-Dist: aic-sdk~=2.2.0; extra == "aic"
+Requires-Dist: aic-sdk~=2.3.0; extra == "aic"
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1,>=0.49.0; extra == "anthropic"
 Provides-Extra: assemblyai
-Requires-Dist: pipecat-ai[websockets-base]; extra == "assemblyai"
 Provides-Extra: asyncai
-Requires-Dist: pipecat-ai[websockets-base]; extra == "asyncai"
 Provides-Extra: aws
-Requires-Dist: aioboto3<16,>=15.5.0; extra == "aws"
-Requires-Dist: pipecat-ai[websockets-base]; extra == "aws"
+Requires-Dist: aiobotocore<4,>=3; extra == "aws"
 Provides-Extra: aws-nova-sonic
 Requires-Dist: aws_sdk_bedrock_runtime~=0.4.0; python_version >= "3.12" and extra == "aws-nova-sonic"
 Provides-Extra: azure
 Requires-Dist: azure-cognitiveservices-speech<2,>=1.47.0; extra == "azure"
 Provides-Extra: cartesia
-Requires-Dist: pipecat-ai[websockets-base]; extra == "cartesia"
 Provides-Extra: camb
 Requires-Dist: camb-sdk<2,>=1.5.4; extra == "camb"
 Provides-Extra: cerebras
 Provides-Extra: daily
-Requires-Dist: daily-python~=0.28.0; extra == "daily"
+Requires-Dist: daily-python<1,>=0.29.0; extra == "daily"
 Provides-Extra: deepgram
 Requires-Dist: deepgram-sdk<8,>=6.1.1; extra == "deepgram"
-Requires-Dist: pipecat-ai[websockets-base]; extra == "deepgram"
 Provides-Extra: deepseek
 Provides-Extra: elevenlabs
-Requires-Dist: pipecat-ai[websockets-base]; extra == "elevenlabs"
+Provides-Extra: evals
+Requires-Dist: pipecat-ai[cli]; extra == "evals"
+Requires-Dist: pipecat-ai[kokoro]; extra == "evals"
+Requires-Dist: pipecat-ai[moonshine]; extra == "evals"
 Provides-Extra: fal
 Provides-Extra: fireworks
 Provides-Extra: fish
 Requires-Dist: ormsgpack<2,>=1.7.0; extra == "fish"
-Requires-Dist: pipecat-ai[websockets-base]; extra == "fish"
 Provides-Extra: gladia
-Requires-Dist: pipecat-ai[websockets-base]; extra == "gladia"
 Provides-Extra: google
 Requires-Dist: google-cloud-speech<3,>=2.33.0; extra == "google"
 Requires-Dist: google-cloud-texttospeech<3,>=2.31.0; extra == "google"
 Requires-Dist: google-genai<2,>=1.68.0; extra == "google"
-Requires-Dist: pipecat-ai[websockets-base]; extra == "google"
 Provides-Extra: gradium
-Requires-Dist: pipecat-ai[websockets-base]; extra == "gradium"
 Provides-Extra: grok
 Provides-Extra: groq
 Requires-Dist: groq<2,>=0.23.0; extra == "groq"
@@ -85,12 +83,10 @@ Provides-Extra: gstreamer
 Requires-Dist: pygobject~=3.50.0; extra == "gstreamer"
 Provides-Extra: heygen
 Requires-Dist: livekit<2,>=1.0.13; extra == "heygen"
-Requires-Dist: pipecat-ai[websockets-base]; extra == "heygen"
 Provides-Extra: hume
 Requires-Dist: hume<1,>=0.11.2; extra == "hume"
 Provides-Extra: inception
 Provides-Extra: inworld
-Requires-Dist: pipecat-ai[websockets-base]; extra == "inworld"
 Provides-Extra: koala
 Requires-Dist: pvkoala~=2.0.3; extra == "koala"
 Provides-Extra: kokoro
@@ -108,7 +104,6 @@ Requires-Dist: livekit-api<2,>=1.0.5; extra == "livekit"
 Requires-Dist: tenacity<10.0.0,>=8.2.3; extra == "livekit"
 Requires-Dist: pyjwt<3,>=2.12.0; extra == "livekit"
 Provides-Extra: lmnt
-Requires-Dist: pipecat-ai[websockets-base]; extra == "lmnt"
 Provides-Extra: local
 Requires-Dist: pyaudio~=0.2.14; extra == "local"
 Provides-Extra: local-smart-turn
@@ -119,7 +114,7 @@ Requires-Dist: torchaudio<3,>=2.5.0; extra == "local-smart-turn"
 Provides-Extra: mcp
 Requires-Dist: mcp[cli]<2,>=1.11.0; extra == "mcp"
 Provides-Extra: mem0
-Requires-Dist: mem0ai<2,>=1.0.8; extra == "mem0"
+Requires-Dist: mem0ai<3,>=2; extra == "mem0"
 Provides-Extra: mistral
 Requires-Dist: mistralai<3,>=2.0.0; extra == "mistral"
 Provides-Extra: mlx-whisper
@@ -130,15 +125,15 @@ Requires-Dist: einops~=0.8.0; extra == "moondream"
 Requires-Dist: pyvips[binary]~=3.0.0; extra == "moondream"
 Requires-Dist: timm~=1.0.13; extra == "moondream"
 Requires-Dist: transformers<6,>=4.48.0; extra == "moondream"
+Provides-Extra: moonshine
+Requires-Dist: moonshine-voice>=0.0.62; extra == "moonshine"
 Provides-Extra: nebius
 Provides-Extra: neuphonic
-Requires-Dist: pipecat-ai[websockets-base]; extra == "neuphonic"
 Provides-Extra: novita
 Provides-Extra: nvidia
 Requires-Dist: nvidia-riva-client<3,>=2.25.1; extra == "nvidia"
 Requires-Dist: protobuf<7,>=6.31.1; extra == "nvidia"
 Provides-Extra: openai
-Requires-Dist: pipecat-ai[websockets-base]; extra == "openai"
 Provides-Extra: rnnoise
 Requires-Dist: pyrnnoise~=0.4.1; extra == "rnnoise"
 Provides-Extra: openrouter
@@ -153,29 +148,24 @@ Provides-Extra: qwen
 Provides-Extra: redis
 Requires-Dist: redis[hiredis]>=5.0.0; extra == "redis"
 Provides-Extra: resembleai
-Requires-Dist: pipecat-ai[websockets-base]; extra == "resembleai"
 Provides-Extra: rime
-Requires-Dist: pipecat-ai[websockets-base]; extra == "rime"
 Provides-Extra: runner
 Requires-Dist: python-dotenv<2.0.0,>=1.0.0; extra == "runner"
 Requires-Dist: uvicorn<1.0.0,>=0.32.0; extra == "runner"
 Requires-Dist: fastapi<1,>=0.115.6; extra == "runner"
-Requires-Dist: pipecat-ai-prebuilt>=1.0.1; extra == "runner"
+Requires-Dist: pipecat-ai-prebuilt>=1.0.2; extra == "runner"
 Provides-Extra: sagemaker
 Requires-Dist: aws_sdk_sagemaker_runtime_http2; python_version >= "3.12" and extra == "sagemaker"
 Provides-Extra: sambanova
 Provides-Extra: sarvam
 Requires-Dist: sarvamai==0.1.28; extra == "sarvam"
-Requires-Dist: pipecat-ai[websockets-base]; extra == "sarvam"
 Provides-Extra: sentry
 Requires-Dist: sentry-sdk<3,>=2.28.0; extra == "sentry"
 Provides-Extra: silero
 Provides-Extra: simli
 Requires-Dist: simli-ai~=2.0.1; extra == "simli"
 Provides-Extra: smallest
-Requires-Dist: pipecat-ai[websockets-base]; extra == "smallest"
 Provides-Extra: soniox
-Requires-Dist: pipecat-ai[websockets-base]; extra == "soniox"
 Provides-Extra: soundfile
 Requires-Dist: soundfile~=0.13.1; extra == "soundfile"
 Provides-Extra: speechmatics
@@ -190,21 +180,22 @@ Requires-Dist: opentelemetry-sdk<2,>=1.33.0; extra == "tracing"
 Requires-Dist: opentelemetry-api<2,>=1.33.0; extra == "tracing"
 Requires-Dist: opentelemetry-instrumentation<1,>=0.54b0; extra == "tracing"
 Provides-Extra: ultravox
-Requires-Dist: pipecat-ai[websockets-base]; extra == "ultravox"
 Provides-Extra: vonage-video-connector
-Requires-Dist: vonage-video-connector~=0.2.3b0; (python_full_version >= "3.13" and python_full_version < "3.14" and platform_system == "Linux") and extra == "vonage-video-connector"
+Requires-Dist: vonage-video-connector~=1.0.2; (python_version == "3.13" and platform_system == "Linux") and extra == "vonage-video-connector"
 Provides-Extra: webrtc
 Requires-Dist: aiortc<2,>=1.14.0; extra == "webrtc"
 Requires-Dist: opencv-python<5,>=4.11.0.86; extra == "webrtc"
 Provides-Extra: websocket
-Requires-Dist: pipecat-ai[websockets-base]; extra == "websocket"
 Requires-Dist: fastapi<1,>=0.115.6; extra == "websocket"
-Provides-Extra: websockets-base
-Requires-Dist: websockets>=13.1; extra == "websockets-base"
 Provides-Extra: whisper
 Requires-Dist: faster-whisper~=1.2.1; extra == "whisper"
 Provides-Extra: xai
-Requires-Dist: pipecat-ai[websockets-base]; extra == "xai"
+Provides-Extra: cli
+Requires-Dist: typer<1,>=0.20.0; extra == "cli"
+Requires-Dist: rich<14,>=13.0.0; extra == "cli"
+Requires-Dist: jinja2<4,>=3.1.0; extra == "cli"
+Requires-Dist: questionary<3,>=2.0.0; extra == "cli"
+Requires-Dist: ruff<1,>=0.12.1; extra == "cli"
 Dynamic: license-file
 
 <h1><div align="center">
@@ -217,7 +208,7 @@ Dynamic: license-file
 
 **Pipecat** is an open-source Python framework for building real-time voice and multimodal conversational agents. Build a single voice agent or a full multi-agent system where specialists hand off, fan out in parallel, and coordinate over a shared bus, locally or distributed across processes and machines. Orchestrate audio and video, AI services, transports, and conversation pipelines effortlessly, so you can focus on what makes your agents unique.
 
-> Want to dive right in? Run `pipecat init quickstart` or follow the [quickstart guide](https://docs.pipecat.ai/getting-started/quickstart).
+> Want to dive right in? Run `pipecat create quickstart` or follow the [quickstart guide](https://docs.pipecat.ai/getting-started/quickstart).
 
 ## 🚀 What You Can Build
 
@@ -256,7 +247,7 @@ Want to build beautiful and engaging experiences? Checkout the [Voice UI Kit](ht
 
 ### 🛠️ Create and deploy projects
 
-Create a new project in under a minute with the [Pipecat CLI](https://github.com/pipecat-ai/pipecat-cli). Then use the CLI to monitor and deploy your agent to production.
+The [Pipecat CLI](https://docs.pipecat.ai/api-reference/cli/overview) ships with `pipecat-ai` — install it with `uv tool install "pipecat-ai[cli]"`. Scaffold a project in under a minute with `pipecat create`, or run `pipecat init` to make a project agent-ready so an AI coding assistant (Claude Code, Codex) builds it for you. Then use the CLI to monitor and deploy your agent to production.
 
 ### 🔍 Debugging
 
@@ -298,11 +289,11 @@ Catch new features, interviews, and how-tos on our [Pipecat TV](https://www.yout
 
 | Category            | Services                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Speech-to-Text      | [AssemblyAI](https://docs.pipecat.ai/api-reference/server/services/stt/assemblyai), [AWS](https://docs.pipecat.ai/api-reference/server/services/stt/aws), [Azure](https://docs.pipecat.ai/api-reference/server/services/stt/azure), [Cartesia](https://docs.pipecat.ai/api-reference/server/services/stt/cartesia), [Deepgram](https://docs.pipecat.ai/api-reference/server/services/stt/deepgram), [ElevenLabs](https://docs.pipecat.ai/api-reference/server/services/stt/elevenlabs), [Fal Wizper](https://docs.pipecat.ai/api-reference/server/services/stt/fal), [Gladia](https://docs.pipecat.ai/api-reference/server/services/stt/gladia), [Google](https://docs.pipecat.ai/api-reference/server/services/stt/google), [Gradium](https://docs.pipecat.ai/api-reference/server/services/stt/gradium), [Groq (Whisper)](https://docs.pipecat.ai/api-reference/server/services/stt/groq), [Mistral](https://docs.pipecat.ai/api-reference/server/services/stt/mistral), [NVIDIA](https://docs.pipecat.ai/api-reference/server/services/stt/nvidia), [OpenAI (Whisper)](https://docs.pipecat.ai/api-reference/server/services/stt/openai), [Sarvam](https://docs.pipecat.ai/api-reference/server/services/stt/sarvam), [Soniox](https://docs.pipecat.ai/api-reference/server/services/stt/soniox), [Speechmatics](https://docs.pipecat.ai/api-reference/server/services/stt/speechmatics), [Whisper](https://docs.pipecat.ai/api-reference/server/services/stt/whisper), [xAI](https://docs.pipecat.ai/api-reference/server/services/stt/xai)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| LLMs                | [Anthropic](https://docs.pipecat.ai/api-reference/server/services/llm/anthropic), [AWS](https://docs.pipecat.ai/api-reference/server/services/llm/aws), [Azure](https://docs.pipecat.ai/api-reference/server/services/llm/azure), [Cerebras](https://docs.pipecat.ai/api-reference/server/services/llm/cerebras), [DeepSeek](https://docs.pipecat.ai/api-reference/server/services/llm/deepseek), [Fireworks AI](https://docs.pipecat.ai/api-reference/server/services/llm/fireworks), [Gemini](https://docs.pipecat.ai/api-reference/server/services/llm/gemini), [Grok](https://docs.pipecat.ai/api-reference/server/services/llm/grok), [Groq](https://docs.pipecat.ai/api-reference/server/services/llm/groq), [Inception](https://docs.pipecat.ai/api-reference/server/services/llm/inception), [Mistral](https://docs.pipecat.ai/api-reference/server/services/llm/mistral), [Nebius](https://docs.pipecat.ai/api-reference/server/services/llm/nebius), [Novita](https://docs.pipecat.ai/api-reference/server/services/llm/novita), [NVIDIA NIM](https://docs.pipecat.ai/api-reference/server/services/llm/nvidia), [Ollama](https://docs.pipecat.ai/api-reference/server/services/llm/ollama), [OpenAI](https://docs.pipecat.ai/api-reference/server/services/llm/openai), [OpenAI Responses](https://docs.pipecat.ai/api-reference/server/services/llm/openai-responses), [OpenRouter](https://docs.pipecat.ai/api-reference/server/services/llm/openrouter), [Perplexity](https://docs.pipecat.ai/api-reference/server/services/llm/perplexity), [Qwen](https://docs.pipecat.ai/api-reference/server/services/llm/qwen), [SambaNova](https://docs.pipecat.ai/api-reference/server/services/llm/sambanova), [Sarvam](https://docs.pipecat.ai/api-reference/server/services/llm/sarvam), [Together AI](https://docs.pipecat.ai/api-reference/server/services/llm/together)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Speech-to-Text      | [AssemblyAI](https://docs.pipecat.ai/api-reference/server/services/stt/assemblyai), [AWS](https://docs.pipecat.ai/api-reference/server/services/stt/aws), [Azure](https://docs.pipecat.ai/api-reference/server/services/stt/azure), [Cartesia](https://docs.pipecat.ai/api-reference/server/services/stt/cartesia), [Deepgram](https://docs.pipecat.ai/api-reference/server/services/stt/deepgram), [ElevenLabs](https://docs.pipecat.ai/api-reference/server/services/stt/elevenlabs), [Fal Wizper](https://docs.pipecat.ai/api-reference/server/services/stt/fal), [Gladia](https://docs.pipecat.ai/api-reference/server/services/stt/gladia), [Google](https://docs.pipecat.ai/api-reference/server/services/stt/google), [Gradium](https://docs.pipecat.ai/api-reference/server/services/stt/gradium), [Groq (Whisper)](https://docs.pipecat.ai/api-reference/server/services/stt/groq), [Mistral](https://docs.pipecat.ai/api-reference/server/services/stt/mistral), [Moonshine](https://docs.pipecat.ai/api-reference/server/services/stt/moonshine), [NVIDIA](https://docs.pipecat.ai/api-reference/server/services/stt/nvidia), [OpenAI (Whisper)](https://docs.pipecat.ai/api-reference/server/services/stt/openai), [Sarvam](https://docs.pipecat.ai/api-reference/server/services/stt/sarvam), [Soniox](https://docs.pipecat.ai/api-reference/server/services/stt/soniox), [Speechmatics](https://docs.pipecat.ai/api-reference/server/services/stt/speechmatics), [Whisper](https://docs.pipecat.ai/api-reference/server/services/stt/whisper), [xAI](https://docs.pipecat.ai/api-reference/server/services/stt/xai)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| LLMs                | [Anthropic](https://docs.pipecat.ai/api-reference/server/services/llm/anthropic), [AWS](https://docs.pipecat.ai/api-reference/server/services/llm/aws), [Azure](https://docs.pipecat.ai/api-reference/server/services/llm/azure), [Cerebras](https://docs.pipecat.ai/api-reference/server/services/llm/cerebras), [DeepSeek](https://docs.pipecat.ai/api-reference/server/services/llm/deepseek), [Fireworks AI](https://docs.pipecat.ai/api-reference/server/services/llm/fireworks), [Gemini](https://docs.pipecat.ai/api-reference/server/services/llm/gemini), [Grok](https://docs.pipecat.ai/api-reference/server/services/llm/grok), [Groq](https://docs.pipecat.ai/api-reference/server/services/llm/groq), [Inception](https://docs.pipecat.ai/api-reference/server/services/llm/inception), [Mistral](https://docs.pipecat.ai/api-reference/server/services/llm/mistral), [Nebius](https://docs.pipecat.ai/api-reference/server/services/llm/nebius), [Novita](https://docs.pipecat.ai/api-reference/server/services/llm/novita), [NVIDIA NIM](https://docs.pipecat.ai/api-reference/server/services/llm/nvidia), [Ollama](https://docs.pipecat.ai/api-reference/server/services/llm/ollama), [OpenAI](https://docs.pipecat.ai/api-reference/server/services/llm/openai), [OpenAI Responses](https://docs.pipecat.ai/api-reference/server/services/llm/openai-responses), [OpenRouter](https://docs.pipecat.ai/api-reference/server/services/llm/openrouter), [Perplexity](https://docs.pipecat.ai/api-reference/server/services/llm/perplexity), [Qwen](https://docs.pipecat.ai/api-reference/server/services/llm/qwen), [SambaNova](https://docs.pipecat.ai/api-reference/server/services/llm/sambanova), [Sarvam](https://docs.pipecat.ai/api-reference/server/services/llm/sarvam), [Together AI](https://docs.pipecat.ai/api-reference/server/services/llm/together)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Text-to-Speech      | [Async](https://docs.pipecat.ai/api-reference/server/services/tts/asyncai), [AWS](https://docs.pipecat.ai/api-reference/server/services/tts/aws), [Azure](https://docs.pipecat.ai/api-reference/server/services/tts/azure), [Camb AI](https://docs.pipecat.ai/api-reference/server/services/tts/camb), [Cartesia](https://docs.pipecat.ai/api-reference/server/services/tts/cartesia), [Deepgram](https://docs.pipecat.ai/api-reference/server/services/tts/deepgram), [ElevenLabs](https://docs.pipecat.ai/api-reference/server/services/tts/elevenlabs), [Fish](https://docs.pipecat.ai/api-reference/server/services/tts/fish), [Google](https://docs.pipecat.ai/api-reference/server/services/tts/google), [Gradium](https://docs.pipecat.ai/api-reference/server/services/tts/gradium), [Groq](https://docs.pipecat.ai/api-reference/server/services/tts/groq), [Hume](https://docs.pipecat.ai/api-reference/server/services/tts/hume), [Inworld](https://docs.pipecat.ai/api-reference/server/services/tts/inworld), [Kokoro](https://docs.pipecat.ai/api-reference/server/services/tts/kokoro), [LMNT](https://docs.pipecat.ai/api-reference/server/services/tts/lmnt), [MiniMax](https://docs.pipecat.ai/api-reference/server/services/tts/minimax), [Mistral](https://docs.pipecat.ai/api-reference/server/services/tts/mistral), [Neuphonic](https://docs.pipecat.ai/api-reference/server/services/tts/neuphonic), [NVIDIA](https://docs.pipecat.ai/api-reference/server/services/tts/nvidia), [OpenAI](https://docs.pipecat.ai/api-reference/server/services/tts/openai), [Piper](https://docs.pipecat.ai/api-reference/server/services/tts/piper), [Resemble](https://docs.pipecat.ai/api-reference/server/services/tts/resemble), [Rime](https://docs.pipecat.ai/api-reference/server/services/tts/rime), [Sarvam](https://docs.pipecat.ai/api-reference/server/services/tts/sarvam), [Smallest](https://docs.pipecat.ai/api-reference/server/services/tts/smallest), [Soniox](https://docs.pipecat.ai/api-reference/server/services/tts/soniox), [Speechmatics](https://docs.pipecat.ai/api-reference/server/services/tts/speechmatics), [xAI](https://docs.pipecat.ai/api-reference/server/services/tts/xai), [XTTS](https://docs.pipecat.ai/api-reference/server/services/tts/xtts) |
 | Speech-to-Speech    | [AWS Nova Sonic](https://docs.pipecat.ai/api-reference/server/services/s2s/aws), [Gemini Multimodal Live](https://docs.pipecat.ai/api-reference/server/services/s2s/gemini), [Grok Voice Agent](https://docs.pipecat.ai/api-reference/server/services/s2s/grok), [OpenAI Realtime](https://docs.pipecat.ai/api-reference/server/services/s2s/openai), [Ultravox](https://docs.pipecat.ai/api-reference/server/services/s2s/ultravox),                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| Transport           | [Daily (WebRTC)](https://docs.pipecat.ai/api-reference/server/services/transport/daily), [FastAPI Websocket](https://docs.pipecat.ai/api-reference/server/services/transport/fastapi-websocket), [LiveKit (WebRTC)](https://docs.pipecat.ai/api-reference/server/services/transport/livekit), [SmallWebRTCTransport](https://docs.pipecat.ai/api-reference/server/services/transport/small-webrtc), [Vonage (WebRTC)](https://docs.pipecat.ai/api-reference/server/services/transport/vonage), [WebSocket Server](https://docs.pipecat.ai/api-reference/server/services/transport/websocket-server), [WhatsApp](https://docs.pipecat.ai/api-reference/server/services/transport/whatsapp), Local                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Transport           | [Daily (WebRTC)](https://docs.pipecat.ai/api-reference/server/services/transport/daily), [FastAPI Websocket](https://docs.pipecat.ai/api-reference/server/services/transport/fastapi-websocket), [LiveKit (WebRTC)](https://docs.pipecat.ai/api-reference/server/services/transport/livekit), [SmallWebRTCTransport](https://docs.pipecat.ai/api-reference/server/services/transport/small-webrtc), [Vonage (WebRTC)](https://docs.pipecat.ai/api-reference/server/services/transport/vonage), [WebSocket Server](https://docs.pipecat.ai/api-reference/server/services/transport/websocket-server), [WhatsApp](https://docs.pipecat.ai/api-reference/server/services/transport/whatsapp), Local                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Serializers         | [Exotel](https://docs.pipecat.ai/api-reference/server/services/serializers/exotel), [Genesys](https://docs.pipecat.ai/api-reference/server/services/serializers/genesys), [Plivo](https://docs.pipecat.ai/api-reference/server/services/serializers/plivo), [Twilio](https://docs.pipecat.ai/api-reference/server/services/serializers/twilio), [Telnyx](https://docs.pipecat.ai/api-reference/server/services/serializers/telnyx), [Vonage](https://docs.pipecat.ai/api-reference/server/services/serializers/vonage)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | Video               | [HeyGen](https://docs.pipecat.ai/api-reference/server/services/video/heygen), [LemonSlice](https://docs.pipecat.ai/api-reference/server/services/transport/lemonslice), [Tavus](https://docs.pipecat.ai/api-reference/server/services/video/tavus), [Simli](https://docs.pipecat.ai/api-reference/server/services/video/simli)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Memory              | [mem0](https://docs.pipecat.ai/api-reference/server/services/memory/mem0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |

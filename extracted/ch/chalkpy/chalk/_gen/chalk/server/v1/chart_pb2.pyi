@@ -24,6 +24,7 @@ class ChartMetricsBackend(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CHART_METRICS_BACKEND_UNSPECIFIED: _ClassVar[ChartMetricsBackend]
     CHART_METRICS_BACKEND_TIMESCALE: _ClassVar[ChartMetricsBackend]
     CHART_METRICS_BACKEND_VICTORIA_METRICS: _ClassVar[ChartMetricsBackend]
+    CHART_METRICS_BACKEND_VICTORIA_METRICS_STRICT: _ClassVar[ChartMetricsBackend]
 
 class MetricFormulaOperandKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -42,6 +43,7 @@ class MetricHealthStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 CHART_METRICS_BACKEND_UNSPECIFIED: ChartMetricsBackend
 CHART_METRICS_BACKEND_TIMESCALE: ChartMetricsBackend
 CHART_METRICS_BACKEND_VICTORIA_METRICS: ChartMetricsBackend
+CHART_METRICS_BACKEND_VICTORIA_METRICS_STRICT: ChartMetricsBackend
 METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_SERIES: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_DATASET: MetricFormulaOperandKind
@@ -118,15 +120,18 @@ class TimeSeriesChart(_message.Message):
     ) -> None: ...
 
 class ListChartsFilters(_message.Message):
-    __slots__ = ("link_entity_kind", "linked_entity_id")
+    __slots__ = ("link_entity_kind", "linked_entity_id", "linked_entity_id_search")
     LINK_ENTITY_KIND_FIELD_NUMBER: _ClassVar[int]
     LINKED_ENTITY_ID_FIELD_NUMBER: _ClassVar[int]
+    LINKED_ENTITY_ID_SEARCH_FIELD_NUMBER: _ClassVar[int]
     link_entity_kind: _chart_pb2.ChartLinkKind
     linked_entity_id: str
+    linked_entity_id_search: str
     def __init__(
         self,
         link_entity_kind: _Optional[_Union[_chart_pb2.ChartLinkKind, str]] = ...,
         linked_entity_id: _Optional[str] = ...,
+        linked_entity_id_search: _Optional[str] = ...,
     ) -> None: ...
 
 class ListChartPageToken(_message.Message):

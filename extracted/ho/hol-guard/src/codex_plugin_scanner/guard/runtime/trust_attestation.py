@@ -108,12 +108,23 @@ def trust_attestation_v2_enabled(environ: Mapping[str, str] | None = None) -> bo
 def build_trust_attestation_payload(
     *,
     agent_id: str,
+    analyzer_id: str | None = None,
+    analyzer_spec_version: str | None = None,
+    analyzer_version: str | None = None,
     item_id: str,
     item_kind: str,
     content_hash: str,
     captured_at: str,
     evidence_hash: str,
+    evidence_schema_version: str | None = None,
     scope: str,
+    challenge_id: str | None = None,
+    expires_at: str | None = None,
+    installation_id: str | None = None,
+    nonce: str | None = None,
+    sequence: int | None = None,
+    upload_id: str | None = None,
+    policy_version: str | None = None,
     workspace_id: str | None = None,
     device_id: str | None = None,
     layer_id: str | None = None,
@@ -134,10 +145,32 @@ def build_trust_attestation_payload(
         "evidenceHash": evidence_hash,
         "scope": scope,
     }
+    if analyzer_id is not None:
+        payload["analyzerId"] = analyzer_id
+    if analyzer_version is not None:
+        payload["analyzerVersion"] = analyzer_version
+    if analyzer_spec_version is not None:
+        payload["analyzerSpecVersion"] = analyzer_spec_version
+    if evidence_schema_version is not None:
+        payload["evidenceSchemaVersion"] = evidence_schema_version
+    if policy_version is not None:
+        payload["policyVersion"] = policy_version
     if workspace_id is not None:
         payload["workspaceId"] = workspace_id
     if device_id is not None:
         payload["deviceId"] = device_id
+    if installation_id is not None:
+        payload["installationId"] = installation_id
+    if upload_id is not None:
+        payload["uploadId"] = upload_id
+    if challenge_id is not None:
+        payload["challengeId"] = challenge_id
+    if nonce is not None:
+        payload["nonce"] = nonce
+    if sequence is not None:
+        payload["sequence"] = sequence
+    if expires_at is not None:
+        payload["expiresAt"] = expires_at
     if layer_id is not None:
         payload["layerId"] = layer_id
     if layer_type is not None:
@@ -149,9 +182,19 @@ def apply_trust_attestation_metadata(
     metadata: dict[str, object],
     *,
     agent_id: str,
+    analyzer_id: str | None = None,
+    analyzer_spec_version: str | None = None,
+    analyzer_version: str | None = None,
     item_id: str,
     item_kind: str,
     content_hash: str,
+    challenge_id: str | None = None,
+    expires_at: str | None = None,
+    installation_id: str | None = None,
+    nonce: str | None = None,
+    sequence: int | None = None,
+    upload_id: str | None = None,
+    policy_version: str | None = None,
     workspace_id: str | None = None,
     device_id: str | None = None,
     signing_config: GuardTrustAttestationSigningConfig | None = None,
@@ -161,6 +204,26 @@ def apply_trust_attestation_metadata(
         return metadata
 
     enriched = dict(metadata)
+    include_v2_bindings = workspace_id is not None or device_id is not None
+    attestation_bindings = {
+        key: value
+        for key, value in {
+            "challengeId": challenge_id,
+            "deviceId": device_id,
+            "analyzerId": analyzer_id if include_v2_bindings else None,
+            "analyzerSpecVersion": analyzer_spec_version if include_v2_bindings else None,
+            "analyzerVersion": analyzer_version if include_v2_bindings else None,
+            "evidenceSchemaVersion": "guard-aibom-trust-evidence.v1" if include_v2_bindings else None,
+            "expiresAt": expires_at,
+            "installationId": installation_id,
+            "nonce": nonce,
+            "policyVersion": policy_version if include_v2_bindings else None,
+            "sequence": sequence,
+            "uploadId": upload_id,
+            "workspaceId": workspace_id,
+        }.items()
+        if value is not None
+    }
 
     raw_trust_resolution = enriched.get("trustResolution")
     if isinstance(raw_trust_resolution, dict):
@@ -173,12 +236,23 @@ def apply_trust_attestation_metadata(
             resolution_metadata["attestation"] = sign_trust_attestation(
                 payload=build_trust_attestation_payload(
                     agent_id=agent_id,
+                    analyzer_id=analyzer_id if include_v2_bindings else None,
+                    analyzer_spec_version=analyzer_spec_version if include_v2_bindings else None,
+                    analyzer_version=analyzer_version if include_v2_bindings else None,
                     item_id=item_id,
                     item_kind=item_kind,
                     content_hash=content_hash,
                     captured_at=captured_at,
+                    challenge_id=challenge_id,
+                    expires_at=expires_at,
                     evidence_hash=evidence_hash,
+                    evidence_schema_version="guard-aibom-trust-evidence.v1" if include_v2_bindings else None,
+                    installation_id=installation_id,
+                    nonce=nonce,
+                    policy_version=policy_version if include_v2_bindings else None,
+                    sequence=sequence,
                     scope="trust_resolution",
+                    upload_id=upload_id,
                     workspace_id=workspace_id,
                     device_id=device_id,
                 ),
@@ -186,6 +260,8 @@ def apply_trust_attestation_metadata(
                 signed_at=captured_at,
             )
             resolution_metadata["attestationStatus"] = "signed"
+            if attestation_bindings:
+                resolution_metadata["attestationBindings"] = dict(attestation_bindings)
             trust_resolution["metadata"] = resolution_metadata
             enriched["trustResolution"] = trust_resolution
 
@@ -216,12 +292,23 @@ def apply_trust_attestation_metadata(
                 layer_metadata["attestation"] = sign_trust_attestation(
                     payload=build_trust_attestation_payload(
                         agent_id=agent_id,
+                        analyzer_id=analyzer_id if include_v2_bindings else None,
+                        analyzer_spec_version=analyzer_spec_version if include_v2_bindings else None,
+                        analyzer_version=analyzer_version if include_v2_bindings else None,
                         item_id=item_id,
                         item_kind=item_kind,
                         content_hash=content_hash,
                         captured_at=captured_at,
+                        challenge_id=challenge_id,
+                        expires_at=expires_at,
                         evidence_hash=evidence_hash,
+                        evidence_schema_version="guard-aibom-trust-evidence.v1" if include_v2_bindings else None,
+                        installation_id=installation_id,
+                        nonce=nonce,
+                        policy_version=policy_version if include_v2_bindings else None,
+                        sequence=sequence,
                         scope="trust_layer",
+                        upload_id=upload_id,
                         workspace_id=workspace_id,
                         device_id=device_id,
                         layer_id=layer_id,
@@ -231,6 +318,8 @@ def apply_trust_attestation_metadata(
                     signed_at=captured_at,
                 )
                 layer_metadata["attestationStatus"] = "signed"
+                if attestation_bindings:
+                    layer_metadata["attestationBindings"] = dict(attestation_bindings)
                 layer["metadata"] = layer_metadata
             signed_layers.append(layer)
         enriched["trustLayers"] = signed_layers

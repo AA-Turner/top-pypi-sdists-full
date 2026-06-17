@@ -273,7 +273,7 @@ def _status_from_upsert(
             if e.response.status_code != 409:
                 raise
             refreshed = {
-                item.path: item for item in client.list_plugins_by_namespace(namespace)
+                item.path: item for item in client.list_plugins_detailed(namespace)
             }
             existing = refreshed.get(plugin.path)
             if existing is None:
@@ -401,7 +401,7 @@ async def sync_discovered_plugins(
         result.warnings.extend(plugin.mcp_warnings)
     local_plugin_paths = {plugin.path for plugin in plugins if plugin.path}
 
-    remote_plugins = client.list_plugins_by_namespace(namespace)
+    remote_plugins = client.list_plugins_detailed(namespace)
     remote_plugins_by_path = {
         plugin.path: plugin for plugin in remote_plugins if plugin.path
     }

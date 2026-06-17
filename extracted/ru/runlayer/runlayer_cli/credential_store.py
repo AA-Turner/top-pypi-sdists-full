@@ -1,12 +1,13 @@
 """Keyring helpers for Runlayer CLI."""
 
 import sys
-from pathlib import Path
 
 import keyring
 import keyring.backends.fail
 import keyring.errors
 import typer
+
+from runlayer_cli.runtime import is_frozen_aiwatch_bundle
 
 
 def _service_name() -> str:
@@ -18,10 +19,7 @@ def _service_name() -> str:
     different identifier (`com.runlayer.cli`) and must NOT inherit the aiwatch
     service — so gate on the bundle's exe name, not just `sys.frozen`. Dev
     `uvx runlayer`, Linux, and Windows keep `runlayer-cli` untouched."""
-    is_aiwatch_bundle = getattr(sys, "frozen", False) and Path(
-        sys.executable
-    ).stem.lower().startswith("aiwatch")
-    if sys.platform == "darwin" and is_aiwatch_bundle:
+    if sys.platform == "darwin" and is_frozen_aiwatch_bundle():
         return "runlayer-aiwatch"
     return "runlayer-cli"
 
@@ -49,11 +47,21 @@ class KeyringCredentialStore:
             )
             return False
 
-    def delete_secret(self, host_key: str) -> None:
+    def delete_secret(self, host_key: str) -> bool:
+        """Delete a secret. Returns True when the secret is gone from the store.
+
+        A missing entry (``PasswordDeleteError``) counts as success — the secret
+        is already absent. Any other ``KeyringError`` (locked keychain, denied
+        ACL prompt) returns False: the secret may still be there, so callers must
+        not claim the credential was cleared.
+        """
         try:
             keyring.delete_password(_service_name(), host_key)
+            return True
+        except keyring.errors.PasswordDeleteError:
+            return True
         except keyring.errors.KeyringError:
-            pass
+            return False
 
     def delete_all_secrets(self, host_keys: list[str]) -> None:
         for key in host_keys:

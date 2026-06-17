@@ -1,0 +1,234 @@
+name: Deploy MCP Server
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-mcp-command.yml"
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Dockerfile.mcp"
+  workflow_dispatch:
+    inputs:
+      mcp-server:
+        description: "MCP server to deploy (ops-mcp or cloud-mcp)."
+        required: true
+        type: choice
+        options:
+          - ops-mcp
+          - cloud-mcp
+        default: ops-mcp
+      pr:
+        description: "PR number. When provided, deploys to the preview service instead of production."
+        required: false
+        type: string
+      comment-id:
+        description: "Slash-command comment ID. Presence of either pr or comment-id triggers a preview deploy."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+  pull-requests: write
+
+env:
+  GCP_PROJECT: internal-airbyte-ai-infra
+  GCP_REGION: us-west3
+  MCP_SERVER: ${{ github.event.inputs.mcp-server || 'ops-mcp' }}
+  MCP_PR: ${{ github.event.inputs.pr || '' }}
+  MCP_COMMENT_ID: ${{ github.event.inputs.comment-id || '' }}
+
+jobs:
+  deploy-mcp:
+    name: "Deploy ${{ github.event.inputs.mcp-server || 'ops-mcp' }}"
+    runs-on: ubuntu-latest
+    environment:
+      name: "Cloud Run (${{ (github.event.inputs.pr || github.event.inputs.comment-id) && format('{0}-preview', github.event.inputs.mcp-server || 'ops-mcp') || github.event.inputs.mcp-server || 'ops-mcp' }})"
+      url: "https://mcp.internal.airbyte.ai/${{ (github.event.inputs.pr || github.event.inputs.comment-id) && format('{0}-preview', github.event.inputs.mcp-server || 'ops-mcp') || github.event.inputs.mcp-server || 'ops-mcp' }}"
+    steps:
+      - name: Resolve deployment variables
+        id: resolve-vars
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+          GCP_PROJECT: ${{ env.GCP_PROJECT }}
+          MCP_SERVER: ${{ env.MCP_SERVER }}
+        run: |
+          ref="$GITHUB_SHA"
+          short_sha="${GITHUB_SHA:0:7}"
+          source="manual"
+          is_preview="false"
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" = "main" ]; then
+            source="main"
+          fi
+
+          # Presence of either pr or comment-id means this is a slash-command
+          # preview deploy rather than a production deploy.
+          if [ -n "$MCP_PR" ] || [ -n "$MCP_COMMENT_ID" ]; then
+            is_preview="true"
+          fi
+
+          if [ -n "$MCP_PR" ]; then
+            if ! [[ "$MCP_PR" =~ ^[1-9][0-9]*$ ]]; then
+              echo "Invalid PR number: $MCP_PR" >&2
+              exit 1
+            fi
+            ref="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${MCP_PR}" --jq '.head.sha')"
+            short_sha="${ref:0:7}"
+            source="pr-${MCP_PR}"
+          fi
+
+          image_repo="${MCP_SERVER}"
+          image_name="${MCP_SERVER}"
+
+          if [ "$is_preview" = "true" ]; then
+            service="${MCP_SERVER}-preview"
+            public_url="https://mcp.internal.airbyte.ai/${MCP_SERVER}-preview"
+            image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${image_repo}/${image_name}:preview-${short_sha}"
+          else
+            service="${MCP_SERVER}"
+            public_url="https://mcp.internal.airbyte.ai/${MCP_SERVER}"
+            image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${image_repo}/${image_name}:${source}-${short_sha}"
+          fi
+
+          {
+            printf "ref=%s\n" "$ref"
+            printf "short_sha=%s\n" "$short_sha"
+            printf "source=%s\n" "$source"
+            printf "image=%s\n" "$image"
+            printf "image_repo=%s\n" "$image_repo"
+            printf "service=%s\n" "$service"
+            printf "public_url=%s\n" "$public_url"
+            printf "is_preview=%s\n" "$is_preview"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Append comment with deployment job link
+        id: post-start-comment
+        if: env.MCP_PR != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ env.MCP_COMMENT_ID }}
+          issue-number: ${{ env.MCP_PR }}
+          edit-mode: append
+          body: |
+            > 🚀 **${{ env.MCP_SERVER }} Deploy Job Info**
+            >
+            > Deploying `${{ steps.resolve-vars.outputs.source }}` to `${{ steps.resolve-vars.outputs.public_url }}`.
+            > Image: `${{ steps.resolve-vars.outputs.image }}`
+            >
+            > ⏳ Job started... [Check job output.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Checkout deployment target
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.resolve-vars.outputs.ref }}
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify Artifact Registry repository
+        run: >
+          gcloud artifacts repositories describe "${{ steps.resolve-vars.outputs.image_repo }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --location="${{ env.GCP_REGION }}"
+
+      - name: Verify Cloud Run service
+        run: >
+          gcloud run services describe "${{ steps.resolve-vars.outputs.service }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --format="value(metadata.name)"
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build image
+        run: >
+          docker build
+          --file Dockerfile.mcp
+          --tag "${{ steps.resolve-vars.outputs.image }}"
+          .
+
+      - name: Push image
+        run: docker push "${{ steps.resolve-vars.outputs.image }}"
+
+      - name: Update Cloud Run service image
+        run: >
+          gcloud run services update "${{ steps.resolve-vars.outputs.service }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --image="${{ steps.resolve-vars.outputs.image }}"
+          --quiet
+
+      - name: Route traffic to latest revision (production only)
+        if: steps.resolve-vars.outputs.is_preview != 'true'
+        run: >
+          gcloud run services update-traffic "${{ steps.resolve-vars.outputs.service }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --to-latest
+          --quiet
+
+      - name: Post or update preview comment
+        if: steps.resolve-vars.outputs.is_preview == 'true' && env.MCP_PR != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ env.MCP_PR }}
+          body: |
+            <!-- ${{ env.MCP_SERVER }}-preview -->
+            ### 🔍 ${{ env.MCP_SERVER }} Preview
+
+            **Preview URL:** ${{ steps.resolve-vars.outputs.public_url }}
+            **Commit:** `${{ steps.resolve-vars.outputs.short_sha }}`
+
+            > This preview deploys to a dedicated preview service at `mcp.internal.airbyte.ai/${{ env.MCP_SERVER }}-preview`. It shares the same OIDC config and secrets as production. Only one preview is active at a time — subsequent deploys replace the previous one.
+
+      - name: Summarize deployment
+        run: |
+          {
+            printf "%s deployed.\n" "${{ env.MCP_SERVER }}"
+            printf "Source: %s\n" "${{ steps.resolve-vars.outputs.source }}"
+            printf "Commit: %s\n" "${{ steps.resolve-vars.outputs.ref }}"
+            printf "Image: %s\n" "${{ steps.resolve-vars.outputs.image }}"
+            printf "Service: %s\n" "${{ steps.resolve-vars.outputs.service }}"
+            printf "URL: %s\n" "${{ steps.resolve-vars.outputs.public_url }}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Append success comment
+        if: >
+          success() &&
+          env.MCP_PR != '' &&
+          steps.post-start-comment.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.post-start-comment.outputs.comment-id }}
+          issue-number: ${{ env.MCP_PR }}
+          edit-mode: append
+          reactions: hooray
+          body: |
+            > ✅ ${{ env.MCP_SERVER }} deploy completed successfully: ${{ steps.resolve-vars.outputs.public_url }}
+
+      - name: Append failure comment
+        if: >
+          failure() &&
+          env.MCP_PR != '' &&
+          steps.post-start-comment.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.post-start-comment.outputs.comment-id }}
+          issue-number: ${{ env.MCP_PR }}
+          edit-mode: append
+          reactions: confused
+          body: |
+            > ❌ ${{ env.MCP_SERVER }} deploy failed. Check the [job output](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.

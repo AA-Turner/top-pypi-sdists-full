@@ -50,6 +50,7 @@ class SageREPL:
             
         def get_status_text():
             import time
+            import html
             from sage.core.renderer import get_repl_status
             status = get_repl_status()
             
@@ -60,6 +61,10 @@ class SageREPL:
             msg = status.get("message")
             if not msg:
                 return HTML("")
+            
+            # Escape HTML characters to prevent parser crash
+            msg_escaped = html.escape(msg)
+            
             model_id = status.get("model_id", "")
             elapsed = status.get("elapsed", 0.0)
             if not elapsed and status.get("start_time"):
@@ -73,10 +78,13 @@ class SageREPL:
             elapsed_str = f" {elapsed:.0f}s" if elapsed > 0.5 else ""
             model_str = f" ({model_id})" if model_id else ""
             
+            elapsed_escaped = html.escape(elapsed_str)
+            model_escaped = html.escape(model_str)
+            
             return HTML(
                 f"  <style fg='#ffcc00'><b>{frame}</b></style> "
-                f"<style fg='#ffcc00'>{msg}</style>"
-                f"<style fg='#888888'>{elapsed_str}{model_str}</style>"
+                f"<style fg='#ffcc00'>{msg_escaped}</style>"
+                f"<style fg='#888888'>{elapsed_escaped}{model_escaped}</style>"
             )
 
         status_window = Window(

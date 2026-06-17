@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typst
-Version: 0.14.9
+Version: 0.15.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -32,6 +32,7 @@ pip install typst
 ## Usage
 
 ```python
+import datetime
 import typst
 
 
@@ -48,8 +49,19 @@ with open("hello.typ", "rb") as f:
 # Or return PDF content as bytes
 pdf_bytes = typst.compile("hello.typ")
 
+# Use a fixed creation timestamp for reproducible PDFs
+timestamp = datetime.datetime.fromtimestamp(0, datetime.timezone.utc)
+pdf_bytes = typst.compile("hello.typ", timestamp=timestamp)
+
 # Also for svg
 svg_bytes = typst.compile("hello.typ", format="svg")
+
+# Typst 0.15 minifies PDF, SVG, and HTML by default; pass pretty=True for
+# human-readable export output.
+svg_bytes = typst.compile("hello.typ", format="svg", pretty=True)
+
+# Multiple compatible PDF standards can be requested at once.
+pdf_bytes = typst.compile("hello.typ", pdf_standards=["a-2a", "ua-1"])
 
 # For multi-page export (the template is the same as the typst cli)
 images = typst.compile("hello.typ", output="hello{n}.png", format="png")
@@ -62,6 +74,9 @@ compiler.compile(input="hello.typ", format="png", ppi=144.0)
 import json
 
 values = json.loads(typst.query("hello.typ", "<note>", field="value", one=True))
+
+# Or use Typst's newer eval-style query expression
+values = json.loads(typst.eval("hello.typ", "query(<note>).first().value"))
 ```
 
 ## Multi-file projects
@@ -96,6 +111,21 @@ pdf = typst.compile(files, format="pdf")
 
 Dictionary values can also be file paths (as strings or `Path` objects), which will be
 read from disk.
+
+## Packages
+
+Use `package_path` to point Typst at a local package directory and
+`package_cache_path` to control where downloaded `@preview` packages are cached:
+
+```python
+import typst
+
+pdf = typst.compile(
+    "main.typ",
+    package_path="vendor",
+    package_cache_path="vendor",
+)
+```
 
 ## Passing values
 

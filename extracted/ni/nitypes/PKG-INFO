@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nitypes
-Version: 1.0.1
+Version: 1.1.0
 Summary: Data types for NI Python APIs
 License: MIT
 Keywords: nitypes
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Dist: hightime (>=0.2.2)
@@ -57,6 +58,8 @@ Description-Content-Type: text/markdown
   - [Binary Time](#binary-time)
 - [Scalar Values](#scalar-values)
   - [Scalar](#scalar)
+  - [Vector](#vector)
+  - [XYData](#xydata)
 
 # About
 
@@ -175,4 +178,11 @@ API Reference.
 information and extended properties. Valid types for the scalar values are `bool`, `int`, `float`,
 and `str`. For more details, see
 [Scalar](https://nitypes.readthedocs.io/en/latest/autoapi/nitypes/vector/index.html#vector) in the
+API Reference.
+
+## XYData
+
+`nitypes.xy_data.XYData` is a data type that represents a two axes (sequences) of numeric values
+with units information. Valid types for the numeric values are `int` and `float`. For more details,
+see [XYData](https://nitypes.readthedocs.io/en/latest/autoapi/nitypes/xy_data/index.html) in the
 API Reference.

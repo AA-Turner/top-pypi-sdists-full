@@ -65,7 +65,7 @@ class TestAddOrg:
         config = _base_config()
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
-            patch("runlayer_cli.commands.credentials.save_config") as mock_save,
+            patch("runlayer_cli.config.save_config") as mock_save,
         ):
             result = runner.invoke(
                 app,
@@ -99,11 +99,33 @@ class TestAddOrg:
             assert result.exit_code == 1
             assert "No host configured" in result.output
 
+    def test_errors_when_not_persisted(self):
+        """aiwatch runtime: save_config no-op (False) means the org key was never
+        persisted — must error, not print success."""
+        config = _base_config()
+        with (
+            patch("runlayer_cli.commands.credentials.load_config", return_value=config),
+            patch("runlayer_cli.config.save_config", return_value=False),
+        ):
+            result = runner.invoke(
+                app,
+                [
+                    "credentials",
+                    "add",
+                    "org",
+                    "security-scan",
+                    "--secret",
+                    "rl_org_new",
+                ],
+            )
+            assert result.exit_code == 1
+            assert "could not be persisted" in result.output
+
     def test_explicit_host(self):
         config = Config()
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
-            patch("runlayer_cli.commands.credentials.save_config") as mock_save,
+            patch("runlayer_cli.config.save_config") as mock_save,
         ):
             result = runner.invoke(
                 app,
@@ -140,7 +162,7 @@ class TestAddUser:
         )
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
-            patch("runlayer_cli.commands.credentials.save_config") as mock_save,
+            patch("runlayer_cli.config.save_config") as mock_save,
         ):
             result = runner.invoke(
                 app,
@@ -150,6 +172,26 @@ class TestAddUser:
             assert "saved" in result.output
             assert "config file" in result.output
             mock_save.assert_called_once()
+
+    def test_user_errors_when_not_persisted(self):
+        """aiwatch runtime: keychain write failed (keyring disabled) and
+        save_config no-op (False) — user key not persisted, must error."""
+        config = Config(
+            default_host="https://app.runlayer.com",
+            hosts={
+                "app.runlayer.com": {"url": "https://app.runlayer.com"},
+            },
+        )
+        with (
+            patch("runlayer_cli.commands.credentials.load_config", return_value=config),
+            patch("runlayer_cli.config.save_config", return_value=False),
+        ):
+            result = runner.invoke(
+                app,
+                ["credentials", "add", "user", "--secret", "rl_user_new"],
+            )
+            assert result.exit_code == 1
+            assert "could not be persisted" in result.output
 
     def test_saves_user_key_to_keyring(self):
         mock_store = MagicMock(spec=KeyringCredentialStore)
@@ -163,7 +205,7 @@ class TestAddUser:
         with (
             patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
-            patch("runlayer_cli.commands.credentials.save_config"),
+            patch("runlayer_cli.config.save_config"),
         ):
             result = runner.invoke(
                 app,
@@ -195,9 +237,9 @@ class TestEnroll:
 
         with (
             patch("runlayer_cli.commands.credentials.load_config", return_value=config),
-            patch("runlayer_cli.commands.credentials.save_config") as mock_save,
+            patch("runlayer_cli.config.save_config") as mock_save,
             patch(
-                "runlayer_cli.commands.credentials.write_enrollment_marker"
+                "runlayer_cli.cli_persistence.write_enrollment_marker"
             ) as mock_marker,
             patch(
                 "runlayer_cli.enrollment.httpx.Client",

@@ -121,14 +121,14 @@ impl<'src> Node<'src> for Expression<'src> {
     match self {
       Self::And { lhs, rhs } => Tree::atom("&&").push(lhs.tree()).push(rhs.tree()),
       Self::Assert {
-        condition: Condition { lhs, rhs, operator },
-        error,
-        ..
-      } => Tree::atom(Keyword::Assert.lexeme())
-        .push(lhs.tree())
-        .push(operator.to_string())
-        .push(rhs.tree())
-        .push(error.tree()),
+        condition, message, ..
+      } => {
+        let mut tree = Tree::atom(Keyword::Assert.lexeme()).push(condition.tree());
+        if let Some(message) = message {
+          tree = tree.push(message.tree());
+        }
+        tree
+      }
       Self::Backtick { contents, .. } => Tree::atom("backtick").push(Tree::string(contents)),
       Self::Call { name, arguments } => {
         let mut tree = Tree::atom("call");
@@ -138,18 +138,24 @@ impl<'src> Node<'src> for Expression<'src> {
         }
         tree
       }
-      Self::Concatenation { lhs, rhs } => Tree::atom("+").push(lhs.tree()).push(rhs.tree()),
+      Self::Comparison { lhs, operator, rhs } => Tree::atom(operator.to_string())
+        .push(lhs.tree())
+        .push(rhs.tree()),
+      Self::Concatenation { lhs, rhs, .. } => Tree::atom("+").push(lhs.tree()).push(rhs.tree()),
+      Self::ListConcatenation { lhs, rhs, .. } => {
+        Tree::atom("++").push(lhs.tree()).push(rhs.tree())
+      }
       Self::Conditional {
-        condition: Condition { lhs, rhs, operator },
+        condition,
         then,
         otherwise,
       } => {
         let mut tree = Tree::atom(Keyword::If.lexeme());
-        tree.push_mut(lhs.tree());
-        tree.push_mut(operator.to_string());
-        tree.push_mut(rhs.tree());
+        tree.push_mut(condition.tree());
         tree.push_mut(then.tree());
-        tree.push_mut(otherwise.tree());
+        if let Some(otherwise) = otherwise {
+          tree.push_mut(otherwise.tree());
+        }
         tree
       }
       Self::FormatString { start, expressions } => {
@@ -162,11 +168,20 @@ impl<'src> Node<'src> for Expression<'src> {
         tree
       }
       Self::Group { contents } => Tree::List(vec![contents.tree()]),
-      Self::Join { lhs: None, rhs } => Tree::atom("/").push(rhs.tree()),
+      Self::Join { lhs: None, rhs, .. } => Tree::atom("/").push(rhs.tree()),
       Self::Join {
         lhs: Some(lhs),
         rhs,
+        ..
       } => Tree::atom("/").push(lhs.tree()).push(rhs.tree()),
+      Self::List { elements, .. } => {
+        let mut tree = Tree::atom("list");
+        for element in elements {
+          tree.push_mut(element.tree());
+        }
+        tree
+      }
+      Self::Not { operand } => Tree::atom("!").push(operand.tree()),
       Self::Or { lhs, rhs } => Tree::atom("||").push(lhs.tree()).push(rhs.tree()),
       Self::StringLiteral {
         string_literal: StringLiteral { cooked, .. },
@@ -213,7 +228,11 @@ impl<'src> Node<'src> for UnresolvedRecipe<'src> {
         let mut d = dependency.recipe.tree();
 
         for argument in &dependency.arguments {
-          d.push_mut(argument.tree());
+          if argument.starred {
+            d.push_mut(Tree::atom("*"));
+          }
+
+          d.push_mut(argument.expression.tree());
         }
 
         if i < self.priors {
@@ -285,6 +304,7 @@ impl<'src> Node<'src> for Set<'src> {
       | Setting::Guards(value)
       | Setting::IgnoreComments(value)
       | Setting::Lazy(value)
+      | Setting::Lists(value)
       | Setting::NoCd(value)
       | Setting::NoExitMessage(value)
       | Setting::PositionalArguments(value)

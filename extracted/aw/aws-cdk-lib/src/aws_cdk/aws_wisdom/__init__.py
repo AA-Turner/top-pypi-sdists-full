@@ -4542,6 +4542,14 @@ class CfnAIGuardrail(
         return typing.cast(builtins.str, jsii.get(self, "attrAssistantArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrModifiedTimeSeconds")
+    def attr_modified_time_seconds(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: ModifiedTimeSeconds
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrModifiedTimeSeconds"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''

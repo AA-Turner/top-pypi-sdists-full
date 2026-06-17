@@ -7,6 +7,10 @@ Commands:
     airbyte-ops cloud connector clear-version-override - Clear connector version override
     airbyte-ops cloud connector regression-test - Run regression tests (single-version or comparison)
     airbyte-ops cloud connector fetch-connection-config - Fetch connection config to local file
+    airbyte-ops cloud organization search - Search organizations by name/email
+    airbyte-ops cloud organization info - Get organization info
+    airbyte-ops cloud workspace search - Search workspaces by name/slug or email domain
+    airbyte-ops cloud workspace info - Get workspace info
 
 ## CLI reference
 
@@ -78,6 +82,16 @@ from airbyte_ops_mcp.constants import (
     ENV_GCP_PROD_DB_ACCESS_CREDENTIALS,
 )
 from airbyte_ops_mcp.gcp_logs import GCPSeverity, fetch_error_logs
+from airbyte_ops_mcp.prod_db_access.queries import (
+    query_workspace_info,
+    query_workspaces_by_email_domain,
+)
+from airbyte_ops_mcp.prod_db_access.queries import (
+    search_organizations as _search_organizations,
+)
+from airbyte_ops_mcp.prod_db_access.queries import (
+    search_workspaces as _search_workspaces,
+)
 from airbyte_ops_mcp.regression_tests.cdk_secrets import get_first_config_from_secrets
 from airbyte_ops_mcp.regression_tests.ci_output import (
     generate_regression_report,
@@ -152,6 +166,16 @@ connection_app.command(catalog_app)
 # Create the logs sub-app under cloud
 logs_app = App(name="logs", help="GCP Cloud Logging operations for Airbyte Cloud.")
 cloud_app.command(logs_app)
+
+# Create the organization sub-app under cloud
+organization_app = App(
+    name="organization", help="Organization operations in Airbyte Cloud."
+)
+cloud_app.command(organization_app)
+
+# Create the workspace sub-app under cloud
+workspace_app = App(name="workspace", help="Workspace operations in Airbyte Cloud.")
+cloud_app.command(workspace_app)
 
 
 @db_app.command(name="start-proxy")
@@ -2006,3 +2030,115 @@ def lookup_cloud_backend_error(
             print(f"[{entry.timestamp}] {entry.severity}: {entry.payload}")
     else:
         print_error("No log entries found for this error ID.")
+
+
+# =============================================================================
+# Organization commands
+# =============================================================================
+
+
+@organization_app.command(name="search")
+def organization_search(
+    name_contains: Annotated[
+        str,
+        Parameter(
+            name="--name-contains",
+            help="Case-insensitive substring to match against organization name or email.",
+        ),
+    ],
+    limit: Annotated[
+        int,
+        Parameter(
+            name="--limit",
+            help="Maximum number of results to return.",
+        ),
+    ] = 20,
+) -> None:
+    """Search organizations by name or email substring."""
+    rows = _search_organizations(name_contains=name_contains, limit=limit)
+    if not rows:
+        print_error(f"No organizations found matching '{name_contains}'.")
+        return
+
+    print_json([dict(row) for row in rows])
+
+
+@organization_app.command(name="info")
+def organization_info(
+    organization_id: Annotated[
+        str,
+        Parameter(help="The organization UUID."),
+    ],
+) -> None:
+    """Get information about an organization (stub — not yet implemented)."""
+    exit_with_error(
+        "organization info is not yet implemented. "
+        "Use 'airbyte-ops cloud organization search' to find organizations by name."
+    )
+
+
+# =============================================================================
+# Workspace commands
+# =============================================================================
+
+
+@workspace_app.command(name="search")
+def workspace_search(
+    name_contains: Annotated[
+        str | None,
+        Parameter(
+            name="--name-contains",
+            help="Case-insensitive substring to match against workspace name or slug.",
+        ),
+    ] = None,
+    email_domain: Annotated[
+        str | None,
+        Parameter(
+            name="--email-domain",
+            help="Email domain to search for (e.g. 'motherduck.com').",
+        ),
+    ] = None,
+    limit: Annotated[
+        int,
+        Parameter(
+            name="--limit",
+            help="Maximum number of results to return.",
+        ),
+    ] = 100,
+) -> None:
+    """Search workspaces by name substring or email domain."""
+    if not name_contains and not email_domain:
+        exit_with_error(
+            "At least one of --name-contains or --email-domain must be provided."
+        )
+
+    if name_contains:
+        rows = _search_workspaces(name_contains=name_contains, limit=limit)
+    else:
+        rows = query_workspaces_by_email_domain(
+            email_domain=email_domain.lstrip("@"),  # type: ignore[union-attr]
+            limit=limit,
+        )
+
+    if not rows:
+        search_term = name_contains or email_domain
+        print_error(f"No workspaces found matching '{search_term}'.")
+        return
+
+    print_json([dict(row) for row in rows])
+
+
+@workspace_app.command(name="info")
+def workspace_info_cmd(
+    workspace_id: Annotated[
+        str,
+        Parameter(help="The workspace UUID."),
+    ],
+) -> None:
+    """Get information about a workspace."""
+    result = query_workspace_info(workspace_id=workspace_id)
+    if not result:
+        print_error(f"No workspace found with ID '{workspace_id}'.")
+        return
+
+    print_json(dict(result))

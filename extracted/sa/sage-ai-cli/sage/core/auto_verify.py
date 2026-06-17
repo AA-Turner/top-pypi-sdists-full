@@ -97,6 +97,7 @@ class ProjectVerifier:
             r = subprocess.run(
                 cmd, cwd=str(self.cwd),
                 capture_output=True, text=True, timeout=self.timeout_s,
+                stdin=subprocess.DEVNULL,
             )
             return VerifyOutcome(
                 ok=(r.returncode == 0), command=" ".join(cmd),

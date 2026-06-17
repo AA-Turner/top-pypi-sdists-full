@@ -8,8 +8,6 @@ import xorq.vendor.ibis.expr.operations as ops
 import xorq.vendor.ibis.expr.rules as rlz
 from xorq.expr.relations import FlightExpr, FlightUDXF
 from xorq.ibis_yaml.common import (
-    RefEnum,
-    RegistryEnum,
     TranslationContext,
     deserialize_callable,
     register_from_yaml_handler,
@@ -17,6 +15,7 @@ from xorq.ibis_yaml.common import (
     translate_from_yaml,
     translate_to_yaml,
 )
+from xorq.ibis_yaml.enums import RefEnum, RegistryEnum
 from xorq.ibis_yaml.utils import freeze
 from xorq.vendor import ibis
 from xorq.vendor.ibis.common.annotations import Argument
@@ -224,7 +223,8 @@ def _aggudf_from_yaml(yaml_dict: dict, compiler: any) -> any:
 
     config = meta["__config__"]
     if "fn" in config:
-        kwds["__func__"] = udf.make_dunder_func(config["fn"], kwargs)
+        # pass Schema, not dict, to match the live agg.pandas_df build path (see ExprScalarUDF below)
+        kwds["__func__"] = udf.make_dunder_func(config["fn"], kwargs_to_schema(kwargs))
     elif {
         "evaluate",
         "evaluate_all",

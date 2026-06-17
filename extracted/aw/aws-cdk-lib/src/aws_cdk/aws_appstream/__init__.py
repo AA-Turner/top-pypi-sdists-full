@@ -6211,6 +6211,15 @@ class CfnStack(
                 settings_group="settingsGroup"
             ),
             attributes_to_delete=["attributesToDelete"],
+            content_redirection=appstream.CfnStack.ContentRedirectionProperty(
+                host_to_client=appstream.CfnStack.UrlRedirectionConfigProperty(
+                    enabled=False,
+        
+                    # the properties below are optional
+                    allowed_urls=["allowedUrls"],
+                    denied_urls=["deniedUrls"]
+                )
+            ),
             delete_storage_connectors=False,
             description="description",
             display_name="displayName",
@@ -6250,6 +6259,7 @@ class CfnStack(
         access_endpoints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         application_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+        content_redirection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.ContentRedirectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
@@ -6269,6 +6279,7 @@ class CfnStack(
         :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Users of the stack can connect to WorkSpaces Applications only through the specified endpoints.
         :param application_settings: The persistent application settings for users of the stack. When these settings are enabled, changes that users make to applications and Windows settings are automatically saved after each session and applied to the next session.
         :param attributes_to_delete: The stack attributes to delete.
+        :param content_redirection: The content redirection settings for the stack.
         :param delete_storage_connectors: *This parameter has been deprecated.*. Deletes the storage connectors currently enabled for the stack.
         :param description: The description to display.
         :param display_name: The stack name to display.
@@ -6289,6 +6300,7 @@ class CfnStack(
             access_endpoints=access_endpoints,
             application_settings=application_settings,
             attributes_to_delete=attributes_to_delete,
+            content_redirection=content_redirection,
             delete_storage_connectors=delete_storage_connectors,
             description=description,
             display_name=display_name,
@@ -6451,6 +6463,24 @@ class CfnStack(
             type_hints = typing.get_type_hints(_typecheckingstub__a7c273fef3acafd8229cbff7e9a2c1b03a874f74a6397ceeb316e0b9ae83ae12)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "attributesToDelete", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="contentRedirection")
+    def content_redirection(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.ContentRedirectionProperty"]]:
+        '''The content redirection settings for the stack.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.ContentRedirectionProperty"]], jsii.get(self, "contentRedirection"))
+
+    @content_redirection.setter
+    def content_redirection(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.ContentRedirectionProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__281dbb7f156c8f69cd6e9b671eb02e611d3bd68e96de885732d11fb92986cb17)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "contentRedirection", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deleteStorageConnectors")
@@ -6767,6 +6797,69 @@ class CfnStack(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appstream.CfnStack.ContentRedirectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"host_to_client": "hostToClient"},
+    )
+    class ContentRedirectionProperty:
+        def __init__(
+            self,
+            *,
+            host_to_client: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.UrlRedirectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The content redirection settings for the stack.
+
+            :param host_to_client: The configuration for URL redirection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-contentredirection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appstream as appstream
+                
+                content_redirection_property = appstream.CfnStack.ContentRedirectionProperty(
+                    host_to_client=appstream.CfnStack.UrlRedirectionConfigProperty(
+                        enabled=False,
+                
+                        # the properties below are optional
+                        allowed_urls=["allowedUrls"],
+                        denied_urls=["deniedUrls"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__929d2d9e44019d2cbda6ca10453b797ab5b09b11aafcb04e0beae1fa32cc5100)
+                check_type(argname="argument host_to_client", value=host_to_client, expected_type=type_hints["host_to_client"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if host_to_client is not None:
+                self._values["host_to_client"] = host_to_client
+
+        @builtins.property
+        def host_to_client(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.UrlRedirectionConfigProperty"]]:
+            '''The configuration for URL redirection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-contentredirection.html#cfn-appstream-stack-contentredirection-hosttoclient
+            '''
+            result = self._values.get("host_to_client")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.UrlRedirectionConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ContentRedirectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_appstream.CfnStack.StorageConnectorProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -6912,6 +7005,98 @@ class CfnStack(
 
         def __repr__(self) -> str:
             return "StreamingExperienceSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_appstream.CfnStack.UrlRedirectionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enabled": "enabled",
+            "allowed_urls": "allowedUrls",
+            "denied_urls": "deniedUrls",
+        },
+    )
+    class UrlRedirectionConfigProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            allowed_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+            denied_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The configuration for URL redirection.
+
+            :param enabled: Specifies whether URL redirection is enabled or disabled.
+            :param allowed_urls: The URLs that are allowed for redirection.
+            :param denied_urls: The URLs that are denied for redirection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-urlredirectionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_appstream as appstream
+                
+                url_redirection_config_property = appstream.CfnStack.UrlRedirectionConfigProperty(
+                    enabled=False,
+                
+                    # the properties below are optional
+                    allowed_urls=["allowedUrls"],
+                    denied_urls=["deniedUrls"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__97be42fa63c9da35f55bb29b7efe00804326a70f782e0385add9cd04d511db25)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument allowed_urls", value=allowed_urls, expected_type=type_hints["allowed_urls"])
+                check_type(argname="argument denied_urls", value=denied_urls, expected_type=type_hints["denied_urls"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "enabled": enabled,
+            }
+            if allowed_urls is not None:
+                self._values["allowed_urls"] = allowed_urls
+            if denied_urls is not None:
+                self._values["denied_urls"] = denied_urls
+
+        @builtins.property
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''Specifies whether URL redirection is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-urlredirectionconfig.html#cfn-appstream-stack-urlredirectionconfig-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def allowed_urls(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The URLs that are allowed for redirection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-urlredirectionconfig.html#cfn-appstream-stack-urlredirectionconfig-allowedurls
+            '''
+            result = self._values.get("allowed_urls")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def denied_urls(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The URLs that are denied for redirection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-urlredirectionconfig.html#cfn-appstream-stack-urlredirectionconfig-deniedurls
+            '''
+            result = self._values.get("denied_urls")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UrlRedirectionConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -7106,14 +7291,6 @@ class CfnStackFleetAssociation(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -7234,6 +7411,7 @@ class CfnStackFleetAssociationProps:
         "access_endpoints": "accessEndpoints",
         "application_settings": "applicationSettings",
         "attributes_to_delete": "attributesToDelete",
+        "content_redirection": "contentRedirection",
         "delete_storage_connectors": "deleteStorageConnectors",
         "description": "description",
         "display_name": "displayName",
@@ -7254,6 +7432,7 @@ class CfnStackProps:
         access_endpoints: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         application_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.ApplicationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+        content_redirection: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnStack.ContentRedirectionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
@@ -7271,6 +7450,7 @@ class CfnStackProps:
         :param access_endpoints: The list of virtual private cloud (VPC) interface endpoint objects. Users of the stack can connect to WorkSpaces Applications only through the specified endpoints.
         :param application_settings: The persistent application settings for users of the stack. When these settings are enabled, changes that users make to applications and Windows settings are automatically saved after each session and applied to the next session.
         :param attributes_to_delete: The stack attributes to delete.
+        :param content_redirection: The content redirection settings for the stack.
         :param delete_storage_connectors: *This parameter has been deprecated.*. Deletes the storage connectors currently enabled for the stack.
         :param description: The description to display.
         :param display_name: The stack name to display.
@@ -7305,6 +7485,15 @@ class CfnStackProps:
                     settings_group="settingsGroup"
                 ),
                 attributes_to_delete=["attributesToDelete"],
+                content_redirection=appstream.CfnStack.ContentRedirectionProperty(
+                    host_to_client=appstream.CfnStack.UrlRedirectionConfigProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        allowed_urls=["allowedUrls"],
+                        denied_urls=["deniedUrls"]
+                    )
+                ),
                 delete_storage_connectors=False,
                 description="description",
                 display_name="displayName",
@@ -7340,6 +7529,7 @@ class CfnStackProps:
             check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
             check_type(argname="argument application_settings", value=application_settings, expected_type=type_hints["application_settings"])
             check_type(argname="argument attributes_to_delete", value=attributes_to_delete, expected_type=type_hints["attributes_to_delete"])
+            check_type(argname="argument content_redirection", value=content_redirection, expected_type=type_hints["content_redirection"])
             check_type(argname="argument delete_storage_connectors", value=delete_storage_connectors, expected_type=type_hints["delete_storage_connectors"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
@@ -7358,6 +7548,8 @@ class CfnStackProps:
             self._values["application_settings"] = application_settings
         if attributes_to_delete is not None:
             self._values["attributes_to_delete"] = attributes_to_delete
+        if content_redirection is not None:
+            self._values["content_redirection"] = content_redirection
         if delete_storage_connectors is not None:
             self._values["delete_storage_connectors"] = delete_storage_connectors
         if description is not None:
@@ -7415,6 +7607,17 @@ class CfnStackProps:
         '''
         result = self._values.get("attributes_to_delete")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def content_redirection(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.ContentRedirectionProperty"]]:
+        '''The content redirection settings for the stack.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appstream-stack.html#cfn-appstream-stack-contentredirection
+        '''
+        result = self._values.get("content_redirection")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnStack.ContentRedirectionProperty"]], result)
 
     @builtins.property
     def delete_storage_connectors(
@@ -7646,14 +7849,6 @@ class CfnStackUserAssociation(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -7910,6 +8105,17 @@ class CfnUser(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForUser")
+    @builtins.classmethod
+    def arn_for_user(cls, resource: "_IUserRef_10289f91") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8940e06933a8c332cf8c2c8d16d25fd9375bc0aa6eb12ca46154625a5c5ecd94)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUser", [resource]))
+
     @jsii.member(jsii_name="isCfnUser")
     @builtins.classmethod
     def is_cfn_user(cls, x: typing.Any) -> builtins.bool:
@@ -7953,12 +8159,13 @@ class CfnUser(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the Amazon AppStream User resource.
+
+        :cloudformationAttribute: Arn
         '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -9366,6 +9573,7 @@ def _typecheckingstub__add685d2c205e11b1f2727c7c09ea99b5fd4739effbaca1fd079659e5
     access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+    content_redirection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ContentRedirectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
@@ -9427,6 +9635,12 @@ def _typecheckingstub__318b1e9f0d5854a3c702b5b51837caed9c2f8ef41e3bc15d8e0cdac00
 
 def _typecheckingstub__a7c273fef3acafd8229cbff7e9a2c1b03a874f74a6397ceeb316e0b9ae83ae12(
     value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__281dbb7f156c8f69cd6e9b671eb02e611d3bd68e96de885732d11fb92986cb17(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnStack.ContentRedirectionProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9513,6 +9727,13 @@ def _typecheckingstub__dbd2bf22e417927425b480fb9f77598b6dc3c52bceeccd8e20029d3af
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__929d2d9e44019d2cbda6ca10453b797ab5b09b11aafcb04e0beae1fa32cc5100(
+    *,
+    host_to_client: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.UrlRedirectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c5f4551020c535e3e6e3df104109b0aa10638f110819d36a938d2fea05892f89(
     *,
     connector_type: builtins.str,
@@ -9525,6 +9746,15 @@ def _typecheckingstub__c5f4551020c535e3e6e3df104109b0aa10638f110819d36a938d2fea0
 def _typecheckingstub__c91289741f79afeb2e10af943a02636d21ff3e2882ecef22a76b60441af0e394(
     *,
     preferred_protocol: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97be42fa63c9da35f55bb29b7efe00804326a70f782e0385add9cd04d511db25(
+    *,
+    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    allowed_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
+    denied_urls: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9591,6 +9821,7 @@ def _typecheckingstub__2f5987726340331a807da3e721dc066e307475a26a6ce0ddcd409aa8f
     access_endpoints: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     application_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ApplicationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     attributes_to_delete: typing.Optional[typing.Sequence[builtins.str]] = None,
+    content_redirection: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnStack.ContentRedirectionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     delete_storage_connectors: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     description: typing.Optional[builtins.str] = None,
     display_name: typing.Optional[builtins.str] = None,
@@ -9679,6 +9910,12 @@ def _typecheckingstub__716c51c6b5353935015ec2b3097e7582be6792bda1cc35f5349c641e9
     first_name: typing.Optional[builtins.str] = None,
     last_name: typing.Optional[builtins.str] = None,
     message_action: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8940e06933a8c332cf8c2c8d16d25fd9375bc0aa6eb12ca46154625a5c5ecd94(
+    resource: _IUserRef_10289f91,
 ) -> None:
     """Type checking stubs"""
     pass

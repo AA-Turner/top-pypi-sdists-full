@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-statemachine
-Version: 3.1.2
+Version: 3.2.0
 Summary: Python Finite State Machines made easy.
 Project-URL: homepage, https://github.com/fgmacedo/python-statemachine
 Author-email: Fernando Macedo <fgmacedo@gmail.com>
@@ -13,7 +13,6 @@ Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,9 +20,16 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: diagrams
 Requires-Dist: pydot>=4.0.1; extra == 'diagrams'
+Provides-Extra: io
+Requires-Dist: jsonschema>=4.18; extra == 'io'
+Requires-Dist: pyyaml>=6.0; extra == 'io'
+Provides-Extra: validation
+Requires-Dist: jsonschema>=4.18; extra == 'validation'
+Provides-Extra: yaml
+Requires-Dist: pyyaml>=6.0; extra == 'yaml'
 Description-Content-Type: text/markdown
 
 # Python StateMachine
@@ -398,6 +404,13 @@ To generate diagrams, install with the `diagrams` extra (requires
 
 ```
 pip install python-statemachine[diagrams]
+```
+
+To load statecharts from declarative documents, install the IO extras
+(`yaml` for YAML, `validation` for `validate=True`, or `io` for both):
+
+```
+pip install python-statemachine[io]
 ```
 
 

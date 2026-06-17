@@ -362,7 +362,92 @@ def _search_claude_code_plugin_servers(server_name: str, cwd: str) -> MCPServer 
         result = _search_claude_plugin_root(plugin_root, server_name, plugin_name)
         if result is not None:
             return result
+
+    # Fallback: plugins active on disk but not surfaced by the registry pass
+    # above -- managed/Cowork provisioning, dev symlinks, marketplace bundles,
+    # or a plugin registered only for a *different* project. Skip only plugins
+    # explicitly disabled for this cwd, so the scan can't re-enable a disabled
+    # plugin but a same-named plugin registered elsewhere still resolves here.
+    disabled = _disabled_plugin_names(cwd)
+    for plugin_root, plugin_name in _claude_filesystem_plugin_roots():
+        if plugin_name in disabled:
+            continue
+        result = _search_claude_plugin_root(plugin_root, server_name, plugin_name)
+        if result is not None:
+            return result
     return None
+
+
+# Top-level entries under ~/.claude/plugins that are not themselves plugin roots.
+_NON_PLUGIN_PLUGIN_DIRS = frozenset({"cache", "marketplaces", "repos"})
+
+
+def _safe_iterdir(path: Path) -> list[Path]:
+    try:
+        return list(path.iterdir())
+    except OSError:
+        return []
+
+
+def _disabled_plugin_names(cwd: str) -> set[str]:
+    """Plugin names (``<name>`` from ``<name>@<marketplace>``) explicitly
+    disabled (``enabledPlugins[key] == false``) for this cwd. Used to keep the
+    filesystem fallback from re-enabling a disabled plugin, without suppressing
+    a same-named plugin that's only registered for another project."""
+    enabled = _claude_enabled_plugins(_claude_settings_cwd(cwd))
+    return {
+        str(key).rsplit("@", 1)[0] for key, value in enabled.items() if value is False
+    }
+
+
+def _plugin_root_and_name(plugin_dir: Path) -> tuple[Path, str] | None:
+    """Return ``(plugin_dir, plugin_name)`` if ``plugin_dir`` holds a plugin
+    manifest. ``plugin_name`` prefers the manifest ``name`` (what Claude Code
+    uses in the ``plugin_<name>_<server>`` tool namespace) over the dir name."""
+    manifest = _read_json_object(plugin_dir / ".claude-plugin" / "plugin.json")
+    if manifest is None:
+        return None
+    name = manifest.get("name")
+    plugin_name = name if isinstance(name, str) and name else plugin_dir.name
+    return plugin_dir, plugin_name
+
+
+def _claude_filesystem_plugin_roots() -> Iterator[tuple[Path, str]]:
+    """Discover plugin roots on disk beyond ``installed_plugins.json``:
+    top-level (symlinked/dev) dirs, the install cache, and marketplace-bundled
+    plugins. De-duplicated by resolved path."""
+    plugins_dir = Path.home() / ".claude" / "plugins"
+    if not plugins_dir.is_dir():
+        return
+
+    candidates: list[Path] = []
+    # Top-level (symlinked / dev) plugin dirs: ~/.claude/plugins/<name>
+    for entry in _safe_iterdir(plugins_dir):
+        if entry.name in _NON_PLUGIN_PLUGIN_DIRS or entry.name.startswith("."):
+            continue
+        candidates.append(entry)
+    # Install cache: ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>
+    for marketplace in _safe_iterdir(plugins_dir / "cache"):
+        for plugin in _safe_iterdir(marketplace):
+            candidates.extend(_safe_iterdir(plugin))
+    # Marketplace-bundled: ~/.claude/plugins/marketplaces/<mp>/plugins/<plugin>
+    for marketplace in _safe_iterdir(plugins_dir / "marketplaces"):
+        candidates.extend(_safe_iterdir(marketplace / "plugins"))
+
+    seen: set[Path] = set()
+    for plugin_dir in candidates:
+        if not plugin_dir.is_dir():
+            continue
+        try:
+            resolved = plugin_dir.resolve()
+        except OSError:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        root_and_name = _plugin_root_and_name(plugin_dir)
+        if root_and_name is not None:
+            yield root_and_name
 
 
 def _claude_plugin_roots(cwd: str) -> Iterator[tuple[Path, str]]:

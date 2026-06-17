@@ -535,17 +535,16 @@ class ScoreManager:
         )
 
     async def _send_score(self, score: Score) -> None:
-        """Send score to the Aigie platform."""
+        """Record a score locally.
+
+        Scores are not part of the single-immutable-span taxonomy and have no
+        wire event type — the prior ``SCORE_CREATE`` emit referenced a
+        non-existent enum member (dead/broken). Scores live in
+        ``self._local_scores`` and are read back via ``get_scores``.
+        """
         if not self.aigie:
             return
-
-        # Queue to buffer if available
-        if hasattr(self.aigie, "_buffer") and self.aigie._buffer:
-            from .buffer import EventType
-
-            await self.aigie._buffer.add(EventType.SCORE_CREATE, score.to_dict())
-        else:
-            logger.debug("No buffer available for score submission")
+        logger.debug("Score recorded locally (no wire emit): %s", score.name)
 
     def get_scores(self, trace_id: str | None = None) -> list[Score]:
         """Get locally stored scores, optionally filtered by trace ID."""

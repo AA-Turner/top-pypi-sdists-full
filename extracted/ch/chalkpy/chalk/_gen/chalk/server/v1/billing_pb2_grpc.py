@@ -26,6 +26,11 @@ class BillingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodesAndPodsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodesAndPodsResponse.FromString,
         )
+        self.PublishNodeUsage = channel.unary_unary(
+            "/chalk.server.v1.BillingService/PublishNodeUsage",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageResponse.FromString,
+        )
         self.GetUsageChart = channel.unary_unary(
             "/chalk.server.v1.BillingService/GetUsageChart",
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartRequest.SerializeToString,
@@ -102,6 +107,12 @@ class BillingServiceServicer(object):
         not just a single environment. To limit the scope, add filters to
         the request object.
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def PublishNodeUsage(self, request, context):
+        """PublishNodeUsage republishes node usage messages to the billing Pub/Sub topic."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -197,6 +208,11 @@ def add_BillingServiceServicer_to_server(servicer, server):
             servicer.GetNodesAndPods,
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodesAndPodsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetNodesAndPodsResponse.SerializeToString,
+        ),
+        "PublishNodeUsage": grpc.unary_unary_rpc_method_handler(
+            servicer.PublishNodeUsage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageResponse.SerializeToString,
         ),
         "GetUsageChart": grpc.unary_unary_rpc_method_handler(
             servicer.GetUsageChart,
@@ -310,6 +326,35 @@ class BillingService(object):
             "/chalk.server.v1.BillingService/GetNodesAndPods",
             chalk_dot_server_dot_v1_dot_billing__pb2.GetNodesAndPodsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_billing__pb2.GetNodesAndPodsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PublishNodeUsage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/PublishNodeUsage",
+            chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.PublishNodeUsageResponse.FromString,
             options,
             channel_credentials,
             insecure,

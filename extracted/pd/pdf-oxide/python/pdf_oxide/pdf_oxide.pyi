@@ -1947,17 +1947,13 @@ class DocumentBuilder:
         `RuntimeError`.
         """
 
-    def a4_page(
-        self,
-    ) -> FluentPageBuilder:
+    def a4_page(self) -> FluentPageBuilder:
         """
         Start a new A4 page and return a `FluentPageBuilder`. Call
         `.done()` on the returned builder to commit the page.
         """
 
-    def letter_page(
-        self,
-    ) -> FluentPageBuilder: ...
+    def letter_page(self) -> FluentPageBuilder: ...
     def page(self, width: float, height: float) -> FluentPageBuilder:
         """
         Start a new page with custom dimensions in PDF points

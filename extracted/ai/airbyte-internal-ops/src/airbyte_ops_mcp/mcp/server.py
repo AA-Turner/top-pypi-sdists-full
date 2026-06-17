@@ -5,14 +5,20 @@ This module provides the main MCP server for Airbyte admin operations.
 
 The server can run in two modes:
 - **stdio mode** (default): For direct MCP client connections via stdin/stdout
-- **HTTP mode**: For HTTP-based MCP connections, useful for containerized deployments
+- **HTTP mode**: For HTTP-based MCP connections. When `OIDC_CONFIG_URL`,
+  `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` are all set, enables Keycloak
+  OIDC authentication via `OIDCProxy`.
 
-Environment Variables:
-    MCP_HTTP_HOST: Host to bind HTTP server to (default: 127.0.0.1)
-    MCP_HTTP_PORT: Port for HTTP server (default: 8082)
+HTTP mode environment variables:
+    MCP_SERVER_URL: Public base URL for the MCP server (also used for OIDC
+        redirect callbacks). Defaults to `http://localhost:8080`.
+    OIDC_CONFIG_URL: Keycloak OIDC discovery URL (enables auth when set)
+    OIDC_CLIENT_ID: OAuth client ID for Keycloak
+    OIDC_CLIENT_SECRET: OAuth client secret for Keycloak
 """
 
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -20,7 +26,10 @@ from pathlib import Path
 from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_secret
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastmcp.server.auth.oidc_proxy import OIDCProxy
 from fastmcp_extensions import MCPServerConfigArg, mcp_server
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from airbyte_ops_mcp._sentry import init_sentry_tracking
 from airbyte_ops_mcp.constants import (
@@ -61,9 +70,17 @@ from airbyte_ops_mcp.mcp.session_namer import register_session_namer_tools
 from airbyte_ops_mcp.mcp.slack_messaging import register_slack_messaging_tools
 from airbyte_ops_mcp.mcp.tier_lookup import register_tier_lookup_tools
 
+logger = logging.getLogger(__name__)
+
 # Default HTTP server configuration
-DEFAULT_HTTP_HOST = "127.0.0.1"
-DEFAULT_HTTP_PORT = 8082
+DEFAULT_HTTP_HOST = "0.0.0.0"
+DEFAULT_HTTP_PORT = 8080
+
+# OIDC environment variable names
+OIDC_CONFIG_URL_ENV = "OIDC_CONFIG_URL"
+OIDC_CLIENT_ID_ENV = "OIDC_CLIENT_ID"
+OIDC_CLIENT_SECRET_ENV = "OIDC_CLIENT_SECRET"
+MCP_SERVER_URL_ENV = "MCP_SERVER_URL"
 
 
 def _normalize_bearer_token(value: str) -> str | None:
@@ -76,6 +93,40 @@ def _normalize_bearer_token(value: str) -> str | None:
         token = value[7:].strip()
         return token if token else None
     return None
+
+
+def _create_oidc_auth() -> OIDCProxy | None:
+    """Create an `OIDCProxy` auth provider when OIDC env vars are configured.
+
+    When `OIDC_CONFIG_URL`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` are all
+    set, returns an `OIDCProxy` that handles the Keycloak Authorization Code +
+    PKCE flow for browser-based MCP clients. When any is empty, returns `None`
+    (no OIDC auth — the server falls back to header-based credential resolution).
+    """
+    config_url = os.getenv(OIDC_CONFIG_URL_ENV, "")
+    client_id = os.getenv(OIDC_CLIENT_ID_ENV, "")
+    client_secret = os.getenv(OIDC_CLIENT_SECRET_ENV, "")
+
+    if not config_url or not client_id or not client_secret:
+        return None
+
+    server_url = os.getenv(
+        MCP_SERVER_URL_ENV,
+        f"http://localhost:{DEFAULT_HTTP_PORT}",
+    )
+
+    logger.info(
+        "OIDC auth enabled (issuer=%s, client_id=%s, base_url=%s)",
+        config_url,
+        client_id,
+        server_url,
+    )
+    return OIDCProxy(
+        config_url=config_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        base_url=server_url,
+    )
 
 
 # Create the MCP server with built-in server info resource
@@ -112,6 +163,7 @@ app = mcp_server(
         ),
     ],
     include_standard_tool_filters=True,
+    auth=_create_oidc_auth(),
 )
 
 
@@ -162,6 +214,12 @@ def register_server_assets(app: FastMCP) -> None:
 register_server_assets(app)
 
 
+@app.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:
+    """Health check endpoint for Cloud Run liveness/readiness probes."""
+    return JSONResponse({"status": "ok"})
+
+
 def _load_env() -> None:
     """Load environment variables from .env file if present."""
     env_file = Path.cwd() / ".env"
@@ -190,48 +248,17 @@ def main() -> None:
     print("=" * 60, flush=True, file=sys.stderr)
 
 
-def _parse_port(port_str: str | None, default: int) -> int:
-    """Parse and validate a port number from string.
-
-    Args:
-        port_str: Port string from environment variable, or None if not set
-        default: Default port to use if port_str is None
-
-    Returns:
-        Validated port number
-
-    Raises:
-        ValueError: If port_str is not a valid integer or out of range
-    """
-    if port_str is None:
-        return default
-
-    port_str = port_str.strip()
-    if not port_str.isdecimal():
-        raise ValueError(f"MCP_HTTP_PORT must be a valid integer, got: {port_str!r}")
-
-    port = int(port_str)
-    if not 1 <= port <= 65535:
-        raise ValueError(f"MCP_HTTP_PORT must be between 1 and 65535, got: {port}")
-
-    return port
-
-
 def main_http() -> None:
     """HTTP entry point for the Airbyte Admin MCP server.
 
-    This entry point runs the server in HTTP mode, suitable for containerized
-    deployments where the server needs to be accessible over HTTP.
-
-    Environment Variables:
-        MCP_HTTP_HOST: Host to bind to (default: 127.0.0.1)
-        MCP_HTTP_PORT: Port to listen on (default: 8082)
+    Runs the server in HTTP mode. When OIDC env vars are configured,
+    Keycloak authentication is enabled automatically.
     """
     _load_env()
     init_sentry_tracking()
 
-    host = os.getenv("MCP_HTTP_HOST", DEFAULT_HTTP_HOST)
-    port = _parse_port(os.getenv("MCP_HTTP_PORT"), DEFAULT_HTTP_PORT)
+    host = DEFAULT_HTTP_HOST
+    port = DEFAULT_HTTP_PORT
 
     print("=" * 60, flush=True, file=sys.stderr)
     print(

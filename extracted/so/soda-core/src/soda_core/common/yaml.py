@@ -11,7 +11,10 @@ from typing import Iterable, Optional
 
 from ruamel.yaml import YAML, CommentedMap, CommentedSeq
 from ruamel.yaml.error import MarkedYAMLError
-from soda_core.common.exceptions import YamlParserException
+from soda_core.common.exceptions import (
+    InvalidDataSourceConfigurationException,
+    YamlParserException,
+)
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.logs import Location
 
@@ -57,12 +60,10 @@ class YamlSource:
     # The default file type is 'YAML'.
     # Specific subclasses use different file types.
 
-    # Optionally resolve variables as many times as you like:
-    # resolving will trigger file loading (if applicable)
-    yaml_source.resolve(variables={}, use_env_vars=True)
+    # parse + post-parse variable substitution in one call:
+    yaml_object: YamlObject = yaml_source.parse_and_resolve(variables={}, use_env_vars=True)
 
-    # parse will create the YamlObject
-    # resolving will trigger file loading (if applicable)
+    # Or parse without substitution if variables are not used:
     yaml_object: YamlObject = yaml_source.parse()
     """
 
@@ -136,14 +137,34 @@ class YamlSource:
                 else:
                     logger.error(f"{self.description} can't be read", exc_info=True)
 
-    def resolve(self, variables: Optional[dict[str, str]] = None, use_env_vars: bool = True) -> None:
+    def parse_and_resolve(
+        self,
+        variables: Optional[dict[str, str]] = None,
+        soda_variables: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True,
+    ) -> Optional[YamlObject]:
+        """Parse the YAML, then walk the parsed structure and substitute
+        ${ns.var} references on string scalars only.
+
+        Pre-parse string substitution is unsafe: a substituted secret can
+        contain YAML control characters (', [, #, &, ...) that re-tokenise
+        the byte stream and break the parser. Mirrors the soda-library
+        post-parse approach (commit f2a926c5 / PR #697). The standalone
+        ``YamlSource.resolve`` method that did pre-parse substitution has
+        been removed; callers needing variable substitution must go through
+        this method or call ``VariableResolver.resolve_in_object`` directly
+        on an already-parsed object.
         """
-        Note: this does not change the object, but returns a new ResolvedYamlSource instead
-        """
-        self._ensure_yaml_str()
-        self.yaml_str = VariableResolver.resolve(
-            source_text=self.yaml_str, variable_values=variables, use_env_vars=use_env_vars
+        yaml_object = self.parse()
+        if yaml_object is None:
+            return None
+        VariableResolver.resolve_in_object(
+            obj=yaml_object.yaml_dict,
+            variable_values=variables,
+            soda_variable_values=soda_variables,
+            use_env_vars=use_env_vars,
         )
+        return yaml_object
 
     def resolve_on_read_value(
         self,
@@ -185,12 +206,48 @@ class DataSourceYamlSource(YamlSource, file_type=FileType.DATA_SOURCE):
     ...
 
 
+def build_data_source_yaml_sources(
+    data_source_file_paths: Optional[list[str]],
+    *,
+    use_runner: bool,
+) -> Optional[list[DataSourceYamlSource]]:
+    """Build a list of ``DataSourceYamlSource`` from local config file paths.
+
+    Returns the list of sources when at least one path was provided.
+    Returns ``None`` when no paths were given AND ``use_runner=True`` —
+    the runner will supply the data source config remotely.
+    Raises ``InvalidDataSourceConfigurationException`` when no paths are
+    given and ``use_runner=False``: the local caller must supply at
+    least one ``-ds`` / ``--data-source`` config.
+    """
+    data_source_yamls: list[DataSourceYamlSource] = []
+    if data_source_file_paths:
+        for data_source_file_path in data_source_file_paths:
+            soda_logger.debug(f"Using local data source config: {data_source_file_path}")
+            data_source_yamls.append(DataSourceYamlSource.from_file_path(data_source_file_path))
+
+    if data_source_yamls:
+        return data_source_yamls
+    if use_runner:
+        return None
+    raise InvalidDataSourceConfigurationException(
+        "No data source configuration provided. "
+        "Please provide a data source configuration file using the -ds/--data-source argument."
+    )
+
+
 class SodaCloudYamlSource(YamlSource, file_type=FileType.SODA_CLOUD):
     ...
 
 
 class ContractYamlSource(YamlSource, file_type=FileType.CONTRACT):
     ...
+
+
+# Generalized name for any check-collection YAML source (contract, data
+# standard, ...). Today every concrete source is a ``YamlSource`` subclass,
+# so the alias resolves to the existing base — no new class hierarchy.
+CheckCollectionYamlSource = YamlSource
 
 
 class YamlValue:
@@ -499,6 +556,39 @@ class YamlList(YamlValue, Iterable):
 
 
 class VariableResolver:
+    @classmethod
+    def resolve_in_object(
+        cls,
+        obj: any,
+        variable_values: Optional[dict[str, str]] = None,
+        soda_variable_values: Optional[dict[str, str]] = None,
+        use_env_vars: bool = True,
+        location: Optional[Location] = None,
+    ) -> any:
+        # Walks a parsed structure and substitutes ${ns.var} on string scalars
+        # only. Mirrors soda-library f2a926c5 (resolve_v4_variables).
+        #
+        # Mutates dict / list containers in place so ruamel CommentedMap /
+        # CommentedSeq / quoted-scalar-string types are preserved on values
+        # that don't contain a substitution marker. Pydantic Union resolution
+        # downstream (e.g. Union[str, IPvAnyAddress]) can be sensitive to
+        # whether the input is a plain str or a ruamel ScalarString subclass.
+        if isinstance(obj, dict):
+            for k in list(obj.keys()):
+                obj[k] = cls.resolve_in_object(obj[k], variable_values, soda_variable_values, use_env_vars, location)
+            return obj
+        if isinstance(obj, list):
+            for i in range(len(obj)):
+                obj[i] = cls.resolve_in_object(obj[i], variable_values, soda_variable_values, use_env_vars, location)
+            return obj
+        if isinstance(obj, str):
+            # Fast path: untouched strings keep their original (possibly typed)
+            # instance — important for downstream type-sensitive validators.
+            if "${" not in obj:
+                return obj
+            return cls.resolve(obj, variable_values, soda_variable_values, use_env_vars, location)
+        return obj
+
     @classmethod
     def resolve(
         cls,

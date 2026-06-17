@@ -7,6 +7,7 @@ from typing import Optional
 
 import typer
 
+from runlayer_cli.cli_persistence import complete_device_enrollment
 from runlayer_cli.config import load_config
 from runlayer_cli.enrollment import (
     EnrollmentError,
@@ -20,11 +21,13 @@ from runlayer_cli.enrollment import (
 from runlayer_cli.hook_install import (
     ClientStatus,
     InstallScope,
+    check_absent_all,
     check_all,
     credential_present,
     install_client,
     iter_supported_clients,
     resolve_hook_command,
+    uninstall_client,
 )
 from runlayer_cli.mdm_config import (
     read_managed_config,
@@ -95,15 +98,81 @@ def bootstrap(
     )
 
 
-def _bootstrap_check(host: str, *, scope: InstallScope) -> None:
-    managed = read_managed_config()
-    if not resolve_install_hooks(managed):
+def _benign_uninstall_skip(reason: str | None) -> bool:
+    return (
+        reason is None or reason == "client not installed" or reason.startswith("no ")
+    )
+
+
+def _uninstall_all(scope: InstallScope) -> None:
+    any_failed = False
+    changed_any = False
+    for target in iter_supported_clients():
+        try:
+            result = uninstall_client(target, scope=scope)
+        except OSError as exc:
+            any_failed = True
+            typer.secho(
+                f"{FAIL} hooks: {target.value} uninstall failed ({exc}).",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            continue
+
+        if result.changed:
+            changed_any = True
+            typer.secho(
+                f"{OK} hooks: {target.value} removed from {result.config_path}.",
+                fg=typer.colors.GREEN,
+                err=True,
+            )
+        elif not _benign_uninstall_skip(result.skipped_reason):
+            any_failed = True
+            typer.secho(
+                f"{FAIL} hooks: {target.value} uninstall skipped "
+                f"({result.skipped_reason}).",
+                fg=typer.colors.RED,
+                err=True,
+            )
+
+    if any_failed:
+        raise typer.Exit(EXIT_STEP_FAILED)
+    if not changed_any:
         typer.secho(
             f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
-            "no hooks to verify.",
+            "no Runlayer hooks present.",
             fg=typer.colors.GREEN,
             err=True,
         )
+
+
+def _check_absent(scope: InstallScope) -> None:
+    results = check_absent_all(scope=scope)
+    drift = False
+    for result in results:
+        if result.status == ClientStatus.OK:
+            continue
+        drift = True
+        typer.secho(
+            f"{FAIL} hooks: {result.client.value} {result.status.value} "
+            f"({result.detail or 'no detail'}).",
+            fg=typer.colors.RED,
+            err=True,
+        )
+    if drift:
+        raise typer.Exit(EXIT_STEP_FAILED)
+    typer.secho(
+        f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+        "no Runlayer hooks present.",
+        fg=typer.colors.GREEN,
+        err=True,
+    )
+
+
+def _bootstrap_check(host: str, *, scope: InstallScope) -> None:
+    managed = read_managed_config()
+    if not resolve_install_hooks(managed):
+        _check_absent(scope)
         return
 
     present, _ = credential_present(load_config(), host, scope)
@@ -210,12 +279,15 @@ def _enroll_step(host: str, scope: InstallScope) -> None:
         typer.secho(f"{FAIL} enroll: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(EXIT_STEP_FAILED) from None
 
-    from runlayer_cli.config import save_config  # noqa: PLC0415
-
     config = load_config()
-    config.set_host_credentials(host, result.api_key)
-    save_config(config)
-    write_enrollment_marker(host)
+    complete_device_enrollment(
+        config,
+        host,
+        result.api_key,
+        subject="enroll: API key",
+        exit_code=EXIT_STEP_FAILED,
+        fail_prefix=FAIL,
+    )
     typer.secho(
         f"{OK} enroll: credential stored for {host}.",
         fg=typer.colors.GREEN,
@@ -233,10 +305,11 @@ def _bootstrap_apply(
     if not all_events and not resolve_install_hooks(managed):
         typer.secho(
             f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
-            "no hooks installed.",
+            "removing Runlayer hooks.",
             fg=typer.colors.GREEN,
             err=True,
         )
+        _uninstall_all(scope)
         return
 
     _enroll_step(host, scope)

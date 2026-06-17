@@ -126,6 +126,13 @@ def _set_universe(ctx: IStrategyContext, symbols: list[str], exchange: str | Non
     )
 
 
+def _refresh_instrument_service(ctx: IStrategyContext, **kwargs) -> ActionResult:
+    if getattr(ctx, "_instrument_service", None) is None:
+        return ActionResult(status="error", error="Instrument service not available")
+    summary = ctx._run_instrument_service_cycle()
+    return ActionResult(status="ok", data=summary)
+
+
 # --- Instrument discovery actions ---
 
 
@@ -632,6 +639,11 @@ def _emit_signal(ctx: IStrategyContext, symbol: str, signal_value: float, price:
         return ActionResult(status="error", error=str(e))
 
 
+def _trigger_fit(ctx: IStrategyContext, **kwargs) -> ActionResult:
+    ctx.trigger_fit()
+    return ActionResult(status="ok", data={"message": "fit scheduled"})
+
+
 # --- Action registry ---
 
 _MARKET_TYPE_DOC = "Market type: SPOT, SWAP (perpetual futures), FUTURE (dated futures), OPTION, MARGIN"
@@ -682,6 +694,15 @@ BUILTIN_ACTIONS: dict[str, tuple[ActionDef, Callable]] = {
             ],
         ),
         _set_universe,
+    ),
+    "refresh_instrument_service": (
+        ActionDef(
+            name="refresh_instrument_service",
+            description="Re-fetch the instrument blacklist, fire change callbacks, and force-close any newly-blacklisted held positions",
+            category="universe",
+            dangerous=True,
+        ),
+        _refresh_instrument_service,
     ),
     # Instrument discovery
     "get_available_instruments": (
@@ -894,5 +915,14 @@ BUILTIN_ACTIONS: dict[str, tuple[ActionDef, Callable]] = {
             ],
         ),
         _emit_signal,
+    ),
+    "trigger_fit": (
+        ActionDef(
+            name="trigger_fit",
+            description="Trigger a strategy fit (recompute targets / rebalance) on demand",
+            category="strategy",
+            dangerous=True,
+        ),
+        _trigger_fit,
     ),
 }

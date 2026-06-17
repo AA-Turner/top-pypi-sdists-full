@@ -280,6 +280,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_refactorspaces": "aws_cdk.aws_refactorspaces",
     "aws-cdk-lib.aws_rekognition": "aws_cdk.aws_rekognition",
     "aws-cdk-lib.aws_resiliencehub": "aws_cdk.aws_resiliencehub",
+    "aws-cdk-lib.aws_resiliencehubv2": "aws_cdk.aws_resiliencehubv2",
     "aws-cdk-lib.aws_resourceexplorer2": "aws_cdk.aws_resourceexplorer2",
     "aws-cdk-lib.aws_resourcegroups": "aws_cdk.aws_resourcegroups",
     "aws-cdk-lib.aws_robomaker": "aws_cdk.aws_robomaker",
@@ -389,6 +390,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_backup": "aws_cdk.interfaces.aws_backup",
     "aws-cdk-lib.interfaces.aws_backupgateway": "aws_cdk.interfaces.aws_backupgateway",
     "aws-cdk-lib.interfaces.aws_batch": "aws_cdk.interfaces.aws_batch",
+    "aws-cdk-lib.interfaces.aws_bcm": "aws_cdk.interfaces.aws_bcm",
     "aws-cdk-lib.interfaces.aws_bcmdataexports": "aws_cdk.interfaces.aws_bcmdataexports",
     "aws-cdk-lib.interfaces.aws_bcmpricingcalculator": "aws_cdk.interfaces.aws_bcmpricingcalculator",
     "aws-cdk-lib.interfaces.aws_bedrock": "aws_cdk.interfaces.aws_bedrock",
@@ -580,6 +582,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_refactorspaces": "aws_cdk.interfaces.aws_refactorspaces",
     "aws-cdk-lib.interfaces.aws_rekognition": "aws_cdk.interfaces.aws_rekognition",
     "aws-cdk-lib.interfaces.aws_resiliencehub": "aws_cdk.interfaces.aws_resiliencehub",
+    "aws-cdk-lib.interfaces.aws_resiliencehubv2": "aws_cdk.interfaces.aws_resiliencehubv2",
     "aws-cdk-lib.interfaces.aws_resourceexplorer2": "aws_cdk.interfaces.aws_resourceexplorer2",
     "aws-cdk-lib.interfaces.aws_resourcegroups": "aws_cdk.interfaces.aws_resourcegroups",
     "aws-cdk-lib.interfaces.aws_robomaker": "aws_cdk.interfaces.aws_robomaker",
@@ -650,7 +653,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.259.0", __name__[0:-6], "aws-cdk-lib@2.259.0.jsii.tgz"
+    "aws-cdk-lib", "2.260.0", __name__[0:-6], "aws-cdk-lib@2.260.0.jsii.tgz"
 )
 
 __all__ = [

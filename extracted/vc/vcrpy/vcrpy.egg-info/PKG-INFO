@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vcrpy
-Version: 8.2.0
+Version: 8.2.1
 Summary: Automatically mock your HTTP interactions to simplify and speed up testing
 Home-page: https://github.com/kevin1024/vcrpy
 Author: Kevin McCarthy

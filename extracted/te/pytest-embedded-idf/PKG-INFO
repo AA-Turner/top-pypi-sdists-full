@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-embedded-idf
-Version: 2.8.0
+Version: 2.8.1
 Summary: Make pytest-embedded plugin work with ESP-IDF.
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Requires-Python: >=3.10
@@ -20,10 +20,10 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Testing
 License-File: LICENSE
-Requires-Dist: pytest-embedded~=2.8.0
+Requires-Dist: pytest-embedded~=2.8.1
 Requires-Dist: esp-idf-panic-decoder
 Requires-Dist: esp-bool-parser>=0.1.2,<1
-Requires-Dist: pytest-embedded-serial-esp~=2.8.0 ; extra == "serial"
+Requires-Dist: pytest-embedded-serial-esp~=2.8.1 ; extra == "serial"
 Requires-Dist: esp-coredump~=1.0 ; extra == "serial"
 Project-URL: changelog, https://github.com/espressif/pytest-embedded/blob/main/CHANGELOG.md
 Project-URL: documentation, https://docs.espressif.com/projects/pytest-embedded/en/latest/

@@ -35,6 +35,7 @@ from .paginator import (
     ListEngagementsPaginator,
     ListOpportunitiesPaginator,
     ListOpportunityFromEngagementTasksPaginator,
+    ListProspectingFromEngagementTasksPaginator,
     ListResourceSnapshotJobsPaginator,
     ListResourceSnapshotsPaginator,
     ListSolutionsPaginator,
@@ -66,6 +67,8 @@ from .type_defs import (
     GetEngagementResponseTypeDef,
     GetOpportunityRequestTypeDef,
     GetOpportunityResponseTypeDef,
+    GetProspectingFromEngagementTaskRequestTypeDef,
+    GetProspectingFromEngagementTaskResponseTypeDef,
     GetResourceSnapshotJobRequestTypeDef,
     GetResourceSnapshotJobResponseTypeDef,
     GetResourceSnapshotRequestTypeDef,
@@ -88,6 +91,8 @@ from .type_defs import (
     ListOpportunitiesResponseTypeDef,
     ListOpportunityFromEngagementTasksRequestTypeDef,
     ListOpportunityFromEngagementTasksResponseTypeDef,
+    ListProspectingFromEngagementTasksRequestTypeDef,
+    ListProspectingFromEngagementTasksResponseTypeDef,
     ListResourceSnapshotJobsRequestTypeDef,
     ListResourceSnapshotJobsResponseTypeDef,
     ListResourceSnapshotsRequestTypeDef,
@@ -105,6 +110,8 @@ from .type_defs import (
     StartEngagementFromOpportunityTaskResponseTypeDef,
     StartOpportunityFromEngagementTaskRequestTypeDef,
     StartOpportunityFromEngagementTaskResponseTypeDef,
+    StartProspectingFromEngagementTaskRequestTypeDef,
+    StartProspectingFromEngagementTaskResponseTypeDef,
     StartResourceSnapshotJobRequestTypeDef,
     StopResourceSnapshotJobRequestTypeDef,
     SubmitOpportunityRequestTypeDef,
@@ -334,6 +341,18 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#get_opportunity)
         """
 
+    def get_prospecting_from_engagement_task(
+        self, **kwargs: Unpack[GetProspectingFromEngagementTaskRequestTypeDef]
+    ) -> GetProspectingFromEngagementTaskResponseTypeDef:
+        """
+        Retrieves the details and current status of a prospecting task previously
+        started with <code>StartProspectingFromEngagementTask</code> to enable polling
+        for completion and access to per-engagement processing results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_prospecting_from_engagement_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#get_prospecting_from_engagement_task)
+        """
+
     def get_resource_snapshot(
         self, **kwargs: Unpack[GetResourceSnapshotRequestTypeDef]
     ) -> GetResourceSnapshotResponseTypeDef:
@@ -453,6 +472,16 @@ class PartnerCentralSellingAPIClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#list_opportunity_from_engagement_tasks)
         """
 
+    def list_prospecting_from_engagement_tasks(
+        self, **kwargs: Unpack[ListProspectingFromEngagementTasksRequestTypeDef]
+    ) -> ListProspectingFromEngagementTasksResponseTypeDef:
+        """
+        Lists all prospecting tasks initiated by the caller's account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/list_prospecting_from_engagement_tasks.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#list_prospecting_from_engagement_tasks)
+        """
+
     def list_resource_snapshot_jobs(
         self, **kwargs: Unpack[ListResourceSnapshotJobsRequestTypeDef]
     ) -> ListResourceSnapshotJobsResponseTypeDef:
@@ -545,6 +574,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_opportunity_from_engagement_task.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#start_opportunity_from_engagement_task)
+        """
+
+    def start_prospecting_from_engagement_task(
+        self, **kwargs: Unpack[StartProspectingFromEngagementTaskRequestTypeDef]
+    ) -> StartProspectingFromEngagementTaskResponseTypeDef:
+        """
+        Starts a task to convert one or more engagement contexts into new prospecting
+        leads.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/start_prospecting_from_engagement_task.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#start_prospecting_from_engagement_task)
         """
 
     def start_resource_snapshot_job(
@@ -697,6 +737,17 @@ class PartnerCentralSellingAPIClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_opportunity_from_engagement_tasks"]
     ) -> ListOpportunityFromEngagementTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/partnercentral-selling/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_partnercentral_selling/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_prospecting_from_engagement_tasks"]
+    ) -> ListProspectingFromEngagementTasksPaginator:
         """
         Create a paginator for an operation.
 

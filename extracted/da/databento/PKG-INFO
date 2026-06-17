@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databento
-Version: 0.79.0
+Version: 0.80.0
 Summary: Official Python client library for Databento
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: aiohttp (>=3.8.3,<4.0.0) ; python_version < "3.12"
 Requires-Dist: aiohttp (>=3.9.0,<4.0.0) ; python_version >= "3.12"
-Requires-Dist: databento-dbn (>=0.59.0,<0.60.0)
+Requires-Dist: databento-dbn (>=0.61.0,<0.62.0)
 Requires-Dist: numpy (>=1.23.5) ; python_version < "3.12"
 Requires-Dist: numpy (>=1.26.0) ; python_version >= "3.12"
 Requires-Dist: pandas (>=1.5.3,<4.0.0)
@@ -69,7 +69,7 @@ The library is fully compatible with distributions of Anaconda 2023.x and above.
 The minimum dependencies as found in the `pyproject.toml` are also listed below:
 - python = "^3.10"
 - aiohttp = "^3.8.3"
-- databento-dbn = "~0.59.0"
+- databento-dbn = "~0.61.0"
 - numpy = ">=1.23.5"
 - pandas = ">=1.5.3"
 - pip-system-certs = ">=4.0" (Windows only)

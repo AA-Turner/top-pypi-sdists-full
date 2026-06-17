@@ -50,6 +50,7 @@ __all__ = (
     "ListEngagementsPaginatorName",
     "ListOpportunitiesPaginatorName",
     "ListOpportunityFromEngagementTasksPaginatorName",
+    "ListProspectingFromEngagementTasksPaginatorName",
     "ListResourceSnapshotJobsPaginatorName",
     "ListResourceSnapshotsPaginatorName",
     "ListSolutionsPaginatorName",
@@ -66,6 +67,8 @@ __all__ = (
     "PartnerCentralSellingAPIServiceName",
     "PaymentFrequencyType",
     "PrimaryNeedFromAwsType",
+    "ProspectingFromEngagementTaskSortNameType",
+    "ProspectingTaskStatusType",
     "ReasonCodeType",
     "ReceiverResponsibilityType",
     "RelatedEntityTypeType",
@@ -641,7 +644,7 @@ CurrencyCodeType = Literal[
 DeliveryModelType = Literal[
     "BYOL or AMI", "Managed Services", "Other", "Professional Services", "Resell", "SaaS or PaaS"
 ]
-EngagementContextTypeType = Literal["CustomerProject", "Lead"]
+EngagementContextTypeType = Literal["CustomerProject", "Lead", "ProspectingResult"]
 EngagementInvitationPayloadTypeType = Literal["LeadInvitation", "OpportunityInvitation"]
 EngagementScoreType = Literal["High", "Low", "Medium"]
 EngagementSortNameType = Literal["CreatedDate"]
@@ -694,6 +697,7 @@ ListEngagementResourceAssociationsPaginatorName = Literal["list_engagement_resou
 ListEngagementsPaginatorName = Literal["list_engagements"]
 ListOpportunitiesPaginatorName = Literal["list_opportunities"]
 ListOpportunityFromEngagementTasksPaginatorName = Literal["list_opportunity_from_engagement_tasks"]
+ListProspectingFromEngagementTasksPaginatorName = Literal["list_prospecting_from_engagement_tasks"]
 ListResourceSnapshotJobsPaginatorName = Literal["list_resource_snapshot_jobs"]
 ListResourceSnapshotsPaginatorName = Literal["list_resource_snapshots"]
 ListSolutionsPaginatorName = Literal["list_solutions"]
@@ -719,6 +723,10 @@ PrimaryNeedFromAwsType = Literal[
     "Co-Sell - Technical Consultation",
     "Co-Sell - Total Cost of Ownership Evaluation",
 ]
+ProspectingFromEngagementTaskSortNameType = Literal[
+    "FailedEngagementCount", "StartTime", "TaskName"
+]
+ProspectingTaskStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PENDING"]
 ReasonCodeType = Literal[
     "ContextNotFound",
     "CustomerProjectContextNotPermitted",
@@ -1114,6 +1122,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -1141,6 +1150,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -1227,6 +1237,7 @@ PaginatorName = Literal[
     "list_engagements",
     "list_opportunities",
     "list_opportunity_from_engagement_tasks",
+    "list_prospecting_from_engagement_tasks",
     "list_resource_snapshot_jobs",
     "list_resource_snapshots",
     "list_solutions",

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-paramiko"
-version = "4.0.0.20260518"
+version = "5.0.0.20260617"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for paramiko"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`paramiko`](https://github.com/paramiko/paramiko) package. It can be used by type checkers
 to check code that uses `paramiko`. This version of
 `types-paramiko` aims to provide accurate annotations for
-`paramiko==4.0.*`.
+`paramiko==5.0.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -26,10 +26,10 @@ directory.
 
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [pyright](https://github.com/microsoft/pyright) 1.1.410
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`5e927a88f7c37b2592371a419cf4dd355a3ae4b7`](https://github.com/python/typeshed/commit/5e927a88f7c37b2592371a419cf4dd355a3ae4b7).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -50,4 +50,4 @@ packages = ['paramiko-stubs']
 include-package-data = false
 
 [tool.setuptools.package-data]
-'paramiko-stubs' = ['__init__.pyi', '_winapi.pyi', 'agent.pyi', 'auth_handler.pyi', 'auth_strategy.pyi', 'ber.pyi', 'buffered_pipe.pyi', 'channel.pyi', 'client.pyi', 'common.pyi', 'compress.pyi', 'config.pyi', 'ecdsakey.pyi', 'ed25519key.pyi', 'file.pyi', 'hostkeys.pyi', 'kex_curve25519.pyi', 'kex_ecdh_nist.pyi', 'kex_gex.pyi', 'kex_group1.pyi', 'kex_group14.pyi', 'kex_group16.pyi', 'kex_gss.pyi', 'message.pyi', 'packet.pyi', 'pipe.pyi', 'pkey.pyi', 'primes.pyi', 'proxy.pyi', 'rsakey.pyi', 'server.pyi', 'sftp.pyi', 'sftp_attr.pyi', 'sftp_client.pyi', 'sftp_file.pyi', 'sftp_handle.pyi', 'sftp_server.pyi', 'sftp_si.pyi', 'ssh_exception.pyi', 'ssh_gss.pyi', 'transport.pyi', 'util.pyi', 'win_openssh.pyi', 'win_pageant.pyi', 'METADATA.toml', 'py.typed']
+'paramiko-stubs' = ['__init__.pyi', '_winapi.pyi', 'agent.pyi', 'auth_handler.pyi', 'auth_strategy.pyi', 'ber.pyi', 'buffered_pipe.pyi', 'channel.pyi', 'client.pyi', 'common.pyi', 'compress.pyi', 'config.pyi', 'ecdsakey.pyi', 'ed25519key.pyi', 'file.pyi', 'hostkeys.pyi', 'kex_curve25519.pyi', 'kex_ecdh_nist.pyi', 'kex_gex.pyi', 'kex_group14.pyi', 'kex_group16.pyi', 'message.pyi', 'packet.pyi', 'pipe.pyi', 'pkey.pyi', 'primes.pyi', 'proxy.pyi', 'rsakey.pyi', 'server.pyi', 'sftp.pyi', 'sftp_attr.pyi', 'sftp_client.pyi', 'sftp_file.pyi', 'sftp_handle.pyi', 'sftp_server.pyi', 'sftp_si.pyi', 'ssh_exception.pyi', 'transport.pyi', 'util.pyi', 'win_openssh.pyi', 'win_pageant.pyi', 'METADATA.toml', 'py.typed']

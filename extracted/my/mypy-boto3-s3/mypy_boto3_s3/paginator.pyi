@@ -15,6 +15,7 @@ Usage::
         ListBucketsPaginator,
         ListDirectoryBucketsPaginator,
         ListMultipartUploadsPaginator,
+        ListObjectAnnotationsPaginator,
         ListObjectVersionsPaginator,
         ListObjectsPaginator,
         ListObjectsV2Paginator,
@@ -27,6 +28,7 @@ Usage::
     list_buckets_paginator: ListBucketsPaginator = client.get_paginator("list_buckets")
     list_directory_buckets_paginator: ListDirectoryBucketsPaginator = client.get_paginator("list_directory_buckets")
     list_multipart_uploads_paginator: ListMultipartUploadsPaginator = client.get_paginator("list_multipart_uploads")
+    list_object_annotations_paginator: ListObjectAnnotationsPaginator = client.get_paginator("list_object_annotations")
     list_object_versions_paginator: ListObjectVersionsPaginator = client.get_paginator("list_object_versions")
     list_objects_paginator: ListObjectsPaginator = client.get_paginator("list_objects")
     list_objects_v2_paginator: ListObjectsV2Paginator = client.get_paginator("list_objects_v2")
@@ -48,6 +50,8 @@ from .type_defs import (
     ListDirectoryBucketsRequestPaginateTypeDef,
     ListMultipartUploadsOutputTypeDef,
     ListMultipartUploadsRequestPaginateTypeDef,
+    ListObjectAnnotationsOutputTypeDef,
+    ListObjectAnnotationsRequestPaginateTypeDef,
     ListObjectsOutputTypeDef,
     ListObjectsRequestPaginateTypeDef,
     ListObjectsV2OutputTypeDef,
@@ -67,6 +71,7 @@ __all__ = (
     "ListBucketsPaginator",
     "ListDirectoryBucketsPaginator",
     "ListMultipartUploadsPaginator",
+    "ListObjectAnnotationsPaginator",
     "ListObjectVersionsPaginator",
     "ListObjectsPaginator",
     "ListObjectsV2Paginator",
@@ -125,6 +130,24 @@ class ListMultipartUploadsPaginator(_ListMultipartUploadsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListMultipartUploads.html#S3.Paginator.ListMultipartUploads.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/paginators/#listmultipartuploadspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListObjectAnnotationsPaginatorBase = Paginator[ListObjectAnnotationsOutputTypeDef]
+else:
+    _ListObjectAnnotationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListObjectAnnotationsPaginator(_ListObjectAnnotationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListObjectAnnotations.html#S3.Paginator.ListObjectAnnotations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/paginators/#listobjectannotationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListObjectAnnotationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListObjectAnnotationsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3/paginator/ListObjectAnnotations.html#S3.Paginator.ListObjectAnnotations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3/paginators/#listobjectannotationspaginator)
         """
 
 if TYPE_CHECKING:

@@ -29,6 +29,7 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.parse
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -67,6 +68,10 @@ def build_submission_payload(
     bench: BenchResult,
     notes: str | None,
     now: datetime | None = None,
+    *,
+    tier: str | None = None,
+    smoke_result: dict | None = None,
+    harness_result: dict | None = None,
 ) -> dict:
     """Build the full JSON payload for one submission.
 
@@ -77,12 +82,59 @@ def build_submission_payload(
     The returned dict's key order matches the schema's ``required`` list
     so that ``json.dumps(indent=2)`` produces a stable, readable layout
     when shown to the user for consent.
+
+    Schema v2 optional kwargs:
+
+    - ``tier`` — which bench tier produced this submission
+      (``"speed"`` | ``"smoke"`` | ``"harness"`` | ``"all"``). If
+      ``None``, the field is omitted entirely so the aggregator treats
+      the row as v1-equivalent. This keeps the byte-for-byte equivalence
+      with v1 that the existing ``--submit`` flow relies on, modulo the
+      version integer itself.
+    - ``smoke_result`` — required iff ``tier in ("smoke", "all")``. The
+      schema enforces the same invariant via a top-level ``allOf``
+      conditional, and we ALSO ``ValueError`` here so a misuse from a
+      future caller surfaces immediately rather than as a schema
+      validation failure two layers up.
+    - ``harness_result`` — required iff ``tier in ("harness", "all")``.
+      Same coupling as ``smoke_result``.
+
+    The ``schema_version`` field on the wire is always
+    ``SCHEMA_VERSION`` (currently 2). v2 with no new fields is a
+    superset of v1 — the aggregator can ignore the bump and treat the
+    row as a speed-only submission, which is the design contract.
     """
     submitted_at = (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")
     # The schema expects ``date-time`` format; the ``+00:00`` suffix is
     # the canonical ISO 8601 UTC form (NOT bare 'Z', NOT naive). Strip
     # any sub-second precision so two clean submissions a moment apart
     # don't look like noise.
+
+    # Validate the tier ↔ result coupling at the boundary. The schema's
+    # ``allOf`` block enforces the same thing in CI, but failing here
+    # with a clear Python-side error message is friendlier for the
+    # future CLI code that wires this up — schema errors surface as
+    # opaque jsonschema messages with full property paths.
+    if tier is not None and tier not in ("speed", "smoke", "harness", "all"):
+        raise ValueError(f"tier must be one of speed/smoke/harness/all, got {tier!r}")
+    if tier in ("smoke", "all") and smoke_result is None:
+        raise ValueError(f"tier={tier!r} requires smoke_result to be populated")
+    if tier in ("harness", "all") and harness_result is None:
+        raise ValueError(f"tier={tier!r} requires harness_result to be populated")
+    # Inverse: passing a result without the matching tier would land an
+    # ambiguous payload in the corpus (aggregator doesn't know which
+    # tier produced it). Cheaper to reject here than to debug a
+    # mis-labelled row in the dashboard later.
+    if smoke_result is not None and tier not in ("smoke", "all"):
+        raise ValueError(
+            f"smoke_result was provided but tier={tier!r} does not include "
+            f"the smoke bucket (must be 'smoke' or 'all')"
+        )
+    if harness_result is not None and tier not in ("harness", "all"):
+        raise ValueError(
+            f"harness_result was provided but tier={tier!r} does not "
+            f"include the harness bucket (must be 'harness' or 'all')"
+        )
 
     payload: dict = {
         "schema_version": SCHEMA_VERSION,
@@ -101,6 +153,16 @@ def build_submission_payload(
         payload["notes"] = notes
     if bench.peak_ram_mb is not None:
         payload["peak_ram_mb"] = bench.peak_ram_mb
+    # v2 optional fields — only emit when populated so the wire shape
+    # for a default (tier=None) v2 submission is byte-equivalent to a
+    # v1 submission modulo the version integer. The snapshot test for
+    # this lives in tests/test_payload_builder_v2_kwargs.py.
+    if tier is not None:
+        payload["tier"] = tier
+    if smoke_result is not None:
+        payload["smoke_result"] = smoke_result
+    if harness_result is not None:
+        payload["harness_result"] = harness_result
     return payload
 
 
@@ -539,17 +601,80 @@ def _print_manual_fallback(
         )
     if "push" not in done:
         print(f"    git push -u origin {branch}", file=stdout)
-    # If we already pushed but pr_create failed, just retry pr_create —
-    # the user shouldn't re-do the branch ops. ``--repo`` forces the
-    # PR target to upstream regardless of whether origin is a fork.
-    # The owner-prefixed ``--head`` is omitted from the manual line
-    # because the contributor running it locally already has gh's
-    # fork-aware default applied; the explicit prefix only matters
-    # when we shell out non-interactively.
-    print(
-        f"    gh pr create --repo {UPSTREAM_REPO_FOR_GH} --head {branch}",
-        file=stdout,
-    )
+    # The PR-create step has two paths depending on whether ``gh`` is on
+    # PATH. If we got here because gh is missing (the common newcomer
+    # case), recommending ``gh pr create`` is useless — point them at
+    # the GitHub web UI and at the "paste the file into a new issue"
+    # fallback instead. If gh is available (this branch only hits when
+    # git steps failed mid-sequence), surface gh as the resume command.
+    gh_available = shutil.which("gh") is not None
+    if gh_available:
+        # ``--repo`` forces the PR target to upstream regardless of
+        # whether origin is a fork. The owner-prefixed ``--head`` is
+        # omitted because the contributor running it locally already
+        # has gh's fork-aware default applied.
+        print(
+            f"    gh pr create --repo {UPSTREAM_REPO_FOR_GH} --head {branch}",
+            file=stdout,
+        )
+    else:
+        print("", file=stdout)
+        print(
+            "  Then open the PR via the GitHub web UI (no `gh` CLI needed):",
+            file=stdout,
+        )
+        # GitHub's "compare across forks" URL uses ``main...<owner>:<branch>``
+        # when the head branch lives on a fork — bare ``main...<branch>``
+        # only works if the branch is on the upstream repo, which most
+        # community contributors don't have write access to. Detect the
+        # origin owner so the printed URL works for the fork workflow
+        # too. (Codex PR #600 round-1 BLOCKING.) Fall back to the
+        # owner-less form when we can't parse origin (covers the
+        # ``no git remote yet`` case where the user hasn't pushed).
+        is_safe, origin_owner = _origin_is_safe_github(repo)
+        upstream_owner = UPSTREAM_REPO_FOR_GH.split("/", 1)[0]
+        # Quote both halves before joining with the literal ``:`` GitHub
+        # expects between owner and branch in the compare path. Owner is
+        # the more constrained piece (GitHub usernames are ``[a-zA-Z0-9-]``
+        # by policy) but we still ``quote(safe="")`` defensively in case
+        # _origin_is_safe_github ever loosens. The branch ref allows ``/``
+        # — that's how we construct ``community-bench/<id>`` to begin with
+        # — so we keep ``/`` unescaped via ``safe="/"``. Without this any
+        # branch ref carrying ``#``, ``?``, or ``%`` would split the URL.
+        # (Codex PR #600 round-2 BLOCKING.)
+        branch_quoted = urllib.parse.quote(branch, safe="/")
+        if is_safe and origin_owner and origin_owner != upstream_owner:
+            head_ref = f"{urllib.parse.quote(origin_owner, safe='')}:{branch_quoted}"
+        else:
+            head_ref = branch_quoted
+        print(
+            f"    https://github.com/{UPSTREAM_REPO_FOR_GH}/compare/main...{head_ref}?expand=1",
+            file=stdout,
+        )
+        print("", file=stdout)
+        print(
+            "  If you'd rather skip git entirely, paste the submission JSON",
+            file=stdout,
+        )
+        print(
+            "  contents (above path) into a new issue and we'll convert it",
+            file=stdout,
+        )
+        print("  to a PR for you:", file=stdout)
+        # ``urlencode`` over the whole querystring handles spaces, ``&``,
+        # ``#``, ``%``, and any other special chars that might appear
+        # in a model alias or in the chip name. Bare ``.replace(' ', '%20')``
+        # produced malformed URLs for aliases like ``qwen3.6/27b`` where
+        # the slash breaks GitHub's title parser. (Codex PR #600 round-1.)
+        title = (
+            f"community-bench: {payload['model']['alias']} "
+            f"on {payload['hardware']['chip']}"
+        )
+        query = urllib.parse.urlencode({"title": title})
+        print(
+            f"    https://github.com/{UPSTREAM_REPO_FOR_GH}/issues/new?{query}",
+            file=stdout,
+        )
 
 
 def _print_thanks(payload: dict, *, stdout) -> None:

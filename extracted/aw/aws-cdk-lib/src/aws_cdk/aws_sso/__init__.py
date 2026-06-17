@@ -241,6 +241,15 @@ class CfnApplication(
         return typing.cast(builtins.str, jsii.get(self, "attrApplicationArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrIdentityStoreArn")
+    def attr_identity_store_arn(self) -> builtins.str:
+        '''The ARN of the identity store associated with the Identity Center instance.
+
+        :cloudformationAttribute: IdentityStoreArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIdentityStoreArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''

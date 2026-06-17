@@ -16,6 +16,7 @@ pytestmark = pytest.mark.no_backend_e2e
     [
         ([], "Commands"),
         (["cache"], "clear"),
+        (["catalog"], "connectors"),
         (["org-api-key"], "add"),
         (["setup"], "hooks"),
         (["skills"], "add"),
@@ -123,7 +124,10 @@ def test_login_keeps_action_behavior(runner):
             "runlayer_cli.commands.auth.load_config",
             return_value=Config(default_host="https://example.com"),
         ),
-        patch("runlayer_cli.commands.auth.save_config"),
+        patch(
+            "runlayer_cli.commands.auth.persist_credentials_or_exit",
+            return_value=True,
+        ),
         patch("runlayer_cli.commands.auth.webbrowser.open"),
         patch("runlayer_cli.commands.auth.time.sleep"),
         patch("runlayer_cli.commands.auth.time.time", side_effect=[0, 1]),

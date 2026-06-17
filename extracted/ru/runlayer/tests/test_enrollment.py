@@ -12,6 +12,7 @@ import pytest
 from runlayer_cli.enrollment import (
     ENROLLMENT_ENDPOINT_PATH,
     EnrollmentError,
+    clear_enrollment_marker,
     enrollment_marker_path,
     exchange_enrollment_key,
     resolve_enrollment_identity,
@@ -283,6 +284,36 @@ class TestWriteEnrollmentMarker:
             "https://t.example.com:443", home=Path("/Users/alice")
         )
         assert path.name == ".enrolled-t.example.com"
+
+
+class TestClearEnrollmentMarker:
+    def test_removes_existing_marker(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        write_enrollment_marker("https://t.example.com")
+        marker = tmp_path / ".runlayer" / ".enrolled-t.example.com"
+        assert marker.is_file()
+
+        clear_enrollment_marker("https://t.example.com")
+
+        assert not marker.exists()
+
+    def test_is_noop_when_marker_absent(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # Must not raise when nothing to remove.
+        clear_enrollment_marker("https://t.example.com")
+
+        assert not (tmp_path / ".runlayer" / ".enrolled-t.example.com").exists()
+
+    def test_only_clears_target_host(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        write_enrollment_marker("https://t.example.com")
+        write_enrollment_marker("https://other.example.com")
+
+        clear_enrollment_marker("https://t.example.com")
+
+        assert not (tmp_path / ".runlayer" / ".enrolled-t.example.com").exists()
+        assert (tmp_path / ".runlayer" / ".enrolled-other.example.com").is_file()
 
     def test_path_for_custom_port_includes_port(self):
         path = enrollment_marker_path(

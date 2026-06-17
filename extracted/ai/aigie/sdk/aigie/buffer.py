@@ -17,13 +17,12 @@ import logging
 import os
 import time
 from collections import deque
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from .diagnostics import N002, N005, R001, R003, R004, format_diagnostic
+from .types import EventPayload, OfflineModeStats, OfflineStorageStats
 
 logger = logging.getLogger(__name__)
 
@@ -45,36 +44,20 @@ def _log_flush_future_exception(fut) -> None:
         logger.debug(f"Cross-loop flush raised: {exc!r}")
 
 
-class EventType(Enum):
-    """Types of events that can be buffered."""
-
-    # Core trace/span events
-    TRACE_CREATE = "trace_create"
-    TRACE_UPDATE = "trace_update"
-    SPAN_CREATE = "span_create"
-    SPAN_UPDATE = "span_update"
-
-    # Intelligence events - for training and monitoring
-    EVAL_FEEDBACK = "eval_feedback"
-    REMEDIATION_RESULT = "remediation_result"
-    WORKFLOW_PATTERN = "workflow_pattern"
-
-    # Guardrail events - for safety and compliance monitoring
-    GUARDRAIL_CHECK = "guardrail_check"
-
-    # Health events - for real-time monitoring
-    HEALTH_PING = "health_ping"
-
-
 @dataclass
 class BufferedEvent:
-    """A single event waiting to be sent."""
+    """A single finalized span waiting to be sent.
 
-    event_type: EventType
-    payload: dict[str, Any]
+    A span is built mutably in memory and emitted exactly once finalized;
+    there is no longer an event-type taxonomy — every buffered event is a
+    finalized span payload bound for gRPC IngestSpans.
+    """
+
+    payload: EventPayload
     timestamp: float = field(default_factory=time.time)
     retry_count: int = 0
-    callback: Callable[[dict[str, Any]], None] | None = None  # Called on success
+    callback: Callable[[EventPayload], None] | None = None  # Called on success
+    evaluated: bool = False
 
 
 class OfflineStorage:
@@ -134,7 +117,6 @@ class OfflineStorage:
             for event in events:
                 serializable.append(
                     {
-                        "event_type": event.event_type.value,
                         "payload": event.payload,
                         "timestamp": event.timestamp,
                         "retry_count": event.retry_count,
@@ -163,7 +145,7 @@ class OfflineStorage:
         Returns:
             List of events recovered from storage
         """
-        events = []
+        events: list[BufferedEvent] = []
 
         try:
             if not self.storage_dir.exists():
@@ -178,8 +160,8 @@ class OfflineStorage:
                         data = json.load(f)
 
                     for item in data:
+                        # Old offline files may still carry "event_type"; ignore it.
                         event = BufferedEvent(
-                            event_type=EventType(item["event_type"]),
                             payload=item["payload"],
                             timestamp=item.get("timestamp", time.time()),
                             retry_count=item.get("retry_count", 0),
@@ -218,7 +200,7 @@ class OfflineStorage:
         except Exception as e:
             logger.warning(f"Failed to cleanup old offline files: {e}")
 
-    def get_stats(self) -> dict[str, Any]:
+    def get_stats(self) -> OfflineStorageStats:
         """Get offline storage statistics."""
         try:
             files = list(self.storage_dir.glob("events_*.json"))
@@ -294,11 +276,11 @@ class EventBuffer:
         self.max_retries = max_retries
         self.retry_delay = retry_delay
 
-        self._buffer: deque = deque(maxlen=max_size * 2)  # Allow some overflow
+        self._buffer: deque[BufferedEvent] = deque(maxlen=max_size * 2)  # Allow some overflow
         self._lock = asyncio.Lock()
         self._last_flush = time.time()
-        self._flush_task: asyncio.Task | None = None
-        self._flusher: Callable[[list[BufferedEvent]], asyncio.Coroutine] | None = None
+        self._flush_task: asyncio.Task[None] | None = None
+        self._flusher: Callable[[list[BufferedEvent]], Awaitable[None]] | None = None
         self._running = False
         # The loop that owns this buffer's async primitives (lock, flusher's httpx
         # client, etc.). Captured the first time the buffer runs on a loop —
@@ -308,7 +290,23 @@ class EventBuffer:
         # framework auto-instrumentation) invoke add() from their own loop.
         self._owner_loop: asyncio.AbstractEventLoop | None = None
 
-        # Offline mode support
+        self._init_resilience_state(
+            enable_offline_mode,
+            offline_storage_dir,
+            enable_circuit_breaker,
+            circuit_breaker_threshold,
+            circuit_breaker_timeout,
+        )
+
+    def _init_resilience_state(
+        self,
+        enable_offline_mode: bool,
+        offline_storage_dir: Path | None,
+        enable_circuit_breaker: bool,
+        circuit_breaker_threshold: int,
+        circuit_breaker_timeout: float,
+    ) -> None:
+        """Initialize offline-mode, connectivity, and circuit-breaker state."""
         self._enable_offline_mode = enable_offline_mode
         self._offline_storage: OfflineStorage | None = None
         if enable_offline_mode:
@@ -326,33 +324,24 @@ class EventBuffer:
         self._circuit_open = False
         self._circuit_opened_at: float | None = None
 
-        # Atexit-safe sync fallback. When the bg loop is unusable (e.g. the
-        # interpreter is exiting and atexit has already torn down the
-        # SDK's background event loop), terminal trace_update events would
-        # otherwise be silently lost — the buffered append never gets to
-        # flush. set_sync_fallback() wires the auth headers + api_url, and
-        # _maybe_sync_fallback_emit() does a stdlib urllib PUT to
-        # /v1/traces/{id} as last-resort delivery for terminal status.
-        self._sync_fallback_url: str | None = None
-        self._sync_fallback_headers: dict[str, str] = {}
-
     async def add(
         self,
-        event_type: EventType,
-        payload: dict[str, Any],
-        callback: Callable[[dict[str, Any]], None] | None = None,
+        payload: EventPayload,
+        *,
+        callback: Callable[[EventPayload], None] | None = None,
+        evaluated: bool = False,
     ) -> None:
         """
-        Add an event to the buffer.
+        Add a finalized span to the buffer.
 
         Args:
-            event_type: Type of event
-            payload: Event data
+            payload: Finalized span data
             callback: Optional callback when event is successfully sent
+            evaluated: True when EvaluateSpan already fired at emit time
         """
         async with self._lock:
-            event = BufferedEvent(event_type=event_type, payload=payload, callback=callback)
-            if len(self._buffer) >= self._buffer.maxlen:
+            event = BufferedEvent(payload=payload, callback=callback, evaluated=evaluated)
+            if self._buffer.maxlen is not None and len(self._buffer) >= self._buffer.maxlen:
                 logger.warning(format_diagnostic(R003))
             self._buffer.append(event)
 
@@ -363,7 +352,7 @@ class EventBuffer:
             if len(self._buffer) >= self.max_size:
                 self._schedule_flush_on_owner()
 
-    def add_sync(self, event_type: EventType, payload: dict[str, Any]) -> None:
+    def add_sync(self, payload: EventPayload, *, evaluated: bool = False) -> None:
         """Sync entry point for synchronous callback contexts (e.g. LangChain
         on_*_end callbacks). Safe to call from any thread or loop.
 
@@ -377,52 +366,10 @@ class EventBuffer:
         on every call; the bg_loop's flush lock naturally serializes and
         no-ops once the deque is drained.
         """
-        if len(self._buffer) >= self._buffer.maxlen:
+        if self._buffer.maxlen is not None and len(self._buffer) >= self._buffer.maxlen:
             logger.warning(format_diagnostic(R003))
-        self._buffer.append(BufferedEvent(event_type=event_type, payload=payload))
+        self._buffer.append(BufferedEvent(payload=payload, evaluated=evaluated))
         self._schedule_flush_on_owner()
-        self._maybe_sync_fallback_emit(event_type, payload)
-
-    def set_sync_fallback(self, *, api_url: str | None, headers: dict[str, str] | None) -> None:
-        """Configure the atexit-safe sync-urllib fallback target."""
-        self._sync_fallback_url = api_url
-        self._sync_fallback_headers = dict(headers or {})
-
-    def _maybe_sync_fallback_emit(self, event_type: EventType, payload: dict[str, Any]) -> None:
-        """Emit a sync urllib PUT for terminal TRACE_UPDATE when the owner loop is unusable.
-
-        Belt-and-suspenders for the shutdown path: when the interpreter is
-        exiting and the bg loop has already been torn down by atexit, the
-        normal flush will never run. Terminal trace status (error/success)
-        is important enough that we PUT directly via stdlib urllib.
-        """
-        if event_type != EventType.TRACE_UPDATE:
-            return
-        if payload.get("status") not in ("error", "success"):
-            return
-        if not self._sync_fallback_url:
-            return
-        loop = self._owner_loop
-        loop_unusable = loop is None or loop.is_closed() or not loop.is_running()
-        if not loop_unusable:
-            return
-        trace_id = payload.get("id")
-        if not trace_id:
-            return
-        try:
-            import urllib.request
-
-            headers = dict(self._sync_fallback_headers)
-            headers.setdefault("Content-Type", "application/json")
-            req = urllib.request.Request(
-                f"{self._sync_fallback_url}/v1/traces/{trace_id}",
-                data=json.dumps(payload, default=str).encode("utf-8"),
-                headers={str(k): str(v) for k, v in headers.items()},
-                method="PUT",
-            )
-            urllib.request.urlopen(req, timeout=5.0).close()  # noqa: S310  # last-resort path
-        except Exception as e:  # noqa: BLE001 — last-resort path; swallow
-            logger.debug(f"sync trace_update fallback failed: {e}")
 
     async def flush(self) -> int:
         """
@@ -465,183 +412,137 @@ class EventBuffer:
         """Internal flush method (assumes lock is held)."""
         if not self._flusher or not self._buffer:
             return 0
-
-        # Check if event loop is available before attempting to flush
-        try:
-            loop = asyncio.get_running_loop()
-            if loop.is_closed():
-                logger.debug(
-                    f"Event loop is closed, skipping buffer flush ({len(self._buffer)} events)"
-                )
-                return 0
-        except RuntimeError:
-            # No event loop running - this is expected during shutdown
-            logger.debug(
-                f"No event loop running, skipping buffer flush ({len(self._buffer)} events)"
-            )
+        if not self._loop_usable():
             return 0
 
         n = len(self._buffer)
         events_to_send = [self._buffer.popleft() for _ in range(n)]
         self._last_flush = time.time()
-
         if not events_to_send:
             return 0
 
-        # Release lock before making API calls (to avoid blocking)
-        # We'll re-acquire it at the end
-        lock_held = True
+        # Release lock before making API calls (to avoid blocking callers);
+        # re-acquired in the finally so the caller's `async with` stays balanced.
+        self._lock.release()
         try:
-            # IMPORTANT: Send TRACE_CREATE events first so traces exist before spans arrive.
-            # This prevents the backend's auto-create from overwriting correct trace names.
-            # Then send remaining events together so the backend can merge SPAN_CREATE + SPAN_UPDATE.
-
-            # Release lock before API calls
-            self._lock.release()
-            lock_held = False
-
-            # Partition: TRACE_CREATE events first, everything else after
-            trace_creates = [e for e in events_to_send if e.event_type == EventType.TRACE_CREATE]
-            remaining = [e for e in events_to_send if e.event_type != EventType.TRACE_CREATE]
-
-            success_count = 0
-            failed_events = []
-
-            try:
-                # Check event loop state before calling flusher
-                try:
-                    loop = asyncio.get_running_loop()
-                    if loop.is_closed():
-                        logger.debug(
-                            f"Event loop is closed, skipping flush for {len(events_to_send)} events"
-                        )
-                        # Save to offline storage instead of losing events
-                        self._save_to_offline_storage(events_to_send)
-                        return 0
-                except RuntimeError:
-                    logger.debug(
-                        f"No event loop running, skipping flush for {len(events_to_send)} events"
-                    )
-                    # Save to offline storage instead of losing events
-                    self._save_to_offline_storage(events_to_send)
-                    return 0
-
-                # Circuit breaker: if open, save to offline and skip network call
-                if self._is_circuit_open():
-                    logger.debug(
-                        f"Circuit breaker open - saving {len(events_to_send)} events to offline storage"
-                    )
-                    self._save_to_offline_storage(events_to_send)
-                    return 0
-
-                # Send TRACE_CREATE events first to ensure traces exist before spans
-                if trace_creates:
-                    await self._flusher(trace_creates)
-                    success_count += len(trace_creates)
-
-                # Then send remaining events (spans, updates) together for proper merging
-                if remaining:
-                    await self._flusher(remaining)
-                    success_count += len(remaining)
-
-                # Mark connectivity success
-                self._mark_connectivity_success()
-                self._close_circuit()
-
-                # Call callbacks for successful events
-                for event in events_to_send:
-                    if event.callback:
-                        try:
-                            # Callback receives the response data
-                            # For now, pass the payload (can be enhanced)
-                            event.callback(event.payload)
-                        except Exception:
-                            pass  # Don't fail on callback errors
-            except Exception as e:
-                # Mark connectivity failure (may trigger offline mode)
-                self._mark_connectivity_failure(e)
-
-                # Classify error and determine if retryable
-                is_retryable = self._is_retryable_error(e)
-
-                if is_retryable:
-                    # Retry failed events with exponential backoff
-                    events_to_retry = []
-                    events_to_store = []
-
-                    # Calculate backoff delay based on highest retry count
-                    max_backoff = 0
-                    for event in events_to_send:
-                        event.retry_count += 1
-                        if event.retry_count < self.max_retries:
-                            # Calculate exponential backoff delay
-                            backoff_delay = self.retry_delay * (2 ** (event.retry_count - 1))
-                            max_backoff = max(max_backoff, backoff_delay)
-                            events_to_retry.append(event)
-                        else:
-                            # Max retries exceeded - save to offline storage
-                            events_to_store.append(event)
-
-                    # Re-queue immediately — do NOT sleep inline here.
-                    # When _flush() is called from add() (buffer-full path) it runs on the
-                    # instrumentation hook's await, which is on the critical path of the
-                    # LLM call.  Sleeping here would block every agent request until the
-                    # backoff expires (up to 7 s per batch × 3 retries = 21 s visible lag).
-                    # The background flusher fires every flush_interval seconds, which is
-                    # sufficient retry spacing without blocking callers.
-                    failed_events.extend(events_to_retry)
-
-                    # Save events that exceeded max retries to offline storage
-                    if events_to_store:
-                        if self._save_to_offline_storage(events_to_store):
-                            logger.info(
-                                f"Saved {len(events_to_store)} events to offline storage after {self.max_retries} retries"
-                            )
-                        else:
-                            logger.warning(
-                                f"Failed to save {len(events_to_store)} events to offline storage, events lost"
-                            )
-                # Non-retryable error - save to offline storage if connectivity issue
-                elif self._is_connectivity_error(e):
-                    if self._save_to_offline_storage(events_to_send):
-                        logger.info(
-                            f"Saved {len(events_to_send)} events to offline storage due to connectivity error"
-                        )
-                    else:
-                        logger.error(
-                            format_diagnostic(
-                                R001,
-                                extra=f"dropping {len(events_to_send)} events: {type(e).__name__}: {e!s}",
-                            )
-                        )
-                else:
-                    logger.error(
-                        format_diagnostic(
-                            R001,
-                            extra=f"dropping {len(events_to_send)} events: {type(e).__name__}: {e!s}",
-                        )
-                    )
-
-            # Re-add failed events for retry (need lock again)
-            if failed_events:
-                await self._lock.acquire()
-                lock_held = True
-                try:
-                    for event in failed_events:
-                        self._buffer.append(event)
-                finally:
-                    self._lock.release()
-                    lock_held = False
-
-            return success_count
+            # Circuit breaker: if open, save to offline and skip network calls
+            if self._is_circuit_open():
+                logger.debug(
+                    f"Circuit breaker open - saving {len(events_to_send)} events to offline storage"
+                )
+                self._save_to_offline_storage(events_to_send)
+                return 0
+            return await self._send_partitioned(events_to_send)
         finally:
-            # Re-acquire lock if we released it
-            if not lock_held:
-                await self._lock.acquire()
+            await self._lock.acquire()
 
-    def set_flusher(
-        self, flusher: Callable[[list[BufferedEvent]], Coroutine[Any, Any, None]]
-    ) -> None:
+    async def _send_partitioned(self, events_to_send: list[BufferedEvent]) -> int:
+        """Send the drained batch as a single transport leg.
+
+        There is only one transport left (gRPC IngestSpans); the flusher
+        drops non-span events itself. The TRACE_CREATE-first partition that
+        used to live here ordered writes for the legacy HTTP endpoints,
+        which were removed platform-side.
+        """
+        success_count, failed_events = await self._send_leg(events_to_send)
+
+        # Re-queue failed events immediately — do NOT sleep inline here.
+        # When _flush() is called from add() (buffer-full path) it runs on
+        # the instrumentation hook's await, which is on the critical path
+        # of the LLM call. The background flusher fires every
+        # flush_interval seconds, which is sufficient retry spacing.
+        for event in failed_events:
+            self._buffer.append(event)
+
+        return success_count
+
+    def _loop_usable(self) -> bool:
+        """True when a running, open event loop is available for the flusher."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No event loop running - this is expected during shutdown
+            logger.debug(
+                f"No event loop running, skipping buffer flush ({len(self._buffer)} events)"
+            )
+            return False
+        if loop.is_closed():
+            logger.debug(
+                f"Event loop is closed, skipping buffer flush ({len(self._buffer)} events)"
+            )
+            return False
+        return True
+
+    async def _send_leg(self, leg: list[BufferedEvent]) -> tuple[int, list[BufferedEvent]]:
+        """Send one transport leg; return (sent_count, events_to_retry).
+
+        Failures are contained to the leg: classified as retryable (returned
+        for re-queue), connectivity (offline storage), or dropped.
+        """
+        flusher = self._flusher
+        if flusher is None:  # _flush() never dispatches a leg without a flusher
+            return 0, leg
+        try:
+            await flusher(leg)
+        except Exception as e:
+            return 0, self._classify_leg_failure(e, leg)
+
+        self._mark_connectivity_success()
+        self._close_circuit()
+        for event in leg:
+            if event.callback:
+                # Callbacks must not fail the flush.
+                with contextlib.suppress(Exception):
+                    event.callback(event.payload)
+        return len(leg), []
+
+    def _classify_leg_failure(
+        self, error: Exception, leg: list[BufferedEvent]
+    ) -> list[BufferedEvent]:
+        """Apply retry/offline/drop policy to a failed leg; return events to re-queue."""
+        self._mark_connectivity_failure(error)
+
+        if self._is_retryable_error(error):
+            to_retry, to_store = self._split_for_retry(leg)
+            if to_store:
+                if self._save_to_offline_storage(to_store):
+                    logger.info(
+                        f"Saved {len(to_store)} events to offline storage "
+                        f"after {self.max_retries} retries"
+                    )
+                else:
+                    logger.warning(
+                        f"Failed to save {len(to_store)} events to offline storage, events lost"
+                    )
+            return to_retry
+
+        # Non-retryable error - save to offline storage if connectivity issue
+        if self._is_connectivity_error(error) and self._save_to_offline_storage(leg):
+            logger.info(f"Saved {len(leg)} events to offline storage due to connectivity error")
+            return []
+        logger.error(
+            format_diagnostic(
+                R001,
+                extra=f"dropping {len(leg)} events: {type(error).__name__}: {error!s}",
+            )
+        )
+        return []
+
+    def _split_for_retry(
+        self, events: list[BufferedEvent]
+    ) -> tuple[list[BufferedEvent], list[BufferedEvent]]:
+        """Increment retry accounting; partition into (retryable, exhausted)."""
+        to_retry: list[BufferedEvent] = []
+        exhausted: list[BufferedEvent] = []
+        for event in events:
+            event.retry_count += 1
+            if event.retry_count < self.max_retries:
+                to_retry.append(event)
+            else:
+                exhausted.append(event)
+        return to_retry, exhausted
+
+    def set_flusher(self, flusher: Callable[[list[BufferedEvent]], Awaitable[None]]) -> None:
         """Set the function to call when flushing events."""
         self._flusher = flusher
 
@@ -746,7 +647,7 @@ class EventBuffer:
             except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
             except Exception:
-                pass
+                logger.debug("background flush task failed during stop", exc_info=True)
 
         # Final flush of any remaining events
         await self.flush()
@@ -781,25 +682,19 @@ class EventBuffer:
         """
         import httpx
 
-        # HTTP errors
+        # HTTP errors. Retryable: 429 (rate limit), 5xx (server errors);
+        # non-retryable: other 4xx client errors.
         if isinstance(error, httpx.HTTPStatusError):
-            status_code = error.response.status_code
-            # Retryable: 429 (rate limit), 5xx (server errors)
-            if status_code == 429 or (500 <= status_code < 600):
-                return True
-            # Non-retryable: 4xx client errors (except 429)
-            return False
+            status_code: int = error.response.status_code
+            return status_code == 429 or (500 <= status_code < 600)
 
         # Network errors (retryable)
         if isinstance(error, (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)):
             return True
 
-        # Request errors (usually non-retryable)
-        if isinstance(error, httpx.RequestError):
-            return False
-
-        # Unknown errors - default to retryable (conservative)
-        return True
+        # Other request errors are usually non-retryable; unknown errors
+        # default to retryable (conservative).
+        return not isinstance(error, httpx.RequestError)
 
     def _is_connectivity_error(self, error: Exception) -> bool:
         """
@@ -893,14 +788,14 @@ class EventBuffer:
         """Check if buffer is operating in offline mode."""
         return self._is_offline
 
-    def get_offline_stats(self) -> dict[str, Any]:
+    def get_offline_stats(self) -> OfflineModeStats:
         """
         Get offline mode statistics.
 
         Returns:
             Dict with offline storage stats
         """
-        stats = {
+        stats: OfflineModeStats = {
             "enabled": self._enable_offline_mode,
             "is_offline": self._is_offline,
             "consecutive_failures": self._consecutive_failures,

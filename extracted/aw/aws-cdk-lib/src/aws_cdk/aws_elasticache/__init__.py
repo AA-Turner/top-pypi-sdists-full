@@ -3000,6 +3000,7 @@ class CfnReplicationGroup(
             cache_subnet_group_name="cacheSubnetGroupName",
             cluster_mode="clusterMode",
             data_tiering_enabled=False,
+            durability="durability",
             engine="engine",
             engine_version="engineVersion",
             global_replication_group_id="globalReplicationGroupId",
@@ -3068,6 +3069,7 @@ class CfnReplicationGroup(
         cache_subnet_group_name: typing.Optional[builtins.str] = None,
         cluster_mode: typing.Optional[builtins.str] = None,
         data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        durability: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_replication_group_id: typing.Optional[builtins.str] = None,
@@ -3112,6 +3114,7 @@ class CfnReplicationGroup(
         :param cache_subnet_group_name: The name of the cache subnet group to be used for the replication group. .. epigraph:: If you're going to launch your cluster in an Amazon VPC, you need to create a subnet group before you start creating a cluster. For more information, see `AWS::ElastiCache::SubnetGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-subnetgroup.html>`_ .
         :param cluster_mode: The mode can be enabled or disabled. To change the cluster mode from disabled to enabled, you must first set the cluster mode to compatible. The compatible mode allows your Valkey or Redis OSS clients to connect using both cluster mode enabled and cluster mode disabled. After you migrate all Valkey or Redis OSS clients to use cluster mode enabled, you can then complete cluster mode configuration and set the cluster mode to enabled. For more information, see `Modify cluster mode <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/modify-cluster-mode.html>`_ .
         :param data_tiering_enabled: Enables data tiering. Data tiering is only supported for replication groups using the r6gd node type. This parameter must be set to true when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/data-tiering.html>`_ .
+        :param durability: The durability setting for the replication group. Valid values: default, async, sync, disabled. Enabling durability on an existing non-durable cluster or disabling durability on an existing durable cluster is not currently supported and will result in an error; specify the desired durability at create time. The resolved state is returned in EffectiveDurability.
         :param engine: The name of the cache engine to be used for the clusters in this replication group. The value must be set to ``valkey`` or ``redis`` . .. epigraph:: Upgrading an existing engine from redis to valkey is done through in-place migration, and requires a parameter group.
         :param engine_version: The version number of the cache engine to be used for the clusters in this replication group. To view the supported cache engine versions, use the ``DescribeCacheEngineVersions`` operation. *Important:* You can upgrade to a newer engine version (see `Selecting a Cache Engine and Version <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html#VersionManagement>`_ ) in the *ElastiCache User Guide* , but you cannot downgrade to an earlier engine version. If you want to use an earlier engine version, you must delete the existing cluster or replication group and create it anew with the earlier engine version.
         :param global_replication_group_id: The name of the Global datastore.
@@ -3157,6 +3160,7 @@ class CfnReplicationGroup(
             cache_subnet_group_name=cache_subnet_group_name,
             cluster_mode=cluster_mode,
             data_tiering_enabled=data_tiering_enabled,
+            durability=durability,
             engine=engine,
             engine_version=engine_version,
             global_replication_group_id=global_replication_group_id,
@@ -3295,6 +3299,17 @@ class CfnReplicationGroup(
         :cloudformationAttribute: ConfigurationEndPoint.Port
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrConfigurationEndPointPort"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEffectiveDurability")
+    def attr_effective_durability(self) -> builtins.str:
+        '''The resolved durability state of the replication group after resolving the default value.
+
+        This is a read-only property.
+
+        :cloudformationAttribute: EffectiveDurability
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEffectiveDurability"))
 
     @builtins.property
     @jsii.member(jsii_name="attrPrimaryEndPoint")
@@ -3592,6 +3607,19 @@ class CfnReplicationGroup(
             type_hints = typing.get_type_hints(_typecheckingstub__a4366a0fcdd44e261b8f1399689f3ac4bb635223727a5c70ecced2835cb18c15)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dataTieringEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="durability")
+    def durability(self) -> typing.Optional[builtins.str]:
+        '''The durability setting for the replication group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "durability"))
+
+    @durability.setter
+    def durability(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba471cb37f6eddc0db2acf445abb188d6fdbdb47cdc25743fec2e77d99bb9812)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "durability", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="engine")
@@ -4625,6 +4653,7 @@ class CfnReplicationGroup(
         "cache_subnet_group_name": "cacheSubnetGroupName",
         "cluster_mode": "clusterMode",
         "data_tiering_enabled": "dataTieringEnabled",
+        "durability": "durability",
         "engine": "engine",
         "engine_version": "engineVersion",
         "global_replication_group_id": "globalReplicationGroupId",
@@ -4670,6 +4699,7 @@ class CfnReplicationGroupProps:
         cache_subnet_group_name: typing.Optional[builtins.str] = None,
         cluster_mode: typing.Optional[builtins.str] = None,
         data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        durability: typing.Optional[builtins.str] = None,
         engine: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         global_replication_group_id: typing.Optional[builtins.str] = None,
@@ -4712,6 +4742,7 @@ class CfnReplicationGroupProps:
         :param cache_subnet_group_name: The name of the cache subnet group to be used for the replication group. .. epigraph:: If you're going to launch your cluster in an Amazon VPC, you need to create a subnet group before you start creating a cluster. For more information, see `AWS::ElastiCache::SubnetGroup <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-subnetgroup.html>`_ .
         :param cluster_mode: The mode can be enabled or disabled. To change the cluster mode from disabled to enabled, you must first set the cluster mode to compatible. The compatible mode allows your Valkey or Redis OSS clients to connect using both cluster mode enabled and cluster mode disabled. After you migrate all Valkey or Redis OSS clients to use cluster mode enabled, you can then complete cluster mode configuration and set the cluster mode to enabled. For more information, see `Modify cluster mode <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/modify-cluster-mode.html>`_ .
         :param data_tiering_enabled: Enables data tiering. Data tiering is only supported for replication groups using the r6gd node type. This parameter must be set to true when using r6gd nodes. For more information, see `Data tiering <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/data-tiering.html>`_ .
+        :param durability: The durability setting for the replication group. Valid values: default, async, sync, disabled. Enabling durability on an existing non-durable cluster or disabling durability on an existing durable cluster is not currently supported and will result in an error; specify the desired durability at create time. The resolved state is returned in EffectiveDurability.
         :param engine: The name of the cache engine to be used for the clusters in this replication group. The value must be set to ``valkey`` or ``redis`` . .. epigraph:: Upgrading an existing engine from redis to valkey is done through in-place migration, and requires a parameter group.
         :param engine_version: The version number of the cache engine to be used for the clusters in this replication group. To view the supported cache engine versions, use the ``DescribeCacheEngineVersions`` operation. *Important:* You can upgrade to a newer engine version (see `Selecting a Cache Engine and Version <https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/SelectEngine.html#VersionManagement>`_ ) in the *ElastiCache User Guide* , but you cannot downgrade to an earlier engine version. If you want to use an earlier engine version, you must delete the existing cluster or replication group and create it anew with the earlier engine version.
         :param global_replication_group_id: The name of the Global datastore.
@@ -4765,6 +4796,7 @@ class CfnReplicationGroupProps:
                 cache_subnet_group_name="cacheSubnetGroupName",
                 cluster_mode="clusterMode",
                 data_tiering_enabled=False,
+                durability="durability",
                 engine="engine",
                 engine_version="engineVersion",
                 global_replication_group_id="globalReplicationGroupId",
@@ -4829,6 +4861,7 @@ class CfnReplicationGroupProps:
             check_type(argname="argument cache_subnet_group_name", value=cache_subnet_group_name, expected_type=type_hints["cache_subnet_group_name"])
             check_type(argname="argument cluster_mode", value=cluster_mode, expected_type=type_hints["cluster_mode"])
             check_type(argname="argument data_tiering_enabled", value=data_tiering_enabled, expected_type=type_hints["data_tiering_enabled"])
+            check_type(argname="argument durability", value=durability, expected_type=type_hints["durability"])
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
             check_type(argname="argument global_replication_group_id", value=global_replication_group_id, expected_type=type_hints["global_replication_group_id"])
@@ -4880,6 +4913,8 @@ class CfnReplicationGroupProps:
             self._values["cluster_mode"] = cluster_mode
         if data_tiering_enabled is not None:
             self._values["data_tiering_enabled"] = data_tiering_enabled
+        if durability is not None:
+            self._values["durability"] = durability
         if engine is not None:
             self._values["engine"] = engine
         if engine_version is not None:
@@ -5142,6 +5177,17 @@ class CfnReplicationGroupProps:
         '''
         result = self._values.get("data_tiering_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def durability(self) -> typing.Optional[builtins.str]:
+        '''The durability setting for the replication group.
+
+        Valid values: default, async, sync, disabled. Enabling durability on an existing non-durable cluster or disabling durability on an existing durable cluster is not currently supported and will result in an error; specify the desired durability at create time. The resolved state is returned in EffectiveDurability.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-replicationgroup.html#cfn-elasticache-replicationgroup-durability
+        '''
+        result = self._values.get("durability")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def engine(self) -> typing.Optional[builtins.str]:
@@ -9086,6 +9132,7 @@ def _typecheckingstub__be27fffa79ab6bf194b2d0d4de1313299c709e45a12e57a99e85fb26c
     cache_subnet_group_name: typing.Optional[builtins.str] = None,
     cluster_mode: typing.Optional[builtins.str] = None,
     data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    durability: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_replication_group_id: typing.Optional[builtins.str] = None,
@@ -9212,6 +9259,12 @@ def _typecheckingstub__843c2d711df69b9b78c5297321a7377fd4d364b0b8b228ae665fcbdff
 
 def _typecheckingstub__a4366a0fcdd44e261b8f1399689f3ac4bb635223727a5c70ecced2835cb18c15(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba471cb37f6eddc0db2acf445abb188d6fdbdb47cdc25743fec2e77d99bb9812(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -9458,6 +9511,7 @@ def _typecheckingstub__c8dbf3d422d5fea6e04cfbc10e81904d384dc2c210952911caaa5ab7e
     cache_subnet_group_name: typing.Optional[builtins.str] = None,
     cluster_mode: typing.Optional[builtins.str] = None,
     data_tiering_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    durability: typing.Optional[builtins.str] = None,
     engine: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     global_replication_group_id: typing.Optional[builtins.str] = None,

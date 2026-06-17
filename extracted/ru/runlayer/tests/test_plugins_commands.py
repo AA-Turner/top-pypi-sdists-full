@@ -376,7 +376,7 @@ def test_plugins_find_installs_selected_plugins_for_multiple_clients(
         patch("runlayer_cli.commands.plugins.confirm_install"),
         patch("runlayer_cli.commands.plugins.console.status") as status_mock,
     ):
-        client_class.return_value.list_all_plugins.return_value = [
+        client_class.return_value.list_plugins_detailed.return_value = [
             selected_plugin,
             selected_plugin_two,
         ]
@@ -384,7 +384,9 @@ def test_plugins_find_installs_selected_plugins_for_multiple_clients(
 
     assert result.exit_code == 0
     status_mock.assert_called_once_with("Loading plugins...")
-    client_class.return_value.list_all_plugins.assert_called_once_with(mine_only=False)
+    client_class.return_value.list_plugins_detailed.assert_called_once_with(
+        filter="all"
+    )
     assert resolve_dirs_mock.call_count == 2
     assert resolve_dirs_mock.call_args_list[0].args[0] == "codex"
     assert resolve_dirs_mock.call_args_list[1].args[0] == "cursor"
@@ -412,7 +414,7 @@ def test_plugins_find_handles_empty_catalog(tmp_path: Path) -> None:
         ),
         patch("runlayer_cli.commands.plugins.RunlayerClient") as client_class,
     ):
-        client_class.return_value.list_all_plugins.return_value = []
+        client_class.return_value.list_plugins_detailed.return_value = []
         result = runner.invoke(app, ["plugins", "find"])
 
     assert result.exit_code == 0
@@ -461,7 +463,7 @@ def test_plugins_find_cancelled_before_install(tmp_path: Path) -> None:
             side_effect=typer.Exit(0),
         ),
     ):
-        client_class.return_value.list_all_plugins.return_value = [selected_plugin]
+        client_class.return_value.list_plugins_detailed.return_value = [selected_plugin]
         result = runner.invoke(app, ["plugins", "find"])
 
     assert result.exit_code == 0

@@ -14209,13 +14209,19 @@ function updateReconnectSucceeded(status, options) {
   if (!options.expectedPreviousVersion) {
     return true;
   }
+  if (status.update_in_progress === true) {
+    return false;
+  }
   if (status.update_available !== true) {
     return true;
   }
   if (options.expectedLatestVersion && status.current_version === options.expectedLatestVersion) {
     return true;
   }
-  return status.current_version !== options.expectedPreviousVersion;
+  if (status.current_version !== options.expectedPreviousVersion) {
+    return true;
+  }
+  return options.sawUpdateInProgress === true;
 }
 async function initializeGuardDashboardSessionAtOrigin(origin, guardToken) {
   try {
@@ -14265,36 +14271,47 @@ async function reconnectGuardDaemonAfterUpdate(options) {
   const reconnectOptions = options ?? {};
   const awaitingVersionChange = Boolean(reconnectOptions.expectedPreviousVersion);
   const ports = buildGuardDaemonCandidatePorts(preferredGuardDaemonPort());
+  let sawUpdateInProgress = reconnectOptions.sawUpdateInProgress === true;
   for (let index = 0; index < ports.length; index += GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE) {
     const batch = ports.slice(index, index + GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE);
     const results = await Promise.all(
       batch.map(async (port) => {
-        const origin2 = `http://127.0.0.1:${port}`;
-        if (!await probeGuardDaemonHealth(origin2)) {
+        const origin = `http://127.0.0.1:${port}`;
+        if (!await probeGuardDaemonHealth(origin)) {
           return null;
         }
         try {
-          const status = await fetchGuardUpdateStatusAtOrigin(origin2, guardToken);
-          if (awaitingVersionChange && !updateReconnectSucceeded(status, reconnectOptions)) {
-            return null;
+          const status = await fetchGuardUpdateStatusAtOrigin(origin, guardToken);
+          if (status.update_in_progress === true) {
+            return { origin: null, status: null, sawUpdateInProgress: true };
           }
-          return { origin: origin2, status };
+          if (awaitingVersionChange && !updateReconnectSucceeded(status, { ...reconnectOptions, sawUpdateInProgress })) {
+            return { origin: null, status: null, sawUpdateInProgress };
+          }
+          return { origin, status, sawUpdateInProgress };
         } catch {
           return null;
         }
       })
     );
-    const active = results.find((result) => result !== null);
-    if (!active) {
-      continue;
+    const active = results.find((result) => result !== null && result.origin !== null && result.status !== null);
+    if (active?.origin && active.status) {
+      saveGuardDaemonOrigin(active.origin);
+      const refreshedToken = await initializeGuardDashboardSessionAtOrigin(active.origin, guardToken);
+      if (refreshedToken) {
+        saveGuardToken(refreshedToken);
+      }
+      return {
+        origin: active.origin,
+        status: active.status,
+        sawUpdateInProgress: active.sawUpdateInProgress
+      };
     }
-    const { origin } = active;
-    saveGuardDaemonOrigin(origin);
-    const refreshedToken = await initializeGuardDashboardSessionAtOrigin(origin, guardToken);
-    if (refreshedToken) {
-      saveGuardToken(refreshedToken);
+    const partial = results.find((result) => result !== null);
+    if (partial) {
+      sawUpdateInProgress = partial.sawUpdateInProgress;
+      return { origin: null, status: null, sawUpdateInProgress };
     }
-    return origin;
   }
   return null;
 }
@@ -15590,7 +15607,10 @@ function normalizeGuardUpdateStatus(raw) {
     blocked_reason: stringValue(value.blocked_reason),
     recovery_reinstall_available: value.recovery_reinstall_available === true ? true : void 0,
     recovery_reinstall_command: typeof value.recovery_reinstall_command === "string" ? value.recovery_reinstall_command : void 0,
-    update_in_progress: typeof value.update_in_progress === "boolean" ? value.update_in_progress : void 0
+    update_in_progress: typeof value.update_in_progress === "boolean" ? value.update_in_progress : void 0,
+    update_suppressed: value.update_suppressed === true ? true : void 0,
+    retry_command: typeof value.retry_command === "string" ? value.retry_command : void 0,
+    update_attempt_message: typeof value.update_attempt_message === "string" ? value.update_attempt_message : void 0
   };
 }
 async function fetchGuardUpdateStatus() {
@@ -16149,9 +16169,7 @@ const SHELL_FOOTER_RESOURCE_LINKS = [
   { href: "https://hol.org/guard/docs", label: "Docs" },
   { href: "https://hol.org/guard", label: "Guard Cloud" },
   { href: "https://github.com/hashgraph-online/hol-guard", label: "GitHub" },
-  { href: GITHUB_ISSUE_LINK, label: GITHUB_ISSUE_BUTTON_LABEL },
-  { href: "https://hol.org/points/legal/privacy", label: "Privacy" },
-  { href: "https://hol.org/points/legal/terms", label: "Terms" }
+  { href: GITHUB_ISSUE_LINK, label: GITHUB_ISSUE_BUTTON_LABEL }
 ];
 function ShellFooter() {
   return /* @__PURE__ */ jsxRuntimeExports.jsx("footer", { className: "mt-auto border-t border-slate-200 bg-[#f8fafc]", children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "mx-auto flex max-w-6xl flex-col gap-3 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8", children: [
@@ -16168,7 +16186,7 @@ function ShellFooter() {
           children: "Apache-2.0"
         }
       ),
-      ". Built by Hashgraph Online."
+      "."
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsx("nav", { "aria-label": "Guard resources", className: "flex flex-wrap gap-x-4 gap-y-1", children: SHELL_FOOTER_RESOURCE_LINKS.map((link) => /* @__PURE__ */ jsxRuntimeExports.jsx(
       "a",
@@ -16205,6 +16223,15 @@ function updateHelpCopy(status, phase) {
   if (phase === "error") {
     return "The update did not finish. Try again or run hol-guard update from your terminal.";
   }
+  if (status?.update_suppressed) {
+    if (status.retry_command) {
+      return `Automatic update already ran but this install is still behind. Run ${status.retry_command} in your terminal.`;
+    }
+    if (status.update_attempt_message) {
+      return status.update_attempt_message;
+    }
+    return "Automatic update already ran but this install is still behind the latest release.";
+  }
   if (status?.update_available) {
     return "This restarts Guard for a moment. Open approvals will stay saved.";
   }
@@ -16220,7 +16247,7 @@ function GuardUpdatePanel(props) {
   const version = props.guardVersion ?? props.updateStatus?.current_version ?? null;
   const phase = props.updatePhase ?? "idle";
   const helpCopy = updateHelpCopy(props.updateStatus, phase);
-  const showUpdateButton = props.updateStatus?.update_available === true && props.updateStatus.auto_updatable && phase !== "updating" && phase !== "reconnecting";
+  const showUpdateButton = props.updateStatus?.update_available === true && props.updateStatus.auto_updatable && props.updateStatus.update_suppressed !== true && phase !== "updating" && phase !== "reconnecting";
   const showReinstallButton = props.updateStatus?.recovery_reinstall_available === true && props.updateStatus.auto_updatable !== true && phase !== "updating" && phase !== "reconnecting";
   const busy = phase === "updating" || phase === "reconnecting";
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: props.compact ? "space-y-1" : "space-y-2", children: [
@@ -16307,15 +16334,22 @@ function useGuardUpdate(options) {
   const waitForReconnect = reactExports.useCallback(
     async (expectedPreviousVersion, expectedLatestVersion) => {
       reconnectStartedAt.current = Date.now();
+      let sawUpdateInProgress = false;
       while (Date.now() - (reconnectStartedAt.current ?? Date.now()) < RECONNECT_TIMEOUT_MS) {
         try {
-          const origin = await reconnectGuardDaemonAfterUpdate({
+          const reconnectResult = await reconnectGuardDaemonAfterUpdate({
             expectedPreviousVersion,
-            expectedLatestVersion
+            expectedLatestVersion,
+            sawUpdateInProgress
           });
-          if (!origin) {
+          if (!reconnectResult) {
             throw new Error("Guard daemon not found");
           }
+          sawUpdateInProgress = reconnectResult.sawUpdateInProgress;
+          if (!reconnectResult.origin) {
+            throw new Error("Guard daemon not ready");
+          }
+          const { origin } = reconnectResult;
           if (origin !== window.location.origin) {
             redirectToGuardDaemonOrigin(origin, readGuardToken());
             return true;
@@ -27097,13 +27131,13 @@ export {
   clearReviewQueue as a0,
   revokeApprovalGateCooldown as a1,
   disableApprovalGateTotp as a2,
-  enrollApprovalGateTotp as a3,
-  verifyApprovalGateTotp as a4,
-  clearEvidence as a5,
-  exportDiagnostics as a6,
-  repairApprovalCenter as a7,
-  exportSettings as a8,
-  importSettings as a9,
+  importSettings as a3,
+  resetSettings as a4,
+  enrollApprovalGateTotp as a5,
+  verifyApprovalGateTotp as a6,
+  clearEvidence as a7,
+  exportDiagnostics as a8,
+  repairApprovalCenter as a9,
   HiMiniCommandLine as aA,
   isSupplyChainAuditIncomplete as aB,
   readString$1 as aC,
@@ -27131,7 +27165,7 @@ export {
   EntitlementNotice as aY,
   fetchReceipts as aZ,
   WorkspacePageHeader as a_,
-  resetSettings as aa,
+  exportSettings as aa,
   setupDesktopNotifications as ab,
   Tag as ac,
   HiMiniMagnifyingGlass as ad,
@@ -27174,22 +27208,25 @@ export {
   policyActionLabel as bd,
   fetchCloudExceptions as be,
   fetchCloudExceptionRequests as bf,
-  HiMiniNoSymbol as bg,
-  HiMiniCube as bh,
-  HiMiniQueueList as bi,
-  HiMiniArrowRight as bj,
-  HiMiniPlay as bk,
-  Surface as bl,
-  HiMiniCheckBadge as bm,
-  fetchSupplyChainBundle as bn,
-  HiMiniDocumentMagnifyingGlass as bo,
-  HiMiniShieldExclamation as bp,
-  HiMiniComputerDesktop as bq,
-  HiMiniChevronLeft as br,
-  HiMiniArrowDown as bs,
-  HiMiniArrowUp as bt,
-  runAuditRemediation as bu,
-  HiMiniSignal as bv,
+  downloadBlob as bg,
+  PaginationControls as bh,
+  HiMiniNoSymbol as bi,
+  HiMiniCube as bj,
+  HiMiniArrowDownTray as bk,
+  HiMiniQueueList as bl,
+  HiMiniArrowRight as bm,
+  HiMiniPlay as bn,
+  Surface as bo,
+  HiMiniCheckBadge as bp,
+  fetchSupplyChainBundle as bq,
+  HiMiniDocumentMagnifyingGlass as br,
+  HiMiniShieldExclamation as bs,
+  HiMiniComputerDesktop as bt,
+  HiMiniChevronLeft as bu,
+  HiMiniArrowDown as bv,
+  HiMiniArrowUp as bw,
+  runAuditRemediation as bx,
+  HiMiniSignal as by,
   EvidenceInsightsShareModal as c,
   HiMiniCheckCircle as d,
   GuardHero as e,

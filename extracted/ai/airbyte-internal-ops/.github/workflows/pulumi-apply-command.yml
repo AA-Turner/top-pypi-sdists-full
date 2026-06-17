@@ -173,6 +173,8 @@ jobs:
     defaults:
       run:
         working-directory: ${{ matrix.stack.dir }}
+    env:
+      PULUMI_REFRESH_EXCLUDE: ${{ matrix.stack.name == 'sentry' && '--exclude urn:pulumi:prod::airbyte-sentry::sentry:index/issueAlert:IssueAlert::alert-api-connectors-p0' || '' }}
     steps:
       - name: Authenticate as GitHub App
         uses: actions/create-github-app-token@v2
@@ -264,6 +266,12 @@ jobs:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
         run: pulumi stack select prod --create
 
+      - name: Pulumi Refresh
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READWRITE }}
+        run: pulumi refresh --stack prod --yes $PULUMI_REFRESH_EXCLUDE
+
       - name: Pulumi Preview
         id: preview
         continue-on-error: true
@@ -287,7 +295,7 @@ jobs:
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READWRITE }}
-        run: pulumi preview --stack prod --refresh --diff --expect-no-changes
+        run: pulumi preview --stack prod --refresh --diff --expect-no-changes $PULUMI_REFRESH_EXCLUDE
 
       # ---------- State upload: artifact-based (Sentry) ----------
 

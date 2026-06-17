@@ -23,6 +23,8 @@ else:
 
 __all__ = (
     "AnalyticsS3ExportFileFormatType",
+    "AnnotationConfigurationStateType",
+    "AnnotationDirectiveType",
     "ArchiveStatusType",
     "BucketAbacStatusType",
     "BucketAccelerateStatusType",
@@ -60,6 +62,7 @@ __all__ = (
     "ListBucketsPaginatorName",
     "ListDirectoryBucketsPaginatorName",
     "ListMultipartUploadsPaginatorName",
+    "ListObjectAnnotationsPaginatorName",
     "ListObjectVersionsPaginatorName",
     "ListObjectsPaginatorName",
     "ListObjectsV2PaginatorName",
@@ -115,6 +118,8 @@ __all__ = (
 )
 
 AnalyticsS3ExportFileFormatType = Literal["CSV"]
+AnnotationConfigurationStateType = Literal["DISABLED", "ENABLED"]
+AnnotationDirectiveType = Literal["COPY", "EXCLUDE"]
 ArchiveStatusType = Literal["ARCHIVE_ACCESS", "DEEP_ARCHIVE_ACCESS"]
 BucketAbacStatusType = Literal["Disabled", "Enabled"]
 BucketAccelerateStatusType = Literal["Enabled", "Suspended"]
@@ -191,6 +196,9 @@ EventType = Literal[
     "s3:LifecycleExpiration:DeleteMarkerCreated",
     "s3:LifecycleTransition",
     "s3:ObjectAcl:Put",
+    "s3:ObjectAnnotation:*",
+    "s3:ObjectAnnotation:Delete",
+    "s3:ObjectAnnotation:Put",
     "s3:ObjectCreated:*",
     "s3:ObjectCreated:CompleteMultipartUpload",
     "s3:ObjectCreated:Copy",
@@ -247,6 +255,7 @@ JSONTypeType = Literal["DOCUMENT", "LINES"]
 ListBucketsPaginatorName = Literal["list_buckets"]
 ListDirectoryBucketsPaginatorName = Literal["list_directory_buckets"]
 ListMultipartUploadsPaginatorName = Literal["list_multipart_uploads"]
+ListObjectAnnotationsPaginatorName = Literal["list_object_annotations"]
 ListObjectVersionsPaginatorName = Literal["list_object_versions"]
 ListObjectsPaginatorName = Literal["list_objects"]
 ListObjectsV2PaginatorName = Literal["list_objects_v2"]
@@ -768,6 +777,7 @@ PaginatorName = Literal[
     "list_buckets",
     "list_directory_buckets",
     "list_multipart_uploads",
+    "list_object_annotations",
     "list_object_versions",
     "list_objects",
     "list_objects_v2",

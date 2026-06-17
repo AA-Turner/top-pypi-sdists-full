@@ -1,5 +1,6 @@
 """Tests for _build_attacker_task."""
 
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -171,8 +172,8 @@ def test_task_fn_bare_callable_target_raises_type_error():
 
 
 def test_task_fn_session_missing_trace_raises_type_error():
-    """A session with all four methods but no ``trace`` is rejected up front, not
-    accepted and then crashed on ``session.trace`` (which the engine would swallow
+    """A session with all four methods but no `trace` is rejected up front, not
+    accepted and then crashed on `session.trace` (which the engine would swallow
     into a misleading 'defended' verdict)."""
 
     class _NoTrace:
@@ -220,3 +221,125 @@ def test_task_fn_resets_agent_to_clean_baseline_per_case():
 
 def test_max_allowed_turns_constant_present():
     assert MAX_ALLOWED_TURNS >= 50
+
+
+def test_parallel_task_fn_calls_factory_per_case():
+    """`parallel=True` with `agent_factory` builds a fresh target for every case."""
+    factory_calls: list[_FakeSession] = []
+
+    def factory():
+        sess = _FakeSession(lambda _msg: "ok")
+        factory_calls.append(sess)
+        return sess
+
+    task = _build_attacker_task(
+        agent=None,
+        by_label=_by_label(_StubStrategy()),
+        agent_factory=factory,
+        parallel=True,
+    )
+    task(_case("c0"))
+    task(_case("c1"))
+    task(_case("c2"))
+    assert len(factory_calls) == 3
+
+
+def test_parallel_task_fn_requires_agent_factory():
+    """Parallel runs always require an explicit `agent_factory` -- there is no deepcopy fallback.
+
+    Strands targets carry non-deepcopyable client state (the default `BedrockModel` holds an
+    httplib pool with thread locks), so the runner refuses parallel without a factory regardless
+    of whether `agent` is an `Agent`, `MultiAgentBase`, or a custom `TargetSession`. Surfacing
+    the requirement at build time beats crashing mid-run.
+    """
+    from strands import Agent
+
+    real_agent = Agent(model=None, callback_handler=None)
+    with pytest.raises(TypeError, match="agent_factory"):
+        _build_attacker_task(
+            agent=real_agent,
+            by_label=_by_label(_StubStrategy()),
+            parallel=True,
+        )
+
+    sess = _FakeSession(lambda _msg: "ok")
+    with pytest.raises(TypeError, match="agent_factory"):
+        _build_attacker_task(
+            agent=sess,
+            by_label=_by_label(_StubStrategy()),
+            parallel=True,
+        )
+
+
+def test_factory_path_skips_baseline_snapshot():
+    """When `agent_factory` is supplied, the build step never calls `take_snapshot` on the source
+    `agent` -- the factory is the source of truth for clean state."""
+    from strands import Agent
+
+    agent = MagicMock(spec=Agent)
+    agent.messages = MagicMock()
+    agent.messages.__len__.return_value = 0
+
+    def factory():
+        target = MagicMock(spec=Agent)
+        target.messages = MagicMock()
+        target.messages.__len__.return_value = 0
+        target.return_value = "ok"
+        return target
+
+    _build_attacker_task(
+        agent=agent,
+        by_label=_by_label(_StubStrategy()),
+        agent_factory=factory,
+    )
+    # the factory path neither captures a baseline nor mutates the seed agent.
+    assert agent.take_snapshot.call_count == 0
+
+
+def test_task_fn_routes_multi_agent_base_to_multi_agent_session():
+    """A MultiAgentBase target is wrapped in StrandsMultiAgentSession (not
+    StrandsAgentSession) and the baseline is captured once at build time."""
+    from strands.multiagent.base import MultiAgentBase
+
+    from strands_evals.experimental.redteam.strategies.target_session import (
+        StrandsMultiAgentSession,
+        _MultiAgentSnapshot,
+    )
+
+    class _FakeOrch(MultiAgentBase):
+        id = "root"
+
+        def __init__(self):
+            self.nodes = {}  # no leaves -- the strategy stub never invokes
+            self.serialize_calls = 0
+            self.deserialize_calls = 0
+
+        async def invoke_async(self, task, invocation_state=None, **kwargs):
+            raise NotImplementedError
+
+        def __call__(self, task, invocation_state=None, **kwargs):
+            return MagicMock(results={}, __str__=lambda self=None: "ok")
+
+        def serialize_state(self):
+            self.serialize_calls += 1
+            return {"type": "fake"}
+
+        def deserialize_state(self, payload):
+            self.deserialize_calls += 1
+
+    root = _FakeOrch()
+    captured: dict[str, Any] = {}
+
+    class _CapturingStrategy(_StubStrategy):
+        def run_attack(self, case, target_session, *, max_turns, model=None, **kwargs):
+            captured["session"] = target_session
+            return AttackRunResult(conversation=[], metadata={"turns_used": 0})
+
+    task = _build_attacker_task(root, _by_label(_CapturingStrategy()))
+    # baseline serialize_state captured once before any case runs
+    assert root.serialize_calls == 1
+    task(_case("c0"))
+    # routed to the multi-agent session
+    assert isinstance(captured["session"], StrandsMultiAgentSession)
+    # baseline composite has the expected shape
+    assert isinstance(captured["session"]._baseline, _MultiAgentSnapshot)

@@ -24,7 +24,7 @@ install_requires = ['requests[socks]>=2.25,<3', 'urllib3>=1.26,<3',
 
 # Package extras requirements
 extras_require = {
-    'test': ['requests_mock', 'mock', 'numpy', 'coverage'],
+    'test': ['requests_mock', 'mock', 'numpy', 'coverage', 'dwave-graphs'],
 
     # bqm support
     'bqm': ['dimod>=0.10.5,<0.13,!=0.11.4', 'numpy>=1.17.3'],
@@ -39,7 +39,7 @@ extras_require = {
     'nlm': ['dwave-optimization>=0.1.0,<0.5', 'numpy>=1.20.0'],
 
     # testing mocks
-    'mocks': ['dwave-networkx>=0.8.10'],
+    'mocks': ['dwave-graphs>=1'],
 }
 
 # Packages provided. Only include packages under the 'dwave' namespace.

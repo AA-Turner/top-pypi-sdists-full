@@ -23,6 +23,13 @@ try:
 except ImportError:
     dimod = None
 
+try:
+    import dwave.graphs
+except ImportError:
+    _graphs = False
+else:
+    _graphs = True
+
 import numpy as np
 from parameterized import parameterized
 from plucky import pluck
@@ -167,7 +174,7 @@ class TestQPCoders(CodersTestBase):
         ("C4", lambda: mocks.qpu_chimera_solver_data(4)),
         ("P16", lambda: mocks.qpu_pegasus_solver_data(16))
     ])
-    @unittest.skipUnless(dimod, "dimod required for mock solver generators")
+    @unittest.skipUnless(_graphs, "dwave-graphs required for mock solver generators")
     def test_qp_problem_decode(self, name, get_solver_data):
         solver = StructuredSolver(client=None, data=get_solver_data())
 

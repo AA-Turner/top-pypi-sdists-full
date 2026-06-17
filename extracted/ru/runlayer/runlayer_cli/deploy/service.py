@@ -284,6 +284,7 @@ def deploy_service(
 
     # Trigger and monitor deployment
     _trigger_and_monitor_deployment(api_client, deployment_id)
+    _print_customer_aws_setup_info(api_client, deployment_id)
 
     # Calculate and display total deployment time
     elapsed_time = time.time() - start_time
@@ -580,6 +581,38 @@ def _update_deployment_config(
             err=True,
         )
         raise typer.Exit(1)
+
+
+def _print_customer_aws_setup_info(
+    api_client: RunlayerClient,
+    deployment_id: str,
+) -> None:
+    """Print task role ARN and ExternalId for customer IAM trust policies."""
+    try:
+        deployment = api_client.get_deployment(deployment_id)
+    except Exception:
+        return
+
+    task_role_arn = getattr(deployment, "task_role_arn", None)
+    configuration = getattr(deployment, "configuration", None) or {}
+    aws_assume_roles = configuration.get("aws_assume_roles") or {}
+    if not task_role_arn or not aws_assume_roles:
+        return
+
+    typer.secho(
+        "\nRunlayer deployment task role (trust this principal in your AWS account):",
+        fg=typer.colors.CYAN,
+        bold=True,
+    )
+    typer.echo(f"  task_role_arn: {task_role_arn}")
+    typer.echo(f"  deployment_id (sts:ExternalId): {deployment_id}")
+    typer.echo(
+        "  Trust policy: Principal.AWS = task_role_arn, "
+        "Condition.sts:ExternalId = deployment_id"
+    )
+    typer.echo(
+        "  Docs: https://docs.runlayer.com/platform-deploy#aws-cross-account-roles-hosted-only"
+    )
 
 
 def _trigger_and_monitor_deployment(

@@ -92,8 +92,10 @@ from .common import _GetEvaluationItemParameters
 from .common import _GetEvaluationMetricParameters
 from .common import _GetEvaluationRunParameters
 from .common import _GetEvaluationSetParameters
+from .common import _GetImportFilesOperationParameters
 from .common import _GetMultimodalDatasetOperationParameters
 from .common import _GetMultimodalDatasetParameters
+from .common import _GetRagConfigOperationParameters
 from .common import _GetRagConfigRequestParameters
 from .common import _GetRagCorpusRequestParameters
 from .common import _GetRagFileRequestParameters
@@ -103,6 +105,7 @@ from .common import _GetSandboxEnvironmentTemplateRequestParameters
 from .common import _GetSkillOperationParameters
 from .common import _GetSkillRequestParameters
 from .common import _GetSkillRevisionRequestParameters
+from .common import _ImportRagFilesRequestParameters
 from .common import _IngestEventsRequestParameters
 from .common import _ListAgentEngineMemoryRequestParameters
 from .common import _ListAgentEngineMemoryRevisionsRequestParameters
@@ -245,6 +248,9 @@ from .common import BatchPredictionValidationAssessmentConfigOrDict
 from .common import BatchPredictionValidationAssessmentResult
 from .common import BatchPredictionValidationAssessmentResultDict
 from .common import BatchPredictionValidationAssessmentResultOrDict
+from .common import BigQueryDestination
+from .common import BigQueryDestinationDict
+from .common import BigQueryDestinationOrDict
 from .common import BigQueryRequestSet
 from .common import BigQueryRequestSetDict
 from .common import BigQueryRequestSetOrDict
@@ -584,6 +590,9 @@ from .common import FileStatus
 from .common import FileStatusDict
 from .common import FileStatusOrDict
 from .common import Framework
+from .common import GcsDestination
+from .common import GcsDestinationDict
+from .common import GcsDestinationOrDict
 from .common import GcsSource
 from .common import GcsSourceDict
 from .common import GcsSourceOrDict
@@ -684,6 +693,9 @@ from .common import GetEvaluationRunConfigOrDict
 from .common import GetEvaluationSetConfig
 from .common import GetEvaluationSetConfigDict
 from .common import GetEvaluationSetConfigOrDict
+from .common import GetImportFilesOperationConfig
+from .common import GetImportFilesOperationConfigDict
+from .common import GetImportFilesOperationConfigOrDict
 from .common import GetMultimodalDatasetOperationConfig
 from .common import GetMultimodalDatasetOperationConfigDict
 from .common import GetMultimodalDatasetOperationConfigOrDict
@@ -692,6 +704,9 @@ from .common import GetPromptConfigDict
 from .common import GetPromptConfigOrDict
 from .common import GetRagConfig
 from .common import GetRagConfigDict
+from .common import GetRagConfigOperationConfig
+from .common import GetRagConfigOperationConfigDict
+from .common import GetRagConfigOperationConfigOrDict
 from .common import GetRagConfigOrDict
 from .common import GetRagCorpusConfig
 from .common import GetRagCorpusConfigDict
@@ -722,6 +737,21 @@ from .common import GoogleDriveSourceResourceIdDict
 from .common import GoogleDriveSourceResourceIdOrDict
 from .common import IdentityType
 from .common import Importance
+from .common import ImportRagFilesConfig
+from .common import ImportRagFilesConfigDict
+from .common import ImportRagFilesConfigOrDict
+from .common import ImportRagFilesOperation
+from .common import ImportRagFilesOperationDict
+from .common import ImportRagFilesOperationOrDict
+from .common import ImportRagFilesRequest
+from .common import ImportRagFilesRequestConfig
+from .common import ImportRagFilesRequestConfigDict
+from .common import ImportRagFilesRequestConfigOrDict
+from .common import ImportRagFilesRequestDict
+from .common import ImportRagFilesRequestOrDict
+from .common import ImportRagFilesResponse
+from .common import ImportRagFilesResponseDict
+from .common import ImportRagFilesResponseOrDict
 from .common import IngestEventsConfig
 from .common import IngestEventsConfigDict
 from .common import IngestEventsConfigOrDict
@@ -1108,13 +1138,37 @@ from .common import RagEmbeddingModelConfigVertexPredictionEndpointDict
 from .common import RagEmbeddingModelConfigVertexPredictionEndpointOrDict
 from .common import RagEngineConfig
 from .common import RagEngineConfigDict
+from .common import RagEngineConfigOperation
+from .common import RagEngineConfigOperationDict
+from .common import RagEngineConfigOperationOrDict
 from .common import RagEngineConfigOrDict
 from .common import RagFile
+from .common import RagFileChunkingConfig
+from .common import RagFileChunkingConfigDict
+from .common import RagFileChunkingConfigFixedLengthChunking
+from .common import RagFileChunkingConfigFixedLengthChunkingDict
+from .common import RagFileChunkingConfigFixedLengthChunkingOrDict
+from .common import RagFileChunkingConfigOrDict
 from .common import RagFileDict
+from .common import RagFileMetadataConfig
+from .common import RagFileMetadataConfigDict
+from .common import RagFileMetadataConfigOrDict
 from .common import RagFileOrDict
+from .common import RagFileParsingConfig
+from .common import RagFileParsingConfigAdvancedParser
+from .common import RagFileParsingConfigAdvancedParserDict
+from .common import RagFileParsingConfigAdvancedParserOrDict
+from .common import RagFileParsingConfigDict
+from .common import RagFileParsingConfigLayoutParser
+from .common import RagFileParsingConfigLayoutParserDict
+from .common import RagFileParsingConfigLayoutParserOrDict
 from .common import RagFileParsingConfigLlmParser
 from .common import RagFileParsingConfigLlmParserDict
 from .common import RagFileParsingConfigLlmParserOrDict
+from .common import RagFileParsingConfigOrDict
+from .common import RagFileTransformationConfig
+from .common import RagFileTransformationConfigDict
+from .common import RagFileTransformationConfigOrDict
 from .common import RagFileType
 from .common import RagManagedDbConfig
 from .common import RagManagedDbConfigBasic
@@ -2731,6 +2785,57 @@ __all__ = [
     "RetrieveContextsResponse",
     "RetrieveContextsResponseDict",
     "RetrieveContextsResponseOrDict",
+    "GetRagConfigOperationConfig",
+    "GetRagConfigOperationConfigDict",
+    "GetRagConfigOperationConfigOrDict",
+    "RagEngineConfigOperation",
+    "RagEngineConfigOperationDict",
+    "RagEngineConfigOperationOrDict",
+    "ImportRagFilesRequestConfig",
+    "ImportRagFilesRequestConfigDict",
+    "ImportRagFilesRequestConfigOrDict",
+    "BigQueryDestination",
+    "BigQueryDestinationDict",
+    "BigQueryDestinationOrDict",
+    "GcsDestination",
+    "GcsDestinationDict",
+    "GcsDestinationOrDict",
+    "RagFileChunkingConfigFixedLengthChunking",
+    "RagFileChunkingConfigFixedLengthChunkingDict",
+    "RagFileChunkingConfigFixedLengthChunkingOrDict",
+    "RagFileChunkingConfig",
+    "RagFileChunkingConfigDict",
+    "RagFileChunkingConfigOrDict",
+    "RagFileMetadataConfig",
+    "RagFileMetadataConfigDict",
+    "RagFileMetadataConfigOrDict",
+    "RagFileParsingConfigAdvancedParser",
+    "RagFileParsingConfigAdvancedParserDict",
+    "RagFileParsingConfigAdvancedParserOrDict",
+    "RagFileParsingConfigLayoutParser",
+    "RagFileParsingConfigLayoutParserDict",
+    "RagFileParsingConfigLayoutParserOrDict",
+    "RagFileParsingConfig",
+    "RagFileParsingConfigDict",
+    "RagFileParsingConfigOrDict",
+    "RagFileTransformationConfig",
+    "RagFileTransformationConfigDict",
+    "RagFileTransformationConfigOrDict",
+    "ImportRagFilesConfig",
+    "ImportRagFilesConfigDict",
+    "ImportRagFilesConfigOrDict",
+    "ImportRagFilesRequest",
+    "ImportRagFilesRequestDict",
+    "ImportRagFilesRequestOrDict",
+    "ImportRagFilesResponse",
+    "ImportRagFilesResponseDict",
+    "ImportRagFilesResponseOrDict",
+    "ImportRagFilesOperation",
+    "ImportRagFilesOperationDict",
+    "ImportRagFilesOperationOrDict",
+    "GetImportFilesOperationConfig",
+    "GetImportFilesOperationConfigDict",
+    "GetImportFilesOperationConfigOrDict",
     "GetAgentEngineRuntimeRevisionConfig",
     "GetAgentEngineRuntimeRevisionConfigDict",
     "GetAgentEngineRuntimeRevisionConfigOrDict",
@@ -3334,6 +3439,9 @@ __all__ = [
     "_DeleteRagFileRequestParameters",
     "_UpdateRagConfigRequestParameters",
     "_RetrieveRagContextsRequestParameters",
+    "_GetRagConfigOperationParameters",
+    "_ImportRagFilesRequestParameters",
+    "_GetImportFilesOperationParameters",
     "_GetAgentEngineRuntimeRevisionRequestParameters",
     "_ListAgentEngineRuntimeRevisionsRequestParameters",
     "_DeleteAgentEngineRuntimeRevisionRequestParameters",

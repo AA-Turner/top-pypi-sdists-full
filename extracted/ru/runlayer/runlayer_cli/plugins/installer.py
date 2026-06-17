@@ -22,6 +22,7 @@ from pydantic import BaseModel, ValidationError
 
 from runlayer_cli.api import (
     API_KEY_HEADER_NAME,
+    ListFilter,
     PluginDetail,
     RunlayerClient,
     SkillDetail,
@@ -94,9 +95,13 @@ class PluginUpdateResult(BaseModel):
 
 
 class PluginInstallerClient(Protocol):
-    def list_all_plugins(self, *, mine_only: bool) -> list[PluginDetail]: ...
-
-    def list_plugins_by_namespace(self, namespace: str) -> list[PluginDetail]: ...
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: ListFilter = "created_by_me",
+        query: str | None = None,
+    ) -> list[PluginDetail]: ...
 
     def get_plugin(self, plugin_id: str) -> PluginDetail: ...
 
@@ -1123,7 +1128,7 @@ async def install_plugins(
     plugins: list[PluginDetail] = []
     if install_all:
         all_plugins = await anyio.to_thread.run_sync(
-            partial(client.list_all_plugins, mine_only=False)
+            partial(client.list_plugins_detailed, filter="all")
         )
         if plugin_name:
             matched = [p for p in all_plugins if p.name == plugin_name]
@@ -1151,7 +1156,7 @@ async def install_plugins(
         else:
             namespace = source
             all_ns = await anyio.to_thread.run_sync(
-                partial(client.list_plugins_by_namespace, namespace)
+                partial(client.list_plugins_detailed, namespace)
             )
             if plugin_name:
                 matched = [p for p in all_ns if p.name == plugin_name]

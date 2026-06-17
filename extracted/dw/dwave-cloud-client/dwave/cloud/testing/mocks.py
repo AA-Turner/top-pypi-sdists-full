@@ -161,7 +161,7 @@ def qpu_chimera_solver_data(m: int,
     Args:
         m:
             Number of rows in the Chimera lattice. See
-            :func:`~dwave_networkx.generators.chimera_graph` for details.
+            :func:`~dwave.graphs.topologies.chimera_graph` for details.
         n:
             Number of columns in the Chimera lattice.
         t:
@@ -170,12 +170,12 @@ def qpu_chimera_solver_data(m: int,
             Solver properties passed down to :meth:`.structured_solver_data`.
     """
     try:
-        import dwave_networkx as dnx
+        import dwave.graphs
     except ImportError:     # pragma: no cover
-        raise RuntimeError("Can't generate Chimera graph without dwave-networkx. "
+        raise RuntimeError("Can't generate Chimera graph without dwave-graphs. "
                            "Install with 'dwave-cloud-client[mocks]'.")
 
-    graph = dnx.chimera_graph(m, n, t)
+    graph = dwave.graphs.chimera_graph(m, n, t)
     # we need generated graph's values, so we can set topology.shape
     m = graph.graph['rows']
     n = graph.graph['columns']
@@ -207,7 +207,7 @@ def qpu_pegasus_solver_data(m: int,
             Size parameter for the Pegasus lattice.
         fabric_only:
             Use only nodes from the largest Pegasus graph component. See
-            :func:`~dwave_networkx.generators.pegasus_graph` for details.
+            :func:`~dwave.graphs.topologies.pegasus_graph` for details.
         **kwargs:
             Solver properties passed down to :meth:`.structured_solver_data`.
 
@@ -217,12 +217,12 @@ def qpu_pegasus_solver_data(m: int,
         num_qubits.
     """
     try:
-        import dwave_networkx as dnx
+        import dwave.graphs
     except ImportError:     # pragma: no cover
-        raise RuntimeError("Can't generate Pegasus graph without dwave-networkx. "
+        raise RuntimeError("Can't generate Pegasus graph without dwave-graphs. "
                            "Install with 'dwave-cloud-client[mocks]'.")
 
-    graph = dnx.pegasus_graph(m, fabric_only=fabric_only)
+    graph = dwave.graphs.pegasus_graph(m, fabric_only=fabric_only)
     qubits = sorted(list(graph.nodes))
     couplers = sorted(map(sorted, graph.edges))
     num_qubits = 24 * m * (m-1)     # includes non-fabric qubits
@@ -255,12 +255,12 @@ def qpu_zephyr_solver_data(m: int,
             Solver properties passed down to :meth:`.structured_solver_data`.
     """
     try:
-        import dwave_networkx as dnx
+        import dwave.graphs
     except ImportError:     # pragma: no cover
-        raise RuntimeError("Can't generate Zephyr graph without dwave-networkx. "
+        raise RuntimeError("Can't generate Zephyr graph without dwave-graphs. "
                            "Install with 'dwave-cloud-client[mocks]'.")
 
-    graph = dnx.zephyr_graph(m, t)
+    graph = dwave.graphs.zephyr_graph(m, t)
     qubits = sorted(list(graph.nodes))
     couplers = sorted(map(sorted, graph.edges))
     num_qubits = len(qubits)

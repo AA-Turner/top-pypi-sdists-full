@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simpleflow
-Version: 0.34.3
+Version: 0.35.0
 Summary: Python library for dataflow programming with Amazon SWF
 Project-URL: documentation, https://botify-labs.github.io/simpleflow
 Project-URL: repository, https://github.com/botify-labs/simpleflow

@@ -1,4 +1,4 @@
-from typing import Dict, Any, Union, Required, TypedDict, List
+from typing import List, TypedDict, Union, Any, Required, Dict
 
 
 class Profile(TypedDict, total=False):
@@ -27,4 +27,17 @@ class Profile(TypedDict, total=False):
 
     Required property
     """
+
+    attachments: List["_ProfileAttachmentsItem"]
+    """ files related to the profile chunk (e.g. a raw profile), stored in the object store """
+
+
+
+class _ProfileAttachmentsItem(TypedDict, total=False):
+    name: Required[str]
+    """ Required property """
+
+    content_type: str
+    stored_id: Required[str]
+    """ Required property """
 

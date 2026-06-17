@@ -381,7 +381,7 @@ def find(
         api = RunlayerClient(hostname=credentials["host"], secret=credentials["secret"])
         with console.status("Loading plugins..."):
             plugins = sorted(
-                api.list_all_plugins(mine_only=False),
+                api.list_plugins_detailed(filter="all"),
                 key=lambda plugin: (
                     plugin.name.lower(),
                     (plugin.namespace or "").lower(),

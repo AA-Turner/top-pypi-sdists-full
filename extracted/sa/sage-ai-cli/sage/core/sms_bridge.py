@@ -614,6 +614,7 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
             r = subprocess.run(
                 ["osascript", "-e", script],
                 capture_output=True, text=True, timeout=10,
+                stdin=subprocess.DEVNULL,
             )
             return r.returncode == 0, (r.stdout or "").strip() or (r.stderr or "").strip()
         except Exception as exc:
@@ -779,6 +780,7 @@ def _send_macos_sms(recipient: str, text: str) -> bool:
             r = subprocess.run(
                 ["osascript", "-e", script],
                 capture_output=True, text=True, timeout=10,
+                stdin=subprocess.DEVNULL,
             )
             return r.returncode == 0, (r.stdout or "").strip() or (r.stderr or "").strip()
         except Exception as exc:
@@ -839,7 +841,8 @@ def _kdeconnectd_running() -> tuple[bool, str]:
 
     try:
         r = subprocess.run([cli, "--list-available", "--id-only"],
-                           capture_output=True, text=True, timeout=5)
+                           capture_output=True, text=True, timeout=5,
+                           stdin=subprocess.DEVNULL)
         import re
         devices = []
         for line in (r.stdout or "").splitlines():
@@ -940,6 +943,7 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
         result = subprocess.run(
             [cli, "--list-available", "--id-only"],
             capture_output=True, text=True, timeout=5,
+            stdin=subprocess.DEVNULL,
         )
         
         # Robustly parse device IDs (supports standard format, list format, and lines with bullet decorators)
@@ -974,6 +978,7 @@ def _send_via_kdeconnect(phone_number: str, text: str) -> bool:
                  "--destination", phone_number,
                  "-d", device_id],
                 capture_output=True, text=True, timeout=10,
+                stdin=subprocess.DEVNULL,
             )
             if send_result.returncode == 0:
                 sent_any = True
@@ -1128,6 +1133,7 @@ def _share_via_kdeconnect(file_path: str) -> bool:
         result = subprocess.run(
             [cli, "--list-available", "--id-only"],
             capture_output=True, text=True, timeout=5,
+            stdin=subprocess.DEVNULL,
         )
         devices = []
         for line in (result.stdout or "").splitlines():
@@ -1141,6 +1147,7 @@ def _share_via_kdeconnect(file_path: str) -> bool:
         share_result = subprocess.run(
             [cli, "--share", file_path, "-d", device_id],
             capture_output=True, text=True, timeout=15,
+            stdin=subprocess.DEVNULL,
         )
         return share_result.returncode == 0
     except Exception as exc:
@@ -1926,6 +1933,7 @@ class SAGEMessageBridge:
             result = subprocess.run(
                 [sys.executable, "-m", "sage", "models", "--all"],
                 capture_output=True, text=True, timeout=15, env=_clean_env(),
+                stdin=subprocess.DEVNULL,
             )
             raw = result.stdout or ""
         except Exception:
@@ -1933,6 +1941,7 @@ class SAGEMessageBridge:
                 result = subprocess.run(
                     ["sage", "models", "--all"],
                     capture_output=True, text=True, timeout=15, env=_clean_env(),
+                    stdin=subprocess.DEVNULL,
                 )
                 raw = result.stdout or ""
             except Exception:
@@ -2240,6 +2249,7 @@ class SAGEMessageBridge:
             result = subprocess.run(
                 ["ollama", "list"],
                 capture_output=True, text=True, timeout=5,
+                stdin=subprocess.DEVNULL,
             )
             if result.returncode != 0:
                 return False
@@ -2321,6 +2331,7 @@ class SAGEMessageBridge:
                         cmd, 
                         cwd=str(self.working_dir),
                         capture_output=True, text=True, timeout=timeout,
+                        stdin=subprocess.DEVNULL,
                         env={
                             **os.environ, 
                             "PYTHONPATH": os.path.pathsep.join(filter(None, [

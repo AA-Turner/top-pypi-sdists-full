@@ -37,6 +37,11 @@ class ExternalFunctionCatalogServiceStub(object):
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.SerializeToString,
             response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.FromString,
         )
+        self.DeleteExternalFunction = channel.unary_unary(
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunction",
+            request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.SerializeToString,
+            response_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.FromString,
+        )
         self.ListExternalFunctions = channel.unary_unary(
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/ListExternalFunctions",
             request_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.ListExternalFunctionsRequest.SerializeToString,
@@ -81,6 +86,15 @@ class ExternalFunctionCatalogServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteExternalFunction(self, request, context):
+        """Deletes every version of a function: each version's scaling group is torn
+        down and the function schedule is removed, then all version rows are
+        soft-deleted for historical audit.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListExternalFunctions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -121,6 +135,11 @@ def add_ExternalFunctionCatalogServiceServicer_to_server(servicer, server):
             servicer.DeleteExternalFunctionVersion,
             request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.FromString,
             response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.SerializeToString,
+        ),
+        "DeleteExternalFunction": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteExternalFunction,
+            request_deserializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.FromString,
+            response_serializer=chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.SerializeToString,
         ),
         "ListExternalFunctions": grpc.unary_unary_rpc_method_handler(
             servicer.ListExternalFunctions,
@@ -254,6 +273,35 @@ class ExternalFunctionCatalogService(object):
             "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunctionVersion",
             chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionRequest.SerializeToString,
             chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionVersionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteExternalFunction(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.externalfunctioncatalog.v1.ExternalFunctionCatalogService/DeleteExternalFunction",
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionRequest.SerializeToString,
+            chalk_dot_externalfunctioncatalog_dot_v1_dot_service__pb2.DeleteExternalFunctionResponse.FromString,
             options,
             channel_credentials,
             insecure,

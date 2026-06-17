@@ -62,9 +62,7 @@ def test_add_all_works_without_source(tmp_path: Path):
 
 
 @pytest.mark.parametrize("client_name", ["vscode", "goose"])
-def test_add_accepts_supported_native_skill_client(
-    tmp_path: Path, client_name: str
-):
+def test_add_accepts_supported_native_skill_client(tmp_path: Path, client_name: str):
     install_mock = AsyncMock(return_value=InstallResult(installed=["a"]))
     with (
         patch(
@@ -147,7 +145,7 @@ def test_skills_find_installs_selected_skills_for_multiple_clients(
         patch("runlayer_cli.commands.skills.confirm_install"),
         patch("runlayer_cli.commands.skills.console.status") as status_mock,
     ):
-        client_class.return_value.list_all_skills.return_value = [
+        client_class.return_value.list_skills.return_value = [
             selected_skill,
             selected_skill_two,
         ]
@@ -155,7 +153,7 @@ def test_skills_find_installs_selected_skills_for_multiple_clients(
 
     assert result.exit_code == 0
     status_mock.assert_called_once_with("Loading skills...")
-    client_class.return_value.list_all_skills.assert_called_once_with(mine_only=False)
+    client_class.return_value.list_skills.assert_called_once_with(filter="all")
     assert resolve_dirs_mock.call_count == 2
     assert resolve_dirs_mock.call_args_list[0].args[0] == "cursor"
     assert resolve_dirs_mock.call_args_list[1].args[0] == "vscode"
@@ -183,7 +181,7 @@ def test_skills_find_handles_empty_catalog(tmp_path: Path) -> None:
         ),
         patch("runlayer_cli.commands.skills.RunlayerClient") as client_class,
     ):
-        client_class.return_value.list_all_skills.return_value = []
+        client_class.return_value.list_skills.return_value = []
         result = runner.invoke(app, ["skills", "find"])
 
     assert result.exit_code == 0
@@ -230,7 +228,7 @@ def test_skills_find_cancelled_before_install(tmp_path: Path) -> None:
             side_effect=typer.Exit(0),
         ),
     ):
-        client_class.return_value.list_all_skills.return_value = [selected_skill]
+        client_class.return_value.list_skills.return_value = [selected_skill]
         result = runner.invoke(app, ["skills", "find"])
 
     assert result.exit_code == 0

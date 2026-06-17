@@ -6,6 +6,22 @@ from unittest.mock import patch
 
 import pytest
 
+from runlayer_cli.runtime import reset_aiwatch_runtime
+
+
+@pytest.fixture(autouse=True)
+def _reset_aiwatch_runtime():
+    """Clear the aiwatch runtime flag around every test.
+
+    ``runtime.mark_aiwatch_runtime`` sets a process-global flag at the aiwatch
+    entrypoints. Any test that drives ``aiwatch.main`` / ``hook.__main__.main``
+    in-process would otherwise leak the flag into later tests and flip
+    ``config.load_config``/``save_config`` behavior.
+    """
+    reset_aiwatch_runtime()
+    yield
+    reset_aiwatch_runtime()
+
 
 @pytest.fixture(autouse=True)
 def _default_managed_config():

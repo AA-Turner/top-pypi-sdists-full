@@ -1058,7 +1058,7 @@ class main_menu(TUIMenu):
 
         class gap_model(TUIMenu):
             """
-            Enter the narrow-gaps menu.
+            No help available.
             """
             def __init__(self, service, version, mode, path):
                 self.advanced_options = self.__class__.advanced_options(service, version, mode, path + ["advanced_options"])
@@ -1074,44 +1074,44 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create a gap object.
+                No help available.
                 """
             class delete(TUIMethod):
                 """
-                Delete an exiting gap object.
+                No help available.
                 """
             class delete_all(TUIMethod):
                 """
-                Delete all of the exiting gap objects.
+                No help available.
                 """
             class edit(TUIMethod):
                 """
-                Edit an exiting gap object.
+                No help available.
                 """
             class enable(TUIMethod):
                 """
-                Enable/Disable gap model.
+                No help available.
                 """
             class list_gap_cell_zones(TUIMethod):
                 """
-                List name of the gap cells zones that can be used as exclided cell zones in gaps creation.
+                No help available.
                 """
             class list_gap_face_zones(TUIMethod):
                 """
-                List name of the gap face zones that can be used for gaps creation.
+                No help available.
                 """
             class list_gap_regions(TUIMethod):
                 """
-                List gap regions.
+                No help available.
                 """
             class render_gap_regions(TUIMethod):
                 """
-                Update gap regions for postprocessing.
+                No help available.
                 """
 
             class advanced_options(TUIMenu):
                 """
-                Show options.
+                No help available.
                 """
                 def __init__(self, service, version, mode, path):
                     self.alternative_marking = self.__class__.alternative_marking(service, version, mode, path + ["alternative_marking"])
@@ -1136,79 +1136,79 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class alternative_marking(TUIMethod):
                     """
-                    Mark gap regions using an alternative marking algorithm.
+                    No help available.
                     """
                 class cell_check_distance_factor(TUIMethod):
                     """
-                    Enter value of the cell distance factor.
+                    No help available.
                     """
                 class check_cfl_condition(TUIMethod):
                     """
-                    Check time step size for better convergence.
+                    No help available.
                     """
                 class clear_gap_regions(TUIMethod):
                     """
-                    Clear gap model solution information and marks.
+                    No help available.
                     """
                 class enhanced_data_interpolation(TUIMethod):
                     """
-                    Use enhanced data interpolation for updating information in gap regions.
+                    No help available.
                     """
                 class expert(TUIMethod):
                     """
-                    Enable expert options for gap model.
+                    No help available.
                     """
                 class extend_gap_regions(TUIMethod):
                     """
-                    Extend gap regions for better convergence.
+                    No help available.
                     """
                 class fill_data_in_gap_regions(TUIMethod):
                     """
-                    Interpolate solution data into the whole gap regions.
+                    No help available.
                     """
                 class flow_blocking_stabilization_parameters(TUIMethod):
                     """
-                    Adjust stabilization settings for the sponge layer used for blocked gap regions.
+                    No help available.
                     """
                 class include_coupled_walls(TUIMethod):
                     """
-                    Include coupled walls in gap face zones.
+                    No help available.
                     """
                 class precise_gap_marking(TUIMethod):
                     """
-                    Mark cells in gap regions using more accurate search algorithm.
+                    No help available.
                     """
                 class reduce_gap_regions(TUIMethod):
                     """
-                    Using a more restrictive algorithm for marking cells in gap regions.
+                    No help available.
                     """
                 class render_flow_modeling_gaps(TUIMethod):
                     """
-                    Render solution inside flow modeling gap cells.
+                    No help available.
                     """
                 class render_gap_interface(TUIMethod):
                     """
-                    Render gap interface.
+                    No help available.
                     """
                 class revert_controls_to_default(TUIMethod):
                     """
-                    Revert gap stabilization and any related solver settings to default.
+                    No help available.
                     """
                 class solution_stabilization(TUIMethod):
                     """
-                    Set solution stabilization level for gap model.
+                    No help available.
                     """
                 class sponge_layer(TUIMethod):
                     """
-                    Set advanced settings for gap sponge layer.
+                    No help available.
                     """
                 class update_gap_regions(TUIMethod):
                     """
-                    Update gap regions and gap model solution information.
+                    No help available.
                     """
                 class verbosity(TUIMethod):
                     """
-                    Set the verbosity for gap model.
+                    No help available.
                     """
 
         class materials(TUIMenu):
@@ -2511,7 +2511,7 @@ class main_menu(TUIMenu):
                         """
                     class min_vf_threshold_for_dpm_src_scaling(TUIMethod):
                         """
-                        Minimum DPM volume fraction below which no DPM source scaling is applied.
+                        No help available.
                         """
                     class replace_dpm_mass_source_by_mixture_fraction(TUIMethod):
                         """
@@ -10352,7 +10352,6 @@ class main_menu(TUIMenu):
                 self.general_turbo_interface_settings = self.__class__.general_turbo_interface_settings(service, version, mode, path + ["general_turbo_interface_settings"])
                 self.generalized_forces = self.__class__.generalized_forces(service, version, mode, path + ["generalized_forces"])
                 self.legacy_models = self.__class__.legacy_models(service, version, mode, path + ["legacy_models"])
-                self.turbo_description = self.__class__.turbo_description(service, version, mode, path + ["turbo_description"])
                 self.turbo_topology = self.__class__.turbo_topology(service, version, mode, path + ["turbo_topology"])
                 self.append_graphics_spectral_content = self.__class__.append_graphics_spectral_content(service, version, mode, path + ["append_graphics_spectral_content"])
                 self.append_phaselag_spectral_content = self.__class__.append_phaselag_spectral_content(service, version, mode, path + ["append_phaselag_spectral_content"])
@@ -10405,7 +10404,7 @@ class main_menu(TUIMenu):
                 """
             class delete_graphics_spectral_content(TUIMethod):
                 """
-                Delete post-processing related spectral content.
+                No help available.
                 """
             class delete_phaselag_spectral_content(TUIMethod):
                 """
@@ -10413,7 +10412,7 @@ class main_menu(TUIMenu):
                 """
             class delete_turbomachine_description(TUIMethod):
                 """
-                Delete turbomachine description.
+                No help available.
                 """
             class enable_turbo_model(TUIMethod):
                 """
@@ -10425,19 +10424,19 @@ class main_menu(TUIMenu):
                 """
             class graphics_extra_settings(TUIMethod):
                 """
-                Define phaselag related extra settings.
+                No help available.
                 """
             class list_graphics_spectral_content(TUIMethod):
                 """
-                List post-processing related spectral content.
+                No help available.
                 """
             class list_phaselag_state(TUIMethod):
                 """
-                List all phaselag related case settings.
+                No help available.
                 """
             class list_turbomachine_description(TUIMethod):
                 """
-                List turbomachine description.
+                No help available.
                 """
             class make_phaselag_from_boundaries(TUIMethod):
                 """
@@ -10750,76 +10749,6 @@ class main_menu(TUIMenu):
                                 """
                                 Enable/disable verbosity in total-enthalpy conservation calculations.
                                 """
-
-            class turbo_description(TUIMenu):
-                """
-                Enter the Turbomachine Description menu.
-                """
-                def __init__(self, service, version, mode, path):
-                    self.machine = self.__class__.machine(service, version, mode, path + ["machine"])
-                    self.create = self.__class__.create(service, version, mode, path + ["create"])
-                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                    self.list = self.__class__.list(service, version, mode, path + ["list"])
-                    super().__init__(service, version, mode, path)
-                class create(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class delete(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class list(TUIMethod):
-                    """
-                    No help available.
-                    """
-
-                class machine(TUIMenu):
-                    """
-                    No help available.
-                    """
-                    def __init__(self, service, version, mode, path):
-                        self.create = self.__class__.create(service, version, mode, path + ["create"])
-                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
-                        self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
-                        self.list = self.__class__.list(service, version, mode, path + ["list"])
-                        self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
-                        self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
-                        self.new = self.__class__.new(service, version, mode, path + ["new"])
-                        self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
-                        super().__init__(service, version, mode, path)
-                    class create(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class delete(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class edit(TUIMethod):
-                        """
-                        Edit machine object.
-                        """
-                    class list(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class list_properties(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class make_a_copy(TUIMethod):
-                        """
-                        No help available.
-                        """
-                    class new(TUIMethod):
-                        """
-                        Create a new machine object.
-                        """
-                    class rename(TUIMethod):
-                        """
-                        No help available.
-                        """
 
             class turbo_topology(TUIMenu):
                 """
@@ -13733,6 +13662,7 @@ class main_menu(TUIMenu):
                 self.surface_cells = self.__class__.surface_cells(service, version, mode, path + ["surface_cells"])
                 self.transform_surface = self.__class__.transform_surface(service, version, mode, path + ["transform_surface"])
                 self.ungroup_surface = self.__class__.ungroup_surface(service, version, mode, path + ["ungroup_surface"])
+                self.wrapped_solid_region_surface = self.__class__.wrapped_solid_region_surface(service, version, mode, path + ["wrapped_solid_region_surface"])
                 self.zone_surface = self.__class__.zone_surface(service, version, mode, path + ["zone_surface"])
                 super().__init__(service, version, mode, path)
             class body_surface(TUIMethod):
@@ -13918,6 +13848,10 @@ class main_menu(TUIMenu):
             class ungroup_surface(TUIMethod):
                 """
                 Ungroup the surface(if grouped).
+                """
+            class wrapped_solid_region_surface(TUIMethod):
+                """
+                Create wrapped solid region surface.
                 """
             class zone_surface(TUIMethod):
                 """
@@ -17893,6 +17827,7 @@ class main_menu(TUIMenu):
                 Enter the concurrent design points menu.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.remote_post_processing = self.__class__.remote_post_processing(service, version, mode, path + ["remote_post_processing"])
                     self.abort_all_design_points = self.__class__.abort_all_design_points(service, version, mode, path + ["abort_all_design_points"])
                     self.abort_design_point = self.__class__.abort_design_point(service, version, mode, path + ["abort_design_point"])
                     self.connect_to_web_ui = self.__class__.connect_to_web_ui(service, version, mode, path + ["connect_to_web_ui"])
@@ -17929,6 +17864,166 @@ class main_menu(TUIMenu):
                     """
                     Refresh Status.
                     """
+
+                class remote_post_processing(TUIMenu):
+                    """
+                    Enter Remote Post-Processing menu.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.job_settings = self.__class__.job_settings(service, version, mode, path + ["job_settings"])
+                        self.get_list_of_associated_input_files = self.__class__.get_list_of_associated_input_files(service, version, mode, path + ["get_list_of_associated_input_files"])
+                        self.get_list_of_case_files = self.__class__.get_list_of_case_files(service, version, mode, path + ["get_list_of_case_files"])
+                        self.get_list_of_data_files = self.__class__.get_list_of_data_files(service, version, mode, path + ["get_list_of_data_files"])
+                        self.get_list_of_generated_files = self.__class__.get_list_of_generated_files(service, version, mode, path + ["get_list_of_generated_files"])
+                        self.submit_job = self.__class__.submit_job(service, version, mode, path + ["submit_job"])
+                        super().__init__(service, version, mode, path)
+                    class get_list_of_associated_input_files(TUIMethod):
+                        """
+                        Get list of associated input files for the design point.
+                        """
+                    class get_list_of_case_files(TUIMethod):
+                        """
+                        Get list of case files for the design point.
+                        """
+                    class get_list_of_data_files(TUIMethod):
+                        """
+                        Get list of data files for the design point.
+                        """
+                    class get_list_of_generated_files(TUIMethod):
+                        """
+                        Get list of generated files for the design point.
+                        """
+                    class submit_job(TUIMethod):
+                        """
+                        Submit a remote post-processing job for the design point.
+                        """
+
+                    class job_settings(TUIMenu):
+                        """
+                        No help available.
+                        """
+                        def __init__(self, service, version, mode, path):
+                            self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                            self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
+                            self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
+                            self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
+                            self.custom_journal_path = self.__class__.custom_journal_path(service, version, mode, path + ["custom_journal_path"])
+                            self.email_id = self.__class__.email_id(service, version, mode, path + ["email_id"])
+                            self.exclusive = self.__class__.exclusive(service, version, mode, path + ["exclusive"])
+                            self.file_types_to_monitor = self.__class__.file_types_to_monitor(service, version, mode, path + ["file_types_to_monitor"])
+                            self.idle_timeout = self.__class__.idle_timeout(service, version, mode, path + ["idle_timeout"])
+                            self.interconnect_type = self.__class__.interconnect_type(service, version, mode, path + ["interconnect_type"])
+                            self.keep_all_output_files = self.__class__.keep_all_output_files(service, version, mode, path + ["keep_all_output_files"])
+                            self.keep_specific_output_files = self.__class__.keep_specific_output_files(service, version, mode, path + ["keep_specific_output_files"])
+                            self.launch_web_server = self.__class__.launch_web_server(service, version, mode, path + ["launch_web_server"])
+                            self.list_of_output_files = self.__class__.list_of_output_files(service, version, mode, path + ["list_of_output_files"])
+                            self.maximum_execution_time = self.__class__.maximum_execution_time(service, version, mode, path + ["maximum_execution_time"])
+                            self.mpi_type = self.__class__.mpi_type(service, version, mode, path + ["mpi_type"])
+                            self.number_of_gpus_per_node = self.__class__.number_of_gpus_per_node(service, version, mode, path + ["number_of_gpus_per_node"])
+                            self.number_of_processes = self.__class__.number_of_processes(service, version, mode, path + ["number_of_processes"])
+                            self.number_of_processes_per_node = self.__class__.number_of_processes_per_node(service, version, mode, path + ["number_of_processes_per_node"])
+                            self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
+                            self.use_custom_journal = self.__class__.use_custom_journal(service, version, mode, path + ["use_custom_journal"])
+                            self.use_default_journal = self.__class__.use_default_journal(service, version, mode, path + ["use_default_journal"])
+                            self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
+                            self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
+                            super().__init__(service, version, mode, path)
+                        class additional_arguments(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class advanced_gpu_setup(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class capability(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class current_queue(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class custom_journal_path(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class email_id(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class exclusive(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class file_types_to_monitor(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class idle_timeout(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class interconnect_type(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class keep_all_output_files(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class keep_specific_output_files(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class launch_web_server(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class list_of_output_files(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class maximum_execution_time(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class mpi_type(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class number_of_gpus_per_node(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class number_of_processes(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class number_of_processes_per_node(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class total_number_of_gpus(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class use_custom_journal(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class use_default_journal(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class use_gpu_solver(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class web_server_token(TUIMethod):
+                            """
+                            No help available.
+                            """
 
             class print_to_console(TUIMenu):
                 """
@@ -18209,6 +18304,8 @@ class main_menu(TUIMenu):
                     Print to console concurrent options.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                        self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
                         self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
                         self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
                         self.exclusive = self.__class__.exclusive(service, version, mode, path + ["exclusive"])
@@ -18223,9 +18320,18 @@ class main_menu(TUIMenu):
                         self.output_files_to_keep = self.__class__.output_files_to_keep(service, version, mode, path + ["output_files_to_keep"])
                         self.precision = self.__class__.precision(service, version, mode, path + ["precision"])
                         self.remote_project_name = self.__class__.remote_project_name(service, version, mode, path + ["remote_project_name"])
+                        self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
                         self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                         self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                         super().__init__(service, version, mode, path)
+                    class additional_arguments(TUIMethod):
+                        """
+                        Print the Additional Arguments.
+                        """
+                    class advanced_gpu_setup(TUIMethod):
+                        """
+                        Print state of Advanced GPU Setup option.
+                        """
                     class capability(TUIMethod):
                         """
                         Print the Capability.
@@ -18282,6 +18388,10 @@ class main_menu(TUIMenu):
                         """
                         Print the Remote Project Name.
                         """
+                    class total_number_of_gpus(TUIMethod):
+                        """
+                        Print the Total Number of GPUs.
+                        """
                     class use_gpu_solver(TUIMethod):
                         """
                         Get state of Use Native GPU Solver option.
@@ -18296,6 +18406,8 @@ class main_menu(TUIMenu):
                     Set concurrent update options.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                        self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
                         self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
                         self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
                         self.exclusive = self.__class__.exclusive(service, version, mode, path + ["exclusive"])
@@ -18310,9 +18422,18 @@ class main_menu(TUIMenu):
                         self.precision = self.__class__.precision(service, version, mode, path + ["precision"])
                         self.remote_project_name = self.__class__.remote_project_name(service, version, mode, path + ["remote_project_name"])
                         self.specify_output_files = self.__class__.specify_output_files(service, version, mode, path + ["specify_output_files"])
+                        self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
                         self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                         self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                         super().__init__(service, version, mode, path)
+                    class additional_arguments(TUIMethod):
+                        """
+                        Set the Additional Arguments.
+                        """
+                    class advanced_gpu_setup(TUIMethod):
+                        """
+                        Set the Advanced GPU Setup.
+                        """
                     class capability(TUIMethod):
                         """
                         Set the Capability.
@@ -18368,6 +18489,10 @@ class main_menu(TUIMenu):
                     class specify_output_files(TUIMethod):
                         """
                         Specify the output files to keep.
+                        """
+                    class total_number_of_gpus(TUIMethod):
+                        """
+                        Set the Total Number of GPUs.
                         """
                     class use_gpu_solver(TUIMethod):
                         """
@@ -28848,6 +28973,7 @@ class main_menu(TUIMenu):
                 self.sphere_slice = self.__class__.sphere_slice(service, version, mode, path + ["sphere_slice"])
                 self.surface_cells = self.__class__.surface_cells(service, version, mode, path + ["surface_cells"])
                 self.transform_surface = self.__class__.transform_surface(service, version, mode, path + ["transform_surface"])
+                self.wrapped_solid_region_surface = self.__class__.wrapped_solid_region_surface(service, version, mode, path + ["wrapped_solid_region_surface"])
                 self.zone_surface = self.__class__.zone_surface(service, version, mode, path + ["zone_surface"])
                 self.create_group_surfaces = self.__class__.create_group_surfaces(service, version, mode, path + ["create_group_surfaces"])
                 self.create_multiple_iso_surfaces = self.__class__.create_multiple_iso_surfaces(service, version, mode, path + ["create_multiple_iso_surfaces"])
@@ -29612,6 +29738,48 @@ class main_menu(TUIMenu):
                 class edit(TUIMethod):
                     """
                     Edit transform-surface object.
+                    """
+                class list(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class list_properties(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class make_a_copy(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class rename(TUIMethod):
+                    """
+                    No help available.
+                    """
+
+            class wrapped_solid_region_surface(TUIMenu):
+                """
+                No help available.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.create = self.__class__.create(service, version, mode, path + ["create"])
+                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                    self.edit = self.__class__.edit(service, version, mode, path + ["edit"])
+                    self.list = self.__class__.list(service, version, mode, path + ["list"])
+                    self.list_properties = self.__class__.list_properties(service, version, mode, path + ["list_properties"])
+                    self.make_a_copy = self.__class__.make_a_copy(service, version, mode, path + ["make_a_copy"])
+                    self.rename = self.__class__.rename(service, version, mode, path + ["rename"])
+                    super().__init__(service, version, mode, path)
+                class create(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class delete(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class edit(TUIMethod):
+                    """
+                    Edit wrapped-solid-region-surface object.
                     """
                 class list(TUIMethod):
                     """
@@ -37567,6 +37735,8 @@ class main_menu(TUIMenu):
                             No help available.
                             """
                             def __init__(self, service, version, mode, path):
+                                self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                                self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
                                 self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
                                 self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
                                 self.custom_journal_path = self.__class__.custom_journal_path(service, version, mode, path + ["custom_journal_path"])
@@ -37577,17 +37747,27 @@ class main_menu(TUIMenu):
                                 self.interconnect_type = self.__class__.interconnect_type(service, version, mode, path + ["interconnect_type"])
                                 self.keep_all_output_files = self.__class__.keep_all_output_files(service, version, mode, path + ["keep_all_output_files"])
                                 self.keep_specific_output_files = self.__class__.keep_specific_output_files(service, version, mode, path + ["keep_specific_output_files"])
+                                self.launch_web_server = self.__class__.launch_web_server(service, version, mode, path + ["launch_web_server"])
                                 self.list_of_output_files = self.__class__.list_of_output_files(service, version, mode, path + ["list_of_output_files"])
                                 self.maximum_execution_time = self.__class__.maximum_execution_time(service, version, mode, path + ["maximum_execution_time"])
                                 self.mpi_type = self.__class__.mpi_type(service, version, mode, path + ["mpi_type"])
                                 self.number_of_gpus_per_node = self.__class__.number_of_gpus_per_node(service, version, mode, path + ["number_of_gpus_per_node"])
                                 self.number_of_processes = self.__class__.number_of_processes(service, version, mode, path + ["number_of_processes"])
                                 self.number_of_processes_per_node = self.__class__.number_of_processes_per_node(service, version, mode, path + ["number_of_processes_per_node"])
+                                self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
                                 self.use_custom_journal = self.__class__.use_custom_journal(service, version, mode, path + ["use_custom_journal"])
                                 self.use_default_journal = self.__class__.use_default_journal(service, version, mode, path + ["use_default_journal"])
                                 self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                                 self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                                 super().__init__(service, version, mode, path)
+                            class additional_arguments(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class advanced_gpu_setup(TUIMethod):
+                                """
+                                No help available.
+                                """
                             class capability(TUIMethod):
                                 """
                                 No help available.
@@ -37628,6 +37808,10 @@ class main_menu(TUIMenu):
                                 """
                                 No help available.
                                 """
+                            class launch_web_server(TUIMethod):
+                                """
+                                No help available.
+                                """
                             class list_of_output_files(TUIMethod):
                                 """
                                 No help available.
@@ -37649,6 +37833,10 @@ class main_menu(TUIMenu):
                                 No help available.
                                 """
                             class number_of_processes_per_node(TUIMethod):
+                                """
+                                No help available.
+                                """
+                            class total_number_of_gpus(TUIMethod):
                                 """
                                 No help available.
                                 """
@@ -37674,6 +37862,8 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                     def __init__(self, service, version, mode, path):
+                        self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                        self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
                         self.auto_generate_simulation_report = self.__class__.auto_generate_simulation_report(service, version, mode, path + ["auto_generate_simulation_report"])
                         self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
                         self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
@@ -37697,6 +37887,7 @@ class main_menu(TUIMenu):
                         self.precision = self.__class__.precision(service, version, mode, path + ["precision"])
                         self.save_case_file_before_upload = self.__class__.save_case_file_before_upload(service, version, mode, path + ["save_case_file_before_upload"])
                         self.save_data_file_before_upload = self.__class__.save_data_file_before_upload(service, version, mode, path + ["save_data_file_before_upload"])
+                        self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
                         self.upload_all_files_from_working_directory = self.__class__.upload_all_files_from_working_directory(service, version, mode, path + ["upload_all_files_from_working_directory"])
                         self.upload_associated_files_only = self.__class__.upload_associated_files_only(service, version, mode, path + ["upload_associated_files_only"])
                         self.upload_data_file = self.__class__.upload_data_file(service, version, mode, path + ["upload_data_file"])
@@ -37705,6 +37896,14 @@ class main_menu(TUIMenu):
                         self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                         self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                         super().__init__(service, version, mode, path)
+                    class additional_arguments(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class advanced_gpu_setup(TUIMethod):
+                        """
+                        No help available.
+                        """
                     class auto_generate_simulation_report(TUIMethod):
                         """
                         No help available.
@@ -37794,6 +37993,10 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                     class save_data_file_before_upload(TUIMethod):
+                        """
+                        No help available.
+                        """
+                    class total_number_of_gpus(TUIMethod):
                         """
                         No help available.
                         """
@@ -39709,6 +39912,8 @@ class main_menu(TUIMenu):
                         No help available.
                         """
                         def __init__(self, service, version, mode, path):
+                            self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                            self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
                             self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
                             self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
                             self.custom_journal_path = self.__class__.custom_journal_path(service, version, mode, path + ["custom_journal_path"])
@@ -39719,17 +39924,27 @@ class main_menu(TUIMenu):
                             self.interconnect_type = self.__class__.interconnect_type(service, version, mode, path + ["interconnect_type"])
                             self.keep_all_output_files = self.__class__.keep_all_output_files(service, version, mode, path + ["keep_all_output_files"])
                             self.keep_specific_output_files = self.__class__.keep_specific_output_files(service, version, mode, path + ["keep_specific_output_files"])
+                            self.launch_web_server = self.__class__.launch_web_server(service, version, mode, path + ["launch_web_server"])
                             self.list_of_output_files = self.__class__.list_of_output_files(service, version, mode, path + ["list_of_output_files"])
                             self.maximum_execution_time = self.__class__.maximum_execution_time(service, version, mode, path + ["maximum_execution_time"])
                             self.mpi_type = self.__class__.mpi_type(service, version, mode, path + ["mpi_type"])
                             self.number_of_gpus_per_node = self.__class__.number_of_gpus_per_node(service, version, mode, path + ["number_of_gpus_per_node"])
                             self.number_of_processes = self.__class__.number_of_processes(service, version, mode, path + ["number_of_processes"])
                             self.number_of_processes_per_node = self.__class__.number_of_processes_per_node(service, version, mode, path + ["number_of_processes_per_node"])
+                            self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
                             self.use_custom_journal = self.__class__.use_custom_journal(service, version, mode, path + ["use_custom_journal"])
                             self.use_default_journal = self.__class__.use_default_journal(service, version, mode, path + ["use_default_journal"])
                             self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                             self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                             super().__init__(service, version, mode, path)
+                        class additional_arguments(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class advanced_gpu_setup(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class capability(TUIMethod):
                             """
                             No help available.
@@ -39770,6 +39985,10 @@ class main_menu(TUIMenu):
                             """
                             No help available.
                             """
+                        class launch_web_server(TUIMethod):
+                            """
+                            No help available.
+                            """
                         class list_of_output_files(TUIMethod):
                             """
                             No help available.
@@ -39791,6 +40010,10 @@ class main_menu(TUIMenu):
                             No help available.
                             """
                         class number_of_processes_per_node(TUIMethod):
+                            """
+                            No help available.
+                            """
+                        class total_number_of_gpus(TUIMethod):
                             """
                             No help available.
                             """
@@ -39816,6 +40039,8 @@ class main_menu(TUIMenu):
                 No help available.
                 """
                 def __init__(self, service, version, mode, path):
+                    self.additional_arguments = self.__class__.additional_arguments(service, version, mode, path + ["additional_arguments"])
+                    self.advanced_gpu_setup = self.__class__.advanced_gpu_setup(service, version, mode, path + ["advanced_gpu_setup"])
                     self.auto_generate_simulation_report = self.__class__.auto_generate_simulation_report(service, version, mode, path + ["auto_generate_simulation_report"])
                     self.capability = self.__class__.capability(service, version, mode, path + ["capability"])
                     self.current_queue = self.__class__.current_queue(service, version, mode, path + ["current_queue"])
@@ -39839,6 +40064,7 @@ class main_menu(TUIMenu):
                     self.precision = self.__class__.precision(service, version, mode, path + ["precision"])
                     self.save_case_file_before_upload = self.__class__.save_case_file_before_upload(service, version, mode, path + ["save_case_file_before_upload"])
                     self.save_data_file_before_upload = self.__class__.save_data_file_before_upload(service, version, mode, path + ["save_data_file_before_upload"])
+                    self.total_number_of_gpus = self.__class__.total_number_of_gpus(service, version, mode, path + ["total_number_of_gpus"])
                     self.upload_all_files_from_working_directory = self.__class__.upload_all_files_from_working_directory(service, version, mode, path + ["upload_all_files_from_working_directory"])
                     self.upload_associated_files_only = self.__class__.upload_associated_files_only(service, version, mode, path + ["upload_associated_files_only"])
                     self.upload_data_file = self.__class__.upload_data_file(service, version, mode, path + ["upload_data_file"])
@@ -39847,6 +40073,14 @@ class main_menu(TUIMenu):
                     self.use_gpu_solver = self.__class__.use_gpu_solver(service, version, mode, path + ["use_gpu_solver"])
                     self.web_server_token = self.__class__.web_server_token(service, version, mode, path + ["web_server_token"])
                     super().__init__(service, version, mode, path)
+                class additional_arguments(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class advanced_gpu_setup(TUIMethod):
+                    """
+                    No help available.
+                    """
                 class auto_generate_simulation_report(TUIMethod):
                     """
                     No help available.
@@ -39936,6 +40170,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class save_data_file_before_upload(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class total_number_of_gpus(TUIMethod):
                     """
                     No help available.
                     """
@@ -43222,6 +43460,7 @@ class main_menu(TUIMenu):
             self.surface_cells = self.__class__.surface_cells(service, version, mode, path + ["surface_cells"])
             self.transform_surface = self.__class__.transform_surface(service, version, mode, path + ["transform_surface"])
             self.ungroup_surface = self.__class__.ungroup_surface(service, version, mode, path + ["ungroup_surface"])
+            self.wrapped_solid_region_surface = self.__class__.wrapped_solid_region_surface(service, version, mode, path + ["wrapped_solid_region_surface"])
             self.zone_surface = self.__class__.zone_surface(service, version, mode, path + ["zone_surface"])
             super().__init__(service, version, mode, path)
         class body_surface(TUIMethod):
@@ -43407,6 +43646,10 @@ class main_menu(TUIMenu):
         class ungroup_surface(TUIMethod):
             """
             Ungroup the surface(if grouped).
+            """
+        class wrapped_solid_region_surface(TUIMethod):
+            """
+            Create wrapped solid region surface.
             """
         class zone_surface(TUIMethod):
             """

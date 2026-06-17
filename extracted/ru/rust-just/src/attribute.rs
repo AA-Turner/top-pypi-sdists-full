@@ -12,6 +12,8 @@ use super::*;
 pub(crate) enum Attribute<'src> {
   Android,
   Arg {
+    #[serde(skip)]
+    flag: Option<Token<'src>>,
     help: Option<StringLiteral<'src>>,
     long: Option<StringLiteral<'src>>,
     #[serde(skip)]
@@ -19,7 +21,7 @@ pub(crate) enum Attribute<'src> {
     name: StringLiteral<'src>,
     pattern: Option<Pattern<'src>>,
     short: Option<StringLiteral<'src>>,
-    value: Option<StringLiteral<'src>>,
+    value: Option<Expression<'src>>,
   },
   Confirm(Option<Expression<'src>>),
   Default,
@@ -114,7 +116,7 @@ impl<'src> Attribute<'src> {
     name: Name<'src>,
     discriminant: AttributeDiscriminant,
     arguments: Vec<(Token<'src>, Expression<'src>)>,
-    mut keyword_arguments: BTreeMap<&'src str, (Name<'src>, Option<StringLiteral<'src>>)>,
+    mut keyword_arguments: BTreeMap<&'src str, (Name<'src>, Option<Expression<'src>>)>,
   ) -> CompileResult<'src, Self> {
     let found = arguments.len();
     let range = discriminant.argument_range();
@@ -172,19 +174,22 @@ impl<'src> Attribute<'src> {
 
         let (long, long_key) = keyword_arguments
           .remove("long")
-          .map(|(name, literal)| {
-            if let Some(literal) = literal {
+          .map(|(key, expression)| {
+            if let Some(expression) = expression {
+              let literal = Self::require_string_literal(name, key, expression)?;
               Self::check_option_name(&arg, &literal)?;
               Ok((Some(literal), None))
             } else {
-              Ok((Some(arg.clone()), Some(*name)))
+              Ok((Some(arg.clone()), Some(*key)))
             }
           })
           .transpose()?
           .unwrap_or((None, None));
 
         let short = Self::remove_required(&mut keyword_arguments, "short")?
-          .map(|(_key, literal)| {
+          .map(|(key, expression)| {
+            let literal = Self::require_string_literal(name, key, expression)?;
+
             Self::check_option_name(&arg, &literal)?;
 
             if literal.cooked.chars().count() != 1 {
@@ -200,22 +205,50 @@ impl<'src> Attribute<'src> {
           .transpose()?;
 
         let pattern = Self::remove_required(&mut keyword_arguments, "pattern")?
-          .map(|(_key, literal)| Pattern::new(&literal))
-          .transpose()?;
-
-        let value = Self::remove_required(&mut keyword_arguments, "value")?
-          .map(|(key, literal)| {
-            if long.is_none() && short.is_none() {
-              return Err(key.error(CompileErrorKind::ArgAttributeValueRequiresOption));
-            }
-            Ok(literal)
+          .map(|(key, expression)| {
+            Pattern::new(&Self::require_string_literal(name, key, expression)?)
           })
           .transpose()?;
 
-        let help =
-          Self::remove_required(&mut keyword_arguments, "help")?.map(|(_key, literal)| literal);
+        let value = Self::remove_required(&mut keyword_arguments, "value")?
+          .map(|(key, expression)| {
+            if long.is_none() && short.is_none() {
+              return Err(
+                key.error(CompileErrorKind::ArgAttributeRequiresOption { keyword: "value" }),
+              );
+            }
+            Ok(expression)
+          })
+          .transpose()?;
+
+        let flag = keyword_arguments
+          .remove("flag")
+          .map(|(key, expression)| {
+            if expression.is_some() {
+              return Err(key.error(CompileErrorKind::FlagAttributeTakesNoValue {
+                parameter: arg.cooked.clone(),
+              }));
+            }
+            if long.is_none() && short.is_none() {
+              return Err(
+                key.error(CompileErrorKind::ArgAttributeRequiresOption { keyword: "flag" }),
+              );
+            }
+            if value.is_some() {
+              return Err(key.error(CompileErrorKind::FlagAndValueArgAttribute {
+                parameter: arg.cooked.clone(),
+              }));
+            }
+            Ok(*key)
+          })
+          .transpose()?;
+
+        let help = Self::remove_required(&mut keyword_arguments, "help")?
+          .map(|(key, expression)| Self::require_string_literal(name, key, expression))
+          .transpose()?;
 
         Self::Arg {
+          flag,
           help,
           long,
           long_key,
@@ -272,17 +305,31 @@ impl<'src> Attribute<'src> {
   }
 
   fn remove_required(
-    keyword_arguments: &mut BTreeMap<&'src str, (Name<'src>, Option<StringLiteral<'src>>)>,
+    keyword_arguments: &mut BTreeMap<&'src str, (Name<'src>, Option<Expression<'src>>)>,
     key: &'src str,
-  ) -> CompileResult<'src, Option<(Name<'src>, StringLiteral<'src>)>> {
-    let Some((key, literal)) = keyword_arguments.remove(key) else {
+  ) -> CompileResult<'src, Option<(Name<'src>, Expression<'src>)>> {
+    let Some((key, expression)) = keyword_arguments.remove(key) else {
       return Ok(None);
     };
 
-    let literal =
-      literal.ok_or_else(|| key.error(CompileErrorKind::AttributeKeyMissingValue { key }))?;
+    let expression =
+      expression.ok_or_else(|| key.error(CompileErrorKind::AttributeKeyMissingValue { key }))?;
 
-    Ok(Some((key, literal)))
+    Ok(Some((key, expression)))
+  }
+
+  fn require_string_literal(
+    attribute: Name<'src>,
+    key: Name<'src>,
+    expression: Expression<'src>,
+  ) -> CompileResult<'src, StringLiteral<'src>> {
+    let Expression::StringLiteral { string_literal } = expression else {
+      return Err(key.error(CompileErrorKind::AttributeArgumentExpression {
+        attribute: attribute.lexeme(),
+      }));
+    };
+
+    Ok(string_literal)
   }
 
   pub(crate) fn discriminant(&self) -> AttributeDiscriminant {
@@ -307,9 +354,10 @@ impl Display for Attribute<'_> {
 
     match self {
       Self::Arg {
+        flag,
         help,
         long,
-        long_key: _,
+        long_key,
         name,
         pattern,
         short,
@@ -317,7 +365,9 @@ impl Display for Attribute<'_> {
       } => {
         write!(f, "({name}")?;
 
-        if let Some(long) = long {
+        if long_key.is_some() {
+          write!(f, ", long")?;
+        } else if let Some(long) = long {
           write!(f, ", long={long}")?;
         }
 
@@ -331,6 +381,10 @@ impl Display for Attribute<'_> {
 
         if let Some(value) = value {
           write!(f, ", value={value}")?;
+        }
+
+        if flag.is_some() {
+          write!(f, ", flag")?;
         }
 
         if let Some(help) = help {

@@ -19,6 +19,7 @@ information
 
 """
 import functools
+import importlib.metadata as importlib_metadata
 import inspect
 import json
 import logging
@@ -26,13 +27,6 @@ import os
 import platform
 import socket
 import sys
-
-if sys.version_info[:2] > (3, 9):
-    import importlib.metadata as importlib_metadata
-else:
-    # importlib_metadata for versions <= (3, 9) doesn't have names for distributions
-    import pkg_resources
-
 from io import StringIO
 from urllib.parse import urlparse
 
@@ -333,17 +327,15 @@ def get_env_cloud_details(timeout: int = 1) -> Optional[Any]:
 def get_pip_packages(
     as_tuples: bool = False,
 ) -> Union[List[str], List[Tuple[str, str]]]:
-    if sys.version_info[:2] <= (3, 9):
-        result_tuples = sorted(
-            [(package.key, package.version) for package in pkg_resources.working_set]
-        )
-    else:
-        result_tuples = sorted(
-            [
-                (package.name.lower(), package.version)
-                for package in importlib_metadata.distributions()
-            ]
-        )
+    result_tuples = []
+    for distribution in importlib_metadata.distributions():
+        # `Distribution.name` was only added in Python 3.10, but the "Name"
+        # metadata field is available on all supported versions (3.8+).
+        name = distribution.metadata["Name"]
+        if name is None:
+            continue
+        result_tuples.append((name.lower(), distribution.version))
+    result_tuples = sorted(result_tuples)
 
     if as_tuples:
         return result_tuples

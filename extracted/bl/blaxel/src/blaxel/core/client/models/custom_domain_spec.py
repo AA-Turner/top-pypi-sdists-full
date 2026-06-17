@@ -8,6 +8,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.custom_domain_spec_txt_records import CustomDomainSpecTxtRecords
+    from ..models.custom_domain_subdomain import CustomDomainSubdomain
 
 
 T = TypeVar("T", bound="CustomDomainSpec")
@@ -19,19 +20,25 @@ class CustomDomainSpec:
 
     Attributes:
         cname_records (Union[Unset, str]): CNAME target for the domain
+        fallback_preview_id (Union[Unset, str]): Preview ID to route to when a preview lookup fails on this custom
+            domain Example: my-fallback-preview.
         last_verified_at (Union[Unset, str]): Last verification attempt timestamp
         region (Union[Unset, str]): Region that the custom domain is associated with Example: us-pdx-1.
         status (Union[Unset, CustomDomainSpecStatus]): Current status of the domain (pending, verified, failed) Example:
             verified.
+        subdomains (Union[Unset, list['CustomDomainSubdomain']]): List of subdomains (previews) currently using this
+            custom domain. Only populated on GET /customdomains/{domainName}.
         txt_records (Union[Unset, CustomDomainSpecTxtRecords]): Map of TXT record names to values for domain
             verification
         verification_error (Union[Unset, str]): Error message if verification failed
     """
 
     cname_records: Union[Unset, str] = UNSET
+    fallback_preview_id: Union[Unset, str] = UNSET
     last_verified_at: Union[Unset, str] = UNSET
     region: Union[Unset, str] = UNSET
     status: Union[Unset, CustomDomainSpecStatus] = UNSET
+    subdomains: Union[Unset, list["CustomDomainSubdomain"]] = UNSET
     txt_records: Union[Unset, "CustomDomainSpecTxtRecords"] = UNSET
     verification_error: Union[Unset, str] = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -40,6 +47,8 @@ class CustomDomainSpec:
 
         cname_records = self.cname_records
 
+        fallback_preview_id = self.fallback_preview_id
+
         last_verified_at = self.last_verified_at
 
         region = self.region
@@ -47,6 +56,16 @@ class CustomDomainSpec:
         status: Union[Unset, str] = UNSET
         if not isinstance(self.status, Unset):
             status = self.status.value
+
+        subdomains: Union[Unset, list[dict[str, Any]]] = UNSET
+        if not isinstance(self.subdomains, Unset):
+            subdomains = []
+            for subdomains_item_data in self.subdomains:
+                if type(subdomains_item_data) is dict:
+                    subdomains_item = subdomains_item_data
+                else:
+                    subdomains_item = subdomains_item_data.to_dict()
+                subdomains.append(subdomains_item)
 
         txt_records: Union[Unset, dict[str, Any]] = UNSET
         if (
@@ -65,12 +84,16 @@ class CustomDomainSpec:
         field_dict.update({})
         if cname_records is not UNSET:
             field_dict["cnameRecords"] = cname_records
+        if fallback_preview_id is not UNSET:
+            field_dict["fallbackPreviewId"] = fallback_preview_id
         if last_verified_at is not UNSET:
             field_dict["lastVerifiedAt"] = last_verified_at
         if region is not UNSET:
             field_dict["region"] = region
         if status is not UNSET:
             field_dict["status"] = status
+        if subdomains is not UNSET:
+            field_dict["subdomains"] = subdomains
         if txt_records is not UNSET:
             field_dict["txtRecords"] = txt_records
         if verification_error is not UNSET:
@@ -81,11 +104,14 @@ class CustomDomainSpec:
     @classmethod
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T | None:
         from ..models.custom_domain_spec_txt_records import CustomDomainSpecTxtRecords
+        from ..models.custom_domain_subdomain import CustomDomainSubdomain
 
         if not src_dict:
             return None
         d = src_dict.copy()
         cname_records = d.pop("cnameRecords", d.pop("cname_records", UNSET))
+
+        fallback_preview_id = d.pop("fallbackPreviewId", d.pop("fallback_preview_id", UNSET))
 
         last_verified_at = d.pop("lastVerifiedAt", d.pop("last_verified_at", UNSET))
 
@@ -98,6 +124,13 @@ class CustomDomainSpec:
         else:
             status = CustomDomainSpecStatus(_status)
 
+        subdomains = []
+        _subdomains = d.pop("subdomains", UNSET)
+        for subdomains_item_data in _subdomains or []:
+            subdomains_item = CustomDomainSubdomain.from_dict(subdomains_item_data)
+
+            subdomains.append(subdomains_item)
+
         _txt_records = d.pop("txtRecords", d.pop("txt_records", UNSET))
         txt_records: Union[Unset, CustomDomainSpecTxtRecords]
         if isinstance(_txt_records, Unset):
@@ -109,9 +142,11 @@ class CustomDomainSpec:
 
         custom_domain_spec = cls(
             cname_records=cname_records,
+            fallback_preview_id=fallback_preview_id,
             last_verified_at=last_verified_at,
             region=region,
             status=status,
+            subdomains=subdomains,
             txt_records=txt_records,
             verification_error=verification_error,
         )

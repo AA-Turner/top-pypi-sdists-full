@@ -10,7 +10,9 @@ from .job_list_response import JobListResponse
 from .job_request import JobRequest
 from .job_resource import JobResource
 from .job_response import JobResponse
+from .list_jobs_sort import ListJobsSort
 from .list_meta import ListMeta
+from .list_runs_sort import ListRunsSort
 from .pagination_meta import PaginationMeta
 from .run import Run
 from .run_failure_reason_type_0 import RunFailureReasonType0
@@ -38,7 +40,9 @@ __all__ = (
     "JobRequest",
     "JobResource",
     "JobResponse",
+    "ListJobsSort",
     "ListMeta",
+    "ListRunsSort",
     "PaginationMeta",
     "Run",
     "RunFailureReasonType0",

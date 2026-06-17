@@ -149,6 +149,59 @@ def check_all(
     ]
 
 
+def check_absent_client(
+    client: Client,
+    *,
+    scope: InstallScope = InstallScope.MDM,
+) -> InstalledClient:
+    """Report OK only when no Runlayer hook entries remain for *client*."""
+    if scope == InstallScope.USER:
+        user_dir = client_config_dir(client, InstallScope.USER)
+        if not user_dir.exists():
+            return InstalledClient(client, ClientStatus.OK)
+
+    config_path = config_path_for(client, scope)
+    home = (
+        console_home_anchor(config_path.parent, mdm=True)
+        if scope == InstallScope.MDM and client in CONSOLE_HOME_CLIENTS
+        else None
+    )
+    config_text = maybe_safe_read_text(config_path, home=home)
+    if config_text is None:
+        return InstalledClient(client, ClientStatus.OK)
+
+    try:
+        if client == Client.HERMES:
+            loaded = yaml.safe_load(config_text)
+            existing = loaded if isinstance(loaded, dict) else {}
+        else:
+            existing = read_dict(config_text)
+    except (ValueError, OSError, yaml.YAMLError) as exc:
+        return InstalledClient(client, ClientStatus.DRIFTED, str(exc))
+
+    hooks_section = existing.get("hooks", {})
+    if not isinstance(hooks_section, dict):
+        return InstalledClient(
+            client, ClientStatus.DRIFTED, "hooks section is not a dict"
+        )
+
+    runlayer_entries = list(_iter_runlayer_hooks(client, hooks_section))
+    if runlayer_entries:
+        return InstalledClient(
+            client,
+            ClientStatus.DRIFTED,
+            "Runlayer hook entries present",
+        )
+    return InstalledClient(client, ClientStatus.OK)
+
+
+def check_absent_all(
+    *,
+    scope: InstallScope = InstallScope.MDM,
+) -> list[InstalledClient]:
+    return [check_absent_client(c, scope=scope) for c in iter_supported_clients()]
+
+
 def _iter_runlayer_hooks(client: Client, hooks_section: dict):
     """Yield ``(event_name, command)`` for every Runlayer hook entry.
 

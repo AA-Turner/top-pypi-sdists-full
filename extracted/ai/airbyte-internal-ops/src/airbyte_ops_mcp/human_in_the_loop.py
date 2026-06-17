@@ -35,6 +35,8 @@ HITL_REPO_NAME = "airbyte-ops-mcp"
 HITL_WORKFLOW_FILE = "human-in-the-loop.yml"
 HITL_DEFAULT_BRANCH = "main"
 
+HITL_SLACK_CHANNEL_URL = "https://airbytehq-team.slack.com/archives/C0AEXV81Q7N"
+
 # Slack Block Kit `confirm.text.text` caps at 300 chars; the CI renderer
 # prepends `"> "` (2 chars) as a blockquote prefix.
 APPROVAL_REQUEST_SUMMARY_MAX_LENGTH = 280

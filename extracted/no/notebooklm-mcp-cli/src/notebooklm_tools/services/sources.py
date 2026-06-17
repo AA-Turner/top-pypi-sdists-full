@@ -367,12 +367,14 @@ def add_sources(
 def list_drive_sources(
     client: NotebookLMClient,
     notebook_id: str,
+    skip_freshness: bool = False,
 ) -> DriveListResult:
     """List sources with Drive freshness status.
 
     Args:
         client: Authenticated NotebookLM client
         notebook_id: Notebook UUID
+        skip_freshness: If True, do not make per-source freshness checks
 
     Returns:
         DriveListResult with drive/other sources and counts
@@ -393,7 +395,7 @@ def list_drive_sources(
 
     syncable_ids = [s["id"] for s in sources if s.get("can_sync") and isinstance(s.get("id"), str)]
     freshness_map: dict[str, bool | None] = {}
-    if syncable_ids:
+    if syncable_ids and not skip_freshness:
         with ThreadPoolExecutor(max_workers=_FRESHNESS_MAX_WORKERS) as ex:
             for source_id, is_fresh in ex.map(
                 lambda sid: (sid, _safe_check_freshness(client, sid)),

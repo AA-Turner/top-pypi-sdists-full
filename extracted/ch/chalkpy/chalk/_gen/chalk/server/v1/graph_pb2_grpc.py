@@ -60,6 +60,11 @@ class GraphServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.FromString,
         )
+        self.GetAllOfflineStoreTables = channel.unary_unary(
+            "/chalk.server.v1.GraphService/GetAllOfflineStoreTables",
+            request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetAllOfflineStoreTablesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetAllOfflineStoreTablesResponse.FromString,
+        )
         self.DiffDeployments = channel.unary_unary(
             "/chalk.server.v1.GraphService/DiffDeployments",
             request_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.DiffDeploymentsRequest.SerializeToString,
@@ -136,6 +141,15 @@ class GraphServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetAllOfflineStoreTables(self, request, context):
+        """GetAllOfflineStoreTables returns the offline store table name for every
+        feature and internal version in the deployment. Useful for reverse-mapping
+        a feat_<hash> table name back to its feature.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DiffDeployments(self, request, context):
         """DiffDeployments compares two deployment graphs and returns the diff."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -203,6 +217,11 @@ def add_GraphServiceServicer_to_server(servicer, server):
             servicer.GetOfflineStoreTable,
             request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.SerializeToString,
+        ),
+        "GetAllOfflineStoreTables": grpc.unary_unary_rpc_method_handler(
+            servicer.GetAllOfflineStoreTables,
+            request_deserializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetAllOfflineStoreTablesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_graph__pb2.GetAllOfflineStoreTablesResponse.SerializeToString,
         ),
         "DiffDeployments": grpc.unary_unary_rpc_method_handler(
             servicer.DiffDeployments,
@@ -479,6 +498,35 @@ class GraphService(object):
             "/chalk.server.v1.GraphService/GetOfflineStoreTable",
             chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_graph__pb2.GetOfflineStoreTableResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetAllOfflineStoreTables(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.GraphService/GetAllOfflineStoreTables",
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetAllOfflineStoreTablesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_graph__pb2.GetAllOfflineStoreTablesResponse.FromString,
             options,
             channel_credentials,
             insecure,

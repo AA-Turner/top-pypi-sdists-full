@@ -15,8 +15,8 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 
 from ._legacy_stubs import ErrorDetector, get_error_detector  # legacy autonomous-mode shim
-from .buffer import EventType
 from .client import Aigie
+from .tracing.trace_state import deregister_open_span, register_open_span
 from .trace import TraceContext
 
 # Optional error and drift detection imports
@@ -158,13 +158,57 @@ class AigieCallbackHandler(BaseCallbackHandler):
     # ------------------------------------------------------------------
 
     def _emit_span_create(self, aigie: Any, span_data: dict) -> None:
-        aigie._buffer.add_sync(EventType.SPAN_CREATE, span_data)
+        # A span is built mutably in memory and emitted exactly once (finalized)
+        # by _emit_span_update — no create event is sent. Register a finalize
+        # callable so an unclean shutdown still ships the span as interrupted.
+        span_id = span_data.get("id")
+        if span_id:
+            register_open_span(span_id, lambda: self._finalize_open_payload(span_data))
+
+    @staticmethod
+    def _finalize_open_payload(span_data: dict) -> dict:
+        """Build a finalized payload from a create record for the shutdown drain.
+        Status is overwritten to ``interrupted`` by the registry drain."""
+        end = _utc_now()
+        start_iso = span_data.get("start_time")
+        duration_ns = 0
+        if start_iso:
+            with contextlib.suppress(Exception):
+                duration_ns = int(
+                    (end - datetime.fromisoformat(start_iso)).total_seconds() * 1_000_000_000
+                )
+        return {
+            "id": span_data.get("id"),
+            "trace_id": span_data.get("trace_id"),
+            "parent_id": span_data.get("parent_id"),
+            "name": span_data.get("name"),
+            "type": span_data.get("type"),
+            "input": span_data.get("input"),
+            "metadata": span_data.get("metadata"),
+            "status": "interrupted",
+            "start_time": start_iso,
+            "end_time": end.isoformat(),
+            "duration_ns": duration_ns,
+        }
 
     def _emit_span_update(self, aigie: Any, update_data: dict) -> None:
-        aigie._buffer.add_sync(EventType.SPAN_UPDATE, update_data)
+        span_id = update_data.get("id")
+        if span_id:
+            deregister_open_span(span_id)
+        aigie._buffer.add_sync(update_data)
 
     def _emit_trace_update(self, aigie: Any, update_data: dict) -> None:
-        aigie._buffer.add_sync(EventType.TRACE_UPDATE, update_data)
+        # Trace identity now rides the root span (root.id == trace_id). A
+        # finalization/pause payload (carries ``status``) becomes the root
+        # SPAN_UPDATE; mid-run metadata-only updates (e.g. agent_plan) carried
+        # no wire weight before — TRACE_UPDATE was dropped in transit — so they
+        # are not re-introduced as judgeable spans here.
+        if "status" not in update_data:
+            return
+        root = dict(update_data)
+        root["parent_id"] = None
+        root.setdefault("type", "workflow")
+        aigie._buffer.add_sync(root)
 
     @staticmethod
     def _normalize_run_id(run_id) -> str:
@@ -1738,10 +1782,6 @@ class AigieCallbackHandler(BaseCallbackHandler):
             # Track execution path end
             self._track_span_end(span, "llm", None)
 
-            # Trigger remediation loop for detection and autonomous fixes (non-blocking)
-            self._schedule_remediation(span, span_context, response_contents)
-
-
             # Sync update — stamps end_time now, no async race.
             self._send_span_update(span, run_id, {}, None)
 
@@ -2906,8 +2946,14 @@ class AigieCallbackHandler(BaseCallbackHandler):
         span_data_ctx: dict = {}
 
         if run_id in self._span_contexts:
-            span_data_ctx = self._span_contexts[run_id].get("span_data", {})
+            ctx = self._span_contexts[run_id]
+            span_data_ctx = ctx.get("span_data", {})
             start_time_iso = span_data_ctx.get("start_time")
+            if start_time_iso is None:
+                # Fall back to the ctx-level start datetime when span_data is absent.
+                start_dt = ctx.get("start_time_chain") or ctx.get("start_time")
+                if isinstance(start_dt, datetime):
+                    start_time_iso = start_dt.isoformat()
             if start_time_iso is None:
                 logger.warning("[AIGIE] _send_span_update: missing start_time for span %s", span_id[:8])
             elif start_time_iso:
@@ -3102,7 +3148,15 @@ class AigieCallbackHandler(BaseCallbackHandler):
             span_id = span.id if span and hasattr(span, "id") else None
             if not span_id:
                 continue
+            # Gateway requires start_time: span_data iso stamp, then ctx datetime,
+            # then end_time as a zero-duration last resort.
+            start_iso = ctx.get("span_data", {}).get("start_time")
             start_dt = ctx.get("start_time_chain") or ctx.get("start_time")
+            if start_dt is None and start_iso:
+                with contextlib.suppress(ValueError):
+                    start_dt = datetime.fromisoformat(start_iso)
+            if start_iso is None:
+                start_iso = start_dt.isoformat() if start_dt else end_time.isoformat()
             duration_ns = 0
             if start_dt:
                 duration_ns = int((end_time - start_dt).total_seconds() * 1_000_000_000)
@@ -3112,6 +3166,7 @@ class AigieCallbackHandler(BaseCallbackHandler):
                     "id": span_id,
                     "trace_id": trace_id,
                     "status": status,
+                    "start_time": start_iso,
                     "end_time": end_time.isoformat(),
                     "duration_ns": duration_ns,
                     "metadata": {"pending_cleanup": True},
@@ -3275,66 +3330,6 @@ class AigieCallbackHandler(BaseCallbackHandler):
         except Exception as e:
             logger.debug(f"Failed to add trace update to buffer: {e}")
 
-        # Belt-and-suspenders sync fallback: when the wrapper's generator
-        # finally runs after atexit has already closed the bg_loop, the
-        # buffer.add_sync above queues an event that will never flush — so
-        # the failure-status update gets silently lost. Detect a closed
-        # bg_loop and emit a synchronous PUT directly to /v1/traces/{id} so
-        # at least the terminal status reaches the backend. Uses urllib
-        # (stdlib) rather than httpx — httpx + anyio route through the
-        # running asyncio loop's default executor, which is exactly the
-        # thing that's shut down at atexit time.
-        bg_loop = getattr(aigie, "_bg_loop", None) if aigie else None
-        loop_unusable = bg_loop is None or bg_loop.is_closed() or not bg_loop.is_running()
-        aigie_closing = bool(getattr(aigie, "_closing", False)) if aigie else False
-        async_client = getattr(self.trace, "client", None)
-        api_url = getattr(self.trace, "api_url", None)
-        # Always send sync when there's an error (terminal status that must
-        # not be lost to a buffer/shutdown race) or when the bg_loop is
-        # already gone.
-        should_sync_emit = (
-            (error is not None or loop_unusable or aigie_closing)
-            and async_client
-            and api_url
-        )
-        if should_sync_emit:
-            self._sync_trace_update_fallback(trace_id, update_data, api_url, async_client, error)
-
-    def _sync_trace_update_fallback(
-        self,
-        trace_id: str,
-        update_data: dict,
-        api_url: str,
-        async_client: Any,
-        error: Exception | None,
-    ) -> None:
-        """Emit a synchronous PUT to /v1/traces/{id} via urllib (stdlib).
-
-        Used as a belt-and-suspenders fallback when the bg_loop is gone or
-        closing and the buffer flush may never run.
-        """
-        import logging
-
-        logger = logging.getLogger(__name__)
-        try:
-            import json as _json
-            import urllib.request
-
-            headers = dict(getattr(async_client, "headers", {}) or {})
-            headers.setdefault("Content-Type", "application/json")
-            req = urllib.request.Request(
-                f"{api_url}/v1/traces/{trace_id}",
-                data=_json.dumps(update_data, default=str).encode("utf-8"),
-                headers={str(k): str(v) for k, v in headers.items()},
-                method="PUT",
-            )
-            urllib.request.urlopen(req, timeout=5.0).close()
-            logger.debug(
-                f"Sync-fallback trace update sent: {trace_id[:8]} status={update_data.get('status')}"
-            )
-        except Exception as e:
-            logger.debug(f"Sync fallback trace update failed: {e}")
-
     def _fire_and_forget(self, coro) -> None:
         """Submit a coroutine to the SDK's isolated background loop.
 
@@ -3367,46 +3362,6 @@ class AigieCallbackHandler(BaseCallbackHandler):
             threading.Thread(target=_run_in_thread, daemon=True).start()
         except RuntimeError:
             pass  # process is shutting down — drop the coroutine
-
-    def _schedule_remediation(
-        self,
-        span: Any,
-        span_context: dict,
-        response_contents: list,
-    ) -> None:
-        """Schedule process_span() call through the remediation loop (non-blocking)."""
-        if not self.aigie or not getattr(self.aigie, "_remediation_loop", None):
-            return
-        if not self.trace:
-            return
-
-        input_messages = span_context.get("input_messages", [])
-        if not input_messages:
-            return
-
-        output_content = response_contents[0]["content"] if response_contents else ""
-        span_id = span.id if hasattr(span, "id") else ""
-        trace_id = self.trace.id if hasattr(self.trace, "id") else ""
-        if not span_id or not trace_id:
-            return
-
-        remediation_loop = self.aigie._remediation_loop
-
-        async def _run() -> None:
-            try:
-                await remediation_loop.process_span(
-                    span_id=span_id,
-                    trace_id=trace_id,
-                    input_messages=input_messages,
-                    output_content=output_content,
-                )
-            except Exception as exc:
-                logger.debug(f"Remediation loop error for span {span_id}: {exc}")
-
-        try:
-            self._fire_and_forget(_run())
-        except Exception as exc:
-            logger.debug(f"Failed to schedule remediation for span {span_id}: {exc}")
 
     def _schedule_trace_completion(self, error: Exception | None = None) -> None:
         """Schedule async trace completion from sync callback."""

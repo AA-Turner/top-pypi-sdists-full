@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: together
-Version: 2.16.0
+Version: 2.16.1
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
@@ -15,7 +15,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

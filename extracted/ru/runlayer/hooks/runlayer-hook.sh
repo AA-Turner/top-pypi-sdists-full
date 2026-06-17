@@ -133,8 +133,42 @@ block_output_response() {
     jq -nc --arg r "$reason" '$r'
     exit 0
   fi
+  if [[ "$_CLIENT" == "claude_code" && ( "$_HOOK_EVENT_NAME" == "PostToolUse" || "$_HOOK_EVENT_NAME" == "PostToolUseFailure" ) ]]; then
+    # PostToolUse `decision: block` halts the turn but does NOT hide the tool
+    # result the model already received. `updatedToolOutput` replaces what the
+    # model sees, so blocked content (e.g. exfiltrated data) never reaches it.
+    # PostToolUseFailure shares this path so a failed tool's sensitive output is
+    # redacted too. Emit both: redact via updatedToolOutput (newer Claude Code)
+    # and halt via decision/reason (honored on every version — no regression).
+    jq -nc --arg r "$reason" --arg e "$_HOOK_EVENT_NAME" '{
+      decision: "block",
+      reason: $r,
+      hookSpecificOutput: {
+        hookEventName: $e,
+        updatedToolOutput: ("[Runlayer blocked this tool output] " + $r)
+      }
+    }'
+    exit 0
+  fi
   jq -nc --arg r "$reason" '{decision: "block", reason: $r}'
   exit 0
+}
+
+mask_output_response() {
+  # Non-blocking masking (PII redaction, hidden-ASCII strip): replace what the
+  # model sees with the sanitized output. No decision:block — the call is
+  # allowed, only its output is rewritten. Claude Code PostToolUse only; other
+  # clients fall through unchanged (output passes as before).
+  local masked="$1"
+  if [[ "$_CLIENT" == "claude_code" && ( "$_HOOK_EVENT_NAME" == "PostToolUse" || "$_HOOK_EVENT_NAME" == "PostToolUseFailure" ) ]]; then
+    jq -nc --arg o "$masked" --arg e "$_HOOK_EVENT_NAME" '{
+      hookSpecificOutput: {
+        hookEventName: $e,
+        updatedToolOutput: $o
+      }
+    }'
+    exit 0
+  fi
 }
 
 # Cursor preToolUse: allow with _runlayer_session_id
@@ -480,6 +514,8 @@ _tool_pre_allow_response() {
 TOOL_POST_RESPONSE=""
 TOOL_POST_BLOCK="false"
 TOOL_POST_BLOCK_REASON=""
+TOOL_POST_MODIFIED_OUTPUT=""
+TOOL_POST_HAS_MODIFIED="false"
 
 _tool_post_check() {
   local payload="$1"
@@ -489,6 +525,8 @@ _tool_post_check() {
   TOOL_POST_RESPONSE=""
   TOOL_POST_BLOCK="false"
   TOOL_POST_BLOCK_REASON=""
+  TOOL_POST_MODIFIED_OUTPUT=""
+  TOOL_POST_HAS_MODIFIED="false"
 
   tool_name=$(echo "$payload" | jq -r '.tool_name // empty' 2>/dev/null) || true
   request=$(_tool_lifecycle_request "$payload" "$tool_name" "$event_name") || {
@@ -526,6 +564,13 @@ _tool_post_check() {
       // (.scan_results[]? | select((.scan_action // "") == "block") | (.reason // .error))
       // "Tool output blocked by organization policy"
     ' 2>/dev/null) || TOOL_POST_BLOCK_REASON="Tool output blocked by organization policy"
+  fi
+
+  if [[ "$TOOL_POST_BLOCK" != "true" ]] && echo "$response" | jq -e '.modified_output != null' >/dev/null 2>&1; then
+    # Presence check (not -n): an intentional mask to "" must still redact,
+    # otherwise the raw output would pass through unmasked.
+    TOOL_POST_HAS_MODIFIED="true"
+    TOOL_POST_MODIFIED_OUTPUT=$(echo "$response" | jq -r '.modified_output' 2>/dev/null) || TOOL_POST_MODIFIED_OUTPUT=""
   fi
 }
 
@@ -768,6 +813,9 @@ _normalized_name() {
 _is_mcp_tool() {
   local tool_name="$1"
   [[ "$tool_name" == mcp__* ]] && return 0
+  # Cursor names MCP tools "MCP:<tool>" (e.g. MCP:searchJiraIssuesUsingJql),
+  # not mcp__*. Match so they take the MCP path, not the local-tool path.
+  [[ "$_CLIENT" == "cursor" && "$tool_name" == MCP:* ]] && return 0
   [[ "$_CLIENT" == "hermes" && "$tool_name" == mcp_* ]] && return 0
   return 1
 }
@@ -933,6 +981,86 @@ _claude_plugin_enabled() {
   [[ "$enabled" != "false" ]]
 }
 
+# Plugin names tracked in installed_plugins.json (regardless of enabled state).
+# True if plugin <name> is explicitly disabled (enabledPlugins[<name>@...] ==
+# false) for this cwd. Matches a key by its name part (right-split on the last
+# '@') so a plugin registered only for another project isn't suppressed here,
+# and resolves the value with last-file-wins precedence (home -> project
+# settings -> project local settings) -- mirroring _claude_plugin_enabled and
+# the Python path, so a project-level re-enable overrides a global disable
+# (ENG-3439).
+_claude_plugin_name_disabled() {
+  local plugin_name="$1"
+  local settings_cwd="$2"
+  local settings_file value state=""
+  for settings_file in \
+    "${HOME}/.claude/settings.json" \
+    "${settings_cwd}/.claude/settings.json" \
+    "${settings_cwd}/.claude/settings.local.json"; do
+    [[ -f "$settings_file" ]] || continue
+    value=$(jq -r --arg n "$plugin_name" '
+      [ (.enabledPlugins // {})
+        | to_entries[]
+        | select((.key | sub("@[^@]*$"; "")) == $n)
+        | (if (.value | type) == "boolean" then (.value | tostring) else "true" end)
+      ] | last // empty
+    ' "$settings_file" 2>/dev/null) || value=""
+    [[ -n "$value" ]] && state="$value"
+  done
+  [[ "$state" == "false" ]]
+}
+
+# Emit candidate plugin.json manifest paths from on-disk plugin locations
+# beyond installed_plugins.json (ENG-3439).
+_claude_filesystem_plugin_manifests() {
+  local plugins_dir="${HOME}/.claude/plugins"
+  local entry
+  # Top-level (symlinked / dev) plugin dirs: ~/.claude/plugins/<name>.
+  for entry in "$plugins_dir"/*/.claude-plugin/plugin.json; do
+    [[ -f "$entry" ]] || continue
+    case "$entry" in
+      "$plugins_dir"/cache/*|"$plugins_dir"/marketplaces/*|"$plugins_dir"/repos/*) continue ;;
+    esac
+    printf '%s\n' "$entry"
+  done
+  # Install cache: cache/<marketplace>/<plugin>/<version>.
+  for entry in "$plugins_dir"/cache/*/*/*/.claude-plugin/plugin.json; do
+    [[ -f "$entry" ]] && printf '%s\n' "$entry"
+  done
+  # Marketplace-bundled: marketplaces/<mp>/plugins/<plugin>.
+  for entry in "$plugins_dir"/marketplaces/*/plugins/*/.claude-plugin/plugin.json; do
+    [[ -f "$entry" ]] && printf '%s\n' "$entry"
+  done
+  return 0
+}
+
+# ENG-3439: resolve a plugin-defined server from plugins present on disk but not
+# tracked in installed_plugins.json (managed/Cowork/dev-symlinked/marketplace
+# bundles, or registered only for another project). Skips only plugins
+# explicitly disabled for this cwd so the scan can't re-enable a disabled plugin.
+_lookup_claude_plugin_filesystem_mcp_server() {
+  local server_name="$1"
+  local cwd="$2"
+  local plugins_dir="${HOME}/.claude/plugins"
+  [[ -d "$plugins_dir" ]] || return 1
+
+  local settings_cwd manifest plugin_dir plugin_name
+  settings_cwd=$(_claude_settings_cwd "$cwd")
+
+  while IFS= read -r manifest; do
+    [[ -n "$manifest" ]] || continue
+    plugin_dir="${manifest%/.claude-plugin/plugin.json}"
+    plugin_name=$(jq -r '.name // empty' "$manifest" 2>/dev/null) || plugin_name=""
+    [[ -n "$plugin_name" ]] || plugin_name="$(basename "$plugin_dir")"
+    _claude_plugin_name_disabled "$plugin_name" "$settings_cwd" && continue
+    if _lookup_claude_plugin_root_mcp_server "$plugin_dir" "$server_name" "$plugin_name"; then
+      return 0
+    fi
+  done < <(_claude_filesystem_plugin_manifests)
+
+  return 1
+}
+
 _lookup_claude_code_plugin_mcp_server() {
   local server_name="$1"
   local cwd="$2"
@@ -940,24 +1068,25 @@ _lookup_claude_code_plugin_mcp_server() {
   local rows row plugin_key plugin_name project_path install_path settings_cwd scope rank
   local best_rank=-1 best_url="" best_command="" best_args="" found=1
 
-  [[ -f "$registry" ]] || return 1
+  if [[ -f "$registry" ]]; then
+    rows=$(jq -c '
+      (.plugins // {})
+      | to_entries[]
+      | .key as $plugin_key
+      | (.value // [])[]
+      | select(type == "object")
+      | {
+          plugin_key: $plugin_key,
+          scope: (.scope // ""),
+          project_path: (.projectPath // ""),
+          install_path: (.installPath // "")
+        }
+    ' "$registry" 2>/dev/null) || true
+  else
+    rows=""
+  fi
 
-  rows=$(jq -c '
-    (.plugins // {})
-    | to_entries[]
-    | .key as $plugin_key
-    | (.value // [])[]
-    | select(type == "object")
-    | {
-        plugin_key: $plugin_key,
-        scope: (.scope // ""),
-        project_path: (.projectPath // ""),
-        install_path: (.installPath // "")
-      }
-  ' "$registry" 2>/dev/null) || true
-  [[ -n "$rows" ]] || return 1
-
-  while IFS= read -r row; do
+  [[ -n "$rows" ]] && while IFS= read -r row; do
     [[ -n "$row" ]] || continue
     plugin_key=$(jq -r '.plugin_key // empty' <<< "$row" 2>/dev/null) || plugin_key=""
     plugin_name="${plugin_key%@*}"
@@ -992,6 +1121,10 @@ _lookup_claude_code_plugin_mcp_server() {
     MCP_SERVER_ARGS="$best_args"
     return 0
   fi
+
+  # ENG-3439: plugins not tracked in installed_plugins.json (managed/Cowork,
+  # dev symlinks, marketplace bundles) -- resolve from on-disk plugin dirs.
+  _lookup_claude_plugin_filesystem_mcp_server "$server_name" "$cwd" && return 0
 
   return 1
 }
@@ -1724,9 +1857,12 @@ If you believe this is a false positive or mistake, contact your Runlayer admini
     if _is_mcp_tool "$tool_name"; then
       _forward_event_async "$_original_hook_type" "$input"
       if [[ "$_CLIENT" == "cursor" ]]; then
-        _sid=$(_session_id_from_payload "$input")
-        _ti=$(_tool_input_json "$input")
-        _allow_with_ids "$_ti" "$_sid"
+        # Cursor MCP tools are enforced and session-linked via
+        # beforeMCPExecution (conversation_id). Do NOT inject
+        # _runlayer_session_id into updated_input here — strict MCP arg
+        # schemas (additionalProperties:false, e.g. Atlassian Jira) reject
+        # the extra field client-side before the call reaches Runlayer.
+        echo '{"permission":"allow"}'
       else
         allow_response
       fi
@@ -1805,6 +1941,14 @@ If you believe this is a false positive or mistake, contact your Runlayer admini
 
     if [[ "$TOOL_POST_BLOCK" == "true" ]]; then
       block_output_response "$TOOL_POST_BLOCK_REASON"
+    fi
+
+    # mask_output_response emits updatedToolOutput and exits for Claude Code
+    # PostToolUse; for other clients it is a deliberate no-op and execution
+    # falls through to the cursor `echo "{}"` / normal exit below (output
+    # passes through unchanged, as before).
+    if [[ "$TOOL_POST_HAS_MODIFIED" == "true" ]]; then
+      mask_output_response "$TOOL_POST_MODIFIED_OUTPUT"
     fi
 
     if [[ "$_CLIENT" == "cursor" ]]; then

@@ -3,10 +3,10 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from numbers import Number
 from typing import Optional
 
+from soda_core.check_collections.base import CheckCollectionYaml
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.datetime_conversions import (
     convert_datetime_to_str,
@@ -15,6 +15,8 @@ from soda_core.common.datetime_conversions import (
 from soda_core.common.exceptions import ContractParserException
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location
+from soda_core.common.metadata_types import SodaDataTypeName
+from soda_core.common.sql_dialect import SqlDialect
 from soda_core.common.yaml import (
     ContractYamlSource,
     VariableResolver,
@@ -34,7 +36,7 @@ class ContractYamlExtension(Protocol):
         ...
 
 
-class ContractYaml:
+class ContractYaml(CheckCollectionYaml):
     """
     Represents YAML as close as possible.
     None means the key was not present.
@@ -52,36 +54,33 @@ class ContractYaml:
     def register_extension(cls, name: str, extension_cls: type[ContractYamlExtension]) -> None:
         cls.contract_yaml_extensions[name] = extension_cls
 
-    @classmethod
-    def parse(
-        cls,
-        contract_yaml_source: ContractYamlSource,
+    def __init__(
+        self,
+        yaml_source: ContractYamlSource,
         provided_variable_values: Optional[dict[str, str]] = None,
         data_timestamp: Optional[str] = None,
         primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ) -> Optional[ContractYaml]:
-        contract_yaml = ContractYaml(
-            contract_yaml_source=contract_yaml_source,
+        yaml_object: Optional[YamlObject] = None,
+    ):
+        # ``yaml_source``, ``yaml_object``, ``kind``, ``execution_timestamp``,
+        # and ``data_timestamp`` are first-class fields on the base
+        # ``CheckCollectionYaml`` — populated here via super().
+        super().__init__(
+            yaml_source=yaml_source,
+            yaml_object=yaml_object,
             provided_variable_values=provided_variable_values,
             data_timestamp=data_timestamp,
             primary_data_source_impl=primary_data_source_impl,
         )
-        return contract_yaml
+        self.primary_data_source_impl: Optional[DataSourceImpl] = primary_data_source_impl
+        # Cache the dialect's native→canonical data type mapping once — dialects construct this dict fresh on every call.
+        self._native_to_soda_data_type_mapping: Optional[dict[str, SodaDataTypeName]] = (
+            primary_data_source_impl.sql_dialect.get_soda_data_type_name_by_data_source_data_type_names()
+            if primary_data_source_impl is not None
+            else None
+        )
 
-    def __init__(
-        self,
-        contract_yaml_source: ContractYamlSource,
-        provided_variable_values: Optional[dict[str, str]],
-        data_timestamp: Optional[str] = None,
-        primary_data_source_impl: Optional[DataSourceImpl] = None,
-    ):
-        self.contract_yaml_source: ContractYamlSource = contract_yaml_source
-        self.contract_yaml_object: YamlObject = contract_yaml_source.parse()
-
-        self.variables: list[VariableYaml] = self._parse_variable_yamls(contract_yaml_source, provided_variable_values)
-
-        self.execution_timestamp: datetime = datetime.now(timezone.utc)
-        self.data_timestamp: datetime = self._get_data_timestamp(data_timestamp, self.execution_timestamp)
+        self.variables: list[VariableYaml] = self._parse_variable_yamls(yaml_source, provided_variable_values)
 
         # Some dialects (Dremio) don't use ISO format, we need to override
         f_convert_str_to_datetime = convert_str_to_datetime
@@ -106,22 +105,20 @@ class ContractYaml:
             if f_convert_str_to_datetime(now_value) is None:
                 logger.error(f"Variable 'NOW' must be a correct ISO 8601 timestamp format: {now_value}")
 
-        self.contract_yaml_source.resolve_on_read_value(
+        self.yaml_source.resolve_on_read_value(
             resolved_variable_values=self.resolved_variable_values, soda_values=soda_variable_values, use_env_vars=True
         )
 
-        self.dataset = self.contract_yaml_object.read_dataset_identifier("dataset")
+        self.dataset = self.yaml_object.read_dataset_identifier("dataset")
 
-        self.check_attributes = self.contract_yaml_object.read_object_opt(
-            "check_attributes", default_value={}
-        ).to_dict()
+        self.check_attributes = self.yaml_object.read_object_opt("check_attributes", default_value={}).to_dict()
 
-        self.filter: Optional[str] = self.contract_yaml_object.read_string_opt("filter")
+        self.filter: Optional[str] = self.yaml_object.read_string_opt("filter")
         if self.filter:
             self.filter = self.filter.strip()
 
-        self.columns: list[ColumnYaml] = self._parse_columns(self.contract_yaml_object)
-        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.contract_yaml_object)
+        self.columns: list[ColumnYaml] = self._parse_columns(self.yaml_object)
+        self.checks: Optional[list[Optional[CheckYaml]]] = self._parse_checks(self.yaml_object)
 
         for extension_cls in ContractYaml.contract_yaml_extensions.values():
             try:
@@ -132,11 +129,11 @@ class ContractYaml:
                     f"Error extending contract YAML with extension {extension_cls.__name__}: {e}",
                 )
 
-    def _parse_variable_yamls(self, contract_yaml_source, variables) -> list[VariableYaml]:
+    def _parse_variable_yamls(self, yaml_source, variables) -> list[VariableYaml]:
         variable_yamls: list[VariableYaml] = []
 
-        if self.contract_yaml_object:
-            variables_yaml_object: Optional[YamlObject] = self.contract_yaml_object.read_object_opt("variables")
+        if self.yaml_object:
+            variables_yaml_object: Optional[YamlObject] = self.yaml_object.read_object_opt("variables")
             if variables_yaml_object:
                 for variable_name, variable_yaml_object in variables_yaml_object.items():
                     variable_yaml: VariableYaml = VariableYaml(variable_name, variable_yaml_object)
@@ -269,8 +266,8 @@ class ContractYaml:
                             [f"[{location.line},{location.column}]" for location in locations if location is not None]
                         )
                         file_location = (
-                            f"In {self.contract_yaml_source.file_path} at: "
-                            if self.contract_yaml_source.file_path
+                            f"In {self.yaml_source.file_path} at: "
+                            if self.yaml_source.file_path
                             else "At file locations: "
                         )
                         locations_message = f": {file_location}{locations_message}" if locations_message else ""
@@ -337,18 +334,6 @@ class ContractYaml:
 
         return checks
 
-    def _get_data_timestamp(self, data_timestamp: Optional[str], default_soda_now: datetime) -> datetime:
-        if isinstance(data_timestamp, str):
-            parsed_data_timestamp = convert_str_to_datetime(data_timestamp)
-            if isinstance(parsed_data_timestamp, datetime):
-                return parsed_data_timestamp
-            else:
-                logging.error(
-                    f"Provided 'data_timestamp' value is not a correct ISO 8601 "
-                    f"timestamp format: '{data_timestamp}'"
-                )
-        return default_soda_now
-
 
 class VariableYaml:
     def __init__(self, variable_name: str, variable_yaml_object: YamlObject):
@@ -411,6 +396,81 @@ class MissingAndValidityYaml:
             self.valid_reference_data = ValidReferenceDataYaml(valid_reference_data_yaml)
 
 
+class _DefaultSqlDialect(SqlDialect, sqlglot_dialect="default"):
+    """Permissive fallback dialect used by parse-time type-parameter validation
+    when no concrete dialect is bound (e.g. ``contract publish`` and any
+    ``contract verify`` invocation that doesn't carry a data source).
+
+    Why this exists rather than only using a bound dialect: parse-time
+    validation needs to run on those non-dialect paths too — otherwise
+    contracts could be published with obvious mismatches (e.g.
+    ``numeric_precision`` on a VARCHAR) that only surface later at scan time.
+    Concrete dialects remain authoritative when bound; this fallback simply
+    keeps validation alive when no dialect is available, using SqlDialect's
+    base method lists (which cover canonical Soda type values like ``varchar``,
+    ``decimal``, ``timestamp``) plus a couple of aliases for canonical-only
+    values that the standard-SQL base lists don't include verbatim.
+    """
+
+    def get_data_source_data_type_name_by_soda_data_type_names(self) -> dict[SodaDataTypeName, str]:
+        return {}
+
+    def get_soda_data_type_name_by_data_source_data_type_names(self) -> dict[str, SodaDataTypeName]:
+        return {}
+
+    def data_type_has_parameter_character_maximum_length(self, data_type_name) -> bool:
+        return (
+            super().data_type_has_parameter_character_maximum_length(data_type_name) or data_type_name.lower() == "text"
+        )
+
+    def data_type_has_parameter_datetime_precision(self, data_type_name) -> bool:
+        return (
+            super().data_type_has_parameter_datetime_precision(data_type_name)
+            or data_type_name.lower() == "timestamp_tz"
+        )
+
+
+_DEFAULT_SQL_DIALECT: SqlDialect = _DefaultSqlDialect()
+
+# Human-readable allowed-types list per type-param, used only for error messages.
+# The actual yes/no on whether a param applies to a data_type is delegated to the
+# dialect's data_type_has_parameter_* methods.
+_TYPE_PARAM_ALLOWED_TYPES_FOR_MESSAGE: dict[str, list[str]] = {
+    "character_maximum_length": ["char", "text", "varchar"],
+    "numeric_precision": ["decimal", "numeric"],
+    "numeric_scale": ["decimal", "numeric"],
+    "datetime_precision": ["time", "timestamp", "timestamp_tz"],
+}
+
+
+def _resolve_to_soda_type(
+    data_type: Optional[str],
+    native_to_soda_mapping: Optional[dict[str, SodaDataTypeName]],
+) -> Optional[SodaDataTypeName]:
+    """
+    Resolve a raw YAML data_type string to a canonical SodaDataTypeName.
+
+    Used as the "is this type recognized" gate before parse-time type-param
+    validation. If the type can't be resolved we skip validation and let the
+    schema check catch real DB mismatches at scan time.
+
+    Order:
+    1. Direct match against SodaDataTypeName values (no mapping needed).
+    2. Dialect-aware resolution via the provided native→canonical mapping (e.g. Databricks "string" → TEXT).
+    3. Give up (return None) — caller skips type-param validation for unknown types.
+    """
+    if not data_type:
+        return None
+    normalized = data_type.split("(", 1)[0].strip().lower()
+    try:
+        return SodaDataTypeName(normalized)
+    except ValueError:
+        pass
+    if native_to_soda_mapping is not None:
+        return native_to_soda_mapping.get(normalized)
+    return None
+
+
 class ColumnYaml(MissingAndValidityYaml):
     def __init__(self, contract_yaml: ContractYaml, column_yaml_object: YamlObject):
         self.column_yaml_object: YamlObject = column_yaml_object
@@ -424,10 +484,62 @@ class ColumnYaml(MissingAndValidityYaml):
         if self.column_expression:
             self.column_expression = self.column_expression.strip()
 
+        self._validate_type_parameters(
+            column_yaml_object,
+            sql_dialect=(
+                contract_yaml.primary_data_source_impl.sql_dialect
+                if contract_yaml.primary_data_source_impl is not None
+                else None
+            ),
+            native_to_soda_mapping=contract_yaml._native_to_soda_data_type_mapping,
+        )
+
         super().__init__(column_yaml_object)
         self.check_yamls: Optional[list[CheckYaml]] = contract_yaml._parse_checks(
             checks_containing_yaml_object=column_yaml_object, column_yaml=self
         )
+
+    def _validate_type_parameters(
+        self,
+        column_yaml_object: YamlObject,
+        sql_dialect: Optional[SqlDialect],
+        native_to_soda_mapping: Optional[dict[str, SodaDataTypeName]],
+    ) -> None:
+        # Skip validation for unrecognized data_types — the schema check catches real DB
+        # mismatches at scan time. Recognized = a SodaDataTypeName enum value or a key in
+        # the bound dialect's native→canonical mapping.
+        if _resolve_to_soda_type(self.data_type, native_to_soda_mapping) is None:
+            return
+
+        # Defer to the bound dialect's data_type_has_parameter_* methods as the source of
+        # truth (they're already used by extract_* on info_schema). When no dialect is
+        # bound — e.g. contract publish, contract verify without a data source — fall back
+        # to _DEFAULT_SQL_DIALECT so those paths still get parse-time validation rather
+        # than silently skipping it.
+        dialect: SqlDialect = sql_dialect if sql_dialect is not None else _DEFAULT_SQL_DIALECT
+        data_type_name: str = self.data_type.split("(", 1)[0].strip()
+
+        type_param_validations = [
+            (
+                "character_maximum_length",
+                self.character_maximum_length,
+                dialect.data_type_has_parameter_character_maximum_length,
+            ),
+            ("numeric_precision", self.numeric_precision, dialect.data_type_has_parameter_numeric_precision),
+            ("numeric_scale", self.numeric_scale, dialect.data_type_has_parameter_numeric_scale),
+            ("datetime_precision", self.datetime_precision, dialect.data_type_has_parameter_datetime_precision),
+        ]
+        for key, value, has_parameter in type_param_validations:
+            if value is None:
+                continue
+            if not has_parameter(data_type_name):
+                logger.error(
+                    msg=(
+                        f"'{key}' is only valid for data types {_TYPE_PARAM_ALLOWED_TYPES_FOR_MESSAGE[key]}, "
+                        f"but was set on column '{self.name}' with data_type '{self.data_type}'"
+                    ),
+                    extra={ExtraKeys.LOCATION: column_yaml_object.create_location_from_yaml_dict_key(key)},
+                )
 
 
 class RangeYaml:

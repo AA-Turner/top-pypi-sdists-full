@@ -401,6 +401,7 @@ class CfnCollection(
         
             # the properties below are optional
             collection_group_name="collectionGroupName",
+            deletion_protection="deletionProtection",
             description="description",
             encryption_config=opensearchserverless.CfnCollection.EncryptionConfigProperty(
                 aws_owned_key=False,
@@ -425,6 +426,7 @@ class CfnCollection(
         *,
         name: builtins.str,
         collection_group_name: typing.Optional[builtins.str] = None,
+        deletion_protection: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         encryption_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollection.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         standby_replicas: typing.Optional[builtins.str] = None,
@@ -438,6 +440,7 @@ class CfnCollection(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the collection. Collection names must meet the following criteria: - Starts with a lowercase letter - Unique to your account and AWS Region - Contains between 3 and 28 characters - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
         :param collection_group_name: The name of the collection group to associate with the collection.
+        :param deletion_protection: The deletion protection state of the collection.
         :param description: A description of the collection.
         :param encryption_config: Encryption settings for the collection.
         :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
@@ -452,6 +455,7 @@ class CfnCollection(
         props = CfnCollectionProps(
             name=name,
             collection_group_name=collection_group_name,
+            deletion_protection=deletion_protection,
             description=description,
             encryption_config=encryption_config,
             standby_replicas=standby_replicas,
@@ -665,6 +669,19 @@ class CfnCollection(
             type_hints = typing.get_type_hints(_typecheckingstub__55eec803323a7634331d41faa3594e0edeb5c3e15262c9eda7fd310c1e69a88c)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "collectionGroupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(self) -> typing.Optional[builtins.str]:
+        '''The deletion protection state of the collection.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da05b8a42c310e2d0bf4acc345b86e89ecf2e02582ecf070742c16099a7bfe80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -985,6 +1002,7 @@ class CfnCollectionGroup(
                 min_search_capacity_in_ocu=123
             ),
             description="description",
+            generation="generation",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -1001,6 +1019,7 @@ class CfnCollectionGroup(
         standby_replicas: builtins.str,
         capacity_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollectionGroup.CapacityLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        generation: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::OpenSearchServerless::CollectionGroup``.
@@ -1011,6 +1030,7 @@ class CfnCollectionGroup(
         :param standby_replicas: Indicates whether standby replicas are used for the collection group.
         :param capacity_limits: 
         :param description: The description of the collection group.
+        :param generation: The generation of Amazon OpenSearch Serverless for the collection group. Valid values are CLASSIC and NEXTGEN.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -1022,6 +1042,7 @@ class CfnCollectionGroup(
             standby_replicas=standby_replicas,
             capacity_limits=capacity_limits,
             description=description,
+            generation=generation,
             tags=tags,
         )
 
@@ -1222,6 +1243,19 @@ class CfnCollectionGroup(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="generation")
+    def generation(self) -> typing.Optional[builtins.str]:
+        '''The generation of Amazon OpenSearch Serverless for the collection group.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "generation"))
+
+    @generation.setter
+    def generation(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95a769867b547b581240be450c7f8240653e4b1d64dc3bd42ab3e1be55a163f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "generation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
@@ -1347,6 +1381,7 @@ class CfnCollectionGroup(
         "standby_replicas": "standbyReplicas",
         "capacity_limits": "capacityLimits",
         "description": "description",
+        "generation": "generation",
         "tags": "tags",
     },
 )
@@ -1358,6 +1393,7 @@ class CfnCollectionGroupProps:
         standby_replicas: builtins.str,
         capacity_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollectionGroup.CapacityLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        generation: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCollectionGroup``.
@@ -1366,6 +1402,7 @@ class CfnCollectionGroupProps:
         :param standby_replicas: Indicates whether standby replicas are used for the collection group.
         :param capacity_limits: 
         :param description: The description of the collection group.
+        :param generation: The generation of Amazon OpenSearch Serverless for the collection group. Valid values are CLASSIC and NEXTGEN.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html
@@ -1390,6 +1427,7 @@ class CfnCollectionGroupProps:
                     min_search_capacity_in_ocu=123
                 ),
                 description="description",
+                generation="generation",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -1402,6 +1440,7 @@ class CfnCollectionGroupProps:
             check_type(argname="argument standby_replicas", value=standby_replicas, expected_type=type_hints["standby_replicas"])
             check_type(argname="argument capacity_limits", value=capacity_limits, expected_type=type_hints["capacity_limits"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument generation", value=generation, expected_type=type_hints["generation"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -1411,6 +1450,8 @@ class CfnCollectionGroupProps:
             self._values["capacity_limits"] = capacity_limits
         if description is not None:
             self._values["description"] = description
+        if generation is not None:
+            self._values["generation"] = generation
         if tags is not None:
             self._values["tags"] = tags
 
@@ -1451,6 +1492,17 @@ class CfnCollectionGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def generation(self) -> typing.Optional[builtins.str]:
+        '''The generation of Amazon OpenSearch Serverless for the collection group.
+
+        Valid values are CLASSIC and NEXTGEN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectiongroup.html#cfn-opensearchserverless-collectiongroup-generation
+        '''
+        result = self._values.get("generation")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1725,6 +1777,7 @@ class CfnCollectionIndexProps:
     name_mapping={
         "name": "name",
         "collection_group_name": "collectionGroupName",
+        "deletion_protection": "deletionProtection",
         "description": "description",
         "encryption_config": "encryptionConfig",
         "standby_replicas": "standbyReplicas",
@@ -1739,6 +1792,7 @@ class CfnCollectionProps:
         *,
         name: builtins.str,
         collection_group_name: typing.Optional[builtins.str] = None,
+        deletion_protection: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         encryption_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCollection.EncryptionConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         standby_replicas: typing.Optional[builtins.str] = None,
@@ -1750,6 +1804,7 @@ class CfnCollectionProps:
 
         :param name: The name of the collection. Collection names must meet the following criteria: - Starts with a lowercase letter - Unique to your account and AWS Region - Contains between 3 and 28 characters - Contains only lowercase letters a-z, the numbers 0-9, and the hyphen (-)
         :param collection_group_name: The name of the collection group to associate with the collection.
+        :param deletion_protection: The deletion protection state of the collection.
         :param description: A description of the collection.
         :param encryption_config: Encryption settings for the collection.
         :param standby_replicas: Indicates whether to use standby replicas for the collection. You can't update this property after the collection is already created. If you attempt to modify this property, the collection continues to use the original value.
@@ -1772,6 +1827,7 @@ class CfnCollectionProps:
             
                 # the properties below are optional
                 collection_group_name="collectionGroupName",
+                deletion_protection="deletionProtection",
                 description="description",
                 encryption_config=opensearchserverless.CfnCollection.EncryptionConfigProperty(
                     aws_owned_key=False,
@@ -1792,6 +1848,7 @@ class CfnCollectionProps:
             type_hints = typing.get_type_hints(_typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37d4f540e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument collection_group_name", value=collection_group_name, expected_type=type_hints["collection_group_name"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument encryption_config", value=encryption_config, expected_type=type_hints["encryption_config"])
             check_type(argname="argument standby_replicas", value=standby_replicas, expected_type=type_hints["standby_replicas"])
@@ -1803,6 +1860,8 @@ class CfnCollectionProps:
         }
         if collection_group_name is not None:
             self._values["collection_group_name"] = collection_group_name
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
         if description is not None:
             self._values["description"] = description
         if encryption_config is not None:
@@ -1840,6 +1899,15 @@ class CfnCollectionProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-collectiongroupname
         '''
         result = self._values.get("collection_group_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional[builtins.str]:
+        '''The deletion protection state of the collection.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collection.html#cfn-opensearchserverless-collection-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -4616,6 +4684,7 @@ def _typecheckingstub__14f72b773d506ce15b59731aeb24f2f4a877a32d31af6ebf57a32ce70
     *,
     name: builtins.str,
     collection_group_name: typing.Optional[builtins.str] = None,
+    deletion_protection: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollection.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     standby_replicas: typing.Optional[builtins.str] = None,
@@ -4673,6 +4742,12 @@ def _typecheckingstub__5cdb6f4e81b00df109517f1c4b90835cef7bd07218c9f75976d033888
     pass
 
 def _typecheckingstub__55eec803323a7634331d41faa3594e0edeb5c3e15262c9eda7fd310c1e69a88c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da05b8a42c310e2d0bf4acc345b86e89ecf2e02582ecf070742c16099a7bfe80(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -4745,6 +4820,7 @@ def _typecheckingstub__003fddde4e2ea8eeef1b525032927b2637c125782d2cf567beca47cb6
     standby_replicas: builtins.str,
     capacity_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollectionGroup.CapacityLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    generation: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4814,6 +4890,12 @@ def _typecheckingstub__f988e354c256660c645322a51f75e5b184b91022ce111cb9789235333
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__95a769867b547b581240be450c7f8240653e4b1d64dc3bd42ab3e1be55a163f3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c5d4df361a167d377eda19869c576227fdd5cbcda26328fb471c65ef942bac47(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -4836,6 +4918,7 @@ def _typecheckingstub__05b5eaaa32a385be6264c079cdcc6ba7e9c9e965cb532827253f8222f
     standby_replicas: builtins.str,
     capacity_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollectionGroup.CapacityLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    generation: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -4901,6 +4984,7 @@ def _typecheckingstub__dc3a9fff4dd66b4fe4e69ca639823a978df78a02743764020419d9b37
     *,
     name: builtins.str,
     collection_group_name: typing.Optional[builtins.str] = None,
+    deletion_protection: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     encryption_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCollection.EncryptionConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     standby_replicas: typing.Optional[builtins.str] = None,

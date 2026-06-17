@@ -9,6 +9,16 @@ from typing import Literal
 from prefab_ui.themes import Theme
 
 THEME_MODE_ENV_VAR = "AIRBYTE_OPS_WEBAPP_THEME_MODE"
+
+# CSS injected directly into the Prefab renderer iframe (bypasses Theme).
+# Theme CSS only reaches the outer page; this constant is read by serve.py's
+# _inject_renderer_overrides() to patch the iframe <head>.
+RENDERER_OVERRIDE_CSS = """\
+.pf-dialog-content {
+  max-width: 56rem !important;
+  width: min(56rem, 90vw) !important;
+}
+"""
 AIRBYTE_ASSETS_DIR = Path(__file__).with_name("assets")
 AIRBYTE_LOGO_FOR_LIGHT_BG_PATH = (
     AIRBYTE_ASSETS_DIR / "airbyte_logo_color_dark_transparent.svg"
@@ -16,6 +26,10 @@ AIRBYTE_LOGO_FOR_LIGHT_BG_PATH = (
 AIRBYTE_LOGO_FOR_DARK_BG_PATH = (
     AIRBYTE_ASSETS_DIR / "airbyte_logo_color_light_transparent.svg"
 )
+CONNECTOR_VERSION_MANAGER_ICON_PATH = (
+    AIRBYTE_ASSETS_DIR / "connector_version_manager_icon.svg"
+)
+MORE_TOOLS_ICON_PATH = AIRBYTE_ASSETS_DIR / "more_tools_icon.svg"
 AIRBYTE_INK = "#140F43"
 AIRBYTE_PRIMARY = "#5D51D5"
 AIRBYTE_SECONDARY = "#D763EC"
@@ -92,10 +106,18 @@ AIRBYTE_THEME_CSS = (
     + """
 body {
   margin: 0;
-  background: var(--background);
+  background: var(--background) !important;
+}
+html,
+body {
+  min-height: 100%;
+}
+* {
+  box-sizing: border-box;
 }
 .pf-app-root {
   min-height: 100vh;
+  width: 100%;
   background:
     radial-gradient(circle at 14% 0%, color-mix(in srgb, #5D51D5 36%, transparent) 0, transparent 32rem),
     radial-gradient(circle at 86% 12%, color-mix(in srgb, #D763EC 28%, transparent) 0, transparent 28rem),
@@ -107,6 +129,7 @@ body {
   background: var(--background) !important;
   color: var(--foreground) !important;
   padding: 1.5rem;
+  width: 100%;
 }
 .airbyte-app-root input,
 .airbyte-app-root textarea,
@@ -121,10 +144,21 @@ body {
   border-color: var(--border) !important;
   color: var(--foreground) !important;
 }
+.airbyte-app-root button[data-variant="info"],
+.airbyte-app-root .pf-button-variant-info {
+  background: var(--info) !important;
+  border-color: var(--info) !important;
+  color: var(--info-foreground) !important;
+}
+.airbyte-app-root button[data-variant="destructive"],
+.airbyte-app-root .pf-button-variant-destructive {
+  color: #FFFFFF !important;
+}
 .airbyte-page {
   margin-left: auto;
   margin-right: auto;
   max-width: 80rem;
+  width: 100%;
 }
 .airbyte-hero-card {
   background:
@@ -138,6 +172,7 @@ body {
 .airbyte-status-card,
 .airbyte-preview-card,
 .airbyte-success-card,
+.airbyte-error-card,
 .airbyte-mock-card {
   background: var(--card) !important;
   border-color: var(--border) !important;
@@ -153,6 +188,33 @@ body {
 .airbyte-success-card {
   border-color: color-mix(in srgb, var(--secondary) 70%, transparent) !important;
 }
+.airbyte-error-card {
+  border-color: color-mix(in srgb, #ff6b6b 70%, transparent) !important;
+}
+.airbyte-breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+.airbyte-breadcrumb-nav a {
+  color: var(--muted-foreground);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.airbyte-breadcrumb-nav a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.airbyte-breadcrumb-nav .breadcrumb-separator {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+.airbyte-breadcrumb-nav .breadcrumb-current {
+  color: var(--foreground);
+  font-weight: 600;
+}
 .airbyte-code-block {
   background: var(--background) !important;
   border: 1px solid var(--border) !important;
@@ -163,7 +225,24 @@ body {
   padding: 1rem;
 }
 .airbyte-hero-header {
+  align-items: flex-start !important;
+  display: flex !important;
   flex-wrap: wrap;
+  justify-content: space-between !important;
+  width: 100%;
+}
+.airbyte-hero-copy {
+  flex: 1 1 28rem;
+  min-width: 0;
+}
+.airbyte-hero-actions {
+  flex: 0 0 auto;
+}
+.airbyte-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 .airbyte-logo {
   display: block !important;
@@ -205,9 +284,15 @@ PANEL_CARD_CLASS = "airbyte-panel-card"
 MOCK_CARD_CLASS = "airbyte-mock-card"
 PREVIEW_CARD_CLASS = "airbyte-preview-card"
 SUCCESS_CARD_CLASS = "airbyte-success-card"
+ERROR_CARD_CLASS = "airbyte-error-card"
 STATUS_CARD_CLASS = "airbyte-status-card"
 CODE_BLOCK_CLASS = "airbyte-code-block"
 AIRBYTE_LOGO_CLASS = "airbyte-logo"
+BUTTON_INFO_CLASS = "bg-[#5D51D5] text-white border-[#5D51D5] hover:bg-[#4D43BE]"
+BUTTON_OUTLINE_CLASS = "bg-[#282255] text-white border-[#CECBF24D] hover:bg-[#332B6B]"
+BUTTON_DESTRUCTIVE_CLASS = "bg-[#B42318] text-white border-[#B42318] hover:bg-[#912018]"
+BREADCRUMB_NAV_CLASS = "airbyte-breadcrumb-nav"
+COMBOBOX_CLASS = "bg-[#282255] text-white border-[#CECBF24D] hover:bg-[#332B6B]"
 
 
 def _theme_mode() -> Literal["light", "dark"] | None:
@@ -225,7 +310,7 @@ def _app_root_class() -> str:
         return f"{APP_ROOT_CLASS} airbyte-mode-system"
     if theme_mode == "light":
         return f"{APP_ROOT_CLASS} airbyte-mode-light"
-    return f"{APP_ROOT_CLASS} airbyte-mode-dark"
+    return f"{APP_ROOT_CLASS} airbyte-mode-dark dark"
 
 
 def _airbyte_logo_svg_for_light_bg() -> str:
@@ -244,6 +329,14 @@ def _airbyte_logo_svg() -> str:
     if _is_light_theme():
         return _airbyte_logo_svg_for_light_bg()
     return _airbyte_logo_svg_for_dark_bg()
+
+
+def _connector_version_manager_icon_svg() -> str:
+    return CONNECTOR_VERSION_MANAGER_ICON_PATH.read_text(encoding="utf-8")
+
+
+def _more_tools_icon_svg() -> str:
+    return MORE_TOOLS_ICON_PATH.read_text(encoding="utf-8")
 
 
 def _page_style() -> dict[str, str]:
@@ -271,6 +364,7 @@ def _card_style(*, accent: str | None = None) -> dict[str, str]:
             "borderRadius": "0.75rem",
             "boxShadow": "0 10px 15px -3px rgba(20, 15, 67, 0.08)",
             "color": AIRBYTE_INK,
+            "padding": "1rem",
         }
     border = accent or "rgba(206, 203, 242, 0.3)"
     return {
@@ -279,6 +373,7 @@ def _card_style(*, accent: str | None = None) -> dict[str, str]:
         "borderRadius": "0.75rem",
         "boxShadow": "0 10px 15px -3px rgba(0, 0, 0, 0.35)",
         "color": "#FFFFFF",
+        "padding": "1rem",
     }
 
 
@@ -289,6 +384,47 @@ def _hero_style() -> dict[str, str]:
     else:
         style["background"] = AIRBYTE_DARK_CARD
     return style
+
+
+def _primary_link_style() -> dict[str, str]:
+    return {
+        "alignItems": "center",
+        "background": AIRBYTE_PRIMARY,
+        "borderRadius": "0.625rem",
+        "color": "#FFFFFF",
+        "display": "inline-flex",
+        "fontWeight": "700",
+        "gap": "0.5rem",
+        "padding": "0.75rem 1rem",
+        "textDecoration": "none",
+        "width": "fit-content",
+    }
+
+
+def _tool_card_style(*, accent: str | None = None) -> dict[str, str]:
+    style = _card_style(accent=accent)
+    style.update(
+        {
+            "height": "100%",
+            "padding": "0.5rem",
+        }
+    )
+    return style
+
+
+def _tool_icon_style(*, accent: str = AIRBYTE_PRIMARY) -> dict[str, str]:
+    return {
+        "alignItems": "center",
+        "background": f"color-mix(in srgb, {accent} 34%, transparent)",
+        "borderRadius": "0.75rem",
+        "color": "#FFFFFF" if not _is_light_theme() else AIRBYTE_INK,
+        "display": "flex",
+        "fontWeight": "700",
+        "height": "2.75rem",
+        "justifyContent": "center",
+        "letterSpacing": "0.04em",
+        "width": "2.75rem",
+    }
 
 
 def _code_surface_style() -> dict[str, str]:

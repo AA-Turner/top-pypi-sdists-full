@@ -1380,6 +1380,51 @@ class _IInferenceExperimentRefProxy(
 typing.cast(typing.Any, IInferenceExperimentRef).__jsii_proxy_class__ = lambda : _IInferenceExperimentRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IMlflowAppRef")
+class IMlflowAppRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a MlflowApp.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="mlflowAppRef")
+    def mlflow_app_ref(self) -> "MlflowAppReference":
+        '''(experimental) A reference to a MlflowApp resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IMlflowAppRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a MlflowApp.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_sagemaker.IMlflowAppRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="mlflowAppRef")
+    def mlflow_app_ref(self) -> "MlflowAppReference":
+        '''(experimental) A reference to a MlflowApp resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("MlflowAppReference", jsii.get(self, "mlflowAppRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMlflowAppRef).__jsii_proxy_class__ = lambda : _IMlflowAppRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.IMlflowTrackingServerRef"
 )
@@ -2468,6 +2513,55 @@ class InferenceExperimentReference:
 
     def __repr__(self) -> str:
         return "InferenceExperimentReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.MlflowAppReference",
+    jsii_struct_bases=[],
+    name_mapping={"mlflow_app_arn": "mlflowAppArn"},
+)
+class MlflowAppReference:
+    def __init__(self, *, mlflow_app_arn: builtins.str) -> None:
+        '''A reference to a MlflowApp resource.
+
+        :param mlflow_app_arn: The Arn of the MlflowApp resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
+            
+            mlflow_app_reference = interfaces_sagemaker.MlflowAppReference(
+                mlflow_app_arn="mlflowAppArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ecd811e80b1904a3c493cf891e47d578c51f71a2adaab9c593b32374eb23de9)
+            check_type(argname="argument mlflow_app_arn", value=mlflow_app_arn, expected_type=type_hints["mlflow_app_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "mlflow_app_arn": mlflow_app_arn,
+        }
+
+    @builtins.property
+    def mlflow_app_arn(self) -> builtins.str:
+        '''The Arn of the MlflowApp resource.'''
+        result = self._values.get("mlflow_app_arn")
+        assert result is not None, "Required property 'mlflow_app_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MlflowAppReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -3586,6 +3680,7 @@ __all__ = [
     "IImageVersionRef",
     "IInferenceComponentRef",
     "IInferenceExperimentRef",
+    "IMlflowAppRef",
     "IMlflowTrackingServerRef",
     "IModelBiasJobDefinitionRef",
     "IModelCardRef",
@@ -3609,6 +3704,7 @@ __all__ = [
     "ImageVersionReference",
     "InferenceComponentReference",
     "InferenceExperimentReference",
+    "MlflowAppReference",
     "MlflowTrackingServerReference",
     "ModelBiasJobDefinitionReference",
     "ModelCardReference",
@@ -3742,6 +3838,13 @@ def _typecheckingstub__7b532a236e9f5644ab601b8577c98128bdb2ef5bdf68da9dcf2746fd0
     *,
     inference_experiment_arn: builtins.str,
     inference_experiment_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ecd811e80b1904a3c493cf891e47d578c51f71a2adaab9c593b32374eb23de9(
+    *,
+    mlflow_app_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3888,5 +3991,5 @@ def _typecheckingstub__57fcc1ca690db91207cd9de5695c57ca45d13772e64730ab43c815d17
     """Type checking stubs"""
     pass
 
-for cls in [IAppImageConfigRef, IAppRef, IClusterRef, ICodeRepositoryRef, IDataQualityJobDefinitionRef, IDeviceFleetRef, IDeviceRef, IDomainRef, IEndpointConfigRef, IEndpointRef, IFeatureGroupRef, IImageRef, IImageVersionRef, IInferenceComponentRef, IInferenceExperimentRef, IMlflowTrackingServerRef, IModelBiasJobDefinitionRef, IModelCardRef, IModelExplainabilityJobDefinitionRef, IModelPackageGroupRef, IModelPackageRef, IModelQualityJobDefinitionRef, IModelRef, IMonitoringScheduleRef, INotebookInstanceLifecycleConfigRef, INotebookInstanceRef, IPartnerAppRef, IPipelineRef, IProcessingJobRef, IProjectRef, ISpaceRef, IStudioLifecycleConfigRef, IUserProfileRef, IWorkteamRef]:
+for cls in [IAppImageConfigRef, IAppRef, IClusterRef, ICodeRepositoryRef, IDataQualityJobDefinitionRef, IDeviceFleetRef, IDeviceRef, IDomainRef, IEndpointConfigRef, IEndpointRef, IFeatureGroupRef, IImageRef, IImageVersionRef, IInferenceComponentRef, IInferenceExperimentRef, IMlflowAppRef, IMlflowTrackingServerRef, IModelBiasJobDefinitionRef, IModelCardRef, IModelExplainabilityJobDefinitionRef, IModelPackageGroupRef, IModelPackageRef, IModelQualityJobDefinitionRef, IModelRef, IMonitoringScheduleRef, INotebookInstanceLifecycleConfigRef, INotebookInstanceRef, IPartnerAppRef, IPipelineRef, IProcessingJobRef, IProjectRef, ISpaceRef, IStudioLifecycleConfigRef, IUserProfileRef, IWorkteamRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

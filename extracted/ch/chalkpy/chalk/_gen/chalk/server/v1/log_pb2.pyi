@@ -39,6 +39,8 @@ class LogEntry(_message.Message):
         "operation_producer",
         "is_user_logger",
         "labels",
+        "trace_id",
+        "span_id",
     )
     class LabelsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -59,6 +61,8 @@ class LogEntry(_message.Message):
     OPERATION_PRODUCER_FIELD_NUMBER: _ClassVar[int]
     IS_USER_LOGGER_FIELD_NUMBER: _ClassVar[int]
     LABELS_FIELD_NUMBER: _ClassVar[int]
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    SPAN_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     severity: str
     timestamp: _timestamp_pb2.Timestamp
@@ -70,6 +74,8 @@ class LogEntry(_message.Message):
     operation_producer: str
     is_user_logger: bool
     labels: _containers.ScalarMap[str, str]
+    trace_id: str
+    span_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -83,6 +89,8 @@ class LogEntry(_message.Message):
         operation_producer: _Optional[str] = ...,
         is_user_logger: bool = ...,
         labels: _Optional[_Mapping[str, str]] = ...,
+        trace_id: _Optional[str] = ...,
+        span_id: _Optional[str] = ...,
     ) -> None: ...
 
 class AccessLogEntry(_message.Message):

@@ -1,24 +1,16 @@
 """Framework-agnostic tracing primitives."""
 
 from aigie.tracing.emitter import TraceEmitter, TracingSink
-from aigie.tracing.recorder import SpanRecorder
 from aigie.tracing.types import (
-    SpanComplete,
-    SpanCreate,
+    Span,
     SpanStatus,
     SpanType,
-    TraceCreate,
-    TraceUpdate,
 )
 
 __all__ = [
-    "SpanComplete",
-    "SpanCreate",
-    "SpanRecorder",
+    "Span",
     "SpanStatus",
     "SpanType",
-    "TraceCreate",
     "TraceEmitter",
-    "TraceUpdate",
     "TracingSink",
 ]

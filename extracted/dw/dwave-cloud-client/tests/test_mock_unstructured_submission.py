@@ -31,7 +31,7 @@ from dwave.cloud.solver import (
 from dwave.cloud.concurrency import Present
 from dwave.cloud.testing.mocks import (
     hybrid_bqm_solver_data, hybrid_cqm_solver_data, hybrid_dqm_solver_data,
-    hybrid_nl_solver_data, qcdl_solver_data, qpu_pegasus_solver_data,
+    hybrid_nl_solver_data, qcdl_solver_data, qpu_clique_solver_data,
 )
 
 from tests.api.mocks import choose_reply
@@ -356,7 +356,7 @@ class TestNLSolver(unittest.TestCase):
 
     def setUp(self):
         self.mock_nl_solver = NLSolver(client=None, data=hybrid_nl_solver_data())
-        self.mock_qpu_solver = StructuredSolver(client=None, data=qpu_pegasus_solver_data(2))
+        self.mock_qpu_solver = StructuredSolver(client=None, data=qpu_clique_solver_data(2))
         self.solvers = [self.mock_qpu_solver, self.mock_nl_solver]
         self.client = Client(endpoint='endpoint', token='token')
         self.client._fetch_solvers = lambda **kw: self.solvers
@@ -460,7 +460,7 @@ class TestQCDLSolver(unittest.TestCase):
 
     def setUp(self):
         self.mock_qcdl_solver = QCDLSolver(client=None, data=qcdl_solver_data())
-        self.mock_qpu_solver = StructuredSolver(client=None, data=qpu_pegasus_solver_data(2))
+        self.mock_qpu_solver = StructuredSolver(client=None, data=qpu_clique_solver_data(2))
         self.solvers = [self.mock_qpu_solver, self.mock_qcdl_solver]
         self.client = Client(endpoint='endpoint', token='token')
         self.client._fetch_solvers = lambda **kw: self.solvers

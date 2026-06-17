@@ -8034,7 +8034,12 @@ class CfnCluster(
         
                 # the properties below are optional
                 control_plane_placement=eks.CfnCluster.ControlPlanePlacementProperty(
-                    group_name="groupName"
+                    group_name="groupName",
+                    spread_level="spreadLevel"
+                ),
+                etcd_instance_type="etcdInstanceType",
+                etcd_placement=eks.CfnCluster.EtcdPlacementProperty(
+                    spread_level="spreadLevel"
                 )
             ),
             remote_network_config=eks.CfnCluster.RemoteNetworkConfigProperty(
@@ -8969,15 +8974,21 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_eks.CfnCluster.ControlPlanePlacementProperty",
         jsii_struct_bases=[],
-        name_mapping={"group_name": "groupName"},
+        name_mapping={"group_name": "groupName", "spread_level": "spreadLevel"},
     )
     class ControlPlanePlacementProperty:
-        def __init__(self, *, group_name: typing.Optional[builtins.str] = None) -> None:
+        def __init__(
+            self,
+            *,
+            group_name: typing.Optional[builtins.str] = None,
+            spread_level: typing.Optional[builtins.str] = None,
+        ) -> None:
             '''The placement configuration for all the control plane instances of your local Amazon EKS cluster on an AWS Outpost.
 
             For more information, see `Capacity considerations <https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html>`_ in the *Amazon EKS User Guide* .
 
             :param group_name: The name of the placement group for the Kubernetes control plane instances. This property is only used for a local cluster on an AWS Outpost.
+            :param spread_level: Optional parameter to specify the placement group spread level for control plane instances. If not provided, EKS will deploy control plane instances without a placement group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-controlplaneplacement.html
             :exampleMetadata: fixture=_generated
@@ -8989,15 +9000,19 @@ class CfnCluster(
                 from aws_cdk import aws_eks as eks
                 
                 control_plane_placement_property = eks.CfnCluster.ControlPlanePlacementProperty(
-                    group_name="groupName"
+                    group_name="groupName",
+                    spread_level="spreadLevel"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d660e36a8e8c346e58bf586d09e62d3f36938b9cb7b40e9842c007af8090a1d3)
                 check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
+                check_type(argname="argument spread_level", value=spread_level, expected_type=type_hints["spread_level"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if group_name is not None:
                 self._values["group_name"] = group_name
+            if spread_level is not None:
+                self._values["spread_level"] = spread_level
 
         @builtins.property
         def group_name(self) -> typing.Optional[builtins.str]:
@@ -9008,6 +9023,17 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-controlplaneplacement.html#cfn-eks-cluster-controlplaneplacement-groupname
             '''
             result = self._values.get("group_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def spread_level(self) -> typing.Optional[builtins.str]:
+            '''Optional parameter to specify the placement group spread level for control plane instances.
+
+            If not provided, EKS will deploy control plane instances without a placement group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-controlplaneplacement.html#cfn-eks-cluster-controlplaneplacement-spreadlevel
+            '''
+            result = self._values.get("spread_level")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -9210,6 +9236,63 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "EncryptionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_eks.CfnCluster.EtcdPlacementProperty",
+        jsii_struct_bases=[],
+        name_mapping={"spread_level": "spreadLevel"},
+    )
+    class EtcdPlacementProperty:
+        def __init__(
+            self,
+            *,
+            spread_level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The placement configuration for the etcd instances of your local Amazon EKS cluster on an AWS Outpost.
+
+            :param spread_level: Optional parameter to specify the placement group spread level for etcd instances. If not provided, EKS will deploy etcd instances without a placement group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-etcdplacement.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_eks as eks
+                
+                etcd_placement_property = eks.CfnCluster.EtcdPlacementProperty(
+                    spread_level="spreadLevel"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d9922e303b981810f9f91e0f2fd64b8fed44ce90a058b7bd5f2bc4155496d671)
+                check_type(argname="argument spread_level", value=spread_level, expected_type=type_hints["spread_level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if spread_level is not None:
+                self._values["spread_level"] = spread_level
+
+        @builtins.property
+        def spread_level(self) -> typing.Optional[builtins.str]:
+            '''Optional parameter to specify the placement group spread level for etcd instances.
+
+            If not provided, EKS will deploy etcd instances without a placement group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-etcdplacement.html#cfn-eks-cluster-etcdplacement-spreadlevel
+            '''
+            result = self._values.get("spread_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EtcdPlacementProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9464,6 +9547,8 @@ class CfnCluster(
             "control_plane_instance_type": "controlPlaneInstanceType",
             "outpost_arns": "outpostArns",
             "control_plane_placement": "controlPlanePlacement",
+            "etcd_instance_type": "etcdInstanceType",
+            "etcd_placement": "etcdPlacement",
         },
     )
     class OutpostConfigProperty:
@@ -9473,6 +9558,8 @@ class CfnCluster(
             control_plane_instance_type: builtins.str,
             outpost_arns: typing.Sequence[builtins.str],
             control_plane_placement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ControlPlanePlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            etcd_instance_type: typing.Optional[builtins.str] = None,
+            etcd_placement: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.EtcdPlacementProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration of your local Amazon EKS cluster on an AWS Outpost.
 
@@ -9481,6 +9568,8 @@ class CfnCluster(
             :param control_plane_instance_type: The Amazon EC2 instance type that you want to use for your local Amazon EKS cluster on Outposts. Choose an instance type based on the number of nodes that your cluster will have. For more information, see `Capacity considerations <https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html>`_ in the *Amazon EKS User Guide* . The instance type that you specify is used for all Kubernetes control plane instances. The instance type can't be changed after cluster creation. The control plane is not automatically scaled by Amazon EKS.
             :param outpost_arns: The ARN of the Outpost that you want to use for your local Amazon EKS cluster on Outposts. Only a single Outpost ARN is supported.
             :param control_plane_placement: An object representing the placement configuration for all the control plane instances of your local Amazon EKS cluster on an AWS Outpost. For more information, see `Capacity considerations <https://docs.aws.amazon.com/eks/latest/userguide/eks-outposts-capacity-considerations.html>`_ in the *Amazon EKS User Guide* .
+            :param etcd_instance_type: The EC2 instance type for etcd instances of your local Amazon EKS cluster on AWS Outposts. This instance type applies to all etcd instances and cannot be changed after cluster creation.
+            :param etcd_placement: The placement configuration for the etcd instances of your local Amazon EKS cluster on an AWS Outpost.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-outpostconfig.html
             :exampleMetadata: fixture=_generated
@@ -9497,7 +9586,12 @@ class CfnCluster(
                 
                     # the properties below are optional
                     control_plane_placement=eks.CfnCluster.ControlPlanePlacementProperty(
-                        group_name="groupName"
+                        group_name="groupName",
+                        spread_level="spreadLevel"
+                    ),
+                    etcd_instance_type="etcdInstanceType",
+                    etcd_placement=eks.CfnCluster.EtcdPlacementProperty(
+                        spread_level="spreadLevel"
                     )
                 )
             '''
@@ -9506,12 +9600,18 @@ class CfnCluster(
                 check_type(argname="argument control_plane_instance_type", value=control_plane_instance_type, expected_type=type_hints["control_plane_instance_type"])
                 check_type(argname="argument outpost_arns", value=outpost_arns, expected_type=type_hints["outpost_arns"])
                 check_type(argname="argument control_plane_placement", value=control_plane_placement, expected_type=type_hints["control_plane_placement"])
+                check_type(argname="argument etcd_instance_type", value=etcd_instance_type, expected_type=type_hints["etcd_instance_type"])
+                check_type(argname="argument etcd_placement", value=etcd_placement, expected_type=type_hints["etcd_placement"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "control_plane_instance_type": control_plane_instance_type,
                 "outpost_arns": outpost_arns,
             }
             if control_plane_placement is not None:
                 self._values["control_plane_placement"] = control_plane_placement
+            if etcd_instance_type is not None:
+                self._values["etcd_instance_type"] = etcd_instance_type
+            if etcd_placement is not None:
+                self._values["etcd_placement"] = etcd_placement
 
         @builtins.property
         def control_plane_instance_type(self) -> builtins.str:
@@ -9551,6 +9651,28 @@ class CfnCluster(
             '''
             result = self._values.get("control_plane_placement")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ControlPlanePlacementProperty"]], result)
+
+        @builtins.property
+        def etcd_instance_type(self) -> typing.Optional[builtins.str]:
+            '''The EC2 instance type for etcd instances of your local Amazon EKS cluster on AWS Outposts.
+
+            This instance type applies to all etcd instances and cannot be changed after cluster creation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-outpostconfig.html#cfn-eks-cluster-outpostconfig-etcdinstancetype
+            '''
+            result = self._values.get("etcd_instance_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def etcd_placement(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EtcdPlacementProperty"]]:
+            '''The placement configuration for the etcd instances of your local Amazon EKS cluster on an AWS Outpost.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-outpostconfig.html#cfn-eks-cluster-outpostconfig-etcdplacement
+            '''
+            result = self._values.get("etcd_placement")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.EtcdPlacementProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10336,7 +10458,12 @@ class CfnClusterProps:
             
                     # the properties below are optional
                     control_plane_placement=eks.CfnCluster.ControlPlanePlacementProperty(
-                        group_name="groupName"
+                        group_name="groupName",
+                        spread_level="spreadLevel"
+                    ),
+                    etcd_instance_type="etcdInstanceType",
+                    etcd_placement=eks.CfnCluster.EtcdPlacementProperty(
+                        spread_level="spreadLevel"
                     )
                 ),
                 remote_network_config=eks.CfnCluster.RemoteNetworkConfigProperty(
@@ -26307,6 +26434,7 @@ def _typecheckingstub__340acb2fac13d871050a5222d012205ae59e347bfba164c5431785621
 def _typecheckingstub__d660e36a8e8c346e58bf586d09e62d3f36938b9cb7b40e9842c007af8090a1d3(
     *,
     group_name: typing.Optional[builtins.str] = None,
+    spread_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26329,6 +26457,13 @@ def _typecheckingstub__f49095254b4d4121f694873b18c2ef5026ef5539eb56b045195b57760
     *,
     provider: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ProviderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resources: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9922e303b981810f9f91e0f2fd64b8fed44ce90a058b7bd5f2bc4155496d671(
+    *,
+    spread_level: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -26362,6 +26497,8 @@ def _typecheckingstub__db660b2ea60bc92d49db95b07a452b00775f8630f8510e0a8b731bd1e
     control_plane_instance_type: builtins.str,
     outpost_arns: typing.Sequence[builtins.str],
     control_plane_placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ControlPlanePlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    etcd_instance_type: typing.Optional[builtins.str] = None,
+    etcd_placement: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EtcdPlacementProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

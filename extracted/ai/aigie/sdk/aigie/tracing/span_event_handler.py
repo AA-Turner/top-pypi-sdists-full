@@ -17,13 +17,14 @@ import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Literal
 
-from aigie.buffer import EventType
 from aigie.tracing.retention import is_retention_suppressed
 from aigie.tracing.trace_state import (
     current_parent_span_id,
     current_trace_id,
+    deregister_open_span,
     pop_span,
     push_span,
+    register_open_span,
 )
 
 if TYPE_CHECKING:
@@ -105,9 +106,19 @@ class SpanEventHandler:
         input: Any,
         metadata: dict[str, Any] | None = None,
         extras: dict[str, Any] | None = None,
+        span_id: str | None = None,
     ) -> str:
+        """Record an in-flight span. No event is emitted here — a span is built
+        mutably in memory and emitted exactly once, finalized, on close/fail.
+
+        ``span_id`` may be supplied to pin the id (the root span uses
+        ``span_id == trace_id``); otherwise a fresh uuid is generated. The
+        ``_open`` record is retained for parent resolution, and a finalize
+        callable is registered globally so an unclean shutdown still ships the
+        span as interrupted.
+        """
         trace_id = _require_trace_id()
-        span_id = str(uuid.uuid4())
+        span_id = span_id or str(uuid.uuid4())
         if is_retention_suppressed():
             return span_id
         start_dt = _utcnow()
@@ -126,21 +137,9 @@ class SpanEventHandler:
         if parent_id is None:
             parent_id = current_parent_span_id()
 
-        payload = {
+        state = {
             "id": span_id,
             "trace_id": trace_id,
-            "parent_id": parent_id,
-            "name": name,
-            "type": span_type,
-            "input": input,
-            "metadata": clean_metadata,
-            "start_time": start_time,
-            "created_at": start_time,
-        }
-        if extras:
-            payload.update(extras)
-        self._open[run_id] = {
-            "id": span_id,
             "name": name,
             "type": span_type,
             "input": input,
@@ -148,9 +147,11 @@ class SpanEventHandler:
             "start_dt": start_dt,
             "start_time": start_time,
             "parent_id": parent_id,
+            "extras": dict(extras) if extras else None,
         }
+        self._open[run_id] = state
         push_span(span_id)
-        self._emitter.emit_raw_sync(EventType.SPAN_CREATE, payload)
+        register_open_span(span_id, lambda: self._finalize_payload(state, status="interrupted"))
         return span_id
 
     def get_span_metadata(self, run_id: str) -> dict[str, Any] | None:
@@ -174,6 +175,7 @@ class SpanEventHandler:
         state = self._open.pop(run_id, None)
         if state is None:
             return
+        deregister_open_span(state["id"])
         if metadata_updates:
             state["metadata"].update(metadata_updates)
         if is_retention_suppressed():
@@ -183,7 +185,7 @@ class SpanEventHandler:
         payload["output"] = self._strip_error_envelope(output)
         if extras:
             payload.update(extras)
-        self._emitter.emit_raw_sync(EventType.SPAN_UPDATE, payload)
+        self._emitter.emit(payload)
         pop_span()
 
     def fail_span(
@@ -199,6 +201,7 @@ class SpanEventHandler:
         state = self._open.pop(run_id, None)
         if state is None:
             return
+        deregister_open_span(state["id"])
         if metadata_updates:
             state["metadata"].update(metadata_updates)
         if is_retention_suppressed():
@@ -210,15 +213,15 @@ class SpanEventHandler:
         payload["error"] = err_str
         payload["error_message"] = err_str
         payload["error_type"] = type(error).__name__
-        self._emitter.emit_raw_sync(EventType.SPAN_UPDATE, payload)
+        self._emitter.emit(payload)
         pop_span()
 
     def _finalize_payload(self, state: dict[str, Any], *, status: str) -> dict[str, Any]:
         end_dt = _utcnow()
         duration_ns = int((end_dt - state["start_dt"]).total_seconds() * 1_000_000_000) or 1
-        return {
+        payload = {
             "id": state["id"],
-            "trace_id": current_trace_id(),
+            "trace_id": state["trace_id"],
             "name": state["name"],
             "type": state["type"],
             "input": state["input"],
@@ -229,9 +232,18 @@ class SpanEventHandler:
             "duration_ns": duration_ns,
             "parent_id": state["parent_id"],
         }
+        if state.get("extras"):
+            payload.update(state["extras"])
+        return payload
 
     def pause_span(self, *, run_id: str) -> None:
-        """Mark span as paused without removing it; expects later resume/close/fail."""
+        """Emit an interim paused event without removing the span.
+
+        The span stays in ``_open`` (parent resolution) AND registered (so a
+        shutdown still finalizes it). On resume the same span_id re-emits
+        finalized via close_span/fail_span. The interim event preserves
+        ``start_time`` so the backend can upsert the paused row.
+        """
         state = self._open.get(run_id)
         if state is None:
             return
@@ -239,12 +251,13 @@ class SpanEventHandler:
             return
         payload = {
             "id": state["id"],
-            "trace_id": current_trace_id(),
+            "trace_id": state["trace_id"],
             "name": state["name"],
             "type": state["type"],
             "status": "paused",
+            "start_time": state["start_time"],
         }
-        self._emitter.emit_raw_sync(EventType.SPAN_UPDATE, payload)
+        self._emitter.emit(payload)
 
     def close_pending_spans(self, *, status: Literal["paused"] = "paused") -> None:
         """Pause every open span. Used on framework pause/interrupt."""
@@ -253,12 +266,9 @@ class SpanEventHandler:
             self.pause_span(run_id=run_id)
 
     def close_trace(self, *, status: str) -> None:
-        trace_id = current_trace_id()
-        if trace_id is None:
-            return
-        if is_retention_suppressed():
-            return
-        self._emitter.emit_raw_sync(EventType.TRACE_UPDATE, {"id": trace_id, "status": status})
+        """No-op: trace identity now rides the finalized root span
+        (``root.id == trace_id``), so there is no separate trace event."""
+        del status  # signature retained for callers; nothing to emit
 
     @staticmethod
     def _strip_error_envelope(output: Any) -> Any:

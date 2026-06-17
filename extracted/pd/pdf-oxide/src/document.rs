@@ -2823,6 +2823,45 @@ impl PdfDocument {
             .map(|&i| band_of(spans[i].bbox.y))
             .collect();
 
+        // Numbered reference/bibliography lists render the leading marker
+        // ("1.", "2.", "3.") in a narrow column to the left of the body
+        // text. That marker column is sparse (one per entry) and its markers
+        // sit between body rows, so they look exactly like rowspan labels to
+        // the heuristic below — but they are NOT: each number belongs to its
+        // own entry and promoting them scrambles the reference order. Detect
+        // the pattern (>=3 numbered markers sharing a tight left-edge cluster
+        // and spread down >=3 distinct rows = a vertical numbered list) and
+        // exclude those markers from label promotion.
+        let is_numbered_marker = |i: usize| -> bool {
+            let t = spans[i].text.trim_start();
+            let digits = t.chars().take_while(|c| c.is_ascii_digit()).count();
+            (1..=3).contains(&digits) && t[digits..].starts_with(['.', ')'])
+        };
+        let numbered_excluded: HashSet<usize> = {
+            let markers: Vec<usize> = (0..spans.len())
+                .filter(|&i| is_numbered_marker(i))
+                .collect();
+            if markers.len() >= 3 {
+                let mut xs: Vec<f32> = markers.iter().map(|&i| spans[i].bbox.x).collect();
+                xs.sort_by(|a, b| crate::utils::safe_float_cmp(*a, *b));
+                let median_x = xs[xs.len() / 2];
+                let cluster: Vec<usize> = markers
+                    .iter()
+                    .copied()
+                    .filter(|&i| (spans[i].bbox.x - median_x).abs() <= 6.0)
+                    .collect();
+                let rows: HashSet<i32> =
+                    cluster.iter().map(|&i| band_of(spans[i].bbox.y)).collect();
+                if cluster.len() >= 3 && rows.len() >= 3 {
+                    cluster.into_iter().collect()
+                } else {
+                    HashSet::new()
+                }
+            } else {
+                HashSet::new()
+            }
+        };
+
         // Collect "label" candidates: spans that sit in a "sparse"
         // column — one that holds meaningfully fewer spans than the
         // most populous column. A candidate only qualifies when it
@@ -2842,7 +2881,12 @@ impl PdfDocument {
                     let y = spans[i].bbox.y;
                     // Exclude spans on the same Y-band as the dense column:
                     // those are line-continuation text, not rowspan labels.
-                    y > data_bot && y < data_top && !dense_bands.contains(&band_of(y))
+                    // Also exclude numbered-list markers (reference numbers),
+                    // which would otherwise be hoisted out of reading order.
+                    y > data_bot
+                        && y < data_top
+                        && !dense_bands.contains(&band_of(y))
+                        && !numbered_excluded.contains(&i)
                 })
                 .collect();
             if in_data.len() >= 2 {
@@ -5565,6 +5609,29 @@ impl PdfDocument {
                             .flat_map(|r| r.cells.iter().flat_map(|c| c.mcids.iter().copied()))
                     })
                     .collect();
+                // Flatten every cell bbox once and index it into coarse y-bands,
+                // so the per-span containment test below scans only the cells in
+                // the span's y-band instead of every cell on the page (was
+                // O(spans x cells) on untagged table pages). A cell that contains
+                // a span necessarily shares the span's y-band, so this is
+                // byte-identical to the full scan.
+                let cell_bboxes: Vec<crate::geometry::Rect> = tables
+                    .iter()
+                    .flat_map(|t| {
+                        t.rows
+                            .iter()
+                            .flat_map(|r| r.cells.iter().filter_map(|c| c.bbox))
+                    })
+                    .collect();
+                const CELL_Y_BIN: f32 = 18.0;
+                let cell_bin = |y: f32| (y / CELL_Y_BIN).floor() as i32;
+                let mut cell_y_index: std::collections::HashMap<i32, Vec<usize>> =
+                    std::collections::HashMap::new();
+                for (ci, b) in cell_bboxes.iter().enumerate() {
+                    for bin in cell_bin(b.y)..=cell_bin(b.y + b.height) {
+                        cell_y_index.entry(bin).or_default().push(ci);
+                    }
+                }
                 // Returns true when span should be removed from the flow because
                 // it is owned by a table cell (will be re-emitted by render_text).
                 let span_in_table = |s: &crate::layout::TextSpan| -> bool {
@@ -5581,19 +5648,22 @@ impl PdfDocument {
                     // Using per-cell bboxes (rather than the coarser table bbox) prevents
                     // dropping paragraph spans that lie inside the table's outer bounding
                     // box but were not captured as table cells by the spatial detector.
-                    if tables.iter().any(|t| {
-                        t.rows.iter().any(|r| {
-                            r.cells.iter().any(|c| {
-                                c.bbox.is_some_and(|b| {
-                                    Self::contains_rect_with_tolerance(
-                                        &b,
-                                        &s.bbox,
-                                        RETAIN_TOLERANCE,
-                                    )
-                                })
+                    // Probe only the cells in the span's y-band (±1 bin guards the
+                    // containment tolerance). Equivalent to scanning every cell.
+                    let slo = cell_bin(s.bbox.y) - 1;
+                    let shi = cell_bin(s.bbox.y + s.bbox.height) + 1;
+                    let in_cell = (slo..=shi).any(|bin| {
+                        cell_y_index.get(&bin).is_some_and(|cands| {
+                            cands.iter().any(|&ci| {
+                                Self::contains_rect_with_tolerance(
+                                    &cell_bboxes[ci],
+                                    &s.bbox,
+                                    RETAIN_TOLERANCE,
+                                )
                             })
                         })
-                    }) {
+                    });
+                    if in_cell {
                         return true;
                     }
                     // Fallback: text-based match. The bbox check above uses
@@ -5697,6 +5767,22 @@ impl PdfDocument {
                 // Off-baseline glyphs (e.g. superscripts/subscripts) can land in
                 // adjacent bands and be emitted out of X order; fix that per line.
                 Self::reorder_same_line_runs(&mut spans);
+            } else if let Some(gutter_x) = Self::prose_two_column_gutter(&spans) {
+                // #734: genuine two-column prose (content-balance gated — forms /
+                // TOC / tables / figures are rejected). Read column-major with
+                // band separation: full-width rows (titles, mid-body section
+                // headings, footers — spans crossing the gutter) are emitted at
+                // their vertical position, between the column runs around them,
+                // so they are never split across the gutter (§14.8.3).
+                Self::reorder_column_major_with_bands(&mut spans, gutter_x);
+                // NB: do NOT run reorder_same_line_runs here. The column emit
+                // already orders each column by (y desc, x asc); a same-line
+                // X-sort would re-merge vertically-adjacent lines whenever the
+                // body leading (e.g. ~9pt) is tighter than same_line_threshold
+                // (min_fs·1.2 ≈ 10.8pt), pulling a new left-margin reference
+                // ahead of the previous reference's indented continuation
+                // (bibliography interleave) or shattering wrapped hyphenated
+                // lines in dense two-column bodies.
             }
 
             // OCR fallback for scanned PDFs
@@ -5780,7 +5866,7 @@ impl PdfDocument {
                 };
 
             let mut text = String::with_capacity(spans.len() * 20);
-            let mut prev_span: Option<&TextSpan> = None;
+            let mut prev_span: Option<TextSpan> = None;
 
             for span in &spans {
                 // Flush any tables that sit above this span in PDF
@@ -5800,7 +5886,7 @@ impl PdfDocument {
                     }
                 }
 
-                if let Some(prev) = prev_span {
+                if let Some(prev) = &prev_span {
                     let prev_end_x = prev.bbox.x + prev.bbox.width;
                     let span_end_x = span.bbox.x + span.bbox.width;
                     // Containment check: skip a span only if it is geometrically
@@ -5821,17 +5907,24 @@ impl PdfDocument {
                     let gap = span.bbox.x - prev_end_x;
                     let delta_x = span.bbox.x - prev.bbox.x;
 
+                    // Korean mid-eojeol soft wrap (SEG-KO): keep a Hangul word whole
+                    // when it wrapped mid-syllable. The wrap surfaces either as a
+                    // y-line break OR (when the two halves share a baseline band) as a
+                    // large backward X jump, so it is gated at each break site below.
+                    let hangul_midword_wrap = Self::hangul_midword_line_wrap(&text, prev, span);
                     if y_diff > Self::same_line_threshold(prev, span) {
                         let font_size = prev.font_size.max(span.font_size).max(10.0);
                         let line_height = font_size * 1.2;
                         let num_breaks = (y_diff / line_height).round() as usize;
-                        for _ in 0..num_breaks.clamp(1, 3) {
-                            text.push('\n');
+                        if !(hangul_midword_wrap && num_breaks == 1) {
+                            for _ in 0..num_breaks.clamp(1, 3) {
+                                text.push('\n');
+                            }
                         }
                     } else if gap < -1.0 {
                         let fs = span.font_size.max(prev.font_size).max(6.0);
                         if gap < -(fs * 20.0) {
-                            if !text.ends_with('\n') {
+                            if !hangul_midword_wrap && !text.ends_with('\n') {
                                 text.push('\n');
                             }
                         } else if delta_x < -fs * 3.0 {
@@ -5912,7 +6005,7 @@ impl PdfDocument {
                 }
 
                 Self::push_span_text(&mut text, span);
-                prev_span = Some(span);
+                prev_span = Some(span.clone());
             }
 
             // Drain any tables that sit below all flow spans (or the
@@ -6847,6 +6940,21 @@ impl PdfDocument {
         (min_fs * 1.2).max(max_fs * 0.3)
     }
 
+    /// True when a line break falls *inside* a Hangul word (eojeol) that wrapped
+    /// mid-syllable — Korean breaks anywhere, not only at word boundaries, so a
+    /// mid-eojeol wrap carries no separator in the source and the two halves
+    /// must rejoin with nothing ("집고양" ⏎ "이의" → "집고양이의"). An
+    /// eojeol-BOUNDARY wrap keeps its explicit inter-eojeol space, so `text`
+    /// ends with ' ' and this returns false (the break still separates).
+    /// Scoped to Hangul (not Chinese/Japanese) to avoid the CJK
+    /// line-break-collapse regressions seen in v0.3.62.
+    fn hangul_midword_line_wrap(text: &str, prev: &TextSpan, span: &TextSpan) -> bool {
+        let is_hangul = |c: char| (0xAC00..=0xD7AF).contains(&(c as u32));
+        !text.ends_with(' ')
+            && prev.text.chars().next_back().is_some_and(is_hangul)
+            && span.text.chars().next().is_some_and(is_hangul)
+    }
+
     /// Returns `true` if `inner` is contained within `outer`,
     /// allowing `eps` points of floating-point slack on all four
     /// edges. Used at the table-retain sites to absorb ~0.02pt drift
@@ -7073,11 +7181,40 @@ impl PdfDocument {
         // with no space before the comma either. Suppress the boundary
         // forced-space when the transitioning glyph IS the punctuation;
         // the space-threshold path below still handles real gaps.
-        let is_clause_punct =
-            |c: char| matches!(c, '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '}');
+        let is_clause_punct = |c: char| {
+            matches!(
+                c,
+                '.' | ',' | ';' | ':' | '!' | '?' | ')' | ']' | '}'
+                // Indic danda / double danda (sentence terminators that hug the
+                // preceding token like a Latin full stop). The danda lives in the
+                // Devanagari block but is shared by Bengali, Gurmukhi, etc., so a
+                // Bengali sentence + danda would otherwise read as a script
+                // transition and take a geometric space ("প্রাণী ।").
+                | '\u{0964}' | '\u{0965}'
+                // Arabic comma / semicolon / question mark (RTL clause punctuation).
+                | '\u{060C}' | '\u{061B}' | '\u{061F}'
+            )
+        };
         let punct_at_boundary = curr_head.is_some_and(is_clause_punct)
             || prev_tail.is_some_and(|c| matches!(c, '(' | '[' | '{'));
-        if crosses_cjk_boundary && !punct_at_boundary && gap > -0.5 && gap < font_size * 5.0 {
+        // Hangul↔digit is NOT a word boundary: a Korean numeral hugs its
+        // Sino-Korean counter ("1만년" = 10,000 years, "약 1만년"). Unlike a
+        // Chinese ideograph meeting a Latin year ("神鹰集团" + "2015", which
+        // pdftotext splits, issue 484), Korean keeps the digit and counter as
+        // one token, so forcing a space here over-segments the eojeol.
+        let is_hangul = |c: char| (0xAC00..=0xD7AF).contains(&(c as u32));
+        let hangul_digit_boundary = match (prev_tail, curr_head) {
+            (Some(p), Some(c)) => {
+                (is_hangul(p) && c.is_ascii_digit()) || (p.is_ascii_digit() && is_hangul(c))
+            },
+            _ => false,
+        };
+        if crosses_cjk_boundary
+            && !punct_at_boundary
+            && !hangul_digit_boundary
+            && gap > -0.5
+            && gap < font_size * 5.0
+        {
             return true;
         }
 
@@ -7093,6 +7230,25 @@ impl PdfDocument {
         // "column boundary" actually rendered as `3.80%4.41%` on wide rate
         // tables (issue 487 pr-138-example.pdf). Drop the upper bound so any
         // gap above the inter-glyph threshold gets at least a single space.
+        //
+        // Clause punctuation hugs the preceding word in Brahmic scripts. The
+        // producer leaves a wide advance after a Bengali/Devanagari syllable
+        // (matra/akhand positioning), so the geometric test would float a danda
+        // ("প্রাণী ।") or a comma ("रोशनी ,") off as its own token. Scope this to
+        // a *complex-script* previous glyph (or an Indic danda) so the universal
+        // Latin/math/form paths — where the same suppression interacts badly with
+        // the forward-gap line-break heuristic — stay byte-for-byte unchanged.
+        {
+            use crate::text::complex_script_detector::detect_complex_script;
+            let prev_is_complex = prev_tail
+                .and_then(|c| detect_complex_script(c as u32))
+                .is_some();
+            let curr_is_indic_punct =
+                curr_head.is_some_and(|c| matches!(c, '\u{0964}' | '\u{0965}'));
+            if curr_head.is_some_and(is_clause_punct) && (prev_is_complex || curr_is_indic_punct) {
+                return false;
+            }
+        }
         gap > space_threshold
     }
 
@@ -7461,9 +7617,57 @@ impl PdfDocument {
             let mut tmp = span.clone();
             tmp.text = span.text.chars().rev().collect();
             Self::push_span_text(out, &tmp);
+        } else if rtl_run && Self::is_reversible_rtl_numeric_span(&span.text) {
+            // A neutral+numeric span (e.g. a Hebrew-context " ,2009-" or " 600-")
+            // embedded in a pure-RTL run carries its glyphs in *visual*
+            // (content-stream draw) order. Reverse it to logical order while
+            // keeping each digit run forward (UAX #9 rule L2): visual " ,2009-"
+            // → logical "-2009, ", re-attaching the hyphen to the number and the
+            // comma to the preceding word, without ever flipping 2009 → 9002.
+            let mut tmp = span.clone();
+            tmp.text = crate::text::bidi::reverse_rtl_keep_numbers(&span.text);
+            Self::push_span_text(out, &tmp);
         } else {
             Self::push_span_text(out, span);
         }
+    }
+
+    /// Whether `text` is a neutral+numeric span eligible for number-preserving
+    /// RTL visual→logical reversal in [`push_span_text_bidi`]: every non-space
+    /// char is a [reorderable neutral](Self::is_rtl_reorderable_neutral), an
+    /// ASCII hyphen-minus, or a digit (ASCII / Arabic-Indic U+0660–0669 /
+    /// Extended Arabic-Indic U+06F0–06F9); it contains **exactly one** maximal
+    /// digit run (so a date range `2009-2010` or an ORCID is never reversed),
+    /// at least one movable neutral/hyphen, and the number-preserving reversal
+    /// actually changes it (else the cheaper verbatim path is byte-identical).
+    fn is_reversible_rtl_numeric_span(text: &str) -> bool {
+        let is_digit = |c: char| {
+            c.is_ascii_digit()
+                || ('\u{0660}'..='\u{0669}').contains(&c)
+                || ('\u{06F0}'..='\u{06F9}').contains(&c)
+        };
+        let mut has_movable = false;
+        let mut digit_runs = 0usize;
+        let mut in_digit = false;
+        for c in text.chars() {
+            if is_digit(c) {
+                if !in_digit {
+                    digit_runs += 1;
+                    in_digit = true;
+                }
+                continue;
+            }
+            in_digit = false;
+            if c.is_whitespace() {
+                continue;
+            }
+            if c == '-' || Self::is_rtl_reorderable_neutral(c) {
+                has_movable = true;
+                continue;
+            }
+            return false; // strong letter, bracket, quote, etc. → not eligible
+        }
+        digit_runs == 1 && has_movable && crate::text::bidi::reverse_rtl_keep_numbers(text) != text
     }
 
     /// Remove ASCII SPACE (U+0020) characters that sit *between two Arabic
@@ -7495,14 +7699,7 @@ impl PdfDocument {
             false
         }
         let chars: Vec<char> = text.chars().collect();
-        // Interior spaces flanked by Arabic letters on both sides. A producer's
-        // spurious cursive-join space splits ONE word, so a genuine spurious run
-        // carries exactly one such space. A span with several Arabic-flanked
-        // spaces is ordinary multi-word text whose spaces are real word breaks —
-        // stripping them all would concatenate every word into one token
-        // (the right_to_left_01 class). §14.8.2.3.3 governs word-break detection,
-        // not deletion of every interior space, so strip only the lone case and
-        // leave multi-word runs (and their real spaces) intact.
+        // Interior spaces flanked by Arabic letters on both sides.
         let qualifying: Vec<usize> = (0..chars.len())
             .filter(|&i| {
                 chars[i] == ' '
@@ -7510,10 +7707,53 @@ impl PdfDocument {
                     && arabic_letter_past_marks(chars[i + 1..].iter())
             })
             .collect();
+        if qualifying.is_empty() {
+            return text.to_string();
+        }
+        // SHATTER case (§14.8.2.3.3: a show-string must not contain interior
+        // SPACEs). When a space sits between a MAJORITY of adjacent Arabic-letter
+        // pairs, the producer exploded one cursive word into separate glyphs
+        // (e.g. `فصيلة` drawn as `ة لي ص ف`); every interior space is spurious, so
+        // strip them all. The density test (qualifying ≥ half the inter-letter
+        // gaps) tells this apart from ordinary multi-word text, whose spaces are
+        // sparse real word breaks (the right_to_left_01 class) — those stay.
+        let arabic_letters = chars
+            .iter()
+            .filter(|&&c| is_arabic_letter(c as u32))
+            .count();
+        let gaps = arabic_letters.saturating_sub(1).max(1);
+        if qualifying.len() >= 2 && qualifying.len() * 2 >= gaps {
+            let drop: std::collections::HashSet<usize> = qualifying.iter().copied().collect();
+            return chars
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &c)| (!drop.contains(&i)).then_some(c))
+                .collect();
+        }
+        // Sparse case: a lone spurious cursive-join space. A span with several
+        // sparse Arabic-flanked spaces is ordinary multi-word text whose spaces
+        // are real word breaks — leave them intact.
         if qualifying.len() != 1 {
             return text.to_string();
         }
         let drop = qualifying[0];
+        // Joining-type discriminator (§14.8.2.3.3). The cursive join already
+        // breaks AFTER a right-joining-only letter (ا د ذ ر ز و …), so a space
+        // there renders identically whether it is a genuine word break or a
+        // producer artefact — the two are indistinguishable. Stripping it would
+        // risk concatenating two real words (`دار اب` → `داراب`). Only a space
+        // after a dual-joining letter unambiguously broke a join that should
+        // not break, so restrict the strip to that case and keep the space when
+        // the preceding base letter (seen past any combining marks) is
+        // right-joining.
+        let preceding_right_joining = chars[..drop]
+            .iter()
+            .rev()
+            .find(|&&c| !is_rtl_diacritic(c as u32))
+            .is_some_and(|&c| crate::text::rtl_detector::is_right_joining_arabic(c as u32));
+        if preceding_right_joining {
+            return text.to_string();
+        }
         chars
             .iter()
             .enumerate()
@@ -9037,7 +9277,7 @@ impl PdfDocument {
 
         // Step 4: Assemble text in structure order
         let mut text = String::with_capacity(mcid_map.len() * 50); // estimate
-        let mut prev_span: Option<&TextSpan> = None;
+        let mut prev_span: Option<TextSpan> = None;
         // Whether the content element that emitted `prev_span` sat inside a
         // table — used to collapse a table row boundary to a single newline.
         let mut prev_in_table = false;
@@ -9083,8 +9323,12 @@ impl PdfDocument {
             if let Some(spans) = mcid_map.get(&mcid) {
                 consumed_mcids.insert(mcid);
                 let rtl_run = Self::mcid_run_is_pure_rtl(spans);
-                for span in Self::order_mcid_spans(spans) {
-                    if let Some(prev) = prev_span {
+                // Repair the cross-span Arabic glyph-interleave defect (zero-width
+                // mark/consonant spans landing at word edges) before ordering.
+                let merged_rtl = Self::merge_interleaved_rtl_lines(spans);
+                let use_spans: &[crate::layout::TextSpan] = merged_rtl.as_deref().unwrap_or(spans);
+                for span in Self::order_mcid_spans(use_spans) {
+                    if let Some(prev) = &prev_span {
                         let y_diff = (prev.bbox.y - span.bbox.y).abs();
 
                         if y_diff > Self::same_line_threshold(prev, span) {
@@ -9101,7 +9345,7 @@ impl PdfDocument {
                     }
 
                     Self::push_span_text_bidi(&mut text, span, rtl_run);
-                    prev_span = Some(span);
+                    prev_span = Some(span.clone());
                     prev_in_table = content.in_table;
                 }
             } else {
@@ -9132,7 +9376,7 @@ impl PdfDocument {
             for (_mcid, spans) in &unconsumed {
                 let rtl_run = Self::mcid_run_is_pure_rtl(spans);
                 for span in *spans {
-                    if let Some(prev) = prev_span {
+                    if let Some(prev) = &prev_span {
                         let y_diff = (prev.bbox.y - span.bbox.y).abs();
                         if y_diff > Self::same_line_threshold(prev, span) {
                             text.push('\n');
@@ -9141,7 +9385,7 @@ impl PdfDocument {
                         }
                     }
                     Self::push_span_text_bidi(&mut text, span, rtl_run);
-                    prev_span = Some(span);
+                    prev_span = Some(span.clone());
                 }
             }
         }
@@ -9153,7 +9397,7 @@ impl PdfDocument {
                 spans_without_mcid.len()
             );
             for span in &spans_without_mcid {
-                if let Some(prev) = prev_span {
+                if let Some(prev) = &prev_span {
                     let y_diff = (prev.bbox.y - span.bbox.y).abs();
                     if y_diff > Self::same_line_threshold(prev, span) {
                         text.push('\n');
@@ -9162,7 +9406,7 @@ impl PdfDocument {
                     }
                 }
                 Self::push_span_text_bidi(&mut text, span, false);
-                prev_span = Some(span);
+                prev_span = Some(span.clone());
             }
         }
 
@@ -9262,6 +9506,219 @@ impl PdfDocument {
         out
     }
 
+    /// Pre-pass for the cross-span Arabic GLYPH-interleave defect. Some producers
+    /// draw one Arabic word as a multi-glyph body span PLUS separate zero-width
+    /// mark / consonant spans positioned by their own show, each at its true x.
+    /// The atom-level span sort ([`order_pure_rtl_spans`]) then orders those spans
+    /// as whole units and reverses each independently, so a zero-width glyph whose
+    /// x falls *inside* a sibling span's x-extent lands at a word edge instead of
+    /// interleaved — `الثدييات` extracts as `ثالدييات`.
+    ///
+    /// Returns `Some(owned spans)` with each affected visual LINE collapsed into a
+    /// single visual-order span (so the downstream [`push_span_text_bidi`] reverse
+    /// produces correct logical order), or `None` when no line exhibits the defect
+    /// (then the caller uses the original spans, byte-identical). Gated tightly:
+    /// fires only on a pure-RTL line (no ASCII-alpha) that actually contains a
+    /// zero-width span interleaved inside another — a page with no such interleave
+    /// (BidiSample, ArabicCIDTrueType-logical, hebrew_mirrored) returns `None`.
+    fn merge_interleaved_rtl_lines(
+        spans: &[crate::layout::TextSpan],
+    ) -> Option<Vec<crate::layout::TextSpan>> {
+        use crate::utils::safe_float_cmp;
+        if spans.len() < 3 {
+            return None;
+        }
+        // Group into visual lines by a font-relative Y tolerance (mirrors
+        // order_pure_rtl_spans banding).
+        let mut by_y: Vec<&crate::layout::TextSpan> = spans.iter().collect();
+        by_y.sort_by(|a, b| safe_float_cmp(b.bbox.y, a.bbox.y));
+        let mut lines: Vec<Vec<&crate::layout::TextSpan>> = Vec::new();
+        let mut anchor_y = f32::NAN;
+        let mut tol = 0.0f32;
+        for s in by_y {
+            let fs = if s.font_size.is_finite() && s.font_size > 1.0 {
+                s.font_size
+            } else {
+                10.0
+            };
+            let new_line =
+                anchor_y.is_finite() && (!s.bbox.y.is_finite() || anchor_y - s.bbox.y > tol);
+            if anchor_y.is_nan() || new_line {
+                lines.push(Vec::new());
+                anchor_y = s.bbox.y;
+                tol = 0.5 * fs;
+            }
+            lines.last_mut().unwrap().push(s);
+        }
+
+        let mut any_gated = false;
+        let mut out: Vec<crate::layout::TextSpan> = Vec::with_capacity(spans.len());
+        for line in &lines {
+            if Self::rtl_line_needs_glyph_reorder(line) {
+                any_gated = true;
+                out.push(Self::merge_rtl_line_to_visual_span(line));
+            } else {
+                out.extend(line.iter().map(|s| (*s).clone()));
+            }
+        }
+        if any_gated {
+            Some(out)
+        } else {
+            None
+        }
+    }
+
+    /// True when a visual line exhibits the zero-width-glyph interleave defect:
+    /// (1) pure-RTL — no span carries an ASCII-alphabetic char and at least one
+    /// carries an RTL letter; AND (2) a zero-width span's x lies STRICTLY inside
+    /// another span's `[x, x+width]` on the line. Both are required so ordinary
+    /// pure-RTL text (no interleave) and any mixed-Latin line are left untouched.
+    fn rtl_line_needs_glyph_reorder(line: &[&crate::layout::TextSpan]) -> bool {
+        use crate::text::rtl_detector::is_rtl_text;
+        if line.len() < 2 {
+            return false;
+        }
+        let mut has_rtl = false;
+        for s in line {
+            for c in s.text.chars() {
+                if c.is_ascii_alphabetic() {
+                    return false; // mixed Latin — not our case
+                }
+                if is_rtl_text(c as u32) {
+                    has_rtl = true;
+                }
+            }
+        }
+        if !has_rtl {
+            return false;
+        }
+        line.iter().any(|m| {
+            m.bbox.width.abs() < 0.01
+                && line.iter().any(|b| {
+                    !std::ptr::eq(*m, *b)
+                        && b.bbox.width > 0.01
+                        && m.bbox.x > b.bbox.x
+                        && m.bbox.x < b.bbox.x + b.bbox.width
+                })
+        })
+    }
+
+    /// Collapse a gated RTL visual line into one VISUAL-order span: explode every
+    /// span into per-glyph `(x, char)` (reusing the `to_chars` advance arithmetic),
+    /// drop producer shatter spaces, sort base letters by ascending x (visual
+    /// left-to-right), bind each combining mark to its nearest base, and re-insert
+    /// a single space at genuine inter-word x-gaps. The downstream
+    /// [`push_span_text_bidi`] then reverses this to correct logical order with
+    /// marks kept attached (`reverse_rtl_keeping_marks`).
+    fn merge_rtl_line_to_visual_span(line: &[&crate::layout::TextSpan]) -> crate::layout::TextSpan {
+        use crate::text::rtl_detector::is_rtl_diacritic;
+        use crate::utils::safe_float_cmp;
+        // Explode to glyphs: split bases from combining marks, DROP shatter spaces
+        // that are interior to a multi-glyph span, but record the x of each
+        // STANDALONE space span — those are the producer's real word boundaries
+        // (geometric gap-thresholding is unreliable for cursive Arabic, so we use
+        // the producer's own segmentation instead).
+        let mut bases: Vec<(f32, char)> = Vec::new();
+        let mut marks: Vec<(f32, char)> = Vec::new();
+        let mut word_space_x: Vec<f32> = Vec::new();
+        for s in line {
+            if !s.text.is_empty() && s.text.chars().all(|c| c.is_whitespace()) {
+                word_space_x.push(s.bbox.x + s.bbox.width * 0.5);
+                continue;
+            }
+            // Pre-collect the span's chars so a whitespace glyph can see its
+            // non-mark neighbours (to tell a cursive-join shatter space from a
+            // genuine word break).
+            let span_chars: Vec<char> = s.to_chars().into_iter().map(|t| t.char).collect();
+            for (idx, tc) in s.to_chars().into_iter().enumerate() {
+                let c = tc.char;
+                if c.is_whitespace() {
+                    // ISO 32000-1 §14.8.2.3.3: a SPACE that borders a
+                    // NON-CURSIVE token (clause punctuation / symbol — not an
+                    // Arabic/Hebrew letter and not a digit) is a real word
+                    // break, so record its x. A space flanked by cursive letters
+                    // is the producer's intra-word shatter (dropped), and a
+                    // space between digits is a thousands separator (dropped) —
+                    // neither is a word boundary.
+                    use crate::text::rtl_detector::{
+                        is_arabic_letter, is_arabic_number, is_hebrew_letter,
+                    };
+                    let neighbour = |it: &mut dyn Iterator<Item = &char>| -> Option<char> {
+                        it.copied()
+                            .find(|&p| !p.is_whitespace() && !is_rtl_diacritic(p as u32))
+                    };
+                    let is_boundary_marker = |o: Option<char>| {
+                        o.is_some_and(|p| {
+                            let u = p as u32;
+                            !is_arabic_letter(u)
+                                && !is_hebrew_letter(u)
+                                && !is_arabic_number(u)
+                                && !p.is_ascii_digit()
+                        })
+                    };
+                    let prev = neighbour(&mut span_chars[..idx].iter().rev());
+                    let next = neighbour(&mut span_chars[idx + 1..].iter());
+                    if is_boundary_marker(prev) || is_boundary_marker(next) {
+                        word_space_x.push(tc.bbox.x + tc.bbox.width * 0.5);
+                    }
+                    continue; // not emitted as a glyph either way
+                }
+                if is_rtl_diacritic(c as u32) {
+                    marks.push((tc.bbox.x, c));
+                } else {
+                    bases.push((tc.bbox.x, c));
+                }
+            }
+        }
+        if bases.is_empty() {
+            return (*line[0]).clone();
+        }
+        bases.sort_by(|a, b| safe_float_cmp(a.0, b.0));
+        // Attach each mark to the nearest base by x; build base→trailing-marks.
+        let mut trailing: Vec<Vec<char>> = vec![Vec::new(); bases.len()];
+        for (mx, mc) in &marks {
+            let mut best = 0usize;
+            let mut best_d = f32::MAX;
+            for (i, (bx, _)) in bases.iter().enumerate() {
+                let d = (bx - mx).abs();
+                if d < best_d {
+                    best_d = d;
+                    best = i;
+                }
+            }
+            trailing[best].push(*mc);
+        }
+        // Emit visual (ascending-x) order: each base then its marks, with a single
+        // space wherever a producer word-boundary x falls between two bases. The
+        // downstream reverse maps this to logical order with words intact.
+        let mut text = String::new();
+        let mut prev_x: Option<f32> = None;
+        for (i, (bx, bc)) in bases.iter().enumerate() {
+            if let Some(px) = prev_x {
+                if word_space_x.iter().any(|sx| *sx > px && *sx < *bx) && !text.ends_with(' ') {
+                    text.push(' ');
+                }
+            }
+            text.push(*bc);
+            for m in &trailing[i] {
+                text.push(*m);
+            }
+            prev_x = Some(*bx);
+        }
+        // Build the merged span from the line's first span, spanning the line.
+        let mut merged = (*line[0]).clone();
+        let x_min = line.iter().map(|s| s.bbox.x).fold(f32::MAX, f32::min);
+        let x_max = line
+            .iter()
+            .map(|s| s.bbox.x + s.bbox.width)
+            .fold(f32::MIN, f32::max);
+        merged.text = text;
+        merged.bbox.x = x_min;
+        merged.bbox.width = (x_max - x_min).max(0.0);
+        merged.char_widths = Vec::new();
+        merged
+    }
+
     /// Port of the plain-text RTL reading-order correction to the converter
     /// pipeline's [`crate::pipeline::OrderedTextSpan`] sequence, so `to_markdown`
     /// and `to_html` produce logical-order Arabic/Hebrew.
@@ -9282,6 +9739,18 @@ impl PdfDocument {
     ///
     /// Mixed RTL+Latin lines are left untouched (full UAX #9 deferred), and the
     /// whole pass is skipped when the page has no RTL characters.
+    ///
+    /// KNOWN LIMITATION (md/html only): this pass orders a pure-RTL line by
+    /// sorting whole SPANS by `bbox.x` (rightmost first), so it cannot place a
+    /// standalone zero-width glyph (e.g. an Arabic qaf whose x falls inside an
+    /// already-merged word span) at its correct *intra-word* slot — the glyph
+    /// sorts before/after the word instead (`القهوة` → `قالهوة`). The plain-text
+    /// path avoids this by reconstructing at the GLYPH level
+    /// ([`merge_interleaved_rtl_lines`] / [`merge_rtl_line_to_visual_span`],
+    /// which explode each span to per-glyph bases via `to_chars`). To make the
+    /// md/html path match the text path, either run `merge_interleaved_rtl_lines`
+    /// on the raw spans before the pipeline orders them, or rebuild each gated
+    /// line here at the glyph level instead of the whole-span x-sort.
     fn apply_rtl_logical_order_to_ordered_spans(spans: &mut [crate::pipeline::OrderedTextSpan]) {
         use crate::text::rtl_detector::is_rtl_text;
         use crate::utils::safe_float_cmp;
@@ -9849,7 +10318,7 @@ impl PdfDocument {
 
         // Step 4: Assemble text in structure order
         let mut text = String::with_capacity(mcid_map.len() * 50);
-        let mut prev_span: Option<&TextSpan> = None;
+        let mut prev_span: Option<TextSpan> = None;
         let mut prev_in_table = false;
         let mut consumed_mcids: HashSet<u32> = HashSet::new();
 
@@ -9885,24 +10354,33 @@ impl PdfDocument {
             if let Some(spans) = mcid_map.get(&mcid) {
                 consumed_mcids.insert(mcid);
                 let rtl_run = Self::mcid_run_is_pure_rtl(spans);
-                for span in Self::order_mcid_spans(spans) {
-                    if let Some(prev) = prev_span {
+                // Repair the cross-span Arabic glyph-interleave defect (zero-width
+                // mark/consonant spans landing at word edges) before ordering.
+                let merged_rtl = Self::merge_interleaved_rtl_lines(spans);
+                let use_spans: &[crate::layout::TextSpan] = merged_rtl.as_deref().unwrap_or(spans);
+                for span in Self::order_mcid_spans(use_spans) {
+                    if let Some(prev) = &prev_span {
                         let y_diff = (prev.bbox.y - span.bbox.y).abs();
                         if y_diff > Self::same_line_threshold(prev, span) {
-                            Self::push_line_breaks(
-                                &mut text,
-                                prev,
-                                span,
-                                y_diff,
-                                content.in_table && prev_in_table,
-                            );
+                            // Suppress the break when a Hangul eojeol wrapped
+                            // mid-syllable (no inter-eojeol space at the wrap), so
+                            // the word stays whole for word-segmentation scoring.
+                            if !Self::hangul_midword_line_wrap(&text, prev, span) {
+                                Self::push_line_breaks(
+                                    &mut text,
+                                    prev,
+                                    span,
+                                    y_diff,
+                                    content.in_table && prev_in_table,
+                                );
+                            }
                         } else if Self::should_insert_space(prev, span) {
                             text.push(' ');
                         }
                     }
 
                     Self::push_span_text_bidi(&mut text, span, rtl_run);
-                    prev_span = Some(span);
+                    prev_span = Some(span.clone());
                     prev_in_table = content.in_table;
                 }
             }
@@ -9922,7 +10400,7 @@ impl PdfDocument {
             for (_mcid, spans) in &unconsumed {
                 let rtl_run = Self::mcid_run_is_pure_rtl(spans);
                 for span in *spans {
-                    if let Some(prev) = prev_span {
+                    if let Some(prev) = &prev_span {
                         let y_diff = (prev.bbox.y - span.bbox.y).abs();
                         if y_diff > Self::same_line_threshold(prev, span) {
                             text.push('\n');
@@ -9931,7 +10409,7 @@ impl PdfDocument {
                         }
                     }
                     Self::push_span_text_bidi(&mut text, span, rtl_run);
-                    prev_span = Some(span);
+                    prev_span = Some(span.clone());
                 }
             }
         }
@@ -9945,7 +10423,7 @@ impl PdfDocument {
             // Row-aware sort: Y-band descending (top→bottom), then X ascending.
             crate::utils::sort_by_row_band(&mut spans_without_mcid, |s| s.bbox.y, |s| s.bbox.x);
             for span in &spans_without_mcid {
-                if let Some(prev) = prev_span {
+                if let Some(prev) = &prev_span {
                     let y_diff = (prev.bbox.y - span.bbox.y).abs();
                     if y_diff > Self::same_line_threshold(prev, span) {
                         text.push('\n');
@@ -9954,7 +10432,7 @@ impl PdfDocument {
                     }
                 }
                 Self::push_span_text_bidi(&mut text, span, false);
-                prev_span = Some(span);
+                prev_span = Some(span.clone());
             }
         }
 
@@ -10138,6 +10616,20 @@ impl PdfDocument {
         body_sizes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let body_size = body_sizes[body_sizes.len() / 2];
 
+        // Span indices sorted by left edge, and the widest font on the page, so
+        // each initial only probes spans whose left edge falls in its narrow
+        // candidate x-window (was a full O(n) rescan per initial). A continuation
+        // satisfies `gap in [-fs*0.5, fs*0.12]`, i.e. its left edge is within
+        // [init_right - max_fs*0.5, init_right + max_fs*0.12]; using the page max
+        // font widens the window conservatively, and the exact per-candidate gap
+        // test below reproduces the original filter — so this is byte-identical.
+        let order: Vec<usize> = {
+            let mut o: Vec<usize> = (0..n).collect();
+            o.sort_by(|&a, &b| crate::utils::safe_float_cmp(spans[a].bbox.x, spans[b].bbox.x));
+            o
+        };
+        let max_fs = spans.iter().map(|s| s.font_size).fold(0.0_f32, f32::max);
+
         // For each initial candidate, the closest qualifying body span to its right.
         let mut target: Vec<Option<usize>> = vec![None; n];
         for i in 0..n {
@@ -10157,9 +10649,19 @@ impl PdfDocument {
                 continue; // initial must be clearly oversized vs normal body text
             }
             let init_right = init.bbox.x + init.bbox.width;
+            // Candidates: spans whose left edge is in the conservative window.
+            // Collect their indices and visit in ASCENDING ORIGINAL ORDER so the
+            // strict-`<` min keeps the same first-wins tie-break as the old scan.
+            let lo_x = init_right - max_fs * 0.5;
+            let hi_x = init_right + max_fs * 0.12;
+            let lo = order.partition_point(|&k| spans[k].bbox.x < lo_x);
+            let hi = order.partition_point(|&k| spans[k].bbox.x <= hi_x);
+            let mut cands: Vec<usize> = order[lo..hi].to_vec();
+            cands.sort_unstable();
             let mut best: Option<usize> = None;
             let mut best_gap = f32::MAX;
-            for (j, body) in spans.iter().enumerate() {
+            for &j in &cands {
+                let body = &spans[j];
                 if j == i || body.font_size <= 0.0 {
                     continue;
                 }
@@ -10380,6 +10882,11 @@ impl PdfDocument {
                     crate::utils::safe_float_cmp(bx, ax)
                 }
             });
+        } else if let Some(ordered) = Self::sidebar_body_reading_order(&spans) {
+            // RW-1: narrow-sidebar + wide-body first pages (full-width title band
+            // over a metadata sidebar + body). Handled before the XY-cut so the
+            // title is not sliced along the body gutter (§14.8.3).
+            spans = ordered;
         } else if Self::is_multi_column_page(&spans) {
             use crate::pipeline::reading_order::{
                 ReadingOrderContext as ROContext, ReadingOrderStrategy, XYCutStrategy,
@@ -11153,6 +11660,252 @@ impl PdfDocument {
         min_height > 0.0 && overlap > 0.5 * min_height
     }
 
+    /// Gutter X for a page that is genuinely **two-column PROSE** (#734), or
+    /// `None`. Content-balance discriminator (corpus-measured): rejects forms
+    /// (`label:value`), TOCs (`title…page#`), tables and N-up — all of which
+    /// share a clean gutter but must read row-wise. A real two-column body has
+    /// full-length text on both sides of the gutter.
+    fn prose_two_column_gutter(spans: &[crate::layout::TextSpan]) -> Option<f32> {
+        let body: Vec<&crate::layout::TextSpan> = spans
+            .iter()
+            .filter(|s| {
+                !s.text.trim().is_empty()
+                    && s.bbox.width > 0.0
+                    && s.bbox.x.is_finite()
+                    && s.bbox.width.is_finite()
+            })
+            .collect();
+        if body.len() < 8 {
+            return None;
+        }
+        let cmin = body.iter().map(|s| s.bbox.x).fold(f32::INFINITY, f32::min);
+        let cmax = body
+            .iter()
+            .map(|s| s.bbox.x + s.bbox.width)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let content_w = cmax - cmin;
+        if content_w < 100.0 {
+            return None;
+        }
+        // Exactly one clean corridor near mid-page (bridge-excluded). 0 = single
+        // column; ≥2 = grid/form/table.
+        let mut boxes: Vec<(f32, f32)> = body
+            .iter()
+            .filter(|s| s.bbox.width <= 0.6 * content_w)
+            .map(|s| (s.bbox.x, s.bbox.x + s.bbox.width))
+            .collect();
+        if boxes.len() < 8 {
+            return None;
+        }
+        boxes.sort_by(|a, b| crate::utils::safe_float_cmp(a.0, b.0));
+        let mut cover = boxes[0].1;
+        let (mut corridors, mut gutter_x) = (0usize, 0.0f32);
+        for &(l, r) in &boxes[1..] {
+            if l - cover >= 12.0 {
+                corridors += 1;
+                gutter_x = (cover + l) * 0.5;
+            }
+            cover = cover.max(r);
+        }
+        if corridors != 1 || !(0.30..=0.70).contains(&((gutter_x - cmin) / content_w)) {
+            return None;
+        }
+        // Column count via left-edge clustering. The coverage sweep above counts
+        // *one* corridor whenever a single wide span in a column reaches past the
+        // next column's start, hiding the real inter-column gap — so a two-page
+        // spread (4 columns) collapses to its spread midline and reads as a clean
+        // 2-column page, whose halves then each merge two real columns into an
+        // interleaved row-major mess. Cluster the (non-full-width) span left edges
+        // and require EXACTLY two significant column starts; anything else
+        // (single column, 3+ columns, N-up spread) is rejected.
+        {
+            let mut lefts: Vec<f32> = boxes.iter().map(|&(l, _)| l).collect();
+            lefts.sort_by(|a, b| crate::utils::safe_float_cmp(*a, *b));
+            let clust_gap = 0.08 * content_w;
+            let mut counts: Vec<usize> = Vec::new();
+            let mut run = 1usize;
+            let mut prev = lefts[0];
+            for &v in &lefts[1..] {
+                if v - prev > clust_gap {
+                    counts.push(run);
+                    run = 0;
+                }
+                run += 1;
+                prev = v;
+            }
+            counts.push(run);
+            // A "significant" column start carries ≥15% of the column-eligible
+            // spans (a hanging-indent continuation merges into its start cluster
+            // because its offset is far below clust_gap).
+            let min_sig = (0.15 * lefts.len() as f32).ceil() as usize;
+            let sig = counts.iter().filter(|&&c| c >= min_sig).count();
+            if sig != 2 {
+                return None;
+            }
+        }
+        // Content balance of spanning rows: full text on BOTH sides ⇒ prose;
+        // short right-hand value/page-number ⇒ form/TOC (reject).
+        let mut ordered: Vec<&crate::layout::TextSpan> = body.clone();
+        ordered.sort_by(|a, b| crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y));
+        let (mut total, mut spanning, mut short_r) = (0usize, 0usize, 0usize);
+        let (mut lefts, mut rights): (Vec<usize>, Vec<usize>) = (Vec::new(), Vec::new());
+        let mut i = 0;
+        while i < ordered.len() {
+            let y0 = ordered[i].bbox.y;
+            let (mut lc, mut rc) = (0usize, 0usize);
+            while i < ordered.len() && (ordered[i].bbox.y - y0).abs() <= 3.0 {
+                let s = ordered[i];
+                let n = s.text.trim().chars().count();
+                if s.bbox.x + s.bbox.width * 0.5 < gutter_x {
+                    lc += n;
+                } else {
+                    rc += n;
+                }
+                i += 1;
+            }
+            total += 1;
+            if lc > 0 && rc > 0 {
+                spanning += 1;
+                lefts.push(lc);
+                rights.push(rc);
+                if rc < 15 {
+                    short_r += 1;
+                }
+            }
+        }
+        if total < 6 || spanning == 0 || (spanning as f32) < 0.60 * total as f32 {
+            return None;
+        }
+        if (short_r as f32) > 0.30 * spanning as f32 {
+            return None;
+        }
+        let med = |v: &mut [usize]| -> f32 {
+            v.sort_unstable();
+            v[v.len() / 2] as f32
+        };
+        let (ml, mr) = (med(&mut lefts), med(&mut rights));
+        if mr < 25.0 || !(0.45..=2.2).contains(&(mr / ml.max(1.0))) {
+            return None;
+        }
+        Some(gutter_x)
+    }
+
+    /// If `spans` is a genuine two-column-prose page (#734), reorder them
+    /// column-major with full-width band separation; otherwise a no-op. Shared
+    /// by `extract_text`, `to_markdown`, and `to_html` so every flow agrees on
+    /// the reading order of a two-column body. Returns `true` if a reorder was
+    /// applied (the caller can then suppress geometric block re-ordering that
+    /// would otherwise re-derive row-major order from positions).
+    fn reorder_two_column_prose(spans: &mut Vec<crate::layout::TextSpan>) -> bool {
+        match Self::prose_two_column_gutter(spans) {
+            Some(gutter_x) => {
+                Self::reorder_column_major_with_bands(spans, gutter_x);
+                true
+            },
+            None => false,
+        }
+    }
+
+    /// Reorder a confirmed two-column-prose page **column-major with band
+    /// separation** (#734). Walks rows top→bottom; a row containing a span that
+    /// *crosses* the gutter is a full-width band (title, section heading,
+    /// footer) and is emitted at its vertical position, between the column runs
+    /// around it. Column runs are flushed left-column-then-right-column. This is
+    /// the §14.8.3 layout model: full-width BLSEs interleave with columns by
+    /// block position, so a mid-body heading is NOT split across the gutter.
+    fn reorder_column_major_with_bands(spans: &mut Vec<crate::layout::TextSpan>, gutter_x: f32) {
+        use crate::layout::TextSpan;
+        let crosses = |s: &TextSpan| s.bbox.x < gutter_x && s.bbox.x + s.bbox.width > gutter_x;
+        let mut src = std::mem::take(spans);
+        // Top→bottom, then left→right within a row.
+        src.sort_by(|a, b| {
+            crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y)
+                .then_with(|| crate::utils::safe_float_cmp(a.bbox.x, b.bbox.x))
+        });
+        let mut out: Vec<TextSpan> = Vec::with_capacity(src.len());
+        let mut col_buf: Vec<TextSpan> = Vec::new();
+        let flush = |buf: &mut Vec<TextSpan>, out: &mut Vec<TextSpan>| {
+            if buf.is_empty() {
+                return;
+            }
+            // A full line-height, used to decide when a block sits clearly
+            // *below* the opposite column rather than beside it.
+            let mut heights: Vec<f32> = buf.iter().map(|s| s.bbox.height).collect();
+            heights.sort_by(|a, b| crate::utils::safe_float_cmp(*a, *b));
+            let line_h = heights
+                .get(heights.len() / 2)
+                .copied()
+                .unwrap_or(10.0)
+                .max(1.0);
+            // Left column (centre < gutter) by y, then right column by y.
+            let (mut left, mut right): (Vec<TextSpan>, Vec<TextSpan>) = std::mem::take(buf)
+                .into_iter()
+                .partition(|s| s.bbox.x + s.bbox.width * 0.5 < gutter_x);
+            let by_yx = |a: &TextSpan, b: &TextSpan| {
+                crate::utils::safe_float_cmp(b.bbox.y, a.bbox.y)
+                    .then_with(|| crate::utils::safe_float_cmp(a.bbox.x, b.bbox.x))
+            };
+            // Trailing-block peel: a block lying a full line-height BELOW the
+            // entire opposite column is a bottom-spanning block (e.g. a
+            // bottom-left References section), not a parallel column member, so
+            // it must read AFTER both columns at its own y — not within its
+            // column partition (which would print it before the whole opposite
+            // column). oxide bbox.y is top-up (higher y = higher on page), so
+            // "below" = smaller y. Only fires when the opposite column has real
+            // content (>=2 spans) and the block clears its bottom by a line, so
+            // balanced 2-col bodies (columns ending at ~equal y) are untouched.
+            let bottom_y =
+                |v: &[TextSpan]| v.iter().map(|s| s.bbox.y).fold(f32::INFINITY, f32::min);
+            let right_bottom = bottom_y(&right);
+            let left_bottom = bottom_y(&left);
+            let mut trailing: Vec<TextSpan> = Vec::new();
+            if right.len() >= 2 {
+                left.retain(|s| {
+                    let below = s.bbox.y < right_bottom - line_h;
+                    if below {
+                        trailing.push(s.clone());
+                    }
+                    !below
+                });
+            }
+            if left.len() >= 2 {
+                right.retain(|s| {
+                    let below = s.bbox.y < left_bottom - line_h;
+                    if below {
+                        trailing.push(s.clone());
+                    }
+                    !below
+                });
+            }
+            left.sort_by(by_yx);
+            right.sort_by(by_yx);
+            trailing.sort_by(by_yx);
+            out.append(&mut left);
+            out.append(&mut right);
+            out.append(&mut trailing);
+        };
+        let mut i = 0;
+        while i < src.len() {
+            let y0 = src[i].bbox.y;
+            let mut row: Vec<TextSpan> = Vec::new();
+            while i < src.len() && (src[i].bbox.y - y0).abs() <= 3.0 {
+                row.push(src[i].clone());
+                i += 1;
+            }
+            if row.iter().any(crosses) {
+                // Full-width band row: flush the columns above it, then emit the
+                // band whole (left→right), keeping it out of the column stream.
+                flush(&mut col_buf, &mut out);
+                row.sort_by(|a, b| crate::utils::safe_float_cmp(a.bbox.x, b.bbox.x));
+                out.append(&mut row);
+            } else {
+                col_buf.append(&mut row);
+            }
+        }
+        flush(&mut col_buf, &mut out);
+        *spans = out;
+    }
+
     fn is_multi_column_page(spans: &[crate::layout::TextSpan]) -> bool {
         // Clean-gutter detector (handles short pages the histogram gates below
         // reject for lack of spans). A genuine empty vertical channel that no
@@ -11524,6 +12277,210 @@ impl PdfDocument {
         // rows — this is what keeps short-cell tables off the XY-cut path
         // without the raw `mean_chars` floor that also blocked short verse.
         multi_gap_lines * 2 <= eff_lines
+    }
+
+    /// RW-1: reading order for a **narrow-sidebar + wide-body** page (the MDPI /
+    /// academic first-page layout: a full-width title band on top, a narrow left
+    /// metadata column — Citation / Editor / Received / copyright — beside a wide
+    /// body column). `is_multi_column_page` misreads this as two balanced columns
+    /// and the XY-cut then slices the full-width title along the body gutter
+    /// (§14.8.3: a block-level full-width element must NOT be column-assigned).
+    ///
+    /// Returns `Some(reordered_spans)` only when the layout is *confidently* this
+    /// shape — emit order **band (title) + body, merged top→bottom, then the
+    /// sidebar last** (the gold puts the title whole on top, then the body; the
+    /// metadata sidebar is publisher furniture read last). Returns `None`
+    /// otherwise so the normal XY-cut / row-aware path is unchanged. The gate is
+    /// deliberately tight (gutter left-of-centre + a narrow left column + a wide
+    /// right column + a full-width band near the top) so balanced two-column and
+    /// single-column pages never reach it.
+    fn sidebar_body_reading_order(
+        spans: &[crate::layout::TextSpan],
+    ) -> Option<Vec<crate::layout::TextSpan>> {
+        use crate::utils::safe_float_cmp;
+        if spans.len() < 30 {
+            return None;
+        }
+        let x_min = spans.iter().map(|s| s.bbox.left()).fold(f32::MAX, f32::min);
+        let x_max = spans
+            .iter()
+            .map(|s| s.bbox.right())
+            .fold(f32::MIN, f32::max);
+        let y_min = spans.iter().map(|s| s.bbox.top()).fold(f32::MAX, f32::min);
+        let y_max = spans
+            .iter()
+            .map(|s| s.bbox.bottom())
+            .fold(f32::MIN, f32::max);
+        let width = (x_max - x_min).max(1.0);
+        let height = (y_max - y_min).max(1.0);
+        if !(width.is_finite() && height.is_finite()) {
+            return None;
+        }
+
+        // Cluster spans into baseline lines (top→bottom).
+        let mut order: Vec<usize> = (0..spans.len()).collect();
+        order.sort_by(|&a, &b| {
+            safe_float_cmp(spans[b].bbox.bottom(), spans[a].bbox.bottom())
+                .then_with(|| safe_float_cmp(spans[a].bbox.left(), spans[b].bbox.left()))
+        });
+        struct Line {
+            top_y: f32,
+            min_left: f32,
+            max_right: f32,
+            members: Vec<usize>,
+        }
+        let mut lines: Vec<Line> = Vec::new();
+        for &i in &order {
+            let s = &spans[i];
+            let h = (s.bbox.bottom() - s.bbox.top()).abs().max(1.0);
+            match lines.last_mut() {
+                Some(l) if (l.top_y - s.bbox.bottom()).abs() <= h * 0.6 => {
+                    l.min_left = l.min_left.min(s.bbox.left());
+                    l.max_right = l.max_right.max(s.bbox.right());
+                    l.members.push(i);
+                },
+                _ => lines.push(Line {
+                    top_y: s.bbox.bottom(),
+                    min_left: s.bbox.left(),
+                    max_right: s.bbox.right(),
+                    members: vec![i],
+                }),
+            }
+        }
+        if lines.len() < 12 {
+            return None;
+        }
+
+        // Find the body-column left edge: the most common line-start that sits
+        // well right of the page left margin (excludes the sidebar/title cluster
+        // anchored at x_min). The gutter is just left of it.
+        let body_left = {
+            const BIN: f32 = 5.0;
+            let nbins = ((width / BIN).ceil() as usize).clamp(1, 4096);
+            let mut hist = vec![0usize; nbins];
+            for l in &lines {
+                if l.min_left > x_min + width * 0.10 {
+                    let b = (((l.min_left - x_min) / BIN) as usize).min(nbins - 1);
+                    hist[b] += 1;
+                }
+            }
+            let (peak, &cnt) = hist.iter().enumerate().max_by_key(|(_, &c)| c)?;
+            if cnt < 5 {
+                return None; // no consistent body-column start
+            }
+            x_min + peak as f32 * BIN
+        };
+        // Gutter must be left-of-centre (a narrow sidebar, not a centred 2-col).
+        let gutter = body_left - width * 0.02;
+        if !(gutter > x_min + width * 0.12 && gutter < x_min + width * 0.45) {
+            return None;
+        }
+
+        // Classify each SPAN by the gutter. A publisher-metadata sidebar and the
+        // body usually SHARE baselines (the metadata column interleaves with body
+        // lines by Y), so a per-line cluster would fuse them into one full-width
+        // line and hide the sidebar — classify per span instead. BAND = a span
+        // genuinely spanning the gutter (a wide full-width title/heading). SIDEBAR
+        // = a span entirely left of the gutter. BODY = everything at/right of it.
+        let mut band: Vec<usize> = Vec::new();
+        let mut sidebar: Vec<usize> = Vec::new();
+        let mut body: Vec<usize> = Vec::new();
+        for (i, s) in spans.iter().enumerate() {
+            let l = s.bbox.left();
+            let r = s.bbox.right();
+            if l < gutter && r > gutter && (r - l) > width * 0.40 {
+                band.push(i);
+            } else if r <= gutter {
+                sidebar.push(i);
+            } else {
+                body.push(i);
+            }
+        }
+        // A real sidebar/body are each multi-line.
+        let line_count = |v: &[usize]| -> usize {
+            let mut ys: Vec<f32> = v.iter().map(|&i| spans[i].bbox.bottom()).collect();
+            ys.sort_by(|a, b| safe_float_cmp(*a, *b));
+            ys.dedup_by(|a, b| (*a - *b).abs() <= 2.0);
+            ys.len()
+        };
+        if line_count(&sidebar) < 5 || line_count(&body) < 8 {
+            return None;
+        }
+        // Sidebar genuinely narrower than the body column.
+        let col_width = |v: &[usize]| -> f32 {
+            let lo = v
+                .iter()
+                .map(|&i| spans[i].bbox.left())
+                .fold(f32::MAX, f32::min);
+            let hi = v
+                .iter()
+                .map(|&i| spans[i].bbox.right())
+                .fold(f32::MIN, f32::max);
+            (hi - lo).max(0.0)
+        };
+        let sw = col_width(&sidebar);
+        let bw = col_width(&body);
+        if sw >= width * 0.45 || sw >= bw * 0.70 {
+            return None; // left column not a narrow sidebar relative to the body
+        }
+        // ANTI-FORM discriminator. A bare narrow left column is geometrically
+        // indistinguishable from a label:value form (Name:/Address:/Date:) or a
+        // verse/margin-note page, and these PDFs carry NO background tint to anchor
+        // the sidebar. The reliable signal is semantic: a publisher-metadata
+        // sidebar carries recognisable furniture labels that never head a form
+        // field or a body column. Require >=2 DISTINCT labels so ordinary narrow
+        // columns and forms never engage this reordering.
+        let side_text: String = {
+            let mut t = String::new();
+            for &i in &sidebar {
+                t.push_str(&spans[i].text.to_lowercase());
+                t.push(' ');
+            }
+            t
+        };
+        const FURNITURE: [&str; 12] = [
+            "citation",
+            "received",
+            "accepted",
+            "published",
+            "copyright",
+            "licensee",
+            "academic editor",
+            "publisher",
+            "doi.org",
+            "issn",
+            "creative commons",
+            "open access",
+        ];
+        let furniture_hits = FURNITURE.iter().filter(|k| side_text.contains(**k)).count();
+        if furniture_hits < 2 {
+            return None;
+        }
+
+        // Emit: band + body merged top→bottom (title stays on top, body flows,
+        // any mid-body full-width element keeps its vertical slot), then the
+        // sidebar furniture last. Spans within a line read left→right.
+        let mut main: Vec<usize> = band;
+        main.extend(body);
+        let key = |idx: &usize| {
+            let s = &spans[*idx];
+            (s.bbox.bottom(), s.bbox.left())
+        };
+        main.sort_by(|a, b| {
+            let (ay, ax) = key(a);
+            let (by, bx) = key(b);
+            safe_float_cmp(by, ay).then_with(|| safe_float_cmp(ax, bx))
+        });
+        sidebar.sort_by(|a, b| {
+            let (ay, ax) = key(a);
+            let (by, bx) = key(b);
+            safe_float_cmp(by, ay).then_with(|| safe_float_cmp(ax, bx))
+        });
+        let mut out: Vec<crate::layout::TextSpan> = Vec::with_capacity(spans.len());
+        for i in main.into_iter().chain(sidebar) {
+            out.push(spans[i].clone());
+        }
+        Some(out)
     }
 
     /// True if the spans cluster into lines whose leftmost X positions
@@ -12212,13 +13169,67 @@ impl PdfDocument {
         &self,
         page_index: usize,
     ) -> Result<crate::structured::StructuredPage> {
+        self.extract_structured_with_column_mode(page_index, crate::structured::ColumnMode::Auto)
+    }
+
+    /// Extract a page as [`StructuredPage`](crate::structured::StructuredPage)
+    /// regions with an explicit column-detection
+    /// [`ColumnMode`](crate::structured::ColumnMode) (issue #734 Fix 3).
+    ///
+    /// `Auto` runs the geometric gutter heuristic (same as
+    /// [`extract_structured`](Self::extract_structured)); `Two` forces a
+    /// two-column split for layouts the conservative heuristic rejects (short,
+    /// ragged reference-edition lines); `Single` suppresses column detection.
+    /// The override applies to the geometric path only — ISO 32000-1:2008
+    /// §14.8.2.3 leaves untagged reading order undefined — and never overrides a
+    /// trustworthy structure tree.
+    pub fn extract_structured_with_column_mode(
+        &self,
+        page_index: usize,
+        column_mode: crate::structured::ColumnMode,
+    ) -> Result<crate::structured::StructuredPage> {
         let page_text = self.extract_page_text(page_index)?;
-        Ok(crate::structured::build_structured_page(
+        let struct_info = self.structured_mcid_info(page_index);
+        Ok(crate::structured::build_structured_page_full(
             page_index,
             page_text.page_width,
             page_text.page_height,
             page_text.spans,
+            column_mode,
+            &struct_info,
         ))
+    }
+
+    /// Per-MCID structure facts for `extract_structured` (ISO 32000-1:2008
+    /// §14.8.4): which MCIDs are `Lbl` labels and which logical `Sect`/`Art`
+    /// section each belongs to. Empty for untagged or suspect-tagged PDFs, so
+    /// the structured output is identical to the geometric path there. Section
+    /// ids are document-stable (the same `Sect` element yields the same id on
+    /// every page it spans), giving cross-page chapter continuity for free
+    /// (#734 §4/§5/§6).
+    fn structured_mcid_info(&self, page_index: usize) -> crate::structured::McidStructInfo {
+        let mut info = crate::structured::McidStructInfo::default();
+        let Some(ref struct_tree) = self.struct_tree_trustworthy() else {
+            return info;
+        };
+        if self.structure_content_cache.lock_or_recover().is_none() {
+            let all = crate::structure::traverse_structure_tree_all_pages(struct_tree);
+            *self.structure_content_cache.lock_or_recover() = Some(all);
+        }
+        let cache = self.structure_content_cache.lock_or_recover();
+        if let Some(content) = cache.as_ref().and_then(|c| c.get(&(page_index as u32))) {
+            for item in content {
+                if let Some(mcid) = item.mcid {
+                    if matches!(item.list_role, Some(crate::structure::ListRole::Lbl)) {
+                        info.lbl.insert(mcid);
+                    }
+                    if let Some(sid) = item.section_id {
+                        info.section.insert(mcid, sid as usize);
+                    }
+                }
+            }
+        }
+        info
     }
 
     /// Extract complete page text data with a specific reading order.
@@ -12926,7 +13937,11 @@ impl PdfDocument {
         let page_bbox =
             crate::geometry::Rect::new(media_box.0, media_box.1, media_box.2, media_box.3);
 
-        let all_chars: Vec<_> = spans.iter().flat_map(|s| s.to_chars()).collect();
+        // Materialize each span's chars ONCE (to_chars allocates + decodes); the
+        // word-clustering loop below reuses chars_per_span instead of calling
+        // to_chars a second time per span. Byte-identical, halves to_chars work.
+        let chars_per_span: Vec<Vec<_>> = spans.iter().map(|s| s.to_chars()).collect();
+        let all_chars: Vec<_> = chars_per_span.iter().flatten().cloned().collect();
         if all_chars.is_empty() {
             return Ok(Vec::new());
         }
@@ -12948,8 +13963,8 @@ impl PdfDocument {
         let mut split_boundary_word_indices: std::collections::HashSet<usize> =
             std::collections::HashSet::new();
         let mut words = Vec::new();
-        for span in &spans {
-            let span_chars = span.to_chars();
+        for (span_idx, span) in spans.iter().enumerate() {
+            let span_chars = &chars_per_span[span_idx];
             if span_chars.is_empty() {
                 continue;
             }
@@ -12957,7 +13972,7 @@ impl PdfDocument {
             // Group characters within THIS SPAN. Since PDF spans are often words or line fragments,
             // this is much safer than global character clustering.
             let clusters =
-                clustering::cluster_chars_into_words(&span_chars, params.word_gap_threshold);
+                clustering::cluster_chars_into_words(span_chars, params.word_gap_threshold);
 
             // Record split boundary: the first word created from this span is a hard
             // boundary when split_boundary_before = true (e.g. table cell boundary).
@@ -13179,7 +14194,9 @@ impl PdfDocument {
         let page_bbox =
             crate::geometry::Rect::new(media_box.0, media_box.1, media_box.2, media_box.3);
 
-        let all_chars: Vec<_> = spans.iter().flat_map(|s| s.to_chars()).collect();
+        // Materialize each span's chars once (see extract_text_as_words).
+        let chars_per_span: Vec<Vec<_>> = spans.iter().map(|s| s.to_chars()).collect();
+        let all_chars: Vec<_> = chars_per_span.iter().flatten().cloned().collect();
         let props =
             DocumentProperties::analyze(&all_chars, page_bbox).map_err(Error::LayoutAnalysis)?;
         let mut params = AdaptiveLayoutParams::from_properties(&props);
@@ -13195,14 +14212,13 @@ impl PdfDocument {
         // Walk spans in canonical reading order, clustering chars → words.
         // No block partition; spans are already pre-ordered.
         let mut words: Vec<Word> = Vec::new();
-        for span in &spans {
-            let span_chars = span.to_chars();
+        for span_chars in &chars_per_span {
             if span_chars.is_empty() {
                 continue;
             }
 
             let clusters =
-                clustering::cluster_chars_into_words(&span_chars, params.word_gap_threshold);
+                clustering::cluster_chars_into_words(span_chars, params.word_gap_threshold);
             for cluster_indices in clusters {
                 let cluster_chars: Vec<_> = cluster_indices
                     .iter()
@@ -15973,7 +16989,12 @@ impl PdfDocument {
             return Ok(vertical);
         }
 
-        let tables = if options.extract_tables {
+        // Two-column prose (#734) is content-balance-gated to reject real
+        // tables, so when it fires suppress the text-only spatial table
+        // fallback: a short-cell two-column body must read column-major as
+        // prose, not be re-gridded row-wise into a table.
+        let two_col_prose = Self::prose_two_column_gutter(&base_spans).is_some();
+        let tables = if options.extract_tables && !two_col_prose {
             // text_fallback=true: to_markdown explicitly targets structured output,
             // so we enable the text-only spatial fallback for line-less tables
             // (e.g. sailing-score grids with no ruling lines — issue #486).
@@ -15989,6 +17010,27 @@ impl PdfDocument {
         // Caller-supplied spans (e.g. OCR'd image text from the Auto extractor),
         // each carrying the MCID/position that drops it into reading order.
         spans.extend_from_slice(extra_spans);
+
+        // Two-column-prose column-major reorder (#734): same gate + emit as the
+        // plain-text path, so a two-column body reads column-by-column rather
+        // than interleaving rows. When it fires (untagged pages only), the
+        // pipeline preserves this order instead of re-deriving a row-major one;
+        // a trustworthy struct tree's mcid order still wins.
+        let prose_reordered = Self::reorder_two_column_prose(&mut spans);
+
+        // Publisher-metadata sidebar segregation (RW-1 D3): same gate + emit as
+        // the plain-text path; preserve the order so the pipeline does not
+        // re-interleave the metadata column into the body (untagged pages).
+        let sidebar_reordered = if !prose_reordered {
+            if let Some(ordered) = Self::sidebar_body_reading_order(&spans) {
+                spans = ordered;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
 
         let pipeline_config = TextPipelineConfig::from_conversion_options(options);
 
@@ -16131,7 +17173,9 @@ impl PdfDocument {
         let pipeline = TextPipeline::with_config(pipeline_config.clone());
 
         // Step 6: Build reading order context (pass mcid_order if available)
-        let mut context = ReadingOrderContext::new().with_page(page_index as u32);
+        let mut context = ReadingOrderContext::new()
+            .with_page(page_index as u32)
+            .with_preserve_input_order(prose_reordered || sidebar_reordered);
         if let Some(order) = mcid_order {
             context = context.with_mcid_order(order);
         }
@@ -16498,7 +17542,12 @@ impl PdfDocument {
             return Ok(format!("<p>{}</p>", escaped.trim()));
         }
 
-        let tables = if options.extract_tables {
+        // Two-column prose (#734) is content-balance-gated to reject real
+        // tables, so when it fires suppress the text-only spatial table
+        // fallback: a short-cell two-column body must read column-major as
+        // prose, not be re-gridded row-wise into a table.
+        let two_col_prose = Self::prose_two_column_gutter(&base_spans).is_some();
+        let tables = if options.extract_tables && !two_col_prose {
             // text_fallback=true: to_html explicitly targets structured output,
             // so we enable the text-only spatial fallback for line-less tables
             // (e.g. sailing-score grids with no ruling lines — issue #486).
@@ -16515,6 +17564,27 @@ impl PdfDocument {
         // each carrying the MCID/position that drops it into reading order.
         spans.extend_from_slice(extra_spans);
 
+        // Two-column-prose column-major reorder (#734): same gate + emit as the
+        // plain-text path, so a two-column body reads column-by-column rather
+        // than interleaving rows. When it fires (untagged pages only), the
+        // pipeline preserves this order instead of re-deriving a row-major one;
+        // a trustworthy struct tree's mcid order still wins.
+        let prose_reordered = Self::reorder_two_column_prose(&mut spans);
+
+        // Publisher-metadata sidebar segregation (RW-1 D3): same gate + emit as
+        // the plain-text path. When it fires, preserve the order so the pipeline
+        // does not re-interleave the metadata column into the body.
+        let sidebar_reordered = if !prose_reordered {
+            if let Some(ordered) = Self::sidebar_body_reading_order(&spans) {
+                spans = ordered;
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         let pipeline_config = TextPipelineConfig::from_conversion_options(options);
 
         // Step 4: Create pipeline with config
@@ -16529,7 +17599,9 @@ impl PdfDocument {
         let context = if self.prefers_structure_reading_order() {
             crate::pipeline::page_order::build_context(self, page_index)
         } else {
-            ReadingOrderContext::new().with_page(page_index as u32)
+            ReadingOrderContext::new()
+                .with_page(page_index as u32)
+                .with_preserve_input_order(prose_reordered || sidebar_reordered)
         };
 
         // Step 6: Process through pipeline (applies reading order strategy)
@@ -20974,6 +22046,62 @@ mod tests {
         );
     }
 
+    /// SEG-AR cross-span glyph interleave: a word drawn as a body span plus a
+    /// zero-width consonant span whose x falls INSIDE the body must be repaired
+    /// (merged + reversed) into correct logical order, not atom-scrambled.
+    #[test]
+    fn test_merge_interleaved_rtl_word_reconstructs_logical() {
+        use crate::geometry::Rect;
+        // الثدييات visual L→R is "ت ا ي ي د ث ل ا"; the producer draws the body
+        // "تاييدلا" (7 glyphs @ x=100,110,…,160) and the consonant ث as a
+        // zero-width span at x=145, strictly inside the body's [100,170] extent.
+        let body = TextSpan {
+            text: "تاييدلا".to_string(),
+            bbox: Rect::new(100.0, 700.0, 70.0, 12.0),
+            char_widths: vec![10.0; 7],
+            font_size: 12.0,
+            ..TextSpan::default()
+        };
+        let theh = TextSpan {
+            text: "ث".to_string(),
+            bbox: Rect::new(145.0, 700.0, 0.0, 12.0),
+            font_size: 12.0,
+            ..TextSpan::default()
+        };
+        let spans = [body, theh];
+        let line: Vec<&TextSpan> = spans.iter().collect();
+        assert!(
+            PdfDocument::rtl_line_needs_glyph_reorder(&line),
+            "interleaved zero-width consonant must trigger the glyph-reorder gate"
+        );
+        // The merged span is VISUAL order; push_span_text_bidi reverses it.
+        let merged = PdfDocument::merge_rtl_line_to_visual_span(&line);
+        let mut out = String::new();
+        PdfDocument::push_span_text_bidi(&mut out, &merged, true);
+        assert_eq!(out, "الثدييات", "interleaved word not reconstructed, got {out:?}");
+    }
+
+    /// Negative: a pure-RTL line with NO zero-width interleaved span (logical-
+    /// order word spans, the BidiSample shape) must NOT trigger the reorder gate,
+    /// so already-correct RTL pages stay on the unchanged path.
+    #[test]
+    fn test_rtl_line_no_interleave_skips_glyph_reorder() {
+        let spans = vec![
+            make_rtl_test_span("אחת", 300.0, 700.0),
+            make_rtl_test_span("שתיים", 200.0, 700.0),
+            make_rtl_test_span("שלוש", 100.0, 700.0),
+        ];
+        let line: Vec<&TextSpan> = spans.iter().collect();
+        assert!(
+            !PdfDocument::rtl_line_needs_glyph_reorder(&line),
+            "no zero-width interleave → gate must stay off (byte-identical path)"
+        );
+        assert!(
+            PdfDocument::merge_interleaved_rtl_lines(&spans).is_none(),
+            "no interleaved line → no merge (caller uses original spans)"
+        );
+    }
+
     /// A pure-RTL line whose zero-advance glyphs (hamza seats, marks,
     /// producer-positioned consonants) are drawn a couple of points off the
     /// baseline must NOT be scattered into separate rows. The fixed quantized
@@ -21107,15 +22235,26 @@ mod tests {
         assert_eq!(out, "word ,", "LTR neutral span must be emitted verbatim");
     }
 
-    /// A neutral span that embeds a digit (a left-to-right sub-run) must NOT be
-    /// reversed even inside an RTL run — reversing `2009` would corrupt the year
-    /// to `9002`. Guards the digit-exclusion in `is_reversible_rtl_neutral_span`.
+    /// A neutral+single-number span inside a pure-RTL run is reversed to logical
+    /// order with the DIGIT RUN KEPT FORWARD (UAX #9 L2): visual `2009,` →
+    /// logical `,2009` (the comma re-attaches to the preceding word; `2009` is
+    /// never flipped to `9002`). Guards `is_reversible_rtl_numeric_span`.
     #[test]
-    fn test_push_span_text_bidi_does_not_reverse_digit_bearing_span() {
+    fn test_push_span_text_bidi_reverses_neutral_number_keeping_digits() {
         let span = make_rtl_test_span("2009,", 270.0, 700.0);
         let mut out = String::new();
         PdfDocument::push_span_text_bidi(&mut out, &span, true);
-        assert_eq!(out, "2009,", "digit-bearing span must not be reversed");
+        assert_eq!(out, ",2009", "neutral+number span: reverse order, keep 2009 forward");
+    }
+
+    /// A span with TWO digit runs joined by a hyphen (a year range / ORCID) must
+    /// NOT be reversed — only a single maximal digit run qualifies.
+    #[test]
+    fn test_push_span_text_bidi_does_not_reverse_multi_number_span() {
+        let span = make_rtl_test_span("2009-2010", 270.0, 700.0);
+        let mut out = String::new();
+        PdfDocument::push_span_text_bidi(&mut out, &span, true);
+        assert_eq!(out, "2009-2010", "multi-digit-run span must be emitted verbatim");
     }
 
     #[test]
@@ -21164,6 +22303,36 @@ mod tests {
         assert_eq!(
             PdfDocument::strip_interior_arabic_spaces("\u{0642}\u{0644}"),
             "\u{0642}\u{0644}"
+        );
+        // Joining-type discriminator: a space AFTER a right-joining-only letter
+        // (reh ر) is kept — the join already breaks there, so it may be a real
+        // word boundary and stripping it would concatenate two words.
+        // بحر ما  →  unchanged (reh before the space).
+        assert_eq!(
+            PdfDocument::strip_interior_arabic_spaces("\u{0628}\u{062D}\u{0631} \u{0645}\u{0627}"),
+            "\u{0628}\u{062D}\u{0631} \u{0645}\u{0627}"
+        );
+        // A space after a DUAL-joining letter (beh ب) unambiguously broke a
+        // cursive join → still stripped.  كتب لا  →  كتبلا
+        assert_eq!(
+            PdfDocument::strip_interior_arabic_spaces("\u{0643}\u{062A}\u{0628} \u{0644}\u{0627}"),
+            "\u{0643}\u{062A}\u{0628}\u{0644}\u{0627}"
+        );
+        // SHATTER: a producer that exploded one word into glyphs (a space between
+        // most letter pairs) has every interior space stripped.  ة لي ص ف → ةليصف
+        assert_eq!(
+            PdfDocument::strip_interior_arabic_spaces(
+                "\u{0629} \u{0644}\u{064A} \u{0635} \u{0641}"
+            ),
+            "\u{0629}\u{0644}\u{064A}\u{0635}\u{0641}"
+        );
+        // NOT a shatter: sparse spaces in genuine multi-word text are kept (the
+        // density stays below half the inter-letter gaps).  دار سلام بلد  unchanged
+        assert_eq!(
+            PdfDocument::strip_interior_arabic_spaces(
+                "\u{062F}\u{0627}\u{0631} \u{0633}\u{0644}\u{0627}\u{0645} \u{0628}\u{0644}\u{062F}"
+            ),
+            "\u{062F}\u{0627}\u{0631} \u{0633}\u{0644}\u{0627}\u{0645} \u{0628}\u{0644}\u{062F}"
         );
     }
 
@@ -22918,6 +24087,62 @@ mod tests {
         assert!(PdfDocument::should_insert_space(&prev, &current));
     }
 
+    // SEG-KO: a Sino-Korean numeral hugs its counter ("1만년"), so a tightly
+    // typeset Hangul↔digit boundary must NOT get a forced space.
+    #[test]
+    fn test_should_insert_space_hangul_digit_no_space() {
+        // digit → Hangul ("1" then "만"), tight gap (< space threshold)
+        let one = make_test_span("1", 0.0, 100.0, 8.0, 12.0);
+        let man = make_test_span("만", 8.5, 100.0, 12.0, 12.0);
+        assert!(!PdfDocument::should_insert_space(&one, &man));
+        // Hangul → digit, same
+        let nyeon = make_test_span("년", 0.0, 100.0, 12.0, 12.0);
+        let two = make_test_span("2", 12.5, 100.0, 8.0, 12.0);
+        assert!(!PdfDocument::should_insert_space(&nyeon, &two));
+    }
+
+    // The Hangul exception must NOT relax the Chinese ideograph↔digit split
+    // ("神鹰集团" + "2015" → separate tokens, issue 484).
+    #[test]
+    fn test_should_insert_space_ideograph_digit_still_splits() {
+        let tuan = make_test_span("团", 0.0, 100.0, 12.0, 12.0);
+        let year = make_test_span("2", 12.5, 100.0, 8.0, 12.0);
+        assert!(PdfDocument::should_insert_space(&tuan, &year));
+    }
+
+    // SEG-INDIC: clause punctuation hugs the preceding Brahmic-script word, so a
+    // wide post-syllable advance must not float a danda / comma / colon off as
+    // its own token. Latin keeps its spacing (no regression).
+    #[test]
+    fn test_should_insert_space_indic_clause_punct_hugs() {
+        // Bengali letter + danda (gap > space threshold ⇒ would otherwise space)
+        let beng = make_test_span("ী", 0.0, 100.0, 12.0, 12.0);
+        let danda = make_test_span("।", 15.0, 100.0, 6.0, 12.0);
+        assert!(!PdfDocument::should_insert_space(&beng, &danda));
+        // Devanagari letter + ASCII comma
+        let deva = make_test_span("ी", 0.0, 100.0, 12.0, 12.0);
+        let comma = make_test_span(",", 15.0, 100.0, 5.0, 12.0);
+        assert!(!PdfDocument::should_insert_space(&deva, &comma));
+        // Latin word + comma at the same gap STILL gets a space (Indic-scoped).
+        let latin = make_test_span("word", 0.0, 100.0, 12.0, 12.0);
+        let comma2 = make_test_span(",", 15.0, 100.0, 5.0, 12.0);
+        assert!(PdfDocument::should_insert_space(&latin, &comma2));
+    }
+
+    // SEG-KO: a Hangul eojeol that wrapped mid-syllable rejoins with no break;
+    // an eojeol-boundary wrap (text already ends with a space) still separates.
+    #[test]
+    fn test_hangul_midword_line_wrap() {
+        let prev = make_test_span("집고양", 480.0, 110.0, 36.0, 12.0);
+        let next = make_test_span("이의", 50.0, 95.0, 24.0, 12.0);
+        assert!(PdfDocument::hangul_midword_line_wrap("…집고양", &prev, &next));
+        // eojeol boundary: accumulated text ends with the inter-eojeol space
+        assert!(!PdfDocument::hangul_midword_line_wrap("…했다 ", &prev, &next));
+        // not Hangul on one side
+        let latin = make_test_span("the", 50.0, 95.0, 24.0, 12.0);
+        assert!(!PdfDocument::hangul_midword_line_wrap("…집고양", &prev, &latin));
+    }
+
     // ========================================================================
     // extract_words: adjacent-span merging tests (issue-336 regression)
     // ========================================================================
@@ -24626,6 +25851,73 @@ mod tests {
             "reorder_rowspan_labels must not change order when sparse spans \
              share Y-bands with the dense column; \
              before={before:?} after={after:?}"
+        );
+    }
+
+    /// Regression: a numbered reference/bibliography list whose markers
+    /// ("1.", "2.", …) sit in a narrow left column between body rows must
+    /// NOT have those markers promoted as rowspan labels. The geometry is
+    /// identical to a genuine rowspan table — only the marker TEXT (a
+    /// vertical numbered list) distinguishes it — so the guard keys on the
+    /// numbered-marker signal and leaves reading order intact.
+    #[test]
+    fn test_rowspan_skips_numbered_reference_continuation() {
+        use crate::layout::TextSpan;
+
+        fn mk(text: &str, x: f32, y: f32, w: f32) -> TextSpan {
+            TextSpan {
+                artifact_type: None,
+                text: text.to_string(),
+                bbox: crate::geometry::Rect::new(x, y, w, 10.0),
+                font_size: 12.0,
+                font_name: "Arial".into(),
+                font_weight: crate::layout::FontWeight::Normal,
+                is_italic: false,
+                is_monospace: false,
+                color: crate::layout::Color::black(),
+                mcid: None,
+                mcid_scope: None,
+                sequence: 0,
+                split_boundary_before: false,
+                offset_semantic: false,
+                char_spacing: 0.0,
+                word_spacing: 0.0,
+                horizontal_scaling: 100.0,
+                primary_detected: false,
+                char_widths: vec![],
+                heading_level: None,
+                rotation_degrees: 0.0,
+                wmode: 0,
+            }
+        }
+
+        // Dense body column (x=200): 12 rows y=100..-10 step -10.
+        // Numbered markers (x=50): "1.".."4." sitting BETWEEN body rows —
+        // the exact geometry that promotes a genuine rowspan label.
+        let mut spans = vec![
+            mk("1.", 50.0, 95.0, 40.0),
+            mk("2.", 50.0, 65.0, 40.0),
+            mk("3.", 50.0, 35.0, 40.0),
+            mk("4.", 50.0, 5.0, 40.0),
+        ];
+        for i in 0..12 {
+            let y = 100.0 - (i as f32) * 10.0;
+            spans.push(mk(&format!("b{:02}", i), 200.0, y, 20.0));
+        }
+
+        // Sort as extract_spans does before calling reorder_rowspan_labels.
+        spans.sort_by(|a, b| {
+            crate::utils::row_aware_span_cmp(a.bbox.y, a.bbox.x, b.bbox.y, b.bbox.x)
+        });
+        let before: Vec<String> = spans.iter().map(|s| s.text.clone()).collect();
+
+        super::PdfDocument::reorder_rowspan_labels(&mut spans);
+
+        let after: Vec<String> = spans.iter().map(|s| s.text.clone()).collect();
+        assert_eq!(
+            before, after,
+            "numbered reference markers must not be promoted as rowspan \
+             labels; before={before:?} after={after:?}"
         );
     }
 

@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import logging
 import os
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
+
+from airbyte_ops_mcp.constants import PACKAGE_NAME
 
 try:
     from segment import analytics  # type: ignore[import-untyped]
@@ -116,10 +119,8 @@ def track_regression_test(
         properties.update(additional_properties)
 
     try:
-        from importlib.metadata import version
-
-        properties["package_version"] = version("airbyte-ops-mcp")
-    except Exception:
+        properties["package_version"] = version(PACKAGE_NAME)
+    except PackageNotFoundError:
         properties["package_version"] = "unknown"
 
     analytics.track(user_id, "regression_test_start", properties)
@@ -152,10 +153,8 @@ def track_event(
     event_properties = properties or {}
 
     try:
-        from importlib.metadata import version
-
-        event_properties["package_version"] = version("airbyte-ops-mcp")
-    except Exception:
+        event_properties["package_version"] = version(PACKAGE_NAME)
+    except PackageNotFoundError:
         event_properties["package_version"] = "unknown"
 
     analytics.track(user_id, event_name, event_properties)

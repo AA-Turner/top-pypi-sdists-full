@@ -2,7 +2,9 @@ use super::*;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum CompileErrorKind<'src> {
-  ArgAttributeValueRequiresOption,
+  ArgAttributeRequiresOption {
+    keyword: &'static str,
+  },
   ArgumentPatternRegex {
     source: regex::Error,
   },
@@ -77,6 +79,15 @@ pub(crate) enum CompileErrorKind<'src> {
   ExtraneousAttributes {
     count: usize,
   },
+  FlagAndValueArgAttribute {
+    parameter: String,
+  },
+  FlagAttributeTakesNoValue {
+    parameter: String,
+  },
+  FlagWithDefault {
+    parameter: String,
+  },
   FunctionArgumentCountMismatch {
     arguments: usize,
     expected: RangeInclusive<usize>,
@@ -99,6 +110,10 @@ pub(crate) enum CompileErrorKind<'src> {
   InvalidEscapeSequence {
     character: char,
   },
+  ListFeature(ListFeature),
+  MappedDependencyMultipleStarredArguments,
+  MappedDependencyWithoutListsSetting,
+  MappedDependencyWithoutStarredArgument,
   MismatchedClosingDelimiter {
     close: Delimiter,
     open: Delimiter,
@@ -143,6 +158,7 @@ pub(crate) enum CompileErrorKind<'src> {
   ShortOptionWithMultipleCharacters {
     parameter: String,
   },
+  StarredArgumentOutsideMappedDependency,
   UndefinedArgAttribute {
     argument: String,
   },

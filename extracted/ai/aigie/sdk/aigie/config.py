@@ -14,6 +14,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from aigie._grpc import derive_grpc_target
+
 if TYPE_CHECKING:
     from aigie.telemetry._config import TelemetryConfig
 
@@ -280,6 +282,19 @@ class Config:
         default_factory=lambda: os.getenv("KYTTE_TOKEN", os.getenv("AIGIE_TOKEN"))
     )
 
+    # Derived from aigie_url in __post_init__ (host + gRPC port 50051). When
+    # set, finalized spans (SPAN_UPDATE) are sent over gRPC to
+    # kytte.ingest.v1.IngestService; other event types stay on HTTP.
+    kytte_grpc_url: str | None = None
+    # gRPC ingest uses a plaintext channel by default (in-cluster traffic).
+    kytte_grpc_use_tls: bool = False
+
+    # Determine Error MVP: derived from aigie_url in __post_init__ (host +
+    # decision gRPC port 50052). When set, one fire-and-forget EvaluateSpan is
+    # sent per finalized span to the Decision Orchestrator. Shares
+    # kytte_grpc_use_tls with the ingest channel.
+    kytte_decision_grpc_url: str | None = None
+
     # License server URL (defaults to Aigie's licensing server)
     license_server_url: str = field(
         default_factory=lambda: os.getenv("AIGIE_LICENSE_SERVER", "https://portal.aigie.io/api")
@@ -324,6 +339,24 @@ class Config:
         self.aigie_url = self.aigie_url.rstrip("/")
         # Keep api_url in sync for backward compatibility
         self.api_url = self.aigie_url
+
+        # Derive the gRPC ingest target from aigie_url's host. Unlike the
+        # control-plane client, ingest always uses the default gRPC port and
+        # does not honor AIGIE_GRPC_PORT (in-cluster traffic, fixed port).
+        if not self.kytte_grpc_url and self.aigie_url:
+            self.kytte_grpc_url = (
+                derive_grpc_target(self.aigie_url, honor_url_port=False, honor_env_port=False)
+                or None
+            )
+
+        # Derive the Decision Orchestrator target (Determine Error MVP): same
+        # host as the platform endpoint, fixed decision port. Explicit value
+        # wins; otherwise always derived from aigie_url.
+        if not self.kytte_decision_grpc_url and self.aigie_url:
+            from aigie._grpc import _DEFAULT_DECISION_GRPC_PORT, split_host_port
+
+            host, _ = split_host_port(self.aigie_url)
+            self.kytte_decision_grpc_url = f"{host}:{_DEFAULT_DECISION_GRPC_PORT}" if host else None
 
         # Token consolidation: if api_key is set but aigie_token is not, use api_key
         # This provides backward compatibility for users still using api_key

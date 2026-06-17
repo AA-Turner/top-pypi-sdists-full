@@ -225,17 +225,6 @@ def pylsp_lint(
 
     """
     settings = config.plugin_settings("pylsp_mypy")
-    oldSettings1 = config.plugin_settings("mypy-ls")
-    oldSettings2 = config.plugin_settings("mypy_ls")
-    if oldSettings1 != {} or oldSettings2 != {}:
-        raise NameError(
-            "Your configuration uses an old namespace (mypy-ls or mypy_ls)."
-            + "This should be changed to pylsp_mypy"
-        )
-    if settings == {}:
-        settings = oldSettings1
-        if settings == {}:
-            settings = oldSettings2
 
     didSettingsChange(workspace.root_path, settings)
 
@@ -493,9 +482,7 @@ def init(workspace: str) -> dict[str, str]:
     log.info("init workspace = %s", workspace)
 
     configuration = {}
-    path = findConfigFile(
-        workspace, [], ["pylsp-mypy.cfg", "mypy-ls.cfg", "mypy_ls.cfg", "pyproject.toml"], False
-    )
+    path = findConfigFile(workspace, [], ["pylsp-mypy.cfg", "pyproject.toml"], False)
     if path:
         if "pyproject.toml" in path:
             with open(path, "rb") as file:
@@ -547,11 +534,10 @@ def findConfigFile(
             for subPath in [""] + configSubPaths:
                 file = parent.joinpath(subPath).joinpath(name)
                 if file.is_file():
-                    if file.name in ["mypy-ls.cfg", "mypy_ls.cfg"]:
-                        raise NameError(
-                            f"{str(file)}: {file.name} is no longer supported, you should rename "
-                            "your config file to pylsp-mypy.cfg or preferably use a pyproject.toml "
-                            "instead."
+                    if file.name in ["pylsp-mypy.cfg"]:
+                        raise DeprecationWarning(
+                            f"{str(file)}: {file.name} is no longer supported, you should use a"
+                            "pyproject.toml instead."
                         )
                     if file.name == "pyproject.toml":
                         with open(file, "rb") as fileO:

@@ -8,10 +8,14 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .bad_request_error import BadRequestError
     from .not_found_error import NotFoundError
+    from .not_implemented_error import NotImplementedError
+    from .service_unavailable_error import ServiceUnavailableError
     from .too_many_requests_error import TooManyRequestsError
 _dynamic_imports: typing.Dict[str, str] = {
     "BadRequestError": ".bad_request_error",
     "NotFoundError": ".not_found_error",
+    "NotImplementedError": ".not_implemented_error",
+    "ServiceUnavailableError": ".service_unavailable_error",
     "TooManyRequestsError": ".too_many_requests_error",
 }
 
@@ -37,4 +41,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["BadRequestError", "NotFoundError", "TooManyRequestsError"]
+__all__ = ["BadRequestError", "NotFoundError", "NotImplementedError", "ServiceUnavailableError", "TooManyRequestsError"]

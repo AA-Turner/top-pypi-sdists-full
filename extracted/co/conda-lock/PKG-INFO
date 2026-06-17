@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conda_lock
-Version: 4.0.0
+Version: 4.0.1
 Summary: Lockfiles for conda
 Project-URL: Homepage, https://github.com/conda/conda-lock
 Project-URL: Repository, https://github.com/conda/conda-lock
@@ -51,7 +51,7 @@ Requires-Dist: fastjsonschema<3.0.0,>=2.18.0
 Requires-Dist: filelock
 Requires-Dist: gitpython>=3.1.30
 Requires-Dist: importlib-metadata>=4.4; python_version < '3.10'
-Requires-Dist: installer<0.8.0,>=0.7.0
+Requires-Dist: installer<2.0.0,>=1.0.1
 Requires-Dist: jinja2
 Requires-Dist: keyring<26.0.0,>=25.1.0
 Requires-Dist: packaging>=24.0

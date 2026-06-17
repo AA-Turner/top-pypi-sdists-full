@@ -17,7 +17,6 @@ from ..cost_tracking import calculate_claude_cost
 from ..monitoring import DriftDetector
 from ..native_callback import (
     _pick_error_message,
-    _shorten_model_name,
     _utc_isoformat,
     _utc_now,
 )
@@ -158,39 +157,14 @@ class QueryEvents:
         if system_prompt and self.capture_messages:
             trace_metadata["system_prompt"] = system_prompt
 
-        # Only create trace if we don't have a trace context AND haven't created one yet
+        # Trace identity now rides the root span (the Query span below); no
+        # separate trace event is emitted. Preserve the OTel-bridge / session
+        # side-effects that the old trace-create path performed.
         should_create_trace = not self._trace_context
         if self._session_context and self._session_context.trace_created:
             should_create_trace = False
 
         if should_create_trace:
-            trace_data = {
-                "id": self.trace_id,
-                "name": trace_name,
-                "type": "agent",
-                "input": {
-                    "prompt": prompt[:2000] if self.capture_messages else "[redacted]",
-                    "model": trace_metadata["model"],
-                    "tool_count": len(tools),
-                },
-                "status": "pending",
-                "tags": [*self.tags, "claude_agent_sdk"],
-                "metadata": merge_metadata(trace_metadata),
-                "start_time": _utc_isoformat(),
-                "created_at": _utc_isoformat(),
-            }
-
-            if self.user_id:
-                trace_data["user_id"] = self.user_id
-            if self.session_id:
-                trace_data["session_id"] = self.session_id
-
-            # Send trace via buffer
-            if aigie._buffer:
-                logger.debug(f"[AIGIE] TRACE_CREATE: id={self.trace_id}, name={trace_name}")
-                self.open_trace(payload=trace_data)
-
-            # Set process-level trace ID for OTel bridge
             try:
                 from ....auto_instrument.span_enricher import set_active_trace_id
 
@@ -200,9 +174,10 @@ class QueryEvents:
             if self._session_context:
                 self._session_context.mark_trace_created()
 
-        # Create query span with clean naming
-        self.query_span_id = str(uuid.uuid4())
-        model_short = _shorten_model_name(trace_metadata["model"])
+        # The Query span IS the trace root (root.id == trace_id, parent None,
+        # name == trace name, carries the trace input/metadata/tags).
+        self.query_span_id = self.trace_id
+        self._root_name = trace_name
 
         # Register query span depth (root level = 0)
         query_depth = self._register_span_depth(self.query_span_id, None)
@@ -211,24 +186,30 @@ class QueryEvents:
         query_span_data = {
             "id": self.query_span_id,
             "trace_id": self.trace_id,
-            "name": f"Query ({model_short})",
-            "type": "llm",
+            "parent_id": None,
+            "name": trace_name,
+            "type": "agent",
             "input": {
                 "prompt": prompt[:2000] if self.capture_messages else "[redacted]",
                 "model": trace_metadata["model"],
                 "tools": tool_names,
+                "tool_count": len(tools),
                 "system_prompt": options.get("system_prompt", "")
                 if self.capture_messages
                 else None,
             },
             "status": "pending",
-            "tags": self.tags or [],
+            "tags": [*self.tags, "claude_agent_sdk"],
             "metadata": merge_metadata({**trace_metadata, "depth": query_depth}),
             "model": trace_metadata["model"],
             "start_time": query_start_iso,
             "created_at": query_start_iso,
             "depth": query_depth,  # For flow view ordering
         }
+        if self.user_id:
+            query_span_data["user_id"] = self.user_id
+        if self.session_id:
+            query_span_data["session_id"] = self.session_id
         # Store start_time_iso for inclusion in SPAN_UPDATE
         self._query_span_start_iso = query_start_iso
 
@@ -241,7 +222,7 @@ class QueryEvents:
 
         if aigie._buffer:
             logger.debug(
-                f"[AIGIE] SPAN_CREATE: id={self.query_span_id}, name=Query ({model_short}), parent=None (trace root)"
+                f"[AIGIE] root span (query): id={self.query_span_id}, name={trace_name}, parent=None"
             )
             self.open_span(payload=query_span_data)
 
@@ -400,108 +381,13 @@ class QueryEvents:
             if isinstance(rm_text, str) and rm_text:
                 output = rm_text[:2000]
 
-        # Update query span
-        if self.query_span_id:
-            # Get model name for span name
-            model_name = (
-                model
-                or (self.metadata.get("model") if self.metadata else None)
-                or "claude-sonnet-4-20250514"
-            )
-            model_short = _shorten_model_name(model_name)
+        # Content-level errors promote the query to a failure.
+        if success and self._detected_errors:
+            success = False
 
-            # Get token values - prefer local usage, fallback to accumulated totals
-            span_input_tokens = usage.get("input_tokens") or self.total_input_tokens
-            span_output_tokens = usage.get("output_tokens") or self.total_output_tokens
-            span_total_tokens = span_input_tokens + span_output_tokens
-            span_cost = cost if cost > 0 else self.total_cost
-
-            query_output = {
-                "response": output,
-                "message_count": len(messages),
-                "usage": {
-                    "input_tokens": span_input_tokens,
-                    "output_tokens": span_output_tokens,
-                    "total_tokens": span_total_tokens,
-                },
-                "cost": span_cost,
-            }
-            if finish_reason:
-                query_output["finish_reason"] = finish_reason
-
-            query_metadata = {}
-            if finish_reason:
-                query_metadata["finish_reason"] = finish_reason
-            if thinking_content:
-                query_metadata["thinking"] = thinking_content
-            if usage.get("reasoning_tokens"):
-                query_metadata["reasoning_tokens"] = usage["reasoning_tokens"]
-
-            if success and self._detected_errors:
-                success = False
-
-            query_update = {
-                "id": self.query_span_id,
-                "trace_id": self.trace_id,  # Required for backend merge
-                "name": f"Query ({model_short})",  # Clean name without verbose model
-                "type": "llm",  # Include type to handle race conditions
-                "status": "success" if success else "failed",
-                "is_error": not success,
-                "output": query_output,
-                "start_time": getattr(self, "_query_span_start_iso", None),  # Preserve start_time
-                "end_time": end_time.isoformat(),
-                "model": model_name,
-                "prompt_tokens": span_input_tokens,
-                "completion_tokens": span_output_tokens,
-                "total_tokens": span_total_tokens,
-                "total_cost": span_cost,
-            }
-
-            if query_metadata:
-                query_update["metadata"] = query_metadata
-
-            query_error_msg = _pick_error_message(
-                error, result_error_message, self._detected_errors if not success else []
-            )
-            if query_error_msg:
-                query_update["error"] = query_error_msg
-                query_update["error_message"] = query_error_msg
-
-            if aigie._buffer:
-                logger.debug(
-                    f"[AIGIE] SPAN_UPDATE: id={query_update['id']}, tokens={query_update.get('total_tokens')}, status={query_update.get('status')}"
-                )
-                self.close_span(payload=query_update)
-
-        # Update trace with top-level token fields for backend aggregation
-        update_data = {
-            "id": self.trace_id,
-            "name": self.trace_name,  # Include name so auto-created traces get proper name
-            "status": "success" if success else "failed",
-            "output": {
-                "response": output,
-                "message_count": len(messages),
-                "total_tokens": self.total_input_tokens + self.total_output_tokens,
-                "total_cost": self.total_cost,
-                "tool_calls": self.total_tool_calls,
-            },
-            "end_time": end_time.isoformat(),
-            # Top-level token/cost fields for backend aggregation display
-            "total_tokens": self.total_input_tokens + self.total_output_tokens,
-            "prompt_tokens": self.total_input_tokens,
-            "completion_tokens": self.total_output_tokens,
-            "total_cost": self.total_cost,
-            "turn_count": self._session_context.total_turns if self._session_context else 1,
-        }
-
-        trace_error_msg = _pick_error_message(
-            error, result_error_message, self._detected_errors if not success else []
-        )
-        if trace_error_msg:
-            update_data["error"] = trace_error_msg
-            update_data["error_message"] = trace_error_msg
-
-        # Finalize drift detection and get all detected drifts
+        # Finalize drift detection and assemble the monitoring payload. This
+        # rode the separate TRACE_UPDATE before; it now folds onto the root
+        # (Query) span since trace identity rides the root.
         start_time = self._query_start_time or _utc_now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
         total_tokens = self.total_input_tokens + self.total_output_tokens
@@ -513,7 +399,6 @@ class QueryEvents:
             final_output=output,
         )
 
-        # Add monitoring data to trace output
         monitoring_data = {
             "drift_detection": {
                 "plan": self._drift_detector.plan.to_dict() if self._drift_detector.plan else None,
@@ -529,14 +414,7 @@ class QueryEvents:
                 "error_count": len(self._detected_errors),
             },
         }
-
-        # Add monitoring to trace metadata
-        if "metadata" not in update_data:
-            update_data["metadata"] = {}
-        update_data["metadata"]["monitoring"] = monitoring_data  # type: ignore[index,assignment]
-
-        # Also add summary to output for visibility
-        update_data["output"]["monitoring"] = {  # type: ignore[index,assignment]
+        monitoring_summary = {
             "drift_count": len(detected_drifts),
             "error_count": len(self._detected_errors),
             "retries": self._drift_detector.execution.retry_count
@@ -557,12 +435,78 @@ class QueryEvents:
             for err in self._detected_errors[:3]:  # Log first 3
                 logger.info(f"[AIGIE]   - {err.error_type.value}: {err.message[:80]}")
 
-        if aigie._buffer:
-            # Debug: Log trace update data
-            logger.debug(
-                f"[AIGIE] TRACE_UPDATE: id={self.trace_id}, total_tokens={update_data['total_tokens']}, cost={update_data['total_cost']}"
+        # Finalize the root (Query) span once, folding the trace-level
+        # aggregate + monitoring onto it.
+        if self.query_span_id:
+            model_name = (
+                model
+                or (self.metadata.get("model") if self.metadata else None)
+                or "claude-sonnet-4-20250514"
             )
-            self.close_trace(payload=update_data)
+
+            # Get token values - prefer local usage, fallback to accumulated totals
+            span_input_tokens = usage.get("input_tokens") or self.total_input_tokens
+            span_output_tokens = usage.get("output_tokens") or self.total_output_tokens
+            span_total_tokens = span_input_tokens + span_output_tokens
+            span_cost = cost if cost > 0 else self.total_cost
+
+            query_output = {
+                "response": output,
+                "message_count": len(messages),
+                "usage": {
+                    "input_tokens": span_input_tokens,
+                    "output_tokens": span_output_tokens,
+                    "total_tokens": span_total_tokens,
+                },
+                "cost": span_cost,
+                "tool_calls": self.total_tool_calls,
+                "monitoring": monitoring_summary,
+            }
+            if finish_reason:
+                query_output["finish_reason"] = finish_reason
+
+            query_metadata: dict[str, Any] = {"monitoring": monitoring_data}
+            if finish_reason:
+                query_metadata["finish_reason"] = finish_reason
+            if thinking_content:
+                query_metadata["thinking"] = thinking_content
+            if usage.get("reasoning_tokens"):
+                query_metadata["reasoning_tokens"] = usage["reasoning_tokens"]
+
+            query_update = {
+                "id": self.query_span_id,
+                "trace_id": self.trace_id,  # Required for backend merge
+                "parent_id": None,
+                "name": getattr(self, "_root_name", self.trace_name),
+                "type": "agent",
+                "status": "success" if success else "failed",
+                "is_error": not success,
+                "output": query_output,
+                "metadata": query_metadata,
+                "start_time": getattr(self, "_query_span_start_iso", None),  # Preserve start_time
+                "end_time": end_time.isoformat(),
+                "model": model_name,
+                "prompt_tokens": span_input_tokens,
+                "completion_tokens": span_output_tokens,
+                "total_tokens": span_total_tokens,
+                "total_cost": span_cost,
+                "turn_count": self._session_context.total_turns if self._session_context else 1,
+            }
+            if self.session_id:
+                query_update["session_id"] = self.session_id
+
+            query_error_msg = _pick_error_message(
+                error, result_error_message, self._detected_errors if not success else []
+            )
+            if query_error_msg:
+                query_update["error"] = query_error_msg
+                query_update["error_message"] = query_error_msg
+
+            if aigie._buffer:
+                logger.debug(
+                    f"[AIGIE] root span (query) finalized: id={self.trace_id}, tokens={span_total_tokens}, status={query_update['status']}"
+                )
+                self.close_span(payload=query_update)
 
         # Complete any pending spans to ensure all have end_time
         await self.complete_pending_turn_spans()

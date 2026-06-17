@@ -28,6 +28,7 @@ import yaml
 from runlayer_cli.credential_store import get_keyring_store
 from runlayer_cli.mdm_config import read_managed_config
 from runlayer_cli.paths import get_runlayer_dir
+from runlayer_cli.runtime import is_aiwatch_runtime
 
 AI_WATCH_MDM_ORG_KEY_LABEL = "ai_watch_mdm"
 
@@ -232,15 +233,20 @@ class Config:
         return stored
 
     def clear_host(self, url: str) -> bool:
-        """Clear credentials for a specific host.
+        """Remove a host's in-memory config entry (scheme-validated).
 
-        Removes the secret from the credential store when available and always removes the config entry.
+        This is the delete-side counterpart of ``set_host_credentials``'s
+        in-memory mutation. It does NOT touch the keychain or write the YAML —
+        that orchestration lives in :func:`clear_host_credentials`, which owns
+        the "credential actually cleared" semantics (mirroring how
+        ``persist_credentials`` owns "credential actually persisted").
 
         Args:
             url: Full URL including scheme
 
         Returns:
-            True if host was found and cleared, False otherwise
+            True if a matching host entry was found and removed, False otherwise
+            (unknown host, or stored scheme mismatch).
         """
         url = normalize_url(url)
         key = url_to_host_key(url)
@@ -253,10 +259,6 @@ class Config:
         stored_url = normalize_url(host_config.get("url", ""))
         if stored_url != url:
             return False
-
-        keyring_store = get_keyring_store()
-        if keyring_store is not None:
-            keyring_store.delete_secret(key)
 
         del self.hosts[key]
         # If this was the default host, clear it
@@ -287,12 +289,31 @@ def get_config_path() -> Path:
     return get_runlayer_dir() / "config.yaml"
 
 
+def _aiwatch_synthesized_config() -> Config:
+    """Build a Config from MDM-managed host only, never touching the YAML file.
+
+    The aiwatch binary must resolve host from MDM and secrets from the keychain.
+    Returning a bare ``Config()`` would disable the keychain too, because
+    ``get_secret_for_host`` only consults the keyring when a matching host entry
+    exists (``_get_host_config`` guard). So seed one host entry (url only, no
+    secret): the keychain stays live while ``config.yaml`` is never read.
+    """
+    managed_host = read_managed_config().get("host")
+    if not managed_host:
+        return Config()
+    url = normalize_url(managed_host)
+    return Config(default_host=url, hosts={url_to_host_key(url): HostConfig(url=url)})
+
+
 def load_config() -> Config:
     """Load configuration from the config file.
 
     Returns:
         Config object with loaded values, or empty Config if file doesn't exist
     """
+    if is_aiwatch_runtime():
+        return _aiwatch_synthesized_config()
+
     config_path = get_config_path()
 
     if not config_path.exists():
@@ -314,15 +335,28 @@ def load_config() -> Config:
         return Config()
 
 
-def save_config(config: Config) -> None:
+def save_config(config: Config) -> bool:
     """Save configuration to the config file.
 
     Creates the config directory if it doesn't exist.
     Sets file permissions to 0600 (user read/write only) for security.
 
+    This is a dumb "did I write the file?" predicate: ``True`` when the YAML was
+    written, ``False`` for the aiwatch no-op (aiwatch runtime never writes
+    ``config.yaml``). Credential-writing callers should not interpret this bool
+    themselves — go through :func:`persist_credentials`, which composes it with
+    the keychain write and owns the "credential actually persisted" semantics.
+
     Args:
         config: Config object to save
+
+    Returns:
+        True if the config was persisted to disk, False if this was a no-op.
     """
+    if is_aiwatch_runtime():
+        # aiwatch never persists to config.yaml; secrets live in the keychain.
+        return False
+
     config_path = get_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -333,6 +367,84 @@ def save_config(config: Config) -> None:
         os.chmod(config_path, 0o600)
     except OSError:
         pass
+    return True
+
+
+class CredentialPersistence(TypedDict):
+    """Outcome of persisting a host credential via ``persist_credentials``."""
+
+    persisted: bool
+    keyring_used: bool
+
+
+def persist_credentials(
+    config: Config, host: str, api_key: str
+) -> CredentialPersistence:
+    """Store *api_key* for *host* in the keychain (when available) then save config.
+
+    Collapses the two-step keychain + ``save_config`` write into one call so
+    no credential-writing caller interprets ``save_config``'s aiwatch no-op
+    return directly. The aiwatch semantics of ``save_config`` stop here. A
+    read-only filesystem can raise ``OSError`` from the file write; that's
+    treated as "not persisted to file" rather than crashing the caller (the hook
+    lazy-enrollment path fires on hosts where the config dir may be unwritable).
+
+    Returns:
+        ``persisted`` is True when the credential landed somewhere durable
+        (keychain or config file); False means it only lives in the in-memory
+        ``Config`` and is lost on exit — the keychain write failed and
+        ``config.yaml`` is not written in the aiwatch runtime. ``keyring_used``
+        reports whether the keychain accepted the write (drives the
+        destination message callers print).
+    """
+    keyring_used = config.set_host_credentials(host, api_key)
+    try:
+        file_saved = save_config(config)
+    except OSError:
+        file_saved = False
+    return {"persisted": keyring_used or file_saved, "keyring_used": keyring_used}
+
+
+class CredentialClearance(TypedDict):
+    """Outcome of clearing a host credential via ``clear_host_credentials``."""
+
+    found: bool
+    cleared: bool
+
+
+def clear_host_credentials(config: Config, host: str) -> CredentialClearance:
+    """Delete *host*'s credential from the keychain (when available) then save config.
+
+    Delete-side mirror of :func:`persist_credentials`. Collapses the keychain
+    delete + ``save_config`` rewrite into one call so no logout caller interprets
+    ``save_config``'s aiwatch no-op return directly.
+
+    Returns:
+        ``found`` is True when a matching host entry existed (scheme-validated)
+        and was removed from the in-memory ``Config``. ``cleared`` is True when
+        the credential is durably gone — the keychain delete succeeded OR the
+        YAML was rewritten without it. ``cleared`` is False when the keychain
+        delete failed AND ``config.yaml`` is not written in this runtime
+        (aiwatch): the secret may survive, so the caller must not claim success.
+    """
+    host = normalize_url(host)
+    key = url_to_host_key(host)
+
+    found = config.clear_host(host)
+    if not found:
+        return {"found": False, "cleared": False}
+
+    keyring_store = get_keyring_store()
+    keychain_deleted = True
+    if keyring_store is not None:
+        keychain_deleted = keyring_store.delete_secret(key)
+
+    try:
+        file_saved = save_config(config)
+    except OSError:
+        file_saved = False
+
+    return {"found": True, "cleared": keychain_deleted or file_saved}
 
 
 def clear_config() -> None:
@@ -340,6 +452,10 @@ def clear_config() -> None:
 
     Removes the config file if it exists.
     """
+    if is_aiwatch_runtime():
+        # aiwatch must not touch the shared config.yaml (read or write/delete).
+        return
+
     config_path = get_config_path()
 
     if config_path.exists():

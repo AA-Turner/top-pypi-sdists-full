@@ -19,6 +19,7 @@ __all__ = [
     "private",
     "group",
     "update_id",
+    "waba_id",
     "forwarded",
     "forwarded_many_times",
     "reply",
@@ -27,6 +28,7 @@ __all__ = [
     "sent_to",
     "sent_to_me",
     "from_users",
+    "without_wa_id",
     "from_countries",
     "matches",
     "contains",
@@ -59,6 +61,7 @@ __all__ = [
     "current_location",
     "location_in_radius",
     "contacts",
+    "contact_info_shared",
     "contacts_has_wa",
     "order",
     "callback_button",
@@ -146,6 +149,7 @@ from .types.flows import FlowCompletion as _Fc
 from .types.message import Message as _Msg
 from .types.message_status import MessageStatus as _Ms
 from .types.message_status import MessageStatusType as _Mst
+from .types.others import ContactsOrigin as _Cor
 from .types.others import MessageType as _Mt
 from .types.system import IdentityChange as _Ic
 from .types.system import PhoneNumberChange as _Pnc
@@ -276,6 +280,17 @@ true = new(lambda _, __: True, name="true")
 false = new(lambda _, __: False, name="false")
 """Filter that always returns False."""
 
+
+def webhook_fields(*fields: str) -> Filter:
+    """
+    Filter for raw updates that contain any of the specified fields.
+
+    >>> filters.webhook_fields("messages")
+    """
+    fields = set(fields)
+    return new(lambda _, r: r.field in fields, name="webhook_fields")
+
+
 forwarded = new(
     lambda _, m: m.forwarded,
     name="forwarded",
@@ -302,6 +317,11 @@ Filter for messages that reply to another message.
 >>> filters.reply
 """
 
+without_wa_id = new(lambda _, u: u.from_user.wa_id is None, name="without_wa_id")
+"""
+Filter for updates that their sender doesn't have a ``wa_id`` (when the user enables username)
+"""
+
 
 def update_id(id_: str) -> Filter:
     """
@@ -310,6 +330,15 @@ def update_id(id_: str) -> Filter:
     >>> update_id("wamid.HBKHUIyNTM4NjAfiefhwojfMTNFQ0Q2MERGRjVDMUHUIGGA=")
     """
     return new(lambda _, u: u.id == id_, name="update_id")
+
+
+def waba_id(id_: str) -> Filter:
+    """
+    Filter for updates that their WABA ID matches the given id.
+
+    >>> waba_id("105102735943269")
+    """
+    return new(lambda _, u: getattr(u, "waba_id", u.id) == id_, name="waba_id")
 
 
 def replays_to(*msg_ids: str) -> Filter:
@@ -409,13 +438,12 @@ def from_users(
 
     def filter_func(_, m) -> bool:
         user = m.from_user
-        if not user:
-            return False
 
         return (
             user.bsuid in processed_ids
             or user.wa_id in processed_ids
             or user.parent_bsuid in processed_ids
+            or user.username in processed_ids
         )
 
     return new(filter_func, name="from_users")
@@ -796,6 +824,11 @@ def reaction_emojis(*emojis: str) -> Filter:
 contacts = new(lambda _, m: m.type == _Mt.CONTACTS, name="contacts")
 """Filter for contacts messages."""
 
+contact_info_shared = new(
+    lambda _, m: m.type == _Mt.CONTACTS and m.contacts.origin == _Cor.CONTACT_REQUEST,
+    name="contact_info_shared",
+)
+"""Filter for contact info shared messages."""
 
 contacts_has_wa = new(
     lambda _, m: (

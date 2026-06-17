@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: visionservex
-Version: 3.12.0
+Version: 3.16.0
 Summary: A permissive-license-aware framework for serving modern computer vision models locally and over Cloudflare Tunnel.
 Project-URL: Homepage, https://github.com/example/visionservex
 Project-URL: Documentation, https://github.com/example/visionservex/tree/main/docs
@@ -72,6 +72,7 @@ Requires-Dist: safetensors>=0.4; extra == 'all'
 Requires-Dist: scipy>=1.10; extra == 'all'
 Requires-Dist: slowapi>=0.1.9; extra == 'all'
 Requires-Dist: torch>=2.1; extra == 'all'
+Requires-Dist: torch>=2.2; extra == 'all'
 Requires-Dist: torchvision>=0.16; extra == 'all'
 Requires-Dist: transformers>=5.0; extra == 'all'
 Requires-Dist: uvicorn[standard]>=0.27; extra == 'all'
@@ -261,6 +262,9 @@ Requires-Dist: onnx>=1.15; extra == 'tensorrt'
 Provides-Extra: torch
 Requires-Dist: torch>=2.1; extra == 'torch'
 Requires-Dist: torchvision>=0.16; extra == 'torch'
+Provides-Extra: torchvision
+Requires-Dist: torch>=2.2; extra == 'torchvision'
+Requires-Dist: torchvision>=0.16; extra == 'torchvision'
 Provides-Extra: tracking
 Requires-Dist: opencv-python-headless>=4.8; extra == 'tracking'
 Provides-Extra: video
@@ -297,7 +301,7 @@ Description-Content-Type: text/markdown
   <a href="https://github.com/arashsajjadi/VisionServeX/actions/workflows/ci.yml">
     <img src="https://github.com/arashsajjadi/VisionServeX/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
   </a>
-  <img src="https://img.shields.io/badge/version-3.12.0-informational.svg" alt="v3.12.0">
+  <img src="https://img.shields.io/badge/version-3.16.0-informational.svg" alt="v3.16.0">
   <img src="https://img.shields.io/badge/code%20style-ruff-orange.svg" alt="ruff">
 </p>
 
@@ -321,6 +325,9 @@ status, and a clear commercial posture. Blockers are documented — not hidden.
 - **License-aware registry** — every model is classified: commercial-safe core, BYOT gated, non-commercial, or external-API-only
 - **Stable Python + CLI + HTTP API** — one interface across detection, segmentation, embedding, depth, classification, and open-vocabulary tasks
 - **Commercial-safe core** — SAM v1/2/2.1, DINOv2, RF-DETR, Florence-2, CLIP, OWLv2, Grounding DINO, and more; all Apache-2.0 or MIT, no token required
+- **Permissive detector training** *(v3.13/v3.14)* — fine-tune LibreYOLO (YOLOX / YOLOv9 / RT-DETR / D-FINE) on your own YOLO datasets, reload trained checkpoints, and export to ONNX — no Ultralytics/AGPL. See [docs/libreyolo_training.md](docs/libreyolo_training.md). Standalone HF D-FINE stays inference-only; YOLO-NAS (non-commercial) is excluded.
+- **Classic torchvision classifiers** *(new in v3.15.0)* — AlexNet / ResNet / ResNeXt / Wide-ResNet / DenseNet / MobileNet / EfficientNet / ConvNeXt: pretrained ImageNet inference, ImageFolder fine-tune, checkpoint reload, and ONNX export. BSD-3-Clause, commercial-safe. See [docs/torchvision_classifiers.md](docs/torchvision_classifiers.md).
+- **Capability truth contract** *(new in v3.15.0)* — `VisionModel(id).capabilities()` returns an honest per-model object (legal status, inference/train readiness, reload+predict, export); no fake-ready states. Full inventory in [docs/qa/v315_model_coverage/](docs/qa/v315_model_coverage/).
 - **BYOT support for gated models** — SAM3/SAM3.1, DINOv3; your token, your cache, your accepted license
 - **No bundled gated weights** — VisionServeX never puts gated model weights into PyPI, GitHub, Docker, or any release artifact
 - **Honest blockers** — unavailable models explain exactly why and what to do next

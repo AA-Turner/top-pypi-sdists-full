@@ -227,6 +227,7 @@ __all__ = [
     "aws_backup",
     "aws_backupgateway",
     "aws_batch",
+    "aws_bcm",
     "aws_bcmdataexports",
     "aws_bcmpricingcalculator",
     "aws_bedrock",
@@ -418,6 +419,7 @@ __all__ = [
     "aws_refactorspaces",
     "aws_rekognition",
     "aws_resiliencehub",
+    "aws_resiliencehubv2",
     "aws_resourceexplorer2",
     "aws_resourcegroups",
     "aws_robomaker",
@@ -517,6 +519,7 @@ if typing.TYPE_CHECKING:
     from . import aws_backup as aws_backup
     from . import aws_backupgateway as aws_backupgateway
     from . import aws_batch as aws_batch
+    from . import aws_bcm as aws_bcm
     from . import aws_bcmdataexports as aws_bcmdataexports
     from . import aws_bcmpricingcalculator as aws_bcmpricingcalculator
     from . import aws_bedrock as aws_bedrock
@@ -708,6 +711,7 @@ if typing.TYPE_CHECKING:
     from . import aws_refactorspaces as aws_refactorspaces
     from . import aws_rekognition as aws_rekognition
     from . import aws_resiliencehub as aws_resiliencehub
+    from . import aws_resiliencehubv2 as aws_resiliencehubv2
     from . import aws_resourceexplorer2 as aws_resourceexplorer2
     from . import aws_resourcegroups as aws_resourcegroups
     from . import aws_robomaker as aws_robomaker
@@ -806,6 +810,7 @@ _SUBMODULES = {
     "aws_backup",
     "aws_backupgateway",
     "aws_batch",
+    "aws_bcm",
     "aws_bcmdataexports",
     "aws_bcmpricingcalculator",
     "aws_bedrock",
@@ -997,6 +1002,7 @@ _SUBMODULES = {
     "aws_refactorspaces",
     "aws_rekognition",
     "aws_resiliencehub",
+    "aws_resiliencehubv2",
     "aws_resourceexplorer2",
     "aws_resourcegroups",
     "aws_robomaker",

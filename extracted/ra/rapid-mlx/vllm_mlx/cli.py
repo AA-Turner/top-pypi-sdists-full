@@ -19,7 +19,7 @@ import argparse
 import os
 import sys
 
-from vllm_mlx._completion import alias_completer, alias_csv_completer
+from vllm_mlx._completion import alias_completer
 
 # NOTE: ``argcomplete`` is imported lazily inside ``main()`` instead of
 # at module top. Module-level imports of ``vllm_mlx.cli`` (e.g.
@@ -1113,7 +1113,165 @@ def serve_command(args):
     )
 
 
-def _run_submit_flow(args) -> int:
+def _run_tier_submit_flow(args) -> int:
+    """``rapid-mlx bench <model> --tier <T> --submit`` — PR #5 unification.
+
+    Three-phase pipeline:
+
+    1. Run the requested tier's smoke / harness work through the
+       existing HTTP-server-backed dispatcher (``run_tier`` with
+       ``return_results=True``). For ``tier='all'`` we pass
+       ``skip_speed=True`` because phase 2 will produce the comparable
+       speed numbers directly from the engine; running the lightweight
+       HTTP-speed probe too would just double-cost the bench AND
+       produce a second set of non-comparable numbers next to it.
+       For ``tier='speed'`` phase 1 is a no-op — straight to phase 2.
+    2. Run the locked B=1 ``run_standardized_bench`` against the same
+       model so the schema-required ``buckets`` field carries the
+       comparable numbers the community-benchmarks corpus expects.
+       This phase IS what plain ``--submit`` (no ``--tier``) has
+       always done; the tier kwargs just decorate the payload.
+    3. Build the schema-v2 payload and run the standard interactive
+       submit flow (consent → write → commit → push → gh pr create).
+
+    Tier-failure handling: if phase 1's smoke probe FAILS, abort
+    before phase 2 — there's no point benching a model that can't
+    answer "what is 2+2?". A phase 1 harness failure does NOT abort:
+    submitting a failure row IS the point of the harness tier (the
+    aggregator wants visibility into "this combo doesn't pass the
+    gauntlet"), so we proceed and let the payload carry the per-
+    adapter failure flags.
+    """
+    tier = args.tier
+    # Validate the tier even though argparse's ``choices=`` should
+    # have rejected anything else — a programmatic Namespace (e.g.
+    # someone constructing args directly) could bypass argparse, and
+    # the previous ``assert`` would be stripped under ``python -O``
+    # (Codex PR #623 review NIT-1). Explicit guard returns 2 with a
+    # readable error rather than blowing up later inside the submit
+    # flow with a less targeted traceback.
+    if tier not in ("smoke", "speed", "harness", "all"):
+        print(
+            f"  Error: unknown tier {tier!r}; expected one of "
+            "smoke / speed / harness / all",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Reject --base-url for the --submit combo (Codex PR #623
+    # BLOCKING-1). The community-bench corpus aggregates by
+    # (chip, model, version) — every submission MUST reflect the
+    # contributor's actual hardware booting their actual model. Two
+    # gaps if we allowed --base-url:
+    #
+    # 1. ``smoke_result.boot_time_ms`` is meaningless when the
+    #    server was already up (we didn't measure the user's boot);
+    #    the producer would have to invent a ``0.0`` placeholder
+    #    that downstream consumers can't distinguish from "machine
+    #    boots the model in zero ms" — a misleading row in the DB.
+    # 2. Phase 2 runs ``run_standardized_bench`` IN PROCESS against
+    #    a freshly-loaded engine, so the buckets numbers would NOT
+    #    match the server the user pointed at. We'd publish a
+    #    payload labelling itself as the user's setup while the
+    #    speed numbers came from a separate engine init.
+    #
+    # The narrow --tier (no --submit) --base-url path is still
+    # supported — that's the gauntlet/release_check use case where
+    # we WANT to validate against an already-running server.
+    if getattr(args, "base_url", None):
+        print(
+            "  Error: --base-url is incompatible with --submit. "
+            "Community-bench submissions must reflect a fresh boot of "
+            "your model on your hardware — smoke_result.boot_time_ms "
+            "and the standardized B=1 buckets are both measured "
+            "in-process. Drop --base-url and let bench --tier "
+            "--submit boot the server itself.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # tier='speed' --submit is the historical --submit path with a
+    # new ``tier='speed'`` tag on the payload. No phase 1 needed.
+    if tier == "speed":
+        return _run_submit_flow(args, tier="speed")
+
+    # Phase 1: run the tier dispatcher to capture smoke/harness data.
+    # Speed bucket is intentionally skipped (see docstring); ``run_tier``
+    # only honours ``skip_speed`` when tier=='all'.
+    from .bench.tier_runner import run_tier
+
+    rc, tier_results = run_tier(
+        model=args.model,
+        tier=tier,
+        base_url=getattr(args, "base_url", None),
+        sampled=getattr(args, "sampled", False),
+        return_results=True,
+        skip_speed=True,
+    )
+    smoke_result = tier_results.get("smoke_result")
+    harness_result = tier_results.get("harness_result")
+
+    # Abort gating. The smoke probe is a hard prerequisite for ANY
+    # submission: if the model can't say "4" the speed numbers we'd
+    # collect in phase 2 would be misleading at best and a fork-and-
+    # burn of the user's compute at worst. Harness failures are
+    # surfaced THROUGH the payload (the schema's per-adapter
+    # ``passed: false`` carries the signal); we DON'T abort there.
+    if tier in ("smoke", "all") and smoke_result is not None:
+        if not smoke_result.get("first_prompt_ok", False):
+            print(
+                "\n  Submission aborted: smoke probe failed. The model "
+                "couldn't answer the boot prompt cleanly — submitting "
+                "speed/harness numbers from this run would be "
+                "misleading. Re-check the model + environment with "
+                "`rapid-mlx bench <model> --tier smoke` first.",
+                file=sys.stderr,
+            )
+            return 1
+
+    if tier == "smoke" and smoke_result is None:
+        # Phase 1 errored before producing smoke_result (e.g. server
+        # boot failure). The exit code from ``run_tier`` is already
+        # the right thing to return — don't try to phase 2 without
+        # the required smoke_result data.
+        print(
+            "\n  Submission aborted: smoke phase did not produce a "
+            "result (server boot likely failed). Nothing was sent.",
+            file=sys.stderr,
+        )
+        return rc or 1
+    if tier == "harness" and harness_result is None:
+        print(
+            "\n  Submission aborted: harness phase did not produce a "
+            "result. Nothing was sent.",
+            file=sys.stderr,
+        )
+        return rc or 1
+    if tier == "all" and (smoke_result is None or harness_result is None):
+        print(
+            "\n  Submission aborted: --tier all did not produce both "
+            "smoke and harness results. Nothing was sent.",
+            file=sys.stderr,
+        )
+        return rc or 1
+
+    # Phase 2 + 3 reuse the existing standardized + submit path; the
+    # tier kwargs decorate the payload built inside ``_run_submit_flow``.
+    return _run_submit_flow(
+        args,
+        tier=tier,
+        smoke_result=smoke_result,
+        harness_result=harness_result,
+    )
+
+
+def _run_submit_flow(
+    args,
+    *,
+    tier: str | None = None,
+    smoke_result: dict | None = None,
+    harness_result: dict | None = None,
+) -> int:
     """Execute the standardized B=1 community-bench + PR-open flow.
 
     Routed-to from ``bench_command`` whenever ``--submit`` is set.
@@ -1121,6 +1279,19 @@ def _run_submit_flow(args) -> int:
     completely untouched — the standardized path imports its own
     deps lazily so that users who never touch ``--submit`` don't pay
     the import cost of the community_bench module.
+
+    PR #5 added the schema-v2 tier-tagging kwargs:
+
+    - ``tier`` — string copied verbatim into the ``tier`` field of the
+      payload (``"speed"`` | ``"smoke"`` | ``"harness"`` | ``"all"``).
+      ``None`` (the default, used by ``--submit`` without ``--tier``)
+      omits the field, preserving byte-for-byte equivalence with the
+      v1 ``--submit`` payload shape.
+    - ``smoke_result`` / ``harness_result`` — schema-v2 sub-objects
+      from the tier dispatcher. The builder enforces the
+      tier↔result coupling so passing the wrong combo here ``ValueError``s
+      at the payload-build line rather than landing a half-shaped row
+      in the submissions corpus.
     """
     import asyncio
     from pathlib import Path
@@ -1234,6 +1405,46 @@ def _run_submit_flow(args) -> int:
         )
         try:
             model, tokenizer = model_load_executor.submit(load, hf_path).result()
+        except (ValueError, ModuleNotFoundError) as e:
+            # mlx-lm raises ``ValueError: Model type X not supported`` plus an
+            # internal ``ModuleNotFoundError: No module named 'mlx_lm.models.X'``
+            # for any architecture it can't import. The Gemma 4 family lives
+            # in mlx-vlm (the model classes are vision-aware even for the
+            # text-only checkpoints), so a bare ``pip install rapid-mlx``
+            # without the ``[vision]`` extras hits this every time. The
+            # README still recommends ``gemma-4-*`` aliases so newcomers
+            # would otherwise see a raw traceback and conclude the model
+            # is broken — translate to an actionable hint. Placed BEFORE
+            # the broader ``OSError`` clause so a future maintainer can't
+            # accidentally make the broad branch swallow it (Codex PR
+            # #600 round-1 BLOCKING).
+            msg = str(e)
+            needs_vision = (
+                "gemma4_unified" in msg
+                or "gemma4" in msg
+                or "mlx_vlm" in msg
+                or "mlx-vlm" in msg
+            )
+            if needs_vision:
+                print()
+                print(
+                    "  Error: this model needs the vision extras (Gemma 4 "
+                    "architecture classes live in mlx-vlm)."
+                )
+                print("  Install them and re-run:")
+                print()
+                print("    pip install 'rapid-mlx[vision]'")
+                print()
+                print(
+                    "  Or, if you only need text inference (smaller "
+                    "footprint, ~16 MB vs ~450 MB):"
+                )
+                print("    pip install --no-deps 'mlx-vlm>=0.6.1'")
+                print()
+            else:
+                print(f"  Error loading model: {e}")
+            model_load_executor.shutdown(wait=False)
+            return 2
         except (RepositoryNotFoundError, OSError) as e:
             print(f"  Error loading model: {e}")
             model_load_executor.shutdown(wait=False)
@@ -1277,7 +1488,30 @@ def _run_submit_flow(args) -> int:
                     f"  Running standardized bench "
                     f"(sampling={mode}, 2 buckets × 5 rounds + 1 warmup)…"
                 )
-                bench = await run_standardized_bench(engine, tokenizer, sampling=mode)
+                try:
+                    bench = await run_standardized_bench(
+                        engine, tokenizer, sampling=mode
+                    )
+                except RuntimeError as exc:
+                    # Friendly surface for the bench's "exactly N tokens"
+                    # guard. As of #567's fix this branch is engine-bug
+                    # territory (sampling sets ``ignore_eos=True`` so the
+                    # model's EOS shouldn't fire); previously it blamed
+                    # the user's model alias. Print a clear summary so
+                    # contributors aren't dumped into a raw traceback.
+                    msg = str(exc)
+                    if "standardized bench requires exactly" in msg:
+                        print()
+                        print(
+                            "  Bench round aborted (engine bug — NOT your model's fault):"
+                        )
+                        for line in msg.split(". "):
+                            line = line.strip()
+                            if line:
+                                print(f"    {line}")
+                        print()
+                        return 1
+                    raise
 
                 print(
                     f"    short: decode={bench.short.decode_stat['median']:.2f} tok/s, "
@@ -1297,6 +1531,15 @@ def _run_submit_flow(args) -> int:
                     hf_path=hf_path,
                     bench=bench,
                     notes=notes,
+                    # v2 tier-tagging: pass through only when the caller
+                    # supplied them. The builder validates the tier ↔
+                    # smoke_result/harness_result coupling — passing
+                    # ``smoke_result`` for ``tier=speed`` would
+                    # ``ValueError`` here rather than land a half-shaped
+                    # row in the corpus.
+                    tier=tier,
+                    smoke_result=smoke_result,
+                    harness_result=harness_result,
                 )
                 rc = submit_interactive(payload, repo_root)
                 if rc != 0:
@@ -1324,6 +1567,29 @@ def bench_command(args):
     from . import _mlx_compat as _mlx_compat
 
     _mlx_compat.install()
+
+    # --tier routes through the user-facing tier dispatcher (PR #2 of
+    # the bench-consolidation series). PR #5 unified --tier with
+    # --submit: when both flags are set the dispatcher runs the
+    # requested smoke/harness work for the schema-v2 sub-objects and
+    # ALSO runs the locked B=1 ``run_standardized_bench`` so the
+    # required ``buckets`` field carries comparable numbers (the
+    # lightweight tier-speed probe is NEVER submitted — its results
+    # aren't apples-to-apples with the community DB).
+    if getattr(args, "tier", None) and getattr(args, "submit", False):
+        sys.exit(_run_tier_submit_flow(args))
+
+    if getattr(args, "tier", None):
+        from .bench.tier_runner import run_tier
+
+        sys.exit(
+            run_tier(
+                model=args.model,
+                tier=args.tier,
+                base_url=getattr(args, "base_url", None),
+                sampled=getattr(args, "sampled", False),
+            )
+        )
 
     # --submit routes through the standardized community-bench runner,
     # which locks the comparability knobs the freeform path exposes.
@@ -4305,6 +4571,34 @@ Examples:
             "opens the PR from this checkout."
         ),
     )
+    # --tier: user-facing tier dispatcher (PR #2). Mutually-exclusive
+    # with --submit (PR #3 will consolidate them, but for now the two
+    # are independent code paths).
+    bench_parser.add_argument(
+        "--tier",
+        type=str,
+        choices=["smoke", "speed", "harness", "all"],
+        default=None,
+        help=(
+            "Run one of the standardized validation tiers: "
+            "'smoke' (boot + 1 prompt), "
+            "'speed' (B=1 perf probe), "
+            "'harness' (5 first-class agent harnesses: "
+            "codex/opencode/hermes/aider/langchain), "
+            "'all' (smoke → speed → harness sequentially, abort on smoke "
+            "fail). Boots the model server exactly once per invocation."
+        ),
+    )
+    bench_parser.add_argument(
+        "--base-url",
+        type=str,
+        default=None,
+        help=(
+            "For --tier: attach to an already-running server at this URL "
+            "(e.g. http://localhost:8000) instead of booting one. Used by "
+            "release_check_m3.sh G7b to reuse the gauntlet's server."
+        ),
+    )
 
     # Models command. ``ls`` is registered as a top-level alias that
     # defaults to ``models --cached`` (the locally-cached view) — two
@@ -4498,37 +4792,51 @@ Examples:
         help="Agent version for version-specific config (e.g. 0.8.5)",
     )
 
-    # Doctor command — regression harness
+    # Doctor command — pure env-health probe (≤5 s, no model load, no server).
+    # Model-validation tiers (smoke/check/full/benchmark) moved to
+    # ``rapid-mlx bench --tier ...`` as of v0.7.22.
+    #
+    # The legacy positional ``tier`` plus ``--model``, ``--models``, and
+    # ``--update-baselines`` are intentionally retained (SUPPRESSed from
+    # --help) for one release so users hitting the old form
+    # ``rapid-mlx doctor check --model qwen3.5-9b-4bit`` get the actionable
+    # bench redirect from ``doctor_command`` instead of an argparse
+    # ``unrecognized arguments`` wall. Codex review round 1 flagged this:
+    # rejecting at argparse-time defeated the redirect. Drop these in a
+    # future release once telemetry confirms no one's still calling them.
     doctor_parser = subparsers.add_parser(
         "doctor",
-        help="Run regression harness (smoke / check / full / benchmark)",
+        help="Check environment health (Python, packages, HF cache, network, ...)",
     )
     doctor_parser.add_argument(
         "tier",
         nargs="?",
-        default="smoke",
+        default=None,
         choices=["smoke", "check", "full", "benchmark"],
-        help="Which tier to run (default: smoke)",
+        help=argparse.SUPPRESS,
     )
     doctor_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Print the underlying probe detail for each check",
+    )
+    # Legacy compatibility shims — accepted-but-ignored so the redirect
+    # message in ``doctor_command`` can fire (see comment above).
+    doctor_parser.add_argument(
         "--model",
-        type=str,
         default=None,
-        help="Model alias for check tier (default: qwen3.5-35b-8bit)",
-    ).completer = alias_completer
+        help=argparse.SUPPRESS,
+    )
     doctor_parser.add_argument(
         "--models",
-        type=str,
         default=None,
-        help="Comma-separated model aliases for full / benchmark tiers "
-        "(full default: qwen3.5-35b-8bit,qwen3.6-35b-4bit; "
-        "benchmark default: auto-discovered from local cache)",
-    ).completer = alias_csv_completer
+        help=argparse.SUPPRESS,
+    )
     doctor_parser.add_argument(
         "--update-baselines",
         action="store_true",
-        help="Record current run as the new baseline (check / full only). "
-        "Ignored with a warning for smoke / benchmark tiers.",
+        help=argparse.SUPPRESS,
     )
 
     # Telemetry subcommand — opt-in anonymous usage data (Issue #236).
@@ -4766,12 +5074,9 @@ Examples:
 
     # Resolve model aliases before dispatch.
     #
-    # The doctor subcommand is exempt: it intentionally keeps the alias
-    # form so per-model artefacts (baseline filenames, scorecard rows,
-    # report check names) stay human-readable and stable across runs.
-    # Doctor does its own alias→path resolution inside the server-spawn
-    # path via discovery, so resolving here would write the wrong
-    # baseline filename and confuse multi-model loops.
+    # The doctor subcommand is exempt for historical reasons (and as a
+    # belt-and-suspenders guard now that doctor doesn't take ``--model``):
+    # an env-health probe should never trigger an alias→path lookup.
     if (
         hasattr(args, "model")
         and args.model
@@ -4899,9 +5204,6 @@ Examples:
     elif args.command == "doctor":
         from vllm_mlx.doctor.cli import doctor_command
 
-        # Parse --models comma-list now so the doctor module gets a clean list.
-        if getattr(args, "models", None):
-            args.models = [m.strip() for m in args.models.split(",") if m.strip()]
         doctor_command(args)
     elif args.command == "telemetry":
         telemetry_command(args)

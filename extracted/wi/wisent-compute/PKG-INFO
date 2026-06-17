@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wisent-compute
-Version: 0.4.357
+Version: 0.4.364
 Summary: Job queue and compute management for Wisent GPU workloads
 Requires-Python: >=3.10
 License-File: LICENSE

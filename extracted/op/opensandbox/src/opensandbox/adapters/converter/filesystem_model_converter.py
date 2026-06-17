@@ -25,8 +25,10 @@ This converter is designed to work with openapi-python-client generated models.
 from typing import Any
 
 from opensandbox.api.execd.models import FileInfo
+from opensandbox.api.execd.types import UNSET
 from opensandbox.models.filesystem import (
     ContentReplaceEntry,
+    ContentReplaceResult,
     EntryInfo,
     MoveEntry,
     SetPermissionEntry,
@@ -45,8 +47,13 @@ class FilesystemModelConverter:
     @staticmethod
     def to_entry_info(api_file_info: FileInfo) -> EntryInfo:
         """Convert API FileInfo to domain EntryInfo."""
+        entry_type = None
+        if api_file_info.type_ is not UNSET:
+            entry_type = str(api_file_info.type_)
+
         return EntryInfo(
             path=api_file_info.path,
+            type=entry_type,
             mode=api_file_info.mode,
             owner=api_file_info.owner,
             group=api_file_info.group,
@@ -126,6 +133,30 @@ class FilesystemModelConverter:
             for entry in entries
         }
         return ReplaceContentBody.from_dict(replace_data)
+
+    @staticmethod
+    def to_replace_results(api_response: Any) -> list[ContentReplaceResult]:
+        """Convert API replace response to list of ContentReplaceResult."""
+        if not api_response:
+            return []
+
+        results: list[ContentReplaceResult] = []
+        items: dict = {}
+        if hasattr(api_response, "additional_properties"):
+            items = api_response.additional_properties
+        elif isinstance(api_response, dict):
+            items = api_response
+
+        for path, result_data in items.items():
+            if hasattr(result_data, "replaced_count"):
+                count = result_data.replaced_count
+            elif isinstance(result_data, dict):
+                count = result_data.get("replacedCount", 0)
+            else:
+                count = 0
+            results.append(ContentReplaceResult(path=path, replaced_count=count))
+
+        return results
 
     @staticmethod
     def to_api_rename_file_items(entries: list[MoveEntry]):

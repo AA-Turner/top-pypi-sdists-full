@@ -774,6 +774,7 @@ class Root(PyMenu):
 
         Parameters
         ----------
+        AddChild : str
         MRChildName : str
         MRSelectCellZone : str
             Select a cell zone for which you wish to review associations.
@@ -794,6 +795,7 @@ class Root(PyMenu):
         class _TWF_MapRegionInfoArguments(PyArguments):
             def __init__(self, service, rules, command, path, id):
                 super().__init__(service, rules, command, path, id)
+                self.AddChild = self._AddChild(self, "AddChild", service, rules, path)
                 self.MRChildName = self._MRChildName(self, "MRChildName", service, rules, path)
                 self.MRSelectCellZone = self._MRSelectCellZone(self, "MRSelectCellZone", service, rules, path)
                 self.UseWireframe = self._UseWireframe(self, "UseWireframe", service, rules, path)
@@ -802,6 +804,11 @@ class Root(PyMenu):
                 self.MRRegionNameList = self._MRRegionNameList(self, "MRRegionNameList", service, rules, path)
                 self.OldMRFaceZoneList = self._OldMRFaceZoneList(self, "OldMRFaceZoneList", service, rules, path)
                 self.NewMRFaceZoneList = self._NewMRFaceZoneList(self, "NewMRFaceZoneList", service, rules, path)
+
+            class _AddChild(PyArgumentsTextualSubItem):
+                """
+                Argument AddChild.
+                """
 
             class _MRChildName(PyArgumentsTextualSubItem):
                 """
@@ -983,18 +990,18 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.TSN = self._TSN(self, "TSN", service, rules, path)
-                    self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
                     self.EFM = self._EFM(self, "EFM", service, rules, path)
-                    self.WF = self._WF(self, "WF", service, rules, path)
+                    self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
                     self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
-                    self.OpP = self._OpP(self, "OpP", service, rules, path)
                     self.Density = self._Density(self, "Density", service, rules, path)
+                    self.WF = self._WF(self, "WF", service, rules, path)
+                    self.TSN = self._TSN(self, "TSN", service, rules, path)
+                    self.OpP = self._OpP(self, "OpP", service, rules, path)
                     self.Energy = self._Energy(self, "Energy", service, rules, path)
 
-                class _TSN(PyArgumentsParameterSubItem):
+                class _EFM(PyArgumentsTextualSubItem):
                     """
-                    Apply turbomachinery-specific numerics as a best practice applicable to most turbomachinery cases.
+                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
                     """
 
                 class _Vrpm(PyArgumentsNumericalSubItem):
@@ -1002,9 +1009,14 @@ class Root(PyMenu):
                     Specify the rotation speed, or keep the default value.
                     """
 
-                class _EFM(PyArgumentsTextualSubItem):
+                class _CEBtn(PyArgumentsParameterSubItem):
                     """
-                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
+                    Argument CEBtn.
+                    """
+
+                class _Density(PyArgumentsNumericalSubItem):
+                    """
+                    Provide a value for the density of air, or use the default value.
                     """
 
                 class _WF(PyArgumentsTextualSubItem):
@@ -1012,19 +1024,14 @@ class Root(PyMenu):
                     Choose one of the following materials as the working fluid for the CFD model.
                     """
 
-                class _CEBtn(PyArgumentsParameterSubItem):
+                class _TSN(PyArgumentsParameterSubItem):
                     """
-                    Argument CEBtn.
+                    Apply turbomachinery-specific numerics as a best practice applicable to most turbomachinery cases.
                     """
 
                 class _OpP(PyArgumentsNumericalSubItem):
                     """
                     Specify the operating pressure, or keep the default value.
-                    """
-
-                class _Density(PyArgumentsNumericalSubItem):
-                    """
-                    Provide a value for the density of air, or use the default value.
                     """
 
                 class _Energy(PyArgumentsParameterSubItem):

@@ -534,12 +534,16 @@ class GetDataLineageIndexResponse(_message.Message):
     def __init__(self, resolver_data_lineage: _Optional[_Mapping[str, ResolverDataLineage]] = ...) -> None: ...
 
 class OfflineTable(_message.Message):
-    __slots__ = ("internal_version", "table_name")
+    __slots__ = ("internal_version", "table_name", "fqn")
     INTERNAL_VERSION_FIELD_NUMBER: _ClassVar[int]
     TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FQN_FIELD_NUMBER: _ClassVar[int]
     internal_version: int
     table_name: str
-    def __init__(self, internal_version: _Optional[int] = ..., table_name: _Optional[str] = ...) -> None: ...
+    fqn: str
+    def __init__(
+        self, internal_version: _Optional[int] = ..., table_name: _Optional[str] = ..., fqn: _Optional[str] = ...
+    ) -> None: ...
 
 class GetOfflineStoreTableRequest(_message.Message):
     __slots__ = ("fqn", "branch_id")
@@ -550,6 +554,20 @@ class GetOfflineStoreTableRequest(_message.Message):
     def __init__(self, fqn: _Optional[str] = ..., branch_id: _Optional[str] = ...) -> None: ...
 
 class GetOfflineStoreTableResponse(_message.Message):
+    __slots__ = ("tables",)
+    TABLES_FIELD_NUMBER: _ClassVar[int]
+    tables: _containers.RepeatedCompositeFieldContainer[OfflineTable]
+    def __init__(self, tables: _Optional[_Iterable[_Union[OfflineTable, _Mapping]]] = ...) -> None: ...
+
+class GetAllOfflineStoreTablesRequest(_message.Message):
+    __slots__ = ("deployment_id", "branch_id")
+    DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_ID_FIELD_NUMBER: _ClassVar[int]
+    deployment_id: str
+    branch_id: str
+    def __init__(self, deployment_id: _Optional[str] = ..., branch_id: _Optional[str] = ...) -> None: ...
+
+class GetAllOfflineStoreTablesResponse(_message.Message):
     __slots__ = ("tables",)
     TABLES_FIELD_NUMBER: _ClassVar[int]
     tables: _containers.RepeatedCompositeFieldContainer[OfflineTable]

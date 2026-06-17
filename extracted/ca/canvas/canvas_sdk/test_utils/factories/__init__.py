@@ -1,4 +1,5 @@
 from .calendar import CalendarFactory, EventFactory
+from .chart_section_review import ChartSectionReviewFactory
 from .claim import (
     ClaimCommentFactory,
     ClaimCoverageFactory,
@@ -18,6 +19,7 @@ from .claim_line_item import (
 )
 from .coverage import CoverageFactory
 from .diagnostic_report import DiagnosticReportFactory
+from .django_content_type import ContentTypeFactory
 from .external_event import ExternalEventFactory, ExternalVisitFactory
 from .facility import FacilityFactory
 from .imaging import (
@@ -69,6 +71,7 @@ from .patient import (
     PatientPhotoFactory,
 )
 from .patient_group import PatientGroupFactory, PatientGroupMemberFactory
+from .plugin_command import PluginCommandFactory
 from .practicelocation import (
     PracticeLocationAddressFactory,
     PracticeLocationContactPointFactory,
@@ -101,10 +104,12 @@ from .uncategorized_clinical_document import (
     UncategorizedClinicalDocumentReviewFactory,
 )
 from .user import CanvasUserFactory
+from .visual_exam_finding import VisualExamFindingFactory
 
 __all__ = (
     "CalendarFactory",
     "CanvasUserFactory",
+    "ChartSectionReviewFactory",
     "ClaimBannerAlertFactory",
     "ClaimFactory",
     "ClaimCommentFactory",
@@ -120,6 +125,7 @@ __all__ = (
     "ClaimSubmissionFactory",
     "CoverageFactory",
     "DiagnosticReportFactory",
+    "ContentTypeFactory",
     "EventFactory",
     "ExternalEventFactory",
     "ExternalVisitFactory",
@@ -168,6 +174,7 @@ __all__ = (
     "PatientGroupFactory",
     "PatientGroupMemberFactory",
     "PatientPhotoFactory",
+    "PluginCommandFactory",
     "PracticeLocationFactory",
     "PracticeLocationAddressFactory",
     "PracticeLocationContactPointFactory",
@@ -193,4 +200,5 @@ __all__ = (
     "TeamFactory",
     "UncategorizedClinicalDocumentFactory",
     "UncategorizedClinicalDocumentReviewFactory",
+    "VisualExamFindingFactory",
 )

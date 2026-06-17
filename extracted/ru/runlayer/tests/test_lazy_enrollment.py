@@ -68,7 +68,7 @@ def test_lazy_enrollment_persists_user_secret_on_first_fire(
             "exchange_enrollment_key",
             return_value=_ok_result(api_key, "u@example.com", "Mac-1"),
         ) as mock_exchange,
-        patch.object(relay, "save_config", lambda *_: None),
+        patch("runlayer_cli.config.save_config", lambda *_: None),
         patch.object(relay, "write_enrollment_marker") as mock_marker,
         patch.object(Config, "set_host_credentials", _fake_set),
     ):
@@ -88,6 +88,38 @@ def test_lazy_enrollment_persists_user_secret_on_first_fire(
     # Gate witness dropped so a subsequent bootstrap LaunchDaemon cycle
     # sees this user as enrolled.
     mock_marker.assert_called_once_with(host)
+
+
+def test_lazy_enrollment_skips_marker_when_not_persisted(fake_runlayer_dir: Path):
+    """Keychain write failed AND save_config no-op → still return the freshly
+    minted key for this hook fire, but do NOT drop the enrollment marker.
+
+    Regression: an unpersisted secret would still drop the marker, falsely
+    telling the bootstrap gate this user is enrolled while the next hook fire
+    has to lazy-enroll all over again.
+    """
+    host = "https://t.example.com"
+
+    with (
+        patch.object(relay, "load_config", return_value=Config(default_host=host)),
+        patch.object(
+            relay,
+            "read_managed_config",
+            return_value={"host": host, "enrollment_key": "rl_enroll_abc"},
+        ),
+        patch.object(
+            relay, "exchange_enrollment_key", return_value=_ok_result("rl_user_key")
+        ),
+        patch("runlayer_cli.config.save_config", return_value=False),
+        patch.object(Config, "set_host_credentials", lambda *_a, **_kw: False),
+        patch.object(relay, "write_enrollment_marker") as mock_marker,
+        patch.object(relay, "forward_event"),
+    ):
+        got_host, got_secret = relay._load_credentials()
+
+    assert got_host == host
+    assert got_secret == "rl_user_key"
+    mock_marker.assert_not_called()
 
 
 def test_lazy_enrollment_passes_raw_managed_values_to_exchange(
@@ -112,7 +144,7 @@ def test_lazy_enrollment_passes_raw_managed_values_to_exchange(
             "exchange_enrollment_key",
             return_value=_ok_result("k", "osuser", "oshost"),
         ) as mock_ex,
-        patch.object(relay, "save_config", lambda *_: None),
+        patch("runlayer_cli.config.save_config", lambda *_: None),
         patch.object(Config, "set_host_credentials", lambda *_args, **_kw: True),
     ):
         relay._load_credentials()
@@ -192,7 +224,7 @@ def test_lazy_enrollment_cooldown_expires_after_window(fake_runlayer_dir: Path):
         patch.object(
             relay, "exchange_enrollment_key", return_value=_ok_result("k")
         ) as mock_ex,
-        patch.object(relay, "save_config", lambda *_: None),
+        patch("runlayer_cli.config.save_config", lambda *_: None),
         patch.object(Config, "set_host_credentials", lambda *a, **k: True),
     ):
         host_, secret_ = relay._load_credentials()
@@ -259,7 +291,7 @@ def test_lazy_enrollment_emits_fallback_warning_event(fake_runlayer_dir: Path):
             "exchange_enrollment_key",
             return_value=_ok_result("rl_user_key", "u@example.com", "Mac-1"),
         ),
-        patch.object(relay, "save_config", lambda *_: None),
+        patch("runlayer_cli.config.save_config", lambda *_: None),
         patch.object(Config, "set_host_credentials", lambda *_args, **_kw: True),
         patch.object(relay, "forward_event") as mock_forward,
     ):
@@ -298,7 +330,7 @@ def test_lazy_enrollment_warning_event_failure_does_not_break_enrollment(
             "exchange_enrollment_key",
             return_value=_ok_result("rl_user_key"),
         ),
-        patch.object(relay, "save_config", lambda *_: None),
+        patch("runlayer_cli.config.save_config", lambda *_: None),
         patch.object(Config, "set_host_credentials", lambda *_args, **_kw: True),
         patch.object(
             relay,
@@ -373,7 +405,7 @@ def test_lazy_enrollment_normalizes_mdm_host_with_trailing_slash(
             "exchange_enrollment_key",
             return_value=_ok_result("rl_user_key"),
         ) as mock_ex,
-        patch.object(relay, "save_config", lambda *_: None),
+        patch("runlayer_cli.config.save_config", lambda *_: None),
         patch.object(Config, "set_host_credentials", lambda *_a, **_kw: True),
     ):
         got_host, got_secret = relay._load_credentials()
@@ -423,7 +455,7 @@ def test_lazy_enrollment_no_recursion_when_disk_writes_fail(
             },
         ),
         patch.object(relay, "exchange_enrollment_key", side_effect=_counting_exchange),
-        patch.object(relay, "save_config", side_effect=OSError("read-only fs")),
+        patch("runlayer_cli.config.save_config", side_effect=OSError("read-only fs")),
         patch.object(relay, "_touch_enrollment_attempt", lambda: None),
         patch.object(Config, "set_host_credentials", lambda *_a, **_kw: False),
         patch.object(relay, "forward_event", side_effect=_real_forward_event),

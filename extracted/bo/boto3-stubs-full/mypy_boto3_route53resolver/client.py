@@ -340,8 +340,7 @@ class Route53ResolverClient(BaseClient):
         self, **kwargs: Unpack[CreateFirewallRuleRequestTypeDef]
     ) -> CreateFirewallRuleResponseTypeDef:
         """
-        Creates a single DNS Firewall rule in the specified rule group, using the
-        specified domain list.
+        Creates a single DNS Firewall rule in the specified rule group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/create_firewall_rule.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/client/#create_firewall_rule)
@@ -742,7 +741,9 @@ class Route53ResolverClient(BaseClient):
         self, **kwargs: Unpack[ListFirewallRuleTypesRequestTypeDef]
     ) -> ListFirewallRuleTypesResponseTypeDef:
         """
-        Retrieves the available rule types that can be used in DNS Firewall rules.
+        Retrieves the rule-type variants that can be used in the
+        <code>FirewallRuleType</code> field of <a>CreateFirewallRule</a> and
+        <a>UpdateFirewallRule</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53resolver/client/list_firewall_rule_types.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53resolver/client/#list_firewall_rule_types)

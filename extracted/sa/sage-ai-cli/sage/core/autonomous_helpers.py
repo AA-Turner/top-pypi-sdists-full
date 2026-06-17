@@ -348,6 +348,16 @@ def _classify_and_store_request(user_input: str) -> _ClassifiedRequest:
         except Exception:
             pass  # Object may be immutable in some classifier versions; safe to ignore.
 
+    if os.environ.get("SAGE_AUTOPOLIT_RUN") == "1" and _current_classification is not None:
+        try:
+            from sage.core.p0_request_classification import PipelineTypeV2, RequestTypeV2
+            _current_classification.read_only = False
+            _current_classification.requires_tdd = True
+            _current_classification.pipeline_type = PipelineTypeV2.MULTI_STEP
+            _current_classification.request_type = RequestTypeV2.MULTI_STEP
+        except Exception:
+            pass
+
     # Ensure is_informational is set for all classification objects (V1/V2 compatibility)
     if not hasattr(_current_classification, "is_informational"):
         try:

@@ -4,11 +4,19 @@ from typing import Optional
 
 import typer
 
-from runlayer_cli.config import load_config, resolve_host, save_config
+from runlayer_cli.cli_persistence import (
+    complete_device_enrollment,
+    credential_dest,
+    persist_credentials_or_exit,
+    save_config_or_exit,
+)
+from runlayer_cli.config import (
+    load_config,
+    resolve_host,
+)
 from runlayer_cli.enrollment import (
     EnrollmentError,
     exchange_enrollment_key,
-    write_enrollment_marker,
 )
 
 app = typer.Typer(hidden=True)
@@ -56,7 +64,9 @@ def add_org(
     except ValueError as exc:
         typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from None
-    save_config(config)
+    # Org keys live only in config.yaml; aiwatch runtime never writes it, so the
+    # key would not be persisted (it only lived in the in-memory Config).
+    save_config_or_exit(config, subject=f"org API key '{label}'", host=effective_host)
     typer.secho(
         f"Org API key '{label}' saved for {effective_host}.",
         fg=typer.colors.GREEN,
@@ -84,9 +94,11 @@ def add_user(
     """Store a user API key for a host (keyring when available)."""
     config = load_config()
     effective_host = resolve_host(ctx, host, config.default_host)
-    keyring_used = config.set_host_credentials(effective_host, secret)
-    save_config(config)
-    dest = "credential store" if keyring_used else "config file"
+    dest = credential_dest(
+        persist_credentials_or_exit(
+            config, effective_host, secret, subject="user API key"
+        )
+    )
     typer.secho(
         f"User API key saved to {dest} for {effective_host}.",
         fg=typer.colors.GREEN,
@@ -138,10 +150,11 @@ def enroll(
         raise typer.Exit(1 if exc.status_code is not None else 2) from None
 
     config = load_config()
-    keyring_used = config.set_host_credentials(effective_host, result.api_key)
-    save_config(config)
-    write_enrollment_marker(effective_host)
-    dest = "credential store" if keyring_used else "config file"
+    dest = credential_dest(
+        complete_device_enrollment(
+            config, effective_host, result.api_key, subject="enrolled API key"
+        )
+    )
     typer.secho(
         f"Enrollment successful. API key saved to {dest} for {effective_host}.",
         fg=typer.colors.GREEN,

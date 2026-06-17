@@ -45,15 +45,17 @@ def get_period_limit_notice() -> Optional[str]:
     tier = authenticator.get_tier()
     if tier =='guest':
         return (
-"ℹ️  Phiên bản cộng đồng: Báo cáo tài chính được giới hạn tối đa 4 kỳ để minh hoạ thuật toán. "
-"Để truy cập đầy đủ tất cả các kỳ báo cáo, vui lòng tham gia gói thành viên tài trợ dự án: "
-"https://vnstocks.com/insiders-program"
+"ℹ️  Phiên bản cộng đồng: Dữ liệu báo cáo tài chính giới hạn tối đa 4 kỳ. "
+"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: https://vnstocks.com/insiders-program\n"
+"ℹ️  Community edition: Financial statements limited to 4 periods. "
+"Upgrade your plan to unlock full data limits for professional use: https://vnstocks.com/insiders-program"
         )
     elif tier =='free':
         return (
-"ℹ️  Phiên bản cộng đồng: Báo cáo tài chính được giới hạn tối đa 8 kỳ để minh hoạ thuật toán. "
-"Để truy cập đầy đủ tất cả các kỳ báo cáo, vui lòng tham gia gói thành viên tài trợ dự án: "
-"https://vnstocks.com/insiders-program"
+"ℹ️  Phiên bản cộng đồng: Dữ liệu báo cáo tài chính giới hạn tối đa 8 kỳ. "
+"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: https://vnstocks.com/insiders-program\n"
+"ℹ️  Community edition: Financial statements limited to 8 periods. "
+"Upgrade your plan to unlock full data limits for professional use: https://vnstocks.com/insiders-program"
         )
     return None
 
@@ -64,20 +66,24 @@ def get_period_limit_notice_html() -> Optional[str]:
         return (
 "<div style='background-color: #e3f2fd; border-left: 4px solid #2196f3; "
 "padding: 12px 16px; margin: 12px 0; border-radius: 4px; font-size: 13px;'>"
-"<strong>ℹ️  Phiên bản cộng đồng</strong><br>"
-"Báo cáo tài chính được giới hạn tối đa <strong>4 kỳ</strong> để minh hoạ thuật toán. "
-"Để truy cập đầy đủ tất cả các kỳ báo cáo, vui lòng "
-"<a href='https://vnstocks.com/insiders-program' target='_blank'>tham gia gói thành viên tài trợ dự án</a>."
+"<strong>ℹ️  Phiên bản cộng đồng (Community edition)</strong><br>"
+"Dữ liệu báo cáo tài chính giới hạn tối đa <strong>4 kỳ</strong>. "
+"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: "
+"<a href='https://vnstocks.com/insiders-program' target='_blank'>https://vnstocks.com/insiders-program</a><br>"
+"<span style='color: #666;'><i>Financial statements limited to 4 periods. Upgrade your plan to unlock full data limits for professional use: "
+"<a href='https://vnstocks.com/insiders-program' target='_blank'>https://vnstocks.com/insiders-program</a></i></span>"
 "</div>"
         )
     elif tier =='free':
         return (
 "<div style='background-color: #e3f2fd; border-left: 4px solid #2196f3; "
 "padding: 12px 16px; margin: 12px 0; border-radius: 4px; font-size: 13px;'>"
-"<strong>ℹ️  Phiên bản cộng đồng</strong><br>"
-"Báo cáo tài chính được giới hạn tối đa <strong>8 kỳ</strong> để minh hoạ thuật toán. "
-"Để truy cập đầy đủ tất cả các kỳ báo cáo, vui lòng "
-"<a href='https://vnstocks.com/insiders-program' target='_blank'>tham gia gói thành viên tài trợ dự án</a>."
+"<strong>ℹ️  Phiên bản cộng đồng (Community edition)</strong><br>"
+"Dữ liệu báo cáo tài chính giới hạn tối đa <strong>8 kỳ</strong>. "
+"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: "
+"<a href='https://vnstocks.com/insiders-program' target='_blank'>https://vnstocks.com/insiders-program</a><br>"
+"<span style='color: #666;'><i>Financial statements limited to 8 periods. Upgrade your plan to unlock full data limits for professional use: "
+"<a href='https://vnstocks.com/insiders-program' target='_blank'>https://vnstocks.com/insiders-program</a></i></span>"
 "</div>"
         )
     return None
@@ -229,6 +235,86 @@ def patch_kbs_finance():
     except Exception as e:
         print(f"Warning: Could not patch KBS Finance: {e}")
         return False
+
+def limit_ohlcv_periods(df: pd.DataFrame, interval: str) -> pd.DataFrame:
+    if df is None or df.empty or'time' not in df.columns:
+        return df
+    interval_str = str(interval)
+    if interval_str =="1m":
+        max_days = 180
+    elif interval_str in ["5m","15m","30m","1H","H","1h","1H"]:
+        max_days = 365
+    else:
+        max_days = 8 * 365
+    time_col = pd.to_datetime(df['time'])
+    max_time = time_col.max()
+    if pd.isna(max_time):
+        return df
+    cutoff_time = max_time - pd.Timedelta(days=max_days)
+    df_limited = df[time_col >= cutoff_time].reset_index(drop=True)
+    return df_limited
+
+def patch_quote_history():
+    try:
+        from vnstock.api.quote import Quote
+        original_history = Quote.history
+        original_intraday = Quote.intraday
+        _notice_shown = {'quote_history': False,'quote_intraday': False}
+        @wraps(original_history)
+
+        def history_with_limit(*args, **kwargs):
+            df = original_history(*args, **kwargs)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                actual_interval = kwargs.get("interval","1D")
+                if"resolution" in kwargs:
+                    actual_interval = kwargs["resolution"]
+                df_limited = limit_ohlcv_periods(df, actual_interval)
+                if len(df_limited) < len(df):
+                    from vnstock.core.utils.logger import get_logger
+                    logger = get_logger(__name__)
+                    interval_str = str(actual_interval)
+                    if interval_str =="1m":
+                        limit_text ="6 tháng"
+                        limit_text_en ="6 months"
+                    elif interval_str in ["5m","15m","30m","1H","H","1h"]:
+                        limit_text ="1 năm"
+                        limit_text_en ="1 year"
+                    else:
+                        limit_text ="8 năm"
+                        limit_text_en ="8 years"
+                    logger.warning(
+f"⚠️ Phiên bản cộng đồng: Dữ liệu OHLCV ({actual_interval}) giới hạn tối đa {limit_text}. "
+f"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: https://vnstocks.com/insiders-program\n"
+f"⚠️ Community edition: OHLCV data ({actual_interval}) limited to {limit_text_en}. "
+f"Upgrade your plan to unlock full data limits for professional use: https://vnstocks.com/insiders-program"
+                    )
+                return df_limited
+            return df
+        @wraps(original_intraday)
+
+        def intraday_with_limit(*args, **kwargs):
+            df = original_intraday(*args, **kwargs)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                max_rows = 30000
+                if len(df) > max_rows:
+                    df_limited = df.head(max_rows).copy()
+                    from vnstock.core.utils.logger import get_logger
+                    logger = get_logger(__name__)
+                    logger.warning(
+f"⚠️ Phiên bản cộng đồng: Dữ liệu khớp lệnh giới hạn tối đa 30,000 dòng. "
+f"Nâng cấp gói tài trợ để mở rộng giới hạn cho phân tích chuyên nghiệp: https://vnstocks.com/insiders-program\n"
+f"⚠️ Community edition: Intraday data limited to 30,000 rows. "
+f"Upgrade your plan to unlock full data limits for professional use: https://vnstocks.com/insiders-program"
+                    )
+                    return df_limited
+            return df
+        Quote.history = history_with_limit
+        Quote.ohlcv = history_with_limit
+        Quote.intraday = intraday_with_limit
+        return True
+    except Exception as e:
+        print(f"Warning: Could not patch Quote history: {e}")
+        return False
 _patches_applied = False
 _patches_lock = __import__('threading').Lock()
 
@@ -238,10 +324,12 @@ def apply_all_patches():
         try:
             vci_patched = patch_vci_finance()
             kbs_patched = patch_kbs_finance()
+            quote_patched = patch_quote_history()
             _patches_applied = True
             return {
 'vci': vci_patched,
 'kbs': kbs_patched,
+'quote': quote_patched,
             }
         except Exception as e:
             _patches_applied = True

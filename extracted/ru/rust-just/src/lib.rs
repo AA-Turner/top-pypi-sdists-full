@@ -25,7 +25,6 @@ pub(crate) use {
     compile_error_kind::CompileErrorKind,
     compiler::Compiler,
     completer::Completer,
-    condition::Condition,
     conditional_operator::ConditionalOperator,
     config::Config,
     config_error::ConfigError,
@@ -34,8 +33,10 @@ pub(crate) use {
     count::Count,
     delimiter::Delimiter,
     dependency::Dependency,
+    dependency_argument::DependencyArgument,
     disabled::Disabled,
     dump_format::DumpFormat,
+    element::Element,
     enclosure::Enclosure,
     error::Error,
     evaluate_format::EvaluateFormat,
@@ -58,6 +59,8 @@ pub(crate) use {
     lexer::Lexer,
     line::Line,
     list::List,
+    list_feature::ListFeature,
+    list_operator::ListOperator,
     load_dotenv::load_dotenv,
     loader::Loader,
     modulepath::Modulepath,
@@ -99,6 +102,7 @@ pub(crate) use {
     signal::Signal,
     signal_handler::SignalHandler,
     source::Source,
+    string_context::StringContext,
     string_delimiter::StringDelimiter,
     string_kind::StringKind,
     string_literal::StringLiteral,
@@ -107,6 +111,7 @@ pub(crate) use {
     suggestion::Suggestion,
     switch::Switch,
     table::Table,
+    tangle::tangle,
     token::Token,
     token_kind::TokenKind,
     unresolved_dependency::UnresolvedDependency,
@@ -114,6 +119,7 @@ pub(crate) use {
     unstable_feature::UnstableFeature,
     usage::Usage,
     use_color::UseColor,
+    value::Value,
     verbosity::Verbosity,
     warning::Warning,
     which::which,
@@ -127,14 +133,14 @@ pub(crate) use {
   regex::Regex,
   serde::{
     Deserialize, Serialize, Serializer,
-    ser::{SerializeMap, SerializeSeq},
+    ser::{SerializeMap, SerializeSeq, SerializeStruct},
   },
   snafu::{ResultExt, Snafu},
   std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    env,
+    env::{self, VarError},
     ffi::{OsStr, OsString},
     fmt::{self, Debug, Display, Formatter},
     fs::{self, File},
@@ -168,9 +174,10 @@ pub use {arguments::Arguments, request::Response, subcommand::INIT_JUSTFILE, uni
 
 type CompileResult<'a, T = ()> = Result<T, CompileError<'a>>;
 type ConfigResult<T> = Result<T, ConfigError>;
-type FunctionResult = Result<String, String>;
 type RunResult<'a, T = ()> = Result<T, Error<'a>>;
 type SearchResult<T> = Result<T, SearchError>;
+type StringResult = Result<String, String>;
+type ValueResult = Result<Value, String>;
 
 const JUST_DIRECTORY: &str = "just";
 const RECURSION_LIMIT: usize = if cfg!(windows) { 48 } else { 256 };
@@ -189,12 +196,6 @@ pub mod node;
 
 #[cfg(fuzzing)]
 pub mod fuzzing;
-
-// Used by Janus, https://github.com/casey/janus, a tool
-// that analyses all public justfiles on GitHub to avoid
-// breaking changes.
-#[doc(hidden)]
-pub mod summary;
 
 // Used for testing with the `--request` subcommand.
 #[doc(hidden)]
@@ -220,7 +221,6 @@ mod compile_error;
 mod compile_error_kind;
 mod compiler;
 mod completer;
-mod condition;
 mod conditional_operator;
 mod config;
 mod config_error;
@@ -229,8 +229,10 @@ mod constants;
 mod count;
 mod delimiter;
 mod dependency;
+mod dependency_argument;
 mod disabled;
 mod dump_format;
+mod element;
 mod enclosure;
 mod error;
 mod evaluate_format;
@@ -254,6 +256,8 @@ mod keyword;
 mod lexer;
 mod line;
 mod list;
+mod list_feature;
+mod list_operator;
 mod load_dotenv;
 mod loader;
 mod modulepath;
@@ -297,6 +301,7 @@ mod signal_handler;
 #[cfg(unix)]
 mod signals;
 mod source;
+mod string_context;
 mod string_delimiter;
 mod string_kind;
 mod string_literal;
@@ -305,6 +310,7 @@ mod subcommand;
 mod suggestion;
 mod switch;
 mod table;
+mod tangle;
 mod token;
 mod token_kind;
 mod unindent;
@@ -313,6 +319,7 @@ mod unresolved_recipe;
 mod unstable_feature;
 mod usage;
 mod use_color;
+mod value;
 mod verbosity;
 mod warning;
 mod which;

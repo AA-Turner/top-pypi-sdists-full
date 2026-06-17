@@ -3355,16 +3355,16 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.Surface = self._Surface(self, "Surface", service, rules, path)
                     self.Line = self._Line(self, "Line", service, rules, path)
+                    self.Surface = self._Surface(self, "Surface", service, rules, path)
                     self.Solid = self._Solid(self, "Solid", service, rules, path)
 
-                class _Surface(PyArgumentsParameterSubItem):
+                class _Line(PyArgumentsParameterSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _Line(PyArgumentsParameterSubItem):
+                class _Surface(PyArgumentsParameterSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3381,17 +3381,12 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
+                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
 
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
-                    """
-
-                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                class _MaxSize(PyArgumentsNumericalSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3401,7 +3396,12 @@ class Root(PyMenu):
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _MaxSize(PyArgumentsNumericalSubItem):
+                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                    """
+                    This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
+                    """
+
+                class _NormalAngle(PyArgumentsNumericalSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3703,16 +3703,16 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.Surface = self._Surface(self, "Surface", service, rules, path)
                     self.Line = self._Line(self, "Line", service, rules, path)
+                    self.Surface = self._Surface(self, "Surface", service, rules, path)
                     self.Solid = self._Solid(self, "Solid", service, rules, path)
 
-                class _Surface(PyArgumentsParameterSubItem):
+                class _Line(PyArgumentsParameterSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _Line(PyArgumentsParameterSubItem):
+                class _Surface(PyArgumentsParameterSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3729,17 +3729,12 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
+                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
 
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
-                    """
-
-                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                class _MaxSize(PyArgumentsNumericalSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3749,7 +3744,12 @@ class Root(PyMenu):
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _MaxSize(PyArgumentsNumericalSubItem):
+                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                    """
+                    This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
+                    """
+
+                class _NormalAngle(PyArgumentsNumericalSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3892,16 +3892,16 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.Surface = self._Surface(self, "Surface", service, rules, path)
                     self.Line = self._Line(self, "Line", service, rules, path)
+                    self.Surface = self._Surface(self, "Surface", service, rules, path)
                     self.Solid = self._Solid(self, "Solid", service, rules, path)
 
-                class _Surface(PyArgumentsParameterSubItem):
+                class _Line(PyArgumentsParameterSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _Line(PyArgumentsParameterSubItem):
+                class _Surface(PyArgumentsParameterSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3918,17 +3918,12 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
-                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
-                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
                     self.MaxSize = self._MaxSize(self, "MaxSize", service, rules, path)
+                    self.Deviation = self._Deviation(self, "Deviation", service, rules, path)
+                    self.RefacetDuringLoad = self._RefacetDuringLoad(self, "RefacetDuringLoad", service, rules, path)
+                    self.NormalAngle = self._NormalAngle(self, "NormalAngle", service, rules, path)
 
-                class _NormalAngle(PyArgumentsNumericalSubItem):
-                    """
-                    This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
-                    """
-
-                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                class _MaxSize(PyArgumentsNumericalSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
@@ -3938,7 +3933,12 @@ class Root(PyMenu):
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """
 
-                class _MaxSize(PyArgumentsNumericalSubItem):
+                class _RefacetDuringLoad(PyArgumentsParameterSubItem):
+                    """
+                    This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
+                    """
+
+                class _NormalAngle(PyArgumentsNumericalSubItem):
                     """
                     This task will cover any gaps within a selected object. Recommended with geometries containing noticeable gaps and openings that need to be covered prior to surface meshing. More...
                     """

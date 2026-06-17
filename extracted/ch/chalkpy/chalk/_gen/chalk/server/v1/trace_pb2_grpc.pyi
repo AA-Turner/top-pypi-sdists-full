@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.trace_pb2 import (
     GetSpanFacetValuesResponse,
     GetSpanFacetsRequest,
     GetSpanFacetsResponse,
+    GetSpanLatencyDistributionRequest,
+    GetSpanLatencyDistributionResponse,
     GetSpanRequest,
     GetSpanResponse,
     GetSpanSourceAggregatesRequest,
@@ -65,6 +67,11 @@ class TraceServiceStub:
         GetSpanResponse,
     ]
     """GetSpan retrieves a specific span by span ID and trace ID"""
+    GetSpanLatencyDistribution: UnaryUnaryMultiCallable[
+        GetSpanLatencyDistributionRequest,
+        GetSpanLatencyDistributionResponse,
+    ]
+    """GetSpanLatencyDistribution returns latency percentiles for spans matching selected spans."""
     ListSpan: UnaryUnaryMultiCallable[
         ListSpanRequest,
         ListSpanResponse,
@@ -129,6 +136,13 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetSpanResponse:
         """GetSpan retrieves a specific span by span ID and trace ID"""
+    @abstractmethod
+    def GetSpanLatencyDistribution(
+        self,
+        request: GetSpanLatencyDistributionRequest,
+        context: ServicerContext,
+    ) -> GetSpanLatencyDistributionResponse:
+        """GetSpanLatencyDistribution returns latency percentiles for spans matching selected spans."""
     @abstractmethod
     def ListSpan(
         self,

@@ -62,8 +62,8 @@ def test_enroll_uses_mdm_host_when_no_flag(tmp_path):
             "runlayer_cli.commands.enroll.exchange_enrollment_key",
             return_value=_ok_result(),
         ) as mock_ex,
-        patch("runlayer_cli.commands.enroll.save_config") as mock_save,
-        patch("runlayer_cli.commands.enroll.write_enrollment_marker") as mock_marker,
+        patch("runlayer_cli.config.save_config") as mock_save,
+        patch("runlayer_cli.cli_persistence.write_enrollment_marker") as mock_marker,
         patch.object(Config, "set_host_credentials", return_value=False),
     ):
         result = runner.invoke(aiwatch_app, ["enroll"])
@@ -97,7 +97,7 @@ def test_enroll_explicit_flags_override_mdm():
             "runlayer_cli.commands.enroll.exchange_enrollment_key",
             return_value=_ok_result(),
         ) as mock_ex,
-        patch("runlayer_cli.commands.enroll.save_config"),
+        patch("runlayer_cli.config.save_config"),
         patch.object(Config, "set_host_credentials", return_value=False),
     ):
         result = runner.invoke(
@@ -162,8 +162,8 @@ def test_enroll_force_reruns_when_already_enrolled():
             "runlayer_cli.commands.enroll.exchange_enrollment_key",
             return_value=_ok_result("rl_user_renewed"),
         ) as mock_ex,
-        patch("runlayer_cli.commands.enroll.save_config"),
-        patch("runlayer_cli.commands.enroll.write_enrollment_marker") as mock_marker,
+        patch("runlayer_cli.config.save_config"),
+        patch("runlayer_cli.cli_persistence.write_enrollment_marker") as mock_marker,
         patch.object(Config, "set_host_credentials", return_value=False),
     ):
         result = runner.invoke(aiwatch_app, ["enroll", "--force"])
@@ -172,6 +172,44 @@ def test_enroll_force_reruns_when_already_enrolled():
     assert "Enrollment successful" in result.output
     mock_ex.assert_called_once()
     mock_marker.assert_called_once_with("https://t.example.com")
+
+
+# ── persistence failure (keychain failed + aiwatch no-op save) ───────
+
+
+def test_enroll_unpersisted_credential_fails_and_skips_marker():
+    """Keychain write failed AND save_config no-op → don't claim success.
+
+    Regression: in the aiwatch runtime ``save_config`` is a no-op (returns
+    False). If ``set_host_credentials`` also failed (no keychain), the API key
+    only lives in the in-memory Config and is lost — enroll must surface that
+    and must NOT drop the enrollment marker (which would falsely satisfy the
+    bootstrap credential gate).
+    """
+    with (
+        patch("runlayer_cli.commands.enroll.load_config", return_value=Config()),
+        patch("runlayer_cli.enrollment.load_config", return_value=Config()),
+        patch(
+            "runlayer_cli.enrollment.read_managed_config",
+            return_value={
+                "host": "https://mdm.example.com",
+                "enrollment_key": "rl_enroll_abc",
+            },
+        ),
+        patch(
+            "runlayer_cli.commands.enroll.exchange_enrollment_key",
+            return_value=_ok_result(),
+        ),
+        patch("runlayer_cli.config.save_config", return_value=False),
+        patch("runlayer_cli.cli_persistence.write_enrollment_marker") as mock_marker,
+        patch.object(Config, "set_host_credentials", return_value=False),
+    ):
+        result = runner.invoke(aiwatch_app, ["enroll"])
+
+    assert result.exit_code == 1, result.output
+    assert "could not be persisted" in result.output
+    assert "Enrollment successful" not in result.output
+    mock_marker.assert_not_called()
 
 
 # ── missing inputs ───────────────────────────────────────────────────

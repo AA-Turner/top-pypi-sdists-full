@@ -62,7 +62,7 @@ def _write_fixture_mcp_servers(
 
 def _client() -> MagicMock:
     client = MagicMock()
-    client.list_plugins_by_namespace.return_value = []
+    client.list_plugins_detailed.return_value = []
     client.list_skills.return_value = []
     client.list_servers_for_resolution.return_value = [
         ServerListItem(
@@ -145,7 +145,7 @@ async def test_sync_plugins_update_preserves_existing_connector_tools(
     plugin_root = _copy_fixture(tmp_path)
     identifier = compute_plugin_identifier(plugin_root)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -198,7 +198,7 @@ async def test_sync_plugins_update_reads_existing_connector_tools_when_detail_om
 ) -> None:
     _copy_fixture(tmp_path)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -254,7 +254,7 @@ async def test_sync_plugins_wraps_existing_connector_tool_lookup_timeout(
 ) -> None:
     _copy_fixture(tmp_path)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -334,7 +334,7 @@ async def test_sync_plugins_skips_remote_server_entries_without_id_in_change_det
     plugin_root = _copy_fixture(tmp_path)
     identifier = compute_plugin_identifier(plugin_root)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -388,7 +388,7 @@ async def test_sync_plugins_skips_remote_server_entries_without_id_in_warning_pa
 ) -> None:
     _make_plugin(tmp_path, name="review-suite")
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -421,7 +421,7 @@ async def test_sync_plugins_update_adds_all_tools_for_new_connector(
 ) -> None:
     _copy_fixture(tmp_path)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -473,7 +473,7 @@ async def test_sync_plugins_prune_scopes_skill_deletes_to_plugin_paths(
 ) -> None:
     _copy_fixture(tmp_path)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -511,7 +511,7 @@ async def test_sync_plugins_create_409_retries_as_update(
     client.create_plugin.side_effect = httpx.HTTPStatusError(
         "Conflict", request=response_409.request, response=response_409
     )
-    client.list_plugins_by_namespace.side_effect = [
+    client.list_plugins_detailed.side_effect = [
         [],
         [
             PluginDetail(
@@ -586,7 +586,7 @@ async def test_sync_plugins_updates_plugin_before_deleting_removed_child_skill(
     shutil.rmtree(plugin_root / "skills" / "ticket-triage")
 
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -645,7 +645,7 @@ async def test_sync_plugins_does_not_delete_removed_child_skill_if_update_fails(
     shutil.rmtree(plugin_root / "skills" / "ticket-triage")
 
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -700,7 +700,7 @@ async def test_sync_plugins_prune_does_not_delete_linked_skills_if_plugin_delete
 ) -> None:
     _make_plugin(tmp_path, name="local-only")
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-remote",
             name="remote-only",
@@ -743,7 +743,7 @@ async def test_sync_plugins_does_not_delete_same_prefix_standalone_skill(
     shutil.rmtree(plugin_root / "skills" / "ticket-triage")
 
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -788,7 +788,7 @@ async def test_sync_plugins_warns_before_removing_remote_connectors(
 ) -> None:
     _copy_fixture(tmp_path)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -842,7 +842,7 @@ async def test_sync_plugins_dry_run_uses_same_remote_change_detection_without_ge
     plugin_root = _copy_fixture(tmp_path)
     identifier = compute_plugin_identifier(plugin_root)
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",
@@ -886,7 +886,7 @@ async def test_sync_plugins_updates_when_description_removed(
     manifest_path.write_text('{"name":"review-suite","version":"1.0.0"}')
 
     client = _client()
-    client.list_plugins_by_namespace.return_value = [
+    client.list_plugins_detailed.return_value = [
         PluginDetail(
             id="plugin-1",
             name="review-suite",

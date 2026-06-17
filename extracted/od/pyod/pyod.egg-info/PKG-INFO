@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyod
-Version: 3.6.0
+Version: 3.6.1
 Summary: A Python library for anomaly detection across tabular, time series, graph, text, image, and audio data. 61 detectors, benchmark-backed ADEngine orchestration, and an agentic workflow for AI agents.
 Author-email: Yue Zhao <yzhao062@gmail.com>
 License-Expression: BSD-2-Clause
@@ -61,7 +61,7 @@ Requires-Dist: torch>=2.0; extra == "all"
 Requires-Dist: suod; extra == "all"
 Requires-Dist: xgboost; extra == "all"
 Requires-Dist: combo; extra == "all"
-Requires-Dist: pythresh; extra == "all"
+Requires-Dist: pythresh>=1.0.0; extra == "all"
 Requires-Dist: sentence-transformers>=5.0.0; extra == "all"
 Requires-Dist: openai>=1.0; extra == "all"
 Requires-Dist: transformers>=4.25.1; extra == "all"
@@ -139,7 +139,7 @@ Pillar                       What it means
 Multi-Modal                  61 detectors across **tabular, time series, graph, text, image, and audio** data, one API
 Full Lifecycle               From raw data to explained anomalies and next-step guidance in a single call
 Agentic                      ``od-expert`` turns natural-language requests into ADEngine workflows; MCP exposes structured tools for other agents
-Most Used                    38+ million downloads; benchmark-backed routing (ADBench, TSB-AD, BOND, NLP-ADBench)
+Most Used                    46+ million downloads; benchmark-backed routing (ADBench, TSB-AD, BOND, NLP-ADBench)
 ===========================  ========================================================================================
 
 Install
@@ -214,7 +214,7 @@ The figure above shows a real 5-turn agentic conversation on the UCI Cardiotocog
 About PyOD
 ^^^^^^^^^^
 
-PyOD, established in 2017, is the longest-running and most widely used Python library for anomaly detection. With `38+ million downloads <https://pepy.tech/project/pyod>`__, it serves both academic research (featured in `Analytics Vidhya <https://www.analyticsvidhya.com/blog/2019/02/outlier-detection-python-pyod/>`__, `KDnuggets <https://www.kdnuggets.com/2019/02/outlier-detection-methods-cheat-sheet.html>`__, and `Towards Data Science <https://towardsdatascience.com/anomaly-detection-for-dummies-15f148e559c1>`__) and commercial products.
+PyOD, established in 2017, is the longest-running and most widely used Python library for anomaly detection. With `46+ million downloads <https://pepy.tech/project/pyod>`__, it serves both academic research (featured in `Analytics Vidhya <https://www.analyticsvidhya.com/blog/2019/02/outlier-detection-python-pyod/>`__, `KDnuggets <https://www.kdnuggets.com/2019/02/outlier-detection-methods-cheat-sheet.html>`__, and `Towards Data Science <https://towardsdatascience.com/anomaly-detection-for-dummies-15f148e559c1>`__) and commercial products.
 
 V3 extends the library with ``ADEngine`` (lifecycle orchestration) and the ``od-expert`` skill (agentic workflow), while keeping the classic ``fit``/``predict`` API fully backward-compatible. V3 is built on SUOD [#Zhao2021SUOD]_ for fast parallel training and numba JIT for per-model speedups.
 
@@ -327,7 +327,7 @@ Additional Topics
 Implemented Algorithms
 ^^^^^^^^^^^^^^^^^^^^^^
 
-PyOD is organized into two functional groups: **(i) Detection Algorithms**, with dedicated subsections for tabular, time series, and graph data (EmbeddingOD inside the tabular table adds multi-modal support for text, image, and audio via foundation model or handcrafted encoders); and **(ii) Utility Functions** for data generation, evaluation, and lifecycle orchestration.
+PyOD is organized into two functional groups: **(i) Detection Algorithms**, with dedicated subsections for tabular, time series, graph, and audio data (EmbeddingOD inside the tabular table adds text and image support via foundation model encoders); and **(ii) Utility Functions** for data generation, evaluation, and lifecycle orchestration.
 
 **(i-a) Tabular & Multi-Modal Detection Algorithms** :
 
@@ -717,6 +717,40 @@ Algorithm rankings from `BOND benchmark <https://arxiv.org/abs/2206.10071>`__ [#
      - Structural clustering, no features needed (`scan example <https://github.com/yzhao062/pyod/blob/development/examples/pyg_scan_example.py>`__)
      - 2007
      - [#Xu2007SCAN]_
+
+
+**(i-d) Audio Anomaly Detection** (``pip install pyod[audio]``):
+
+Audio clips use the same ``fit``/``decision_function`` API. Two paths are available: a lightweight embed-then-detect path (``EmbeddingOD.for_audio()`` turns each clip into a 74-dimensional handcrafted acoustic vector and runs any classical detector), and a dedicated deep detector (``AudioAE``, a log-mel reconstruction autoencoder). Inputs are file paths, waveform arrays, or ``(waveform, sample_rate)`` tuples. **Output**: one anomaly score per clip.
+
+**Audio detection in 3 lines** (``pip install pyod[audio]``):
+
+.. code-block:: python
+
+    from pyod.models.embedding import EmbeddingOD
+    clf = EmbeddingOD.for_audio('balanced')        # 74-dim handcrafted features + KNN
+    clf.fit(train_clips)                            # list of file paths or waveform arrays
+    scores = clf.decision_scores_                  # per-clip anomaly scores
+
+.. list-table::
+   :widths: 18 18 45 5 14
+   :header-rows: 1
+
+   * - Type
+     - Abbr
+     - Algorithm
+     - Year
+     - Ref
+   * - Embed then Detect
+     - EmbeddingOD
+     - ``for_audio()``: 74-dim MFCC, chroma, and spectral features with any detector
+     - 2026
+     -
+   * - Deep AE
+     - AudioAE
+     - Log-mel reconstruction autoencoder (DCASE 2020 Task 2 baseline)
+     - 2020
+     -
 
 
 **(ii) Utility Functions**:

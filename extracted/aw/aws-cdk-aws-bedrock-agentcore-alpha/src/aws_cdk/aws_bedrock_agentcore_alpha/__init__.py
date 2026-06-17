@@ -22657,6 +22657,7 @@ class OAuth2CredentialProvider(
 
         from aws_cdk.aws_bedrockagentcore.Oauth2ProviderConfigInputProperty import Oauth2ProviderConfigInputProperty
         from aws_cdk.aws_bedrockagentcore.AtlassianOauth2ProviderConfigInputProperty import AtlassianOauth2ProviderConfigInputProperty
+        from aws_cdk.aws_bedrockagentcore.SecretReferenceProperty import SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty
         from aws_cdk.aws_bedrockagentcore.CustomOauth2ProviderConfigInputProperty import CustomOauth2ProviderConfigInputProperty
         from aws_cdk.aws_bedrockagentcore.Oauth2DiscoveryProperty import Oauth2DiscoveryProperty
         from aws_cdk.aws_bedrockagentcore.Oauth2AuthorizationServerMetadataProperty import Oauth2AuthorizationServerMetadataProperty
@@ -22678,7 +22679,14 @@ class OAuth2CredentialProvider(
             oauth2_provider_config_input=Oauth2ProviderConfigInputProperty(
                 atlassian_oauth2_provider_config=AtlassianOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 custom_oauth2_provider_config=CustomOauth2ProviderConfigInputProperty(
                     oauth_discovery=Oauth2DiscoveryProperty(
@@ -22694,8 +22702,14 @@ class OAuth2CredentialProvider(
                     ),
         
                     # the properties below are optional
+                    client_authentication_method="clientAuthenticationMethod",
                     client_id="clientId",
                     client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     on_behalf_of_token_exchange_config=OnBehalfOfTokenExchangeConfigProperty(
                         grant_type="grantType",
         
@@ -22710,39 +22724,84 @@ class OAuth2CredentialProvider(
                 ),
                 github_oauth2_provider_config=GithubOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 google_oauth2_provider_config=GoogleOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 included_oauth2_provider_config=IncludedOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret",
         
                     # the properties below are optional
                     authorization_endpoint="authorizationEndpoint",
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     issuer="issuer",
                     token_endpoint="tokenEndpoint"
                 ),
                 linkedin_oauth2_provider_config=LinkedinOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 microsoft_oauth2_provider_config=MicrosoftOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret",
         
                     # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     tenant_id="tenantId"
                 ),
                 salesforce_oauth2_provider_config=SalesforceOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 slack_oauth2_provider_config=SlackOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             ),
         
@@ -24471,6 +24530,7 @@ class OAuth2CredentialProviderProps:
 
             from aws_cdk.aws_bedrockagentcore.Oauth2ProviderConfigInputProperty import Oauth2ProviderConfigInputProperty
             from aws_cdk.aws_bedrockagentcore.AtlassianOauth2ProviderConfigInputProperty import AtlassianOauth2ProviderConfigInputProperty
+            from aws_cdk.aws_bedrockagentcore.SecretReferenceProperty import SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty, SecretReferenceProperty
             from aws_cdk.aws_bedrockagentcore.CustomOauth2ProviderConfigInputProperty import CustomOauth2ProviderConfigInputProperty
             from aws_cdk.aws_bedrockagentcore.Oauth2DiscoveryProperty import Oauth2DiscoveryProperty
             from aws_cdk.aws_bedrockagentcore.Oauth2AuthorizationServerMetadataProperty import Oauth2AuthorizationServerMetadataProperty
@@ -24492,7 +24552,14 @@ class OAuth2CredentialProviderProps:
                 oauth2_provider_config_input=Oauth2ProviderConfigInputProperty(
                     atlassian_oauth2_provider_config=AtlassianOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     custom_oauth2_provider_config=CustomOauth2ProviderConfigInputProperty(
                         oauth_discovery=Oauth2DiscoveryProperty(
@@ -24508,8 +24575,14 @@ class OAuth2CredentialProviderProps:
                         ),
             
                         # the properties below are optional
+                        client_authentication_method="clientAuthenticationMethod",
                         client_id="clientId",
                         client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         on_behalf_of_token_exchange_config=OnBehalfOfTokenExchangeConfigProperty(
                             grant_type="grantType",
             
@@ -24524,39 +24597,84 @@ class OAuth2CredentialProviderProps:
                     ),
                     github_oauth2_provider_config=GithubOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     google_oauth2_provider_config=GoogleOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     included_oauth2_provider_config=IncludedOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
             
                         # the properties below are optional
                         authorization_endpoint="authorizationEndpoint",
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         issuer="issuer",
                         token_endpoint="tokenEndpoint"
                     ),
                     linkedin_oauth2_provider_config=LinkedinOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     microsoft_oauth2_provider_config=MicrosoftOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
             
                         # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         tenant_id="tenantId"
                     ),
                     salesforce_oauth2_provider_config=SalesforceOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     slack_oauth2_provider_config=SlackOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     )
                 ),
             

@@ -8,11 +8,19 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TextIO, TypedDict
 
 from ..cli.update_commands import build_guard_update_status_payload
 
 _DASHBOARD_UPDATE_LOCK = "dashboard-update.lock"
+_DASHBOARD_UPDATE_OUTCOME = "dashboard-update-outcome.json"
 _DASHBOARD_UPDATE_STALE_SECONDS = 15 * 60
+
+
+class DashboardUpdateRunnerPopenKwargs(TypedDict):
+    cwd: str
+    env: dict[str, str]
+    log_handle: TextIO
 
 
 def dashboard_update_lock_path(guard_home: Path) -> Path:
@@ -53,11 +61,85 @@ def dashboard_update_in_progress(guard_home: Path) -> bool:
     return True
 
 
-def merge_dashboard_update_progress(
+def dashboard_update_outcome_path(guard_home: Path) -> Path:
+    return guard_home.expanduser().resolve() / _DASHBOARD_UPDATE_OUTCOME
+
+
+def read_dashboard_update_outcome(guard_home: Path) -> dict[str, object] | None:
+    outcome_path = dashboard_update_outcome_path(guard_home)
+    if not outcome_path.is_file():
+        return None
+    try:
+        payload = json.loads(outcome_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def write_dashboard_update_outcome(guard_home: Path, update_payload: dict[str, object]) -> None:
+    status = str(update_payload.get("status") or "")
+    if status not in {"stale", "failed"}:
+        clear_dashboard_update_outcome(guard_home)
+        return
+    version_check = update_payload.get("version_check")
+    latest_version = update_payload.get("latest_version")
+    if not isinstance(latest_version, str) and isinstance(version_check, dict):
+        candidate = version_check.get("latest_version")
+        latest_version = candidate if isinstance(candidate, str) else None
+    current_version = update_payload.get("resulting_version") or update_payload.get("current_version")
+    retry_command = update_payload.get("retry_command")
+    outcome = {
+        "status": status,
+        "attempted_at": datetime.now(timezone.utc).isoformat(),
+        "current_version": current_version,
+        "target_version": latest_version,
+        "retry_command": retry_command if isinstance(retry_command, str) else None,
+        "message": update_payload.get("message"),
+    }
+    outcome_path = dashboard_update_outcome_path(guard_home)
+    outcome_path.parent.mkdir(parents=True, exist_ok=True)
+    outcome_path.write_text(json.dumps(outcome, indent=2), encoding="utf-8")
+
+
+def clear_dashboard_update_outcome(guard_home: Path) -> None:
+    dashboard_update_outcome_path(guard_home).unlink(missing_ok=True)
+
+
+def merge_dashboard_update_outcome(
     guard_home: Path,
     status_payload: dict[str, object],
 ) -> dict[str, object]:
     payload = dict(status_payload)
+    if payload.get("update_available") is not True:
+        clear_dashboard_update_outcome(guard_home)
+        return payload
+    outcome = read_dashboard_update_outcome(guard_home)
+    if outcome is None:
+        return payload
+    current_version = payload.get("current_version")
+    latest_version = payload.get("latest_version")
+    if (
+        outcome.get("status") not in {"stale", "failed"}
+        or outcome.get("current_version") != current_version
+        or outcome.get("target_version") != latest_version
+    ):
+        clear_dashboard_update_outcome(guard_home)
+        return payload
+    payload["update_suppressed"] = True
+    retry_command = outcome.get("retry_command")
+    if isinstance(retry_command, str) and retry_command.strip():
+        payload["retry_command"] = retry_command.strip()
+    message = outcome.get("message")
+    if isinstance(message, str) and message.strip():
+        payload["update_attempt_message"] = message.strip()
+    return payload
+
+
+def merge_dashboard_update_progress(
+    guard_home: Path,
+    status_payload: dict[str, object],
+) -> dict[str, object]:
+    payload = merge_dashboard_update_outcome(guard_home, status_payload)
     if not dashboard_update_in_progress(guard_home):
         payload["update_in_progress"] = False
         return payload
@@ -106,17 +188,15 @@ def build_dashboard_update_runner_command(
     return command
 
 
-def build_dashboard_update_runner_popen_kwargs(guard_home: Path) -> dict[str, object]:
+def build_dashboard_update_runner_popen_kwargs(guard_home: Path) -> DashboardUpdateRunnerPopenKwargs:
     resolved_home = guard_home.expanduser().resolve()
     resolved_home.mkdir(parents=True, exist_ok=True)
     log_path = resolved_home / "dashboard-update.log"
     log_handle = log_path.open("a", encoding="utf-8")
     return {
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": log_handle,
         "cwd": str(resolved_home),
         "env": _runner_env(),
+        "log_handle": log_handle,
     }
 
 
@@ -143,15 +223,33 @@ def schedule_guard_dashboard_update(
         daemon_port=daemon_port,
         force_pypi_reinstall=force_pypi_reinstall,
     )
-    kwargs = build_dashboard_update_runner_popen_kwargs(guard_home)
-    if os.name == "nt":
-        kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-    else:
-        kwargs["start_new_session"] = True
-    stderr_target = kwargs.get("stderr")
-    process = subprocess.Popen(command, **kwargs)
-    if stderr_target is not None and hasattr(stderr_target, "close"):
-        stderr_target.close()
+    popen_kwargs = build_dashboard_update_runner_popen_kwargs(guard_home)
+    working_directory = popen_kwargs["cwd"]
+    env = popen_kwargs["env"]
+    log_handle = popen_kwargs["log_handle"]
+    try:
+        if os.name == "nt":
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=log_handle,
+                cwd=working_directory,
+                env=env,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+            )
+        else:
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=log_handle,
+                cwd=working_directory,
+                env=env,
+                start_new_session=True,
+            )
+    finally:
+        log_handle.close()
     _write_update_lock(
         lock_path,
         {

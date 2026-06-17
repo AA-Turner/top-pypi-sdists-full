@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import sys
 import base64
+import subprocess
 import unittest
 import contextlib
 import json
@@ -519,6 +521,19 @@ class HttpbinTestCase(unittest.TestCase):
             response.data, b'\xc5\xd7\x14\x84\xf8\xcf\x9b\xf4\xb7o'
         )
 
+    def test_bytes_endpoint_yields_bytes(self):
+        """WSGI bodies must be bytes (not bytearray) so strict servers
+        (wsgiref / pytest-httpbin) don't 500. The test client coerces the
+        body, so we inspect the raw WSGI iterable. Regression for /bytes."""
+        from werkzeug.test import create_environ
+        env = create_environ('/bytes/64', 'http://localhost/')
+        chunks = list(httpbin.app(env, lambda *a, **k: None))
+        self.assertTrue(chunks, "no body produced")
+        self.assertTrue(
+            all(type(c) is bytes for c in chunks),
+            [type(c).__name__ for c in chunks]
+        )
+
     def test_delete_endpoint_returns_body(self):
         response = self.app.delete(
             '/delete',
@@ -782,6 +797,52 @@ class HttpbinTestCase(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers.get('ETag'), 'abc')
+
+    def test_index_falls_back_to_static_page_without_flasgger(self):
+        """When flasgger isn't installed, / serves the static legacy landing
+        page (HTTP 200) instead of the Swagger UI, rather than 500ing.
+
+        flasgger is imported at module load, so this runs in a subprocess that
+        poisons sys.modules['flasgger'] before httpbin is imported.
+        """
+        code = (
+            "import sys\n"
+            "sys.modules['flasgger'] = None\n"  # makes `import flasgger` raise ImportError
+            "import httpbin\n"
+            "assert httpbin.core.Swagger is False, repr(httpbin.core.Swagger)\n"
+            "r = httpbin.app.test_client().get('/')\n"
+            "assert r.status_code == 200, r.status_code\n"
+            "body = r.get_data(as_text=True)\n"
+            "assert 'httpbin(1): HTTP Client Testing Service' in body, 'legacy page not served'\n"
+            "assert 'swagger-ui' not in body, 'swagger UI unexpectedly rendered'\n"
+            "print('OK')\n"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("OK", result.stdout)
+
+    def test_sources_have_no_invalid_escape_sequences(self):
+        """Every module in the httpbin package compiles without escape-sequence
+        warnings. Invalid escapes are a SyntaxWarning on 3.12+ (DeprecationWarning
+        earlier) and will become a SyntaxError in a future Python."""
+        import glob
+        import warnings
+
+        pkg_dir = os.path.dirname(httpbin.__file__)
+        py_files = glob.glob(os.path.join(pkg_dir, "**", "*.py"), recursive=True)
+        self.assertTrue(py_files, "no source files found")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", SyntaxWarning)
+            warnings.simplefilter("error", DeprecationWarning)
+            for path in py_files:
+                with open(path, encoding="utf-8") as f:
+                    src = f.read()
+                try:
+                    compile(src, path, "exec")
+                except (SyntaxWarning, DeprecationWarning) as exc:
+                    self.fail("{}: {}".format(path, exc))
 
     def test_parse_multi_value_header(self):
         self.assertEqual(parse_multi_value_header('xyzzy'), [ "xyzzy" ])

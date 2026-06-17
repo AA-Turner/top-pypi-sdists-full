@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -388,11 +389,12 @@ def new_function():
 FILE: existing.py
 ```python
 # Modified content
+# Second line to prevent trivially short rejection.
 ```
 """
         written = _extract_and_write_files(response, self.temp_dir, files_read=set())
         assert written == ["existing.py"]
-        assert (self.temp_dir / "existing.py").read_text(encoding="utf-8") == "# Modified content\n"
+        assert (self.temp_dir / "existing.py").read_text(encoding="utf-8") == "# Modified content\n# Second line to prevent trivially short rejection."
 
     def test_allow_write_after_read(self):
         """Test that writing to existing files after READ is allowed."""
@@ -639,5 +641,64 @@ class TestFindActualTestDirectory:
         assert result is None
 
 
+class TestAutopolitCliWiring:
+    """Test autopolit CLI command is registered and executes correctly."""
+
+    @patch("sage.main.run")
+    def test_cli_autopolit_command_sets_env(self, mock_run):
+        """Test that sage autopolit sets environment variables and runs setup."""
+        from sage.main import app
+        import os
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        # Ensure env is cleared first
+        os.environ.pop("SAGE_AUTOPOLIT_RUN", None)
+        os.environ.pop("SAGE_AUTOPOLIT_TASK", None)
+
+        result = runner.invoke(app, ["autopolit", "optimize code quality"])
+        assert result.exit_code == 0
+        assert os.environ.get("SAGE_AUTOPOLIT_RUN") == "1"
+        assert os.environ.get("SAGE_AUTOPOLIT_TASK") == "optimize code quality"
+        mock_run.assert_called_once()
+        
+        # Test without message/task
+        os.environ.pop("SAGE_AUTOPOLIT_RUN", None)
+        os.environ.pop("SAGE_AUTOPOLIT_TASK", None)
+        mock_run.reset_mock()
+        result = runner.invoke(app, ["autopolit"])
+        assert result.exit_code == 0
+        assert os.environ.get("SAGE_AUTOPOLIT_RUN") == "1"
+        assert "SAGE_AUTOPOLIT_TASK" not in os.environ
+        mock_run.assert_called_once()
+
+
+class TestAutopolitClassificationOverride:
+    """Test that request classification is overridden in autopolit mode."""
+
+    def test_classification_overridden_when_env_set(self):
+        import os
+        from sage.main import _classify_and_store_request
+        from sage.core.p0_request_classification import PipelineTypeV2, RequestTypeV2
+
+        # 1. Without SAGE_AUTOPOLIT_RUN
+        os.environ.pop("SAGE_AUTOPOLIT_RUN", None)
+        classification = _classify_and_store_request("explain what Python is")
+        # Standard informational/read-only request should not require TDD
+        assert classification.requires_tdd is False
+
+        # 2. With SAGE_AUTOPOLIT_RUN = "1"
+        os.environ["SAGE_AUTOPOLIT_RUN"] = "1"
+        try:
+            classification = _classify_and_store_request("explain what Python is")
+            assert classification.read_only is False
+            assert classification.requires_tdd is True
+            assert classification.pipeline_type == PipelineTypeV2.MULTI_STEP
+            assert classification.request_type == RequestTypeV2.MULTI_STEP
+        finally:
+            os.environ.pop("SAGE_AUTOPOLIT_RUN", None)
+
+
 if __name__ == "__main__":
+    from unittest.mock import patch
     pytest.main([__file__, "-v"])

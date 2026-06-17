@@ -123,10 +123,15 @@ def _assert_installed(client: Client, path: Path, exe: Path) -> None:
 
 
 def test_frozen_user_scope_install(frozen_aiwatch, tmp_path):
-    """Frozen exe, ``--user`` scope: rootless, runs on any platform."""
+    """Frozen exe, ``--user`` scope: rootless, runs on any platform.
+
+    The aiwatch binary ignores ``~/.runlayer/config.yaml``, so the credential
+    gate is satisfied by the enrollment marker ``aiwatch enroll`` drops, not a
+    seeded YAML. Host comes from ``--host``.
+    """
     home = tmp_path / "home"
     home.mkdir()
-    _seed_config(home)
+    _write_enrollment_marker(home)
     for client in _USER_DIR:
         (home / _USER_DIR[client]).mkdir()
 

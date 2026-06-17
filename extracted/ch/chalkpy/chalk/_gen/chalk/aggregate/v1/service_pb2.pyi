@@ -158,6 +158,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
         "use_metaplanner",
         "allow_empty_tiles",
         "store_online",
+        "input_sql",
     )
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
@@ -172,6 +173,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
     USE_METAPLANNER_FIELD_NUMBER: _ClassVar[int]
     ALLOW_EMPTY_TILES_FIELD_NUMBER: _ClassVar[int]
     STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
+    INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
@@ -185,6 +187,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
     use_metaplanner: bool
     allow_empty_tiles: bool
     store_online: bool
+    input_sql: str
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -200,6 +203,7 @@ class CreateAggregateBackfillJobRequest(_message.Message):
         use_metaplanner: bool = ...,
         allow_empty_tiles: bool = ...,
         store_online: bool = ...,
+        input_sql: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateAggregateBackfillJobResponse(_message.Message):

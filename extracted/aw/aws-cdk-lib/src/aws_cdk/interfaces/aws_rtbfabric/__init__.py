@@ -126,6 +126,51 @@ class _ILinkRefProxy(
 typing.cast(typing.Any, ILinkRef).__jsii_proxy_class__ = lambda : _ILinkRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.ILinkRoutingRuleRef")
+class ILinkRoutingRuleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LinkRoutingRule.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="linkRoutingRuleRef")
+    def link_routing_rule_ref(self) -> "LinkRoutingRuleReference":
+        '''(experimental) A reference to a LinkRoutingRule resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILinkRoutingRuleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LinkRoutingRule.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_rtbfabric.ILinkRoutingRuleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="linkRoutingRuleRef")
+    def link_routing_rule_ref(self) -> "LinkRoutingRuleReference":
+        '''(experimental) A reference to a LinkRoutingRule resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LinkRoutingRuleReference", jsii.get(self, "linkRoutingRuleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILinkRoutingRuleRef).__jsii_proxy_class__ = lambda : _ILinkRoutingRuleRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.IOutboundExternalLinkRef"
 )
@@ -362,6 +407,55 @@ class LinkReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.LinkRoutingRuleReference",
+    jsii_struct_bases=[],
+    name_mapping={"link_routing_rule_arn": "linkRoutingRuleArn"},
+)
+class LinkRoutingRuleReference:
+    def __init__(self, *, link_routing_rule_arn: builtins.str) -> None:
+        '''A reference to a LinkRoutingRule resource.
+
+        :param link_routing_rule_arn: The Arn of the LinkRoutingRule resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_rtbfabric as interfaces_rtbfabric
+            
+            link_routing_rule_reference = interfaces_rtbfabric.LinkRoutingRuleReference(
+                link_routing_rule_arn="linkRoutingRuleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7373089fc15d2674415d8006e291854054cf81e64f2202d3d4762f687b82e754)
+            check_type(argname="argument link_routing_rule_arn", value=link_routing_rule_arn, expected_type=type_hints["link_routing_rule_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "link_routing_rule_arn": link_routing_rule_arn,
+        }
+
+    @builtins.property
+    def link_routing_rule_arn(self) -> builtins.str:
+        '''The Arn of the LinkRoutingRule resource.'''
+        result = self._values.get("link_routing_rule_arn")
+        assert result is not None, "Required property 'link_routing_rule_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LinkRoutingRuleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rtbfabric.OutboundExternalLinkReference",
     jsii_struct_bases=[],
     name_mapping={"outbound_external_link_arn": "outboundExternalLinkArn"},
@@ -511,11 +605,13 @@ class ResponderGatewayReference:
 __all__ = [
     "IInboundExternalLinkRef",
     "ILinkRef",
+    "ILinkRoutingRuleRef",
     "IOutboundExternalLinkRef",
     "IRequesterGatewayRef",
     "IResponderGatewayRef",
     "InboundExternalLinkReference",
     "LinkReference",
+    "LinkRoutingRuleReference",
     "OutboundExternalLinkReference",
     "RequesterGatewayReference",
     "ResponderGatewayReference",
@@ -533,6 +629,13 @@ def _typecheckingstub__bdfa6fc10753fecc7651354ecdbd49e27d9714a8b6b2781df195ab63e
 def _typecheckingstub__6ee5fdcf0604322dd959fcfe412ef348575c9fb082efe86a373a6d37ab6c070f(
     *,
     link_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7373089fc15d2674415d8006e291854054cf81e64f2202d3d4762f687b82e754(
+    *,
+    link_routing_rule_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -558,5 +661,5 @@ def _typecheckingstub__3f992d87253eb02f346f69b0f2d9924f3e82c06510bf2db9b3bead8a8
     """Type checking stubs"""
     pass
 
-for cls in [IInboundExternalLinkRef, ILinkRef, IOutboundExternalLinkRef, IRequesterGatewayRef, IResponderGatewayRef]:
+for cls in [IInboundExternalLinkRef, ILinkRef, ILinkRoutingRuleRef, IOutboundExternalLinkRef, IRequesterGatewayRef, IResponderGatewayRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

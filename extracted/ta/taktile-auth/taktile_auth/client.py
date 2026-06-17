@@ -498,3 +498,14 @@ class AuthClient:
             session_prefix=session_state.session_prefix,
             weight=weight,
         )
+
+    def is_recursion_aborted(self, session_prefix: t.Optional[str]) -> bool:
+        """Whether ``session_prefix`` has crossed the PEP-295 abort threshold.
+
+        Lets a downstream consumer turn a failure into a terminal recursion
+        stop. ``False`` when recursion checking is disabled or no prefix is
+        given.
+        """
+        if self._recursion_gate is None or not session_prefix:
+            return False
+        return self._recursion_gate.is_aborted(session_prefix)

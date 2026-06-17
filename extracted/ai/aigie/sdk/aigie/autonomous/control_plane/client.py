@@ -28,6 +28,7 @@ import grpc
 from opentelemetry import propagate as _propagate
 
 import aigie.telemetry as _telemetry
+from aigie._grpc import derive_grpc_target
 from aigie.autonomous.control_plane.reconnect import BackoffPolicy
 from aigie.autonomous.directives import Directive
 from aigie.autonomous.metrics import kytte_platform_unreachable_seconds
@@ -39,29 +40,6 @@ tracer = _telemetry.get_tracer("aigie.autonomous")
 
 _PING_INTERVAL_S = 30.0
 _GAUGE_TICK_S = 1.0
-_DEFAULT_GRPC_PORT = 50051
-
-
-def _derive_grpc_target(endpoint: str) -> str:
-    """Convert the SDK's HTTP-style platform endpoint to a gRPC host:port target.
-
-    gRPC channel ctor expects ``host:port`` (no scheme, no path). The HTTP
-    endpoint stored on the client (e.g. ``http://kytte-agent:8000/api``) is
-    parsed; the host is preserved and the port is replaced with the gRPC port
-    from ``AIGIE_GRPC_PORT`` env (default 50051). Already-clean ``host:port``
-    strings are passed through unchanged.
-    """
-    import os
-    from urllib.parse import urlparse
-
-    grpc_port = int(os.environ.get("AIGIE_GRPC_PORT", _DEFAULT_GRPC_PORT))
-    # Already-clean host:port — no scheme, no path.
-    if "://" not in endpoint and "/" not in endpoint:
-        host, _, port = endpoint.partition(":")
-        return f"{host}:{port or grpc_port}"
-    parsed = urlparse(endpoint)
-    host = parsed.hostname or endpoint
-    return f"{host}:{grpc_port}"
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +204,7 @@ class ControlStreamClient:
         rule_cache_version_provider: Callable[[], str] = lambda: "",
     ) -> None:
         self._endpoint = endpoint
-        self._grpc_target = _derive_grpc_target(endpoint)
+        self._grpc_target = derive_grpc_target(endpoint, honor_url_port=True, honor_env_port=True)
         self._api_key = api_key
         self._on_directive = on_directive
         self._codec = codec
@@ -432,5 +410,9 @@ class ControlStreamClient:
         # pb_grpc.ControlPlaneStub is injected via _codec.stub_cls —
         # codec is the proto firewall (ADR §3.7). No _pb import here.
         stub = self._codec.stub_cls(channel)
-        response_stream = stub.Stream(self._client_envelope_generator())
+        metadata = (("x-api-key", self._api_key),) if self._api_key else ()
+        response_stream = stub.Stream(
+            self._client_envelope_generator(),
+            metadata=metadata,
+        )
         self._process_response_stream(response_stream)

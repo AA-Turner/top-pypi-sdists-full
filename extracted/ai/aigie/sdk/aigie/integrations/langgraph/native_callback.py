@@ -2,12 +2,12 @@
 
 Implements langchain_core.callbacks.BaseCallbackHandler directly — does
 NOT inherit from AigieCallbackHandler. Composes Phase-1 shared helpers
-(llm_metadata, execution_state, trace_finalization) for cross-framework
+(llm_metadata, execution_state) for cross-framework
 concerns. LangGraph-specific bits (langgraph_node/_step/_path extraction,
 GraphInterrupt detection) live in this file.
 
 Wire shape is constrained by:
-- SpanComplete contract (sdk/aigie/tracing/types.py)
+- Span contract (sdk/aigie/tracing/types.py)
 - Committed baselines under tests/unit/integrations/langgraph/baseline/
 
 This callback MUST NOT emit any of the legacy metadata keys
@@ -35,7 +35,6 @@ from aigie.tracing.llm_metadata import (
     extract_prompt_content,
 )
 from aigie.tracing.span_event_handler import SpanEventHandler
-from aigie.tracing.trace_finalization import finalize_trace
 from aigie.tracing.trace_state import current_trace_id
 
 # Keys that ``_extract_langgraph_metadata`` consumes (and that we therefore
@@ -582,13 +581,26 @@ class LangGraphNativeCallback(BaseCallbackHandler):
     # ------------------------------------------------------------------
 
     def open_workflow_span(self, *, input: Any) -> None:
+        # The workflow span IS the trace root: pin span_id == trace_id so the
+        # finalized root carries trace identity (no separate trace event). Fold
+        # ambient tracing_context() tags/metadata onto it — with root == trace
+        # the root must carry what the removed trace_create used to (mirrors the
+        # claude_agent_sdk path).
+        from aigie.context_manager import merge_metadata, merge_tags
+
+        metadata = merge_metadata(
+            {"chain_type": "workflow", "framework": "langgraph", "type": "langgraph"}
+        )
+        tags = merge_tags()
         self.spans.open_span(
             run_id=self._WORKFLOW_RUN_ID,
             parent_run_id=None,
             name=self._workflow_name,
             span_type="workflow",
             input=input,
-            metadata={"chain_type": "workflow"},
+            metadata=metadata,
+            extras={"tags": tags} if tags else None,
+            span_id=current_trace_id(),
         )
         self._execution.start_span(
             name=self._workflow_name, span_type="workflow", at=datetime.now(timezone.utc)
@@ -598,25 +610,35 @@ class LangGraphNativeCallback(BaseCallbackHandler):
         self, *, output: Any = None, error: BaseException | None = None
     ) -> None:
         now = datetime.now(timezone.utc)
+        status = "error" if error is not None else "success"
+        # Fold the old trace_update's run-level data onto the root span — there
+        # is no separate trace event anymore.
+        metadata_updates = self._root_metadata_updates(status)
         if error is not None:
             self._execution.end_span(
                 name=self._workflow_name, status="error", at=now, error_message=str(error)
             )
-            self.spans.fail_span(run_id=self._WORKFLOW_RUN_ID, error=error)
+            self.spans.fail_span(
+                run_id=self._WORKFLOW_RUN_ID, error=error, metadata_updates=metadata_updates
+            )
         else:
             self._execution.end_span(name=self._workflow_name, status="success", at=now)
-            self.spans.close_span(run_id=self._WORKFLOW_RUN_ID, output=output)
+            self.spans.close_span(
+                run_id=self._WORKFLOW_RUN_ID, output=output, metadata_updates=metadata_updates
+            )
 
-    def finalize(self, *, error: BaseException | None) -> None:
-        """Emit the trace_update marking the run complete."""
-        trace_id = current_trace_id()
-        if trace_id is None:
-            return
-        finalize_trace(
-            emitter=self.spans.emitter,
-            trace_id=trace_id,
-            agent_name=self._workflow_name,
-            execution_state=self._execution,
-            trace_metadata={"framework": "langgraph", "type": "langgraph"},
-            error=error,
-        )
+    def _root_metadata_updates(self, status: str) -> dict[str, Any]:
+        """Run-level execution data that the legacy trace_update carried, now
+        folded onto the finalized root span."""
+        metadata: dict[str, Any] = {
+            "framework": "langgraph",
+            "type": "langgraph",
+            "execution_plan": self._execution.to_execution_plan(
+                agent_name=self._workflow_name, status=status
+            ),
+            "turn_count": self._execution.turn_count,
+        }
+        execution_data = self._execution.to_execution_data()
+        if execution_data["execution_path"]:
+            metadata["execution_data"] = execution_data
+        return metadata

@@ -2973,7 +2973,9 @@ class CfnWorkspace(
                         max_series=123
                     )
                 )],
-                retention_period_in_days=123
+                out_of_order_time_window_in_seconds=123,
+                retention_period_in_days=123,
+                rule_query_offset_in_seconds=123
             )
         )
     '''
@@ -3756,7 +3758,9 @@ class CfnWorkspace(
         jsii_struct_bases=[],
         name_mapping={
             "limits_per_label_sets": "limitsPerLabelSets",
+            "out_of_order_time_window_in_seconds": "outOfOrderTimeWindowInSeconds",
             "retention_period_in_days": "retentionPeriodInDays",
+            "rule_query_offset_in_seconds": "ruleQueryOffsetInSeconds",
         },
     )
     class WorkspaceConfigurationProperty:
@@ -3764,12 +3768,16 @@ class CfnWorkspace(
             self,
             *,
             limits_per_label_sets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnWorkspace.LimitsPerLabelSetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            out_of_order_time_window_in_seconds: typing.Optional[jsii.Number] = None,
             retention_period_in_days: typing.Optional[jsii.Number] = None,
+            rule_query_offset_in_seconds: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Use this structure to define label sets and the ingestion limits for time series that match label sets, and to specify the retention period of the workspace.
 
             :param limits_per_label_sets: This is an array of structures, where each structure defines a label set for the workspace, and defines the ingestion limit for active time series for each of those label sets. Each label name in a label set must be unique.
+            :param out_of_order_time_window_in_seconds: The time window in seconds for accepting out-of-order samples.
             :param retention_period_in_days: Specifies how many days that metrics will be retained in the workspace.
+            :param rule_query_offset_in_seconds: Duration in seconds to offset rule evaluation queries into the past.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3790,18 +3798,26 @@ class CfnWorkspace(
                             max_series=123
                         )
                     )],
-                    retention_period_in_days=123
+                    out_of_order_time_window_in_seconds=123,
+                    retention_period_in_days=123,
+                    rule_query_offset_in_seconds=123
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8d8bd4b9a39be1594ef4681992e92f89f24816c775c0e0c40e340be13e59392a)
                 check_type(argname="argument limits_per_label_sets", value=limits_per_label_sets, expected_type=type_hints["limits_per_label_sets"])
+                check_type(argname="argument out_of_order_time_window_in_seconds", value=out_of_order_time_window_in_seconds, expected_type=type_hints["out_of_order_time_window_in_seconds"])
                 check_type(argname="argument retention_period_in_days", value=retention_period_in_days, expected_type=type_hints["retention_period_in_days"])
+                check_type(argname="argument rule_query_offset_in_seconds", value=rule_query_offset_in_seconds, expected_type=type_hints["rule_query_offset_in_seconds"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if limits_per_label_sets is not None:
                 self._values["limits_per_label_sets"] = limits_per_label_sets
+            if out_of_order_time_window_in_seconds is not None:
+                self._values["out_of_order_time_window_in_seconds"] = out_of_order_time_window_in_seconds
             if retention_period_in_days is not None:
                 self._values["retention_period_in_days"] = retention_period_in_days
+            if rule_query_offset_in_seconds is not None:
+                self._values["rule_query_offset_in_seconds"] = rule_query_offset_in_seconds
 
         @builtins.property
         def limits_per_label_sets(
@@ -3817,12 +3833,30 @@ class CfnWorkspace(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnWorkspace.LimitsPerLabelSetProperty"]]]], result)
 
         @builtins.property
+        def out_of_order_time_window_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''The time window in seconds for accepting out-of-order samples.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html#cfn-aps-workspace-workspaceconfiguration-outofordertimewindowinseconds
+            '''
+            result = self._values.get("out_of_order_time_window_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
         def retention_period_in_days(self) -> typing.Optional[jsii.Number]:
             '''Specifies how many days that metrics will be retained in the workspace.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html#cfn-aps-workspace-workspaceconfiguration-retentionperiodindays
             '''
             result = self._values.get("retention_period_in_days")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def rule_query_offset_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''Duration in seconds to offset rule evaluation queries into the past.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-workspaceconfiguration.html#cfn-aps-workspace-workspaceconfiguration-rulequeryoffsetinseconds
+            '''
+            result = self._values.get("rule_query_offset_in_seconds")
             return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3913,7 +3947,9 @@ class CfnWorkspaceProps:
                             max_series=123
                         )
                     )],
-                    retention_period_in_days=123
+                    out_of_order_time_window_in_seconds=123,
+                    retention_period_in_days=123,
+                    rule_query_offset_in_seconds=123
                 )
             )
         '''
@@ -4630,7 +4666,9 @@ def _typecheckingstub__59e9b7a5bb1ecf6d3e6bf0c4d2f497bea98d1fe68b36d502a98c9b336
 def _typecheckingstub__8d8bd4b9a39be1594ef4681992e92f89f24816c775c0e0c40e340be13e59392a(
     *,
     limits_per_label_sets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnWorkspace.LimitsPerLabelSetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    out_of_order_time_window_in_seconds: typing.Optional[jsii.Number] = None,
     retention_period_in_days: typing.Optional[jsii.Number] = None,
+    rule_query_offset_in_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -3,17 +3,21 @@ members  = ["crates/argus-redact-core", "crates/argus-redact-py"]
 resolver = "2"
 
 [workspace.package]
-version      = "0.7.1"
+version      = "0.7.3"
 edition      = "2024"
 rust-version = "1.85"
 license      = "Apache-2.0"
 repository   = "https://github.com/wan9yu/argus-redact"
 
 [workspace.dependencies]
-fancy-regex = "0.17"
-pyo3        = { version = "0.28", features = ["extension-module"] }
-serde       = { version = "1", features = ["derive"] }
-ron         = "0.8"
+fancy-regex           = "0.17"
+pyo3                  = { version = "0.28", features = ["extension-module"] }
+serde                 = { version = "1", features = ["derive"] }
+ron                   = "0.8"
+unicode-normalization = "0.1"
+sha2                  = "0.10"
+sha3                  = "0.10"
+hmac                  = "0.12"
 
 [profile.release]
 lto           = "thin"

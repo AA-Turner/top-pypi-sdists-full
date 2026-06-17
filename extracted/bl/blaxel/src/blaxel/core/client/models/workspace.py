@@ -9,6 +9,7 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.group_workspace_mapping import GroupWorkspaceMapping
     from ..models.metadata_labels import MetadataLabels
+    from ..models.workspace_resource_counts import WorkspaceResourceCounts
     from ..models.workspace_runtime import WorkspaceRuntime
 
 
@@ -34,6 +35,9 @@ class Workspace:
                 used to categorize resources by environment, project, team, or any custom taxonomy.
             name (Union[Unset, str]): Workspace name Example: my-workspace.
             region (Union[Unset, str]): Workspace write region Example: us-west-2.
+            resource_counts (Union[Unset, WorkspaceResourceCounts]): Per-resource counts (agents, functions, models,
+                sandboxes, policies, jobs, volumes, drives, volumetemplates, integrationconnections, previews, customdomains,
+                serviceaccounts, images). Only populated when GetWorkspace is called with ?countResources=true.
             runtime (Union[Unset, WorkspaceRuntime]): Runtime configuration for the workspace infrastructure
             status (Union[Unset, WorkspaceStatus]): Workspace status (created, account_binded, account_configured,
                 workspace_configured, ready, error) Example: ready.
@@ -51,6 +55,7 @@ class Workspace:
     labels: Union[Unset, "MetadataLabels"] = UNSET
     name: Union[Unset, str] = UNSET
     region: Union[Unset, str] = UNSET
+    resource_counts: Union[Unset, "WorkspaceResourceCounts"] = UNSET
     runtime: Union[Unset, "WorkspaceRuntime"] = UNSET
     status: Union[Unset, WorkspaceStatus] = UNSET
     status_reason: Union[Unset, str] = UNSET
@@ -91,6 +96,16 @@ class Workspace:
         name = self.name
 
         region = self.region
+
+        resource_counts: Union[Unset, dict[str, Any]] = UNSET
+        if (
+            self.resource_counts
+            and not isinstance(self.resource_counts, Unset)
+            and not isinstance(self.resource_counts, dict)
+        ):
+            resource_counts = self.resource_counts.to_dict()
+        elif self.resource_counts and isinstance(self.resource_counts, dict):
+            resource_counts = self.resource_counts
 
         runtime: Union[Unset, dict[str, Any]] = UNSET
         if (
@@ -133,6 +148,8 @@ class Workspace:
             field_dict["name"] = name
         if region is not UNSET:
             field_dict["region"] = region
+        if resource_counts is not UNSET:
+            field_dict["resourceCounts"] = resource_counts
         if runtime is not UNSET:
             field_dict["runtime"] = runtime
         if status is not UNSET:
@@ -146,6 +163,7 @@ class Workspace:
     def from_dict(cls: type[T], src_dict: dict[str, Any]) -> T | None:
         from ..models.group_workspace_mapping import GroupWorkspaceMapping
         from ..models.metadata_labels import MetadataLabels
+        from ..models.workspace_resource_counts import WorkspaceResourceCounts
         from ..models.workspace_runtime import WorkspaceRuntime
 
         if not src_dict:
@@ -183,6 +201,13 @@ class Workspace:
 
         region = d.pop("region", UNSET)
 
+        _resource_counts = d.pop("resourceCounts", d.pop("resource_counts", UNSET))
+        resource_counts: Union[Unset, WorkspaceResourceCounts]
+        if isinstance(_resource_counts, Unset):
+            resource_counts = UNSET
+        else:
+            resource_counts = WorkspaceResourceCounts.from_dict(_resource_counts)
+
         _runtime = d.pop("runtime", UNSET)
         runtime: Union[Unset, WorkspaceRuntime]
         if isinstance(_runtime, Unset):
@@ -211,6 +236,7 @@ class Workspace:
             labels=labels,
             name=name,
             region=region,
+            resource_counts=resource_counts,
             runtime=runtime,
             status=status,
             status_reason=status_reason,

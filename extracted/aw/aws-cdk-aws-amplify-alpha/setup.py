@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.aws-amplify-alpha",
-    "version": "2.259.0.a0",
+    "version": "2.260.0.a0",
     "description": "The CDK Construct Library for AWS::Amplify",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.aws_amplify_alpha._jsii": [
-            "aws-amplify-alpha@2.259.0-alpha.0.jsii.tgz"
+            "aws-amplify-alpha@2.260.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.aws_amplify_alpha": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": ">=3.10",
     "install_requires": [
-        "aws-cdk-lib>=2.259.0, <3.0.0",
+        "aws-cdk-lib>=2.260.0, <3.0.0",
         "constructs>=10.5.0, <11.0.0",
         "jsii>=1.133.0, <2.0.0",
         "publication>=0.0.3",

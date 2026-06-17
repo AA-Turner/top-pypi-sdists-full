@@ -45,6 +45,8 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_syncs_for_version_pinned_connector,
     query_workspace_info,
     query_workspaces_by_email_domain,
+    search_organizations,
+    search_workspaces,
 )
 from airbyte_ops_mcp.tier_cache import (
     TierFilter,
@@ -127,8 +129,32 @@ def _validate_sync_activity_window(
 # =============================================================================
 
 
+class OrganizationSearchHit(BaseModel):
+    """A single organization returned by a name/email search."""
+
+    organization_id: str = Field(description="The organization UUID")
+    organization_name: str = Field(description="The name of the organization")
+    email: str | None = Field(
+        default=None, description="The email address associated with the organization"
+    )
+    customer_tier: str | None = Field(
+        default=None,
+        description="Customer tier (TIER_0, TIER_1, or TIER_2). Enriched from BigQuery tier cache.",
+    )
+
+
+class OrganizationSearchResult(BaseModel):
+    """Result of searching organizations by name substring."""
+
+    name_contains: str = Field(description="The search substring that was used")
+    total_found: int = Field(description="Total number of organizations matching")
+    organizations: list[OrganizationSearchHit] = Field(
+        description="List of matching organizations"
+    )
+
+
 class WorkspaceInfo(BaseModel):
-    """Information about a workspace found by email domain search."""
+    """Information about a workspace."""
 
     organization_id: str = Field(description="The organization UUID")
     workspace_id: str = Field(description="The workspace UUID")
@@ -158,21 +184,27 @@ class WorkspaceInfo(BaseModel):
     )
 
 
-class WorkspacesByEmailDomainResult(BaseModel):
-    """Result of looking up workspaces by email domain."""
+class WorkspaceSearchResult(BaseModel):
+    """Result of searching workspaces by name or email domain."""
 
-    email_domain: str = Field(
-        description="The email domain that was searched for (e.g., 'motherduck.com')"
+    name_contains: str | None = Field(
+        default=None, description="The name substring that was searched for"
+    )
+    email_domain: str | None = Field(
+        default=None,
+        description="The email domain that was searched for (e.g., 'motherduck.com')",
     )
     total_workspaces_found: int = Field(
-        description="Total number of workspaces matching the email domain"
+        description="Total number of workspaces matching"
     )
     unique_organization_ids: list[str] = Field(
         description="List of unique organization IDs found"
     )
-    workspaces: list[WorkspaceInfo] = Field(
-        description="List of workspaces matching the email domain"
-    )
+    workspaces: list[WorkspaceInfo] = Field(description="List of matching workspaces")
+
+
+# Keep backward-compatible alias for any external references
+WorkspacesByEmailDomainResult = WorkspaceSearchResult
 
 
 class LatestAttemptBreakdown(BaseModel):
@@ -1113,17 +1145,82 @@ def query_prod_connections_by_stream(
     read_only=True,
     idempotent=True,
 )
-def query_prod_workspaces_by_email_domain(
-    email_domain: Annotated[
+def query_prod_organizations(
+    name_contains: Annotated[
         str,
         Field(
             description=(
-                "Email domain to search for (e.g., 'motherduck.com', 'fivetran.com'). "
-                "Do not include the '@' symbol. This will find workspaces where users "
-                "have email addresses with this domain."
+                "Case-insensitive substring to search for in organization name or email. "
+                "For example, 'acme' will match organizations named 'Acme Corp' or "
+                "with email 'admin@acme.io'."
             ),
         ),
     ],
+    limit: Annotated[
+        int,
+        Field(
+            description="Maximum number of organizations to return (default: 20)",
+            default=20,
+        ),
+    ] = 20,
+) -> OrganizationSearchResult:
+    """Search organizations by name or email substring.
+
+    Performs a case-insensitive substring match on organization name and email.
+    Use the returned `organization_id` values with other tools like
+    `query_prod_connections_by_connector` or `lookup_customer_tiers`.
+    """
+    rows = search_organizations(name_contains=name_contains, limit=limit)
+
+    orgs = [
+        OrganizationSearchHit(
+            organization_id=str(row["organization_id"]),
+            organization_name=row.get("organization_name", ""),
+            email=row.get("email"),
+        )
+        for row in rows
+    ]
+
+    # Enrich with tier annotation
+    org_ids = [o.organization_id for o in orgs]
+    tier_results = {r.organization_id: r for r in get_org_tiers(org_ids)}
+    for org in orgs:
+        tier_result = tier_results.get(org.organization_id)
+        if tier_result:
+            org.customer_tier = tier_result.customer_tier
+
+    return OrganizationSearchResult(
+        name_contains=name_contains,
+        total_found=len(orgs),
+        organizations=orgs,
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+)
+def query_prod_workspaces(
+    name_contains: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Case-insensitive substring to search for in workspace name or slug. "
+                "For example, 'acme' will match workspaces named 'Acme Staging'."
+            ),
+            default=None,
+        ),
+    ] = None,
+    email_domain: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Email domain to search for (e.g., 'motherduck.com'). "
+                "Do not include the '@' symbol."
+            ),
+            default=None,
+        ),
+    ] = None,
     limit: Annotated[
         int,
         Field(
@@ -1131,30 +1228,30 @@ def query_prod_workspaces_by_email_domain(
             default=100,
         ),
     ] = 100,
-) -> WorkspacesByEmailDomainResult:
-    """Find workspaces by email domain.
+) -> WorkspaceSearchResult:
+    """Search workspaces by name substring or email domain.
 
-    This tool searches for workspaces where users have email addresses matching
-    the specified domain. This is useful for identifying workspaces belonging to
-    specific companies - for example, searching for "motherduck.com" will find
-    workspaces belonging to MotherDuck employees.
-
-    Use cases:
-    - Finding partner organization connections for testing connector fixes
-    - Identifying internal test accounts for specific integrations
-    - Locating workspaces belonging to technology partners
+    At least one of `name_contains` or `email_domain` must be provided.
+    When `name_contains` is given, performs a case-insensitive substring match
+    on workspace name and slug. When `email_domain` is given, matches
+    workspaces by user email domain.
 
     The returned organization IDs can be used with other tools like
     `query_prod_connections_by_connector` to find connections within
     those organizations for safe testing.
     """
-    # Strip leading @ if provided
-    clean_domain = email_domain.lstrip("@")
+    if not name_contains and not email_domain:
+        raise PyAirbyteInputError(
+            message="At least one of `name_contains` or `email_domain` must be provided.",
+        )
 
-    # Query the database
-    rows = query_workspaces_by_email_domain(email_domain=clean_domain, limit=limit)
+    if name_contains:
+        rows = search_workspaces(name_contains=name_contains, limit=limit)
+    else:
+        assert email_domain is not None
+        clean_domain = email_domain.lstrip("@")
+        rows = query_workspaces_by_email_domain(email_domain=clean_domain, limit=limit)
 
-    # Convert rows to Pydantic models
     workspaces = [
         WorkspaceInfo(
             organization_id=str(row["organization_id"]),
@@ -1178,12 +1275,17 @@ def query_prod_workspaces_by_email_domain(
             ws.customer_tier = tier_result.customer_tier
         ws.is_eu = ws.dataplane_name == "EU" if ws.dataplane_name else False
 
-    return WorkspacesByEmailDomainResult(
-        email_domain=clean_domain,
+    return WorkspaceSearchResult(
+        name_contains=name_contains,
+        email_domain=email_domain.lstrip("@") if email_domain else None,
         total_workspaces_found=len(workspaces),
         unique_organization_ids=unique_org_ids,
         workspaces=workspaces,
     )
+
+
+# Backward-compatible alias
+query_prod_workspaces_by_email_domain = query_prod_workspaces
 
 
 def _build_connector_stats(

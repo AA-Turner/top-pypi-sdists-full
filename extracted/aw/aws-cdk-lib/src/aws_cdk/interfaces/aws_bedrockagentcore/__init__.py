@@ -321,6 +321,55 @@ class CodeInterpreterCustomReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ConfigurationBundleReference",
+    jsii_struct_bases=[],
+    name_mapping={"bundle_arn": "bundleArn"},
+)
+class ConfigurationBundleReference:
+    def __init__(self, *, bundle_arn: builtins.str) -> None:
+        '''A reference to a ConfigurationBundle resource.
+
+        :param bundle_arn: The BundleArn of the ConfigurationBundle resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            configuration_bundle_reference = interfaces_bedrockagentcore.ConfigurationBundleReference(
+                bundle_arn="bundleArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4077e99ca28fc73499ed58a9874ac2a75db28beeb6d2aac12da2d1d3b026668)
+            check_type(argname="argument bundle_arn", value=bundle_arn, expected_type=type_hints["bundle_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bundle_arn": bundle_arn,
+        }
+
+    @builtins.property
+    def bundle_arn(self) -> builtins.str:
+        '''The BundleArn of the ConfigurationBundle resource.'''
+        result = self._values.get("bundle_arn")
+        assert result is not None, "Required property 'bundle_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ConfigurationBundleReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.DatasetReference",
     jsii_struct_bases=[],
     name_mapping={"dataset_arn": "datasetArn"},
@@ -833,6 +882,53 @@ class _ICodeInterpreterCustomRefProxy(
 typing.cast(typing.Any, ICodeInterpreterCustomRef).__jsii_proxy_class__ = lambda : _ICodeInterpreterCustomRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IConfigurationBundleRef"
+)
+class IConfigurationBundleRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationBundle.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationBundleRef")
+    def configuration_bundle_ref(self) -> "ConfigurationBundleReference":
+        '''(experimental) A reference to a ConfigurationBundle resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IConfigurationBundleRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ConfigurationBundle.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IConfigurationBundleRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationBundleRef")
+    def configuration_bundle_ref(self) -> "ConfigurationBundleReference":
+        '''(experimental) A reference to a ConfigurationBundle resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ConfigurationBundleReference", jsii.get(self, "configurationBundleRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IConfigurationBundleRef).__jsii_proxy_class__ = lambda : _IConfigurationBundleRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IDatasetRef")
 class IDatasetRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1200,6 +1296,53 @@ typing.cast(typing.Any, IOnlineEvaluationConfigRef).__jsii_proxy_class__ = lambd
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentConnectorRef"
+)
+class IPaymentConnectorRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PaymentConnector.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentConnectorRef")
+    def payment_connector_ref(self) -> "PaymentConnectorReference":
+        '''(experimental) A reference to a PaymentConnector resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPaymentConnectorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PaymentConnector.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentConnectorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentConnectorRef")
+    def payment_connector_ref(self) -> "PaymentConnectorReference":
+        '''(experimental) A reference to a PaymentConnector resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PaymentConnectorReference", jsii.get(self, "paymentConnectorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPaymentConnectorRef).__jsii_proxy_class__ = lambda : _IPaymentConnectorRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentCredentialProviderRef"
 )
 class IPaymentCredentialProviderRef(
@@ -1244,6 +1387,53 @@ class _IPaymentCredentialProviderRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPaymentCredentialProviderRef).__jsii_proxy_class__ = lambda : _IPaymentCredentialProviderRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentManagerRef"
+)
+class IPaymentManagerRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a PaymentManager.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentManagerRef")
+    def payment_manager_ref(self) -> "PaymentManagerReference":
+        '''(experimental) A reference to a PaymentManager resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IPaymentManagerRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a PaymentManager.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IPaymentManagerRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentManagerRef")
+    def payment_manager_ref(self) -> "PaymentManagerReference":
+        '''(experimental) A reference to a PaymentManager resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("PaymentManagerReference", jsii.get(self, "paymentManagerRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IPaymentManagerRef).__jsii_proxy_class__ = lambda : _IPaymentManagerRefProxy
 
 
 @jsii.interface(
@@ -1336,6 +1526,53 @@ class _IPolicyRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.IResourcePolicyRef"
+)
+class IResourcePolicyRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourcePolicyRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_bedrockagentcore.IResourcePolicyRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "ResourcePolicyReference":
+        '''(experimental) A reference to a ResourcePolicy resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
 @jsii.interface(
@@ -1625,6 +1862,55 @@ class OnlineEvaluationConfigReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PaymentConnectorReference",
+    jsii_struct_bases=[],
+    name_mapping={"payment_connector_arn": "paymentConnectorArn"},
+)
+class PaymentConnectorReference:
+    def __init__(self, *, payment_connector_arn: builtins.str) -> None:
+        '''A reference to a PaymentConnector resource.
+
+        :param payment_connector_arn: The PaymentConnectorArn of the PaymentConnector resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            payment_connector_reference = interfaces_bedrockagentcore.PaymentConnectorReference(
+                payment_connector_arn="paymentConnectorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bcb1ebc7de3e8bacbb9df4d1d719f3685b702afe0efee8a42772386f75852d04)
+            check_type(argname="argument payment_connector_arn", value=payment_connector_arn, expected_type=type_hints["payment_connector_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "payment_connector_arn": payment_connector_arn,
+        }
+
+    @builtins.property
+    def payment_connector_arn(self) -> builtins.str:
+        '''The PaymentConnectorArn of the PaymentConnector resource.'''
+        result = self._values.get("payment_connector_arn")
+        assert result is not None, "Required property 'payment_connector_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PaymentConnectorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PaymentCredentialProviderReference",
     jsii_struct_bases=[],
     name_mapping={"credential_provider_arn": "credentialProviderArn"},
@@ -1669,6 +1955,55 @@ class PaymentCredentialProviderReference:
 
     def __repr__(self) -> str:
         return "PaymentCredentialProviderReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.PaymentManagerReference",
+    jsii_struct_bases=[],
+    name_mapping={"payment_manager_arn": "paymentManagerArn"},
+)
+class PaymentManagerReference:
+    def __init__(self, *, payment_manager_arn: builtins.str) -> None:
+        '''A reference to a PaymentManager resource.
+
+        :param payment_manager_arn: The PaymentManagerArn of the PaymentManager resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            payment_manager_reference = interfaces_bedrockagentcore.PaymentManagerReference(
+                payment_manager_arn="paymentManagerArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1ec1eebf52580691f7e5b4d5fe3a6538f9127d80e3a1dfcdeed4c78b30aabf02)
+            check_type(argname="argument payment_manager_arn", value=payment_manager_arn, expected_type=type_hints["payment_manager_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "payment_manager_arn": payment_manager_arn,
+        }
+
+    @builtins.property
+    def payment_manager_arn(self) -> builtins.str:
+        '''The PaymentManagerArn of the PaymentManager resource.'''
+        result = self._values.get("payment_manager_arn")
+        assert result is not None, "Required property 'payment_manager_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PaymentManagerReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1767,6 +2102,55 @@ class PolicyReference:
 
     def __repr__(self) -> str:
         return "PolicyReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_bedrockagentcore.ResourcePolicyReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class ResourcePolicyReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a ResourcePolicy resource.
+
+        :param resource_arn: The ResourceArn of the ResourcePolicy resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_bedrockagentcore as interfaces_bedrockagentcore
+            
+            resource_policy_reference = interfaces_bedrockagentcore.ResourcePolicyReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7687acee033eb53cb193a177cc4eaf668063158686010e426c789d1498b79b8b)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the ResourcePolicy resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1962,6 +2346,7 @@ __all__ = [
     "BrowserProfileReference",
     "BrowserReference",
     "CodeInterpreterCustomReference",
+    "ConfigurationBundleReference",
     "DatasetReference",
     "EvaluatorReference",
     "GatewayReference",
@@ -1972,6 +2357,7 @@ __all__ = [
     "IBrowserProfileRef",
     "IBrowserRef",
     "ICodeInterpreterCustomRef",
+    "IConfigurationBundleRef",
     "IDatasetRef",
     "IEvaluatorRef",
     "IGatewayRef",
@@ -1980,18 +2366,24 @@ __all__ = [
     "IMemoryRef",
     "IOAuth2CredentialProviderRef",
     "IOnlineEvaluationConfigRef",
+    "IPaymentConnectorRef",
     "IPaymentCredentialProviderRef",
+    "IPaymentManagerRef",
     "IPolicyEngineRef",
     "IPolicyRef",
+    "IResourcePolicyRef",
     "IRuntimeEndpointRef",
     "IRuntimeRef",
     "IWorkloadIdentityRef",
     "MemoryReference",
     "OAuth2CredentialProviderReference",
     "OnlineEvaluationConfigReference",
+    "PaymentConnectorReference",
     "PaymentCredentialProviderReference",
+    "PaymentManagerReference",
     "PolicyEngineReference",
     "PolicyReference",
+    "ResourcePolicyReference",
     "RuntimeEndpointReference",
     "RuntimeReference",
     "WorkloadIdentityReference",
@@ -2033,6 +2425,13 @@ def _typecheckingstub__31803efaee1e805b6555da7f5c0c2c409540346b67d7cb412b9f78fbe
     *,
     code_interpreter_arn: builtins.str,
     code_interpreter_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4077e99ca28fc73499ed58a9874ac2a75db28beeb6d2aac12da2d1d3b026668(
+    *,
+    bundle_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2095,9 +2494,23 @@ def _typecheckingstub__41b12f526905c57ce10965672acf38889fef11dffed975afd9fe0777c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bcb1ebc7de3e8bacbb9df4d1d719f3685b702afe0efee8a42772386f75852d04(
+    *,
+    payment_connector_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__222c796570baaba1677a4d42f8179ce210962bf8ea47a1af39ac0e9b76777c5d(
     *,
     credential_provider_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1ec1eebf52580691f7e5b4d5fe3a6538f9127d80e3a1dfcdeed4c78b30aabf02(
+    *,
+    payment_manager_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2112,6 +2525,13 @@ def _typecheckingstub__2fa924f63bb2382a1f90bd31f51c74f59ed9157e097951038e7aa14c7
 def _typecheckingstub__08bc4654cb104ca74cd4550a6ac0a70ed1abc6c342ed1e4ac3a12ace8f5bee9e(
     *,
     policy_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7687acee033eb53cb193a177cc4eaf668063158686010e426c789d1498b79b8b(
+    *,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2139,5 +2559,5 @@ def _typecheckingstub__f4c87d0628ada636c999bb25ecf8067b788ff440bac34ff64b11d374d
     """Type checking stubs"""
     pass
 
-for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, IBrowserRef, ICodeInterpreterCustomRef, IDatasetRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentCredentialProviderRef, IPolicyEngineRef, IPolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
+for cls in [IApiKeyCredentialProviderRef, IBrowserCustomRef, IBrowserProfileRef, IBrowserRef, ICodeInterpreterCustomRef, IConfigurationBundleRef, IDatasetRef, IEvaluatorRef, IGatewayRef, IGatewayTargetRef, IHarnessRef, IMemoryRef, IOAuth2CredentialProviderRef, IOnlineEvaluationConfigRef, IPaymentConnectorRef, IPaymentCredentialProviderRef, IPaymentManagerRef, IPolicyEngineRef, IPolicyRef, IResourcePolicyRef, IRuntimeEndpointRef, IRuntimeRef, IWorkloadIdentityRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

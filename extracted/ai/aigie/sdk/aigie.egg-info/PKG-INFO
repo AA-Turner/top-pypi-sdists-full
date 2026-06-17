@@ -1,18 +1,16 @@
 Metadata-Version: 2.4
 Name: aigie
-Version: 0.2.43
+Version: 0.2.45
 Summary: Enterprise-grade AI agent reliability monitoring and autonomous remediation
-Home-page: https://github.com/Kytte-AI/kytte-python-sdk
+Home-page: https://kytte.ai/
 Author: Aigie
-Author-email: support@aigie.io
-Project-URL: Documentation, https://docs.aigie.io
-Project-URL: Source, https://github.com/Kytte-AI/kytte-python-sdk
-Project-URL: Tracker, https://github.com/Kytte-AI/kytte-python-sdk/issues
-Project-URL: Changelog, https://github.com/Kytte-AI/kytte-python-sdk/blob/main/CHANGELOG.md
+Author-email: support@kytte.ai
+License: Proprietary
+Project-URL: Homepage, https://kytte.ai/
 Keywords: ai agent monitoring observability llm reliability remediation
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -33,13 +31,7 @@ Requires-Dist: prometheus-client>=0.20.0
 Requires-Dist: opentelemetry-api>=1.20.0
 Requires-Dist: opentelemetry-sdk>=1.20.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0
-Requires-Dist: opentelemetry-instrumentation-psycopg2>=0.41b0
-Requires-Dist: opentelemetry-instrumentation-asyncpg>=0.41b0
-Requires-Dist: opentelemetry-instrumentation-redis>=0.41b0
 Requires-Dist: opentelemetry-instrumentation-httpx>=0.41b0
-Requires-Dist: opentelemetry-instrumentation-requests>=0.41b0
-Requires-Dist: opentelemetry-instrumentation-sqlalchemy>=0.41b0
-Requires-Dist: opentelemetry-instrumentation-aiohttp-client>=0.41b0
 Provides-Extra: compression
 Requires-Dist: zstandard>=0.22.0; extra == "compression"
 Provides-Extra: openai
@@ -53,33 +45,8 @@ Requires-Dist: langchain-core>=0.1.0; extra == "langchain"
 Provides-Extra: langgraph
 Requires-Dist: langgraph>=0.0.20; extra == "langgraph"
 Requires-Dist: langchain-core>=0.1.0; extra == "langgraph"
-Provides-Extra: browser-use
-Requires-Dist: browser-use>=0.1.0; extra == "browser-use"
-Requires-Dist: Pillow>=10.0.0; extra == "browser-use"
-Provides-Extra: crewai
-Requires-Dist: crewai>=0.28.0; extra == "crewai"
-Provides-Extra: autogen
-Requires-Dist: pyautogen>=0.2.0; extra == "autogen"
-Provides-Extra: llamaindex
-Requires-Dist: llama-index>=0.10.0; extra == "llamaindex"
-Provides-Extra: agno
-Requires-Dist: agno>=1.0.0; extra == "agno"
-Provides-Extra: openai-agents
-Requires-Dist: openai-agents>=0.0.3; extra == "openai-agents"
-Provides-Extra: dspy
-Requires-Dist: dspy-ai>=2.4.0; extra == "dspy"
 Provides-Extra: claude-agent-sdk
 Requires-Dist: claude-agent-sdk>=0.0.10; extra == "claude-agent-sdk"
-Provides-Extra: strands
-Requires-Dist: strands-agents>=0.1.0; extra == "strands"
-Provides-Extra: google-adk
-Requires-Dist: google-adk>=1.0.0; extra == "google-adk"
-Provides-Extra: livekit-agents
-Requires-Dist: livekit-agents>=1.0.0; extra == "livekit-agents"
-Provides-Extra: instructor
-Requires-Dist: instructor>=1.0.0; extra == "instructor"
-Provides-Extra: semantic-kernel
-Requires-Dist: semantic-kernel>=1.0.0; extra == "semantic-kernel"
 Provides-Extra: pinecone
 Requires-Dist: pinecone-client>=3.0.0; extra == "pinecone"
 Provides-Extra: qdrant
@@ -133,38 +100,14 @@ Requires-Dist: anthropic>=0.18.0; extra == "all"
 Requires-Dist: google-generativeai>=0.3.0; extra == "all"
 Requires-Dist: langchain-core>=0.1.0; extra == "all"
 Requires-Dist: langgraph>=0.0.20; extra == "all"
-Requires-Dist: browser-use>=0.1.0; extra == "all"
-Requires-Dist: Pillow>=10.0.0; extra == "all"
-Requires-Dist: crewai>=0.28.0; extra == "all"
-Requires-Dist: pyautogen>=0.2.0; extra == "all"
-Requires-Dist: llama-index>=0.10.0; extra == "all"
-Requires-Dist: openai-agents>=0.0.3; extra == "all"
-Requires-Dist: agno>=1.0.0; extra == "all"
-Requires-Dist: dspy-ai>=2.4.0; extra == "all"
 Requires-Dist: claude-agent-sdk>=0.0.10; extra == "all"
-Requires-Dist: strands-agents>=0.1.0; extra == "all"
-Requires-Dist: google-adk>=1.0.0; extra == "all"
-Requires-Dist: instructor>=1.0.0; extra == "all"
-Requires-Dist: semantic-kernel>=1.0.0; extra == "all"
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "all"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "all"
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.20.0; extra == "all"
 Provides-Extra: integrations
 Requires-Dist: langchain-core>=0.1.0; extra == "integrations"
 Requires-Dist: langgraph>=0.0.20; extra == "integrations"
-Requires-Dist: browser-use>=0.1.0; extra == "integrations"
-Requires-Dist: Pillow>=10.0.0; extra == "integrations"
-Requires-Dist: crewai>=0.28.0; extra == "integrations"
-Requires-Dist: pyautogen>=0.2.0; extra == "integrations"
-Requires-Dist: llama-index>=0.10.0; extra == "integrations"
-Requires-Dist: openai-agents>=0.0.3; extra == "integrations"
-Requires-Dist: agno>=1.0.0; extra == "integrations"
-Requires-Dist: dspy-ai>=2.4.0; extra == "integrations"
 Requires-Dist: claude-agent-sdk>=0.0.10; extra == "integrations"
-Requires-Dist: strands-agents>=0.1.0; extra == "integrations"
-Requires-Dist: google-adk>=1.0.0; extra == "integrations"
-Requires-Dist: instructor>=1.0.0; extra == "integrations"
-Requires-Dist: semantic-kernel>=1.0.0; extra == "integrations"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -172,6 +115,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
+Dynamic: license
 Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
@@ -183,13 +127,21 @@ Dynamic: summary
 
 [![PyPI Version](https://img.shields.io/pypi/v/aigie)](https://pypi.org/project/aigie/)
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/Kytte-AI/kytte-python-sdk/actions/workflows/ci.yaml/badge.svg)](https://github.com/Kytte-AI/kytte-python-sdk/actions/workflows/ci.yaml)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](https://kytte.ai/)
 
-Official Python SDK for **Aigie** -- AI agent monitoring, tracing, and autonomous remediation.
+**Aigie** is the official Python SDK for **Kytte** -- the Autonomous Reliability Platform for Agentic AI.
 
-95% of AI agents never reach production due to context drift, tool errors, and runtime instability.
-Aigie provides the infrastructure that makes autonomous AI reliable and production-grade:
+> **Proprietary software.** Copyright (c) 2026 Kytte AI, Inc. All Rights Reserved.
+> Use of the Aigie SDK requires a written agreement with Kytte AI, Inc. and a valid
+> Kytte account. Not licensed for redistribution or modification.
+> Contact: support@kytte.ai
+
+Kytte is a runtime reliability platform for agentic AI, built to address the core reason
+most AI agents never reach production: non-deterministic runtime failures. Unlike reactive
+observability tools, Kytte operates during execution -- proactively detecting and
+autonomously remediating failed agent steps in real time, with no changes to your existing
+infrastructure or agent architecture. The Aigie SDK is the integration layer that connects
+your agents to the Kytte platform:
 
 - **Detects** context drift and errors before they impact users
 - **Fixes** issues automatically through self-healing workflows
@@ -201,306 +153,43 @@ Aigie provides the infrastructure that makes autonomous AI reliable and producti
 pip install aigie
 ```
 
-### With optional integrations
+Or install everything, including all optional integrations:
 
 ```bash
-# Compression (recommended for production -- 50-90% bandwidth savings)
-pip install aigie[compression]
-
-# LLM providers
-pip install aigie[openai]              # OpenAI
-pip install aigie[anthropic]           # Anthropic Claude
-pip install aigie[gemini]              # Google Gemini
-
-# Agent frameworks
-pip install aigie[langchain]           # LangChain
-pip install aigie[langgraph]           # LangGraph
-pip install aigie[openai-agents]       # OpenAI Agents SDK
-pip install aigie[claude-agent-sdk]    # Anthropic Claude Agent SDK
-pip install aigie[strands]             # Strands Agents (AWS/Anthropic)
-pip install aigie[google-adk]          # Google Agent Development Kit
-pip install aigie[crewai]              # CrewAI multi-agent
-pip install aigie[autogen]             # AutoGen/AG2
-pip install aigie[llamaindex]          # LlamaIndex RAG
-pip install aigie[dspy]                # DSPy
-pip install aigie[instructor]          # Instructor structured outputs
-pip install aigie[semantic-kernel]     # Microsoft Semantic Kernel
-pip install aigie[browser-use]         # Browser-Use automation
-pip install aigie[livekit-agents]      # LiveKit real-time voice AI
-pip install aigie[agno]                # Agno (formerly Phidata)
-pip install aigie[pipecat]             # Pipecat
-
-# Vector databases
-pip install aigie[pinecone]            # Pinecone
-pip install aigie[qdrant]              # Qdrant
-pip install aigie[chromadb]            # ChromaDB
-pip install aigie[weaviate]            # Weaviate
-pip install aigie[vectordbs]           # All vector DBs
-
-# Observability
-pip install aigie[opentelemetry]       # OpenTelemetry inbound
-pip install aigie[otlp]                # OTLP export
-
-# Everything
 pip install aigie[all]
 ```
 
-## Quick start
+## Connect your agents
 
-### Decorator-based tracing (recommended)
-
-```python
-from aigie import traceable
-
-@traceable(run_type="agent")
-async def my_agent(query: str):
-    result = await process_query(query)
-    return result
-
-result = await my_agent("What is the weather?")
-```
-
-### Auto-instrument LLM providers
+You'll need a **Kytte token**, issued by the Kytte team — contact us at
+[kytte.ai](https://kytte.ai/) or support@kytte.ai to request one. Then it's one line
+to make your agents self-healing:
 
 ```python
-from aigie import wrap_openai, wrap_anthropic
-from openai import AsyncOpenAI
-from anthropic import AsyncAnthropic
+import aigie
 
-# OpenAI -- all calls automatically traced with model, tokens, cost, latency
-client = wrap_openai(AsyncOpenAI())
-response = await client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "Hello!"}],
-)
+# External (via ingress)
+aigie.init("https://kytte.yourdomain.com/api", "your-kytte-token")
 
-# Anthropic
-client = wrap_anthropic(AsyncAnthropic())
+# Internal (pod-to-pod inside the cluster)
+# aigie.init("http://kytte-agent.<namespace>.svc.cluster.local:8000/api", "your-kytte-token")
+
+# That's it! Your agents are automatically traced and protected.
 ```
 
-### Context manager
+## Supported frameworks & integrations
 
-```python
-from aigie import Aigie, Config
+**Every framework. Every model. Every tool. Any provider.**
 
-config = Config(
-    api_url="https://api.aigie.com",
-    api_key="your-key",
-    batch_size=100,
-    flush_interval=5.0,
-)
+Kytte integrates natively and seamlessly with your agent. Zero infrastructure changes.
+Works with everything you already use.
 
-aigie = Aigie(config=config)
-await aigie.initialize()
+## Links
 
-async with aigie.trace("My Workflow") as trace:
-    async with trace.span("operation", type="llm") as span:
-        result = await do_work()
-        span.set_output({"result": result})
-```
-
-## Integrations
-
-### Agent frameworks
-
-| Framework | Install extra | Auto-instrument |
-|-----------|--------------|-----------------|
-| LangChain | `langchain` | `AigieCallbackHandler` |
-| LangGraph | `langgraph` | `wrap_langgraph()` |
-| OpenAI Agents SDK | `openai-agents` | `patch_openai_agents()` |
-| Claude Agent SDK | `claude-agent-sdk` | `patch_claude_agent_sdk()` |
-| Strands Agents | `strands` | `patch_strands()` |
-| Google ADK | `google-adk` | `patch_google_adk()` |
-| CrewAI | `crewai` | `patch_crewai()` |
-| AutoGen/AG2 | `autogen` | `patch_autogen()` |
-| LlamaIndex | `llamaindex` | `patch_llamaindex()` |
-| DSPy | `dspy` | `patch_dspy()` |
-| Instructor | `instructor` | `patch_instructor()` |
-| Semantic Kernel | `semantic-kernel` | `patch_semantic_kernel()` |
-| Browser-Use | `browser-use` | `patch_browser_use()` |
-| LiveKit Agents | `livekit-agents` | `patch_livekit_agents()` |
-| Pipecat | `pipecat` | `patch_pipecat()` |
-| Agno | `agno` | `patch_agno()` |
-
-### LLM providers
-
-| Provider | Wrapper |
-|----------|---------|
-| OpenAI | `wrap_openai()` |
-| Anthropic | `wrap_anthropic()` |
-| Google Gemini | `wrap_gemini()` |
-| AWS Bedrock | `wrap_bedrock()` |
-
-Each integration lives in `sdk/aigie/integrations/<framework>/` and follows a
-consistent pattern with auto-instrumentation, cost tracking, drift detection,
-error detection, retry logic, and session management. See
-[CONTRIBUTING.md](CONTRIBUTING.md) for details on adding new integrations.
-
-## Configuration
-
-### Environment variables
-
-```bash
-export AIGIE_API_URL=https://your-instance.aigie.io/api
-export AIGIE_API_KEY=your-api-key
-export AIGIE_BATCH_SIZE=100
-export AIGIE_FLUSH_INTERVAL=5.0
-```
-
-### Config object
-
-```python
-from aigie import Config
-
-config = Config(
-    api_url="https://api.aigie.com",   # Aigie API endpoint
-    api_key="your-key",                # API key
-    batch_size=100,                    # Events per batch (default: 10)
-    flush_interval=5.0,               # Flush interval in seconds
-    enable_buffering=True,            # Enable event buffering (default: True)
-    max_retries=3,                    # Retry count on failure
-)
-```
-
-## Advanced features
-
-### OpenTelemetry integration
-
-```python
-from aigie import Aigie
-from aigie.opentelemetry import setup_opentelemetry
-
-aigie = Aigie()
-await aigie.initialize()
-setup_opentelemetry(aigie, service_name="my-service")
-
-# All OTel spans now flow to Aigie
-from opentelemetry import trace
-tracer = trace.get_tracer(__name__)
-with tracer.start_as_current_span("operation"):
-    pass
-```
-
-### Evaluation and scoring
-
-```python
-from aigie import score, feedback
-
-await score(trace_id, "accuracy", 0.95)
-await feedback(trace_id, "user_feedback", "Great response!")
-```
-
-### Prompt management
-
-```python
-from aigie import Prompt
-
-prompt = Prompt.chat(
-    name="customer_support",
-    messages=[{"role": "system", "content": "You are a helpful assistant."}],
-    version="1.0",
-)
-```
-
-### Synchronous API
-
-```python
-from aigie import AigieSync
-
-aigie = AigieSync()
-aigie.initialize()
-
-with aigie.trace("workflow") as trace:
-    with trace.span("operation") as span:
-        result = do_work()
-        span.set_output({"result": result})
-```
-
-### Zero data retention
-
-Wrap a call in `aigie.no_retention()` to keep its execution data inside your
-environment. Nothing about that run leaves it.
-
-```python
-from contextlib import nullcontext
-
-ctx = aigie.no_retention() if request.zero_retention else nullcontext()
-with ctx:
-    result = app.invoke(state, config)
-```
-
-Use `aigie.no_retention_async()` in async code.
-
-## API reference
-
-Full API documentation is available at [docs.aigie.io/sdk/python](https://docs.aigie.io/sdk/python).
-
-## Development
-
-```bash
-# Clone and set up
-git clone https://github.com/Kytte-AI/kytte-python-sdk.git
-cd kytte-python-sdk
-python -m venv .venv
-source .venv/bin/activate
-pip install -e "sdk/[dev]"
-```
-
-### Common commands
-
-```bash
-make lint        # Run ruff linter
-make format      # Format code with ruff
-make test        # Run unit tests
-make test-all    # Run all tests including integration
-make coverage    # Run tests with coverage report
-make typecheck   # Run mypy type checking
-make check       # Run all checks (lint + test)
-make build       # Build distribution packages
-```
-
-### Running tests
-
-```bash
-# Unit tests
-pytest tests/unit/ -v
-
-# Integration tests (requires API keys)
-pytest tests/integration/ -v
-
-# Coverage report
-pytest tests/unit/ --cov=sdk/aigie --cov-report=html --cov-report=term-missing
-```
-
-## Publishing
-
-Releases are published to [PyPI](https://pypi.org/project/aigie/) automatically
-when a GitHub release is created, via the `publish.yaml` workflow.
-
-Manual publishing is also supported:
-
-```bash
-./scripts/publish-sdk.sh <version>
-# e.g. ./scripts/publish-sdk.sh 0.2.39
-```
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+- **Website:** https://kytte.ai/
+- **Support:** support@kytte.ai
 
 ## License
 
-MIT -- see [LICENSE](LICENSE) for details.
-
-## Documentation
-
-- [API Reference](https://docs.aigie.io/sdk/python)
-- [Integration Guides](https://docs.aigie.io/integrations)
-- [Changelog](./CHANGELOG.md)
-
-## Related
-
-| Repository | Description |
-|-----------|-------------|
-| [kytte-js-sdk](https://github.com/Kytte-AI/kytte-js-sdk) | Aigie TypeScript/JavaScript SDK |
-| [docs-site](https://github.com/Kytte-AI/docs-site) | Documentation site |
+Proprietary -- Copyright (c) 2026 Kytte AI, Inc. All Rights Reserved.
+Use requires a written agreement with Kytte AI, Inc.

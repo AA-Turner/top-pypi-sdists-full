@@ -249,7 +249,8 @@ class DriveInstance:
     @classmethod
     async def list(cls) -> list["DriveInstance"]:
         response = await list_drives(client=client)
-        return [cls(drive) for drive in response or []]
+        drives = response.data if hasattr(response, "data") else response
+        return [cls(drive) for drive in drives or []]
 
     @classmethod
     async def create_if_not_exists(
@@ -401,7 +402,8 @@ class SyncDriveInstance:
     def list(cls) -> List["SyncDriveInstance"]:
         """List all drives synchronously."""
         response = list_drives_sync(client=client)
-        return [cls(drive) for drive in response or []]
+        drives = response.data if hasattr(response, "data") else response
+        return [cls(drive) for drive in drives or []]
 
     @classmethod
     def create_if_not_exists(

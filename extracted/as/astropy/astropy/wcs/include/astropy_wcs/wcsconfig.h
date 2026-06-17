@@ -3,7 +3,7 @@
     #define HAVE_WCSLIB_VERSION 1
 
     /* WCSLIB library version number. */
-    #define WCSLIB_VERSION 8.4
+    #define WCSLIB_VERSION 8.6
 
     /* 64-bit integer data type. */
     #define WCSLIB_INT64 long long int

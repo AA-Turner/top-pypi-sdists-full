@@ -10,12 +10,10 @@ import tempfile
 import warnings
 from functools import wraps
 from importlib.util import find_spec
-from pathlib import Path
 
 from astropy.utils import deprecated, find_current_module
 from astropy.utils.exceptions import (
     AstropyDeprecationWarning,
-    AstropyPendingDeprecationWarning,
     AstropyWarning,
 )
 
@@ -52,7 +50,7 @@ class keyword:
         return keyword
 
 
-@deprecated("7.2", alternative="pytest", pending=True)
+@deprecated("8.0", alternative="pytest")
 class TestRunnerBase:
     """
     The base class for the TestRunner.
@@ -166,7 +164,7 @@ class TestRunnerBase:
 
         This method builds arguments for and then calls ``pytest.main``.
 
-        .. deprecated:: 7.2
+        .. deprecated:: 8.0
             Use pytest instead.
 
         Parameters
@@ -210,8 +208,8 @@ class TestRunnerBase:
         # This method is weirdly hooked into various things with docstring
         # overrides, so we keep it simple and not use @deprecated here.
         warnings.warn(
-            "The test runner will be deprecated in a future version.\n        Use pytest instead.",
-            AstropyPendingDeprecationWarning,
+            "The test runner is deprecated in v8.0 and may be removed in a future version.\n        Use pytest instead.",
+            AstropyDeprecationWarning,
         )
 
         # The following option will include eggs inside a .eggs folder in
@@ -258,17 +256,16 @@ class TestRunnerBase:
         # don't know about the temporary config/cache.
         # Note, this is superfluous if the config_dir option to pytest is in use,
         # but it's also harmless
-        orig_xdg_config = os.environ.get("XDG_CONFIG_HOME")
+        orig_astropy_config = os.environ.get("ASTROPY_CONFIG_DIR")
         with tempfile.TemporaryDirectory("astropy_config") as astropy_config:
-            Path(astropy_config, "astropy").mkdir()
-            os.environ["XDG_CONFIG_HOME"] = astropy_config
+            os.environ["ASTROPY_CONFIG_DIR"] = astropy_config
             try:
                 return pytest.main(args=args, plugins=plugins)
             finally:
-                if orig_xdg_config is None:
-                    os.environ.pop("XDG_CONFIG_HOME", None)
+                if orig_astropy_config is None:
+                    os.environ.pop("ASTROPY_CONFIG_DIR", None)
                 else:
-                    os.environ["XDG_CONFIG_HOME"] = orig_xdg_config
+                    os.environ["ASTROPY_CONFIG_DIR"] = orig_astropy_config
 
     @classmethod
     def make_test_runner_in(cls, path):
@@ -304,7 +301,7 @@ class TestRunnerBase:
         return test
 
 
-@deprecated("7.2", alternative="pytest", pending=True)
+@deprecated("8.0", alternative="pytest")
 class TestRunner(TestRunnerBase):
     """
     A test runner for astropy tests.

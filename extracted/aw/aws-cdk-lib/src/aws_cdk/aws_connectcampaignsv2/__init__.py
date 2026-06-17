@@ -206,7 +206,8 @@ class CfnCampaign(
             communication_time_config=connectcampaignsv2.CfnCampaign.CommunicationTimeConfigProperty(
                 local_time_zone_config=connectcampaignsv2.CfnCampaign.LocalTimeZoneConfigProperty(
                     default_time_zone="defaultTimeZone",
-                    local_time_zone_detection=["localTimeZoneDetection"]
+                    local_time_zone_detection=["localTimeZoneDetection"],
+                    local_time_zone_detection_scope="localTimeZoneDetectionScope"
                 ),
         
                 # the properties below are optional
@@ -1175,7 +1176,8 @@ class CfnCampaign(
                 communication_time_config_property = connectcampaignsv2.CfnCampaign.CommunicationTimeConfigProperty(
                     local_time_zone_config=connectcampaignsv2.CfnCampaign.LocalTimeZoneConfigProperty(
                         default_time_zone="defaultTimeZone",
-                        local_time_zone_detection=["localTimeZoneDetection"]
+                        local_time_zone_detection=["localTimeZoneDetection"],
+                        local_time_zone_detection_scope="localTimeZoneDetectionScope"
                     ),
                 
                     # the properties below are optional
@@ -1818,6 +1820,7 @@ class CfnCampaign(
         name_mapping={
             "default_time_zone": "defaultTimeZone",
             "local_time_zone_detection": "localTimeZoneDetection",
+            "local_time_zone_detection_scope": "localTimeZoneDetectionScope",
         },
     )
     class LocalTimeZoneConfigProperty:
@@ -1826,11 +1829,13 @@ class CfnCampaign(
             *,
             default_time_zone: typing.Optional[builtins.str] = None,
             local_time_zone_detection: typing.Optional[typing.Sequence[builtins.str]] = None,
+            local_time_zone_detection_scope: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configuration of timezone for recipient.
 
             :param default_time_zone: The timezone to use for all recipients.
             :param local_time_zone_detection: Detects methods for the recipient's timezone.
+            :param local_time_zone_detection_scope: Local TimeZone Detection scope.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-localtimezoneconfig.html
             :exampleMetadata: fixture=_generated
@@ -1843,18 +1848,22 @@ class CfnCampaign(
                 
                 local_time_zone_config_property = connectcampaignsv2.CfnCampaign.LocalTimeZoneConfigProperty(
                     default_time_zone="defaultTimeZone",
-                    local_time_zone_detection=["localTimeZoneDetection"]
+                    local_time_zone_detection=["localTimeZoneDetection"],
+                    local_time_zone_detection_scope="localTimeZoneDetectionScope"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__c03234f264094d68479c6e1cf3801d50627e839a73b2f0cbeb95c82522f9a66e)
                 check_type(argname="argument default_time_zone", value=default_time_zone, expected_type=type_hints["default_time_zone"])
                 check_type(argname="argument local_time_zone_detection", value=local_time_zone_detection, expected_type=type_hints["local_time_zone_detection"])
+                check_type(argname="argument local_time_zone_detection_scope", value=local_time_zone_detection_scope, expected_type=type_hints["local_time_zone_detection_scope"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if default_time_zone is not None:
                 self._values["default_time_zone"] = default_time_zone
             if local_time_zone_detection is not None:
                 self._values["local_time_zone_detection"] = local_time_zone_detection
+            if local_time_zone_detection_scope is not None:
+                self._values["local_time_zone_detection_scope"] = local_time_zone_detection_scope
 
         @builtins.property
         def default_time_zone(self) -> typing.Optional[builtins.str]:
@@ -1875,6 +1884,15 @@ class CfnCampaign(
             '''
             result = self._values.get("local_time_zone_detection")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def local_time_zone_detection_scope(self) -> typing.Optional[builtins.str]:
+            '''Local TimeZone Detection scope.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connectcampaignsv2-campaign-localtimezoneconfig.html#cfn-connectcampaignsv2-campaign-localtimezoneconfig-localtimezonedetectionscope
+            '''
+            result = self._values.get("local_time_zone_detection_scope")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3694,7 +3712,8 @@ class CfnCampaignProps:
                 communication_time_config=connectcampaignsv2.CfnCampaign.CommunicationTimeConfigProperty(
                     local_time_zone_config=connectcampaignsv2.CfnCampaign.LocalTimeZoneConfigProperty(
                         default_time_zone="defaultTimeZone",
-                        local_time_zone_detection=["localTimeZoneDetection"]
+                        local_time_zone_detection=["localTimeZoneDetection"],
+                        local_time_zone_detection_scope="localTimeZoneDetectionScope"
                     ),
             
                     # the properties below are optional
@@ -4198,6 +4217,7 @@ def _typecheckingstub__c03234f264094d68479c6e1cf3801d50627e839a73b2f0cbeb95c8252
     *,
     default_time_zone: typing.Optional[builtins.str] = None,
     local_time_zone_detection: typing.Optional[typing.Sequence[builtins.str]] = None,
+    local_time_zone_detection_scope: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

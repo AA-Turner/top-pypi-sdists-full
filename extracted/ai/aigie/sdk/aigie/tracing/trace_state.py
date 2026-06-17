@@ -18,9 +18,12 @@ fans out via ``copy_context()`` so each task gets its own span_stack copy.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from typing import Any
+
+from aigie.tracing.types import SpanStatus
 
 # ─── Surface A: Ambient state (per-call, per-task) ──────────────────────
 
@@ -153,3 +156,55 @@ def pop_resumable_trace(resume_key: str | None) -> Any | None:
         return None
     with _resume_registry_lock:
         return _resume_registry.pop(resume_key, None)
+
+
+# ─── Surface C: Open-span registry (shutdown-only orphan finalizer) ──────
+#
+# A span that is built mutably in memory but not yet emitted registers a
+# *finalize callable* here. On clean close the emitter deregisters it; on an
+# unclean shutdown ``drain_open_spans_as_interrupted`` invokes the survivors
+# so their roots still ship (status="interrupted"). Storing a callable rather
+# than a payload keeps this registry emitter-agnostic — each emitter shapes
+# its own finalized dict.
+
+_OpenSpanFinalize = Callable[[], "dict[str, Any] | None"]
+_open_spans: dict[str, _OpenSpanFinalize] = {}
+_open_spans_lock = threading.Lock()
+
+
+def register_open_span(span_id: str, finalize: _OpenSpanFinalize) -> None:
+    """Register an in-flight span's finalize callable (idempotent per span_id)."""
+    if not span_id or finalize is None:
+        return
+    with _open_spans_lock:
+        _open_spans[span_id] = finalize
+
+
+def deregister_open_span(span_id: str) -> None:
+    """Drop a span once it has been emitted normally. Safe no-op if absent."""
+    if not span_id:
+        return
+    with _open_spans_lock:
+        _open_spans.pop(span_id, None)
+
+
+def drain_open_spans_as_interrupted() -> list[dict[str, Any]]:
+    """Pop every open span and finalize it as interrupted.
+
+    Invokes each registered finalize callable and stamps
+    ``status="interrupted"`` on the resulting payload. A second drain is a
+    no-op (the registry is emptied atomically). Callables returning ``None``
+    (already finalized concurrently) are skipped.
+    """
+    with _open_spans_lock:
+        finalizers = list(_open_spans.values())
+        _open_spans.clear()
+
+    payloads: list[dict[str, Any]] = []
+    for finalize in finalizers:
+        payload = finalize()
+        if payload is None:
+            continue
+        payload["status"] = SpanStatus.INTERRUPTED.value
+        payloads.append(payload)
+    return payloads

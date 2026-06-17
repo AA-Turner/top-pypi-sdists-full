@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +20,7 @@ from runlayer_sdk.hook_transport import (
 )
 
 from runlayer_cli.api import USER_AGENT
-from runlayer_cli.config import load_config, normalize_url, save_config
+from runlayer_cli.config import load_config, normalize_url, persist_credentials
 from runlayer_cli.enrollment import (
     EnrollmentError,
     exchange_enrollment_key,
@@ -126,12 +127,12 @@ def _try_lazy_enrollment_inner(host: str, managed: ManagedConfig) -> str | None:
         return None
 
     config = load_config()
-    config.set_host_credentials(host, result.api_key)
-    try:
-        save_config(config)
-    except OSError:
-        pass
-    write_enrollment_marker(host)
+    # Only drop the enrollment marker when the secret actually persisted
+    # (keychain or config.yaml). If neither persisted (keychain write failed +
+    # aiwatch no-op), the next hook fire lazy-enrolls again; a marker here would
+    # falsely tell the bootstrap gate this user is enrolled.
+    if persist_credentials(config, host, result.api_key)["persisted"]:
+        write_enrollment_marker(host)
 
     try:
         forward_event(
@@ -196,6 +197,37 @@ def _maybe_attach_device(payload: str) -> str:
     return json.dumps(obj)
 
 
+def _maybe_stamp_client_time(payload: str, target: str) -> str:
+    """Stamp event payloads with the host send time when none is present.
+
+    Tool events (PostToolUse etc.) reach ``/hooks/events`` over a different async
+    channel than transcript-derived reasoning events, so the two can be reordered
+    in transit. The backend's behavior scanner pairs a tool's output with the
+    agent's following reasoning by timestamp; without a client timestamp the tool
+    event falls back to server-receipt time, i.e. the already-scrambled arrival
+    order. Stamping send time here — same host clock the transcript timestamps
+    come from — gives the scanner a logical ordering key. Only ``event`` posts
+    feed the scanner; ``setdefault`` semantics never override a timestamp the
+    client already supplied.
+
+    Contract: relay send-delay must stay well under the gap between adjacent
+    agent events (seconds). A delay larger than that gap could stamp a tool
+    event later than a following reasoning event and misorder the pair; in
+    practice the in-process POST fires within milliseconds of the hook.
+    """
+    if target != "event":
+        return payload
+    try:
+        obj = json.loads(payload)
+    except (json.JSONDecodeError, ValueError):
+        return payload
+    inner = obj.get("payload") if isinstance(obj, dict) else None
+    if not isinstance(inner, dict) or inner.get("timestamp"):
+        return payload
+    inner["timestamp"] = datetime.now(timezone.utc).isoformat()
+    return json.dumps(obj)
+
+
 def _build_device_context() -> dict[str, Any] | None:
     """Collect device id + metadata for org-key hook requests.
 
@@ -254,6 +286,7 @@ def _post(
     spec = HOOK_RELAY_TARGETS[target]
     url = f"{host}{spec.endpoint}"
     payload = _maybe_attach_device(payload)
+    payload = _maybe_stamp_client_time(payload, target)
     client = HookAPIClient(
         host,
         headers={

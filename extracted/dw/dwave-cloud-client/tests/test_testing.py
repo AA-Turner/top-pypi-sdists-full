@@ -17,17 +17,14 @@ import uuid
 import unittest
 from unittest import mock
 
+try:
+    import dwave.graphs
+except ImportError:
+    _graphs = False
+else:
+    _graphs = True
+
 import networkx as nx
-
-try:
-    import dimod
-except ImportError:
-    dimod = None
-
-try:
-    import dwave_networkx as dnx
-except ImportError:
-    dnx = None
 
 from dwave.cloud.testing import isolated_environ, iterable_mock_open, mocks
 
@@ -199,7 +196,7 @@ class TestSolverDataMocks(unittest.TestCase):
         self.assertEqual(data['properties']['num_qubits'], n)
         self.assertEqual(data['properties']['qubits'], list(range(n)))
 
-    @unittest.skipUnless(dimod, "dimod not installed")
+    @unittest.skipUnless(_graphs, "dwave-graphs not installed")
     def test_qpu_chimera_solver_data(self):
         # 2 x 2 chimera tiles of 1-1 bipartite graphs, overall forming a cycle over 8 qubits
         m, n, t = 2, 2, 1
@@ -218,7 +215,7 @@ class TestSolverDataMocks(unittest.TestCase):
         self.assertEqual(nodes, sorted(nodes))
         self.assertTrue(all(i < j for (i, j) in edges))
 
-    @unittest.skipUnless(dimod, "dimod not installed")
+    @unittest.skipUnless(_graphs, "dwave-graphs not installed")
     def test_qpu_pegasus_solver_data(self):
         m = 2
         num_qubits = 24 * m * (m-1)     # includes non-fabric qubits
@@ -237,11 +234,11 @@ class TestSolverDataMocks(unittest.TestCase):
         self.assertEqual(nodes, sorted(nodes))
         self.assertTrue(all(i < j for (i, j) in edges))
 
-    @unittest.skipUnless(dimod and dnx, "dimod/dwave-networkx not installed")
+    @unittest.skipUnless(_graphs, "dwave-graphs not installed")
     def test_qpu_zephyr_solver_data(self):
         m, t = 2, 2
         num_qubits = 4 * t * m * (2 * m + 1)
-        num_edges = len(dnx.zephyr_graph(m, t).edges)
+        num_edges = len(dwave.graphs.zephyr_graph(m, t).edges)
 
         data = mocks.qpu_zephyr_solver_data(m, t)
         nodes = data['properties']['qubits']

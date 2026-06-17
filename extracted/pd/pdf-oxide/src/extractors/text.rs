@@ -2532,6 +2532,13 @@ pub struct TextExtractor<'doc> {
     /// Tracks nested marked content tags to enable artifact filtering.
     /// When content is marked as `/Artifact`, it should be excluded from text extraction.
     marked_content_stack: Vec<MarkedContentContext>,
+    /// True once a `/ReversedChars` marked-content sequence (ISO 32000-1
+    /// §14.8.2.3.3) has been seen on this page. Such producers draw RTL glyphs
+    /// individually with explicit positioning and mark real word boundaries with
+    /// explicit space glyphs — so oxide must NOT additionally insert geometric
+    /// word spaces between cursively-adjacent Arabic letters (which would shatter
+    /// words, e.g. `إسبريسو` → `إس بر يسو`).
+    saw_reversed_chars: bool,
     /// Whether we're currently inside an /Artifact marked content context
     ///
     /// Per PDF Spec Section 14.6, artifact content should be excluded from text extraction.
@@ -2685,7 +2692,8 @@ impl<'doc> TextExtractor<'doc> {
             tj_span_buffer: None,     // No buffer initially
             span_sequence_counter: 0, // Initialize sequence counter
             marked_content_stack: Vec::new(), // Track marked content contexts
-            inside_artifact: false,   // Track artifact state
+            saw_reversed_chars: false,
+            inside_artifact: false, // Track artifact state
             excluded_layers: HashSet::new(),
             inside_excluded_layer: false,
             excluded_inks: HashSet::new(),
@@ -4514,7 +4522,7 @@ impl<'doc> TextExtractor<'doc> {
                     current.text.push_str(&span.text);
                 } else {
                     let tj_offset_triggered_override = has_split_boundary;
-                    let space_decision = should_insert_space(
+                    let mut space_decision = should_insert_space(
                         &current.text,
                         &span.text,
                         space_gap,
@@ -4528,6 +4536,32 @@ impl<'doc> TextExtractor<'doc> {
                         current.font_size,
                         span.font_size,
                     );
+
+                    // ReversedChars Arabic word-shatter guard (ISO 32000-1
+                    // §14.8.2.3.3). On a page that draws RTL glyphs individually
+                    // under /ReversedChars, real word boundaries are marked with
+                    // explicit space glyphs (preserved above as whitespace-only
+                    // spans). A GEOMETRIC space between two cursively-adjacent
+                    // Arabic letters is therefore a positioning artifact, not a
+                    // word break — suppress it so words stay whole (إسبريسو, not
+                    // إس بر يسو). Only fires on ReversedChars pages, so ordinary
+                    // geometric-spaced Arabic producers are unaffected.
+                    if self.saw_reversed_chars && space_decision.insert_space {
+                        use crate::text::rtl_detector::is_arabic_letter;
+                        let prev_ar = current
+                            .text
+                            .chars()
+                            .next_back()
+                            .is_some_and(|c| is_arabic_letter(c as u32));
+                        let next_ar = span
+                            .text
+                            .chars()
+                            .next()
+                            .is_some_and(|c| is_arabic_letter(c as u32));
+                        if prev_ar && next_ar {
+                            space_decision.insert_space = false;
+                        }
+                    }
 
                     log::debug!(
                         "Span merge decision: gap={:.2}pt, decision={:?}, source={:?}, confidence={:.2}, offset_semantic={}",
@@ -4600,6 +4634,43 @@ impl<'doc> TextExtractor<'doc> {
                         1.0
                     };
                     current.char_widths.resize(merged_char_count, pad);
+                }
+
+                // Preserve the merged-in glyph's TRUE origin for scrambled-RTL
+                // producers (e.g. /ReversedChars + per-glyph /ActualText Arabic,
+                // ISO 32000-1 §14.8.2.3.3 / §14.9.4). Such producers reposition
+                // glyphs out of advance-order, so the appended raw advances collapse
+                // the merged span to advance-flow and `to_chars()` loses each glyph's
+                // true x — the RTL visual-order sort (`merge_rtl_line_to_visual_span`)
+                // then mis-places zero-width marks (القهوة → قالهوة). After the
+                // char_widths are in lockstep with the (possibly space-inserted) text,
+                // stretch the advance leading into the merged-in span's LAST glyph so
+                // `to_chars()` reconstructs it at `span.bbox.x`. Gated to Arabic so
+                // Latin/CJK output stays byte-identical.
+                let touches_arabic = |t: &str| {
+                    t.chars().any(|c| {
+                        ('\u{0600}'..='\u{06FF}').contains(&c)
+                            || ('\u{0750}'..='\u{077F}').contains(&c)
+                            || ('\u{08A0}'..='\u{08FF}').contains(&c)
+                    })
+                };
+                let n = current.char_widths.len();
+                let span_chars = span.text.chars().count();
+                if n >= 2
+                    && span_chars >= 1
+                    && span_chars < n
+                    && (touches_arabic(&current.text) || touches_arabic(&span.text))
+                {
+                    // Index of the merged-in span's FIRST glyph in the (possibly
+                    // space-inserted) merged text, and its target relative x.
+                    let first_idx = n - span_chars;
+                    let prefix: f32 = current.char_widths[..first_idx].iter().sum();
+                    let want = span.bbox.x - current.bbox.x;
+                    let adjust = want - prefix;
+                    if adjust.abs() > 0.01 {
+                        // Put the gap into the advance leading into that glyph.
+                        current.char_widths[first_idx - 1] += adjust;
+                    }
                 }
 
                 // After a cross-font glue, adopt the longer run's font
@@ -5974,6 +6045,9 @@ impl<'doc> TextExtractor<'doc> {
                 // order, tree-scope ActualText suppression,
                 // table-cell membership).
                 self.flush_tj_span_buffer()?;
+                if tag == "ReversedChars" {
+                    self.saw_reversed_chars = true;
+                }
                 // BMC doesn't have properties, but the tag can indicate artifacts
                 let is_artifact = tag == "Artifact";
                 self.marked_content_stack.push(MarkedContentContext {
@@ -6438,6 +6512,36 @@ impl<'doc> TextExtractor<'doc> {
                     Matrix::identity()
                 };
 
+                // Parse /BBox (form coordinate space) for the §8.10.1 form clip.
+                // A form XObject's painting is clipped to its /BBox; text the form
+                // draws outside the BBox is invisible in a conformant renderer and
+                // must not be extracted. Stored as [x0,y0,x1,y1]; None disables the
+                // clip (defensive — /BBox is required, but malformed dicts exist).
+                let form_bbox: Option<[f32; 4]> = match xobject_dict.get("BBox") {
+                    Some(Object::Array(arr)) if arr.len() >= 4 => {
+                        let f = |i: usize| -> Option<f32> {
+                            match arr.get(i) {
+                                Some(Object::Real(v)) => Some(*v as f32),
+                                Some(Object::Integer(v)) => Some(*v as f32),
+                                _ => None,
+                            }
+                        };
+                        match (f(0), f(1), f(2), f(3)) {
+                            (Some(a), Some(b), Some(c), Some(d))
+                                if a.is_finite()
+                                    && b.is_finite()
+                                    && c.is_finite()
+                                    && d.is_finite() =>
+                            {
+                                // Normalize so [x0,y0] is the min corner.
+                                Some([a.min(c), b.min(d), a.max(c), b.max(d)])
+                            },
+                            _ => None,
+                        }
+                    },
+                    _ => None,
+                };
+
                 // Only save/restore fonts+resources when XObject has its own Resources.
                 // Avoids expensive HashMap clone for XObjects that inherit page fonts.
                 let has_own_resources = xobject_dict.contains_key("Resources");
@@ -6490,6 +6594,11 @@ impl<'doc> TextExtractor<'doc> {
                 let state = self.state_stack.current_mut();
                 state.ctm = form_matrix.multiply(&state.ctm);
 
+                // Effective form→page transform used for every span drawn inside
+                // the form; the /BBox clip below maps the BBox through this same
+                // CTM so the comparison happens in one coordinate space.
+                let form_ctm = self.state_stack.current().ctm;
+
                 // Push the Form XObject scope (ISO 32000-1:2008
                 // §14.7.4.3). Every MCID emitted inside this form's
                 // content stream lives in the form's MCID namespace,
@@ -6526,6 +6635,95 @@ impl<'doc> TextExtractor<'doc> {
                         name,
                         e
                     );
+                }
+
+                // Apply the Form XObject /BBox clip (ISO 32000-1:2008 §8.10.1): a
+                // form's marks are clipped to its BBox, so text the form paints
+                // OUTSIDE the BBox is invisible in a conformant renderer (pdfium,
+                // Acrobat, MuPDF) and must not be extracted. Some producers (e.g.
+                // pdfTeX \includegraphics of a figure PDF that retained a full
+                // draft-galley page) paint a redundant copy of the article body
+                // outside the figure's BBox; without this clip it surfaces as
+                // duplicate text overlapping the real page body. Done BEFORE the
+                // span cache so cached results are already clipped. Byte-identical
+                // on every form whose painted text lies inside its BBox (the
+                // conformant majority) — only out-of-BBox marks are dropped.
+                if let Some([bx0, by0, bx1, by1]) = form_bbox {
+                    if self.spans.len() > spans_before && bx1 > bx0 && by1 > by0 {
+                        // Map the BBox corners through the form CTM into page space
+                        // and take the axis-aligned bound (a superset for rotated
+                        // forms — conservative, never over-clips).
+                        let c = [
+                            form_ctm.transform_point(bx0, by0),
+                            form_ctm.transform_point(bx1, by0),
+                            form_ctm.transform_point(bx1, by1),
+                            form_ctm.transform_point(bx0, by1),
+                        ];
+                        let min_x = c.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+                        let max_x = c.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max);
+                        let min_y = c.iter().map(|p| p.y).fold(f32::INFINITY, f32::min);
+                        let max_y = c.iter().map(|p| p.y).fold(f32::NEG_INFINITY, f32::max);
+                        if min_x.is_finite()
+                            && max_x.is_finite()
+                            && min_y.is_finite()
+                            && max_y.is_finite()
+                        {
+                            // Tolerance so glyphs sitting exactly on the clip edge
+                            // are kept (conformant clipping is exact; this only
+                            // guards float rounding, far below any real margin).
+                            const TOL: f32 = 1.0;
+                            let inside = |s: &TextSpan| {
+                                let cx = s.bbox.x + s.bbox.width * 0.5;
+                                let cy = s.bbox.y + s.bbox.height * 0.5;
+                                cx >= min_x - TOL
+                                    && cx <= max_x + TOL
+                                    && cy >= min_y - TOL
+                                    && cy <= max_y + TOL
+                            };
+                            // Fast path: when every span this form painted is
+                            // already inside its /BBox (the conformant majority —
+                            // and where this clip is a no-op anyway), skip the
+                            // split_off/extend allocation churn entirely. Only the
+                            // rare out-of-BBox case (the draft-galley underlay)
+                            // pays for the rebuild. Cheap O(form-spans) scan, no
+                            // allocation; keeps large form-heavy docs fast.
+                            if self.spans[spans_before..].iter().any(|s| !inside(s)) {
+                                // Out-of-BBox spans exist. Distinguish a real
+                                // figure form (whose stray out-of-BBox text is a
+                                // draft-galley underlay safe to drop) from a
+                                // full-page content-frame wrapper whose declared
+                                // BBox happens to exclude real body text. A
+                                // conformant *renderer* clips both, but every text
+                                // *extractor* (poppler/pdftotext, the common
+                                // reference) keeps a wrapper's body — and that body
+                                // may be its only copy. The discriminator is
+                                // coverage: a figure occupies a sub-region of the
+                                // page; a wrapper covers most of it. Only clip when
+                                // the form is figure-sized, so the galley-dedup win
+                                // stays while page-wrapper bodies are preserved.
+                                let clip_area = (max_x - min_x) * (max_y - min_y);
+                                let page_idx = match self.mcid_scope_stack.first() {
+                                    Some(crate::structure::McidScope::Page(p)) => *p as usize,
+                                    _ => 0,
+                                };
+                                let page_area = self
+                                    .document
+                                    .and_then(|d| d.get_page_media_box(page_idx).ok())
+                                    .map(|(llx, lly, urx, ury)| ((urx - llx) * (ury - lly)).abs())
+                                    .filter(|a| *a > 0.0);
+                                // ≥60% of page area ⇒ content-frame wrapper, not a
+                                // figure (figures measured ≤27%; wrappers ≥82%).
+                                let is_page_wrapper =
+                                    page_area.is_some_and(|pa| clip_area >= 0.6 * pa);
+                                if !is_page_wrapper {
+                                    let added = self.spans.split_off(spans_before);
+                                    let kept: Vec<TextSpan> =
+                                        added.into_iter().filter(|s| inside(s)).collect();
+                                    self.spans.extend(kept);
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Cache span results for self-contained Form XObjects.
@@ -6646,7 +6844,7 @@ impl<'doc> TextExtractor<'doc> {
                 // Reverse to get logical reading order.
                 // Only reverse if user_pos_x indicates LTR placement (positive width).
                 if buffer.accumulated_width > 0.0 {
-                    text = text.chars().rev().collect();
+                    text = crate::text::bidi::reverse_rtl_keep_numbers(&text);
                 }
             }
         }
@@ -7128,7 +7326,7 @@ impl<'doc> TextExtractor<'doc> {
                 match verdict {
                     crate::text::bidi::RunOrder::Visual => {
                         // Confidence-gated visual-order detection — reverse.
-                        unicode_text = unicode_text.chars().rev().collect();
+                        unicode_text = crate::text::bidi::reverse_rtl_keep_numbers(&unicode_text);
                     },
                     crate::text::bidi::RunOrder::Logical => {
                         // Confidence-gated logical-order — leave alone.
@@ -7148,7 +7346,8 @@ impl<'doc> TextExtractor<'doc> {
                             ctm.transform_point(p.x, p.y).x
                         };
                         if last_x > first_x {
-                            unicode_text = unicode_text.chars().rev().collect();
+                            unicode_text =
+                                crate::text::bidi::reverse_rtl_keep_numbers(&unicode_text);
                         }
                     },
                 }
@@ -7379,11 +7578,16 @@ impl<'doc> TextExtractor<'doc> {
                 // (1 or 2) is determined by the font's encoding / ToUnicode CMap
                 // codespace, not hardcoded to 2. Per ISO 32000-1:2008 §9.7.6.2.
                 let mut w_sum = 0.0f32;
-                for (cid, _) in TextCharIter::new(text, Some(font)) {
+                for (cid, nbytes) in TextCharIter::new(text, Some(font)) {
                     let mut w = font.get_glyph_width(cid) * fs_factor * hs_factor;
                     w += cs_hs;
-                    // Per ISO 32000-1:2008 Section 9.3.3: Tw applied when CID == 32
-                    if cid == 32 {
+                    // Per ISO 32000-1:2008 §9.3.3: Tw applies ONLY to the
+                    // single-byte character code 32, never to the byte value 32
+                    // inside a multi-byte code. `TextCharIter` yields the raw
+                    // code plus its byte width, so gate on a single-byte 32 — a
+                    // 2-byte CID #32 (0x0020) in an Identity-H/CJK font must not
+                    // take Tw (it would over-advance and mis-position the run).
+                    if nbytes == 1 && cid == 32 {
                         w += ws_hs;
                     }
                     w_sum += w;
@@ -7399,11 +7603,11 @@ impl<'doc> TextExtractor<'doc> {
                 // glyph-stretching axis — it does not scale w1y, Tc, or
                 // Tw in vertical mode.
                 let mut w_sum = 0.0f32;
-                for (cid, _) in TextCharIter::new(text, Some(font)) {
+                for (cid, nbytes) in TextCharIter::new(text, Some(font)) {
                     let w1y = font.get_vertical_metrics(cid).w1y;
                     let mut w = w1y * fs_factor;
                     w += char_space;
-                    if cid == 32 {
+                    if nbytes == 1 && cid == 32 {
                         w += word_space;
                     }
                     w_sum += w;
@@ -7768,10 +7972,10 @@ impl<'doc> TextExtractor<'doc> {
                 // keyword patterns but whose ToUnicode CMap declares a 2-byte
                 // codespace range (§9.7.5).
                 let mut w_sum = 0.0f32;
-                for (cid, _) in TextCharIter::new(text, Some(font)) {
+                for (cid, nbytes) in TextCharIter::new(text, Some(font)) {
                     let mut w = font.get_glyph_width(cid) * fs_factor * hs_factor;
                     w += cs_hs;
-                    if cid == 32 {
+                    if nbytes == 1 && cid == 32 {
                         w += ws_hs;
                     }
                     w_sum += w;
@@ -7786,11 +7990,11 @@ impl<'doc> TextExtractor<'doc> {
                 // (§9.3.4).
                 buffer.append(text)?;
                 let mut w_sum = 0.0f32;
-                for (cid, _) in TextCharIter::new(text, Some(font)) {
+                for (cid, nbytes) in TextCharIter::new(text, Some(font)) {
                     let w1y = font.get_vertical_metrics(cid).w1y;
                     let mut w = w1y * fs_factor;
                     w += char_space;
-                    if cid == 32 {
+                    if nbytes == 1 && cid == 32 {
                         w += word_space;
                     }
                     w_sum += w;
@@ -8018,7 +8222,7 @@ impl<'doc> TextExtractor<'doc> {
                         };
                         match verdict {
                             crate::text::bidi::RunOrder::Visual => {
-                                text = text.chars().rev().collect();
+                                text = crate::text::bidi::reverse_rtl_keep_numbers(&text);
                             },
                             crate::text::bidi::RunOrder::Logical => {
                                 // Detected logical order — leave alone.
@@ -8029,7 +8233,7 @@ impl<'doc> TextExtractor<'doc> {
                                 // left-to-right in text space implies visual
                                 // order for RTL scripts.
                                 if buffer.accumulated_width > 0.0 {
-                                    text = text.chars().rev().collect();
+                                    text = crate::text::bidi::reverse_rtl_keep_numbers(&text);
                                 }
                             },
                         }

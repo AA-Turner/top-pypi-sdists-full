@@ -121,7 +121,6 @@ class FeatureTracker:
         "drift",  # Drift detection
         "remediation",  # Auto-remediation
         "judge",  # LLM-as-Judge
-        "browser_use",  # Browser-use integration
         "realtime",  # Real-time features
     ]
 

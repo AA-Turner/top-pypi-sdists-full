@@ -11,7 +11,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from .launcher import merge_guard_launcher_env
 from .package_shim_status import enrich_package_shim_status_payload
@@ -24,8 +24,19 @@ from .shim_probe import (
 )
 from .stable_digest import stable_digest_hex
 
-if TYPE_CHECKING:
-    from .adapters.base import HarnessContext
+
+class HarnessContextLike(Protocol):
+    @property
+    def home_dir(self) -> Path: ...
+
+    @property
+    def workspace_dir(self) -> Path | None: ...
+
+    @property
+    def guard_home(self) -> Path: ...
+
+
+HarnessContext = HarnessContextLike
 
 _PACKAGE_SHIM_COMMANDS = {
     "bun": "bun",
@@ -48,6 +59,21 @@ _PACKAGE_SHIM_COMMANDS = {
     "yarn": "yarn",
 }
 _PACKAGE_SHIM_MANIFEST = "manifest.json"
+_GUARD_PROFILE_MARKER = "# HOL Guard harness launchers"
+_PACKAGE_PROFILE_MARKER = "# HOL Guard package manager shims"
+# Path fragments that indicate a shim dir lives in an ephemeral location (a test
+# temp dir, the system temp root, etc.). Such paths must never be written into a
+# long-lived shell profile: they vanish and leave broken PATH entries behind.
+# Kept POSIX-only because the profile writers short-circuit on Windows
+# (os.name == "nt") before the transient check can run.
+_TRANSIENT_PATH_FRAGMENTS = (
+    "/var/folders/",
+    "/private/var/folders/",
+    "/tmp/",
+    "/private/tmp/",
+    "/temp/",
+    "pytest-of-",
+)
 _TRUSTED_CLI_LAUNCHER = (
     "import importlib.util, os, sys; "
     "trusted_root = os.path.realpath(sys.argv.pop(1)); "
@@ -79,7 +105,7 @@ _TRUSTED_CLI_LAUNCHER = (
 
 def install_guard_shim(
     harness: str,
-    context: HarnessContext,
+    context: HarnessContextLike,
     *,
     launcher_name: str | None = None,
     display_name: str | None = None,
@@ -112,7 +138,7 @@ def install_guard_shim(
 
 def remove_guard_shim(
     harness: str,
-    context: HarnessContext,
+    context: HarnessContextLike,
     *,
     launcher_name: str | None = None,
     legacy_launcher_names: tuple[str, ...] = (),
@@ -141,7 +167,7 @@ def remove_guard_shim(
     }
 
 
-def _build_python_shim(harness: str, context: HarnessContext, workspace_args: list[str]) -> str:
+def _build_python_shim(harness: str, context: HarnessContextLike, workspace_args: list[str]) -> str:
     command_args = [
         sys.executable,
         *_trusted_python_flags(),
@@ -188,7 +214,7 @@ def _build_windows_script(posix_path: Path) -> str:
     return "\r\n".join(("@echo off", f'"{sys.executable}" "{posix_path}" %*', ""))
 
 
-def _home_override_args(context: HarnessContext) -> list[str]:
+def _home_override_args(context: HarnessContextLike) -> list[str]:
     if not context.home_dir:
         return []
     if context.home_dir.resolve() == Path.home().resolve():
@@ -443,13 +469,12 @@ def install_package_shims(
     existing_manifest = _load_package_shim_manifest(context)
     existing_managers = tuple(
         manager
-        for manager in existing_manifest.get("installed_managers", [])
-        if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
+        for manager in _string_items(existing_manifest.get("installed_managers"))
+        if manager in _PACKAGE_SHIM_COMMANDS
     )
     tracked_managers = tuple(dict.fromkeys([*existing_managers, *normalized_managers]))
-    existing_hashes: dict[str, str] = existing_manifest.get("content_hashes", {})
-    existing_last_tests = existing_manifest.get("last_test_at", {})
-    last_test_at = dict(existing_last_tests) if isinstance(existing_last_tests, dict) else {}
+    existing_hashes = _string_map(existing_manifest.get("content_hashes"))
+    last_test_at = dict(_string_map(existing_manifest.get("last_test_at")))
     installed: list[str] = []
     content_hashes: dict[str, str] = dict(existing_hashes)
     for manager in normalized_managers:
@@ -462,7 +487,7 @@ def install_package_shims(
         windows_path.write_text(_build_windows_script(posix_path), encoding="utf-8")
         content_hashes[manager] = build_shim_content_hash(posix_path.read_bytes())
         installed.append(manager)
-    manifest_payload = {
+    manifest_payload: dict[str, object] = {
         "content_hashes": content_hashes,
         "installed_managers": list(tracked_managers),
         "last_test_at": last_test_at,
@@ -517,16 +542,14 @@ def activate_package_shims(
 def package_shim_status(context: HarnessContext) -> dict[str, object]:
     manifest = _load_package_shim_manifest(context)
     installed_managers = [
-        manager
-        for manager in manifest.get("installed_managers", [])
-        if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
+        manager for manager in _string_items(manifest.get("installed_managers")) if manager in _PACKAGE_SHIM_COMMANDS
     ]
     last_test_at = manifest.get("last_test_at", {})
     normalized_last_tests = last_test_at if isinstance(last_test_at, dict) else {}
     detected_managers, undetected_managers = _detect_system_package_managers(context)
     detected_set = set(detected_managers)
     shim_dir = context.guard_home / "package-shims" / "bin"
-    stored_hashes: dict[str, str] = manifest.get("content_hashes", {})
+    stored_hashes = _string_map(manifest.get("content_hashes"))
     active_managers: list[str] = []
     protected_managers: list[str] = []
     missing_managers: list[str] = []
@@ -624,11 +647,11 @@ def package_shim_cloud_coverage(
     status = package_shim_status(context)
     return {
         "generatedAt": generated_at or datetime.now(timezone.utc).isoformat(),
-        "configuredManagers": list(status["installed_managers"]),
-        "protectedManagers": list(status["protected_managers"]),
-        "missingManagers": list(status["missing_managers"]),
+        "configuredManagers": list(_string_items(status.get("installed_managers"))),
+        "protectedManagers": list(_string_items(status.get("protected_managers"))),
+        "missingManagers": list(_string_items(status.get("missing_managers"))),
         "pathActive": bool(status["path_active"]),
-        "bypasses": list(status["bypasses"]),
+        "bypasses": list(_dict_items(status.get("bypasses"))),
     }
 
 
@@ -639,9 +662,7 @@ def uninstall_package_shims(
 ) -> dict[str, object]:
     manifest = _load_package_shim_manifest(context)
     manifest_managers = tuple(
-        manager
-        for manager in manifest.get("installed_managers", [])
-        if isinstance(manager, str) and manager in _PACKAGE_SHIM_COMMANDS
+        manager for manager in _string_items(manifest.get("installed_managers")) if manager in _PACKAGE_SHIM_COMMANDS
     )
     requested_managers = _normalize_package_shim_managers(managers) if managers else manifest_managers
     shim_dir = context.guard_home / "package-shims" / "bin"
@@ -656,17 +677,13 @@ def uninstall_package_shims(
     remaining = [manager for manager in manifest_managers if manager not in requested_managers]
     manifest_path = _package_shim_manifest_path(context)
     if remaining:
-        manifest_hashes = manifest.get("content_hashes")
+        manifest_hashes = _string_map(manifest.get("content_hashes"))
         content_hashes = {
-            manager: hash_value
-            for manager, hash_value in (manifest_hashes.items() if isinstance(manifest_hashes, dict) else ())
-            if manager in remaining and isinstance(hash_value, str)
+            manager: hash_value for manager, hash_value in manifest_hashes.items() if manager in remaining
         }
-        manifest_last_tests = manifest.get("last_test_at", {})
+        manifest_last_tests = _string_map(manifest.get("last_test_at"))
         last_test_at = {
-            manager: timestamp
-            for manager, timestamp in (manifest_last_tests.items() if isinstance(manifest_last_tests, dict) else ())
-            if manager in remaining and isinstance(timestamp, str)
+            manager: timestamp for manager, timestamp in manifest_last_tests.items() if manager in remaining
         }
         _write_package_shim_manifest(
             context,
@@ -702,9 +719,7 @@ def repair_package_shims(
     selected_managers = set(_normalize_package_shim_managers(managers)) if managers else None
     managers_to_repair: list[str] = []
     path_repair_required: list[str] = []
-    for detail in status.get("manager_details", []):
-        if not isinstance(detail, dict):
-            continue
+    for detail in _dict_items(status.get("manager_details")):
         manager = detail.get("manager")
         if not isinstance(manager, str):
             continue
@@ -745,20 +760,18 @@ def ensure_guard_shim_path_in_shell_profile(context: HarnessContext) -> dict[str
             "restart_shell_required": False,
             "manual_path_required": True,
         }
-    profile_path, export_line = _guard_shim_profile_target(context.home_dir, shim_dir)
-    profile_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = profile_path.read_text(encoding="utf-8") if profile_path.exists() else ""
-    if _profile_already_references_path(existing, shim_dir):
+    if _is_transient_path(shim_dir):
         return {
             "changed": False,
-            "profile_path": str(profile_path),
+            "profile_path": None,
             "shim_dir": str(shim_dir),
-            "restart_shell_required": True,
+            "restart_shell_required": False,
+            "manual_path_required": True,
         }
-    prefix = "" if existing == "" or existing.endswith("\n") else "\n"
-    profile_path.write_text(f"{existing}{prefix}{export_line}\n", encoding="utf-8")
+    profile_path, export_line = _guard_shim_profile_target(context.home_dir, shim_dir)
+    result = _upsert_managed_profile_block(profile_path, export_line, _GUARD_PROFILE_MARKER)
     return {
-        "changed": True,
+        "changed": result["changed"],
         "profile_path": str(profile_path),
         "shim_dir": str(shim_dir),
         "restart_shell_required": True,
@@ -769,29 +782,116 @@ def ensure_package_shim_path_in_shell_profile(context: HarnessContext) -> dict[s
     """Prepend the package shim dir in the user's normal shell profile."""
 
     shim_dir = context.guard_home / "package-shims" / "bin"
-    profile_path, export_line = _package_shim_profile_target(context.home_dir, shim_dir)
-    profile_path.parent.mkdir(parents=True, exist_ok=True)
-    existing = profile_path.read_text(encoding="utf-8") if profile_path.exists() else ""
-    if _profile_already_references_path(existing, shim_dir):
+    if os.name == "nt":
         return {
             "changed": False,
-            "profile_path": str(profile_path),
+            "profile_path": None,
             "shim_dir": str(shim_dir),
-            "restart_shell_required": True,
+            "restart_shell_required": False,
+            "manual_path_required": True,
         }
-    prefix = "" if existing == "" or existing.endswith("\n") else "\n"
-    profile_path.write_text(f"{existing}{prefix}{export_line}\n", encoding="utf-8")
+    if _is_transient_path(shim_dir):
+        return {
+            "changed": False,
+            "profile_path": None,
+            "shim_dir": str(shim_dir),
+            "restart_shell_required": False,
+            "manual_path_required": True,
+        }
+    profile_path, export_line = _package_shim_profile_target(context.home_dir, shim_dir)
+    result = _upsert_managed_profile_block(profile_path, export_line, _PACKAGE_PROFILE_MARKER)
     return {
-        "changed": True,
+        "changed": result["changed"],
         "profile_path": str(profile_path),
         "shim_dir": str(shim_dir),
         "restart_shell_required": True,
     }
 
 
+def _upsert_managed_profile_block(
+    profile_path: Path,
+    export_line: str,
+    marker: str,
+) -> dict[str, object]:
+    """Idempotently write a single Guard-managed block to a shell profile.
+
+    Replaces any existing block tagged with *marker* instead of appending a new
+    one each time, so the profile never accumulates stale Guard PATH entries
+    (for example, one per pytest temp shim dir). Keeps all other profile
+    content untouched. A managed block is exactly two lines: the marker comment
+    followed by the export/fish_add_path line.
+    """
+
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    existing = profile_path.read_text(encoding="utf-8") if profile_path.exists() else ""
+    export_line = export_line.rstrip("\n")
+    marker_line = export_line.split("\n", 1)[0]
+    if marker_line.strip() != marker.strip():
+        # Defensive: caller always passes a block whose first line is the marker.
+        export_line = f"{marker}\n{export_line}"
+    desired = f"{export_line}\n"
+    if existing == desired:
+        return {"changed": False}
+    cleaned = _strip_managed_marker_blocks(existing, marker)
+    if cleaned == "":
+        new_content = desired
+    else:
+        prefix = "" if cleaned.endswith("\n") else "\n"
+        new_content = f"{cleaned}{prefix}{desired}"
+    if new_content == existing:
+        return {"changed": False}
+    profile_path.write_text(new_content, encoding="utf-8")
+    return {"changed": True}
+
+
+def _strip_managed_marker_blocks(content: str, marker: str) -> str:
+    """Remove every Guard-managed block tagged with *marker* from *content*.
+
+    A block is the marker line plus the single line that follows it. To avoid
+    leaving a gap where a block sat, a single blank line immediately preceding
+    or following a removed block is also dropped. Blank-line runs elsewhere in
+    the file (user content) are left untouched.
+    """
+
+    if not content:
+        return ""
+    marker_stripped = marker.strip()
+    lines = content.splitlines()
+    # First pass: locate index ranges [i, i+1] of each marker block.
+    drop_indices: set[int] = set()
+    for index, line in enumerate(lines):
+        if line.strip() == marker_stripped and index + 1 < len(lines):
+            drop_indices.add(index)
+            drop_indices.add(index + 1)
+    if not drop_indices:
+        return content if content.endswith("\n") else content + "\n"
+    # Second pass: keep lines, swallowing one blank line adjacent to a dropped
+    # block so the removal does not leave a stale blank gap.
+    keep: list[str] = []
+    for index, line in enumerate(lines):
+        if index in drop_indices:
+            continue
+        is_blank = line.strip() == ""
+        if is_blank:
+            prev_kept_blank_gap = keep and keep[-1].strip() == ""
+            # Drop this blank only if both neighbors were removed (i.e. the blank
+            # was sandwiched between two removed block lines or sits at the edge
+            # of a removal zone).
+            prev_dropped = (index - 1) in drop_indices
+            next_dropped = (index + 1) in drop_indices
+            edge_of_removal = prev_dropped or next_dropped
+            if edge_of_removal and not prev_kept_blank_gap:
+                continue
+        keep.append(line)
+    cleaned = "\n".join(keep)
+    if cleaned and not cleaned.endswith("\n"):
+        cleaned += "\n"
+    return cleaned
+
+
 def _guard_shim_profile_target(home_dir: Path, shim_dir: Path) -> tuple[Path, str]:
     shell = Path(os.environ.get("SHELL", "")).name
-    marker = "# HOL Guard harness launchers"
+    marker = _GUARD_PROFILE_MARKER
     if shell == "fish":
         return (
             home_dir / ".config" / "fish" / "config.fish",
@@ -810,7 +910,7 @@ def _guard_shim_profile_target(home_dir: Path, shim_dir: Path) -> tuple[Path, st
 
 def _package_shim_profile_target(home_dir: Path, shim_dir: Path) -> tuple[Path, str]:
     shell = Path(os.environ.get("SHELL", "")).name
-    marker = "# HOL Guard package manager shims"
+    marker = _PACKAGE_PROFILE_MARKER
     if shell == "fish":
         return (
             home_dir / ".config" / "fish" / "config.fish",
@@ -825,6 +925,31 @@ def _package_shim_profile_target(home_dir: Path, shim_dir: Path) -> tuple[Path, 
         home_dir / ".zshrc",
         f'{marker}\nexport PATH="{shim_dir}:$PATH"',
     )
+
+
+def _is_transient_path(path: Path) -> bool:
+    """Return True when *path* lives in an ephemeral temp/test location.
+
+    Such paths must not be persisted into a user shell profile because they are
+    cleaned up, leaving broken PATH entries that shadow the real binaries.
+    Besides the known static temp roots, any path under the process's own
+    ``TMPDIR``/``TEMP``/``TMP`` is treated as transient so non-standard temp
+    roots on Linux or CI cannot bypass the guard.
+    """
+
+    text = str(path)
+    if any(fragment in text for fragment in _TRANSIENT_PATH_FRAGMENTS):
+        return True
+    for env_name in ("TMPDIR", "TEMP", "TMP"):
+        env_value = os.environ.get(env_name, "").strip()
+        if env_value:
+            try:
+                if path.resolve().is_relative_to(Path(env_value).expanduser().resolve()):
+                    return True
+            except (OSError, ValueError):
+                if text.startswith(env_value):
+                    return True
+    return False
 
 
 def _profile_already_references_path(content: str, shim_dir: Path) -> bool:
@@ -965,6 +1090,24 @@ def _load_package_shim_manifest(context: HarnessContext) -> dict[str, object]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _dict_items(value: object) -> tuple[dict[str, object], ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, dict))
+
+
+def _string_items(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(item for item in value if isinstance(item, str))
+
+
+def _string_map(value: object) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    return {key: item for key, item in value.items() if isinstance(key, str) and isinstance(item, str)}
+
+
 def _write_package_shim_manifest(context: HarnessContext, payload: dict[str, object]) -> None:
     _package_shim_manifest_path(context).write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
 
@@ -976,8 +1119,7 @@ def _record_package_shim_test_results(
     tested_at: str | None = None,
 ) -> None:
     manifest = _load_package_shim_manifest(context)
-    last_test_at = manifest.get("last_test_at")
-    normalized_last_tests = dict(last_test_at) if isinstance(last_test_at, dict) else {}
+    normalized_last_tests = dict(_string_map(manifest.get("last_test_at")))
     timestamp = tested_at or datetime.now(timezone.utc).isoformat()
     for result in manager_results:
         manager = result.get("manager")
@@ -1019,16 +1161,15 @@ def probe_package_shim_intercepts(
     """Execute installed package-manager shims to prove intercept wiring is live."""
 
     status = package_shim_status(context)
-    installed = {str(manager) for manager in status.get("installed_managers", []) if isinstance(manager, str)}
-    protected = {str(manager) for manager in status.get("protected_managers", []) if isinstance(manager, str)}
+    installed = set(_string_items(status.get("installed_managers")))
+    protected = set(_string_items(status.get("protected_managers")))
     tested_managers = list(managers or tuple(sorted(installed)))
     path_repair_required = [manager for manager in tested_managers if manager in installed and manager not in protected]
     manager_results: list[dict[str, object]] = []
-    manager_details = status.get("manager_details", [])
     detail_by_manager = {
         str(item.get("manager")): item
-        for item in manager_details
-        if isinstance(item, dict) and isinstance(item.get("manager"), str)
+        for item in _dict_items(status.get("manager_details"))
+        if isinstance(item.get("manager"), str)
     }
     target_workspace = workspace_dir or context.workspace_dir or context.home_dir
     shim_dir = context.guard_home / "package-shims" / "bin"

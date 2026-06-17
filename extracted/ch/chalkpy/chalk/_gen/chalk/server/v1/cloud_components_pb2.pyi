@@ -475,7 +475,7 @@ class DataPlaneRedis(_message.Message):
     ) -> None: ...
 
 class DataplaneController(_message.Message):
-    __slots__ = ("tier", "available_tiers", "node_pool", "restricted_node_pool")
+    __slots__ = ("tier", "available_tiers", "node_pool", "restricted_node_pool", "host_pools")
     class Tier(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TIER_UNSPECIFIED: _ClassVar[DataplaneController.Tier]
@@ -517,16 +517,37 @@ class DataplaneController(_message.Message):
     AVAILABLE_TIERS_FIELD_NUMBER: _ClassVar[int]
     NODE_POOL_FIELD_NUMBER: _ClassVar[int]
     RESTRICTED_NODE_POOL_FIELD_NUMBER: _ClassVar[int]
+    HOST_POOLS_FIELD_NUMBER: _ClassVar[int]
     tier: DataplaneController.Tier
     available_tiers: _containers.RepeatedCompositeFieldContainer[DataplaneController.TierInfo]
     node_pool: str
     restricted_node_pool: str
+    host_pools: _containers.RepeatedCompositeFieldContainer[ChalkHostPool]
     def __init__(
         self,
         tier: _Optional[_Union[DataplaneController.Tier, str]] = ...,
         available_tiers: _Optional[_Iterable[_Union[DataplaneController.TierInfo, _Mapping]]] = ...,
         node_pool: _Optional[str] = ...,
         restricted_node_pool: _Optional[str] = ...,
+        host_pools: _Optional[_Iterable[_Union[ChalkHostPool, _Mapping]]] = ...,
+    ) -> None: ...
+
+class ChalkHostPool(_message.Message):
+    __slots__ = ("name", "count", "cpu", "memory")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    count: int
+    cpu: str
+    memory: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        count: _Optional[int] = ...,
+        cpu: _Optional[str] = ...,
+        memory: _Optional[str] = ...,
     ) -> None: ...
 
 class DeploymentManifest(_message.Message):

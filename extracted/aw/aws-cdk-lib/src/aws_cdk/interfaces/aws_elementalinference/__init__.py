@@ -35,6 +35,71 @@ from .. import IEnvironmentAware as _IEnvironmentAware_f39049ee
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_elementalinference.DictionaryReference",
+    jsii_struct_bases=[],
+    name_mapping={"dictionary_arn": "dictionaryArn", "dictionary_id": "dictionaryId"},
+)
+class DictionaryReference:
+    def __init__(
+        self,
+        *,
+        dictionary_arn: builtins.str,
+        dictionary_id: builtins.str,
+    ) -> None:
+        '''A reference to a Dictionary resource.
+
+        :param dictionary_arn: The ARN of the Dictionary resource.
+        :param dictionary_id: The Id of the Dictionary resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_elementalinference as interfaces_elementalinference
+            
+            dictionary_reference = interfaces_elementalinference.DictionaryReference(
+                dictionary_arn="dictionaryArn",
+                dictionary_id="dictionaryId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__267126a85f62e9b4cd704d1a0c71b66b7253ae25af05662dcec780cade69a9c1)
+            check_type(argname="argument dictionary_arn", value=dictionary_arn, expected_type=type_hints["dictionary_arn"])
+            check_type(argname="argument dictionary_id", value=dictionary_id, expected_type=type_hints["dictionary_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "dictionary_arn": dictionary_arn,
+            "dictionary_id": dictionary_id,
+        }
+
+    @builtins.property
+    def dictionary_arn(self) -> builtins.str:
+        '''The ARN of the Dictionary resource.'''
+        result = self._values.get("dictionary_arn")
+        assert result is not None, "Required property 'dictionary_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def dictionary_id(self) -> builtins.str:
+        '''The Id of the Dictionary resource.'''
+        result = self._values.get("dictionary_id")
+        assert result is not None, "Required property 'dictionary_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DictionaryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_elementalinference.FeedReference",
     jsii_struct_bases=[],
     name_mapping={"feed_arn": "feedArn", "feed_id": "feedId"},
@@ -94,6 +159,53 @@ class FeedReference:
         )
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_elementalinference.IDictionaryRef"
+)
+class IDictionaryRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dictionary.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dictionaryRef")
+    def dictionary_ref(self) -> "DictionaryReference":
+        '''(experimental) A reference to a Dictionary resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDictionaryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Dictionary.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_elementalinference.IDictionaryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dictionaryRef")
+    def dictionary_ref(self) -> "DictionaryReference":
+        '''(experimental) A reference to a Dictionary resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DictionaryReference", jsii.get(self, "dictionaryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDictionaryRef).__jsii_proxy_class__ = lambda : _IDictionaryRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_elementalinference.IFeedRef")
 class IFeedRef(
     _constructs_77d1e7e8.IConstruct,
@@ -140,11 +252,21 @@ typing.cast(typing.Any, IFeedRef).__jsii_proxy_class__ = lambda : _IFeedRefProxy
 
 
 __all__ = [
+    "DictionaryReference",
     "FeedReference",
+    "IDictionaryRef",
     "IFeedRef",
 ]
 
 publication.publish()
+
+def _typecheckingstub__267126a85f62e9b4cd704d1a0c71b66b7253ae25af05662dcec780cade69a9c1(
+    *,
+    dictionary_arn: builtins.str,
+    dictionary_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__dce19c0c5001c89e98590ada4569f19f0ff03b61eaa9b881f707c8de291d35ee(
     *,
@@ -154,5 +276,5 @@ def _typecheckingstub__dce19c0c5001c89e98590ada4569f19f0ff03b61eaa9b881f707c8de2
     """Type checking stubs"""
     pass
 
-for cls in [IFeedRef]:
+for cls in [IDictionaryRef, IFeedRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

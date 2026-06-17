@@ -11,12 +11,12 @@ import sqlite3
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from hashlib import pbkdf2_hmac, sha256
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TypeVar
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -157,7 +157,7 @@ from .store_threat_intel import (
     threat_intel_index_statements,
     threat_intel_matches_schema_statement,
 )
-from .types import CapabilitySet
+from .types import CapabilitySet, TransportKind
 
 _SYNC_TOKEN_REF = "guard-cloud-token"
 _POLICY_INTEGRITY_KEY_REF = "guard-policy-integrity-key"
@@ -379,6 +379,7 @@ class SystemKeyringSecretStore:
 
     _MACOS_KEYCHAIN_HEALTH_CACHE_TTL_SECONDS = 5.0
     _macos_keychain_health_cache: tuple[float, bool] | None = None
+    _native_macos_security_reads_cache: tuple[int, bool] | None = None
 
     def __init__(self, service_name: str) -> None:
         self.service_name = service_name
@@ -499,8 +500,27 @@ class SystemKeyringSecretStore:
         value = keyring_module.get_password(self.service_name, secret_id)
         return value if isinstance(value, str) and value else None
 
-    def get_secret_with_timeout(self, secret_id: str, *, timeout_seconds: float) -> str | None:
+    @classmethod
+    def _supports_native_macos_security_reads(cls) -> bool:
         if sys.platform != "darwin":
+            return False
+        loader_ref = cls._load_keyring_module
+        loader_id = id(loader_ref)
+        cached = cls._native_macos_security_reads_cache
+        if cached is not None and cached[0] == loader_id:
+            return cached[1]
+        try:
+            keyring_module = loader_ref()
+        except Exception:
+            cls._native_macos_security_reads_cache = (loader_id, False)
+            return False
+        module_name = getattr(keyring_module, "__name__", "")
+        supported = module_name == "keyring"
+        cls._native_macos_security_reads_cache = (loader_id, supported)
+        return supported
+
+    def get_secret_with_timeout(self, secret_id: str, *, timeout_seconds: float) -> str | None:
+        if not self._supports_native_macos_security_reads():
             return self.get_secret(secret_id)
         security_path = Path("/usr/bin/security")
         if not security_path.exists():
@@ -809,6 +829,8 @@ _OAUTH_HEALTH_CACHE_TTL_SECONDS = 60.0
 _OAUTH_HEALTH_DEGRADED_CACHE_TTL_SECONDS = 15.0
 _OAUTH_STORAGE_REPAIR_MIN_INTERVAL_SECONDS = 3600.0
 _OAUTH_KEYCHAIN_ACCESS_STATE_FILE = "oauth-keychain-access.json"
+_POLICY_INTEGRITY_PRIMARY_SECRET_TIMEOUT_SECONDS = 1.0
+_POLICY_INTEGRITY_CACHE_TTL_SECONDS = 60.0
 _store_logger = logging.getLogger(__name__)
 _OAUTH_SECRET_PAYLOAD_PROCESS_CACHE: dict[tuple[str, str, str], str] = {}
 _OAUTH_HEALTH_RESULT_PROCESS_CACHE: dict[tuple[str, str], tuple[float, dict[str, object]]] = {}
@@ -833,6 +855,8 @@ class GuardStore:
         self._oauth_secret_store = _build_oauth_secret_store(self.guard_home)
         self._policy_integrity_secret_store = _build_policy_integrity_secret_store()
         self._cached_oauth_secret_payload: tuple[str, str, str] | None = None
+        self._cached_policy_integrity_secret_material: tuple[str | None, float, tuple[bytes, str]] | None = None
+        self._cached_policy_integrity_control_state: tuple[str | None, float, dict[str, object]] | None = None
         self._sync_token_ref = self._build_scoped_secret_ref(_SYNC_TOKEN_REF)
         self._policy_integrity_key_ref = self._build_scoped_secret_ref(_POLICY_INTEGRITY_KEY_REF)
         self._policy_integrity_control_ref = self._build_scoped_secret_ref(_POLICY_INTEGRITY_CONTROL_REF)
@@ -903,6 +927,21 @@ class GuardStore:
             )
         return self._get_secret_from_store(store, secret_id)
 
+    def _get_policy_integrity_secret_from_store(self, secret_id: str) -> str | None:
+        secret_store = self._policy_integrity_secret_store
+        if secret_store is None:
+            return None
+        if isinstance(secret_store, SystemKeyringSecretStore):
+            return secret_store.get_secret_with_timeout(
+                secret_id,
+                timeout_seconds=_POLICY_INTEGRITY_PRIMARY_SECRET_TIMEOUT_SECONDS,
+            )
+        return self._get_secret_from_store(secret_store, secret_id)
+
+    def _clear_policy_integrity_cache(self) -> None:
+        self._cached_policy_integrity_secret_material = None
+        self._cached_policy_integrity_control_state = None
+
     def _get_secret_candidates(
         self,
         secret_store: SecretStore,
@@ -955,17 +994,22 @@ class GuardStore:
         return _secret_store_backend_name(self._policy_integrity_secret_store)
 
     def _policy_integrity_secret_material(self, *, create: bool) -> tuple[bytes | None, str | None]:
+        cached = self._cached_policy_integrity_secret_material
+        marker = self._policy_integrity_cache_marker()
+        now = time.monotonic()
+        if cached is not None and cached[0] == marker and (now - cached[1]) < _POLICY_INTEGRITY_CACHE_TTL_SECONDS:
+            return cached[2]
         secret_store = self._policy_integrity_secret_store
         if secret_store is None:
             return None, None
-        encoded_key = self._get_secret_from_store(secret_store, self._policy_integrity_key_ref)
+        encoded_key = self._get_policy_integrity_secret_from_store(self._policy_integrity_key_ref)
         if encoded_key is None and create:
             generated_key = base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")
             try:
                 secret_store.set_secret(self._policy_integrity_key_ref, generated_key)
             except Exception:
                 return None, None
-            encoded_key = self._get_secret_from_store(secret_store, self._policy_integrity_key_ref)
+            encoded_key = self._get_policy_integrity_secret_from_store(self._policy_integrity_key_ref)
         if encoded_key is None:
             return None, None
         try:
@@ -975,6 +1019,7 @@ class GuardStore:
         if len(raw_key) != 32:
             return None, None
         key_id = self._versioned_secret_ref(self._policy_integrity_key_ref, sha256(raw_key).hexdigest())
+        self._cached_policy_integrity_secret_material = (marker, now, (raw_key, key_id))
         return raw_key, key_id
 
     @staticmethod
@@ -1014,16 +1059,23 @@ class GuardStore:
         }
 
     def _load_policy_integrity_control_state(self, *, create: bool) -> dict[str, object] | None:
+        cached = self._cached_policy_integrity_control_state
+        marker = self._policy_integrity_cache_marker()
+        now = time.monotonic()
+        if cached is not None and cached[0] == marker and (now - cached[1]) < _POLICY_INTEGRITY_CACHE_TTL_SECONDS:
+            return dict(cached[2])
         secret_store = self._policy_integrity_secret_store
         if secret_store is None:
             return None
-        payload_json = self._get_secret_from_store(secret_store, self._policy_integrity_control_ref)
+        payload_json = self._get_policy_integrity_secret_from_store(self._policy_integrity_control_ref)
         payload: dict[str, object] | None = None
         if payload_json is not None:
             try:
                 payload = self._normalize_policy_integrity_control_state(json.loads(payload_json))
             except json.JSONDecodeError:
                 payload = None
+        if payload is not None:
+            self._cached_policy_integrity_control_state = (marker, now, dict(payload))
         if payload is not None or not create:
             return payload
         payload = self._default_policy_integrity_control_state()
@@ -1031,13 +1083,14 @@ class GuardStore:
             return None
         return self._load_policy_integrity_control_state(create=False)
 
-    def _store_policy_integrity_control_state(self, payload: dict[str, object]) -> bool:
+    def _store_policy_integrity_control_state(self, payload: Mapping[str, object]) -> bool:
         secret_store = self._policy_integrity_secret_store
         if secret_store is None:
             return False
         normalized = self._normalize_policy_integrity_control_state(payload)
         if normalized is None:
             return False
+        self._cached_policy_integrity_control_state = None
         try:
             secret_store.set_secret(
                 self._policy_integrity_control_ref,
@@ -1045,9 +1098,14 @@ class GuardStore:
             )
         except Exception:
             return False
+        self._cached_policy_integrity_control_state = (
+            self._policy_integrity_cache_marker(),
+            time.monotonic(),
+            dict(normalized),
+        )
         return True
 
-    def _finalize_policy_integrity_control_state(self, payload: dict[str, object]) -> None:
+    def _finalize_policy_integrity_control_state(self, payload: Mapping[str, object]) -> None:
         self._store_policy_integrity_control_state(payload)
 
     def _policy_integrity_path_warnings(self) -> list[str]:
@@ -1087,9 +1145,24 @@ class GuardStore:
         return payload if isinstance(payload, dict) else None
 
     @staticmethod
+    def _load_policy_integrity_state_cache_marker(connection: sqlite3.Connection) -> str | None:
+        row = connection.execute(
+            "select payload_json from sync_state where state_key = ?",
+            (_POLICY_INTEGRITY_STATE_KEY,),
+        ).fetchone()
+        if row is None:
+            return None
+        payload_json = row["payload_json"]
+        return str(payload_json) if isinstance(payload_json, str) and payload_json else None
+
+    def _policy_integrity_cache_marker(self) -> str | None:
+        with self._connect() as connection:
+            return self._load_policy_integrity_state_cache_marker(connection)
+
+    @staticmethod
     def _store_policy_integrity_state(
         connection: sqlite3.Connection,
-        payload: dict[str, object],
+        payload: Mapping[str, object],
         *,
         now: str,
     ) -> None:
@@ -1156,10 +1229,12 @@ class GuardStore:
         force_sign_decision_ids: set[int] | None = None,
         harness: str | None = None,
     ) -> dict[str, object]:
-        current_generation = int(trusted_state["generation"])
+        current_generation = _mapping_int(trusted_state, "generation")
+        if current_generation is None:
+            raise RuntimeError("Guard policy integrity control state is invalid.")
         next_generation = current_generation + 1
         sign_ids = force_sign_decision_ids or set()
-        pending_state = {
+        pending_state: dict[str, object] = {
             "cutover_complete": True,
             "generation": current_generation,
             "pending_generation": next_generation,
@@ -1172,7 +1247,7 @@ class GuardStore:
             should_sign = decision_id in sign_ids
             if not should_sign:
                 integrity_result = verify_local_policy_row(
-                    row,
+                    _row_mapping(row),
                     key=key,
                     key_id=key_id,
                     degraded_mode=False,
@@ -1182,7 +1257,7 @@ class GuardStore:
             if not should_sign:
                 continue
             signed = sign_local_policy_row(
-                row,
+                _row_mapping(row),
                 key,
                 key_id=key_id,
                 signed_at=now,
@@ -1224,11 +1299,14 @@ class GuardStore:
         key_id: str,
         trusted_state: dict[str, object],
     ) -> dict[str, object]:
-        current_generation = int(trusted_state["generation"])
+        current_generation = _mapping_int(trusted_state, "generation")
+        if current_generation is None:
+            raise RuntimeError("Guard policy integrity control state is invalid.")
         pending_generation = trusted_state.get("pending_generation")
         if not isinstance(pending_generation, int) or pending_generation <= current_generation:
             return trusted_state
         rows = self._load_local_policy_rows(connection)
+        next_state: dict[str, object]
         if not rows:
             next_state = {
                 "cutover_complete": True,
@@ -1241,7 +1319,7 @@ class GuardStore:
             current_valid = 0
             for row in rows:
                 pending_result = verify_local_policy_row(
-                    row,
+                    _row_mapping(row),
                     key=key,
                     key_id=key_id,
                     degraded_mode=False,
@@ -1251,7 +1329,7 @@ class GuardStore:
                     pending_valid += 1
                     continue
                 current_result = verify_local_policy_row(
-                    row,
+                    _row_mapping(row),
                     key=key,
                     key_id=key_id,
                     degraded_mode=False,
@@ -1348,7 +1426,7 @@ class GuardStore:
         if is_remote_policy_source(source):
             return PolicyIntegrityVerificationResult(status="valid")
         return verify_local_policy_row(
-            row,
+            _row_mapping(row),
             key=key,
             key_id=key_id,
             degraded_mode=mode != "protected",
@@ -2438,6 +2516,39 @@ class GuardStore:
         with self._connect() as connection:
             return self._cloud_workspace_id_from_connection(connection)
 
+    def next_aibom_trust_attestation_sequence(self, now: str) -> int:
+        state_key = "aibom_trust_attestation_sequence"
+        with self._connect() as connection:
+            connection.execute("begin immediate")
+            row = connection.execute(
+                "select payload_json from sync_state where state_key = ?",
+                (state_key,),
+            ).fetchone()
+            current_sequence = 0
+            if row is not None:
+                try:
+                    payload = json.loads(str(row["payload_json"]))
+                except json.JSONDecodeError:
+                    payload = None
+                if isinstance(payload, dict):
+                    raw_sequence = payload.get("sequence")
+                    if isinstance(raw_sequence, int) and raw_sequence >= 0:
+                        current_sequence = raw_sequence
+                    elif isinstance(raw_sequence, str) and raw_sequence.isdigit():
+                        current_sequence = int(raw_sequence)
+            next_sequence = current_sequence + 1
+            connection.execute(
+                """
+                insert into sync_state (state_key, payload_json, updated_at)
+                values (?, ?, ?)
+                on conflict(state_key) do update set
+                  payload_json = excluded.payload_json,
+                  updated_at = excluded.updated_at
+                """,
+                (state_key, json.dumps({"sequence": next_sequence}), now),
+            )
+        return next_sequence
+
     def upsert_policy(
         self,
         decision: PolicyDecision,
@@ -2510,13 +2621,16 @@ class GuardStore:
                 if key is not None and key_id is not None:
                     trusted_state = self._load_policy_integrity_control_state(create=True)
                     if trusted_state is not None:
+                        lastrowid = cursor.lastrowid
+                        if lastrowid is None:
+                            raise RuntimeError("Guard policy decision row was not inserted.")
                         next_control_state = self._advance_policy_integrity_generation(
                             connection,
                             now=now,
                             key=key,
                             key_id=key_id,
                             trusted_state=trusted_state,
-                            force_sign_decision_ids={int(cursor.lastrowid)},
+                            force_sign_decision_ids={lastrowid},
                         )
                         connection.commit()
         if next_control_state is not None:
@@ -2693,7 +2807,7 @@ class GuardStore:
                     mode=str(state.get("mode") or "degraded"),
                     key=key,
                     key_id=key_id,
-                    trusted_generation=(int(state["generation"]) if isinstance(state.get("generation"), int) else None),
+                    trusted_generation=_mapping_int(state, "generation"),
                 )
                 if integrity_result.status == "valid":
                     selected_payload = self._policy_row_payload(
@@ -3616,14 +3730,13 @@ class GuardStore:
                     source_context_index=source_context_index,
                 )
                 if not is_remote_policy_source(str(row["source"])):
+                    trusted_generation = _mapping_int(state, "generation")
                     integrity_result = self._policy_integrity_result_for_row(
                         row,
                         mode=str(state.get("mode") or "degraded"),
                         key=key,
                         key_id=key_id,
-                        trusted_generation=(
-                            int(state["generation"]) if isinstance(state.get("generation"), int) else None
-                        ),
+                        trusted_generation=trusted_generation,
                     )
                     payload["integrity_status"] = integrity_result.status
                     payload["integrity_message"] = integrity_result.message
@@ -3723,12 +3836,13 @@ class GuardStore:
         counts = {status: 0 for status in _POLICY_INTEGRITY_STATUSES}
         items: list[dict[str, object]] = []
         for row in self._load_local_policy_rows(connection, harness=harness):
+            trusted_generation = _mapping_int(state, "generation")
             integrity_result = self._policy_integrity_result_for_row(
                 row,
                 mode=str(state.get("mode") or "degraded"),
                 key=key,
                 key_id=key_id,
-                trusted_generation=(int(state["generation"]) if isinstance(state.get("generation"), int) else None),
+                trusted_generation=trusted_generation,
             )
             counts[integrity_result.status] += 1
             item = self._policy_decision_dict_from_row(connection, row)
@@ -3804,9 +3918,10 @@ class GuardStore:
         with self._connect() as connection:
             state, _counts, items = self._policy_integrity_scan(connection, now=current_time, harness=harness)
             invalid_ids = [
-                int(item["decision_id"])
+                decision_id
                 for item in items
-                if item.get("integrity_status") != "valid" and isinstance(item.get("decision_id"), int)
+                if item.get("integrity_status") != "valid"
+                and (decision_id := _int_value(item.get("decision_id"))) is not None
             ]
             cleared = 0
             if clear_invalid and invalid_ids:
@@ -3887,11 +4002,11 @@ class GuardStore:
             for row in rows:
                 decision_id = int(row["decision_id"])
                 integrity_result = verify_local_policy_row(
-                    row,
+                    _row_mapping(row),
                     key=key,
                     key_id=key_id,
                     degraded_mode=False,
-                    trusted_generation=int(trusted_state["generation"]),
+                    trusted_generation=_mapping_int(trusted_state, "generation"),
                 )
                 if integrity_result.status not in _POLICY_INTEGRITY_MIGRATION_ELIGIBLE_STATUSES:
                     if integrity_result.status == "rollback_detected":
@@ -4238,7 +4353,7 @@ class GuardStore:
         with self._connect() as connection:
             self._set_sync_credentials_in_connection(connection, sync_url, token, now, workspace_id=workspace_id)
 
-    def set_sync_payload(self, state_key: str, payload: dict[str, object] | list[object], now: str) -> None:
+    def set_sync_payload(self, state_key: str, payload: Mapping[str, object] | Sequence[object], now: str) -> None:
         with self._connect() as connection:
             connection.execute(
                 """
@@ -4727,6 +4842,8 @@ class GuardStore:
             health.update(cached_health)
             return health
         secret_payload = self._load_oauth_secret_payload(payload, promote=False, allow_primary=False)
+        if secret_payload is None and self.repair_oauth_local_credential_storage_from_primary():
+            secret_payload = self._load_oauth_secret_payload(payload, promote=False, allow_primary=False)
         if secret_payload is None:
             health["state"] = "degraded"
             self._remember_oauth_health_result(secret_hash, health)
@@ -4863,10 +4980,9 @@ class GuardStore:
         repaired_payload = self._load_oauth_secret_payload(payload, promote=True, allow_primary=True)
         if repaired_payload is None:
             return False
-        cache_key = self._oauth_health_process_cache_key(payload.get(_OAUTH_LOCAL_CREDENTIALS_HASH_KEY))
+        cache_key = self._oauth_health_process_cache_key(_string_value(payload.get(_OAUTH_LOCAL_CREDENTIALS_HASH_KEY)))
         if cache_key is not None:
             _OAUTH_HEALTH_RESULT_PROCESS_CACHE.pop(cache_key, None)
-        self._clear_oauth_secret_payload_cache()
         return True
 
     def _load_oauth_secret_payload(
@@ -5379,22 +5495,20 @@ class GuardStore:
         previous_token_hash = (
             self._credential_payload_token_hash(previous_payload) if previous_payload is not None else None
         )
-        previous_workspace_id = previous_payload.get("workspace_id") if previous_payload is not None else None
-        previous_workspace = (
-            previous_workspace_id.strip()
-            if isinstance(previous_workspace_id, str) and previous_workspace_id.strip()
-            else None
+        previous_workspace_id = (
+            _string_value(previous_payload.get("workspace_id")) if previous_payload is not None else None
         )
+        previous_workspace = previous_workspace_id.strip() if previous_workspace_id is not None else None
         effective_workspace_id = normalized_workspace_id
         can_preserve_workspace = (
             previous_sync_url == validated_sync_url
             and previous_token_hash is not None
             and previous_token_hash == token_hash
-            and isinstance(previous_workspace_id, str)
+            and previous_workspace_id is not None
             and previous_workspace_id.strip()
         )
         if effective_workspace_id is None and can_preserve_workspace:
-            effective_workspace_id = previous_workspace_id.strip()
+            effective_workspace_id = previous_workspace
         workspace_changed = (
             previous_workspace is not None
             and effective_workspace_id is not None
@@ -6146,9 +6260,33 @@ def _family_key_value(family_key: str) -> str:
     return family_key
 
 
-def _chunks(values: list[str], size: int) -> Iterator[list[str]]:
+def _row_mapping(row: sqlite3.Row) -> dict[str, object]:
+    keys = row.keys()
+    return {key: row[key] for key in keys}
+
+
+def _string_value(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _int_value(value: object) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    return None
+
+
+def _mapping_int(payload: Mapping[str, object], key: str) -> int | None:
+    return _int_value(payload.get(key))
+
+
+_ChunkT = TypeVar("_ChunkT")
+
+
+def _chunks(values: Sequence[_ChunkT], size: int) -> Iterator[list[_ChunkT]]:
     for index in range(0, len(values), size):
-        yield values[index : index + size]
+        yield list(values[index : index + size])
 
 
 def _now() -> str:
@@ -6165,7 +6303,11 @@ def _string_list(value: object) -> list[str]:
     return [str(item) for item in value if isinstance(item, str) and item]
 
 
-def _transport_value(value: object) -> str:
-    if isinstance(value, str) and value in {"local", "remote", "hybrid"}:
-        return value
+def _transport_value(value: object) -> TransportKind:
+    if value == "local":
+        return "local"
+    if value == "remote":
+        return "remote"
+    if value == "hybrid":
+        return "hybrid"
     return "local"

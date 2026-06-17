@@ -1207,6 +1207,11 @@ def test_setup_hooks_install_claude_code_all_events():
             assert "PreToolUse" in settings["hooks"]
             assert "SessionStart" in settings["hooks"]
             assert "Stop" in settings["hooks"]
+            # Worktree hooks are provider hooks in Claude Code (the hook must
+            # create/remove the worktree) — registering aiwatch there breaks
+            # worktree creation, so they must never be installed.
+            assert "WorktreeCreate" not in settings["hooks"]
+            assert "WorktreeRemove" not in settings["hooks"]
 
             hook_script = claude_dir / "hooks" / "runlayer-hook.sh"
             assert hook_script.exists()

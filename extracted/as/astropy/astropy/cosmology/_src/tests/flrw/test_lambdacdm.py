@@ -3,6 +3,7 @@
 """Testing :mod:`astropy.cosmology.flrw.lambdacdm`."""
 
 import pathlib
+import re
 
 import numpy as np
 import pytest
@@ -16,7 +17,7 @@ from astropy.cosmology._src.tests.helper import get_redshift_methods
 from astropy.cosmology._src.tests.test_core import invalid_zs, valid_zs
 from astropy.table import QTable
 from astropy.utils.compat.optional_deps import HAS_SCIPY
-from astropy.utils.exceptions import AstropyUserWarning
+from astropy.utils.exceptions import AstropyDeprecationWarning, AstropyUserWarning
 
 from .test_base import FlatFLRWMixinTest, FLRWTest
 
@@ -290,11 +291,11 @@ def test_comoving_distance_broadcast(cosmo):
     output_shape = np.broadcast(z1, z2).shape
 
     # Check compatible array arguments return an array with the correct shape
-    assert cosmo._comoving_distance_z1z2(z1, z2).shape == output_shape
+    assert cosmo.comoving_distance(z1, z2).shape == output_shape
 
     # Check incompatible array arguments raise an error
     with pytest.raises(ValueError, match="z1 and z2 have different shapes"):
-        cosmo._comoving_distance_z1z2(z1, z3)
+        cosmo.comoving_distance(z1, z3)
 
 
 @pytest.mark.skipif(not HAS_SCIPY, reason="test requires scipy")
@@ -436,7 +437,7 @@ def test_comoving_transverse_distance_z1z2():
     z2 = 2, 1, 1, 2.5, 1.1
 
     assert u.allclose(
-        tcos._comoving_distance_z1z2(z1, z2),
+        tcos.comoving_distance(z1, z2),
         tcos._comoving_transverse_distance_z1z2(z1, z2),
     )
 
@@ -458,11 +459,11 @@ def test_comoving_transverse_distance_z1z2():
     z2 = 2, 1, 1, 2.5, 1.1
 
     assert u.allclose(
-        tcos._comoving_distance_z1z2(z1, z2),
+        tcos.comoving_distance(z1, z2),
         tcos._comoving_transverse_distance_z1z2(z1, z2),
     )
     # Test non-flat cases to avoid simply testing
-    # comoving_distance_z1z2. Test array, array case.
+    # comoving_distance. Test array, array case.
     tcos = LambdaCDM(100, 0.3, 0.5, Tcmb0=0.0)
     results = (
         3535.931375645655,
@@ -495,20 +496,18 @@ def test_angular_diameter_distance_z1z2():
     tcos = FlatLambdaCDM(70.4, 0.272, Tcmb0=0.0)
 
     with pytest.raises(ValueError):  # test diff size z1, z2 fail
-        tcos.angular_diameter_distance_z1z2([1, 2], [3, 4, 5])
+        tcos.angular_diameter_distance([1, 2], [3, 4, 5])
 
     # Tests that should actually work, target values computed with
     # http://www.astro.multivax.de:8000/phillip/angsiz_prog/README.HTML
     # Kayser, Helbig, and Schramm (Astron.Astrophys. 318 (1997) 680-686)
-    assert u.allclose(
-        tcos.angular_diameter_distance_z1z2(1, 2), 646.22968662822018 * u.Mpc
-    )
+    assert u.allclose(tcos.angular_diameter_distance(1, 2), 646.22968662822018 * u.Mpc)
 
     z1 = 2  # Separate test for z2<z1, returns negative value with warning
     z2 = 1
     results = -969.34452994 * u.Mpc
     with pytest.warns(AstropyUserWarning, match="less than first redshift"):
-        assert u.allclose(tcos.angular_diameter_distance_z1z2(z1, z2), results)
+        assert u.allclose(tcos.angular_diameter_distance(z1, z2), results)
 
     z1 = 0, 0, 0.5, 1
     z2 = 2, 1, 2.5, 1.1
@@ -519,23 +518,26 @@ def test_angular_diameter_distance_z1z2():
         115.72768186186921,
     ) * u.Mpc
 
-    assert u.allclose(tcos.angular_diameter_distance_z1z2(z1, z2), results)
+    assert u.allclose(tcos.angular_diameter_distance(z1, z2), results)
 
     z1 = 0.1
     z2 = 0.1, 0.2, 0.5, 1.1, 2
     results = (0.0, 332.09893173, 986.35635069, 1508.37010062, 1621.07937976) * u.Mpc
-    assert u.allclose(tcos.angular_diameter_distance_z1z2(0.1, z2), results)
+    assert u.allclose(tcos.angular_diameter_distance(z1, z2), results)
 
     # Non-flat (positive Ok0) test
     tcos = LambdaCDM(H0=70.4, Om0=0.2, Ode0=0.5, Tcmb0=0.0)
-    assert u.allclose(
-        tcos.angular_diameter_distance_z1z2(1, 2), 620.1175337852428 * u.Mpc
-    )
+    assert u.allclose(tcos.angular_diameter_distance(1, 2), 620.1175337852428 * u.Mpc)
     # Non-flat (negative Ok0) test
     tcos = LambdaCDM(H0=100, Om0=2, Ode0=1, Tcmb0=0.0)
-    assert u.allclose(
-        tcos.angular_diameter_distance_z1z2(1, 2), 228.42914659246014 * u.Mpc
-    )
+    assert u.allclose(tcos.angular_diameter_distance(1, 2), 228.42914659246014 * u.Mpc)
+
+    # Test deprecated method
+    with pytest.warns(
+        AstropyDeprecationWarning,
+        match=re.escape("Use ``angular_diameter_distance(z1, z2)`` instead"),
+    ):
+        tcos.angular_diameter_distance_z1z2(z1, z2)
 
 
 @pytest.mark.skipif(not HAS_SCIPY, reason="test requires scipy")
@@ -613,11 +615,9 @@ def test_units():
     cosmo = FlatLambdaCDM(H0=70, Om0=0.27, Tcmb0=2.0)
 
     assert cosmo.comoving_distance(1.0).unit == u.Mpc
-    assert cosmo._comoving_distance_z1z2(1.0, 2.0).unit == u.Mpc
     assert cosmo.comoving_transverse_distance(1.0).unit == u.Mpc
     assert cosmo._comoving_transverse_distance_z1z2(1.0, 2.0).unit == u.Mpc
     assert cosmo.angular_diameter_distance(1.0).unit == u.Mpc
-    assert cosmo.angular_diameter_distance_z1z2(1.0, 2.0).unit == u.Mpc
     assert cosmo.luminosity_distance(1.0).unit == u.Mpc
     assert cosmo.lookback_time(1.0).unit == u.Gyr
     assert cosmo.lookback_distance(1.0).unit == u.Mpc
@@ -929,12 +929,10 @@ def test_comoving_distance_z1z2():
     tcos = LambdaCDM(100, 0.3, 0.8, Tcmb0=0.0)
 
     with pytest.raises(ValueError):  # test diff size z1, z2 fail
-        tcos._comoving_distance_z1z2((1, 2), (3, 4, 5))
+        tcos.comoving_distance((1, 2), (3, 4, 5))
 
     # Comoving distances are invertible
-    assert u.allclose(
-        tcos._comoving_distance_z1z2(1, 2), -tcos._comoving_distance_z1z2(2, 1)
-    )
+    assert u.allclose(tcos.comoving_distance(1, 2), -tcos.comoving_distance(2, 1))
 
     z1 = 0, 0, 2, 0.5, 1
     z2 = 2, 1, 1, 2.5, 1.1
@@ -946,7 +944,7 @@ def test_comoving_distance_z1z2():
         174.1524683,
     ) * u.Mpc
 
-    assert u.allclose(tcos._comoving_distance_z1z2(z1, z2), results)
+    assert u.allclose(tcos.comoving_distance(z1, z2), results)
 
 
 @pytest.mark.skipif(not HAS_SCIPY, reason="test requires scipy")

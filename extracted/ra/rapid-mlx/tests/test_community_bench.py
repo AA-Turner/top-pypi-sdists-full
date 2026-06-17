@@ -206,6 +206,190 @@ def test_make_sampling_params_factory() -> None:
         runner._make_sampling_params_factory("bogus")
 
 
+def test_bench_sampling_always_ignores_eos() -> None:
+    """Regression guard for #567 (dineshdb).
+
+    The standardized bench's ``tg128`` / ``tg512`` contract requires every
+    round to generate exactly ``max_tokens`` decode steps for cross-machine
+    comparability. If the synthetic random-token prompt nudges the model
+    toward EOS — qwen3.5-9b-4bit on the locked ``0xC0FFEE`` seed does this
+    — the round aborts early and the guard in ``_run_one_round`` (correctly)
+    rejects the result.
+
+    The fix is to set ``ignore_eos=True`` on the sampling params so the
+    engine suppresses the model's own EOS / chat-terminator tokens. This
+    test pins that contract at the factory boundary: BOTH sampling modes
+    MUST set ``ignore_eos=True``. If a future refactor drops the flag,
+    the bench fails again on the same models that hit it the first time.
+    """
+    from vllm_mlx.community_bench import runner
+
+    for sampling_mode in ("greedy", "sampled"):
+        factory = runner._make_sampling_params_factory(sampling_mode)
+        for max_tokens in (128, 512):
+            params = factory(max_tokens)
+            assert params.ignore_eos is True, (
+                f"_make_sampling_params_factory({sampling_mode!r})({max_tokens}) "
+                f"must set ignore_eos=True — without it the bench fails on any "
+                f"model whose response to the 0xC0FFEE synthetic prompt is to "
+                f"emit EOS early (see issue #567 for the original report)."
+            )
+
+
+def test_scheduler_honours_ignore_eos() -> None:
+    """The other half of the #567 fix: the scheduler must actually act
+    on ``sampling_params.ignore_eos``. The factory above can set the flag
+    all it wants — if the scheduler still merges the model's EOS / chat-
+    terminator tokens into the BatchGenerator's ``stop_tokens``, the bench
+    aborts at token 88 anyway.
+
+    Exercise the **real** production helper that ``_create_batch_generator``
+    calls — a local stand-in would still pass if the production branch
+    were deleted. Deleting the ``ignore_eos`` branch from
+    ``_assemble_stop_tokens`` now fails this test.
+    """
+    from vllm_mlx.request import SamplingParams
+    from vllm_mlx.scheduler import _assemble_stop_tokens
+
+    model_eos_tokens = {2, 151645, 151643}  # arbitrary stand-in EOS ids
+
+    # Case A: ignore_eos=True, no extras → empty
+    p = SamplingParams(max_tokens=512, ignore_eos=True)
+    assert _assemble_stop_tokens(p, model_eos_tokens) == set()
+
+    # Case B: ignore_eos=True + caller stop ids → only the caller's
+    p = SamplingParams(max_tokens=512, ignore_eos=True, stop_token_ids=[99])
+    assert _assemble_stop_tokens(p, model_eos_tokens) == {99}
+
+    # Case C: ignore_eos=False (default) → model EOS preserved
+    p = SamplingParams(max_tokens=512)
+    assert _assemble_stop_tokens(p, model_eos_tokens) == model_eos_tokens
+
+    # Case D: default + caller stop ids → union
+    p = SamplingParams(max_tokens=512, stop_token_ids=[99])
+    assert _assemble_stop_tokens(p, model_eos_tokens) == model_eos_tokens | {99}
+
+    # Case E: caller-supplied model-stop set must not be mutated. The
+    # previous in-place ``.update()`` on the ``_get_stop_tokens()`` return
+    # value would have poisoned the cached set on subsequent requests if
+    # the helper failed to copy.
+    immutable_model = frozenset({1, 2, 3})
+    p = SamplingParams(max_tokens=512, stop_token_ids=[99])
+    result = _assemble_stop_tokens(p, immutable_model)
+    assert result == {1, 2, 3, 99}
+    assert immutable_model == frozenset({1, 2, 3})  # unchanged
+
+
+def test_scheduler_batch_generator_reuse_key_includes_ignore_eos() -> None:
+    """Issue #611 — the third half of the #567 fix: the scheduler's
+    BatchGenerator reuse key must differ when ``ignore_eos`` differs.
+
+    Before the fix, ``_ensure_batch_generator`` keyed reuse on the
+    sampler tuple (temperature, top_p, min_p, top_k) only, so two
+    requests with identical samplers but different ``ignore_eos`` would
+    silently share the same generator. The first request's stop-token
+    set (empty if ignore_eos=True, model-EOS if False) leaked to the
+    second — a benchmark probe with ``ignore_eos=True`` followed by a
+    normal chat call would run to ``max_tokens`` instead of stopping at
+    EOS.
+
+    Drive the production method directly with a minimal stub scheduler.
+    Asserting against a recomputed copy of the tuple would let a future
+    refactor silently drop ``ignore_eos`` from the production tuple if
+    the same refactor updated the test in lockstep; calling the real
+    method makes that escape impossible.
+    """
+    # vllm_mlx.scheduler imports mlx unconditionally at module top, so
+    # this test only runs where Apple Silicon mlx is installed; on Linux
+    # CI it skips. pr_validate (PR #612 round 1) classified it as a
+    # regression for failing on Linux with ModuleNotFoundError — the
+    # skip restores the correct "no mlx → no opinion" semantics.
+    pytest.importorskip("mlx")
+    from vllm_mlx.request import SamplingParams
+    from vllm_mlx.scheduler import Scheduler
+
+    sentinel = object()
+    create_calls = []
+    close_calls = []
+
+    class StubScheduler:
+        batch_generator = None
+        running = False
+        memory_aware_cache = None
+        prefix_cache = None
+        _current_sampler_params = None
+
+        def _close_batch_generator(self) -> None:
+            close_calls.append(self.batch_generator)
+            self.batch_generator = None
+
+        def _create_batch_generator(self, sp):
+            create_calls.append(sp)
+            return sentinel
+
+    stub = StubScheduler()
+
+    base_kwargs = dict(
+        max_tokens=512,
+        temperature=0.0,
+        top_p=1.0,
+        min_p=0.0,
+        top_k=-1,
+    )
+    p_strip_eos = SamplingParams(**base_kwargs, ignore_eos=True)
+    p_default = SamplingParams(**base_kwargs, ignore_eos=False)
+
+    assert Scheduler._ensure_batch_generator(stub, p_strip_eos) is True
+    assert len(create_calls) == 1, "first request should build a generator"
+    assert stub.batch_generator is sentinel
+
+    closes_after_first = len(close_calls)
+    assert Scheduler._ensure_batch_generator(stub, p_default) is True
+    assert len(create_calls) == 2, (
+        "second request with different ignore_eos must rebuild the "
+        "generator — the empty stop-token set from the ignore_eos=True "
+        "request would otherwise leak to this normal request (#611)."
+    )
+    assert len(close_calls) > closes_after_first, (
+        "the previous generator must be torn down before the rebuild "
+        "so its resources aren't leaked."
+    )
+
+    # And the inverse — second identical call MUST reuse (sanity that
+    # we didn't accidentally invalidate reuse for the happy path).
+    assert Scheduler._ensure_batch_generator(stub, p_default) is True
+    assert len(create_calls) == 2, (
+        "two consecutive requests with the same sampler tuple AND same "
+        "ignore_eos must share a single BatchGenerator (no regression "
+        "on the reuse fast path)."
+    )
+
+    # Codex r1 P2 (PR #612): with the running batch holding an
+    # ignore_eos=False generator, a new ignore_eos=True request MUST be
+    # refused so the caller (_schedule_waiting) requeues it. Without
+    # this guard, the previous fix only closed the idle-reuse leak — a
+    # request that overlapped a running batch would still inherit the
+    # stale stop_tokens.
+    stub.running = {"req-active": object()}  # non-empty truthy
+    creates_before_overlap = len(create_calls)
+    closes_before_overlap = len(close_calls)
+    refused = Scheduler._ensure_batch_generator(stub, p_strip_eos)
+    assert refused is False, (
+        "request with different ignore_eos must be REFUSED while a "
+        "previous batch is still running — otherwise it inherits the "
+        "wrong stop_tokens (codex P2 on PR #612)."
+    )
+    assert len(create_calls) == creates_before_overlap, (
+        "refused request must not have created a new BatchGenerator."
+    )
+    assert len(close_calls) == closes_before_overlap, (
+        "refused request must not have closed the running BatchGenerator."
+    )
+    assert stub.batch_generator is sentinel, (
+        "the live generator must remain intact for the running batch."
+    )
+
+
 def test_standardized_config_dict_matches_schema_consts() -> None:
     """The hardcoded constants in ``config`` must equal the schema's
     ``const`` values — schema validation depends on this."""
@@ -1119,6 +1303,92 @@ def test_validate_rejects_bad_datetime_format(cleanup_real_submissions) -> None:
     assert rc == 1
 
 
+@pytest.mark.parametrize(
+    "bogus_value",
+    [
+        # Date-only — fromisoformat accepts this, but schema promises
+        # date-time. Without the regex gate the validator silently passed
+        # these as valid timestamps. (Codex PR #602 round-1 BLOCKING.)
+        "2026-06-16",
+        # Naïve timestamp — has T-separator and time component but no
+        # timezone offset. fromisoformat returns a tz-less datetime;
+        # schema requires Z or ±HH:MM per RFC 3339.
+        "2026-06-16T12:00:00",
+        "2026-06-16T12:00:00.123456",
+        # Time-only — fromisoformat happily parses HH:MM:SS but it's
+        # not a valid date-time.
+        "12:00:00Z",
+        # Empty string.
+        "",
+        # Wrong separator.
+        "2026/06/16T12:00:00Z",
+        # Space separator — ISO 8601 permits it as a readability
+        # alternative but RFC 3339 §5.6 only admits T/t. Schema
+        # promises RFC 3339, so this must reject.
+        # (Codex PR #602 round-2 BLOCKING.)
+        "2026-06-16 12:00:00Z",
+    ],
+)
+def test_validate_rejects_non_rfc3339_datetimes(
+    cleanup_real_submissions, bogus_value
+) -> None:
+    """Regression: the ``date-time`` checker must enforce full RFC 3339,
+    not the loose subset accepted by ``datetime.fromisoformat`` alone.
+
+    Codex's PR #602 round-1 BLOCKING: date-only strings and naïve
+    timestamps without offset slipped through the first version of the
+    fix because ``fromisoformat`` accepts them. The current implementation
+    requires a regex match for the full ``YYYY-MM-DDThh:mm:ss(.frac)?
+    (Z|±hh:mm)`` shape AND a non-None tzinfo on the parsed object.
+    """
+    pytest.importorskip("jsonschema")
+    bad = _good_payload()
+    bad["submitted_at"] = bogus_value
+    path = _write_to_real_submissions(bad)
+    cleanup_real_submissions.append(path)
+    rc, out = _run_validate(path)
+    assert rc == 1, (
+        f"validator must reject submitted_at={bogus_value!r} per RFC 3339; "
+        f"got rc=0 (passed) with out={out!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "good_value",
+    [
+        # Canonical CLI output: Z suffix.
+        "2026-06-16T12:00:00Z",
+        # With fractional seconds.
+        "2026-06-16T12:00:00.123456Z",
+        # Numeric UTC offset.
+        "2026-06-16T12:00:00+00:00",
+        # Non-UTC numeric offset.
+        "2026-06-16T08:00:00-04:00",
+        # Lowercase t separator is also valid RFC 3339.
+        "2026-06-16t12:00:00Z",
+        # Lowercase z offset is also valid RFC 3339 §5.6.
+        # (Codex PR #602 round-3 BLOCKING.)
+        "2026-06-16T12:00:00z",
+        "2026-06-16t12:00:00z",
+    ],
+)
+def test_validate_accepts_valid_rfc3339_datetimes(
+    cleanup_real_submissions, good_value
+) -> None:
+    """Counterpart: the tightened checker must not over-reject legitimate
+    RFC 3339 forms — Z suffix, fractional seconds, numeric offsets,
+    lowercase ``t``."""
+    pytest.importorskip("jsonschema")
+    good = _good_payload()
+    good["submitted_at"] = good_value
+    path = _write_to_real_submissions(good)
+    cleanup_real_submissions.append(path)
+    rc, out = _run_validate(path)
+    assert rc == 0, (
+        f"validator wrongly rejected submitted_at={good_value!r}; out={out!r}"
+    )
+
+
 def test_validate_rejects_summary_mismatch_with_rounds(
     cleanup_real_submissions,
 ) -> None:
@@ -1332,6 +1602,247 @@ def test_state_aware_fallback_skips_already_completed_steps(tmp_path, capsys) ->
     assert "gh pr create" in text
     # Should explain what already happened.
     assert "Already completed" in text
+
+
+def test_manual_fallback_without_gh_points_at_web_ui(tmp_path, monkeypatch) -> None:
+    """Regression: when ``gh`` is not on PATH (the common newcomer case),
+    the fallback must not tell the user to run ``gh pr create`` — it
+    has to point them at the GitHub compare page and at the
+    paste-to-issue escape hatch so they can finish the submission
+    without installing extra tooling. (Subagent-friction report, #4.)
+    """
+    from vllm_mlx.community_bench import submission as sub_mod
+
+    payload = {
+        "submission_id": "abcdef012345",
+        "submitted_at": "2026-06-15T10:30:00+00:00",
+        "model": {"alias": "qwen3.5-9b-4bit", "hf_path": "y/z"},
+        "hardware": {"chip": "Apple M3 Ultra", "ram_gb": 64},
+        "software": {"rapid_mlx": "0.7.13", "mlx": "0.31.2"},
+    }
+    sub_path = tmp_path / "submission.json"
+    sub_path.write_text("{}")
+
+    monkeypatch.setattr(sub_mod.shutil, "which", lambda _: None)
+    # tmp_path has no git remote — _origin_is_safe_github returns
+    # (False, None) so the owner-less compare URL is used.
+    out = io.StringIO()
+    sub_mod._print_manual_fallback(tmp_path, sub_path, payload, stdout=out)
+    text = out.getvalue()
+
+    # gh isn't installed — must NOT recommend gh pr create.
+    assert "gh pr create" not in text
+    # Must surface the compare-page URL with the branch ref filled in.
+    branch = f"community-bench/{payload['submission_id']}"
+    assert (
+        f"https://github.com/{sub_mod.UPSTREAM_REPO_FOR_GH}"
+        f"/compare/main...{branch}?expand=1"
+    ) in text
+    # Must also offer the paste-to-issue escape hatch so users with no
+    # git fluency at all still have a way to land their numbers.
+    assert (f"https://github.com/{sub_mod.UPSTREAM_REPO_FOR_GH}/issues/new") in text
+    # Title (alias + chip) round-trips through urlencode — verify both
+    # appear unmodified after decoding.
+    import urllib.parse as _up
+
+    issue_line = next(
+        line for line in text.splitlines() if "issues/new" in line
+    ).strip()
+    query = issue_line.split("?", 1)[1]
+    parsed = dict(_up.parse_qsl(query))
+    assert parsed["title"] == "community-bench: qwen3.5-9b-4bit on Apple M3 Ultra"
+
+
+def test_manual_fallback_without_gh_uses_fork_owner_when_origin_is_fork(
+    tmp_path, monkeypatch
+) -> None:
+    """Regression: when origin is a contributor's fork (the normal
+    contribution path), the compare URL must use ``main...<owner>:<branch>``
+    so GitHub can find the head branch on the fork — bare ``main...<branch>``
+    only resolves on the upstream repo. (Codex PR #600 round-1 BLOCKING.)
+    """
+    from vllm_mlx.community_bench import submission as sub_mod
+
+    payload = {
+        "submission_id": "abcdef012345",
+        "submitted_at": "2026-06-15T10:30:00+00:00",
+        "model": {"alias": "qwen3.5-9b-4bit", "hf_path": "y/z"},
+        "hardware": {"chip": "Apple M3 Ultra", "ram_gb": 64},
+        "software": {"rapid_mlx": "0.7.14", "mlx": "0.31.2"},
+    }
+    sub_path = tmp_path / "submission.json"
+    sub_path.write_text("{}")
+
+    monkeypatch.setattr(sub_mod.shutil, "which", lambda _: None)
+    # Mock origin → contributor's fork on github.com.
+    monkeypatch.setattr(
+        sub_mod,
+        "_origin_is_safe_github",
+        lambda _repo: (True, "some-contributor"),
+    )
+    out = io.StringIO()
+    sub_mod._print_manual_fallback(tmp_path, sub_path, payload, stdout=out)
+    text = out.getvalue()
+
+    branch = f"community-bench/{payload['submission_id']}"
+    # Cross-fork compare URL: head is owner-prefixed.
+    assert (f"compare/main...some-contributor:{branch}?expand=1") in text
+    # Must NOT print the bare same-repo form (would 404 for the user).
+    assert f"compare/main...{branch}?expand=1" not in text
+
+
+def test_manual_fallback_without_gh_skips_owner_when_origin_is_upstream(
+    tmp_path, monkeypatch
+) -> None:
+    """Counterpart to the fork case: when origin owner equals the
+    upstream owner (maintainer running locally), the URL must NOT
+    include the ``upstream:`` prefix — that would be redundant and
+    GitHub's compare page redirects it anyway.
+    """
+    from vllm_mlx.community_bench import submission as sub_mod
+
+    payload = {
+        "submission_id": "abcdef012345",
+        "submitted_at": "2026-06-15T10:30:00+00:00",
+        "model": {"alias": "x", "hf_path": "y/z"},
+        "hardware": {"chip": "Apple M4 Pro", "ram_gb": 24},
+        "software": {"rapid_mlx": "0.7.14", "mlx": "0.31.2"},
+    }
+    sub_path = tmp_path / "submission.json"
+    sub_path.write_text("{}")
+
+    upstream_owner = sub_mod.UPSTREAM_REPO_FOR_GH.split("/", 1)[0]
+    monkeypatch.setattr(sub_mod.shutil, "which", lambda _: None)
+    monkeypatch.setattr(
+        sub_mod,
+        "_origin_is_safe_github",
+        lambda _repo: (True, upstream_owner),
+    )
+    out = io.StringIO()
+    sub_mod._print_manual_fallback(tmp_path, sub_path, payload, stdout=out)
+    text = out.getvalue()
+
+    branch = f"community-bench/{payload['submission_id']}"
+    assert f"compare/main...{branch}?expand=1" in text
+    assert f"compare/main...{upstream_owner}:" not in text
+
+
+def test_manual_fallback_compare_url_quotes_owner_and_branch(
+    tmp_path, monkeypatch
+) -> None:
+    """Regression: the ``main...<owner>:<branch>`` compare URL must
+    URL-quote both halves independently — any owner or branch ref
+    carrying ``#``, ``?``, ``%`` or other URL-reserved chars would
+    otherwise truncate or rewrite the URL silently. Branch is
+    constructed by us (``community-bench/<hex>``) and owner is
+    validated upstream, but pinning the quoting at this layer guards
+    against future loosening. (Codex PR #600 round-2 BLOCKING.)
+    """
+    from vllm_mlx.community_bench import submission as sub_mod
+
+    payload = {
+        "submission_id": "abcdef012345",
+        "submitted_at": "2026-06-15T10:30:00+00:00",
+        "model": {"alias": "x", "hf_path": "y/z"},
+        "hardware": {"chip": "Apple M3 Ultra", "ram_gb": 64},
+        "software": {"rapid_mlx": "0.7.14", "mlx": "0.31.2"},
+    }
+    sub_path = tmp_path / "submission.json"
+    sub_path.write_text("{}")
+
+    monkeypatch.setattr(sub_mod.shutil, "which", lambda _: None)
+    # Deliberately pathological owner with URL-reserved chars — a real
+    # github.com username can't carry these, but we want the quoting
+    # layer to be load-bearing regardless.
+    monkeypatch.setattr(
+        sub_mod,
+        "_origin_is_safe_github",
+        lambda _repo: (True, "weird?owner#name%"),
+    )
+    out = io.StringIO()
+    sub_mod._print_manual_fallback(tmp_path, sub_path, payload, stdout=out)
+    text = out.getvalue()
+
+    # The pathological chars must appear percent-encoded — not raw —
+    # so the URL parses as a single path segment, not as a malformed
+    # query/fragment split.
+    compare_line = next(
+        line for line in text.splitlines() if "/compare/main..." in line
+    ).strip()
+    assert "weird?owner#name%" not in compare_line
+    assert "weird%3Fowner%23name%25" in compare_line
+    # The ``:`` between owner and branch stays literal (GitHub's
+    # syntax requirement).
+    assert ":community-bench/" in compare_line
+
+
+def test_manual_fallback_url_encodes_alias_special_chars(tmp_path, monkeypatch) -> None:
+    """Regression: aliases or chip names containing ``&``, ``#``, ``/``,
+    ``%``, or spaces must round-trip cleanly through the issue-new
+    URL. Bare ``.replace(' ', '%20')`` produced malformed URLs for
+    realistic aliases like ``qwen3.6/27b``. (Codex PR #600 round-1 NIT.)
+    """
+    from vllm_mlx.community_bench import submission as sub_mod
+
+    payload = {
+        "submission_id": "abcdef012345",
+        "submitted_at": "2026-06-15T10:30:00+00:00",
+        "model": {
+            "alias": "qwen3.6/27b & friends #beta 50%",
+            "hf_path": "y/z",
+        },
+        "hardware": {"chip": "Apple M3 Ultra", "ram_gb": 64},
+        "software": {"rapid_mlx": "0.7.14", "mlx": "0.31.2"},
+    }
+    sub_path = tmp_path / "submission.json"
+    sub_path.write_text("{}")
+
+    monkeypatch.setattr(sub_mod.shutil, "which", lambda _: None)
+    out = io.StringIO()
+    sub_mod._print_manual_fallback(tmp_path, sub_path, payload, stdout=out)
+    text = out.getvalue()
+
+    # Decode the title param back and assert it round-trips losslessly.
+    import urllib.parse as _up
+
+    issue_line = next(
+        line for line in text.splitlines() if "issues/new" in line
+    ).strip()
+    query = issue_line.split("?", 1)[1]
+    parsed = dict(_up.parse_qsl(query))
+    assert (
+        parsed["title"]
+        == "community-bench: qwen3.6/27b & friends #beta 50% on Apple M3 Ultra"
+    )
+
+
+def test_manual_fallback_with_gh_keeps_gh_command(tmp_path, monkeypatch) -> None:
+    """Counterpart: when ``gh`` IS installed, the fallback should keep
+    surfacing ``gh pr create`` (the original behavior — used when a
+    later git step failed mid-sequence). Pins that we don't drop the
+    gh path while fixing the gh-missing one.
+    """
+    from vllm_mlx.community_bench import submission as sub_mod
+
+    payload = {
+        "submission_id": "abcdef012345",
+        "submitted_at": "2026-06-15T10:30:00+00:00",
+        "model": {"alias": "x", "hf_path": "y/z"},
+        "hardware": {"chip": "Apple M4 Pro", "ram_gb": 24},
+        "software": {"rapid_mlx": "0.7.13", "mlx": "0.31.2"},
+    }
+    sub_path = tmp_path / "submission.json"
+    sub_path.write_text("{}")
+
+    monkeypatch.setattr(sub_mod.shutil, "which", lambda name: "/opt/homebrew/bin/gh")
+    out = io.StringIO()
+    sub_mod._print_manual_fallback(tmp_path, sub_path, payload, stdout=out)
+    text = out.getvalue()
+
+    assert "gh pr create" in text
+    # Web-UI fallback shouldn't appear when gh is available.
+    assert "compare/main..." not in text
+    assert "/issues/new" not in text
 
 
 def test_decode_tps_formula_uses_n_minus_one(monkeypatch) -> None:

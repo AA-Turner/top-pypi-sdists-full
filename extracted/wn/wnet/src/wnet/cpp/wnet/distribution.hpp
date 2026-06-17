@@ -40,35 +40,36 @@ public:
     using Point_t = std::array<position_type, DIM>;
     // using distance_fun_t = std::function<intensity_type(const Point_t&, const Point_t&)>;
 
-    const std::span<const intensity_type> intensities;
+    // View over the owning intensities vector. Computed on access rather than
+    // cached as a member so the class retains default value semantics
+    // (copy/move/assign); a cached span member would alias the source object.
+    std::span<const intensity_type> intensities() const { return intensities_vector; }
 
     VectorDistribution(
         const std::vector<std::array<position_type, DIM>>& positions_,
         const std::vector<intensity_type>& intensities_
-    ) : positions(positions_), intensities_vector(intensities_), intensities(intensities_vector) {
+    ) : positions(positions_), intensities_vector(intensities_) {
         init();
     }
 
     VectorDistribution(
         std::vector<std::array<position_type, DIM>>&& positions_,
         std::vector<intensity_type>&& intensities_
-    ) : positions(std::move(positions_)), intensities_vector(std::move(intensities_)), intensities(intensities_vector) {
+    ) : positions(std::move(positions_)), intensities_vector(std::move(intensities_)) {
         init();
     }
 
     #if defined(INCLUDE_NANOBIND_STUFF)
     VectorDistribution(const nb::ndarray<position_type_, nb::shape<DIM, -1>>& positions_arg, const nb::ndarray<intensity_type_, nb::shape<-1>>& intensities_arg) :
         positions(numpy_to_vector_of_arrays<position_type_ , DIM>(positions_arg)),
-        intensities_vector(numpy_to_vector<intensity_type_>(intensities_arg)),
-        intensities(intensities_vector)
+        intensities_vector(numpy_to_vector<intensity_type_>(intensities_arg))
     {
         init();
     }
 
     VectorDistribution(const nb::ndarray<position_type_, nb::shape<-1, -1>>& positions_arg, const nb::ndarray<intensity_type_, nb::shape<-1>>& intensities_arg) :
         positions(numpy_to_vector_of_arrays<position_type_ , DIM>(positions_arg)),
-        intensities_vector(numpy_to_vector<intensity_type_>(intensities_arg)),
-        intensities(intensities_vector)
+        intensities_vector(numpy_to_vector<intensity_type_>(intensities_arg))
     {
         init();
     }
@@ -84,7 +85,7 @@ public:
         return vector_of_arrays_to_numpy<position_type_, DIM>(positions);
     }
     nb::ndarray<nb::numpy, intensity_type_, nb::shape<-1>> py_get_intensities() const {
-        return span_to_numpy<intensity_type_>(intensities);
+        return span_to_numpy<intensity_type_>(intensities());
     }
 
     #endif // INCLUDE_NANOBIND_STUFF
@@ -117,6 +118,38 @@ public:
 
     const std::vector<intensity_type>& get_intensities() const {
         return intensities_vector;
+    }
+
+    double sum_intensities() const {
+        return std::accumulate(intensities_vector.begin(), intensities_vector.end(), 0.0);
+    }
+
+    // Returns a copy with intensities multiplied by `factor` and positions
+    // unchanged (mirrors the Python Distribution.scaled()).  NOTE: for an
+    // integer intensity_type the product truncates toward zero.
+    VectorDistribution scaled(double factor) const {
+        std::vector<std::array<position_type, DIM>> pos = positions;
+        std::vector<intensity_type> scaled_int;
+        scaled_int.reserve(intensities_vector.size());
+        for (const auto& v : intensities_vector)
+            scaled_int.push_back(static_cast<intensity_type>(static_cast<double>(v) * factor));
+        return VectorDistribution(std::move(pos), std::move(scaled_int));
+    }
+
+    // Returns a copy with intensities scaled to sum to 1 (mirrors the Python
+    // Distribution.normalized()).  NOTE: for an integer intensity_type the
+    // normalized values (< 1) truncate toward zero, so this is only meaningful
+    // for the double-intensity instantiation.
+    VectorDistribution normalized() const {
+        const double total = sum_intensities();
+        if (total == 0.0)
+            throw std::runtime_error("Cannot normalize a distribution with zero total intensity.");
+        std::vector<std::array<position_type, DIM>> pos = positions;
+        std::vector<intensity_type> norm;
+        norm.reserve(intensities_vector.size());
+        for (const auto& v : intensities_vector)
+            norm.push_back(static_cast<intensity_type>(static_cast<double>(v) / total));
+        return VectorDistribution(std::move(pos), std::move(norm));
     }
 
     /* std::pair<std::vector<size_t>, std::vector<intensity_type>> closer_than(

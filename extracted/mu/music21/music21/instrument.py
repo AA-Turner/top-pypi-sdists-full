@@ -200,7 +200,7 @@ class Instrument(base.Music21Object):
             new.instrumentIdRandomize()
         return new
 
-    def bestName(self):
+    def bestName(self) -> str|None:
         '''
         Find a viable name, looking first at instrument, then part, then
         abbreviations.
@@ -315,7 +315,7 @@ class Instrument(base.Music21Object):
                     self.midiChannel = ch
                     return self.midiChannel
             return 0
-            # raise InstrumentException('we are out of midi channels and this ' +
+            # raise InstrumentException('we are out of midi channels and this '
             #            'was not already detected PROGRAM BUG!')
 
 

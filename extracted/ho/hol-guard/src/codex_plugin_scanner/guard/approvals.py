@@ -9,11 +9,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import TypeGuard
 from urllib.parse import ParseResult, parse_qsl, urlencode, urlparse, urlunparse
 
 from .adapters import get_adapter
 from .adapters.base import HarnessContext
-from .approval_gate import ApprovalGateInput, require_approval_decision
+from .approval_gate import ApprovalGateGrant, ApprovalGateInput, require_approval_decision
 from .cli.connect_flow import (
     connect_retry_refresh_race_from_reason,
     resolve_guard_cloud_repair_detail,
@@ -28,7 +29,15 @@ from .desktop_notifications import (
 from .incident import build_incident_context
 from .local_dashboard_session import build_local_dashboard_session_token
 from .local_supply_chain import build_local_supply_chain_posture
-from .models import GuardApprovalRequest, HarnessDetection, PolicyDecision
+from .models import (
+    DECISION_SCOPE_VALUES,
+    GUARD_ACTION_VALUES,
+    DecisionScope,
+    GuardAction,
+    GuardApprovalRequest,
+    HarnessDetection,
+    PolicyDecision,
+)
 from .risk import artifact_risk_signals, artifact_risk_summary
 from .store import GuardStore, _runtime_scoped_exact_match_key
 
@@ -89,6 +98,14 @@ def _normalize_harness_slug(harness: str | None) -> str | None:
     if normalized in {"claude", "claude-code"}:
         return "claude-code"
     return normalized or None
+
+
+def _is_guard_action(value: object) -> TypeGuard[GuardAction]:
+    return isinstance(value, str) and value in GUARD_ACTION_VALUES
+
+
+def _is_decision_scope(value: object) -> TypeGuard[DecisionScope]:
+    return isinstance(value, str) and value in DECISION_SCOPE_VALUES
 
 
 def _queued_request_dicts(queued: Sequence[object]) -> list[dict[str, object]]:
@@ -160,11 +177,11 @@ def primary_approval_url(
             approval_url.strip().replace("/approvals/", "/requests/"),
             approval_center_url=approval_center_url,
         )
-    request_id = request.get("request_id")
-    if isinstance(request_id, str) and request_id.strip() and isinstance(approval_center_url, str):
+    resolved_request_id = request.get("request_id")
+    if isinstance(resolved_request_id, str) and resolved_request_id.strip() and isinstance(approval_center_url, str):
         center = approval_center_url.strip()
         if center:
-            return build_approval_request_url(center, request_id.strip())
+            return build_approval_request_url(center, resolved_request_id.strip())
     return None
 
 
@@ -213,11 +230,18 @@ def queue_blocked_approvals(
     timestamp = now or _now()
     artifacts_by_id = {artifact.artifact_id: artifact for artifact in detection.artifacts}
     queued: list[dict[str, object]] = []
-    for item in evaluation.get("artifacts", []):
+    artifacts = evaluation.get("artifacts")
+    if not isinstance(artifacts, list):
+        return queued
+    for item in artifacts:
         if not isinstance(item, dict):
             continue
         policy_action = item.get("policy_action")
-        if policy_action not in {"block", "sandbox-required", "require-reapproval"}:
+        if not _is_guard_action(policy_action) or policy_action not in {
+            "block",
+            "sandbox-required",
+            "require-reapproval",
+        }:
             continue
         artifact_id = str(item.get("artifact_id") or "")
         if not artifact_id:
@@ -235,7 +259,7 @@ def queue_blocked_approvals(
             source_scope=_source_scope(item, artifact),
             config_path=_config_path(item, artifact),
             changed_fields=_string_list(item.get("changed_fields")),
-            policy_action=str(policy_action),
+            policy_action=policy_action,
             launch_target=launch_target,
             risk_summary=risk_summary,
         )
@@ -246,7 +270,7 @@ def queue_blocked_approvals(
             artifact_name=_artifact_name(item, artifact_id),
             artifact_type=artifact.artifact_type if artifact is not None else "artifact",
             artifact_hash=str(item.get("artifact_hash") or "unknown"),
-            policy_action=str(policy_action),
+            policy_action=policy_action,
             recommended_scope="publisher" if artifact is not None and artifact.publisher else "artifact",
             changed_fields=tuple(_string_list(item.get("changed_fields"))),
             source_scope=_source_scope(item, artifact),
@@ -297,6 +321,7 @@ def apply_approval_resolution(
     return_queue_result: bool = False,
     resolve_scope_matches: bool = True,
     approval_gate_input: ApprovalGateInput | None = None,
+    approval_gate_grant: ApprovalGateGrant | None = None,
     persist_policy: bool = True,
 ) -> dict[str, object]:
     request = store.get_approval_request(request_id)
@@ -304,6 +329,8 @@ def apply_approval_resolution(
         raise ApprovalRequestNotFoundError(f"Unknown approval request: {request_id}")
     if request["status"] != "pending":
         raise ApprovalRequestAlreadyResolvedError(f"Approval request already resolved: {request_id}")
+    if not _is_decision_scope(scope):
+        raise ValueError(f"Unsupported approval scope: {scope}")
     if scope == "workspace" and not workspace:
         raise ValueError(f"Approval request {request_id} requires --workspace for workspace scope.")
     if scope == "publisher" and _string_or_none(request.get("publisher")) is None:
@@ -328,15 +355,16 @@ def apply_approval_resolution(
         reason=reason,
     )
     resolved_at = now or _now()
-    approval_gate_grant = require_approval_decision(
+    resolved_gate_grant = require_approval_decision(
         store.guard_home,
         action=decision.action,
         scope=scope,
         approval_gate_input=approval_gate_input,
+        approval_gate_grant=approval_gate_grant,
         now=resolved_at,
     )
     if persist_policy:
-        store.upsert_policy(decision, resolved_at, approval_gate_grant=approval_gate_grant)
+        store.upsert_policy(decision, resolved_at, approval_gate_grant=resolved_gate_grant)
     resolution_harness = None if scope == "global" else str(request["harness"])
     if return_queue_result:
         result = store.resolve_request_with_queue_result(
@@ -345,7 +373,7 @@ def apply_approval_resolution(
             resolution_scope=scope,
             reason=reason,
             resolved_at=resolved_at,
-            approval_gate_grant=approval_gate_grant,
+            approval_gate_grant=resolved_gate_grant,
         )
         if result.get("resolved") is not True:
             error = result.get("error")
@@ -368,7 +396,7 @@ def apply_approval_resolution(
                 resolution_scope=scope,
                 reason=reason,
                 resolved_at=resolved_at,
-                approval_gate_grant=approval_gate_grant,
+                approval_gate_grant=resolved_gate_grant,
             )
             if resolved_scope_ids:
                 _refresh_queue_result(store, result, resolved_scope_ids)
@@ -390,7 +418,7 @@ def apply_approval_resolution(
             resolution_scope=scope,
             reason=reason,
             resolved_at=resolved_at,
-            approval_gate_grant=approval_gate_grant,
+            approval_gate_grant=resolved_gate_grant,
         )
     if request_id not in resolved_ids:
         store.resolve_approval_request(
@@ -399,7 +427,7 @@ def apply_approval_resolution(
             resolution_scope=scope,
             reason=reason,
             resolved_at=resolved_at,
-            approval_gate_grant=approval_gate_grant,
+            approval_gate_grant=resolved_gate_grant,
         )
     updated = store.get_approval_request(request_id)
     if updated is None:
@@ -528,7 +556,7 @@ def _refresh_queue_result(
 ) -> None:
     page = store.list_pending_approval_summaries(limit=10)
     next_request = store.get_next_pending_request()
-    remaining_count = int(page["total_pending_count"])
+    remaining_count = _non_negative_int(page.get("total_pending_count"))
     result["remaining_pending_count"] = remaining_count
     result["next_selectable_request_id"] = next_request["request_id"] if next_request is not None else None
     result["remaining_pending_summaries"] = page["items"]
@@ -702,7 +730,7 @@ def build_runtime_snapshot(
 ) -> dict[str, object]:
     queue_page = store.list_pending_approval_summaries(limit=1)
     queue_items = queue_page["items"] if isinstance(queue_page["items"], list) else []
-    pending_count = int(queue_page["total_pending_count"])
+    pending_count = _non_negative_int(queue_page.get("total_pending_count"))
     pending_requests = store.list_approval_requests(limit=request_limit) if include_items else []
     active_request = store.get_approval_request(active_request_id) if active_request_id else None
     active_is_pending = active_request is not None and active_request.get("status") == "pending"
@@ -1156,9 +1184,9 @@ def _build_cloud_sync_health(
     connect_retry_refresh_race: bool = False,
 ) -> dict[str, object]:
     pending_events = store.count_guard_events_v1(uploaded=False)
-    event_summary = store.get_sync_payload("guard_events_v1_summary") or {}
-    sync_summary = store.get_sync_payload("sync_summary") or {}
-    runtime_summary = store.get_sync_payload("runtime_session_summary") or {}
+    event_summary = _sync_payload_dict(store, "guard_events_v1_summary")
+    sync_summary = _sync_payload_dict(store, "sync_summary")
+    runtime_summary = _sync_payload_dict(store, "runtime_session_summary")
     last_synced_at = _latest_sync_timestamp(
         event_summary.get("synced_at"),
         sync_summary.get("synced_at"),
@@ -1383,6 +1411,224 @@ def _runtime_headline_detail(headline_state: str) -> str:
         "connected": "This machine is connected to Guard Cloud. Local Guard is sending the first shared proof now.",
     }
     return details.get(headline_state, "This machine is protected locally.")
+
+
+_BULK_SECRET_TEXT_HINTS = (
+    "credential",
+    "secret",
+    ".env",
+    "token",
+    "api key",
+    "apikey",
+    "password",
+    "private key",
+    "ssh key",
+    "aws_access_key",
+    "github_token",
+)
+
+
+def _bulk_queue_category_text(request: Mapping[str, object]) -> str:
+    envelope = request.get("action_envelope_json")
+    envelope_fields: list[str] = []
+    if isinstance(envelope, dict):
+        for key in (
+            "action_type",
+            "command",
+            "tool_name",
+            "prompt_excerpt",
+            "mcp_server",
+            "mcp_tool",
+            "package_manager",
+            "package_name",
+            "script_name",
+        ):
+            value = envelope.get(key)
+            if isinstance(value, str) and value:
+                envelope_fields.append(value)
+        target_paths = envelope.get("target_paths")
+        if isinstance(target_paths, list):
+            envelope_fields.extend(str(path) for path in target_paths if isinstance(path, str))
+        decision_signals = envelope.get("signals")
+        if isinstance(decision_signals, list):
+            for signal in decision_signals:
+                if isinstance(signal, dict):
+                    for key in ("category", "title", "plain_reason"):
+                        value = signal.get(key)
+                        if isinstance(value, str) and value:
+                            envelope_fields.append(value)
+    return " ".join(
+        [
+            str(request.get("artifact_name") or ""),
+            str(request.get("artifact_type") or ""),
+            str(request.get("risk_headline") or ""),
+            str(request.get("risk_summary") or ""),
+            str(request.get("trigger_summary") or ""),
+            str(request.get("launch_summary") or ""),
+            str(request.get("why_now") or ""),
+            str(request.get("launch_target") or ""),
+            *_string_list(request.get("risk_signals")),
+            *envelope_fields,
+        ]
+    )
+
+
+def _bulk_decision_v2_categories(request: Mapping[str, object]) -> tuple[str, ...]:
+    decision_v2 = request.get("decision_v2_json")
+    if not isinstance(decision_v2, dict):
+        return ()
+    signals = decision_v2.get("signals")
+    if not isinstance(signals, list):
+        return ()
+    categories: list[str] = []
+    for signal in signals:
+        if isinstance(signal, dict):
+            category = signal.get("category")
+            if isinstance(category, str) and category:
+                categories.append(category)
+    return tuple(categories)
+
+
+def _bulk_has_secret_signal(request: Mapping[str, object]) -> bool:
+    categories = _bulk_decision_v2_categories(request)
+    if "secret" in categories:
+        return True
+    lowered = _bulk_queue_category_text(request).lower()
+    return any(hint in lowered for hint in _BULK_SECRET_TEXT_HINTS)
+
+
+def _bulk_read_command(command: str) -> bool:
+    import re
+
+    return re.search(r"\b(?:cat|grep|rg|sed\s+-n|awk|less|more|head|tail)\b", command.lower()) is not None
+
+
+def _bulk_has_secret_path_text(text: str) -> bool:
+    lowered = text.lower()
+    return any(
+        hint in lowered for hint in (".env", "token", "secret", "credential", "password", "private key", "api key")
+    )
+
+
+def _bulk_is_file_read_request(request: Mapping[str, object]) -> bool:
+    envelope = request.get("action_envelope_json")
+    artifact_type = str(request.get("artifact_type") or "")
+    if isinstance(envelope, dict) and envelope.get("action_type") == "file_read":
+        return True
+    if artifact_type == "file_read_request":
+        return True
+    command = ""
+    if isinstance(envelope, dict):
+        command = str(envelope.get("command") or "")
+    command = command or str(request.get("launch_target") or "")
+    return _bulk_read_command(command) and _bulk_has_secret_path_text(_bulk_queue_category_text(request))
+
+
+def _bulk_target_paths_are_secret(request: Mapping[str, object]) -> bool:
+    from .runtime.secret_sensitivity import classify_secret_path
+
+    envelope = request.get("action_envelope_json")
+    if not isinstance(envelope, dict):
+        return False
+    target_paths = envelope.get("target_paths")
+    if not isinstance(target_paths, list):
+        return False
+    workspace = envelope.get("workspace")
+    workspace_dir = Path(str(workspace)).expanduser() if isinstance(workspace, str) and workspace else None
+    path_context = {"cwd": workspace_dir}
+    return any(
+        isinstance(path, str) and classify_secret_path(path, **path_context) is not None for path in target_paths
+    )
+
+
+def _is_sensitive_file_read_request(request: Mapping[str, object]) -> bool:
+    if not _bulk_is_file_read_request(request):
+        return False
+    if _bulk_target_paths_are_secret(request):
+        return True
+    return _bulk_has_secret_signal(request)
+
+
+def is_bulk_allow_once_eligible(request: Mapping[str, object]) -> bool:
+    if str(request.get("status") or "") != "pending":
+        return False
+    if str(request.get("policy_action") or "") == "block":
+        return False
+    envelope = request.get("action_envelope_json")
+    artifact_type = str(request.get("artifact_type") or "")
+    is_file_read = (
+        isinstance(envelope, dict) and envelope.get("action_type") == "file_read"
+    ) or artifact_type == "file_read_request"
+    if not is_file_read:
+        return False
+    return not _is_sensitive_file_read_request(request)
+
+
+def bulk_allow_read_only_once(
+    *,
+    store: GuardStore,
+    request_ids: Sequence[str],
+    approval_gate_input: ApprovalGateInput | None,
+    now: str | None = None,
+) -> dict[str, object]:
+    from .approval_gate import public_config
+
+    resolved_at = now or _now()
+    gate = public_config(store.guard_home, now=resolved_at)
+    if not gate.enabled or not gate.configured:
+        raise ValueError("bulk_approve_gate_required")
+
+    if len(request_ids) == 0:
+        return {
+            "resolved_count": 0,
+            "failed": [],
+            "resolution_summary": "0 read-only file reads approved once.",
+        }
+
+    bulk_resolution_action = "allow"
+    bulk_resolution_scope = "artifact"
+    resolved_count = 0
+    failed: list[dict[str, str]] = []
+    bulk_gate_grant = require_approval_decision(
+        store.guard_home,
+        action=bulk_resolution_action,
+        scope=bulk_resolution_scope,
+        approval_gate_input=approval_gate_input,
+        now=resolved_at,
+    )
+
+    for request_id in request_ids:
+        if not isinstance(request_id, str) or not request_id.strip():
+            failed.append({"request_id": str(request_id), "error": "invalid_request_id"})
+            continue
+        normalized_id = request_id.strip()
+        request = store.get_approval_request(normalized_id)
+        if request is None or not is_bulk_allow_once_eligible(request):
+            failed.append({"request_id": normalized_id, "error": "ineligible"})
+            continue
+        try:
+            apply_approval_resolution(
+                store=store,
+                request_id=normalized_id,
+                action=bulk_resolution_action,
+                scope=bulk_resolution_scope,
+                workspace=None,
+                reason="bulk approve once",
+                now=resolved_at,
+                return_queue_result=False,
+                resolve_scope_matches=True,
+                approval_gate_grant=bulk_gate_grant,
+                persist_policy=False,
+            )
+            resolved_count += 1
+        except (ApprovalRequestNotFoundError, ApprovalRequestAlreadyResolvedError, ValueError) as error:
+            failed.append({"request_id": normalized_id, "error": str(error)})
+
+    return {
+        "resolved_count": resolved_count,
+        "failed": failed,
+        "resolution_summary": f"{resolved_count} read-only file reads approved once.",
+    }
 
 
 def _optional_string(value: object) -> str | None:

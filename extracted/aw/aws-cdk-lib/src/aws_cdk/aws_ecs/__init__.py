@@ -12862,7 +12862,9 @@ class CfnDaemonTaskDefinition(
             cpu="cpu",
             execution_role_arn="executionRoleArn",
             family="family",
+            ipc_mode="ipcMode",
             memory="memory",
+            pid_mode="pidMode",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -12886,7 +12888,9 @@ class CfnDaemonTaskDefinition(
         cpu: typing.Optional[builtins.str] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         family: typing.Optional[builtins.str] = None,
+        ipc_mode: typing.Optional[builtins.str] = None,
         memory: typing.Optional[builtins.str] = None,
+        pid_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_role_arn: typing.Optional[builtins.str] = None,
         volumes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.VolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -12899,7 +12903,9 @@ class CfnDaemonTaskDefinition(
         :param cpu: The number of CPU units used by the daemon task.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
         :param family: The name of a family that this daemon task definition is registered to.
+        :param ipc_mode: The IPC namespace mode for the daemon. The valid values are ``none`` and ``shared``. The default is ``none``. If ``none`` is specified or no value is provided, the daemon runs with its own IPC namespace, isolated from other tasks. If ``shared`` is specified, the daemon joins the host IPC namespace, making it accessible to non-daemon tasks that use ``ipcMode: "host"`` or other daemons that use ``ipcMode: "shared"``.
         :param memory: The amount of memory (in MiB) used by the daemon task.
+        :param pid_mode: The PID namespace mode for the daemon. The valid values are ``none`` and ``shared``. The default is ``none``. If ``none`` is specified or no value is provided, the daemon runs with its own PID namespace, isolated from other tasks. If ``shared`` is specified, the daemon joins the host PID namespace, making it accessible to non-daemon tasks that use ``pidMode: "host"`` or other daemons that use ``pidMode: "shared"``.
         :param tags: 
         :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the IAM role that grants containers in the daemon task permission to call Amazon Web Services APIs on your behalf.
         :param volumes: The list of data volume definitions for the daemon task.
@@ -12913,7 +12919,9 @@ class CfnDaemonTaskDefinition(
             cpu=cpu,
             execution_role_arn=execution_role_arn,
             family=family,
+            ipc_mode=ipc_mode,
             memory=memory,
+            pid_mode=pid_mode,
             tags=tags,
             task_role_arn=task_role_arn,
             volumes=volumes,
@@ -13065,6 +13073,19 @@ class CfnDaemonTaskDefinition(
         jsii.set(self, "family", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="ipcMode")
+    def ipc_mode(self) -> typing.Optional[builtins.str]:
+        '''The IPC namespace mode for the daemon.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ipcMode"))
+
+    @ipc_mode.setter
+    def ipc_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f4750dd15f101fd76fefe1804fdaef42f5c2d6f7cb2027f8593647fd0bc67176)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipcMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="memory")
     def memory(self) -> typing.Optional[builtins.str]:
         '''The amount of memory (in MiB) used by the daemon task.'''
@@ -13076,6 +13097,19 @@ class CfnDaemonTaskDefinition(
             type_hints = typing.get_type_hints(_typecheckingstub__af6bd6f6a06af1c3f227a76a661eb205e7d3e83a3d490a7d9bb2a4a819a3a150)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "memory", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="pidMode")
+    def pid_mode(self) -> typing.Optional[builtins.str]:
+        '''The PID namespace mode for the daemon.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "pidMode"))
+
+    @pid_mode.setter
+    def pid_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e63a0ac23d8e7b9a4f87f7f607d3afa5addfbea019985faec4d784479d40d215)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "pidMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -15539,7 +15573,9 @@ class CfnDaemonTaskDefinition(
         "cpu": "cpu",
         "execution_role_arn": "executionRoleArn",
         "family": "family",
+        "ipc_mode": "ipcMode",
         "memory": "memory",
+        "pid_mode": "pidMode",
         "tags": "tags",
         "task_role_arn": "taskRoleArn",
         "volumes": "volumes",
@@ -15553,7 +15589,9 @@ class CfnDaemonTaskDefinitionProps:
         cpu: typing.Optional[builtins.str] = None,
         execution_role_arn: typing.Optional[builtins.str] = None,
         family: typing.Optional[builtins.str] = None,
+        ipc_mode: typing.Optional[builtins.str] = None,
         memory: typing.Optional[builtins.str] = None,
+        pid_mode: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         task_role_arn: typing.Optional[builtins.str] = None,
         volumes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDaemonTaskDefinition.VolumeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -15564,7 +15602,9 @@ class CfnDaemonTaskDefinitionProps:
         :param cpu: The number of CPU units used by the daemon task.
         :param execution_role_arn: The Amazon Resource Name (ARN) of the task execution role that grants the Amazon ECS container agent permission to make Amazon Web Services API calls on your behalf.
         :param family: The name of a family that this daemon task definition is registered to.
+        :param ipc_mode: The IPC namespace mode for the daemon. The valid values are ``none`` and ``shared``. The default is ``none``. If ``none`` is specified or no value is provided, the daemon runs with its own IPC namespace, isolated from other tasks. If ``shared`` is specified, the daemon joins the host IPC namespace, making it accessible to non-daemon tasks that use ``ipcMode: "host"`` or other daemons that use ``ipcMode: "shared"``.
         :param memory: The amount of memory (in MiB) used by the daemon task.
+        :param pid_mode: The PID namespace mode for the daemon. The valid values are ``none`` and ``shared``. The default is ``none``. If ``none`` is specified or no value is provided, the daemon runs with its own PID namespace, isolated from other tasks. If ``shared`` is specified, the daemon joins the host PID namespace, making it accessible to non-daemon tasks that use ``pidMode: "host"`` or other daemons that use ``pidMode: "shared"``.
         :param tags: 
         :param task_role_arn: The short name or full Amazon Resource Name (ARN) of the IAM role that grants containers in the daemon task permission to call Amazon Web Services APIs on your behalf.
         :param volumes: The list of data volume definitions for the daemon task.
@@ -15685,7 +15725,9 @@ class CfnDaemonTaskDefinitionProps:
                 cpu="cpu",
                 execution_role_arn="executionRoleArn",
                 family="family",
+                ipc_mode="ipcMode",
                 memory="memory",
+                pid_mode="pidMode",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -15705,7 +15747,9 @@ class CfnDaemonTaskDefinitionProps:
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
+            check_type(argname="argument ipc_mode", value=ipc_mode, expected_type=type_hints["ipc_mode"])
             check_type(argname="argument memory", value=memory, expected_type=type_hints["memory"])
+            check_type(argname="argument pid_mode", value=pid_mode, expected_type=type_hints["pid_mode"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument task_role_arn", value=task_role_arn, expected_type=type_hints["task_role_arn"])
             check_type(argname="argument volumes", value=volumes, expected_type=type_hints["volumes"])
@@ -15718,8 +15762,12 @@ class CfnDaemonTaskDefinitionProps:
             self._values["execution_role_arn"] = execution_role_arn
         if family is not None:
             self._values["family"] = family
+        if ipc_mode is not None:
+            self._values["ipc_mode"] = ipc_mode
         if memory is not None:
             self._values["memory"] = memory
+        if pid_mode is not None:
+            self._values["pid_mode"] = pid_mode
         if tags is not None:
             self._values["tags"] = tags
         if task_role_arn is not None:
@@ -15766,12 +15814,36 @@ class CfnDaemonTaskDefinitionProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def ipc_mode(self) -> typing.Optional[builtins.str]:
+        '''The IPC namespace mode for the daemon.
+
+        The valid values are ``none`` and ``shared``. The default is ``none``.
+        If ``none`` is specified or no value is provided, the daemon runs with its own IPC namespace, isolated from other tasks. If ``shared`` is specified, the daemon joins the host IPC namespace, making it accessible to non-daemon tasks that use ``ipcMode: "host"`` or other daemons that use ``ipcMode: "shared"``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-ipcmode
+        '''
+        result = self._values.get("ipc_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def memory(self) -> typing.Optional[builtins.str]:
         '''The amount of memory (in MiB) used by the daemon task.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-memory
         '''
         result = self._values.get("memory")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def pid_mode(self) -> typing.Optional[builtins.str]:
+        '''The PID namespace mode for the daemon.
+
+        The valid values are ``none`` and ``shared``. The default is ``none``.
+        If ``none`` is specified or no value is provided, the daemon runs with its own PID namespace, isolated from other tasks. If ``shared`` is specified, the daemon joins the host PID namespace, making it accessible to non-daemon tasks that use ``pidMode: "host"`` or other daemons that use ``pidMode: "shared"``.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemontaskdefinition.html#cfn-ecs-daemontaskdefinition-pidmode
+        '''
+        result = self._values.get("pid_mode")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -28022,11 +28094,15 @@ class CfnTaskDefinition(
             root_directory: typing.Optional[builtins.str] = None,
             transit_encryption_port: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param file_system_arn: 
-            :param access_point_arn: 
-            :param root_directory: 
-            :param transit_encryption_port: 
+            '''This parameter is specified when you're using an Amazon S3 Files file system for task storage.
+
+            For more information, see `Amazon S3 Files volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/s3files-volumes.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            Your task definition must include a Task IAM Role. See `IAM role for attaching your file system to compute resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-prereq-policies.html#s3-files-prereq-iam-compute-role>`_ for required permissions.
+
+            :param file_system_arn: The full ARN of the S3 Files file system to mount.
+            :param access_point_arn: The full ARN of the S3 Files access point to use. If an access point is specified, the root directory value specified in the ``S3FilesVolumeConfiguration`` must either be omitted or set to ``/`` which will enforce the path set on the S3 Files access point. For more information, see `Creating S3 Files access points <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-access-points-creating.html>`_.
+            :param root_directory: The directory within the Amazon S3 Files file system to mount as the root directory. If this parameter is omitted, the root of the Amazon S3 Files file system will be used. Specifying ``/`` will have the same effect as omitting this parameter. If a S3 Files access point is specified in the ``accessPointArn``, the root directory parameter must either be omitted or set to ``/`` which will enforce the path set on the S3 Files access point.
+            :param transit_encryption_port: The port to use for sending encrypted data between the ECS host and the S3 Files file system. If you do not specify a transit encryption port, it will use the port selection strategy that the Amazon S3 Files mount helper uses. For more information, see `S3 Files mount helper <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-mounting.html>`_.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -28064,7 +28140,8 @@ class CfnTaskDefinition(
 
         @builtins.property
         def file_system_arn(self) -> builtins.str:
-            '''
+            '''The full ARN of the S3 Files file system to mount.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-filesystemarn
             '''
             result = self._values.get("file_system_arn")
@@ -28073,7 +28150,10 @@ class CfnTaskDefinition(
 
         @builtins.property
         def access_point_arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The full ARN of the S3 Files access point to use.
+
+            If an access point is specified, the root directory value specified in the ``S3FilesVolumeConfiguration`` must either be omitted or set to ``/`` which will enforce the path set on the S3 Files access point. For more information, see `Creating S3 Files access points <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-access-points-creating.html>`_.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-accesspointarn
             '''
             result = self._values.get("access_point_arn")
@@ -28081,7 +28161,11 @@ class CfnTaskDefinition(
 
         @builtins.property
         def root_directory(self) -> typing.Optional[builtins.str]:
-            '''
+            '''The directory within the Amazon S3 Files file system to mount as the root directory.
+
+            If this parameter is omitted, the root of the Amazon S3 Files file system will be used. Specifying ``/`` will have the same effect as omitting this parameter.
+            If a S3 Files access point is specified in the ``accessPointArn``, the root directory parameter must either be omitted or set to ``/`` which will enforce the path set on the S3 Files access point.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-rootdirectory
             '''
             result = self._values.get("root_directory")
@@ -28089,7 +28173,10 @@ class CfnTaskDefinition(
 
         @builtins.property
         def transit_encryption_port(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The port to use for sending encrypted data between the ECS host and the S3 Files file system.
+
+            If you do not specify a transit encryption port, it will use the port selection strategy that the Amazon S3 Files mount helper uses. For more information, see `S3 Files mount helper <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-mounting.html>`_.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-s3filesvolumeconfiguration.html#cfn-ecs-taskdefinition-s3filesvolumeconfiguration-transitencryptionport
             '''
             result = self._values.get("transit_encryption_port")
@@ -28661,7 +28748,7 @@ class CfnTaskDefinition(
             :param f_sx_windows_file_server_volume_configuration: This parameter is specified when you use Amazon FSx for Windows File Server file system for task storage.
             :param host: This parameter is specified when you use bind mount host volumes. The contents of the ``host`` parameter determine whether your bind mount host volume persists on the host container instance and where it's stored. If the ``host`` parameter is empty, then the Docker daemon assigns a host path for your data volume. However, the data isn't guaranteed to persist after the containers that are associated with it stop running. Windows containers can mount whole directories on the same drive as ``$env:ProgramData`` . Windows containers can't mount directories on a different drive, and mount point can't be across drives. For example, you can mount ``C:\\my\\path:C:\\my\\path`` and ``D:\\:D:\\`` , but not ``D:\\my\\path:C:\\my\\path`` or ``D:\\:C:\\my\\path`` .
             :param name: The name of the volume. Up to 255 letters (uppercase and lowercase), numbers, underscores, and hyphens are allowed. When using a volume configured at launch, the ``name`` is required and must also be specified as the volume name in the ``ServiceVolumeConfiguration`` or ``TaskVolumeConfiguration`` parameter when creating your service or standalone task. For all other types of volumes, this name is referenced in the ``sourceVolume`` parameter of the ``mountPoints`` object in the container definition. When a volume is using the ``efsVolumeConfiguration`` , the name is required.
-            :param s3_files_volume_configuration: 
+            :param s3_files_volume_configuration: This parameter is specified when you're using an Amazon S3 Files file system for task storage. For more information, see `Amazon S3 Files volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/s3files-volumes.html>`_ in the *Amazon Elastic Container Service Developer Guide*. Your task definition must include a Task IAM Role. See `IAM role for attaching your file system to compute resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-prereq-policies.html#s3-files-prereq-iam-compute-role>`_ for required permissions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-volume.html
             :exampleMetadata: fixture=_generated
@@ -28833,7 +28920,11 @@ class CfnTaskDefinition(
         def s3_files_volume_configuration(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTaskDefinition.S3FilesVolumeConfigurationProperty"]]:
-            '''
+            '''This parameter is specified when you're using an Amazon S3 Files file system for task storage.
+
+            For more information, see `Amazon S3 Files volumes <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/s3files-volumes.html>`_ in the *Amazon Elastic Container Service Developer Guide*.
+            Your task definition must include a Task IAM Role. See `IAM role for attaching your file system to compute resources <https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-prereq-policies.html#s3-files-prereq-iam-compute-role>`_ for required permissions.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-taskdefinition-volume.html#cfn-ecs-taskdefinition-volume-s3filesvolumeconfiguration
             '''
             result = self._values.get("s3_files_volume_configuration")
@@ -57937,7 +58028,9 @@ def _typecheckingstub__7893a90b02c25e9e2bfca6bbdc63398520e865b88812618aee19452d4
     cpu: typing.Optional[builtins.str] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     family: typing.Optional[builtins.str] = None,
+    ipc_mode: typing.Optional[builtins.str] = None,
     memory: typing.Optional[builtins.str] = None,
+    pid_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_role_arn: typing.Optional[builtins.str] = None,
     volumes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.VolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -57993,7 +58086,19 @@ def _typecheckingstub__ce93c21604c08f3f855ab575d5630159de347d53629aa82e271cad577
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f4750dd15f101fd76fefe1804fdaef42f5c2d6f7cb2027f8593647fd0bc67176(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__af6bd6f6a06af1c3f227a76a661eb205e7d3e83a3d490a7d9bb2a4a819a3a150(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e63a0ac23d8e7b9a4f87f7f607d3afa5addfbea019985faec4d784479d40d215(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -58211,7 +58316,9 @@ def _typecheckingstub__a514393dd11b68400df8f222905e004a36e4d60c7c0be5f0dc999cbf0
     cpu: typing.Optional[builtins.str] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     family: typing.Optional[builtins.str] = None,
+    ipc_mode: typing.Optional[builtins.str] = None,
     memory: typing.Optional[builtins.str] = None,
+    pid_mode: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     task_role_arn: typing.Optional[builtins.str] = None,
     volumes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDaemonTaskDefinition.VolumeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

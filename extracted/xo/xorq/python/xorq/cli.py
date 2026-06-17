@@ -1,3 +1,5 @@
+import collections.abc
+import contextlib
 import datetime
 import os
 import pdb
@@ -19,6 +21,17 @@ from xorq.cli_options import (
     unbind_options,
 )
 from xorq.init_templates import InitTemplates
+
+
+@contextlib.contextmanager
+def maybe_unzip(path: str) -> collections.abc.Generator[str, None, None]:
+    if str(path).lower().endswith(".zip"):
+        from xorq.catalog.zip_utils import extract_build_zip_context  # noqa: PLC0415
+
+        with extract_build_zip_context(path) as build_dir:
+            yield str(build_dir)
+    else:
+        yield path
 
 
 def _lazy_span(name):
@@ -210,6 +223,7 @@ def build_command(
     builds_dir="builds",
     cache_dir=None,
     debug: bool = False,
+    relocate_reads: bool = False,
     emit_build_path_to=None,
 ):
     """
@@ -226,16 +240,15 @@ def build_command(
     -------
 
     """
-    from opentelemetry import trace  # noqa: PLC0415
-
     import xorq.common.utils.pickle_utils  # noqa: F401, PLC0415
     from xorq.common.utils.import_utils import import_from_path  # noqa: PLC0415
+    from xorq.common.utils.otel_utils import get_current_span  # noqa: PLC0415
     from xorq.ibis_yaml.compiler import build_expr  # noqa: PLC0415
     from xorq.vendor.ibis import Expr  # noqa: PLC0415
 
     cache_dir = _get_cache_dir(cache_dir)
 
-    span = trace.get_current_span()
+    span = get_current_span()
     span.add_event(
         "build.params",
         {
@@ -259,7 +272,11 @@ def build_command(
             )
 
     build_path = build_expr(
-        expr, builds_dir=builds_dir, cache_dir=Path(cache_dir), debug=debug
+        expr,
+        builds_dir=builds_dir,
+        cache_dir=Path(cache_dir),
+        debug=debug,
+        relocate_reads=relocate_reads,
     )
     expr_hash = build_path.name
     span.add_event("build.outputs", {"expr_hash": expr_hash})
@@ -301,11 +318,13 @@ def run_command(
     -------
 
     """
-    from opentelemetry import trace  # noqa: PLC0415
-    from opentelemetry.trace import StatusCode  # noqa: PLC0415
-
     from xorq.common.exceptions import UnboundExpressionError  # noqa: PLC0415
     from xorq.common.utils.logging_utils import RunLogger  # noqa: PLC0415
+    from xorq.common.utils.otel_utils import (  # noqa: PLC0415
+        get_current_span,
+        set_span_error,
+        set_span_ok,
+    )
     from xorq.common.utils.profile_utils import timed  # noqa: PLC0415
     from xorq.ibis_yaml.compiler import load_expr  # noqa: PLC0415
     from xorq.ibis_yaml.packager import validate_params_early  # noqa: PLC0415
@@ -317,7 +336,7 @@ def run_command(
 
     cache_dir = _get_cache_dir(cache_dir)
 
-    span = trace.get_current_span()
+    span = get_current_span()
 
     expr_hash = Path(expr_path).name
     run_params = (
@@ -372,12 +391,11 @@ def run_command(
                 span.add_event("run.output_written", file_metrics)
                 rl.log_event("run.output_written", file_metrics)
 
-            span.set_status(StatusCode.OK)
+            set_span_ok(span)
             rl.finalize(status="ok", span_context=span.get_span_context())
 
     except Exception as e:
-        span.set_status(StatusCode.ERROR, str(e))
-        span.record_exception(e)
+        set_span_error(span, e)
         rl.finalize(status="error", span_context=span.get_span_context())
         raise
 
@@ -415,20 +433,19 @@ def run_cached_command(
         TTL in seconds for snapshot cache type. When set, uses
         ParquetTTLSnapshotCache instead of ParquetSnapshotCache.
     """
-    from opentelemetry import trace  # noqa: PLC0415
-
     from xorq.caching import (  # noqa: PLC0415
         ParquetCache,
         ParquetSnapshotCache,
         ParquetTTLSnapshotCache,
     )
     from xorq.common.utils.logging_utils import RunLogger  # noqa: PLC0415
+    from xorq.common.utils.otel_utils import get_current_span  # noqa: PLC0415
     from xorq.common.utils.profile_utils import timed  # noqa: PLC0415
     from xorq.ibis_yaml.compiler import load_expr  # noqa: PLC0415
 
     cache_dir = _get_cache_dir(cache_dir)
 
-    span = trace.get_current_span()
+    span = get_current_span()
 
     expr_hash = Path(expr_path).name
     run_params = (
@@ -557,17 +574,16 @@ def run_unbound_command(
     -------
 
     """
-    from opentelemetry import trace  # noqa: PLC0415
-
     from xorq.common.utils.io_utils import maybe_open  # noqa: PLC0415
     from xorq.common.utils.node_utils import expr_to_unbound  # noqa: PLC0415
+    from xorq.common.utils.otel_utils import get_current_span  # noqa: PLC0415
     from xorq.expr.api import read_pyarrow_stream  # noqa: PLC0415
     from xorq.flight.exchanger import replace_one_unbound  # noqa: PLC0415
     from xorq.ibis_yaml.compiler import load_expr  # noqa: PLC0415
 
     cache_dir = _get_cache_dir(cache_dir)
 
-    span = trace.get_current_span()
+    span = get_current_span()
     span.add_event(
         "run_unbound.params",
         {
@@ -684,9 +700,8 @@ def serve_command(
     cache_dir : str or None
         Path to the dir to store the parquet cache files
     """
-    from opentelemetry import trace  # noqa: PLC0415
-
     from xorq.common.utils.logging_utils import get_print_logger  # noqa: PLC0415
+    from xorq.common.utils.otel_utils import get_current_span  # noqa: PLC0415
     from xorq.flight import FlightServer  # noqa: PLC0415
     from xorq.ibis_yaml.compiler import load_expr  # noqa: PLC0415
     from xorq.loader import load_backend  # noqa: PLC0415
@@ -696,7 +711,7 @@ def serve_command(
 
     # Resolve build path to an actual build directory
     expr_path = ensure_build_dir(expr_path)
-    span = trace.get_current_span()
+    span = get_current_span()
     params = {
         "build_path": expr_path,
         "host": host,
@@ -920,14 +935,15 @@ def uv_run(build_path, cache_dir, output_path, output_format, limit, raw_params)
       # Stream JSON to stdout
       xorq uv run builds/7061dd65ff3c -f json -o -
     """
-    uv_run_command(
-        build_path,
-        cache_dir,
-        output_path,
-        output_format,
-        limit=limit,
-        raw_params=raw_params,
-    )
+    with maybe_unzip(build_path) as p:
+        uv_run_command(
+            p,
+            cache_dir,
+            output_path,
+            output_format,
+            limit=limit,
+            raw_params=raw_params,
+        )
 
 
 @uv_group.command("run-cached")
@@ -1077,6 +1093,11 @@ def uv_run_unbound(
     help="Output SQL files and other debug artifacts.",
 )
 @click.option(
+    "--relocate-reads",
+    is_flag=True,
+    help="Bundle all local-file Read nodes into the build artifact.",
+)
+@click.option(
     "--emit-build-path-to",
     type=click.Path(),
     default=None,
@@ -1086,7 +1107,15 @@ def uv_run_unbound(
         "subprocess consumer needs the path unambiguously."
     ),
 )
-def build(script_path, expr_name, builds_dir, cache_dir, debug, emit_build_path_to):
+def build(
+    script_path: str,
+    expr_name: str,
+    builds_dir: str,
+    cache_dir: str,
+    debug: bool,
+    relocate_reads: bool,
+    emit_build_path_to: str | None,
+) -> None:
     """Compile a Xorq expression into a reusable build artifact.
 
     Loads the script, finds the expression variable, and writes serialized
@@ -1111,6 +1140,7 @@ def build(script_path, expr_name, builds_dir, cache_dir, debug, emit_build_path_
         builds_dir,
         cache_dir,
         debug,
+        relocate_reads=relocate_reads,
         emit_build_path_to=emit_build_path_to,
     )
 
@@ -1141,7 +1171,8 @@ def run(build_path, cache_dir, output_path, output_format, limit, raw_params):
       # Sample 100 rows with a parameter override
       xorq run builds/f02d28198715 --limit 100 -p threshold=0.5 -o sample.parquet
     """
-    run_command(build_path, output_path, output_format, cache_dir, limit, raw_params)
+    with maybe_unzip(build_path) as p:
+        run_command(p, output_path, output_format, cache_dir, limit, raw_params)
 
 
 @cli.command("run-cached")

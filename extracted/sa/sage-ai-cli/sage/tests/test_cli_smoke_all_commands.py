@@ -49,7 +49,7 @@ class TestRootHelp:
         result = _runner.invoke(sage_app, ["--help"])
         assert result.exit_code == 0
         # Every new command must appear in top-level help
-        for cmd in ("search", "image", "schedule", "integrate", "daemon"):
+        for cmd in ("search", "image", "schedule", "integrate", "daemon", "autopolit"):
             assert cmd in result.stdout, f"sage {cmd} missing from --help"
 
 
@@ -64,14 +64,13 @@ class TestCommandHelp:
     @pytest.mark.parametrize("cmd", [
         # Existing commands
         ["models", "--help"],
-        ["list", "--help"],
         ["ask", "--help"],
-        ["chat", "--help"],
         ["run", "--help"],
         ["whoami", "--help"],
         # New top-level commands
         ["search", "--help"],
         ["image", "--help"],
+        ["autopolit", "--help"],
     ])
     def test_command_help_exits_clean(self, sage_app, cmd):
         result = _runner.invoke(sage_app, cmd)

@@ -502,7 +502,7 @@ class Connectors(BaseSDK):
         app_return_url: OptionalNullable[str] = UNSET,
         method_type: Optional[models.OutboundAuthenticationType] = None,
         credentials_name: OptionalNullable[str] = UNSET,
-        bind_connection_to: Optional[models.BindConnectionTo] = "user",
+        github_installation_link: Optional[bool] = False,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -516,7 +516,7 @@ class Connectors(BaseSDK):
         :param app_return_url:
         :param method_type: Auth method type to use for the authorization URL. Required when the connector supports multiple interactive auth methods; otherwise the sole method is selected automatically. Use this to pick a specific method (e.g. 'oauth2' vs 'github_app').
         :param credentials_name:
-        :param bind_connection_to:
+        :param github_installation_link: Only valid with method_type=oauth2. When true, returns a GitHub App installation URL (https://github.com/apps/<slug>/installations/new) if the connector has the proper configuration The Github application needs to have 'Request user authorization (OAuth) during installation' enabled to perform the proper auth loop.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -536,11 +536,11 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorGetAuthURLV1Request(
+            connector_id_or_name=connector_id_or_name,
             app_return_url=app_return_url,
             method_type=method_type,
             credentials_name=credentials_name,
-            bind_connection_to=bind_connection_to,
-            connector_id_or_name=connector_id_or_name,
+            github_installation_link=github_installation_link,
         )
 
         req = self._build_request(
@@ -607,7 +607,7 @@ class Connectors(BaseSDK):
         app_return_url: OptionalNullable[str] = UNSET,
         method_type: Optional[models.OutboundAuthenticationType] = None,
         credentials_name: OptionalNullable[str] = UNSET,
-        bind_connection_to: Optional[models.BindConnectionTo] = "user",
+        github_installation_link: Optional[bool] = False,
         retries: OptionalNullable[utils.RetryConfig] = UNSET,
         server_url: Optional[str] = None,
         timeout_ms: Optional[int] = None,
@@ -621,7 +621,7 @@ class Connectors(BaseSDK):
         :param app_return_url:
         :param method_type: Auth method type to use for the authorization URL. Required when the connector supports multiple interactive auth methods; otherwise the sole method is selected automatically. Use this to pick a specific method (e.g. 'oauth2' vs 'github_app').
         :param credentials_name:
-        :param bind_connection_to:
+        :param github_installation_link: Only valid with method_type=oauth2. When true, returns a GitHub App installation URL (https://github.com/apps/<slug>/installations/new) if the connector has the proper configuration The Github application needs to have 'Request user authorization (OAuth) during installation' enabled to perform the proper auth loop.
         :param retries: Override the default retry configuration for this method
         :param server_url: Override the default server URL for this method
         :param timeout_ms: Override the default request timeout configuration for this method in milliseconds
@@ -641,11 +641,11 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorGetAuthURLV1Request(
+            connector_id_or_name=connector_id_or_name,
             app_return_url=app_return_url,
             method_type=method_type,
             credentials_name=credentials_name,
-            bind_connection_to=bind_connection_to,
-            connector_id_or_name=connector_id_or_name,
+            github_installation_link=github_installation_link,
         )
 
         req = self._build_request_async(
@@ -2035,8 +2035,8 @@ class Connectors(BaseSDK):
 
         request = models.ConnectorCallToolV1Request(
             tool_name=tool_name,
-            credentials_name=credentials_name,
             connector_id_or_name=connector_id_or_name,
+            credentials_name=credentials_name,
             connector_call_tool_request=models.ConnectorCallToolRequest(
                 arguments=arguments,
             ),
@@ -2146,8 +2146,8 @@ class Connectors(BaseSDK):
 
         request = models.ConnectorCallToolV1Request(
             tool_name=tool_name,
-            credentials_name=credentials_name,
             connector_id_or_name=connector_id_or_name,
+            credentials_name=credentials_name,
             connector_call_tool_request=models.ConnectorCallToolRequest(
                 arguments=arguments,
             ),
@@ -2260,12 +2260,12 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListToolsV1Request(
+            connector_id_or_name=connector_id_or_name,
             page=page,
             page_size=page_size,
             refresh=refresh,
             pretty=pretty,
             credentials_name=credentials_name,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request(
@@ -2370,12 +2370,12 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListToolsV1Request(
+            connector_id_or_name=connector_id_or_name,
             page=page,
             page_size=page_size,
             refresh=refresh,
             pretty=pretty,
             credentials_name=credentials_name,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request_async(
@@ -2513,10 +2513,16 @@ class Connectors(BaseSDK):
             retry_config=retry_config,
         )
 
+        response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
                 List[models.PublicAuthenticationMethod], http_res
             )
+        if utils.match_response(http_res, "422", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.HTTPValidationErrorData, http_res
+            )
+            raise errors.HTTPValidationError(response_data, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = utils.stream_to_text(http_res)
             raise errors.SDKError("API error occurred", http_res, http_res_text)
@@ -2602,10 +2608,16 @@ class Connectors(BaseSDK):
             retry_config=retry_config,
         )
 
+        response_data: Any = None
         if utils.match_response(http_res, "200", "application/json"):
             return unmarshal_json_response(
                 List[models.PublicAuthenticationMethod], http_res
             )
+        if utils.match_response(http_res, "422", "application/json"):
+            response_data = unmarshal_json_response(
+                errors.HTTPValidationErrorData, http_res
+            )
+            raise errors.HTTPValidationError(response_data, http_res)
         if utils.match_response(http_res, "4XX", "*"):
             http_res_text = await utils.stream_to_text_async(http_res)
             raise errors.SDKError("API error occurred", http_res, http_res_text)
@@ -2652,9 +2664,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListOrganizationCredentialsV1Request(
+            connector_id_or_name=connector_id_or_name,
             auth_type=auth_type,
             fetch_default=fetch_default,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request(
@@ -2751,9 +2763,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListOrganizationCredentialsV1Request(
+            connector_id_or_name=connector_id_or_name,
             auth_type=auth_type,
             fetch_default=fetch_default,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request_async(
@@ -3080,9 +3092,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListWorkspaceCredentialsV1Request(
+            connector_id_or_name=connector_id_or_name,
             auth_type=auth_type,
             fetch_default=fetch_default,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request(
@@ -3179,9 +3191,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListWorkspaceCredentialsV1Request(
+            connector_id_or_name=connector_id_or_name,
             auth_type=auth_type,
             fetch_default=fetch_default,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request_async(
@@ -3508,9 +3520,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListUserCredentialsV1Request(
+            connector_id_or_name=connector_id_or_name,
             auth_type=auth_type,
             fetch_default=fetch_default,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request(
@@ -3607,9 +3619,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorListUserCredentialsV1Request(
+            connector_id_or_name=connector_id_or_name,
             auth_type=auth_type,
             fetch_default=fetch_default,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request_async(
@@ -4512,9 +4524,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorGetV1Request(
+            connector_id_or_name=connector_id_or_name,
             fetch_user_data=fetch_user_data,
             fetch_customer_data=fetch_customer_data,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request(
@@ -4611,9 +4623,9 @@ class Connectors(BaseSDK):
             base_url = self._get_url(base_url, url_variables)
 
         request = models.ConnectorGetV1Request(
+            connector_id_or_name=connector_id_or_name,
             fetch_user_data=fetch_user_data,
             fetch_customer_data=fetch_customer_data,
-            connector_id_or_name=connector_id_or_name,
         )
 
         req = self._build_request_async(

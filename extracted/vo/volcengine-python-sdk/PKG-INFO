@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: volcengine-python-sdk
-Version: 5.0.34
+Version: 5.0.35
 Summary: Volcengine SDK for Python
 Home-page: https://github.com/volcengine/volcengine-python-sdk
 Author-email: volc-engine <volc-sdk-team@bytedance.com>

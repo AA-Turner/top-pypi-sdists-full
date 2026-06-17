@@ -559,6 +559,18 @@ impl EventDrivenSender {
         cancel: &tokio_util::sync::CancellationToken,
     ) -> (bool, u64) {
         if self.queue_depth() <= SCTP_HIGH_WATER {
+            // Cooperative yield: give other Tokio tasks a scheduling slot between
+            // frames.  Without this, a burst of small frames (e.g. 10k × 64 B) can
+            // run 10 000 tight loop iterations without ever suspending, starving the
+            // ICE keepalive timer task on runtimes with few worker threads (macOS ARM64
+            // CI uses 3 cores → 3 workers).  When the 200 ms STUN binding-request
+            // deadline is missed, the ICE agent transitions Disconnected → Failed and
+            // the tube closes mid-session.
+            //
+            // yield_now() is essentially free when no other task is ready: Tokio
+            // reschedules the current task immediately.  It only "costs" when another
+            // task is actually waiting, which is exactly the case we want to unblock.
+            tokio::task::yield_now().await;
             return (false, 0);
         }
 

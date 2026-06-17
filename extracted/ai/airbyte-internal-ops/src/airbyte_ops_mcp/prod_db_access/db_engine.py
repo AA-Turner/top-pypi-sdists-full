@@ -26,7 +26,7 @@ from airbyte_ops_mcp.constants import (
     CONNECTION_RETRIEVER_PG_CONNECTION_DETAILS_SECRET_ID,
     ENV_K_SERVICE,
 )
-from airbyte_ops_mcp.gcp_auth import get_gcp_credentials
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_prod_db_replica
 
 PG_DRIVER = "pg8000"
 DIRECT_CONNECTION_TIMEOUT = 5  # seconds
@@ -114,7 +114,7 @@ def _get_connector() -> Connector:
     """Get the Cloud SQL connector, initializing lazily on first use."""
     global _connector
     if _connector is None:
-        _connector = Connector(credentials=get_gcp_credentials())
+        _connector = Connector(credentials=get_gcp_credentials_for_prod_db_replica())
     return _connector
 
 

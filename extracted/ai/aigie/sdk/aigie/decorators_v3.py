@@ -22,7 +22,6 @@ from datetime import datetime
 from typing import Any, TypeVar
 from uuid import uuid4
 
-from .buffer import EventType
 from .context_manager import (
     RunContext,
     get_current_span_context,
@@ -92,75 +91,18 @@ def _auto_init_if_needed() -> bool:
         return False
 
 
-async def _queue_trace_event(run_ctx: "RunContext") -> None:
-    """
-    Queue a TRACE_CREATE event for root-level operations.
-
-    Args:
-        run_ctx: The RunContext with trace data (must be root - no parent)
-    """
-    try:
-        from .client import get_aigie
-
-        # Try auto-init if no client
-        if not get_aigie():
-            _auto_init_if_needed()
-
-        aigie = get_aigie()
-        if not aigie or not aigie._buffer:
-            if _debug_mode:
-                logger.debug("[traceable] No global Aigie client - skipping trace event")
-            return
-
-        end_time = datetime.utcnow()
-
-        # Build trace payload
-        trace_payload = {
-            "id": run_ctx.id,
-            "name": run_ctx.name,
-            "start_time": run_ctx.start_time.isoformat()
-            if run_ctx.start_time
-            else end_time.isoformat(),
-            "end_time": end_time.isoformat(),
-            "metadata": run_ctx.metadata,
-            "tags": run_ctx.tags,
-            "input": run_ctx.metadata.get("input"),
-            "output": run_ctx.metadata.get("output"),
-            "status": "error" if run_ctx.metadata.get("status") == "error" else "success",
-        }
-
-        # Add optional fields
-        if run_ctx.user_id:
-            trace_payload["user_id"] = run_ctx.user_id
-        if run_ctx.session_id:
-            trace_payload["session_id"] = run_ctx.session_id
-        if run_ctx.project_name:
-            trace_payload["project_name"] = run_ctx.project_name
-
-        # Calculate duration
-        if run_ctx.start_time:
-            duration_ns = int((end_time - run_ctx.start_time).total_seconds() * 1e9)
-            trace_payload["duration"] = duration_ns
-
-        # Queue trace creation
-        await aigie._buffer.add(EventType.TRACE_CREATE, trace_payload)
-
-        if _debug_mode:
-            logger.debug(f"[traceable] Queued TRACE event: {run_ctx.name} ({run_ctx.id})")
-
-    except Exception as e:
-        if _debug_mode:
-            logger.warning(f"[traceable] Failed to queue trace event: {e}")
-
-
-async def _queue_span_event(run_ctx: "RunContext", trace_id: str, is_create: bool = True) -> None:
+async def _queue_span_event(run_ctx: "RunContext", trace_id: str) -> None:
     """
     Queue a span event to the global Aigie client buffer.
+
+    The span is built fully (start/end/status/output) and emitted exactly
+    once as a finalized event. A root span (``run_ctx.id == trace_id``,
+    ``parent_span_id is None``) carries trace identity, so the platform mints
+    the trace row from it — no separate trace event is emitted.
 
     Args:
         run_ctx: The RunContext with span data
         trace_id: The trace ID this span belongs to
-        is_create: True for SPAN_CREATE, False for SPAN_UPDATE
     """
     try:
         from .client import get_aigie
@@ -276,9 +218,8 @@ async def _queue_span_event(run_ctx: "RunContext", trace_id: str, is_create: boo
                 payload["error_message"] = error_message
                 payload["status_message"] = error_message  # Also set status_message
 
-        # Queue to buffer
-        event_type = EventType.SPAN_CREATE if is_create else EventType.SPAN_UPDATE
-        await aigie._buffer.add(event_type, payload)
+        # Queue to buffer as the single finalized event.
+        await aigie._buffer.add(payload)
 
         if _debug_mode:
             logger.debug(
@@ -290,27 +231,17 @@ async def _queue_span_event(run_ctx: "RunContext", trace_id: str, is_create: boo
             logger.warning(f"[traceable] Failed to queue span event: {e}")
 
 
-def _queue_trace_event_sync(run_ctx: "RunContext") -> None:
-    """
-    Synchronously queue a trace event (schedules async operation).
-    """
-    from .utils.safe import schedule_async
-
-    schedule_async(_queue_trace_event(run_ctx))
-
-
-def _queue_span_event_sync(run_ctx: "RunContext", trace_id: str, is_create: bool = True) -> None:
+def _queue_span_event_sync(run_ctx: "RunContext", trace_id: str) -> None:
     """
     Synchronously queue a span event (schedules async operation).
 
     Args:
         run_ctx: The RunContext with span data
         trace_id: The trace ID this span belongs to
-        is_create: True for SPAN_CREATE, False for SPAN_UPDATE
     """
     from .utils.safe import schedule_async
 
-    schedule_async(_queue_span_event(run_ctx, trace_id, is_create))
+    schedule_async(_queue_span_event(run_ctx, trace_id))
 
 
 def _extract_inputs(
@@ -769,16 +700,16 @@ class traceable:
                 # Determine trace_id: if this is a root span, use its own ID as trace_id
                 # Otherwise, get trace_id from the trace context
                 if not parent_ctx:
-                    # This is a root span - create trace event first
+                    # Root span: its id is the trace_id and it carries trace
+                    # identity — no separate trace event.
                     trace_id = run_ctx.id
-                    await _queue_trace_event(run_ctx)
                 else:
                     # Get trace_id from trace context
                     trace_ctx = get_current_trace_context()
                     trace_id = trace_ctx.id if trace_ctx else run_ctx.id
 
-                # Queue span event to buffer for API submission
-                await _queue_span_event(run_ctx, trace_id, is_create=True)
+                # Queue the single finalized span event to the buffer.
+                await _queue_span_event(run_ctx, trace_id)
 
                 # Restore previous contexts
                 set_current_span_context(prev_span_ctx)
@@ -947,16 +878,16 @@ class traceable:
                 # Determine trace_id: if this is a root span, use its own ID as trace_id
                 # Otherwise, get trace_id from the trace context
                 if not parent_ctx:
-                    # This is a root span - create trace event first
+                    # Root span: its id is the trace_id and it carries trace
+                    # identity — no separate trace event.
                     trace_id = run_ctx.id
-                    _queue_trace_event_sync(run_ctx)
                 else:
                     # Get trace_id from trace context
                     trace_ctx = get_current_trace_context()
                     trace_id = trace_ctx.id if trace_ctx else run_ctx.id
 
-                # Queue span event to buffer for API submission
-                _queue_span_event_sync(run_ctx, trace_id, is_create=True)
+                # Queue the single finalized span event to the buffer.
+                _queue_span_event_sync(run_ctx, trace_id)
 
                 set_current_span_context(prev_span_ctx)
                 if prev_trace_ctx is not None:
@@ -1098,16 +1029,16 @@ class traceable:
                 # Determine trace_id: if this is a root span, use its own ID as trace_id
                 # Otherwise, get trace_id from the trace context
                 if not parent_ctx:
-                    # This is a root span - create trace event first
+                    # Root span: its id is the trace_id and it carries trace
+                    # identity — no separate trace event.
                     trace_id = run_ctx.id
-                    await _queue_trace_event(run_ctx)
                 else:
                     # Get trace_id from trace context
                     trace_ctx = get_current_trace_context()
                     trace_id = trace_ctx.id if trace_ctx else run_ctx.id
 
-                # Queue span event to buffer for API submission
-                await _queue_span_event(run_ctx, trace_id, is_create=True)
+                # Queue the single finalized span event to the buffer.
+                await _queue_span_event(run_ctx, trace_id)
 
                 set_current_span_context(prev_span_ctx)
                 if prev_trace_ctx is not None:
@@ -1232,16 +1163,16 @@ class traceable:
                 # Determine trace_id: if this is a root span, use its own ID as trace_id
                 # Otherwise, get trace_id from the trace context
                 if not parent_ctx:
-                    # This is a root span - create trace event first
+                    # Root span: its id is the trace_id and it carries trace
+                    # identity — no separate trace event.
                     trace_id = run_ctx.id
-                    _queue_trace_event_sync(run_ctx)
                 else:
                     # Get trace_id from trace context
                     trace_ctx = get_current_trace_context()
                     trace_id = trace_ctx.id if trace_ctx else run_ctx.id
 
-                # Queue span event to buffer for API submission
-                _queue_span_event_sync(run_ctx, trace_id, is_create=True)
+                # Queue the single finalized span event to the buffer.
+                _queue_span_event_sync(run_ctx, trace_id)
 
                 set_current_span_context(prev_span_ctx)
                 if prev_trace_ctx is not None:

@@ -133,6 +133,10 @@ function releaseActive() {
 canvas.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;   // primary button only
     e.preventDefault();
+    // preventDefault on pointerdown also suppresses the implicit
+    // focus shift onto our tabindex=0 canvas; focus it explicitly so
+    // a click on the canvas always (re)starts keyboard capture.
+    canvas.focus({preventScroll: true});
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     activePointer = e.pointerId;
     lastCoords = touchCoords(e);
@@ -254,32 +258,30 @@ function postKeys() {
     lastKeyPost = lastKeyPost.then(() => postJson('/key', {usages: snapshot}));
 }
 
-// Toggle for whether host keystrokes get forwarded to the device.
-// When off, all keydown/keyup events bypass our handlers so the
-// browser receives them normally (Cmd-L to focus the URL bar, Cmd-W
-// to close the tab, devtools shortcuts, etc.). Persisted across page
-// loads via localStorage so the user doesn't have to flip it every
-// reload.
-const kbBtn = document.getElementById('keyboard-toggle');
-let keyboardCaptureOn = true;
-try {
-    if (localStorage.getItem('keyboardCapture') === 'false') keyboardCaptureOn = false;
-} catch (e) {}
-function setKbLabel() {
-    kbBtn.textContent = 'Keyboard: ' + (keyboardCaptureOn ? 'on' : 'off');
-}
-setKbLabel();
+// Gate host-keystroke forwarding on canvas focus: keys flow to the
+// device whenever the canvas owns the focus, and stop the moment the
+// user clicks a button, the clipboard textarea, or anything else on
+// the page chrome. No persisted toggle to flip — the focus is the
+// state, and the #kb-indicator badge mirrors it visually.
+const kbIndicator = document.getElementById('kb-indicator');
+function keyboardCaptureOn() { return document.activeElement === canvas; }
 function releaseAllKeys() {
     if (pressedUsages.size) {
         pressedUsages.clear();
         postKeys();
     }
 }
-kbBtn.addEventListener('click', () => {
-    keyboardCaptureOn = !keyboardCaptureOn;
-    setKbLabel();
-    try { localStorage.setItem('keyboardCapture', keyboardCaptureOn ? 'true' : 'false'); } catch (e) {}
+function updateKbIndicator() {
+    kbIndicator.classList.toggle('hidden', !keyboardCaptureOn());
+}
+canvas.addEventListener('focus', updateKbIndicator);
+canvas.addEventListener('blur', () => {
+    // Dropping focus must release any held keys immediately — we
+    // won't see the keyup once events stop being forwarded.
+    releaseAllKeys();
+    updateKbIndicator();
 });
+updateKbIndicator();
 
 // Help modal: opened by '?' (or the '?' button), dismissed by Esc /
 // click outside / close-X. The shortcut works regardless of the
@@ -322,7 +324,7 @@ window.addEventListener('keydown', (e) => {
         const k = e.key.toLowerCase();
         if (k === 'p') { e.preventDefault(); takeScreenshot(); return; }
     }
-    if (!keyboardCaptureOn) return;
+    if (!keyboardCaptureOn()) return;
     // Ctrl-hotkey path consumes the event; don't also type it.
     if (e.ctrlKey && !e.altKey && !e.metaKey) {
         const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
@@ -343,7 +345,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 window.addEventListener('keyup', (e) => {
-    if (helpIsOpen() || !keyboardCaptureOn) return;
+    if (helpIsOpen() || !keyboardCaptureOn()) return;
     const usage = CODE_TO_HID[e.code];
     if (usage === undefined) return;
     e.preventDefault();
@@ -746,21 +748,59 @@ function drawPending() {
     lastFrame = f;
 }
 
-// ----- Offline overlay: show a banner over the canvas if frames stop
-// flowing. We sample frameCount once a second; if it hasn't moved for
-// ~3 consecutive seconds AND the stream has actually started (we've
-// drawn at least one frame), reveal the overlay. The moment a new
-// frame lands, hide it again.
+// ----- Offline overlay + auto-recovery: show a banner if frames stop
+// flowing for ~3 s, then nudge the server back to life on a tiered
+// schedule so the viewer resumes "automatically" when the device wakes
+// or its daemon comes back. We sample frameCount once a second; if it
+// hasn't moved for OFFLINE_GRACE_SECS AND the stream has actually
+// started (>=1 drawn frame), reveal the overlay. The moment a new
+// frame lands, hide it again and reset the recovery timers.
+//
+// Recovery ladder, measured in seconds without frames once the
+// overlay is showing:
+//   +PLI_AFTER_SECS -- POST /pli (one RTCP packet, ~100-300 ms IDR)
+//   then every PLI_REPEAT_SECS -- another /pli
+//   +RESTART_AFTER_SECS -- POST /restart (no page reload). The server
+//     preserves the live /stream.bin subscriber across the restart and
+//     emits a type=2 (key-with-reset) IDR onto the existing connection;
+//     the in-page decoder rebuild path picks it up. Crucially we do NOT
+//     location.reload() here -- a reload would resuspend the
+//     AudioContext (browsers require a user gesture to play audio after
+//     navigation) and the user would silently lose sound.
 const offlineOverlay = document.getElementById('offline-overlay');
 const OFFLINE_GRACE_SECS = 3;
-let _lastFc = -1, _stableSec = 0;
+const PLI_AFTER_SECS = 8;        // first PLI nudge once we've been offline this long
+const PLI_REPEAT_SECS = 6;       // keep pinging while still offline
+const RESTART_AFTER_SECS = 25;   // give up on PLI; full session restart (no reload)
+const RESTART_REPEAT_SECS = 30;  // if still offline after this much more, restart again
+let _lastFc = -1, _stableSec = 0, _nextPliSec = 0, _nextRestartSec = 0;
 setInterval(() => {
-    if (frameCount === 0) { offlineOverlay.classList.add('hidden'); _lastFc = 0; _stableSec = 0; return; }
+    if (frameCount === 0) {
+        offlineOverlay.classList.add('hidden');
+        _lastFc = 0; _stableSec = 0; _nextPliSec = 0; _nextRestartSec = 0;
+        return;
+    }
     if (frameCount === _lastFc) {
         _stableSec += 1;
-        if (_stableSec >= OFFLINE_GRACE_SECS) offlineOverlay.classList.remove('hidden');
+        if (_stableSec >= OFFLINE_GRACE_SECS) {
+            offlineOverlay.classList.remove('hidden');
+            if (_stableSec >= RESTART_AFTER_SECS && _stableSec >= _nextRestartSec) {
+                _nextRestartSec = _stableSec + RESTART_REPEAT_SECS;
+                log('auto-recover: /restart (offline ' + _stableSec + 's, no reload — audio stays attached)');
+                fetch('/restart', {method: 'POST', cache: 'no-store'})
+                    .catch(err => log('auto restart err: ' + (err.message || err)));
+            } else if (_stableSec >= PLI_AFTER_SECS && _stableSec >= _nextPliSec) {
+                _nextPliSec = _stableSec + PLI_REPEAT_SECS;
+                log('auto-recover: /pli (offline ' + _stableSec + 's)');
+                fetch('/pli', {method: 'POST', cache: 'no-store'})
+                    .catch(err => log('auto pli err: ' + (err.message || err)));
+            }
+        }
     } else {
+        if (_stableSec >= OFFLINE_GRACE_SECS) log('stream resumed after ' + _stableSec + 's');
         _stableSec = 0;
+        _nextPliSec = 0;
+        _nextRestartSec = 0;
         offlineOverlay.classList.add('hidden');
     }
     _lastFc = frameCount;
@@ -782,11 +822,23 @@ function renderAxRow(setting) {
     label.textContent = setting.key.replace(/_/g, ' ').toLowerCase();
     label.title = setting.key;
     row.appendChild(label);
-    if (typeof setting.value === 'boolean') {
+    const type = setting.type || (typeof setting.value === 'boolean' ? 'bool' : 'float');
+    if (type === 'bool') {
         const cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.id = id; cb.checked = setting.value;
+        cb.type = 'checkbox'; cb.id = id; cb.checked = !!setting.value;
         cb.addEventListener('change', () => postAxSet(setting.key, cb.checked));
         row.appendChild(cb);
+    } else if (type === 'enum') {
+        const sel = document.createElement('select');
+        sel.id = id;
+        for (const opt of (setting.options || [])) {
+            const o = document.createElement('option');
+            o.value = opt; o.textContent = opt;
+            if (opt === setting.value) o.selected = true;
+            sel.appendChild(o);
+        }
+        sel.addEventListener('change', () => postAxSet(setting.key, sel.value));
+        row.appendChild(sel);
     } else {
         const sl = document.createElement('input');
         sl.type = 'range'; sl.id = id; sl.min = '0'; sl.max = '1'; sl.step = '0.05';
@@ -828,6 +880,63 @@ document.getElementById('accessibility-reset').addEventListener('click', async (
     } catch (e) { log('ax reset err: ' + (e.message || e)); }
 });
 reloadAccessibility();
+
+// ----- Clipboard panel: bidirectional text bridge to the device pasteboard.
+// "→ Send to device" pushes the textarea contents via POST /clipboard.
+// "← Get from device" pulls via GET /clipboard, fills the textarea, and (on a
+// secure context) also pushes to navigator.clipboard so the user can paste
+// directly into a host app. The header toggle ("on"/"off") gates the whole
+// panel -- when off the panel dims and the buttons are inert, matching the
+// pattern the user asked for ("toggle-able").
+const clipboardTextEl = document.getElementById('clipboard-text');
+const clipboardPanel = document.getElementById('clipboard-panel');
+const clipboardSendBtn = document.getElementById('clipboard-send');
+const clipboardGetBtn = document.getElementById('clipboard-get');
+const clipboardToggleBtn = document.getElementById('clipboard-toggle');
+let clipboardEnabled = true;
+function setClipboardEnabled(on) {
+    clipboardEnabled = on;
+    clipboardToggleBtn.textContent = on ? 'on' : 'off';
+    clipboardPanel.classList.toggle('disabled', !on);
+}
+clipboardToggleBtn.addEventListener('click', () => setClipboardEnabled(!clipboardEnabled));
+
+clipboardSendBtn.addEventListener('click', async () => {
+    if (!clipboardEnabled) return;
+    const text = clipboardTextEl.value;
+    try {
+        const r = await fetch('/clipboard', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({text}),
+        });
+        if (!r.ok) { log('clipboard send: HTTP ' + r.status); return; }
+        log('clipboard → device (' + text.length + ' chars)');
+    } catch (e) { log('clipboard send err: ' + (e.message || e)); }
+});
+
+clipboardGetBtn.addEventListener('click', async () => {
+    if (!clipboardEnabled) return;
+    try {
+        const r = await fetch('/clipboard', {cache: 'no-store'});
+        if (!r.ok) { log('clipboard get: HTTP ' + r.status); return; }
+        const j = await r.json();
+        const text = j.text == null ? '' : String(j.text);
+        clipboardTextEl.value = text;
+        // Best-effort push to the browser clipboard. navigator.clipboard
+        // requires a secure context (https:// or localhost) AND a user
+        // gesture, which the button click satisfies. Failure is non-fatal
+        // since the user can still copy from the textarea by hand.
+        if (text && navigator.clipboard && navigator.clipboard.writeText) {
+            try {
+                await navigator.clipboard.writeText(text);
+                log('clipboard ← device (' + text.length + ' chars, also in browser clipboard)');
+                return;
+            } catch (e) { /* fall through to plain log */ }
+        }
+        log('clipboard ← device (' + text.length + ' chars)');
+    } catch (e) { log('clipboard get err: ' + (e.message || e)); }
+});
 
 async function run() {
     log('userAgent: ' + navigator.userAgent.slice(0, 80));

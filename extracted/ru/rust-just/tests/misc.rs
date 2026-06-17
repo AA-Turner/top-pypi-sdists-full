@@ -1071,7 +1071,8 @@ fn list_alignment_long() {
       r#"
         Available recipes:
             hello a b='B	' c='C' # this does a thing
-            this-recipe-is-very-very-very-very-very-very-very-very-important Z="\t z" # something else
+            # something else
+            this-recipe-is-very-very-very-very-very-very-very-very-important Z="\t z"
             x a b='B	' c='C'     # this does another thing
       "#,
     )
@@ -1505,7 +1506,7 @@ fn unexpected_token_in_dependency_position() {
     .arg("foo")
     .justfile("foo: 'bar'")
     .stderr(
-      "error: expected '&&', comment, end of file, end of line, \
+      "error: expected '&&', '*', comment, end of file, end of line, \
     identifier, indent, or '(', but found string
  ——▶ justfile:1:6
   │

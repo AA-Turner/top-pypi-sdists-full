@@ -374,7 +374,7 @@ def _homeassistant_tools() -> type[Toolkit]:
             required=False,
             description=(
                 "Instance-owner session or agent token used to create vaults, join them as "
-                "vault-admin (the /join step is owner-only), and grant membership. "
+                "vault-admin (the /join step is owner-only), and grant vault admin access. "
                 "Provide this or the admin token file."
             ),
         ),
@@ -412,6 +412,16 @@ def _homeassistant_tools() -> type[Toolkit]:
             required=False,
             default="agent-vault",
             description="Prefix used to derive the per-worker vault name; must match workers.kubernetes.agentVault.vaultNamePrefix.",
+        ),
+        ConfigField(
+            name="MINDROOM_AGENT_VAULT_ACCESS_OWNER_EMAIL",
+            label="Agent Vault Owner Email",
+            type="text",
+            required=False,
+            description=(
+                "Agent Vault owner account used by Kubernetes worker init when minting proxy tokens. "
+                "When set, self-service grants keep this account admin on the worker vault too."
+            ),
         ),
     ],
     function_names=("request_vault_access",),

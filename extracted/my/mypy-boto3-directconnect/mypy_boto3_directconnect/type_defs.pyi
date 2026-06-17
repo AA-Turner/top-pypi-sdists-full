@@ -158,6 +158,7 @@ __all__ = (
     "NewTransitVirtualInterfaceAllocationTypeDef",
     "NewTransitVirtualInterfaceTypeDef",
     "PaginatorConfigTypeDef",
+    "RateLimiterStatusTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "RouteFilterPrefixTypeDef",
@@ -277,6 +278,12 @@ class ConfirmPublicVirtualInterfaceRequestTypeDef(TypedDict):
 class ConfirmTransitVirtualInterfaceRequestTypeDef(TypedDict):
     virtualInterfaceId: str
     directConnectGatewayId: str
+
+class RateLimiterStatusTypeDef(TypedDict):
+    maxAllowed: NotRequired[int]
+    inUse: NotRequired[int]
+    remaining: NotRequired[int]
+    totalBandwidth: NotRequired[str]
 
 class NewBGPPeerTypeDef(TypedDict):
     asn: NotRequired[int]
@@ -489,6 +496,7 @@ class UpdateVirtualInterfaceAttributesRequestTypeDef(TypedDict):
     mtu: NotRequired[int]
     enableSiteLink: NotRequired[bool]
     virtualInterfaceName: NotRequired[str]
+    rateLimit: NotRequired[str]
 
 class VirtualGatewayTypeDef(TypedDict):
     virtualGatewayId: NotRequired[str]
@@ -613,6 +621,7 @@ class NewPrivateVirtualInterfaceAllocationTypeDef(TypedDict):
     addressFamily: NotRequired[AddressFamilyType]
     customerAddress: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
+    rateLimit: NotRequired[str]
 
 class NewPrivateVirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: str
@@ -628,6 +637,7 @@ class NewPrivateVirtualInterfaceTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     enableSiteLink: NotRequired[bool]
+    rateLimit: NotRequired[str]
 
 class NewPublicVirtualInterfaceAllocationTypeDef(TypedDict):
     virtualInterfaceName: str
@@ -640,6 +650,7 @@ class NewPublicVirtualInterfaceAllocationTypeDef(TypedDict):
     addressFamily: NotRequired[AddressFamilyType]
     routeFilterPrefixes: NotRequired[Sequence[RouteFilterPrefixTypeDef]]
     tags: NotRequired[Sequence[TagTypeDef]]
+    rateLimit: NotRequired[str]
 
 class NewPublicVirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: str
@@ -652,6 +663,7 @@ class NewPublicVirtualInterfaceTypeDef(TypedDict):
     addressFamily: NotRequired[AddressFamilyType]
     routeFilterPrefixes: NotRequired[Sequence[RouteFilterPrefixTypeDef]]
     tags: NotRequired[Sequence[TagTypeDef]]
+    rateLimit: NotRequired[str]
 
 class NewTransitVirtualInterfaceAllocationTypeDef(TypedDict):
     virtualInterfaceName: NotRequired[str]
@@ -664,6 +676,7 @@ class NewTransitVirtualInterfaceAllocationTypeDef(TypedDict):
     customerAddress: NotRequired[str]
     addressFamily: NotRequired[AddressFamilyType]
     tags: NotRequired[Sequence[TagTypeDef]]
+    rateLimit: NotRequired[str]
 
 class NewTransitVirtualInterfaceTypeDef(TypedDict):
     virtualInterfaceName: NotRequired[str]
@@ -678,6 +691,7 @@ class NewTransitVirtualInterfaceTypeDef(TypedDict):
     directConnectGatewayId: NotRequired[str]
     tags: NotRequired[Sequence[TagTypeDef]]
     enableSiteLink: NotRequired[bool]
+    rateLimit: NotRequired[str]
 
 class ResourceTagTypeDef(TypedDict):
     resourceArn: NotRequired[str]
@@ -691,57 +705,6 @@ class AssociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
     macSecKeys: list[MacSecKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ConnectionResponseTypeDef(TypedDict):
-    ownerAccount: str
-    connectionId: str
-    connectionName: str
-    connectionState: ConnectionStateType
-    region: str
-    location: str
-    bandwidth: str
-    vlan: int
-    partnerName: str
-    loaIssueTime: datetime
-    lagId: str
-    awsDevice: str
-    jumboFrameCapable: bool
-    awsDeviceV2: str
-    awsLogicalDeviceId: str
-    hasLogicalRedundancy: HasLogicalRedundancyType
-    tags: list[TagTypeDef]
-    providerName: str
-    macSecCapable: bool
-    portEncryptionStatus: str
-    encryptionMode: str
-    macSecKeys: list[MacSecKeyTypeDef]
-    partnerInterconnectMacSecCapable: bool
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class ConnectionTypeDef(TypedDict):
-    ownerAccount: NotRequired[str]
-    connectionId: NotRequired[str]
-    connectionName: NotRequired[str]
-    connectionState: NotRequired[ConnectionStateType]
-    region: NotRequired[str]
-    location: NotRequired[str]
-    bandwidth: NotRequired[str]
-    vlan: NotRequired[int]
-    partnerName: NotRequired[str]
-    loaIssueTime: NotRequired[datetime]
-    lagId: NotRequired[str]
-    awsDevice: NotRequired[str]
-    jumboFrameCapable: NotRequired[bool]
-    awsDeviceV2: NotRequired[str]
-    awsLogicalDeviceId: NotRequired[str]
-    hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
-    tags: NotRequired[list[TagTypeDef]]
-    providerName: NotRequired[str]
-    macSecCapable: NotRequired[bool]
-    portEncryptionStatus: NotRequired[str]
-    encryptionMode: NotRequired[str]
-    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
-    partnerInterconnectMacSecCapable: NotRequired[bool]
 
 class DisassociateMacSecKeyResponseTypeDef(TypedDict):
     connectionId: str
@@ -841,6 +804,7 @@ class VirtualInterfaceResponseTypeDef(TypedDict):
     awsLogicalDeviceId: str
     tags: list[TagTypeDef]
     siteLinkEnabled: bool
+    rateLimit: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class VirtualInterfaceTypeDef(TypedDict):
@@ -871,6 +835,60 @@ class VirtualInterfaceTypeDef(TypedDict):
     awsLogicalDeviceId: NotRequired[str]
     tags: NotRequired[list[TagTypeDef]]
     siteLinkEnabled: NotRequired[bool]
+    rateLimit: NotRequired[str]
+
+class ConnectionResponseTypeDef(TypedDict):
+    ownerAccount: str
+    connectionId: str
+    connectionName: str
+    connectionState: ConnectionStateType
+    region: str
+    location: str
+    bandwidth: str
+    vlan: int
+    partnerName: str
+    loaIssueTime: datetime
+    lagId: str
+    awsDevice: str
+    jumboFrameCapable: bool
+    awsDeviceV2: str
+    awsLogicalDeviceId: str
+    hasLogicalRedundancy: HasLogicalRedundancyType
+    tags: list[TagTypeDef]
+    providerName: str
+    macSecCapable: bool
+    portEncryptionStatus: str
+    encryptionMode: str
+    macSecKeys: list[MacSecKeyTypeDef]
+    rateLimiterStatus: RateLimiterStatusTypeDef
+    partnerInterconnectMacSecCapable: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ConnectionTypeDef(TypedDict):
+    ownerAccount: NotRequired[str]
+    connectionId: NotRequired[str]
+    connectionName: NotRequired[str]
+    connectionState: NotRequired[ConnectionStateType]
+    region: NotRequired[str]
+    location: NotRequired[str]
+    bandwidth: NotRequired[str]
+    vlan: NotRequired[int]
+    partnerName: NotRequired[str]
+    loaIssueTime: NotRequired[datetime]
+    lagId: NotRequired[str]
+    awsDevice: NotRequired[str]
+    jumboFrameCapable: NotRequired[bool]
+    awsDeviceV2: NotRequired[str]
+    awsLogicalDeviceId: NotRequired[str]
+    hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
+    tags: NotRequired[list[TagTypeDef]]
+    providerName: NotRequired[str]
+    macSecCapable: NotRequired[bool]
+    portEncryptionStatus: NotRequired[str]
+    encryptionMode: NotRequired[str]
+    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
+    rateLimiterStatus: NotRequired[RateLimiterStatusTypeDef]
+    partnerInterconnectMacSecCapable: NotRequired[bool]
 
 class CreateBGPPeerRequestTypeDef(TypedDict):
     virtualInterfaceId: NotRequired[str]
@@ -986,58 +1004,6 @@ class DescribeTagsResponseTypeDef(TypedDict):
     resourceTags: list[ResourceTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ConnectionsTypeDef(TypedDict):
-    connections: list[ConnectionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class LagResponseTypeDef(TypedDict):
-    connectionsBandwidth: str
-    numberOfConnections: int
-    lagId: str
-    ownerAccount: str
-    lagName: str
-    lagState: LagStateType
-    location: str
-    region: str
-    minimumLinks: int
-    awsDevice: str
-    awsDeviceV2: str
-    awsLogicalDeviceId: str
-    connections: list[ConnectionTypeDef]
-    allowsHostedConnections: bool
-    jumboFrameCapable: bool
-    hasLogicalRedundancy: HasLogicalRedundancyType
-    tags: list[TagTypeDef]
-    providerName: str
-    macSecCapable: bool
-    encryptionMode: str
-    macSecKeys: list[MacSecKeyTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class LagTypeDef(TypedDict):
-    connectionsBandwidth: NotRequired[str]
-    numberOfConnections: NotRequired[int]
-    lagId: NotRequired[str]
-    ownerAccount: NotRequired[str]
-    lagName: NotRequired[str]
-    lagState: NotRequired[LagStateType]
-    location: NotRequired[str]
-    region: NotRequired[str]
-    minimumLinks: NotRequired[int]
-    awsDevice: NotRequired[str]
-    awsDeviceV2: NotRequired[str]
-    awsLogicalDeviceId: NotRequired[str]
-    connections: NotRequired[list[ConnectionTypeDef]]
-    allowsHostedConnections: NotRequired[bool]
-    jumboFrameCapable: NotRequired[bool]
-    hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
-    tags: NotRequired[list[TagTypeDef]]
-    providerName: NotRequired[str]
-    macSecCapable: NotRequired[bool]
-    encryptionMode: NotRequired[str]
-    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
-
 class InterconnectsTypeDef(TypedDict):
     interconnects: list[InterconnectTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1097,6 +1063,60 @@ class VirtualInterfacesTypeDef(TypedDict):
     virtualInterfaces: list[VirtualInterfaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ConnectionsTypeDef(TypedDict):
+    connections: list[ConnectionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class LagResponseTypeDef(TypedDict):
+    connectionsBandwidth: str
+    numberOfConnections: int
+    lagId: str
+    ownerAccount: str
+    lagName: str
+    lagState: LagStateType
+    location: str
+    region: str
+    minimumLinks: int
+    awsDevice: str
+    awsDeviceV2: str
+    awsLogicalDeviceId: str
+    connections: list[ConnectionTypeDef]
+    allowsHostedConnections: bool
+    jumboFrameCapable: bool
+    hasLogicalRedundancy: HasLogicalRedundancyType
+    tags: list[TagTypeDef]
+    providerName: str
+    macSecCapable: bool
+    encryptionMode: str
+    macSecKeys: list[MacSecKeyTypeDef]
+    rateLimiterStatus: RateLimiterStatusTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class LagTypeDef(TypedDict):
+    connectionsBandwidth: NotRequired[str]
+    numberOfConnections: NotRequired[int]
+    lagId: NotRequired[str]
+    ownerAccount: NotRequired[str]
+    lagName: NotRequired[str]
+    lagState: NotRequired[LagStateType]
+    location: NotRequired[str]
+    region: NotRequired[str]
+    minimumLinks: NotRequired[int]
+    awsDevice: NotRequired[str]
+    awsDeviceV2: NotRequired[str]
+    awsLogicalDeviceId: NotRequired[str]
+    connections: NotRequired[list[ConnectionTypeDef]]
+    allowsHostedConnections: NotRequired[bool]
+    jumboFrameCapable: NotRequired[bool]
+    hasLogicalRedundancy: NotRequired[HasLogicalRedundancyType]
+    tags: NotRequired[list[TagTypeDef]]
+    providerName: NotRequired[str]
+    macSecCapable: NotRequired[bool]
+    encryptionMode: NotRequired[str]
+    macSecKeys: NotRequired[list[MacSecKeyTypeDef]]
+    rateLimiterStatus: NotRequired[RateLimiterStatusTypeDef]
 
 class LagsTypeDef(TypedDict):
     lags: list[LagTypeDef]

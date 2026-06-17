@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.4.9
+Version: 2.4.11
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -684,6 +684,31 @@ print(res.choices[0].message.content)
 * [update](https://github.com/mistralai/client-python/blob/main/docs/sdks/judges/README.md#update) - Update a judge
 * [judge_conversation](https://github.com/mistralai/client-python/blob/main/docs/sdks/judges/README.md#judge_conversation) - Run a saved judge on a conversation
 
+### [Beta.Observability.Logs](https://github.com/mistralai/client-python/blob/main/docs/sdks/logs/README.md)
+
+* [search](https://github.com/mistralai/client-python/blob/main/docs/sdks/logs/README.md#search) - Search logs
+* [list](https://github.com/mistralai/client-python/blob/main/docs/sdks/logs/README.md#list) - Get log field definitions
+* [fetch_options](https://github.com/mistralai/client-python/blob/main/docs/sdks/logs/README.md#fetch_options) - Get options for a log field
+
+### [Beta.Observability.Spans](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md)
+
+* [search_spans](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#search_spans) - Search spans
+* [search_span_evaluations](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#search_span_evaluations) - Search span evaluations
+* [search_latest_span_evaluations](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#search_latest_span_evaluations) - Search latest span evaluations
+* [list_span_fields](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#list_span_fields) - Get span field definitions
+* [list_span_eval_fields](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#list_span_eval_fields) - Get span evaluation field definitions
+* [fetch_span_field_options](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#fetch_span_field_options) - Get options for a span field
+* [fetch_span_eval_field_options](https://github.com/mistralai/client-python/blob/main/docs/sdks/spans/README.md#fetch_span_eval_field_options) - Get options for a span evaluation field
+
+### [Beta.Observability.Traces](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md)
+
+* [search](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md#search) - Search traces
+* [get_trace_fields](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md#get_trace_fields) - Get trace field definitions
+* [get_trace_by_id](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md#get_trace_by_id) - Get trace by id
+* [get_trace_spans](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md#get_trace_spans) - Get trace spans
+* [fetch_options](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md#fetch_options) - Get options for a trace field
+* [get_span_by_id](https://github.com/mistralai/client-python/blob/main/docs/sdks/traces/README.md#get_span_by_id) - Get span by id
+
 ### [Beta.Rag.IngestionPipelineConfigurations](https://github.com/mistralai/client-python/blob/main/docs/sdks/ingestionpipelineconfigurations/README.md)
 
 * [list](https://github.com/mistralai/client-python/blob/main/docs/sdks/ingestionpipelineconfigurations/README.md#list) - List ingestion pipeline configurations
@@ -791,6 +816,8 @@ print(res.choices[0].message.content)
 * [get_workflow_execution_trace_summary](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_trace_summary) - Get Workflow Execution Trace Summary
 * [get_workflow_execution_trace_events](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_trace_events) - Get Workflow Execution Trace Events
 * [stream](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#stream) - Stream
+* [get_workflow_execution_logs](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#get_workflow_execution_logs) - Get Workflow Execution Logs
+* [stream_workflow_execution_logs](https://github.com/mistralai/client-python/blob/main/docs/sdks/executions/README.md#stream_workflow_execution_logs) - Stream Workflow Execution Logs
 
 #### [Workflows.Metrics](https://github.com/mistralai/client-python/blob/main/docs/sdks/metrics/README.md)
 
@@ -811,6 +838,7 @@ print(res.choices[0].message.content)
 * [update_schedule](https://github.com/mistralai/client-python/blob/main/docs/sdks/schedules/README.md#update_schedule) - Update Schedule
 * [pause_schedule](https://github.com/mistralai/client-python/blob/main/docs/sdks/schedules/README.md#pause_schedule) - Pause Schedule
 * [resume_schedule](https://github.com/mistralai/client-python/blob/main/docs/sdks/schedules/README.md#resume_schedule) - Resume Schedule
+* [trigger_schedule](https://github.com/mistralai/client-python/blob/main/docs/sdks/schedules/README.md#trigger_schedule) - Trigger Schedule
 
 </details>
 <!-- End Available Resources and Operations [operations] -->
@@ -869,7 +897,7 @@ with Mistral(
     api_key=os.getenv("MISTRAL_API_KEY", ""),
 ) as mistral:
 
-    res = mistral.workflows.get_workflows(active_only=False, include_shared=True, limit=50)
+    res = mistral.workflows.get_workflows(include_shared=True, order="asc", limit=50, active_only=False)
 
     while res is not None:
         # Handle items
@@ -1022,8 +1050,8 @@ with Mistral(
 
 
 **Inherit from [`MistralError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/mistralerror.py)**:
-* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 130 of 197 methods.*
-* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 41 of 197 methods.*
+* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 134 of 216 methods.*
+* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 216 methods.*
 * [`ResponseValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

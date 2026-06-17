@@ -3099,6 +3099,7 @@ from ..interfaces.aws_bedrockagentcore import (
     BrowserProfileReference as _BrowserProfileReference_7d69eac7,
     BrowserReference as _BrowserReference_80bd1deb,
     CodeInterpreterCustomReference as _CodeInterpreterCustomReference_0b253bc0,
+    ConfigurationBundleReference as _ConfigurationBundleReference_0c330090,
     DatasetReference as _DatasetReference_165bc55f,
     EvaluatorReference as _EvaluatorReference_a3ac0235,
     GatewayReference as _GatewayReference_350c3a07,
@@ -3109,6 +3110,7 @@ from ..interfaces.aws_bedrockagentcore import (
     IBrowserProfileRef as _IBrowserProfileRef_87a4b1a8,
     IBrowserRef as _IBrowserRef_9ae0dbbd,
     ICodeInterpreterCustomRef as _ICodeInterpreterCustomRef_2d5c05fb,
+    IConfigurationBundleRef as _IConfigurationBundleRef_1726f9c9,
     IDatasetRef as _IDatasetRef_e8d16302,
     IEvaluatorRef as _IEvaluatorRef_21d364d2,
     IGatewayRef as _IGatewayRef_a3ed30fe,
@@ -3117,18 +3119,24 @@ from ..interfaces.aws_bedrockagentcore import (
     IMemoryRef as _IMemoryRef_2d13cc89,
     IOAuth2CredentialProviderRef as _IOAuth2CredentialProviderRef_0815c2a4,
     IOnlineEvaluationConfigRef as _IOnlineEvaluationConfigRef_cf19cabf,
+    IPaymentConnectorRef as _IPaymentConnectorRef_aabc28b3,
     IPaymentCredentialProviderRef as _IPaymentCredentialProviderRef_cdad81c3,
+    IPaymentManagerRef as _IPaymentManagerRef_e016729a,
     IPolicyEngineRef as _IPolicyEngineRef_6d885cfc,
     IPolicyRef as _IPolicyRef_ceb8b108,
+    IResourcePolicyRef as _IResourcePolicyRef_c0b2f9b6,
     IRuntimeEndpointRef as _IRuntimeEndpointRef_7a1c67f8,
     IRuntimeRef as _IRuntimeRef_00302e12,
     IWorkloadIdentityRef as _IWorkloadIdentityRef_dc6077a7,
     MemoryReference as _MemoryReference_a1aef278,
     OAuth2CredentialProviderReference as _OAuth2CredentialProviderReference_0c62007e,
     OnlineEvaluationConfigReference as _OnlineEvaluationConfigReference_13c14f3c,
+    PaymentConnectorReference as _PaymentConnectorReference_233575c7,
     PaymentCredentialProviderReference as _PaymentCredentialProviderReference_84da34cb,
+    PaymentManagerReference as _PaymentManagerReference_4941c5a9,
     PolicyEngineReference as _PolicyEngineReference_471db68b,
     PolicyReference as _PolicyReference_d2f6bd10,
+    ResourcePolicyReference as _ResourcePolicyReference_0b488e30,
     RuntimeEndpointReference as _RuntimeEndpointReference_dff8b038,
     RuntimeReference as _RuntimeReference_bdb3da48,
     WorkloadIdentityReference as _WorkloadIdentityReference_255b3126,
@@ -6307,6 +6315,11 @@ class CfnApiKeyCredentialProvider(
         
             # the properties below are optional
             api_key="apiKey",
+            api_key_secret_config=bedrockagentcore.CfnApiKeyCredentialProvider.SecretReferenceProperty(
+                json_key="jsonKey",
+                secret_id="secretId"
+            ),
+            api_key_secret_source="apiKeySecretSource",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -6321,6 +6334,8 @@ class CfnApiKeyCredentialProvider(
         *,
         name: builtins.str,
         api_key: typing.Optional[builtins.str] = None,
+        api_key_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApiKeyCredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        api_key_secret_source: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::ApiKeyCredentialProvider``.
@@ -6329,13 +6344,21 @@ class CfnApiKeyCredentialProvider(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the API key credential provider.
         :param api_key: The API key to use for authentication.
+        :param api_key_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+        :param api_key_secret_source: The source of the API key secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
         :param tags: Tags to assign to the API key credential provider.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b3bd42e9263df03a59e830c8f21f47046aaba131c40f7a04b1ec0d161b204d8c)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnApiKeyCredentialProviderProps(name=name, api_key=api_key, tags=tags)
+        props = CfnApiKeyCredentialProviderProps(
+            name=name,
+            api_key=api_key,
+            api_key_secret_config=api_key_secret_config,
+            api_key_secret_source=api_key_secret_source,
+            tags=tags,
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -6397,6 +6420,15 @@ class CfnApiKeyCredentialProvider(
         :cloudformationAttribute: ApiKeySecretArn
         '''
         return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrApiKeySecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrApiKeySecretJsonKey")
+    def attr_api_key_secret_json_key(self) -> builtins.str:
+        '''The JSON key within the secret that contains the API key value.
+
+        :cloudformationAttribute: ApiKeySecretJsonKey
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrApiKeySecretJsonKey"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTime")
@@ -6468,6 +6500,37 @@ class CfnApiKeyCredentialProvider(
         jsii.set(self, "apiKey", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="apiKeySecretConfig")
+    def api_key_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApiKeyCredentialProvider.SecretReferenceProperty"]]:
+        '''A reference to a customer-provided secret stored in AWS Secrets Manager.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApiKeyCredentialProvider.SecretReferenceProperty"]], jsii.get(self, "apiKeySecretConfig"))
+
+    @api_key_secret_config.setter
+    def api_key_secret_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApiKeyCredentialProvider.SecretReferenceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c36b765e684998f8aac9c13c33bf91af6d2dfc9711615d19bbf8fd2e1da7fba5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "apiKeySecretConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="apiKeySecretSource")
+    def api_key_secret_source(self) -> typing.Optional[builtins.str]:
+        '''The source of the API key secret.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "apiKeySecretSource"))
+
+    @api_key_secret_source.setter
+    def api_key_secret_source(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13c84b129320d65e21b4a179f4cc6aa58bb924d9fdefbd141c6bb9b1cae0eac9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "apiKeySecretSource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''Tags to assign to the API key credential provider.'''
@@ -6532,11 +6595,83 @@ class CfnApiKeyCredentialProvider(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnApiKeyCredentialProvider.SecretReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"json_key": "jsonKey", "secret_id": "secretId"},
+    )
+    class SecretReferenceProperty:
+        def __init__(self, *, json_key: builtins.str, secret_id: builtins.str) -> None:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :param json_key: The JSON key within the secret that contains the credential value.
+            :param secret_id: The ID or ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-apikeycredentialprovider-secretreference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                secret_reference_property = bedrockagentcore.CfnApiKeyCredentialProvider.SecretReferenceProperty(
+                    json_key="jsonKey",
+                    secret_id="secretId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__b7a81a017396e6c107178ef311867405ee845695c76487294db61ccb6fd7aadf)
+                check_type(argname="argument json_key", value=json_key, expected_type=type_hints["json_key"])
+                check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "json_key": json_key,
+                "secret_id": secret_id,
+            }
+
+        @builtins.property
+        def json_key(self) -> builtins.str:
+            '''The JSON key within the secret that contains the credential value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-apikeycredentialprovider-secretreference.html#cfn-bedrockagentcore-apikeycredentialprovider-secretreference-jsonkey
+            '''
+            result = self._values.get("json_key")
+            assert result is not None, "Required property 'json_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_id(self) -> builtins.str:
+            '''The ID or ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-apikeycredentialprovider-secretreference.html#cfn-bedrockagentcore-apikeycredentialprovider-secretreference-secretid
+            '''
+            result = self._values.get("secret_id")
+            assert result is not None, "Required property 'secret_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnApiKeyCredentialProviderProps",
     jsii_struct_bases=[],
-    name_mapping={"name": "name", "api_key": "apiKey", "tags": "tags"},
+    name_mapping={
+        "name": "name",
+        "api_key": "apiKey",
+        "api_key_secret_config": "apiKeySecretConfig",
+        "api_key_secret_source": "apiKeySecretSource",
+        "tags": "tags",
+    },
 )
 class CfnApiKeyCredentialProviderProps:
     def __init__(
@@ -6544,12 +6679,16 @@ class CfnApiKeyCredentialProviderProps:
         *,
         name: builtins.str,
         api_key: typing.Optional[builtins.str] = None,
+        api_key_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnApiKeyCredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        api_key_secret_source: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnApiKeyCredentialProvider``.
 
         :param name: The name of the API key credential provider.
         :param api_key: The API key to use for authentication.
+        :param api_key_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+        :param api_key_secret_source: The source of the API key secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
         :param tags: Tags to assign to the API key credential provider.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html
@@ -6567,6 +6706,11 @@ class CfnApiKeyCredentialProviderProps:
             
                 # the properties below are optional
                 api_key="apiKey",
+                api_key_secret_config=bedrockagentcore.CfnApiKeyCredentialProvider.SecretReferenceProperty(
+                    json_key="jsonKey",
+                    secret_id="secretId"
+                ),
+                api_key_secret_source="apiKeySecretSource",
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -6577,12 +6721,18 @@ class CfnApiKeyCredentialProviderProps:
             type_hints = typing.get_type_hints(_typecheckingstub__fb76a2edf3865bdbdece780b83e38390cac0e28bcdc052fe44627dd0b40ac6f1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument api_key", value=api_key, expected_type=type_hints["api_key"])
+            check_type(argname="argument api_key_secret_config", value=api_key_secret_config, expected_type=type_hints["api_key_secret_config"])
+            check_type(argname="argument api_key_secret_source", value=api_key_secret_source, expected_type=type_hints["api_key_secret_source"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
         if api_key is not None:
             self._values["api_key"] = api_key
+        if api_key_secret_config is not None:
+            self._values["api_key_secret_config"] = api_key_secret_config
+        if api_key_secret_source is not None:
+            self._values["api_key_secret_source"] = api_key_secret_source
         if tags is not None:
             self._values["tags"] = tags
 
@@ -6603,6 +6753,28 @@ class CfnApiKeyCredentialProviderProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html#cfn-bedrockagentcore-apikeycredentialprovider-apikey
         '''
         result = self._values.get("api_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def api_key_secret_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApiKeyCredentialProvider.SecretReferenceProperty"]]:
+        '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html#cfn-bedrockagentcore-apikeycredentialprovider-apikeysecretconfig
+        '''
+        result = self._values.get("api_key_secret_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnApiKeyCredentialProvider.SecretReferenceProperty"]], result)
+
+    @builtins.property
+    def api_key_secret_source(self) -> typing.Optional[builtins.str]:
+        '''The source of the API key secret.
+
+        Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-apikeycredentialprovider.html#cfn-bedrockagentcore-apikeycredentialprovider-apikeysecretsource
+        '''
+        result = self._values.get("api_key_secret_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -9120,6 +9292,730 @@ class CfnCodeInterpreterCustomProps:
 
     def __repr__(self) -> str:
         return "CfnCodeInterpreterCustomProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IConfigurationBundleRef_1726f9c9, _ITaggableV2_4e6798f8)
+class CfnConfigurationBundle(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnConfigurationBundle",
+):
+    '''Definition of AWS::BedrockAgentCore::ConfigurationBundle Resource Type.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html
+    :cloudformationResource: AWS::BedrockAgentCore::ConfigurationBundle
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        # configuration: Any
+        
+        cfn_configuration_bundle = bedrockagentcore.CfnConfigurationBundle(self, "MyCfnConfigurationBundle",
+            bundle_name="bundleName",
+            components={
+                "components_key": bedrockagentcore.CfnConfigurationBundle.ComponentConfigurationProperty(
+                    configuration=configuration
+                )
+            },
+        
+            # the properties below are optional
+            branch_name="branchName",
+            commit_message="commitMessage",
+            created_by=bedrockagentcore.CfnConfigurationBundle.VersionCreatedBySourceProperty(
+                name="name",
+        
+                # the properties below are optional
+                arn="arn"
+            ),
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        bundle_name: builtins.str,
+        components: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.ComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        branch_name: typing.Optional[builtins.str] = None,
+        commit_message: typing.Optional[builtins.str] = None,
+        created_by: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.VersionCreatedBySourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::ConfigurationBundle``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param bundle_name: The name for the configuration bundle. Names must be unique within your account.
+        :param components: A map of component identifiers to their configurations.
+        :param branch_name: The branch name for version tracking.
+        :param commit_message: A commit message describing the version of the configuration bundle.
+        :param created_by: The source that created a configuration bundle version.
+        :param description: The description for the configuration bundle.
+        :param tags: Tags to assign to the configuration bundle.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__690fbd2a5279f2a026814864e854a5a5b99ddff0c9a63e206f48f88104506caf)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnConfigurationBundleProps(
+            bundle_name=bundle_name,
+            components=components,
+            branch_name=branch_name,
+            commit_message=commit_message,
+            created_by=created_by,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnConfigurationBundle")
+    @builtins.classmethod
+    def is_cfn_configuration_bundle(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnConfigurationBundle.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01264284e68b321c16306bd9e5f7bec7569cab49a4f1ca1666dd65e91f8a0d00)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnConfigurationBundle", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82a26f021bf048516c503a395baece8bfdff25bca410e052784cee12485d9df2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e5d86f3508118a5ec9af101fbc9bcb3656bd015ef89326b8e732c7a7300c9d2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBundleArn")
+    def attr_bundle_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the configuration bundle.
+
+        :cloudformationAttribute: BundleArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBundleArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrBundleId")
+    def attr_bundle_id(self) -> builtins.str:
+        '''The unique identifier of the configuration bundle.
+
+        :cloudformationAttribute: BundleId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrBundleId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the configuration bundle was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLineageMetadata")
+    def attr_lineage_metadata(self) -> "_IResolvable_da3f097b":
+        '''The version lineage metadata that tracks parent versions and creation source.
+
+        :cloudformationAttribute: LineageMetadata
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLineageMetadata"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the configuration bundle was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersionId")
+    def attr_version_id(self) -> builtins.str:
+        '''The version identifier of the configuration bundle.
+
+        :cloudformationAttribute: VersionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="configurationBundleRef")
+    def configuration_bundle_ref(self) -> "_ConfigurationBundleReference_0c330090":
+        '''A reference to a ConfigurationBundle resource.'''
+        return typing.cast("_ConfigurationBundleReference_0c330090", jsii.get(self, "configurationBundleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="bundleName")
+    def bundle_name(self) -> builtins.str:
+        '''The name for the configuration bundle.'''
+        return typing.cast(builtins.str, jsii.get(self, "bundleName"))
+
+    @bundle_name.setter
+    def bundle_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__83fdef09db189e3bab4e0bc47c4afbc0cdd798132f87d850d3307e14412e7b5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "bundleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="components")
+    def components(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.ComponentConfigurationProperty"]]]:
+        '''A map of component identifiers to their configurations.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.ComponentConfigurationProperty"]]], jsii.get(self, "components"))
+
+    @components.setter
+    def components(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.ComponentConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8e17653a854fac5b840f43af88b394a4f784add254239c67f5664fcbeb5b4d28)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "components", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="branchName")
+    def branch_name(self) -> typing.Optional[builtins.str]:
+        '''The branch name for version tracking.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "branchName"))
+
+    @branch_name.setter
+    def branch_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7bb543e1902af184d4475ded4730fadede59a1cf037b9eb4ccdea3cb222b5e8e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "branchName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="commitMessage")
+    def commit_message(self) -> typing.Optional[builtins.str]:
+        '''A commit message describing the version of the configuration bundle.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "commitMessage"))
+
+    @commit_message.setter
+    def commit_message(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4db8e58863dd18ee14a44d5529b0fd0d156d33df4b1d77bb66eb736ccdd4ad15)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "commitMessage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="createdBy")
+    def created_by(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]]:
+        '''The source that created a configuration bundle version.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]], jsii.get(self, "createdBy"))
+
+    @created_by.setter
+    def created_by(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ba9236c016106dbeaa1a642a36b4da4482f84c14013f5d906900ebb54fe0fe9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "createdBy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for the configuration bundle.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b45abb7e28833faaf441e807d87b41e96ff2d5ecf4a946a5cd4f18e0453373c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the configuration bundle.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d0186c37ef720b05cee219f0615242ab93066b95d55c4f98835859ce102976e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnConfigurationBundle.ComponentConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"configuration": "configuration"},
+    )
+    class ComponentConfigurationProperty:
+        def __init__(self, *, configuration: typing.Any) -> None:
+            '''The configuration for a component within a configuration bundle.
+
+            :param configuration: The configuration values as a flexible JSON document.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-componentconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                # configuration: Any
+                
+                component_configuration_property = bedrockagentcore.CfnConfigurationBundle.ComponentConfigurationProperty(
+                    configuration=configuration
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__4b753fd8c04dee0d85c5e3705bc99bda5d93bb6aa105fbdc73bbac97c8d8c13e)
+                check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "configuration": configuration,
+            }
+
+        @builtins.property
+        def configuration(self) -> typing.Any:
+            '''The configuration values as a flexible JSON document.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-componentconfiguration.html#cfn-bedrockagentcore-configurationbundle-componentconfiguration-configuration
+            '''
+            result = self._values.get("configuration")
+            assert result is not None, "Required property 'configuration' is missing"
+            return typing.cast(typing.Any, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ComponentConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnConfigurationBundle.VersionCreatedBySourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "arn": "arn"},
+    )
+    class VersionCreatedBySourceProperty:
+        def __init__(
+            self,
+            *,
+            name: builtins.str,
+            arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The source that created a configuration bundle version.
+
+            :param name: The name of the source (for example, user, optimization-job, or system).
+            :param arn: The Amazon Resource Name (ARN) of the source, if applicable.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versioncreatedbysource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                version_created_by_source_property = bedrockagentcore.CfnConfigurationBundle.VersionCreatedBySourceProperty(
+                    name="name",
+                
+                    # the properties below are optional
+                    arn="arn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f7fcee9b7a1835cb021be02f35c1037fea066def5a0e6e9cce8d524a1d339a50)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+            }
+            if arn is not None:
+                self._values["arn"] = arn
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''The name of the source (for example, user, optimization-job, or system).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versioncreatedbysource.html#cfn-bedrockagentcore-configurationbundle-versioncreatedbysource-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the source, if applicable.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versioncreatedbysource.html#cfn-bedrockagentcore-configurationbundle-versioncreatedbysource-arn
+            '''
+            result = self._values.get("arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VersionCreatedBySourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnConfigurationBundle.VersionLineageMetadataProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "branch_name": "branchName",
+            "commit_message": "commitMessage",
+            "created_by": "createdBy",
+            "parent_version_ids": "parentVersionIds",
+        },
+    )
+    class VersionLineageMetadataProperty:
+        def __init__(
+            self,
+            *,
+            branch_name: typing.Optional[builtins.str] = None,
+            commit_message: typing.Optional[builtins.str] = None,
+            created_by: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.VersionCreatedBySourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            parent_version_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The version lineage metadata that tracks parent versions and creation source.
+
+            :param branch_name: The branch name for this version.
+            :param commit_message: A commit message describing the changes in this version.
+            :param created_by: The source that created a configuration bundle version.
+            :param parent_version_ids: A list of parent version identifiers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versionlineagemetadata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                version_lineage_metadata_property = bedrockagentcore.CfnConfigurationBundle.VersionLineageMetadataProperty(
+                    branch_name="branchName",
+                    commit_message="commitMessage",
+                    created_by=bedrockagentcore.CfnConfigurationBundle.VersionCreatedBySourceProperty(
+                        name="name",
+                
+                        # the properties below are optional
+                        arn="arn"
+                    ),
+                    parent_version_ids=["parentVersionIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d96ffeb46ba89046e54151884eb251221b47e49ecf0ac5c2bba59e9606ff67d1)
+                check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
+                check_type(argname="argument commit_message", value=commit_message, expected_type=type_hints["commit_message"])
+                check_type(argname="argument created_by", value=created_by, expected_type=type_hints["created_by"])
+                check_type(argname="argument parent_version_ids", value=parent_version_ids, expected_type=type_hints["parent_version_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if branch_name is not None:
+                self._values["branch_name"] = branch_name
+            if commit_message is not None:
+                self._values["commit_message"] = commit_message
+            if created_by is not None:
+                self._values["created_by"] = created_by
+            if parent_version_ids is not None:
+                self._values["parent_version_ids"] = parent_version_ids
+
+        @builtins.property
+        def branch_name(self) -> typing.Optional[builtins.str]:
+            '''The branch name for this version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versionlineagemetadata.html#cfn-bedrockagentcore-configurationbundle-versionlineagemetadata-branchname
+            '''
+            result = self._values.get("branch_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def commit_message(self) -> typing.Optional[builtins.str]:
+            '''A commit message describing the changes in this version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versionlineagemetadata.html#cfn-bedrockagentcore-configurationbundle-versionlineagemetadata-commitmessage
+            '''
+            result = self._values.get("commit_message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def created_by(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]]:
+            '''The source that created a configuration bundle version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versionlineagemetadata.html#cfn-bedrockagentcore-configurationbundle-versionlineagemetadata-createdby
+            '''
+            result = self._values.get("created_by")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]], result)
+
+        @builtins.property
+        def parent_version_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''A list of parent version identifiers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-configurationbundle-versionlineagemetadata.html#cfn-bedrockagentcore-configurationbundle-versionlineagemetadata-parentversionids
+            '''
+            result = self._values.get("parent_version_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VersionLineageMetadataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnConfigurationBundleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "bundle_name": "bundleName",
+        "components": "components",
+        "branch_name": "branchName",
+        "commit_message": "commitMessage",
+        "created_by": "createdBy",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnConfigurationBundleProps:
+    def __init__(
+        self,
+        *,
+        bundle_name: builtins.str,
+        components: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.ComponentConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        branch_name: typing.Optional[builtins.str] = None,
+        commit_message: typing.Optional[builtins.str] = None,
+        created_by: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfigurationBundle.VersionCreatedBySourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnConfigurationBundle``.
+
+        :param bundle_name: The name for the configuration bundle. Names must be unique within your account.
+        :param components: A map of component identifiers to their configurations.
+        :param branch_name: The branch name for version tracking.
+        :param commit_message: A commit message describing the version of the configuration bundle.
+        :param created_by: The source that created a configuration bundle version.
+        :param description: The description for the configuration bundle.
+        :param tags: Tags to assign to the configuration bundle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            # configuration: Any
+            
+            cfn_configuration_bundle_props = bedrockagentcore.CfnConfigurationBundleProps(
+                bundle_name="bundleName",
+                components={
+                    "components_key": bedrockagentcore.CfnConfigurationBundle.ComponentConfigurationProperty(
+                        configuration=configuration
+                    )
+                },
+            
+                # the properties below are optional
+                branch_name="branchName",
+                commit_message="commitMessage",
+                created_by=bedrockagentcore.CfnConfigurationBundle.VersionCreatedBySourceProperty(
+                    name="name",
+            
+                    # the properties below are optional
+                    arn="arn"
+                ),
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__957d37275cfaa1643001071524a08066b4e5870d532f696009c5aeee98a8ea67)
+            check_type(argname="argument bundle_name", value=bundle_name, expected_type=type_hints["bundle_name"])
+            check_type(argname="argument components", value=components, expected_type=type_hints["components"])
+            check_type(argname="argument branch_name", value=branch_name, expected_type=type_hints["branch_name"])
+            check_type(argname="argument commit_message", value=commit_message, expected_type=type_hints["commit_message"])
+            check_type(argname="argument created_by", value=created_by, expected_type=type_hints["created_by"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "bundle_name": bundle_name,
+            "components": components,
+        }
+        if branch_name is not None:
+            self._values["branch_name"] = branch_name
+        if commit_message is not None:
+            self._values["commit_message"] = commit_message
+        if created_by is not None:
+            self._values["created_by"] = created_by
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def bundle_name(self) -> builtins.str:
+        '''The name for the configuration bundle.
+
+        Names must be unique within your account.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-bundlename
+        '''
+        result = self._values.get("bundle_name")
+        assert result is not None, "Required property 'bundle_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def components(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.ComponentConfigurationProperty"]]]:
+        '''A map of component identifiers to their configurations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-components
+        '''
+        result = self._values.get("components")
+        assert result is not None, "Required property 'components' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.ComponentConfigurationProperty"]]], result)
+
+    @builtins.property
+    def branch_name(self) -> typing.Optional[builtins.str]:
+        '''The branch name for version tracking.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-branchname
+        '''
+        result = self._values.get("branch_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def commit_message(self) -> typing.Optional[builtins.str]:
+        '''A commit message describing the version of the configuration bundle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-commitmessage
+        '''
+        result = self._values.get("commit_message")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def created_by(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]]:
+        '''The source that created a configuration bundle version.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-createdby
+        '''
+        result = self._values.get("created_by")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfigurationBundle.VersionCreatedBySourceProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description for the configuration bundle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the configuration bundle.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-configurationbundle.html#cfn-bedrockagentcore-configurationbundle-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnConfigurationBundleProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -12211,6 +13107,12 @@ class CfnGateway(
                     mcp=bedrockagentcore.CfnGateway.MCPGatewayConfigurationProperty(
                         instructions="instructions",
                         search_type="searchType",
+                        session_configuration=bedrockagentcore.CfnGateway.SessionConfigurationProperty(
+                            session_timeout_in_seconds=123
+                        ),
+                        streaming_configuration=bedrockagentcore.CfnGateway.StreamingConfigurationProperty(
+                            enable_response_streaming=False
+                        ),
                         supported_versions=["supportedVersions"]
                     )
                 )
@@ -12415,6 +13317,8 @@ class CfnGateway(
         name_mapping={
             "instructions": "instructions",
             "search_type": "searchType",
+            "session_configuration": "sessionConfiguration",
+            "streaming_configuration": "streamingConfiguration",
             "supported_versions": "supportedVersions",
         },
     )
@@ -12424,12 +13328,16 @@ class CfnGateway(
             *,
             instructions: typing.Optional[builtins.str] = None,
             search_type: typing.Optional[builtins.str] = None,
+            session_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.SessionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            streaming_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGateway.StreamingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             supported_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''The gateway configuration for MCP.
 
             :param instructions: 
             :param search_type: The MCP gateway configuration search type.
+            :param session_configuration: 
+            :param streaming_configuration: 
             :param supported_versions: The supported versions for the MCP configuration for the gateway target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-mcpgatewayconfiguration.html
@@ -12444,6 +13352,12 @@ class CfnGateway(
                 m_cp_gateway_configuration_property = bedrockagentcore.CfnGateway.MCPGatewayConfigurationProperty(
                     instructions="instructions",
                     search_type="searchType",
+                    session_configuration=bedrockagentcore.CfnGateway.SessionConfigurationProperty(
+                        session_timeout_in_seconds=123
+                    ),
+                    streaming_configuration=bedrockagentcore.CfnGateway.StreamingConfigurationProperty(
+                        enable_response_streaming=False
+                    ),
                     supported_versions=["supportedVersions"]
                 )
             '''
@@ -12451,12 +13365,18 @@ class CfnGateway(
                 type_hints = typing.get_type_hints(_typecheckingstub__caff723b1f8dc289e3e0d1f554fe16628873911a93ec8c36ed92f59cde7798c4)
                 check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
                 check_type(argname="argument search_type", value=search_type, expected_type=type_hints["search_type"])
+                check_type(argname="argument session_configuration", value=session_configuration, expected_type=type_hints["session_configuration"])
+                check_type(argname="argument streaming_configuration", value=streaming_configuration, expected_type=type_hints["streaming_configuration"])
                 check_type(argname="argument supported_versions", value=supported_versions, expected_type=type_hints["supported_versions"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if instructions is not None:
                 self._values["instructions"] = instructions
             if search_type is not None:
                 self._values["search_type"] = search_type
+            if session_configuration is not None:
+                self._values["session_configuration"] = session_configuration
+            if streaming_configuration is not None:
+                self._values["streaming_configuration"] = streaming_configuration
             if supported_versions is not None:
                 self._values["supported_versions"] = supported_versions
 
@@ -12478,6 +13398,26 @@ class CfnGateway(
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
+        def session_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.SessionConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-mcpgatewayconfiguration.html#cfn-bedrockagentcore-gateway-mcpgatewayconfiguration-sessionconfiguration
+            '''
+            result = self._values.get("session_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.SessionConfigurationProperty"]], result)
+
+        @builtins.property
+        def streaming_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.StreamingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-mcpgatewayconfiguration.html#cfn-bedrockagentcore-gateway-mcpgatewayconfiguration-streamingconfiguration
+            '''
+            result = self._values.get("streaming_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGateway.StreamingConfigurationProperty"]], result)
+
+        @builtins.property
         def supported_versions(self) -> typing.Optional[typing.List[builtins.str]]:
             '''The supported versions for the MCP configuration for the gateway target.
 
@@ -12494,6 +13434,114 @@ class CfnGateway(
 
         def __repr__(self) -> str:
             return "MCPGatewayConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGateway.SessionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"session_timeout_in_seconds": "sessionTimeoutInSeconds"},
+    )
+    class SessionConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            session_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param session_timeout_in_seconds: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-sessionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                session_configuration_property = bedrockagentcore.CfnGateway.SessionConfigurationProperty(
+                    session_timeout_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__65cc7892fd2222d67bf8e1aa8e5370d963e97a950e242886ab62b87f3d80d90e)
+                check_type(argname="argument session_timeout_in_seconds", value=session_timeout_in_seconds, expected_type=type_hints["session_timeout_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if session_timeout_in_seconds is not None:
+                self._values["session_timeout_in_seconds"] = session_timeout_in_seconds
+
+        @builtins.property
+        def session_timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-sessionconfiguration.html#cfn-bedrockagentcore-gateway-sessionconfiguration-sessiontimeoutinseconds
+            '''
+            result = self._values.get("session_timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SessionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGateway.StreamingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enable_response_streaming": "enableResponseStreaming"},
+    )
+    class StreamingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            enable_response_streaming: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param enable_response_streaming: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-streamingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                streaming_configuration_property = bedrockagentcore.CfnGateway.StreamingConfigurationProperty(
+                    enable_response_streaming=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e16da9f7fa49d923d2a4457b46a600a349760ec4f2cdc450f8b3ffabeeb4c3f2)
+                check_type(argname="argument enable_response_streaming", value=enable_response_streaming, expected_type=type_hints["enable_response_streaming"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_response_streaming is not None:
+                self._values["enable_response_streaming"] = enable_response_streaming
+
+        @builtins.property
+        def enable_response_streaming(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gateway-streamingconfiguration.html#cfn-bedrockagentcore-gateway-streamingconfiguration-enableresponsestreaming
+            '''
+            result = self._values.get("enable_response_streaming")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -12659,6 +13707,12 @@ class CfnGatewayProps:
                     mcp=bedrockagentcore.CfnGateway.MCPGatewayConfigurationProperty(
                         instructions="instructions",
                         search_type="searchType",
+                        session_configuration=bedrockagentcore.CfnGateway.SessionConfigurationProperty(
+                            session_timeout_in_seconds=123
+                        ),
+                        streaming_configuration=bedrockagentcore.CfnGateway.StreamingConfigurationProperty(
+                            enable_response_streaming=False
+                        ),
                         supported_versions=["supportedVersions"]
                     )
                 ),
@@ -12940,7 +13994,8 @@ class CfnGatewayTarget(
                                 bucket_owner_account_id="bucketOwnerAccountId",
                                 uri="uri"
                             )
-                        )
+                        ),
+                        resource_priority=123
                     ),
                     open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                         inline_payload="inlinePayload",
@@ -12998,6 +14053,20 @@ class CfnGatewayTarget(
                 allowed_query_parameters=["allowedQueryParameters"],
                 allowed_request_headers=["allowedRequestHeaders"],
                 allowed_response_headers=["allowedResponseHeaders"]
+            ),
+            private_endpoint=bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty(
+                managed_vpc_resource=bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty(
+                    endpoint_ip_address_type="endpointIpAddressType",
+                    subnet_ids=["subnetIds"],
+                    vpc_identifier="vpcIdentifier",
+        
+                    # the properties below are optional
+                    routing_domain="routingDomain",
+                    security_group_ids=["securityGroupIds"]
+                ),
+                self_managed_lattice_resource=bedrockagentcore.CfnGatewayTarget.SelfManagedLatticeResourceProperty(
+                    resource_configuration_identifier="resourceConfigurationIdentifier"
+                )
             )
         )
     '''
@@ -13013,6 +14082,7 @@ class CfnGatewayTarget(
         description: typing.Optional[builtins.str] = None,
         gateway_identifier: typing.Optional[builtins.str] = None,
         metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        private_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.PrivateEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::GatewayTarget``.
 
@@ -13024,6 +14094,7 @@ class CfnGatewayTarget(
         :param description: The description for the gateway target.
         :param gateway_identifier: The gateway ID for the gateway target.
         :param metadata_configuration: 
+        :param private_endpoint: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ca4172cb2708dfeb7420a18b960df15915d2da8589b9495c034bd700c3bd768)
@@ -13036,6 +14107,7 @@ class CfnGatewayTarget(
             description=description,
             gateway_identifier=gateway_identifier,
             metadata_configuration=metadata_configuration,
+            private_endpoint=private_endpoint,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -13114,6 +14186,14 @@ class CfnGatewayTarget(
         :cloudformationAttribute: LastSynchronizedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrLastSynchronizedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPrivateEndpointManagedResources")
+    def attr_private_endpoint_managed_resources(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: PrivateEndpointManagedResources
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrPrivateEndpointManagedResources"))
 
     @builtins.property
     @jsii.member(jsii_name="attrProtocolType")
@@ -13266,6 +14346,23 @@ class CfnGatewayTarget(
             type_hints = typing.get_type_hints(_typecheckingstub__00f16ea27eb83e4b32e092f110d089664b10c9e879d89f80aef450f9dc884a25)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateEndpoint")
+    def private_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PrivateEndpointProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PrivateEndpointProperty"]], jsii.get(self, "privateEndpoint"))
+
+    @private_endpoint.setter
+    def private_endpoint(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PrivateEndpointProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1170a82f9b99500a50131c79a2b7aad9528afdc257032235241649013865c5c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateEndpoint", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ApiGatewayTargetConfigurationProperty",
@@ -14223,6 +15320,209 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ManagedResourceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain": "domain",
+            "resource_association_arn": "resourceAssociationArn",
+            "resource_gateway_arn": "resourceGatewayArn",
+        },
+    )
+    class ManagedResourceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            domain: typing.Optional[builtins.str] = None,
+            resource_association_arn: typing.Optional[builtins.str] = None,
+            resource_gateway_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param domain: 
+            :param resource_association_arn: 
+            :param resource_gateway_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedresourcedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                managed_resource_details_property = bedrockagentcore.CfnGatewayTarget.ManagedResourceDetailsProperty(
+                    domain="domain",
+                    resource_association_arn="resourceAssociationArn",
+                    resource_gateway_arn="resourceGatewayArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__54b0ea6ddb1c804e571f2d1e244c668836d64316ae04c289b2e03a1b604a36df)
+                check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
+                check_type(argname="argument resource_association_arn", value=resource_association_arn, expected_type=type_hints["resource_association_arn"])
+                check_type(argname="argument resource_gateway_arn", value=resource_gateway_arn, expected_type=type_hints["resource_gateway_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if domain is not None:
+                self._values["domain"] = domain
+            if resource_association_arn is not None:
+                self._values["resource_association_arn"] = resource_association_arn
+            if resource_gateway_arn is not None:
+                self._values["resource_gateway_arn"] = resource_gateway_arn
+
+        @builtins.property
+        def domain(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedresourcedetails.html#cfn-bedrockagentcore-gatewaytarget-managedresourcedetails-domain
+            '''
+            result = self._values.get("domain")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def resource_association_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedresourcedetails.html#cfn-bedrockagentcore-gatewaytarget-managedresourcedetails-resourceassociationarn
+            '''
+            result = self._values.get("resource_association_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def resource_gateway_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedresourcedetails.html#cfn-bedrockagentcore-gatewaytarget-managedresourcedetails-resourcegatewayarn
+            '''
+            result = self._values.get("resource_gateway_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedResourceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "endpoint_ip_address_type": "endpointIpAddressType",
+            "subnet_ids": "subnetIds",
+            "vpc_identifier": "vpcIdentifier",
+            "routing_domain": "routingDomain",
+            "security_group_ids": "securityGroupIds",
+        },
+    )
+    class ManagedVpcResourceProperty:
+        def __init__(
+            self,
+            *,
+            endpoint_ip_address_type: builtins.str,
+            subnet_ids: typing.Sequence[builtins.str],
+            vpc_identifier: builtins.str,
+            routing_domain: typing.Optional[builtins.str] = None,
+            security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param endpoint_ip_address_type: 
+            :param subnet_ids: 
+            :param vpc_identifier: 
+            :param routing_domain: 
+            :param security_group_ids: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedvpcresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                managed_vpc_resource_property = bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty(
+                    endpoint_ip_address_type="endpointIpAddressType",
+                    subnet_ids=["subnetIds"],
+                    vpc_identifier="vpcIdentifier",
+                
+                    # the properties below are optional
+                    routing_domain="routingDomain",
+                    security_group_ids=["securityGroupIds"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0c7ea0d32ee84b1443a6b31f4649fa8befda314133634433ea011a033576ecb7)
+                check_type(argname="argument endpoint_ip_address_type", value=endpoint_ip_address_type, expected_type=type_hints["endpoint_ip_address_type"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument vpc_identifier", value=vpc_identifier, expected_type=type_hints["vpc_identifier"])
+                check_type(argname="argument routing_domain", value=routing_domain, expected_type=type_hints["routing_domain"])
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "endpoint_ip_address_type": endpoint_ip_address_type,
+                "subnet_ids": subnet_ids,
+                "vpc_identifier": vpc_identifier,
+            }
+            if routing_domain is not None:
+                self._values["routing_domain"] = routing_domain
+            if security_group_ids is not None:
+                self._values["security_group_ids"] = security_group_ids
+
+        @builtins.property
+        def endpoint_ip_address_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedvpcresource.html#cfn-bedrockagentcore-gatewaytarget-managedvpcresource-endpointipaddresstype
+            '''
+            result = self._values.get("endpoint_ip_address_type")
+            assert result is not None, "Required property 'endpoint_ip_address_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedvpcresource.html#cfn-bedrockagentcore-gatewaytarget-managedvpcresource-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            assert result is not None, "Required property 'subnet_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def vpc_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedvpcresource.html#cfn-bedrockagentcore-gatewaytarget-managedvpcresource-vpcidentifier
+            '''
+            result = self._values.get("vpc_identifier")
+            assert result is not None, "Required property 'vpc_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def routing_domain(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedvpcresource.html#cfn-bedrockagentcore-gatewaytarget-managedvpcresource-routingdomain
+            '''
+            result = self._values.get("routing_domain")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-managedvpcresource.html#cfn-bedrockagentcore-gatewaytarget-managedvpcresource-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedVpcResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.McpLambdaTargetConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"lambda_arn": "lambdaArn", "tool_schema": "toolSchema"},
@@ -14337,6 +15637,7 @@ class CfnGatewayTarget(
             "endpoint": "endpoint",
             "listing_mode": "listingMode",
             "mcp_tool_schema": "mcpToolSchema",
+            "resource_priority": "resourcePriority",
         },
     )
     class McpServerTargetConfigurationProperty:
@@ -14346,11 +15647,13 @@ class CfnGatewayTarget(
             endpoint: builtins.str,
             listing_mode: typing.Optional[builtins.str] = None,
             mcp_tool_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.McpToolSchemaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            resource_priority: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''
             :param endpoint: 
             :param listing_mode: 
             :param mcp_tool_schema: 
+            :param resource_priority: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-mcpservertargetconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -14372,7 +15675,8 @@ class CfnGatewayTarget(
                             bucket_owner_account_id="bucketOwnerAccountId",
                             uri="uri"
                         )
-                    )
+                    ),
+                    resource_priority=123
                 )
             '''
             if __debug__:
@@ -14380,6 +15684,7 @@ class CfnGatewayTarget(
                 check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
                 check_type(argname="argument listing_mode", value=listing_mode, expected_type=type_hints["listing_mode"])
                 check_type(argname="argument mcp_tool_schema", value=mcp_tool_schema, expected_type=type_hints["mcp_tool_schema"])
+                check_type(argname="argument resource_priority", value=resource_priority, expected_type=type_hints["resource_priority"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "endpoint": endpoint,
             }
@@ -14387,6 +15692,8 @@ class CfnGatewayTarget(
                 self._values["listing_mode"] = listing_mode
             if mcp_tool_schema is not None:
                 self._values["mcp_tool_schema"] = mcp_tool_schema
+            if resource_priority is not None:
+                self._values["resource_priority"] = resource_priority
 
         @builtins.property
         def endpoint(self) -> builtins.str:
@@ -14414,6 +15721,14 @@ class CfnGatewayTarget(
             '''
             result = self._values.get("mcp_tool_schema")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.McpToolSchemaConfigurationProperty"]], result)
+
+        @builtins.property
+        def resource_priority(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-mcpservertargetconfiguration.html#cfn-bedrockagentcore-gatewaytarget-mcpservertargetconfiguration-resourcepriority
+            '''
+            result = self._values.get("resource_priority")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -14535,7 +15850,8 @@ class CfnGatewayTarget(
                                 bucket_owner_account_id="bucketOwnerAccountId",
                                 uri="uri"
                             )
-                        )
+                        ),
+                        resource_priority=123
                     ),
                     open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                         inline_payload="inlinePayload",
@@ -14995,6 +16311,90 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "managed_vpc_resource": "managedVpcResource",
+            "self_managed_lattice_resource": "selfManagedLatticeResource",
+        },
+    )
+    class PrivateEndpointProperty:
+        def __init__(
+            self,
+            *,
+            managed_vpc_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.ManagedVpcResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            self_managed_lattice_resource: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.SelfManagedLatticeResourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param managed_vpc_resource: 
+            :param self_managed_lattice_resource: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-privateendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                private_endpoint_property = bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty(
+                    managed_vpc_resource=bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty(
+                        endpoint_ip_address_type="endpointIpAddressType",
+                        subnet_ids=["subnetIds"],
+                        vpc_identifier="vpcIdentifier",
+                
+                        # the properties below are optional
+                        routing_domain="routingDomain",
+                        security_group_ids=["securityGroupIds"]
+                    ),
+                    self_managed_lattice_resource=bedrockagentcore.CfnGatewayTarget.SelfManagedLatticeResourceProperty(
+                        resource_configuration_identifier="resourceConfigurationIdentifier"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6ace62b0ec7a1134d8f17c1e1c17816e902aef6b54964c60086c47a3940aad74)
+                check_type(argname="argument managed_vpc_resource", value=managed_vpc_resource, expected_type=type_hints["managed_vpc_resource"])
+                check_type(argname="argument self_managed_lattice_resource", value=self_managed_lattice_resource, expected_type=type_hints["self_managed_lattice_resource"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if managed_vpc_resource is not None:
+                self._values["managed_vpc_resource"] = managed_vpc_resource
+            if self_managed_lattice_resource is not None:
+                self._values["self_managed_lattice_resource"] = self_managed_lattice_resource
+
+        @builtins.property
+        def managed_vpc_resource(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ManagedVpcResourceProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-privateendpoint.html#cfn-bedrockagentcore-gatewaytarget-privateendpoint-managedvpcresource
+            '''
+            result = self._values.get("managed_vpc_resource")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.ManagedVpcResourceProperty"]], result)
+
+        @builtins.property
+        def self_managed_lattice_resource(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.SelfManagedLatticeResourceProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-privateendpoint.html#cfn-bedrockagentcore-gatewaytarget-privateendpoint-selfmanagedlatticeresource
+            '''
+            result = self._values.get("self_managed_lattice_resource")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.SelfManagedLatticeResourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PrivateEndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.RuntimeTargetConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"arn": "arn", "qualifier": "qualifier"},
@@ -15266,6 +16666,58 @@ class CfnGatewayTarget(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.SelfManagedLatticeResourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "resource_configuration_identifier": "resourceConfigurationIdentifier",
+        },
+    )
+    class SelfManagedLatticeResourceProperty:
+        def __init__(self, *, resource_configuration_identifier: builtins.str) -> None:
+            '''
+            :param resource_configuration_identifier: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-selfmanagedlatticeresource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                self_managed_lattice_resource_property = bedrockagentcore.CfnGatewayTarget.SelfManagedLatticeResourceProperty(
+                    resource_configuration_identifier="resourceConfigurationIdentifier"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__7d3003577b392adcd0a4eebd0035f9092d8ed3994ca34a3506530ac0aa973d4f)
+                check_type(argname="argument resource_configuration_identifier", value=resource_configuration_identifier, expected_type=type_hints["resource_configuration_identifier"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "resource_configuration_identifier": resource_configuration_identifier,
+            }
+
+        @builtins.property
+        def resource_configuration_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-gatewaytarget-selfmanagedlatticeresource.html#cfn-bedrockagentcore-gatewaytarget-selfmanagedlatticeresource-resourceconfigurationidentifier
+            '''
+            result = self._values.get("resource_configuration_identifier")
+            assert result is not None, "Required property 'resource_configuration_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelfManagedLatticeResourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnGatewayTarget.TargetConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"http": "http", "mcp": "mcp"},
@@ -15371,7 +16823,8 @@ class CfnGatewayTarget(
                                     bucket_owner_account_id="bucketOwnerAccountId",
                                     uri="uri"
                                 )
-                            )
+                            ),
+                            resource_priority=123
                         ),
                         open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                             inline_payload="inlinePayload",
@@ -15682,6 +17135,7 @@ class CfnGatewayTarget(
         "description": "description",
         "gateway_identifier": "gatewayIdentifier",
         "metadata_configuration": "metadataConfiguration",
+        "private_endpoint": "privateEndpoint",
     },
 )
 class CfnGatewayTargetProps:
@@ -15694,6 +17148,7 @@ class CfnGatewayTargetProps:
         description: typing.Optional[builtins.str] = None,
         gateway_identifier: typing.Optional[builtins.str] = None,
         metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        private_endpoint: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGatewayTarget.PrivateEndpointProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGatewayTarget``.
 
@@ -15703,6 +17158,7 @@ class CfnGatewayTargetProps:
         :param description: The description for the gateway target.
         :param gateway_identifier: The gateway ID for the gateway target.
         :param metadata_configuration: 
+        :param private_endpoint: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-gatewaytarget.html
         :exampleMetadata: fixture=_generated
@@ -15795,7 +17251,8 @@ class CfnGatewayTargetProps:
                                     bucket_owner_account_id="bucketOwnerAccountId",
                                     uri="uri"
                                 )
-                            )
+                            ),
+                            resource_priority=123
                         ),
                         open_api_schema=bedrockagentcore.CfnGatewayTarget.ApiSchemaConfigurationProperty(
                             inline_payload="inlinePayload",
@@ -15853,6 +17310,20 @@ class CfnGatewayTargetProps:
                     allowed_query_parameters=["allowedQueryParameters"],
                     allowed_request_headers=["allowedRequestHeaders"],
                     allowed_response_headers=["allowedResponseHeaders"]
+                ),
+                private_endpoint=bedrockagentcore.CfnGatewayTarget.PrivateEndpointProperty(
+                    managed_vpc_resource=bedrockagentcore.CfnGatewayTarget.ManagedVpcResourceProperty(
+                        endpoint_ip_address_type="endpointIpAddressType",
+                        subnet_ids=["subnetIds"],
+                        vpc_identifier="vpcIdentifier",
+            
+                        # the properties below are optional
+                        routing_domain="routingDomain",
+                        security_group_ids=["securityGroupIds"]
+                    ),
+                    self_managed_lattice_resource=bedrockagentcore.CfnGatewayTarget.SelfManagedLatticeResourceProperty(
+                        resource_configuration_identifier="resourceConfigurationIdentifier"
+                    )
                 )
             )
         '''
@@ -15864,6 +17335,7 @@ class CfnGatewayTargetProps:
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument gateway_identifier", value=gateway_identifier, expected_type=type_hints["gateway_identifier"])
             check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+            check_type(argname="argument private_endpoint", value=private_endpoint, expected_type=type_hints["private_endpoint"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
             "target_configuration": target_configuration,
@@ -15876,6 +17348,8 @@ class CfnGatewayTargetProps:
             self._values["gateway_identifier"] = gateway_identifier
         if metadata_configuration is not None:
             self._values["metadata_configuration"] = metadata_configuration
+        if private_endpoint is not None:
+            self._values["private_endpoint"] = private_endpoint
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -15937,6 +17411,16 @@ class CfnGatewayTargetProps:
         '''
         result = self._values.get("metadata_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.MetadataConfigurationProperty"]], result)
+
+    @builtins.property
+    def private_endpoint(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PrivateEndpointProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-gatewaytarget.html#cfn-bedrockagentcore-gatewaytarget-privateendpoint
+        '''
+        result = self._values.get("private_endpoint")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGatewayTarget.PrivateEndpointProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26058,7 +27542,14 @@ class CfnOAuth2CredentialProvider(
             oauth2_provider_config_input=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
                 atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
                     oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
@@ -26074,8 +27565,14 @@ class CfnOAuth2CredentialProvider(
                     ),
         
                     # the properties below are optional
+                    client_authentication_method="clientAuthenticationMethod",
                     client_id="clientId",
                     client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
                         grant_type="grantType",
         
@@ -26090,39 +27587,84 @@ class CfnOAuth2CredentialProvider(
                 ),
                 github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret",
         
                     # the properties below are optional
                     authorization_endpoint="authorizationEndpoint",
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     issuer="issuer",
                     token_endpoint="tokenEndpoint"
                 ),
                 linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret",
         
                     # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     tenant_id="tenantId"
                 ),
                 salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 ),
                 slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+        
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             ),
             tags=[CfnTag(
@@ -26223,6 +27765,24 @@ class CfnOAuth2CredentialProvider(
         :cloudformationAttribute: ClientSecretArn
         '''
         return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrClientSecretArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClientSecretJsonKey")
+    def attr_client_secret_json_key(self) -> builtins.str:
+        '''The JSON key within the secret that contains the client secret value.
+
+        :cloudformationAttribute: ClientSecretJsonKey
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClientSecretJsonKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrClientSecretSource")
+    def attr_client_secret_source(self) -> builtins.str:
+        '''The source of the client secret.
+
+        :cloudformationAttribute: ClientSecretSource
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrClientSecretSource"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedTime")
@@ -26344,19 +27904,28 @@ class CfnOAuth2CredentialProvider(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
+        },
     )
     class AtlassianOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for an Atlassian OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -26369,17 +27938,31 @@ class CfnOAuth2CredentialProvider(
                 
                 atlassian_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+                
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__edf8d18f950f441227828390c6556f4cd8b9ae4cf1620505a7e75db072927b14)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
 
         @builtins.property
         def client_id(self) -> builtins.str:
@@ -26391,13 +27974,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-atlassianoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26467,8 +28068,11 @@ class CfnOAuth2CredentialProvider(
         jsii_struct_bases=[],
         name_mapping={
             "oauth_discovery": "oauthDiscovery",
+            "client_authentication_method": "clientAuthenticationMethod",
             "client_id": "clientId",
             "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
             "on_behalf_of_token_exchange_config": "onBehalfOfTokenExchangeConfig",
         },
     )
@@ -26477,15 +28081,21 @@ class CfnOAuth2CredentialProvider(
             self,
             *,
             oauth_discovery: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty", typing.Dict[builtins.str, typing.Any]]],
+            client_authentication_method: typing.Optional[builtins.str] = None,
             client_id: typing.Optional[builtins.str] = None,
             client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
             on_behalf_of_token_exchange_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Input configuration for a custom OAuth2 provider.
 
             :param oauth_discovery: Discovery information for an OAuth2 provider.
+            :param client_authentication_method: The client authentication method to use when authenticating with the token endpoint.
             :param client_id: The client ID for the custom OAuth2 provider.
             :param client_secret: The client secret for the custom OAuth2 provider.
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: The source of the client secret.
             :param on_behalf_of_token_exchange_config: Configuration for on-behalf-of token exchange.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html
@@ -26511,8 +28121,14 @@ class CfnOAuth2CredentialProvider(
                     ),
                 
                     # the properties below are optional
+                    client_authentication_method="clientAuthenticationMethod",
                     client_id="clientId",
                     client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
                         grant_type="grantType",
                 
@@ -26529,16 +28145,25 @@ class CfnOAuth2CredentialProvider(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a892724c1f10)
                 check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
+                check_type(argname="argument client_authentication_method", value=client_authentication_method, expected_type=type_hints["client_authentication_method"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
                 check_type(argname="argument on_behalf_of_token_exchange_config", value=on_behalf_of_token_exchange_config, expected_type=type_hints["on_behalf_of_token_exchange_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "oauth_discovery": oauth_discovery,
             }
+            if client_authentication_method is not None:
+                self._values["client_authentication_method"] = client_authentication_method
             if client_id is not None:
                 self._values["client_id"] = client_id
             if client_secret is not None:
                 self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
             if on_behalf_of_token_exchange_config is not None:
                 self._values["on_behalf_of_token_exchange_config"] = on_behalf_of_token_exchange_config
 
@@ -26553,6 +28178,15 @@ class CfnOAuth2CredentialProvider(
             result = self._values.get("oauth_discovery")
             assert result is not None, "Required property 'oauth_discovery' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty"], result)
+
+        @builtins.property
+        def client_authentication_method(self) -> typing.Optional[builtins.str]:
+            '''The client authentication method to use when authenticating with the token endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientauthenticationmethod
+            '''
+            result = self._values.get("client_authentication_method")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def client_id(self) -> typing.Optional[builtins.str]:
@@ -26570,6 +28204,26 @@ class CfnOAuth2CredentialProvider(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the client secret.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-customoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -26597,19 +28251,28 @@ class CfnOAuth2CredentialProvider(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
+        },
     )
     class GithubOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a GitHub OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -26622,17 +28285,31 @@ class CfnOAuth2CredentialProvider(
                 
                 github_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+                
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__ccc739073da5461907f696292b551e731a9bb2831e895e683059920c6296f3af)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
 
         @builtins.property
         def client_id(self) -> builtins.str:
@@ -26644,13 +28321,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-githuboauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26666,19 +28361,28 @@ class CfnOAuth2CredentialProvider(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
+        },
     )
     class GoogleOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a Google OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -26691,17 +28395,31 @@ class CfnOAuth2CredentialProvider(
                 
                 google_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+                
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__048116d9962b172d5fb331fa9dccae1f98231bc69e79ed840474fa8d346d8d63)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
 
         @builtins.property
         def client_id(self) -> builtins.str:
@@ -26713,13 +28431,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-googleoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26737,8 +28473,10 @@ class CfnOAuth2CredentialProvider(
         jsii_struct_bases=[],
         name_mapping={
             "client_id": "clientId",
-            "client_secret": "clientSecret",
             "authorization_endpoint": "authorizationEndpoint",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
             "issuer": "issuer",
             "token_endpoint": "tokenEndpoint",
         },
@@ -26748,16 +28486,20 @@ class CfnOAuth2CredentialProvider(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
             authorization_endpoint: typing.Optional[builtins.str] = None,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
             issuer: typing.Optional[builtins.str] = None,
             token_endpoint: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a supported non-custom OAuth2 provider.
 
             :param client_id: 
-            :param client_secret: 
             :param authorization_endpoint: OAuth2 authorization endpoint for your isolated OAuth2 application tenant.
+            :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
             :param issuer: Token issuer of your isolated OAuth2 application tenant.
             :param token_endpoint: OAuth2 token endpoint for your isolated OAuth2 application tenant.
 
@@ -26772,10 +28514,15 @@ class CfnOAuth2CredentialProvider(
                 
                 included_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret",
                 
                     # the properties below are optional
                     authorization_endpoint="authorizationEndpoint",
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     issuer="issuer",
                     token_endpoint="tokenEndpoint"
                 )
@@ -26783,16 +28530,23 @@ class CfnOAuth2CredentialProvider(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9096fe6ae3873d799459c281a97332ca25d46e057efe138ef0826414315aec4c)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
-                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
                 check_type(argname="argument authorization_endpoint", value=authorization_endpoint, expected_type=type_hints["authorization_endpoint"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
                 check_type(argname="argument issuer", value=issuer, expected_type=type_hints["issuer"])
                 check_type(argname="argument token_endpoint", value=token_endpoint, expected_type=type_hints["token_endpoint"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
             if authorization_endpoint is not None:
                 self._values["authorization_endpoint"] = authorization_endpoint
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
             if issuer is not None:
                 self._values["issuer"] = issuer
             if token_endpoint is not None:
@@ -26808,21 +28562,39 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-clientsecret
-            '''
-            result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
         def authorization_endpoint(self) -> typing.Optional[builtins.str]:
             '''OAuth2 authorization endpoint for your isolated OAuth2 application tenant.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-authorizationendpoint
             '''
             result = self._values.get("authorization_endpoint")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-includedoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -26857,19 +28629,28 @@ class CfnOAuth2CredentialProvider(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
+        },
     )
     class LinkedinOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a LinkedIn OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -26882,17 +28663,31 @@ class CfnOAuth2CredentialProvider(
                 
                 linkedin_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+                
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__ef370342d5385a92ca3dcb2641d84e8aa2a80af451799ab2bc05beadac34087f)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
 
         @builtins.property
         def client_id(self) -> builtins.str:
@@ -26904,13 +28699,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-linkedinoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -26929,6 +28742,8 @@ class CfnOAuth2CredentialProvider(
         name_mapping={
             "client_id": "clientId",
             "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
             "tenant_id": "tenantId",
         },
     )
@@ -26937,13 +28752,17 @@ class CfnOAuth2CredentialProvider(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
             tenant_id: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a Microsoft OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
             :param tenant_id: The Microsoft Entra ID tenant ID.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html
@@ -26957,9 +28776,14 @@ class CfnOAuth2CredentialProvider(
                 
                 microsoft_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret",
                 
                     # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource",
                     tenant_id="tenantId"
                 )
             '''
@@ -26967,11 +28791,18 @@ class CfnOAuth2CredentialProvider(
                 type_hints = typing.get_type_hints(_typecheckingstub__7595c98de3c71aead5997fb48d4515b6544d7120b8b6d0db58cf916a069478b3)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
                 check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
             if tenant_id is not None:
                 self._values["tenant_id"] = tenant_id
 
@@ -26985,13 +28816,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-microsoftoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def tenant_id(self) -> typing.Optional[builtins.str]:
@@ -27256,7 +29105,14 @@ class CfnOAuth2CredentialProvider(
                 oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
                     atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+                
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
                         oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
@@ -27272,8 +29128,14 @@ class CfnOAuth2CredentialProvider(
                         ),
                 
                         # the properties below are optional
+                        client_authentication_method="clientAuthenticationMethod",
                         client_id="clientId",
                         client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
                             grant_type="grantType",
                 
@@ -27288,39 +29150,84 @@ class CfnOAuth2CredentialProvider(
                     ),
                     github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+                
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+                
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
                 
                         # the properties below are optional
                         authorization_endpoint="authorizationEndpoint",
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         issuer="issuer",
                         token_endpoint="tokenEndpoint"
                     ),
                     linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+                
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
                 
                         # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         tenant_id="tenantId"
                     ),
                     salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+                
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+                
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     )
                 )
             '''
@@ -27469,6 +29376,7 @@ class CfnOAuth2CredentialProvider(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigOutputProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "client_authentication_method": "clientAuthenticationMethod",
             "client_id": "clientId",
             "oauth_discovery": "oauthDiscovery",
             "on_behalf_of_token_exchange_config": "onBehalfOfTokenExchangeConfig",
@@ -27478,12 +29386,14 @@ class CfnOAuth2CredentialProvider(
         def __init__(
             self,
             *,
+            client_authentication_method: typing.Optional[builtins.str] = None,
             client_id: typing.Optional[builtins.str] = None,
             oauth_discovery: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             on_behalf_of_token_exchange_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Output configuration for an OAuth2 provider.
 
+            :param client_authentication_method: The client authentication method used when authenticating with the token endpoint.
             :param client_id: 
             :param oauth_discovery: Discovery information for an OAuth2 provider.
             :param on_behalf_of_token_exchange_config: Configuration for on-behalf-of token exchange.
@@ -27498,6 +29408,7 @@ class CfnOAuth2CredentialProvider(
                 from aws_cdk import aws_bedrockagentcore as bedrockagentcore
                 
                 oauth2_provider_config_output_property = bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigOutputProperty(
+                    client_authentication_method="clientAuthenticationMethod",
                     client_id="clientId",
                     oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
                         authorization_server_metadata=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2AuthorizationServerMetadataProperty(
@@ -27525,16 +29436,28 @@ class CfnOAuth2CredentialProvider(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__80d5d340375743330f03bcce541b4baa53d74dc34fb39c747fa18f2aa3e6e9af)
+                check_type(argname="argument client_authentication_method", value=client_authentication_method, expected_type=type_hints["client_authentication_method"])
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument oauth_discovery", value=oauth_discovery, expected_type=type_hints["oauth_discovery"])
                 check_type(argname="argument on_behalf_of_token_exchange_config", value=on_behalf_of_token_exchange_config, expected_type=type_hints["on_behalf_of_token_exchange_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if client_authentication_method is not None:
+                self._values["client_authentication_method"] = client_authentication_method
             if client_id is not None:
                 self._values["client_id"] = client_id
             if oauth_discovery is not None:
                 self._values["oauth_discovery"] = oauth_discovery
             if on_behalf_of_token_exchange_config is not None:
                 self._values["on_behalf_of_token_exchange_config"] = on_behalf_of_token_exchange_config
+
+        @builtins.property
+        def client_authentication_method(self) -> typing.Optional[builtins.str]:
+            '''The client authentication method used when authenticating with the token endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput.html#cfn-bedrockagentcore-oauth2credentialprovider-oauth2providerconfigoutput-clientauthenticationmethod
+            '''
+            result = self._values.get("client_authentication_method")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def client_id(self) -> typing.Optional[builtins.str]:
@@ -27663,19 +29586,28 @@ class CfnOAuth2CredentialProvider(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
+        },
     )
     class SalesforceOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a Salesforce OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -27688,17 +29620,31 @@ class CfnOAuth2CredentialProvider(
                 
                 salesforce_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+                
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__32bc2bfa7692293860f88e5a06cdd0667eff7ad2e5eb1faedfe0edb1211c3395)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
 
         @builtins.property
         def client_id(self) -> builtins.str:
@@ -27710,13 +29656,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-salesforceoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27730,21 +29694,96 @@ class CfnOAuth2CredentialProvider(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"json_key": "jsonKey", "secret_id": "secretId"},
+    )
+    class SecretReferenceProperty:
+        def __init__(self, *, json_key: builtins.str, secret_id: builtins.str) -> None:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :param json_key: The JSON key within the secret that contains the credential value.
+            :param secret_id: The ID or ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-secretreference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                secret_reference_property = bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                    json_key="jsonKey",
+                    secret_id="secretId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__95bdbaf48c03e9b4f0c5efe62df8b015eafa1d7cfb880e3f0c0308d86ea8e173)
+                check_type(argname="argument json_key", value=json_key, expected_type=type_hints["json_key"])
+                check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "json_key": json_key,
+                "secret_id": secret_id,
+            }
+
+        @builtins.property
+        def json_key(self) -> builtins.str:
+            '''The JSON key within the secret that contains the credential value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-secretreference.html#cfn-bedrockagentcore-oauth2credentialprovider-secretreference-jsonkey
+            '''
+            result = self._values.get("json_key")
+            assert result is not None, "Required property 'json_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_id(self) -> builtins.str:
+            '''The ID or ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-secretreference.html#cfn-bedrockagentcore-oauth2credentialprovider-secretreference-secretid
+            '''
+            result = self._values.get("secret_id")
+            assert result is not None, "Required property 'secret_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty",
         jsii_struct_bases=[],
-        name_mapping={"client_id": "clientId", "client_secret": "clientSecret"},
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "client_secret_config": "clientSecretConfig",
+            "client_secret_source": "clientSecretSource",
+        },
     )
     class SlackOauth2ProviderConfigInputProperty:
         def __init__(
             self,
             *,
             client_id: builtins.str,
-            client_secret: builtins.str,
+            client_secret: typing.Optional[builtins.str] = None,
+            client_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOAuth2CredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            client_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Input configuration for a Slack OAuth2 provider.
 
             :param client_id: 
             :param client_secret: 
+            :param client_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param client_secret_source: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html
             :exampleMetadata: fixture=_generated
@@ -27757,17 +29796,31 @@ class CfnOAuth2CredentialProvider(
                 
                 slack_oauth2_provider_config_input_property = bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
                     client_id="clientId",
-                    client_secret="clientSecret"
+                
+                    # the properties below are optional
+                    client_secret="clientSecret",
+                    client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    client_secret_source="clientSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__d481c4e03c457cb3488d486219733d6daf49bc2037b001de9ced0c972e7bfb09)
                 check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
                 check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument client_secret_config", value=client_secret_config, expected_type=type_hints["client_secret_config"])
+                check_type(argname="argument client_secret_source", value=client_secret_source, expected_type=type_hints["client_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "client_id": client_id,
-                "client_secret": client_secret,
             }
+            if client_secret is not None:
+                self._values["client_secret"] = client_secret
+            if client_secret_config is not None:
+                self._values["client_secret_config"] = client_secret_config
+            if client_secret_source is not None:
+                self._values["client_secret_source"] = client_secret_source
 
         @builtins.property
         def client_id(self) -> builtins.str:
@@ -27779,13 +29832,31 @@ class CfnOAuth2CredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def client_secret(self) -> builtins.str:
+        def client_secret(self) -> typing.Optional[builtins.str]:
             '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput-clientsecret
             '''
             result = self._values.get("client_secret")
-            assert result is not None, "Required property 'client_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def client_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput-clientsecretconfig
+            '''
+            result = self._values.get("client_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOAuth2CredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def client_secret_source(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput.html#cfn-bedrockagentcore-oauth2credentialprovider-slackoauth2providerconfiginput-clientsecretsource
+            '''
+            result = self._values.get("client_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27921,7 +29992,14 @@ class CfnOAuth2CredentialProviderProps:
                 oauth2_provider_config_input=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
                     atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
                         oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
@@ -27937,8 +30015,14 @@ class CfnOAuth2CredentialProviderProps:
                         ),
             
                         # the properties below are optional
+                        client_authentication_method="clientAuthenticationMethod",
                         client_id="clientId",
                         client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
                             grant_type="grantType",
             
@@ -27953,39 +30037,84 @@ class CfnOAuth2CredentialProviderProps:
                     ),
                     github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
             
                         # the properties below are optional
                         authorization_endpoint="authorizationEndpoint",
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         issuer="issuer",
                         token_endpoint="tokenEndpoint"
                     ),
                     linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
             
                         # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         tenant_id="tenantId"
                     ),
                     salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     )
                 ),
                 tags=[CfnTag(
@@ -28088,9 +30217,6 @@ class CfnOnlineEvaluationConfig(
                 )
             ),
             evaluation_execution_role_arn="evaluationExecutionRoleArn",
-            evaluators=[bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
-                evaluator_id="evaluatorId"
-            )],
             online_evaluation_config_name="onlineEvaluationConfigName",
             rule=bedrockagentcore.CfnOnlineEvaluationConfig.RuleProperty(
                 sampling_config=bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty(
@@ -28113,8 +30239,17 @@ class CfnOnlineEvaluationConfig(
             ),
         
             # the properties below are optional
+            clustering_config=bedrockagentcore.CfnOnlineEvaluationConfig.ClusteringConfigProperty(
+                frequencies=["frequencies"]
+            ),
             description="description",
+            evaluators=[bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
+                evaluator_id="evaluatorId"
+            )],
             execution_status="executionStatus",
+            insights=[bedrockagentcore.CfnOnlineEvaluationConfig.InsightProperty(
+                insight_id="insightId"
+            )],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -28129,11 +30264,13 @@ class CfnOnlineEvaluationConfig(
         *,
         data_source_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.DataSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         evaluation_execution_role_arn: builtins.str,
-        evaluators: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.EvaluatorReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         online_evaluation_config_name: builtins.str,
         rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        clustering_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.ClusteringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        evaluators: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.EvaluatorReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         execution_status: typing.Optional[builtins.str] = None,
+        insights: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.InsightProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::BedrockAgentCore::OnlineEvaluationConfig``.
@@ -28142,11 +30279,13 @@ class CfnOnlineEvaluationConfig(
         :param id: Construct identifier for this resource (unique in its scope).
         :param data_source_config: The configuration that specifies where to read agent traces for online evaluation.
         :param evaluation_execution_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants permissions for evaluation.
-        :param evaluators: The list of evaluators to apply during online evaluation.
         :param online_evaluation_config_name: The name of the online evaluation configuration. Must be unique within your account.
         :param rule: The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+        :param clustering_config: The configuration for clustering analysis of evaluation results.
         :param description: The description of the online evaluation configuration.
+        :param evaluators: The list of evaluators to apply during online evaluation.
         :param execution_status: 
+        :param insights: The list of insights to enable for failure analysis.
         :param tags: A list of tags to assign to the online evaluation configuration.
         '''
         if __debug__:
@@ -28156,11 +30295,13 @@ class CfnOnlineEvaluationConfig(
         props = CfnOnlineEvaluationConfigProps(
             data_source_config=data_source_config,
             evaluation_execution_role_arn=evaluation_execution_role_arn,
-            evaluators=evaluators,
             online_evaluation_config_name=online_evaluation_config_name,
             rule=rule,
+            clustering_config=clustering_config,
             description=description,
+            evaluators=evaluators,
             execution_status=execution_status,
+            insights=insights,
             tags=tags,
         )
 
@@ -28331,24 +30472,6 @@ class CfnOnlineEvaluationConfig(
         jsii.set(self, "evaluationExecutionRoleArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="evaluators")
-    def evaluators(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]:
-        '''The list of evaluators to apply during online evaluation.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]], jsii.get(self, "evaluators"))
-
-    @evaluators.setter
-    def evaluators(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6203a39418b156df1e66640712fbe71f2ddf1f83ac789902b76160c12690a251)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "evaluators", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="onlineEvaluationConfigName")
     def online_evaluation_config_name(self) -> builtins.str:
         '''The name of the online evaluation configuration.'''
@@ -28380,6 +30503,24 @@ class CfnOnlineEvaluationConfig(
         jsii.set(self, "rule", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="clusteringConfig")
+    def clustering_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.ClusteringConfigProperty"]]:
+        '''The configuration for clustering analysis of evaluation results.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.ClusteringConfigProperty"]], jsii.get(self, "clusteringConfig"))
+
+    @clustering_config.setter
+    def clustering_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.ClusteringConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a9e38bdc7199d9834c40043bd2164c8c01c0b99fa2ff3d7f217aeeda6cc9f2f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusteringConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the online evaluation configuration.'''
@@ -28393,6 +30534,24 @@ class CfnOnlineEvaluationConfig(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="evaluators")
+    def evaluators(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]]:
+        '''The list of evaluators to apply during online evaluation.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]], jsii.get(self, "evaluators"))
+
+    @evaluators.setter
+    def evaluators(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6203a39418b156df1e66640712fbe71f2ddf1f83ac789902b76160c12690a251)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "evaluators", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="executionStatus")
     def execution_status(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionStatus"))
@@ -28403,6 +30562,24 @@ class CfnOnlineEvaluationConfig(
             type_hints = typing.get_type_hints(_typecheckingstub__01bb9d62be4810ee3fffa5109b327425dfa34a3abd40181bc6753809c9ae60ad)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executionStatus", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="insights")
+    def insights(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.InsightProperty"]]]]:
+        '''The list of insights to enable for failure analysis.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.InsightProperty"]]]], jsii.get(self, "insights"))
+
+    @insights.setter
+    def insights(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.InsightProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfa5d694a50f2f580e56ce702aed2e48b396f42668386169c38d4d2975729c81)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "insights", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -28543,6 +30720,58 @@ class CfnOnlineEvaluationConfig(
 
         def __repr__(self) -> str:
             return "CloudWatchOutputConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.ClusteringConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"frequencies": "frequencies"},
+    )
+    class ClusteringConfigProperty:
+        def __init__(self, *, frequencies: typing.Sequence[builtins.str]) -> None:
+            '''The configuration for clustering analysis of evaluation results.
+
+            :param frequencies: The list of frequencies at which clustering reports are generated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-clusteringconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                clustering_config_property = bedrockagentcore.CfnOnlineEvaluationConfig.ClusteringConfigProperty(
+                    frequencies=["frequencies"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__12371e2b75a666a889bd5afd078cfcd1ce2a4d997ffcabe77f07d96a214f5810)
+                check_type(argname="argument frequencies", value=frequencies, expected_type=type_hints["frequencies"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "frequencies": frequencies,
+            }
+
+        @builtins.property
+        def frequencies(self) -> typing.List[builtins.str]:
+            '''The list of frequencies at which clustering reports are generated.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-clusteringconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-clusteringconfig-frequencies
+            '''
+            result = self._values.get("frequencies")
+            assert result is not None, "Required property 'frequencies' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusteringConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -28843,6 +31072,58 @@ class CfnOnlineEvaluationConfig(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.InsightProperty",
+        jsii_struct_bases=[],
+        name_mapping={"insight_id": "insightId"},
+    )
+    class InsightProperty:
+        def __init__(self, *, insight_id: builtins.str) -> None:
+            '''An insight configuration for failure analysis.
+
+            :param insight_id: The unique identifier of the insight.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-insight.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                insight_property = bedrockagentcore.CfnOnlineEvaluationConfig.InsightProperty(
+                    insight_id="insightId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__bb9ceffff535eba5f0ba503c25b8bed97e1dda6a324e13f136345837406a19cd)
+                check_type(argname="argument insight_id", value=insight_id, expected_type=type_hints["insight_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "insight_id": insight_id,
+            }
+
+        @builtins.property
+        def insight_id(self) -> builtins.str:
+            '''The unique identifier of the insight.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-insight.html#cfn-bedrockagentcore-onlineevaluationconfig-insight-insightid
+            '''
+            result = self._values.get("insight_id")
+            assert result is not None, "Required property 'insight_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InsightProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnOnlineEvaluationConfig.OutputConfigProperty",
         jsii_struct_bases=[],
         name_mapping={"cloud_watch_config": "cloudWatchConfig"},
@@ -29122,11 +31403,13 @@ class CfnOnlineEvaluationConfig(
     name_mapping={
         "data_source_config": "dataSourceConfig",
         "evaluation_execution_role_arn": "evaluationExecutionRoleArn",
-        "evaluators": "evaluators",
         "online_evaluation_config_name": "onlineEvaluationConfigName",
         "rule": "rule",
+        "clustering_config": "clusteringConfig",
         "description": "description",
+        "evaluators": "evaluators",
         "execution_status": "executionStatus",
+        "insights": "insights",
         "tags": "tags",
     },
 )
@@ -29136,22 +31419,26 @@ class CfnOnlineEvaluationConfigProps:
         *,
         data_source_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.DataSourceConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         evaluation_execution_role_arn: builtins.str,
-        evaluators: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.EvaluatorReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]],
         online_evaluation_config_name: builtins.str,
         rule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.RuleProperty", typing.Dict[builtins.str, typing.Any]]],
+        clustering_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.ClusteringConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
+        evaluators: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.EvaluatorReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         execution_status: typing.Optional[builtins.str] = None,
+        insights: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOnlineEvaluationConfig.InsightProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnOnlineEvaluationConfig``.
 
         :param data_source_config: The configuration that specifies where to read agent traces for online evaluation.
         :param evaluation_execution_role_arn: The Amazon Resource Name (ARN) of the IAM role that grants permissions for evaluation.
-        :param evaluators: The list of evaluators to apply during online evaluation.
         :param online_evaluation_config_name: The name of the online evaluation configuration. Must be unique within your account.
         :param rule: The evaluation rule that defines sampling configuration, filtering criteria, and session detection settings.
+        :param clustering_config: The configuration for clustering analysis of evaluation results.
         :param description: The description of the online evaluation configuration.
+        :param evaluators: The list of evaluators to apply during online evaluation.
         :param execution_status: 
+        :param insights: The list of insights to enable for failure analysis.
         :param tags: A list of tags to assign to the online evaluation configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html
@@ -29172,9 +31459,6 @@ class CfnOnlineEvaluationConfigProps:
                     )
                 ),
                 evaluation_execution_role_arn="evaluationExecutionRoleArn",
-                evaluators=[bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
-                    evaluator_id="evaluatorId"
-                )],
                 online_evaluation_config_name="onlineEvaluationConfigName",
                 rule=bedrockagentcore.CfnOnlineEvaluationConfig.RuleProperty(
                     sampling_config=bedrockagentcore.CfnOnlineEvaluationConfig.SamplingConfigProperty(
@@ -29197,8 +31481,17 @@ class CfnOnlineEvaluationConfigProps:
                 ),
             
                 # the properties below are optional
+                clustering_config=bedrockagentcore.CfnOnlineEvaluationConfig.ClusteringConfigProperty(
+                    frequencies=["frequencies"]
+                ),
                 description="description",
+                evaluators=[bedrockagentcore.CfnOnlineEvaluationConfig.EvaluatorReferenceProperty(
+                    evaluator_id="evaluatorId"
+                )],
                 execution_status="executionStatus",
+                insights=[bedrockagentcore.CfnOnlineEvaluationConfig.InsightProperty(
+                    insight_id="insightId"
+                )],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -29209,23 +31502,30 @@ class CfnOnlineEvaluationConfigProps:
             type_hints = typing.get_type_hints(_typecheckingstub__0027d3063b3949a340eab6076bb9ce68daa108d23e44efbf30f9a1211d0261e5)
             check_type(argname="argument data_source_config", value=data_source_config, expected_type=type_hints["data_source_config"])
             check_type(argname="argument evaluation_execution_role_arn", value=evaluation_execution_role_arn, expected_type=type_hints["evaluation_execution_role_arn"])
-            check_type(argname="argument evaluators", value=evaluators, expected_type=type_hints["evaluators"])
             check_type(argname="argument online_evaluation_config_name", value=online_evaluation_config_name, expected_type=type_hints["online_evaluation_config_name"])
             check_type(argname="argument rule", value=rule, expected_type=type_hints["rule"])
+            check_type(argname="argument clustering_config", value=clustering_config, expected_type=type_hints["clustering_config"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument evaluators", value=evaluators, expected_type=type_hints["evaluators"])
             check_type(argname="argument execution_status", value=execution_status, expected_type=type_hints["execution_status"])
+            check_type(argname="argument insights", value=insights, expected_type=type_hints["insights"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "data_source_config": data_source_config,
             "evaluation_execution_role_arn": evaluation_execution_role_arn,
-            "evaluators": evaluators,
             "online_evaluation_config_name": online_evaluation_config_name,
             "rule": rule,
         }
+        if clustering_config is not None:
+            self._values["clustering_config"] = clustering_config
         if description is not None:
             self._values["description"] = description
+        if evaluators is not None:
+            self._values["evaluators"] = evaluators
         if execution_status is not None:
             self._values["execution_status"] = execution_status
+        if insights is not None:
+            self._values["insights"] = insights
         if tags is not None:
             self._values["tags"] = tags
 
@@ -29252,18 +31552,6 @@ class CfnOnlineEvaluationConfigProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def evaluators(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]:
-        '''The list of evaluators to apply during online evaluation.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-evaluators
-        '''
-        result = self._values.get("evaluators")
-        assert result is not None, "Required property 'evaluators' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]], result)
-
-    @builtins.property
     def online_evaluation_config_name(self) -> builtins.str:
         '''The name of the online evaluation configuration.
 
@@ -29288,6 +31576,17 @@ class CfnOnlineEvaluationConfigProps:
         return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.RuleProperty"], result)
 
     @builtins.property
+    def clustering_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.ClusteringConfigProperty"]]:
+        '''The configuration for clustering analysis of evaluation results.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-clusteringconfig
+        '''
+        result = self._values.get("clustering_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.ClusteringConfigProperty"]], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the online evaluation configuration.
 
@@ -29297,12 +31596,34 @@ class CfnOnlineEvaluationConfigProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def evaluators(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]]:
+        '''The list of evaluators to apply during online evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-evaluators
+        '''
+        result = self._values.get("evaluators")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.EvaluatorReferenceProperty"]]]], result)
+
+    @builtins.property
     def execution_status(self) -> typing.Optional[builtins.str]:
         '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-executionstatus
         '''
         result = self._values.get("execution_status")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def insights(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.InsightProperty"]]]]:
+        '''The list of insights to enable for failure analysis.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-onlineevaluationconfig.html#cfn-bedrockagentcore-onlineevaluationconfig-insights
+        '''
+        result = self._values.get("insights")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnOnlineEvaluationConfig.InsightProperty"]]]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
@@ -29321,6 +31642,522 @@ class CfnOnlineEvaluationConfigProps:
 
     def __repr__(self) -> str:
         return "CfnOnlineEvaluationConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPaymentConnectorRef_aabc28b3)
+class CfnPaymentConnector(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentConnector",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::PaymentConnector.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html
+    :cloudformationResource: AWS::BedrockAgentCore::PaymentConnector
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_payment_connector = bedrockagentcore.CfnPaymentConnector(self, "MyCfnPaymentConnector",
+            connector_name="connectorName",
+            connector_type="connectorType",
+            credential_provider_configurations=[bedrockagentcore.CfnPaymentConnector.CredentialsProviderConfigurationProperty(
+                coinbase_cdp=bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                    credential_provider_arn="credentialProviderArn"
+                ),
+                stripe_privy=bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                    credential_provider_arn="credentialProviderArn"
+                )
+            )],
+            payment_manager_id="paymentManagerId",
+        
+            # the properties below are optional
+            description="description"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        connector_name: builtins.str,
+        connector_type: builtins.str,
+        credential_provider_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentConnector.CredentialsProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        payment_manager_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::PaymentConnector``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param connector_name: The name of the payment connector.
+        :param connector_type: 
+        :param credential_provider_configurations: The credential provider configurations for the connector.
+        :param payment_manager_id: The identifier of the parent payment manager.
+        :param description: A description of the payment connector.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5d2d86341b22931a29e6918f7d889ad3a429428a05cb00ab7af0e12aeca6818e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPaymentConnectorProps(
+            connector_name=connector_name,
+            connector_type=connector_type,
+            credential_provider_configurations=credential_provider_configurations,
+            payment_manager_id=payment_manager_id,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPaymentConnector")
+    @builtins.classmethod
+    def arn_for_payment_connector(
+        cls,
+        resource: "_IPaymentConnectorRef_aabc28b3",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__010eb780217ccb0ac393daf205285e313dd7534a62a72770ff6c31e7a6ee225c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPaymentConnector", [resource]))
+
+    @jsii.member(jsii_name="isCfnPaymentConnector")
+    @builtins.classmethod
+    def is_cfn_payment_connector(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPaymentConnector.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce1b619bcb597ede1ef61bc0b6a1e8c428cb906e711041835ef2b3f70a3819fe)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPaymentConnector", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c815dc5b2c6b8dcfc6360e74d267ad1afdf3ff068af103105c7a818b3d49afa4)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e369f15e61aad66a73cac40f38beb8a93a52affb6911c664e55e80f3bcfd43ed)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectorCreatedAt")
+    def attr_connector_created_at(self) -> builtins.str:
+        '''The timestamp when the connector was created.
+
+        :cloudformationAttribute: ConnectorCreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectorCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectorLastUpdatedAt")
+    def attr_connector_last_updated_at(self) -> builtins.str:
+        '''The timestamp when the connector was last updated.
+
+        :cloudformationAttribute: ConnectorLastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectorLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrConnectorStatus")
+    def attr_connector_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ConnectorStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrConnectorStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPaymentConnectorArn")
+    def attr_payment_connector_arn(self) -> builtins.str:
+        '''Synthetic ARN for the payment connector (used for engine resolution).
+
+        :cloudformationAttribute: PaymentConnectorArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPaymentConnectorArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPaymentConnectorId")
+    def attr_payment_connector_id(self) -> builtins.str:
+        '''The unique identifier for the payment connector.
+
+        :cloudformationAttribute: PaymentConnectorId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPaymentConnectorId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentConnectorRef")
+    def payment_connector_ref(self) -> "_PaymentConnectorReference_233575c7":
+        '''A reference to a PaymentConnector resource.'''
+        return typing.cast("_PaymentConnectorReference_233575c7", jsii.get(self, "paymentConnectorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorName")
+    def connector_name(self) -> builtins.str:
+        '''The name of the payment connector.'''
+        return typing.cast(builtins.str, jsii.get(self, "connectorName"))
+
+    @connector_name.setter
+    def connector_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73f34190328c2e23bc93455bf6fb014d6b2cbfab66e1254592e2827be57b2cee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectorName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="connectorType")
+    def connector_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "connectorType"))
+
+    @connector_type.setter
+    def connector_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5b003230ff8a668a8f8e4aa7696779558efef43b53dbc61bdd5b9583ea917e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "connectorType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="credentialProviderConfigurations")
+    def credential_provider_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.CredentialsProviderConfigurationProperty"]]]:
+        '''The credential provider configurations for the connector.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.CredentialsProviderConfigurationProperty"]]], jsii.get(self, "credentialProviderConfigurations"))
+
+    @credential_provider_configurations.setter
+    def credential_provider_configurations(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.CredentialsProviderConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18c30fe9ad6f3f77eb2547721a3bd5ee2cc9534f3b0f5397083183423375f371)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "credentialProviderConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentManagerId")
+    def payment_manager_id(self) -> builtins.str:
+        '''The identifier of the parent payment manager.'''
+        return typing.cast(builtins.str, jsii.get(self, "paymentManagerId"))
+
+    @payment_manager_id.setter
+    def payment_manager_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4f25f1f2706bd72b1e71e40749678748417439522b47b8b307a2f233ed76762)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "paymentManagerId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the payment connector.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3494ce8c6175dfff507d27c17fea3261e4da83dba987d296e6f0e192c9f2b692)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentConnector.CredentialsProviderConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"coinbase_cdp": "coinbaseCdp", "stripe_privy": "stripePrivy"},
+    )
+    class CredentialsProviderConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            coinbase_cdp: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            stripe_privy: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param coinbase_cdp: 
+            :param stripe_privy: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentconnector-credentialsproviderconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                credentials_provider_configuration_property = bedrockagentcore.CfnPaymentConnector.CredentialsProviderConfigurationProperty(
+                    coinbase_cdp=bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                        credential_provider_arn="credentialProviderArn"
+                    ),
+                    stripe_privy=bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                        credential_provider_arn="credentialProviderArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__56830e3624fd027a4d206b28ce35b22065ce5f8ececa73557801bb650dff3e39)
+                check_type(argname="argument coinbase_cdp", value=coinbase_cdp, expected_type=type_hints["coinbase_cdp"])
+                check_type(argname="argument stripe_privy", value=stripe_privy, expected_type=type_hints["stripe_privy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if coinbase_cdp is not None:
+                self._values["coinbase_cdp"] = coinbase_cdp
+            if stripe_privy is not None:
+                self._values["stripe_privy"] = stripe_privy
+
+        @builtins.property
+        def coinbase_cdp(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentconnector-credentialsproviderconfiguration.html#cfn-bedrockagentcore-paymentconnector-credentialsproviderconfiguration-coinbasecdp
+            '''
+            result = self._values.get("coinbase_cdp")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty"]], result)
+
+        @builtins.property
+        def stripe_privy(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentconnector-credentialsproviderconfiguration.html#cfn-bedrockagentcore-paymentconnector-credentialsproviderconfiguration-stripeprivy
+            '''
+            result = self._values.get("stripe_privy")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CredentialsProviderConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"credential_provider_arn": "credentialProviderArn"},
+    )
+    class PaymentCredentialProviderConfigurationProperty:
+        def __init__(self, *, credential_provider_arn: builtins.str) -> None:
+            '''
+            :param credential_provider_arn: The ARN of the payment credential provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentconnector-paymentcredentialproviderconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                payment_credential_provider_configuration_property = bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                    credential_provider_arn="credentialProviderArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ecbf0e6bc21340f930d96954b40060f41c82aaabf5f4bd4ed783ea2b8d9938a9)
+                check_type(argname="argument credential_provider_arn", value=credential_provider_arn, expected_type=type_hints["credential_provider_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "credential_provider_arn": credential_provider_arn,
+            }
+
+        @builtins.property
+        def credential_provider_arn(self) -> builtins.str:
+            '''The ARN of the payment credential provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentconnector-paymentcredentialproviderconfiguration.html#cfn-bedrockagentcore-paymentconnector-paymentcredentialproviderconfiguration-credentialproviderarn
+            '''
+            result = self._values.get("credential_provider_arn")
+            assert result is not None, "Required property 'credential_provider_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PaymentCredentialProviderConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentConnectorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "connector_name": "connectorName",
+        "connector_type": "connectorType",
+        "credential_provider_configurations": "credentialProviderConfigurations",
+        "payment_manager_id": "paymentManagerId",
+        "description": "description",
+    },
+)
+class CfnPaymentConnectorProps:
+    def __init__(
+        self,
+        *,
+        connector_name: builtins.str,
+        connector_type: builtins.str,
+        credential_provider_configurations: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentConnector.CredentialsProviderConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        payment_manager_id: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPaymentConnector``.
+
+        :param connector_name: The name of the payment connector.
+        :param connector_type: 
+        :param credential_provider_configurations: The credential provider configurations for the connector.
+        :param payment_manager_id: The identifier of the parent payment manager.
+        :param description: A description of the payment connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_payment_connector_props = bedrockagentcore.CfnPaymentConnectorProps(
+                connector_name="connectorName",
+                connector_type="connectorType",
+                credential_provider_configurations=[bedrockagentcore.CfnPaymentConnector.CredentialsProviderConfigurationProperty(
+                    coinbase_cdp=bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                        credential_provider_arn="credentialProviderArn"
+                    ),
+                    stripe_privy=bedrockagentcore.CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty(
+                        credential_provider_arn="credentialProviderArn"
+                    )
+                )],
+                payment_manager_id="paymentManagerId",
+            
+                # the properties below are optional
+                description="description"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b846b1377c5ce20073fd8f8868c178c8d3559fd0604710bf4c9db67c4322b77b)
+            check_type(argname="argument connector_name", value=connector_name, expected_type=type_hints["connector_name"])
+            check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
+            check_type(argname="argument credential_provider_configurations", value=credential_provider_configurations, expected_type=type_hints["credential_provider_configurations"])
+            check_type(argname="argument payment_manager_id", value=payment_manager_id, expected_type=type_hints["payment_manager_id"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "connector_name": connector_name,
+            "connector_type": connector_type,
+            "credential_provider_configurations": credential_provider_configurations,
+            "payment_manager_id": payment_manager_id,
+        }
+        if description is not None:
+            self._values["description"] = description
+
+    @builtins.property
+    def connector_name(self) -> builtins.str:
+        '''The name of the payment connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html#cfn-bedrockagentcore-paymentconnector-connectorname
+        '''
+        result = self._values.get("connector_name")
+        assert result is not None, "Required property 'connector_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def connector_type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html#cfn-bedrockagentcore-paymentconnector-connectortype
+        '''
+        result = self._values.get("connector_type")
+        assert result is not None, "Required property 'connector_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def credential_provider_configurations(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.CredentialsProviderConfigurationProperty"]]]:
+        '''The credential provider configurations for the connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html#cfn-bedrockagentcore-paymentconnector-credentialproviderconfigurations
+        '''
+        result = self._values.get("credential_provider_configurations")
+        assert result is not None, "Required property 'credential_provider_configurations' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentConnector.CredentialsProviderConfigurationProperty"]]], result)
+
+    @builtins.property
+    def payment_manager_id(self) -> builtins.str:
+        '''The identifier of the parent payment manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html#cfn-bedrockagentcore-paymentconnector-paymentmanagerid
+        '''
+        result = self._values.get("payment_manager_id")
+        assert result is not None, "Required property 'payment_manager_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the payment connector.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentconnector.html#cfn-bedrockagentcore-paymentconnector-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPaymentConnectorProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -29352,16 +32189,38 @@ class CfnPaymentCredentialProvider(
             provider_configuration_input=bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty(
                 coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
                     api_key_id="apiKeyId",
-                    api_key_secret="apiKeySecret",
         
                     # the properties below are optional
-                    wallet_secret="walletSecret"
+                    api_key_secret="apiKeySecret",
+                    api_key_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    api_key_secret_source="apiKeySecretSource",
+                    wallet_secret="walletSecret",
+                    wallet_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    wallet_secret_source="walletSecretSource"
                 ),
                 stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
                     app_id="appId",
-                    app_secret="appSecret",
                     authorization_id="authorizationId",
-                    authorization_private_key="authorizationPrivateKey"
+        
+                    # the properties below are optional
+                    app_secret="appSecret",
+                    app_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    app_secret_source="appSecretSource",
+                    authorization_private_key="authorizationPrivateKey",
+                    authorization_private_key_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    authorization_private_key_source="authorizationPrivateKeySource"
                 )
             ),
             tags=[CfnTag(
@@ -29568,7 +32427,11 @@ class CfnPaymentCredentialProvider(
         name_mapping={
             "api_key_id": "apiKeyId",
             "api_key_secret": "apiKeySecret",
+            "api_key_secret_config": "apiKeySecretConfig",
+            "api_key_secret_source": "apiKeySecretSource",
             "wallet_secret": "walletSecret",
+            "wallet_secret_config": "walletSecretConfig",
+            "wallet_secret_source": "walletSecretSource",
         },
     )
     class CoinbaseCdpConfigurationInputProperty:
@@ -29576,14 +32439,22 @@ class CfnPaymentCredentialProvider(
             self,
             *,
             api_key_id: builtins.str,
-            api_key_secret: builtins.str,
+            api_key_secret: typing.Optional[builtins.str] = None,
+            api_key_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            api_key_secret_source: typing.Optional[builtins.str] = None,
             wallet_secret: typing.Optional[builtins.str] = None,
+            wallet_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wallet_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Coinbase CDP configuration with API credentials.
 
             :param api_key_id: The Coinbase CDP API key ID.
             :param api_key_secret: The Coinbase CDP API key secret.
+            :param api_key_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param api_key_secret_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
             :param wallet_secret: The Coinbase CDP wallet secret.
+            :param wallet_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param wallet_secret_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html
             :exampleMetadata: fixture=_generated
@@ -29596,23 +32467,46 @@ class CfnPaymentCredentialProvider(
                 
                 coinbase_cdp_configuration_input_property = bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
                     api_key_id="apiKeyId",
-                    api_key_secret="apiKeySecret",
                 
                     # the properties below are optional
-                    wallet_secret="walletSecret"
+                    api_key_secret="apiKeySecret",
+                    api_key_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    api_key_secret_source="apiKeySecretSource",
+                    wallet_secret="walletSecret",
+                    wallet_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    wallet_secret_source="walletSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__9dd8ba3186c2a37d4a11913e5b9f7b6642b7119bccd6a210792c9596b1e3147d)
                 check_type(argname="argument api_key_id", value=api_key_id, expected_type=type_hints["api_key_id"])
                 check_type(argname="argument api_key_secret", value=api_key_secret, expected_type=type_hints["api_key_secret"])
+                check_type(argname="argument api_key_secret_config", value=api_key_secret_config, expected_type=type_hints["api_key_secret_config"])
+                check_type(argname="argument api_key_secret_source", value=api_key_secret_source, expected_type=type_hints["api_key_secret_source"])
                 check_type(argname="argument wallet_secret", value=wallet_secret, expected_type=type_hints["wallet_secret"])
+                check_type(argname="argument wallet_secret_config", value=wallet_secret_config, expected_type=type_hints["wallet_secret_config"])
+                check_type(argname="argument wallet_secret_source", value=wallet_secret_source, expected_type=type_hints["wallet_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "api_key_id": api_key_id,
-                "api_key_secret": api_key_secret,
             }
+            if api_key_secret is not None:
+                self._values["api_key_secret"] = api_key_secret
+            if api_key_secret_config is not None:
+                self._values["api_key_secret_config"] = api_key_secret_config
+            if api_key_secret_source is not None:
+                self._values["api_key_secret_source"] = api_key_secret_source
             if wallet_secret is not None:
                 self._values["wallet_secret"] = wallet_secret
+            if wallet_secret_config is not None:
+                self._values["wallet_secret_config"] = wallet_secret_config
+            if wallet_secret_source is not None:
+                self._values["wallet_secret_source"] = wallet_secret_source
 
         @builtins.property
         def api_key_id(self) -> builtins.str:
@@ -29625,14 +32519,35 @@ class CfnPaymentCredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def api_key_secret(self) -> builtins.str:
+        def api_key_secret(self) -> typing.Optional[builtins.str]:
             '''The Coinbase CDP API key secret.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-apikeysecret
             '''
             result = self._values.get("api_key_secret")
-            assert result is not None, "Required property 'api_key_secret' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def api_key_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-apikeysecretconfig
+            '''
+            result = self._values.get("api_key_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def api_key_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-apikeysecretsource
+            '''
+            result = self._values.get("api_key_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def wallet_secret(self) -> typing.Optional[builtins.str]:
@@ -29641,6 +32556,28 @@ class CfnPaymentCredentialProvider(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-walletsecret
             '''
             result = self._values.get("wallet_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def wallet_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-walletsecretconfig
+            '''
+            result = self._values.get("wallet_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def wallet_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationinput-walletsecretsource
+            '''
+            result = self._values.get("wallet_secret_source")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -29660,7 +32597,11 @@ class CfnPaymentCredentialProvider(
         name_mapping={
             "api_key_id": "apiKeyId",
             "api_key_secret_arn": "apiKeySecretArn",
+            "api_key_secret_json_key": "apiKeySecretJsonKey",
+            "api_key_secret_source": "apiKeySecretSource",
             "wallet_secret_arn": "walletSecretArn",
+            "wallet_secret_json_key": "walletSecretJsonKey",
+            "wallet_secret_source": "walletSecretSource",
         },
     )
     class CoinbaseCdpConfigurationOutputProperty:
@@ -29669,13 +32610,21 @@ class CfnPaymentCredentialProvider(
             *,
             api_key_id: builtins.str,
             api_key_secret_arn: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            api_key_secret_json_key: typing.Optional[builtins.str] = None,
+            api_key_secret_source: typing.Optional[builtins.str] = None,
             wallet_secret_arn: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            wallet_secret_json_key: typing.Optional[builtins.str] = None,
+            wallet_secret_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Coinbase CDP configuration output with secret ARNs.
 
             :param api_key_id: The Coinbase CDP API key ID.
             :param api_key_secret_arn: Contains information about a secret in AWS Secrets Manager.
+            :param api_key_secret_json_key: The JSON key within the secret that contains the API key secret value.
+            :param api_key_secret_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
             :param wallet_secret_arn: Contains information about a secret in AWS Secrets Manager.
+            :param wallet_secret_json_key: The JSON key within the secret that contains the wallet secret value.
+            :param wallet_secret_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html
             :exampleMetadata: fixture=_generated
@@ -29693,22 +32642,38 @@ class CfnPaymentCredentialProvider(
                     ),
                 
                     # the properties below are optional
+                    api_key_secret_json_key="apiKeySecretJsonKey",
+                    api_key_secret_source="apiKeySecretSource",
                     wallet_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
                         secret_arn="secretArn"
-                    )
+                    ),
+                    wallet_secret_json_key="walletSecretJsonKey",
+                    wallet_secret_source="walletSecretSource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__5758217524779314f78859e9aebe61972010673b0fb9a5e75d07b9b8882ef918)
                 check_type(argname="argument api_key_id", value=api_key_id, expected_type=type_hints["api_key_id"])
                 check_type(argname="argument api_key_secret_arn", value=api_key_secret_arn, expected_type=type_hints["api_key_secret_arn"])
+                check_type(argname="argument api_key_secret_json_key", value=api_key_secret_json_key, expected_type=type_hints["api_key_secret_json_key"])
+                check_type(argname="argument api_key_secret_source", value=api_key_secret_source, expected_type=type_hints["api_key_secret_source"])
                 check_type(argname="argument wallet_secret_arn", value=wallet_secret_arn, expected_type=type_hints["wallet_secret_arn"])
+                check_type(argname="argument wallet_secret_json_key", value=wallet_secret_json_key, expected_type=type_hints["wallet_secret_json_key"])
+                check_type(argname="argument wallet_secret_source", value=wallet_secret_source, expected_type=type_hints["wallet_secret_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "api_key_id": api_key_id,
                 "api_key_secret_arn": api_key_secret_arn,
             }
+            if api_key_secret_json_key is not None:
+                self._values["api_key_secret_json_key"] = api_key_secret_json_key
+            if api_key_secret_source is not None:
+                self._values["api_key_secret_source"] = api_key_secret_source
             if wallet_secret_arn is not None:
                 self._values["wallet_secret_arn"] = wallet_secret_arn
+            if wallet_secret_json_key is not None:
+                self._values["wallet_secret_json_key"] = wallet_secret_json_key
+            if wallet_secret_source is not None:
+                self._values["wallet_secret_source"] = wallet_secret_source
 
         @builtins.property
         def api_key_id(self) -> builtins.str:
@@ -29733,6 +32698,26 @@ class CfnPaymentCredentialProvider(
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"], result)
 
         @builtins.property
+        def api_key_secret_json_key(self) -> typing.Optional[builtins.str]:
+            '''The JSON key within the secret that contains the API key secret value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-apikeysecretjsonkey
+            '''
+            result = self._values.get("api_key_secret_json_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def api_key_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-apikeysecretsource
+            '''
+            result = self._values.get("api_key_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
         def wallet_secret_arn(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]]:
@@ -29742,6 +32727,26 @@ class CfnPaymentCredentialProvider(
             '''
             result = self._values.get("wallet_secret_arn")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"]], result)
+
+        @builtins.property
+        def wallet_secret_json_key(self) -> typing.Optional[builtins.str]:
+            '''The JSON key within the secret that contains the wallet secret value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-walletsecretjsonkey
+            '''
+            result = self._values.get("wallet_secret_json_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def wallet_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-coinbasecdpconfigurationoutput-walletsecretsource
+            '''
+            result = self._values.get("wallet_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -29786,16 +32791,38 @@ class CfnPaymentCredentialProvider(
                 payment_provider_configuration_input_property = bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty(
                     coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
                         api_key_id="apiKeyId",
-                        api_key_secret="apiKeySecret",
                 
                         # the properties below are optional
-                        wallet_secret="walletSecret"
+                        api_key_secret="apiKeySecret",
+                        api_key_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        api_key_secret_source="apiKeySecretSource",
+                        wallet_secret="walletSecret",
+                        wallet_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        wallet_secret_source="walletSecretSource"
                     ),
                     stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
                         app_id="appId",
-                        app_secret="appSecret",
                         authorization_id="authorizationId",
-                        authorization_private_key="authorizationPrivateKey"
+                
+                        # the properties below are optional
+                        app_secret="appSecret",
+                        app_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        app_secret_source="appSecretSource",
+                        authorization_private_key="authorizationPrivateKey",
+                        authorization_private_key_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        authorization_private_key_source="authorizationPrivateKeySource"
                     )
                 )
             '''
@@ -29879,9 +32906,13 @@ class CfnPaymentCredentialProvider(
                         ),
                 
                         # the properties below are optional
+                        api_key_secret_json_key="apiKeySecretJsonKey",
+                        api_key_secret_source="apiKeySecretSource",
                         wallet_secret_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
                             secret_arn="secretArn"
-                        )
+                        ),
+                        wallet_secret_json_key="walletSecretJsonKey",
+                        wallet_secret_source="walletSecretSource"
                     ),
                     stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationOutputProperty(
                         app_id="appId",
@@ -29891,7 +32922,13 @@ class CfnPaymentCredentialProvider(
                         authorization_id="authorizationId",
                         authorization_private_key_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
                             secret_arn="secretArn"
-                        )
+                        ),
+                
+                        # the properties below are optional
+                        app_secret_json_key="appSecretJsonKey",
+                        app_secret_source="appSecretSource",
+                        authorization_private_key_json_key="authorizationPrivateKeyJsonKey",
+                        authorization_private_key_source="authorizationPrivateKeySource"
                     )
                 )
             '''
@@ -29991,13 +33028,83 @@ class CfnPaymentCredentialProvider(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"json_key": "jsonKey", "secret_id": "secretId"},
+    )
+    class SecretReferenceProperty:
+        def __init__(self, *, json_key: builtins.str, secret_id: builtins.str) -> None:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :param json_key: The JSON key within the secret that contains the credential value.
+            :param secret_id: The ID or ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-secretreference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                secret_reference_property = bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                    json_key="jsonKey",
+                    secret_id="secretId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3be21ca2c5ea2e45fcf65dbcfc2e17d7d78f3d4b6385c74bc71d43eeb1d5ba0a)
+                check_type(argname="argument json_key", value=json_key, expected_type=type_hints["json_key"])
+                check_type(argname="argument secret_id", value=secret_id, expected_type=type_hints["secret_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "json_key": json_key,
+                "secret_id": secret_id,
+            }
+
+        @builtins.property
+        def json_key(self) -> builtins.str:
+            '''The JSON key within the secret that contains the credential value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-secretreference.html#cfn-bedrockagentcore-paymentcredentialprovider-secretreference-jsonkey
+            '''
+            result = self._values.get("json_key")
+            assert result is not None, "Required property 'json_key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def secret_id(self) -> builtins.str:
+            '''The ID or ARN of the secret in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-secretreference.html#cfn-bedrockagentcore-paymentcredentialprovider-secretreference-secretid
+            '''
+            result = self._values.get("secret_id")
+            assert result is not None, "Required property 'secret_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SecretReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty",
         jsii_struct_bases=[],
         name_mapping={
             "app_id": "appId",
-            "app_secret": "appSecret",
             "authorization_id": "authorizationId",
+            "app_secret": "appSecret",
+            "app_secret_config": "appSecretConfig",
+            "app_secret_source": "appSecretSource",
             "authorization_private_key": "authorizationPrivateKey",
+            "authorization_private_key_config": "authorizationPrivateKeyConfig",
+            "authorization_private_key_source": "authorizationPrivateKeySource",
         },
     )
     class StripePrivyConfigurationInputProperty:
@@ -30005,16 +33112,24 @@ class CfnPaymentCredentialProvider(
             self,
             *,
             app_id: builtins.str,
-            app_secret: builtins.str,
             authorization_id: builtins.str,
-            authorization_private_key: builtins.str,
+            app_secret: typing.Optional[builtins.str] = None,
+            app_secret_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            app_secret_source: typing.Optional[builtins.str] = None,
+            authorization_private_key: typing.Optional[builtins.str] = None,
+            authorization_private_key_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            authorization_private_key_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Stripe Privy configuration with credentials.
 
             :param app_id: The app ID provided by Privy.
-            :param app_secret: The app secret provided by Privy.
             :param authorization_id: The authorization ID for the Stripe Privy integration.
+            :param app_secret: The app secret provided by Privy.
+            :param app_secret_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param app_secret_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
             :param authorization_private_key: The authorization private key for the Stripe Privy integration.
+            :param authorization_private_key_config: A reference to a customer-provided secret stored in AWS Secrets Manager.
+            :param authorization_private_key_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html
             :exampleMetadata: fixture=_generated
@@ -30027,23 +33142,49 @@ class CfnPaymentCredentialProvider(
                 
                 stripe_privy_configuration_input_property = bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
                     app_id="appId",
-                    app_secret="appSecret",
                     authorization_id="authorizationId",
-                    authorization_private_key="authorizationPrivateKey"
+                
+                    # the properties below are optional
+                    app_secret="appSecret",
+                    app_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    app_secret_source="appSecretSource",
+                    authorization_private_key="authorizationPrivateKey",
+                    authorization_private_key_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                        json_key="jsonKey",
+                        secret_id="secretId"
+                    ),
+                    authorization_private_key_source="authorizationPrivateKeySource"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__c23d91704fe694d36b873234b168ebc938879a44902d7c0933cc4371114bcd50)
                 check_type(argname="argument app_id", value=app_id, expected_type=type_hints["app_id"])
-                check_type(argname="argument app_secret", value=app_secret, expected_type=type_hints["app_secret"])
                 check_type(argname="argument authorization_id", value=authorization_id, expected_type=type_hints["authorization_id"])
+                check_type(argname="argument app_secret", value=app_secret, expected_type=type_hints["app_secret"])
+                check_type(argname="argument app_secret_config", value=app_secret_config, expected_type=type_hints["app_secret_config"])
+                check_type(argname="argument app_secret_source", value=app_secret_source, expected_type=type_hints["app_secret_source"])
                 check_type(argname="argument authorization_private_key", value=authorization_private_key, expected_type=type_hints["authorization_private_key"])
+                check_type(argname="argument authorization_private_key_config", value=authorization_private_key_config, expected_type=type_hints["authorization_private_key_config"])
+                check_type(argname="argument authorization_private_key_source", value=authorization_private_key_source, expected_type=type_hints["authorization_private_key_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "app_id": app_id,
-                "app_secret": app_secret,
                 "authorization_id": authorization_id,
-                "authorization_private_key": authorization_private_key,
             }
+            if app_secret is not None:
+                self._values["app_secret"] = app_secret
+            if app_secret_config is not None:
+                self._values["app_secret_config"] = app_secret_config
+            if app_secret_source is not None:
+                self._values["app_secret_source"] = app_secret_source
+            if authorization_private_key is not None:
+                self._values["authorization_private_key"] = authorization_private_key
+            if authorization_private_key_config is not None:
+                self._values["authorization_private_key_config"] = authorization_private_key_config
+            if authorization_private_key_source is not None:
+                self._values["authorization_private_key_source"] = authorization_private_key_source
 
         @builtins.property
         def app_id(self) -> builtins.str:
@@ -30053,16 +33194,6 @@ class CfnPaymentCredentialProvider(
             '''
             result = self._values.get("app_id")
             assert result is not None, "Required property 'app_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def app_secret(self) -> builtins.str:
-            '''The app secret provided by Privy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-appsecret
-            '''
-            result = self._values.get("app_secret")
-            assert result is not None, "Required property 'app_secret' is missing"
             return typing.cast(builtins.str, result)
 
         @builtins.property
@@ -30076,14 +33207,66 @@ class CfnPaymentCredentialProvider(
             return typing.cast(builtins.str, result)
 
         @builtins.property
-        def authorization_private_key(self) -> builtins.str:
+        def app_secret(self) -> typing.Optional[builtins.str]:
+            '''The app secret provided by Privy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-appsecret
+            '''
+            result = self._values.get("app_secret")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def app_secret_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-appsecretconfig
+            '''
+            result = self._values.get("app_secret_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def app_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-appsecretsource
+            '''
+            result = self._values.get("app_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def authorization_private_key(self) -> typing.Optional[builtins.str]:
             '''The authorization private key for the Stripe Privy integration.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-authorizationprivatekey
             '''
             result = self._values.get("authorization_private_key")
-            assert result is not None, "Required property 'authorization_private_key' is missing"
-            return typing.cast(builtins.str, result)
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def authorization_private_key_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]]:
+            '''A reference to a customer-provided secret stored in AWS Secrets Manager.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-authorizationprivatekeyconfig
+            '''
+            result = self._values.get("authorization_private_key_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretReferenceProperty"]], result)
+
+        @builtins.property
+        def authorization_private_key_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationinput-authorizationprivatekeysource
+            '''
+            result = self._values.get("authorization_private_key_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30104,6 +33287,10 @@ class CfnPaymentCredentialProvider(
             "app_secret_arn": "appSecretArn",
             "authorization_id": "authorizationId",
             "authorization_private_key_arn": "authorizationPrivateKeyArn",
+            "app_secret_json_key": "appSecretJsonKey",
+            "app_secret_source": "appSecretSource",
+            "authorization_private_key_json_key": "authorizationPrivateKeyJsonKey",
+            "authorization_private_key_source": "authorizationPrivateKeySource",
         },
     )
     class StripePrivyConfigurationOutputProperty:
@@ -30114,6 +33301,10 @@ class CfnPaymentCredentialProvider(
             app_secret_arn: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]],
             authorization_id: builtins.str,
             authorization_private_key_arn: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentCredentialProvider.SecretInfoProperty", typing.Dict[builtins.str, typing.Any]]],
+            app_secret_json_key: typing.Optional[builtins.str] = None,
+            app_secret_source: typing.Optional[builtins.str] = None,
+            authorization_private_key_json_key: typing.Optional[builtins.str] = None,
+            authorization_private_key_source: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Stripe Privy configuration output with secret ARNs.
 
@@ -30121,6 +33312,10 @@ class CfnPaymentCredentialProvider(
             :param app_secret_arn: Contains information about a secret in AWS Secrets Manager.
             :param authorization_id: The authorization ID for the Stripe Privy integration.
             :param authorization_private_key_arn: Contains information about a secret in AWS Secrets Manager.
+            :param app_secret_json_key: The JSON key within the secret that contains the app secret value.
+            :param app_secret_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+            :param authorization_private_key_json_key: The JSON key within the secret that contains the authorization private key value.
+            :param authorization_private_key_source: The source of the secret. Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html
             :exampleMetadata: fixture=_generated
@@ -30139,7 +33334,13 @@ class CfnPaymentCredentialProvider(
                     authorization_id="authorizationId",
                     authorization_private_key_arn=bedrockagentcore.CfnPaymentCredentialProvider.SecretInfoProperty(
                         secret_arn="secretArn"
-                    )
+                    ),
+                
+                    # the properties below are optional
+                    app_secret_json_key="appSecretJsonKey",
+                    app_secret_source="appSecretSource",
+                    authorization_private_key_json_key="authorizationPrivateKeyJsonKey",
+                    authorization_private_key_source="authorizationPrivateKeySource"
                 )
             '''
             if __debug__:
@@ -30148,12 +33349,24 @@ class CfnPaymentCredentialProvider(
                 check_type(argname="argument app_secret_arn", value=app_secret_arn, expected_type=type_hints["app_secret_arn"])
                 check_type(argname="argument authorization_id", value=authorization_id, expected_type=type_hints["authorization_id"])
                 check_type(argname="argument authorization_private_key_arn", value=authorization_private_key_arn, expected_type=type_hints["authorization_private_key_arn"])
+                check_type(argname="argument app_secret_json_key", value=app_secret_json_key, expected_type=type_hints["app_secret_json_key"])
+                check_type(argname="argument app_secret_source", value=app_secret_source, expected_type=type_hints["app_secret_source"])
+                check_type(argname="argument authorization_private_key_json_key", value=authorization_private_key_json_key, expected_type=type_hints["authorization_private_key_json_key"])
+                check_type(argname="argument authorization_private_key_source", value=authorization_private_key_source, expected_type=type_hints["authorization_private_key_source"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "app_id": app_id,
                 "app_secret_arn": app_secret_arn,
                 "authorization_id": authorization_id,
                 "authorization_private_key_arn": authorization_private_key_arn,
             }
+            if app_secret_json_key is not None:
+                self._values["app_secret_json_key"] = app_secret_json_key
+            if app_secret_source is not None:
+                self._values["app_secret_source"] = app_secret_source
+            if authorization_private_key_json_key is not None:
+                self._values["authorization_private_key_json_key"] = authorization_private_key_json_key
+            if authorization_private_key_source is not None:
+                self._values["authorization_private_key_source"] = authorization_private_key_source
 
         @builtins.property
         def app_id(self) -> builtins.str:
@@ -30198,6 +33411,46 @@ class CfnPaymentCredentialProvider(
             result = self._values.get("authorization_private_key_arn")
             assert result is not None, "Required property 'authorization_private_key_arn' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentCredentialProvider.SecretInfoProperty"], result)
+
+        @builtins.property
+        def app_secret_json_key(self) -> typing.Optional[builtins.str]:
+            '''The JSON key within the secret that contains the app secret value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-appsecretjsonkey
+            '''
+            result = self._values.get("app_secret_json_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def app_secret_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-appsecretsource
+            '''
+            result = self._values.get("app_secret_source")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def authorization_private_key_json_key(self) -> typing.Optional[builtins.str]:
+            '''The JSON key within the secret that contains the authorization private key value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-authorizationprivatekeyjsonkey
+            '''
+            result = self._values.get("authorization_private_key_json_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def authorization_private_key_source(self) -> typing.Optional[builtins.str]:
+            '''The source of the secret.
+
+            Use MANAGED for service-managed secrets or EXTERNAL for customer-provided secrets.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput.html#cfn-bedrockagentcore-paymentcredentialprovider-stripeprivyconfigurationoutput-authorizationprivatekeysource
+            '''
+            result = self._values.get("authorization_private_key_source")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -30255,16 +33508,38 @@ class CfnPaymentCredentialProviderProps:
                 provider_configuration_input=bedrockagentcore.CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty(
                     coinbase_cdp_configuration=bedrockagentcore.CfnPaymentCredentialProvider.CoinbaseCdpConfigurationInputProperty(
                         api_key_id="apiKeyId",
-                        api_key_secret="apiKeySecret",
             
                         # the properties below are optional
-                        wallet_secret="walletSecret"
+                        api_key_secret="apiKeySecret",
+                        api_key_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        api_key_secret_source="apiKeySecretSource",
+                        wallet_secret="walletSecret",
+                        wallet_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        wallet_secret_source="walletSecretSource"
                     ),
                     stripe_privy_configuration=bedrockagentcore.CfnPaymentCredentialProvider.StripePrivyConfigurationInputProperty(
                         app_id="appId",
-                        app_secret="appSecret",
                         authorization_id="authorizationId",
-                        authorization_private_key="authorizationPrivateKey"
+            
+                        # the properties below are optional
+                        app_secret="appSecret",
+                        app_secret_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        app_secret_source="appSecretSource",
+                        authorization_private_key="authorizationPrivateKey",
+                        authorization_private_key_config=bedrockagentcore.CfnPaymentCredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        authorization_private_key_source="authorizationPrivateKeySource"
                     )
                 ),
                 tags=[CfnTag(
@@ -30336,6 +33611,969 @@ class CfnPaymentCredentialProviderProps:
 
     def __repr__(self) -> str:
         return "CfnPaymentCredentialProviderProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPaymentManagerRef_e016729a, _ITaggableV2_4e6798f8)
+class CfnPaymentManager(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::PaymentManager.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html
+    :cloudformationResource: AWS::BedrockAgentCore::PaymentManager
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_payment_manager = bedrockagentcore.CfnPaymentManager(self, "MyCfnPaymentManager",
+            authorizer_type="authorizerType",
+            name="name",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            authorizer_configuration=bedrockagentcore.CfnPaymentManager.AuthorizerConfigurationProperty(
+                custom_jwt_authorizer=bedrockagentcore.CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty(
+                    discovery_url="discoveryUrl",
+        
+                    # the properties below are optional
+                    allowed_audience=["allowedAudience"],
+                    allowed_clients=["allowedClients"],
+                    allowed_scopes=["allowedScopes"],
+                    custom_claims=[bedrockagentcore.CfnPaymentManager.CustomClaimValidationTypeProperty(
+                        authorizing_claim_match_value=bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty(
+                            claim_match_operator="claimMatchOperator",
+                            claim_match_value=bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                                match_value_string="matchValueString",
+                                match_value_string_list=["matchValueStringList"]
+                            )
+                        ),
+                        inbound_token_claim_name="inboundTokenClaimName",
+                        inbound_token_claim_value_type="inboundTokenClaimValueType"
+                    )]
+                )
+            ),
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        authorizer_type: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        authorizer_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentManager.AuthorizerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::PaymentManager``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param authorizer_type: 
+        :param name: The name of the payment manager.
+        :param role_arn: The ARN of the IAM role for the payment manager.
+        :param authorizer_configuration: 
+        :param description: A description of the payment manager.
+        :param tags: Tags to assign to the payment manager.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ca94493af8f15cbde074dd91817da70cf48f64b34a4d2b1530c779aa6c3c758)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPaymentManagerProps(
+            authorizer_type=authorizer_type,
+            name=name,
+            role_arn=role_arn,
+            authorizer_configuration=authorizer_configuration,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPaymentManager")
+    @builtins.classmethod
+    def arn_for_payment_manager(
+        cls,
+        resource: "_IPaymentManagerRef_e016729a",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b59ffe040ce56a96e54ed5f3073be3b18eb0de48f54f5b1d549e1cec28ddffd7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPaymentManager", [resource]))
+
+    @jsii.member(jsii_name="isCfnPaymentManager")
+    @builtins.classmethod
+    def is_cfn_payment_manager(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPaymentManager.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7de940ad0836648503bf6ffdc4b03b4187b65ad93b39331dd9ace3c80676d9a2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPaymentManager", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b017dd3dd1cdb641f46020c96709807e411c5223a4b859e2a5904894838efcee)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__081a0487349e7003e0862607d611bf068be6abcdeb708afd215f76c827e3ffcc)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the payment manager was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedAt")
+    def attr_last_updated_at(self) -> builtins.str:
+        '''The timestamp when the payment manager was last updated.
+
+        :cloudformationAttribute: LastUpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPaymentManagerArn")
+    def attr_payment_manager_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the payment manager.
+
+        :cloudformationAttribute: PaymentManagerArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPaymentManagerArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPaymentManagerId")
+    def attr_payment_manager_id(self) -> builtins.str:
+        '''The unique identifier for the payment manager.
+
+        :cloudformationAttribute: PaymentManagerId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPaymentManagerId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkloadIdentityDetails")
+    def attr_workload_identity_details(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: WorkloadIdentityDetails
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrWorkloadIdentityDetails"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="paymentManagerRef")
+    def payment_manager_ref(self) -> "_PaymentManagerReference_4941c5a9":
+        '''A reference to a PaymentManager resource.'''
+        return typing.cast("_PaymentManagerReference_4941c5a9", jsii.get(self, "paymentManagerRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizerType")
+    def authorizer_type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "authorizerType"))
+
+    @authorizer_type.setter
+    def authorizer_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd6dfbb582cdcfab29e654b4406d744cb7d05ff48c07118e184434aebd47663b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authorizerType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the payment manager.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5e2e80bbaf9956f580c3ddbab0031cdc055c4fd7d246b4ed415957c6bb464df)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role for the payment manager.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd7e181b02d6cbcf4aea27036c8a47481279b5dc7f4c87b9b47a0d288bbf294a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="authorizerConfiguration")
+    def authorizer_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizerConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizerConfigurationProperty"]], jsii.get(self, "authorizerConfiguration"))
+
+    @authorizer_configuration.setter
+    def authorizer_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizerConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__afc5aca366dc3f8878beaaca792435273fceeb302857b5d8e432030ed4bd8045)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "authorizerConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the payment manager.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43f724ccb9eedef2e6d6c024b1c3eab2cbdbc1249ff3f20de26377a9c8588f27)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the payment manager.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb4191c0146fd9d2ba065b9c31f81e1daa0f3420c9cd47a02ae855a6b24bcfc6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager.AuthorizerConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"custom_jwt_authorizer": "customJwtAuthorizer"},
+    )
+    class AuthorizerConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            custom_jwt_authorizer: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param custom_jwt_authorizer: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-authorizerconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                authorizer_configuration_property = bedrockagentcore.CfnPaymentManager.AuthorizerConfigurationProperty(
+                    custom_jwt_authorizer=bedrockagentcore.CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty(
+                        discovery_url="discoveryUrl",
+                
+                        # the properties below are optional
+                        allowed_audience=["allowedAudience"],
+                        allowed_clients=["allowedClients"],
+                        allowed_scopes=["allowedScopes"],
+                        custom_claims=[bedrockagentcore.CfnPaymentManager.CustomClaimValidationTypeProperty(
+                            authorizing_claim_match_value=bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty(
+                                claim_match_operator="claimMatchOperator",
+                                claim_match_value=bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                                    match_value_string="matchValueString",
+                                    match_value_string_list=["matchValueStringList"]
+                                )
+                            ),
+                            inbound_token_claim_name="inboundTokenClaimName",
+                            inbound_token_claim_value_type="inboundTokenClaimValueType"
+                        )]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d8d6439ae52449da32143b09afccca3a3fe7697cad674d550cbdeb54b7dc6c19)
+                check_type(argname="argument custom_jwt_authorizer", value=custom_jwt_authorizer, expected_type=type_hints["custom_jwt_authorizer"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "custom_jwt_authorizer": custom_jwt_authorizer,
+            }
+
+        @builtins.property
+        def custom_jwt_authorizer(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-authorizerconfiguration.html#cfn-bedrockagentcore-paymentmanager-authorizerconfiguration-customjwtauthorizer
+            '''
+            result = self._values.get("custom_jwt_authorizer")
+            assert result is not None, "Required property 'custom_jwt_authorizer' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthorizerConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "claim_match_operator": "claimMatchOperator",
+            "claim_match_value": "claimMatchValue",
+        },
+    )
+    class AuthorizingClaimMatchValueTypeProperty:
+        def __init__(
+            self,
+            *,
+            claim_match_operator: builtins.str,
+            claim_match_value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentManager.ClaimMatchValueTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param claim_match_operator: 
+            :param claim_match_value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-authorizingclaimmatchvaluetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                authorizing_claim_match_value_type_property = bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty(
+                    claim_match_operator="claimMatchOperator",
+                    claim_match_value=bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                        match_value_string="matchValueString",
+                        match_value_string_list=["matchValueStringList"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6bf1ff80596a0d9e833e65b7352d099528a67cdc769dba4ebd5d08f7f35aedc4)
+                check_type(argname="argument claim_match_operator", value=claim_match_operator, expected_type=type_hints["claim_match_operator"])
+                check_type(argname="argument claim_match_value", value=claim_match_value, expected_type=type_hints["claim_match_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "claim_match_operator": claim_match_operator,
+                "claim_match_value": claim_match_value,
+            }
+
+        @builtins.property
+        def claim_match_operator(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-authorizingclaimmatchvaluetype.html#cfn-bedrockagentcore-paymentmanager-authorizingclaimmatchvaluetype-claimmatchoperator
+            '''
+            result = self._values.get("claim_match_operator")
+            assert result is not None, "Required property 'claim_match_operator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def claim_match_value(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.ClaimMatchValueTypeProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-authorizingclaimmatchvaluetype.html#cfn-bedrockagentcore-paymentmanager-authorizingclaimmatchvaluetype-claimmatchvalue
+            '''
+            result = self._values.get("claim_match_value")
+            assert result is not None, "Required property 'claim_match_value' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.ClaimMatchValueTypeProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuthorizingClaimMatchValueTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "match_value_string": "matchValueString",
+            "match_value_string_list": "matchValueStringList",
+        },
+    )
+    class ClaimMatchValueTypeProperty:
+        def __init__(
+            self,
+            *,
+            match_value_string: typing.Optional[builtins.str] = None,
+            match_value_string_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param match_value_string: 
+            :param match_value_string_list: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-claimmatchvaluetype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                claim_match_value_type_property = bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                    match_value_string="matchValueString",
+                    match_value_string_list=["matchValueStringList"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__de9d62135a5171e013725344853be920baf444f54c28210fb14cf230cb60a411)
+                check_type(argname="argument match_value_string", value=match_value_string, expected_type=type_hints["match_value_string"])
+                check_type(argname="argument match_value_string_list", value=match_value_string_list, expected_type=type_hints["match_value_string_list"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if match_value_string is not None:
+                self._values["match_value_string"] = match_value_string
+            if match_value_string_list is not None:
+                self._values["match_value_string_list"] = match_value_string_list
+
+        @builtins.property
+        def match_value_string(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-claimmatchvaluetype.html#cfn-bedrockagentcore-paymentmanager-claimmatchvaluetype-matchvaluestring
+            '''
+            result = self._values.get("match_value_string")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def match_value_string_list(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-claimmatchvaluetype.html#cfn-bedrockagentcore-paymentmanager-claimmatchvaluetype-matchvaluestringlist
+            '''
+            result = self._values.get("match_value_string_list")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClaimMatchValueTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager.CustomClaimValidationTypeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "authorizing_claim_match_value": "authorizingClaimMatchValue",
+            "inbound_token_claim_name": "inboundTokenClaimName",
+            "inbound_token_claim_value_type": "inboundTokenClaimValueType",
+        },
+    )
+    class CustomClaimValidationTypeProperty:
+        def __init__(
+            self,
+            *,
+            authorizing_claim_match_value: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty", typing.Dict[builtins.str, typing.Any]]],
+            inbound_token_claim_name: builtins.str,
+            inbound_token_claim_value_type: builtins.str,
+        ) -> None:
+            '''
+            :param authorizing_claim_match_value: 
+            :param inbound_token_claim_name: 
+            :param inbound_token_claim_value_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customclaimvalidationtype.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                custom_claim_validation_type_property = bedrockagentcore.CfnPaymentManager.CustomClaimValidationTypeProperty(
+                    authorizing_claim_match_value=bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty(
+                        claim_match_operator="claimMatchOperator",
+                        claim_match_value=bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                            match_value_string="matchValueString",
+                            match_value_string_list=["matchValueStringList"]
+                        )
+                    ),
+                    inbound_token_claim_name="inboundTokenClaimName",
+                    inbound_token_claim_value_type="inboundTokenClaimValueType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1cf4a1d019b5d3326945c4e58535f215b3a5d8314d2578fee0ad7cd81806fa3e)
+                check_type(argname="argument authorizing_claim_match_value", value=authorizing_claim_match_value, expected_type=type_hints["authorizing_claim_match_value"])
+                check_type(argname="argument inbound_token_claim_name", value=inbound_token_claim_name, expected_type=type_hints["inbound_token_claim_name"])
+                check_type(argname="argument inbound_token_claim_value_type", value=inbound_token_claim_value_type, expected_type=type_hints["inbound_token_claim_value_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "authorizing_claim_match_value": authorizing_claim_match_value,
+                "inbound_token_claim_name": inbound_token_claim_name,
+                "inbound_token_claim_value_type": inbound_token_claim_value_type,
+            }
+
+        @builtins.property
+        def authorizing_claim_match_value(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customclaimvalidationtype.html#cfn-bedrockagentcore-paymentmanager-customclaimvalidationtype-authorizingclaimmatchvalue
+            '''
+            result = self._values.get("authorizing_claim_match_value")
+            assert result is not None, "Required property 'authorizing_claim_match_value' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty"], result)
+
+        @builtins.property
+        def inbound_token_claim_name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customclaimvalidationtype.html#cfn-bedrockagentcore-paymentmanager-customclaimvalidationtype-inboundtokenclaimname
+            '''
+            result = self._values.get("inbound_token_claim_name")
+            assert result is not None, "Required property 'inbound_token_claim_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def inbound_token_claim_value_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customclaimvalidationtype.html#cfn-bedrockagentcore-paymentmanager-customclaimvalidationtype-inboundtokenclaimvaluetype
+            '''
+            result = self._values.get("inbound_token_claim_value_type")
+            assert result is not None, "Required property 'inbound_token_claim_value_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomClaimValidationTypeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "discovery_url": "discoveryUrl",
+            "allowed_audience": "allowedAudience",
+            "allowed_clients": "allowedClients",
+            "allowed_scopes": "allowedScopes",
+            "custom_claims": "customClaims",
+        },
+    )
+    class CustomJWTAuthorizerConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            discovery_url: builtins.str,
+            allowed_audience: typing.Optional[typing.Sequence[builtins.str]] = None,
+            allowed_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
+            allowed_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+            custom_claims: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentManager.CustomClaimValidationTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''
+            :param discovery_url: 
+            :param allowed_audience: 
+            :param allowed_clients: 
+            :param allowed_scopes: 
+            :param custom_claims: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                custom_jwt_authorizer_configuration_property = bedrockagentcore.CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty(
+                    discovery_url="discoveryUrl",
+                
+                    # the properties below are optional
+                    allowed_audience=["allowedAudience"],
+                    allowed_clients=["allowedClients"],
+                    allowed_scopes=["allowedScopes"],
+                    custom_claims=[bedrockagentcore.CfnPaymentManager.CustomClaimValidationTypeProperty(
+                        authorizing_claim_match_value=bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty(
+                            claim_match_operator="claimMatchOperator",
+                            claim_match_value=bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                                match_value_string="matchValueString",
+                                match_value_string_list=["matchValueStringList"]
+                            )
+                        ),
+                        inbound_token_claim_name="inboundTokenClaimName",
+                        inbound_token_claim_value_type="inboundTokenClaimValueType"
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__49fe7faffb7239ee810ef9042613e2170f0662ddd12c96ea781d6d48894c3973)
+                check_type(argname="argument discovery_url", value=discovery_url, expected_type=type_hints["discovery_url"])
+                check_type(argname="argument allowed_audience", value=allowed_audience, expected_type=type_hints["allowed_audience"])
+                check_type(argname="argument allowed_clients", value=allowed_clients, expected_type=type_hints["allowed_clients"])
+                check_type(argname="argument allowed_scopes", value=allowed_scopes, expected_type=type_hints["allowed_scopes"])
+                check_type(argname="argument custom_claims", value=custom_claims, expected_type=type_hints["custom_claims"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "discovery_url": discovery_url,
+            }
+            if allowed_audience is not None:
+                self._values["allowed_audience"] = allowed_audience
+            if allowed_clients is not None:
+                self._values["allowed_clients"] = allowed_clients
+            if allowed_scopes is not None:
+                self._values["allowed_scopes"] = allowed_scopes
+            if custom_claims is not None:
+                self._values["custom_claims"] = custom_claims
+
+        @builtins.property
+        def discovery_url(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration-discoveryurl
+            '''
+            result = self._values.get("discovery_url")
+            assert result is not None, "Required property 'discovery_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def allowed_audience(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration-allowedaudience
+            '''
+            result = self._values.get("allowed_audience")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def allowed_clients(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration-allowedclients
+            '''
+            result = self._values.get("allowed_clients")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def allowed_scopes(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration-allowedscopes
+            '''
+            result = self._values.get("allowed_scopes")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def custom_claims(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.CustomClaimValidationTypeProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration.html#cfn-bedrockagentcore-paymentmanager-customjwtauthorizerconfiguration-customclaims
+            '''
+            result = self._values.get("custom_claims")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.CustomClaimValidationTypeProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CustomJWTAuthorizerConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManager.WorkloadIdentityDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"workload_identity_arn": "workloadIdentityArn"},
+    )
+    class WorkloadIdentityDetailsProperty:
+        def __init__(self, *, workload_identity_arn: builtins.str) -> None:
+            '''
+            :param workload_identity_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-workloadidentitydetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+                
+                workload_identity_details_property = bedrockagentcore.CfnPaymentManager.WorkloadIdentityDetailsProperty(
+                    workload_identity_arn="workloadIdentityArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__13ce683d030dc50e4700ba1267aed87709f0b103919d1d707c84b6d0dbc20f04)
+                check_type(argname="argument workload_identity_arn", value=workload_identity_arn, expected_type=type_hints["workload_identity_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "workload_identity_arn": workload_identity_arn,
+            }
+
+        @builtins.property
+        def workload_identity_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentmanager-workloadidentitydetails.html#cfn-bedrockagentcore-paymentmanager-workloadidentitydetails-workloadidentityarn
+            '''
+            result = self._values.get("workload_identity_arn")
+            assert result is not None, "Required property 'workload_identity_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WorkloadIdentityDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnPaymentManagerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authorizer_type": "authorizerType",
+        "name": "name",
+        "role_arn": "roleArn",
+        "authorizer_configuration": "authorizerConfiguration",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnPaymentManagerProps:
+    def __init__(
+        self,
+        *,
+        authorizer_type: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        authorizer_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPaymentManager.AuthorizerConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPaymentManager``.
+
+        :param authorizer_type: 
+        :param name: The name of the payment manager.
+        :param role_arn: The ARN of the IAM role for the payment manager.
+        :param authorizer_configuration: 
+        :param description: A description of the payment manager.
+        :param tags: Tags to assign to the payment manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_payment_manager_props = bedrockagentcore.CfnPaymentManagerProps(
+                authorizer_type="authorizerType",
+                name="name",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                authorizer_configuration=bedrockagentcore.CfnPaymentManager.AuthorizerConfigurationProperty(
+                    custom_jwt_authorizer=bedrockagentcore.CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty(
+                        discovery_url="discoveryUrl",
+            
+                        # the properties below are optional
+                        allowed_audience=["allowedAudience"],
+                        allowed_clients=["allowedClients"],
+                        allowed_scopes=["allowedScopes"],
+                        custom_claims=[bedrockagentcore.CfnPaymentManager.CustomClaimValidationTypeProperty(
+                            authorizing_claim_match_value=bedrockagentcore.CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty(
+                                claim_match_operator="claimMatchOperator",
+                                claim_match_value=bedrockagentcore.CfnPaymentManager.ClaimMatchValueTypeProperty(
+                                    match_value_string="matchValueString",
+                                    match_value_string_list=["matchValueStringList"]
+                                )
+                            ),
+                            inbound_token_claim_name="inboundTokenClaimName",
+                            inbound_token_claim_value_type="inboundTokenClaimValueType"
+                        )]
+                    )
+                ),
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56860bac841996075e99c57bc95c608c00af7185b61eaa735cec0ff6fbfd7372)
+            check_type(argname="argument authorizer_type", value=authorizer_type, expected_type=type_hints["authorizer_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument authorizer_configuration", value=authorizer_configuration, expected_type=type_hints["authorizer_configuration"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "authorizer_type": authorizer_type,
+            "name": name,
+            "role_arn": role_arn,
+        }
+        if authorizer_configuration is not None:
+            self._values["authorizer_configuration"] = authorizer_configuration
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def authorizer_type(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html#cfn-bedrockagentcore-paymentmanager-authorizertype
+        '''
+        result = self._values.get("authorizer_type")
+        assert result is not None, "Required property 'authorizer_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the payment manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html#cfn-bedrockagentcore-paymentmanager-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role for the payment manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html#cfn-bedrockagentcore-paymentmanager-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def authorizer_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizerConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html#cfn-bedrockagentcore-paymentmanager-authorizerconfiguration
+        '''
+        result = self._values.get("authorizer_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPaymentManager.AuthorizerConfigurationProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the payment manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html#cfn-bedrockagentcore-paymentmanager-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the payment manager.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-paymentmanager.html#cfn-bedrockagentcore-paymentmanager-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPaymentManagerProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -31209,6 +35447,205 @@ class CfnPolicyProps:
 
     def __repr__(self) -> str:
         return "CfnPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_c0b2f9b6)
+class CfnResourcePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnResourcePolicy",
+):
+    '''Resource Type definition for AWS::BedrockAgentCore::ResourcePolicy.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-resourcepolicy.html
+    :cloudformationResource: AWS::BedrockAgentCore::ResourcePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+        
+        cfn_resource_policy = bedrockagentcore.CfnResourcePolicy(self, "MyCfnResourcePolicy",
+            policy="policy",
+            resource_arn="resourceArn"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy: builtins.str,
+        resource_arn: builtins.str,
+    ) -> None:
+        '''Create a new ``AWS::BedrockAgentCore::ResourcePolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy: The resource policy to create or update.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which to create or update the resource policy.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ac9ef0714a465a9986114a3de164465210484085ba1d6d309fb124d4e99576e8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourcePolicyProps(policy=policy, resource_arn=resource_arn)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnResourcePolicy")
+    @builtins.classmethod
+    def is_cfn_resource_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourcePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42dc7554b9006293d614ca9226151b2f86db6b473e04fae51fcbf3cc9b84c26c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e5a952febe0ca3d0e00ca20b9871a5a9c00051a117b27af964979f5658ecf47)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8df74b44ca7fe60c3978f472fc0d5f8e352fd8598fca549676805f7d9941e541)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicyRef")
+    def resource_policy_ref(self) -> "_ResourcePolicyReference_0b488e30":
+        '''A reference to a ResourcePolicy resource.'''
+        return typing.cast("_ResourcePolicyReference_0b488e30", jsii.get(self, "resourcePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> builtins.str:
+        '''The resource policy to create or update.'''
+        return typing.cast(builtins.str, jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a241e594351cd8acf69bd18a2a7880dfd12761ce89d7551ef94977fb42bd0661)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource for which to create or update the resource policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae6a8afd15bec271030e452411fca0890b95c18e41212805f245be69f498e469)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_bedrockagentcore.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"policy": "policy", "resource_arn": "resourceArn"},
+)
+class CfnResourcePolicyProps:
+    def __init__(self, *, policy: builtins.str, resource_arn: builtins.str) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param policy: The resource policy to create or update.
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which to create or update the resource policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_bedrockagentcore as bedrockagentcore
+            
+            cfn_resource_policy_props = bedrockagentcore.CfnResourcePolicyProps(
+                policy="policy",
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebd71c27109087f974e7c2132c4931c1fb6d9e9c37af445196770b737ab76d99)
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "policy": policy,
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def policy(self) -> builtins.str:
+        '''The resource policy to create or update.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-resourcepolicy.html#cfn-bedrockagentcore-resourcepolicy-policy
+        '''
+        result = self._values.get("policy")
+        assert result is not None, "Required property 'policy' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource for which to create or update the resource policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-resourcepolicy.html#cfn-bedrockagentcore-resourcepolicy-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -51100,7 +55537,14 @@ class OAuth2CredentialProviderProps:
                 oauth2_provider_config_input=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2ProviderConfigInputProperty(
                     atlassian_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.AtlassianOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     custom_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.CustomOauth2ProviderConfigInputProperty(
                         oauth_discovery=bedrockagentcore.CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty(
@@ -51116,8 +55560,14 @@ class OAuth2CredentialProviderProps:
                         ),
             
                         # the properties below are optional
+                        client_authentication_method="clientAuthenticationMethod",
                         client_id="clientId",
                         client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         on_behalf_of_token_exchange_config=bedrockagentcore.CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty(
                             grant_type="grantType",
             
@@ -51132,39 +55582,84 @@ class OAuth2CredentialProviderProps:
                     ),
                     github_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GithubOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     google_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.GoogleOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     included_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.IncludedOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
             
                         # the properties below are optional
                         authorization_endpoint="authorizationEndpoint",
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         issuer="issuer",
                         token_endpoint="tokenEndpoint"
                     ),
                     linkedin_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.LinkedinOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     microsoft_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.MicrosoftOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret",
             
                         # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource",
                         tenant_id="tenantId"
                     ),
                     salesforce_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SalesforceOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     ),
                     slack_oauth2_provider_config=bedrockagentcore.CfnOAuth2CredentialProvider.SlackOauth2ProviderConfigInputProperty(
                         client_id="clientId",
-                        client_secret="clientSecret"
+            
+                        # the properties below are optional
+                        client_secret="clientSecret",
+                        client_secret_config=bedrockagentcore.CfnOAuth2CredentialProvider.SecretReferenceProperty(
+                            json_key="jsonKey",
+                            secret_id="secretId"
+                        ),
+                        client_secret_source="clientSecretSource"
                     )
                 ),
             
@@ -65599,6 +70094,8 @@ __all__ = [
     "CfnBrowserProps",
     "CfnCodeInterpreterCustom",
     "CfnCodeInterpreterCustomProps",
+    "CfnConfigurationBundle",
+    "CfnConfigurationBundleProps",
     "CfnDataset",
     "CfnDatasetProps",
     "CfnEvaluator",
@@ -65615,12 +70112,18 @@ __all__ = [
     "CfnOAuth2CredentialProviderProps",
     "CfnOnlineEvaluationConfig",
     "CfnOnlineEvaluationConfigProps",
+    "CfnPaymentConnector",
+    "CfnPaymentConnectorProps",
     "CfnPaymentCredentialProvider",
     "CfnPaymentCredentialProviderProps",
+    "CfnPaymentManager",
+    "CfnPaymentManagerProps",
     "CfnPolicy",
     "CfnPolicyEngine",
     "CfnPolicyEngineProps",
     "CfnPolicyProps",
+    "CfnResourcePolicy",
+    "CfnResourcePolicyProps",
     "CfnRuntime",
     "CfnRuntimeEndpoint",
     "CfnRuntimeEndpointProps",
@@ -66135,6 +70638,8 @@ def _typecheckingstub__b3bd42e9263df03a59e830c8f21f47046aaba131c40f7a04b1ec0d161
     *,
     name: builtins.str,
     api_key: typing.Optional[builtins.str] = None,
+    api_key_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApiKeyCredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key_secret_source: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -66170,6 +70675,18 @@ def _typecheckingstub__572314d56565afad27a2de74fcbde6794165f48c670c8a475bfdcec16
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c36b765e684998f8aac9c13c33bf91af6d2dfc9711615d19bbf8fd2e1da7fba5(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnApiKeyCredentialProvider.SecretReferenceProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13c84b129320d65e21b4a179f4cc6aa58bb924d9fdefbd141c6bb9b1cae0eac9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6544d35fad3c1f4b4c01730b4d1698ab35b124d3a9655140a3ffa90a7f43d043(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -66183,10 +70700,20 @@ def _typecheckingstub__2504a07b4f3be05d07ad5db904eb92de18eefc443844d2ec67b70a264
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b7a81a017396e6c107178ef311867405ee845695c76487294db61ccb6fd7aadf(
+    *,
+    json_key: builtins.str,
+    secret_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fb76a2edf3865bdbdece780b83e38390cac0e28bcdc052fe44627dd0b40ac6f1(
     *,
     name: builtins.str,
     api_key: typing.Optional[builtins.str] = None,
+    api_key_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnApiKeyCredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key_secret_source: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -66600,6 +71127,119 @@ def _typecheckingstub__5b5217aa9ccd0ec964b92c3a48855bb1494914c435606fcee5b0faefd
     description: typing.Optional[builtins.str] = None,
     execution_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__690fbd2a5279f2a026814864e854a5a5b99ddff0c9a63e206f48f88104506caf(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    bundle_name: builtins.str,
+    components: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    branch_name: typing.Optional[builtins.str] = None,
+    commit_message: typing.Optional[builtins.str] = None,
+    created_by: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.VersionCreatedBySourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01264284e68b321c16306bd9e5f7bec7569cab49a4f1ca1666dd65e91f8a0d00(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82a26f021bf048516c503a395baece8bfdff25bca410e052784cee12485d9df2(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e5d86f3508118a5ec9af101fbc9bcb3656bd015ef89326b8e732c7a7300c9d2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83fdef09db189e3bab4e0bc47c4afbc0cdd798132f87d850d3307e14412e7b5a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e17653a854fac5b840f43af88b394a4f784add254239c67f5664fcbeb5b4d28(
+    value: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, CfnConfigurationBundle.ComponentConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7bb543e1902af184d4475ded4730fadede59a1cf037b9eb4ccdea3cb222b5e8e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4db8e58863dd18ee14a44d5529b0fd0d156d33df4b1d77bb66eb736ccdd4ad15(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ba9236c016106dbeaa1a642a36b4da4482f84c14013f5d906900ebb54fe0fe9(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnConfigurationBundle.VersionCreatedBySourceProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b45abb7e28833faaf441e807d87b41e96ff2d5ecf4a946a5cd4f18e0453373c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d0186c37ef720b05cee219f0615242ab93066b95d55c4f98835859ce102976e(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b753fd8c04dee0d85c5e3705bc99bda5d93bb6aa105fbdc73bbac97c8d8c13e(
+    *,
+    configuration: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f7fcee9b7a1835cb021be02f35c1037fea066def5a0e6e9cce8d524a1d339a50(
+    *,
+    name: builtins.str,
+    arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d96ffeb46ba89046e54151884eb251221b47e49ecf0ac5c2bba59e9606ff67d1(
+    *,
+    branch_name: typing.Optional[builtins.str] = None,
+    commit_message: typing.Optional[builtins.str] = None,
+    created_by: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.VersionCreatedBySourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    parent_version_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__957d37275cfaa1643001071524a08066b4e5870d532f696009c5aeee98a8ea67(
+    *,
+    bundle_name: builtins.str,
+    components: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.ComponentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    branch_name: typing.Optional[builtins.str] = None,
+    commit_message: typing.Optional[builtins.str] = None,
+    created_by: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfigurationBundle.VersionCreatedBySourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -67088,7 +71728,23 @@ def _typecheckingstub__caff723b1f8dc289e3e0d1f554fe16628873911a93ec8c36ed92f59cd
     *,
     instructions: typing.Optional[builtins.str] = None,
     search_type: typing.Optional[builtins.str] = None,
+    session_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.SessionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    streaming_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGateway.StreamingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     supported_versions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65cc7892fd2222d67bf8e1aa8e5370d963e97a950e242886ab62b87f3d80d90e(
+    *,
+    session_timeout_in_seconds: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e16da9f7fa49d923d2a4457b46a600a349760ec4f2cdc450f8b3ffabeeb4c3f2(
+    *,
+    enable_response_streaming: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -67128,6 +71784,7 @@ def _typecheckingstub__2ca4172cb2708dfeb7420a18b960df15915d2da8589b9495c034bd700
     description: typing.Optional[builtins.str] = None,
     gateway_identifier: typing.Optional[builtins.str] = None,
     metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    private_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.PrivateEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -67182,6 +71839,12 @@ def _typecheckingstub__e4c9f5798e9b6c54f5080d4aef35f1a5d286541a90ad283e95cae82b7
 
 def _typecheckingstub__00f16ea27eb83e4b32e092f110d089664b10c9e879d89f80aef450f9dc884a25(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGatewayTarget.MetadataConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1170a82f9b99500a50131c79a2b7aad9528afdc257032235241649013865c5c0(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGatewayTarget.PrivateEndpointProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -67278,6 +71941,26 @@ def _typecheckingstub__58f63af2f6ae46af5711bca9cdbaced1932fb057d793186525e5d0b9b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__54b0ea6ddb1c804e571f2d1e244c668836d64316ae04c289b2e03a1b604a36df(
+    *,
+    domain: typing.Optional[builtins.str] = None,
+    resource_association_arn: typing.Optional[builtins.str] = None,
+    resource_gateway_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c7ea0d32ee84b1443a6b31f4649fa8befda314133634433ea011a033576ecb7(
+    *,
+    endpoint_ip_address_type: builtins.str,
+    subnet_ids: typing.Sequence[builtins.str],
+    vpc_identifier: builtins.str,
+    routing_domain: typing.Optional[builtins.str] = None,
+    security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e6ba80f262600990b7647765d60a5f51fb86eeeaf8708f22bc73e4794e784785(
     *,
     lambda_arn: builtins.str,
@@ -67291,6 +71974,7 @@ def _typecheckingstub__d73da9473e37697d875f5f3c74a1ab3e3ace8090917b37837b0019969
     endpoint: builtins.str,
     listing_mode: typing.Optional[builtins.str] = None,
     mcp_tool_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.McpToolSchemaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    resource_priority: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -67342,6 +72026,14 @@ def _typecheckingstub__3c602c1e6012421bcbacb23364333a8030b673b0a8e3ebad72fba42b2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6ace62b0ec7a1134d8f17c1e1c17816e902aef6b54964c60086c47a3940aad74(
+    *,
+    managed_vpc_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.ManagedVpcResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    self_managed_lattice_resource: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.SelfManagedLatticeResourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__88f93fcf4f2ef4d2e1332015672733eabc6d4f218a94d2bfa469afb7f4429609(
     *,
     arn: builtins.str,
@@ -67365,6 +72057,13 @@ def _typecheckingstub__bc512741cd348cf43b33e4ea0df31aae8766e6990dc0675d9111d9a7e
     items: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.SchemaDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.SchemaDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     required: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7d3003577b392adcd0a4eebd0035f9092d8ed3994ca34a3506530ac0aa973d4f(
+    *,
+    resource_configuration_identifier: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -67403,6 +72102,7 @@ def _typecheckingstub__367178269f9a78c89b5ba5e07b10a309050b4b3eaefd55c5ee6f30dda
     description: typing.Optional[builtins.str] = None,
     gateway_identifier: typing.Optional[builtins.str] = None,
     metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    private_endpoint: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGatewayTarget.PrivateEndpointProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68415,7 +73115,9 @@ def _typecheckingstub__8bba8072aeb1f20cf52a3c389f69b43ac6fa25bdcbeb12b53cb9715dd
 def _typecheckingstub__edf8d18f950f441227828390c6556f4cd8b9ae4cf1620505a7e75db072927b14(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68430,8 +73132,11 @@ def _typecheckingstub__8eb9a632255092d4608ff9847420b12a146ff9613a10423cd0f2a3e4c
 def _typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a892724c1f10(
     *,
     oauth_discovery: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty, typing.Dict[builtins.str, typing.Any]]],
+    client_authentication_method: typing.Optional[builtins.str] = None,
     client_id: typing.Optional[builtins.str] = None,
     client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
     on_behalf_of_token_exchange_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -68440,7 +73145,9 @@ def _typecheckingstub__42db5b69a3eb1cbedcb30d7f7d13d301d38de8e6caed7f630567a8927
 def _typecheckingstub__ccc739073da5461907f696292b551e731a9bb2831e895e683059920c6296f3af(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68448,7 +73155,9 @@ def _typecheckingstub__ccc739073da5461907f696292b551e731a9bb2831e895e683059920c6
 def _typecheckingstub__048116d9962b172d5fb331fa9dccae1f98231bc69e79ed840474fa8d346d8d63(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68456,8 +73165,10 @@ def _typecheckingstub__048116d9962b172d5fb331fa9dccae1f98231bc69e79ed840474fa8d3
 def _typecheckingstub__9096fe6ae3873d799459c281a97332ca25d46e057efe138ef0826414315aec4c(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
     authorization_endpoint: typing.Optional[builtins.str] = None,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
     issuer: typing.Optional[builtins.str] = None,
     token_endpoint: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -68467,7 +73178,9 @@ def _typecheckingstub__9096fe6ae3873d799459c281a97332ca25d46e057efe138ef08264143
 def _typecheckingstub__ef370342d5385a92ca3dcb2641d84e8aa2a80af451799ab2bc05beadac34087f(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68475,7 +73188,9 @@ def _typecheckingstub__ef370342d5385a92ca3dcb2641d84e8aa2a80af451799ab2bc05beada
 def _typecheckingstub__7595c98de3c71aead5997fb48d4515b6544d7120b8b6d0db58cf916a069478b3(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
     tenant_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -68516,6 +73231,7 @@ def _typecheckingstub__ec7956413d58aa6ce25b61e8a19800eef3868a5def79879b12fdd4443
 
 def _typecheckingstub__80d5d340375743330f03bcce541b4baa53d74dc34fb39c747fa18f2aa3e6e9af(
     *,
+    client_authentication_method: typing.Optional[builtins.str] = None,
     client_id: typing.Optional[builtins.str] = None,
     oauth_discovery: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.Oauth2DiscoveryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     on_behalf_of_token_exchange_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.OnBehalfOfTokenExchangeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -68534,7 +73250,17 @@ def _typecheckingstub__757c643b58d56d1a6fc0dc669693529c32c0cd7d8b55adf9d5f9d7d9b
 def _typecheckingstub__32bc2bfa7692293860f88e5a06cdd0667eff7ad2e5eb1faedfe0edb1211c3395(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95bdbaf48c03e9b4f0c5efe62df8b015eafa1d7cfb880e3f0c0308d86ea8e173(
+    *,
+    json_key: builtins.str,
+    secret_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68542,7 +73268,9 @@ def _typecheckingstub__32bc2bfa7692293860f88e5a06cdd0667eff7ad2e5eb1faedfe0edb12
 def _typecheckingstub__d481c4e03c457cb3488d486219733d6daf49bc2037b001de9ced0c972e7bfb09(
     *,
     client_id: builtins.str,
-    client_secret: builtins.str,
+    client_secret: typing.Optional[builtins.str] = None,
+    client_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOAuth2CredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    client_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68571,11 +73299,13 @@ def _typecheckingstub__3aa0e93d03096cdb556ed3eb9ee7b341e52b0d24c88655e4061d5de40
     *,
     data_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.DataSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     evaluation_execution_role_arn: builtins.str,
-    evaluators: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.EvaluatorReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]],
     online_evaluation_config_name: builtins.str,
     rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    clustering_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.ClusteringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    evaluators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.EvaluatorReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     execution_status: typing.Optional[builtins.str] = None,
+    insights: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.InsightProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -68617,12 +73347,6 @@ def _typecheckingstub__b8f1e9b72c99731112fc077560a4c69257c903d6826ca03adba993e9c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6203a39418b156df1e66640712fbe71f2ddf1f83ac789902b76160c12690a251(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.EvaluatorReferenceProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__d075f3152c3d233d71d9aad22ce139f2486815a5e44ccde4015d161724a5efda(
     value: builtins.str,
 ) -> None:
@@ -68635,14 +73359,32 @@ def _typecheckingstub__6cf46c720a151dc4eed5fc818c0539ab15e6aced33ff2153a91d7d9a5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0a9e38bdc7199d9834c40043bd2164c8c01c0b99fa2ff3d7f217aeeda6cc9f2f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.ClusteringConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9329e42c1ed6716c18f0ba3ed3c4061991e8232ee68b38584dd695b80a862ccb(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6203a39418b156df1e66640712fbe71f2ddf1f83ac789902b76160c12690a251(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.EvaluatorReferenceProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__01bb9d62be4810ee3fffa5109b327425dfa34a3abd40181bc6753809c9ae60ad(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfa5d694a50f2f580e56ce702aed2e48b396f42668386169c38d4d2975729c81(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnOnlineEvaluationConfig.InsightProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68664,6 +73406,13 @@ def _typecheckingstub__06d804c8e6fc6685724ca2260796166f7384dcb1ccbf41dd1fa270016
 def _typecheckingstub__9fba0fe46886c9e6934bd149cf7b10f76eeb83adfa2cc2a2020d0587e70423c9(
     *,
     log_group_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12371e2b75a666a889bd5afd078cfcd1ce2a4d997ffcabe77f07d96a214f5810(
+    *,
+    frequencies: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68696,6 +73445,13 @@ def _typecheckingstub__0b42f86596813ff2e3e66267d5100485bb51a02b655555985649c3336
     boolean_value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     double_value: typing.Optional[jsii.Number] = None,
     string_value: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb9ceffff535eba5f0ba503c25b8bed97e1dda6a324e13f136345837406a19cd(
+    *,
+    insight_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68734,12 +73490,107 @@ def _typecheckingstub__0027d3063b3949a340eab6076bb9ce68daa108d23e44efbf30f9a1211
     *,
     data_source_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.DataSourceConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     evaluation_execution_role_arn: builtins.str,
-    evaluators: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.EvaluatorReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]],
     online_evaluation_config_name: builtins.str,
     rule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.RuleProperty, typing.Dict[builtins.str, typing.Any]]],
+    clustering_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.ClusteringConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     description: typing.Optional[builtins.str] = None,
+    evaluators: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.EvaluatorReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     execution_status: typing.Optional[builtins.str] = None,
+    insights: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOnlineEvaluationConfig.InsightProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d2d86341b22931a29e6918f7d889ad3a429428a05cb00ab7af0e12aeca6818e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    connector_name: builtins.str,
+    connector_type: builtins.str,
+    credential_provider_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentConnector.CredentialsProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    payment_manager_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__010eb780217ccb0ac393daf205285e313dd7534a62a72770ff6c31e7a6ee225c(
+    resource: _IPaymentConnectorRef_aabc28b3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce1b619bcb597ede1ef61bc0b6a1e8c428cb906e711041835ef2b3f70a3819fe(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c815dc5b2c6b8dcfc6360e74d267ad1afdf3ff068af103105c7a818b3d49afa4(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e369f15e61aad66a73cac40f38beb8a93a52affb6911c664e55e80f3bcfd43ed(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73f34190328c2e23bc93455bf6fb014d6b2cbfab66e1254592e2827be57b2cee(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5b003230ff8a668a8f8e4aa7696779558efef43b53dbc61bdd5b9583ea917e6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18c30fe9ad6f3f77eb2547721a3bd5ee2cc9534f3b0f5397083183423375f371(
+    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnPaymentConnector.CredentialsProviderConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4f25f1f2706bd72b1e71e40749678748417439522b47b8b307a2f233ed76762(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3494ce8c6175dfff507d27c17fea3261e4da83dba987d296e6f0e192c9f2b692(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56830e3624fd027a4d206b28ce35b22065ce5f8ececa73557801bb650dff3e39(
+    *,
+    coinbase_cdp: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    stripe_privy: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentConnector.PaymentCredentialProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecbf0e6bc21340f930d96954b40060f41c82aaabf5f4bd4ed783ea2b8d9938a9(
+    *,
+    credential_provider_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b846b1377c5ce20073fd8f8868c178c8d3559fd0604710bf4c9db67c4322b77b(
+    *,
+    connector_name: builtins.str,
+    connector_type: builtins.str,
+    credential_provider_configurations: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentConnector.CredentialsProviderConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    payment_manager_id: builtins.str,
+    description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68801,8 +73652,12 @@ def _typecheckingstub__3ff0ec42d3966318b33b335957c8847bd072e0af0c53256c3f6460a65
 def _typecheckingstub__9dd8ba3186c2a37d4a11913e5b9f7b6642b7119bccd6a210792c9596b1e3147d(
     *,
     api_key_id: builtins.str,
-    api_key_secret: builtins.str,
+    api_key_secret: typing.Optional[builtins.str] = None,
+    api_key_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    api_key_secret_source: typing.Optional[builtins.str] = None,
     wallet_secret: typing.Optional[builtins.str] = None,
+    wallet_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wallet_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68811,7 +73666,11 @@ def _typecheckingstub__5758217524779314f78859e9aebe61972010673b0fb9a5e75d07b9b88
     *,
     api_key_id: builtins.str,
     api_key_secret_arn: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    api_key_secret_json_key: typing.Optional[builtins.str] = None,
+    api_key_secret_source: typing.Optional[builtins.str] = None,
     wallet_secret_arn: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    wallet_secret_json_key: typing.Optional[builtins.str] = None,
+    wallet_secret_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68839,12 +73698,24 @@ def _typecheckingstub__f1e750aa85787aedacec025aee2681bebd0c15f05a95aaa02075a09ff
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3be21ca2c5ea2e45fcf65dbcfc2e17d7d78f3d4b6385c74bc71d43eeb1d5ba0a(
+    *,
+    json_key: builtins.str,
+    secret_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c23d91704fe694d36b873234b168ebc938879a44902d7c0933cc4371114bcd50(
     *,
     app_id: builtins.str,
-    app_secret: builtins.str,
     authorization_id: builtins.str,
-    authorization_private_key: builtins.str,
+    app_secret: typing.Optional[builtins.str] = None,
+    app_secret_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    app_secret_source: typing.Optional[builtins.str] = None,
+    authorization_private_key: typing.Optional[builtins.str] = None,
+    authorization_private_key_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    authorization_private_key_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68855,6 +73726,10 @@ def _typecheckingstub__6b027bcbe48e7e246509db80fc1054eccb3f9c6370afb33099247e4e9
     app_secret_arn: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]],
     authorization_id: builtins.str,
     authorization_private_key_arn: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.SecretInfoProperty, typing.Dict[builtins.str, typing.Any]]],
+    app_secret_json_key: typing.Optional[builtins.str] = None,
+    app_secret_source: typing.Optional[builtins.str] = None,
+    authorization_private_key_json_key: typing.Optional[builtins.str] = None,
+    authorization_private_key_source: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -68864,6 +73739,142 @@ def _typecheckingstub__1a5e3c8da78c2ea24272479a73788d794f68ef519523a4d460a471712
     credential_provider_vendor: builtins.str,
     name: builtins.str,
     provider_configuration_input: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentCredentialProvider.PaymentProviderConfigurationInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ca94493af8f15cbde074dd91817da70cf48f64b34a4d2b1530c779aa6c3c758(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    authorizer_type: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    authorizer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentManager.AuthorizerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b59ffe040ce56a96e54ed5f3073be3b18eb0de48f54f5b1d549e1cec28ddffd7(
+    resource: _IPaymentManagerRef_e016729a,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7de940ad0836648503bf6ffdc4b03b4187b65ad93b39331dd9ace3c80676d9a2(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b017dd3dd1cdb641f46020c96709807e411c5223a4b859e2a5904894838efcee(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__081a0487349e7003e0862607d611bf068be6abcdeb708afd215f76c827e3ffcc(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd6dfbb582cdcfab29e654b4406d744cb7d05ff48c07118e184434aebd47663b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5e2e80bbaf9956f580c3ddbab0031cdc055c4fd7d246b4ed415957c6bb464df(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd7e181b02d6cbcf4aea27036c8a47481279b5dc7f4c87b9b47a0d288bbf294a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__afc5aca366dc3f8878beaaca792435273fceeb302857b5d8e432030ed4bd8045(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPaymentManager.AuthorizerConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43f724ccb9eedef2e6d6c024b1c3eab2cbdbc1249ff3f20de26377a9c8588f27(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fb4191c0146fd9d2ba065b9c31f81e1daa0f3420c9cd47a02ae855a6b24bcfc6(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8d6439ae52449da32143b09afccca3a3fe7697cad674d550cbdeb54b7dc6c19(
+    *,
+    custom_jwt_authorizer: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentManager.CustomJWTAuthorizerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6bf1ff80596a0d9e833e65b7352d099528a67cdc769dba4ebd5d08f7f35aedc4(
+    *,
+    claim_match_operator: builtins.str,
+    claim_match_value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentManager.ClaimMatchValueTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de9d62135a5171e013725344853be920baf444f54c28210fb14cf230cb60a411(
+    *,
+    match_value_string: typing.Optional[builtins.str] = None,
+    match_value_string_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cf4a1d019b5d3326945c4e58535f215b3a5d8314d2578fee0ad7cd81806fa3e(
+    *,
+    authorizing_claim_match_value: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentManager.AuthorizingClaimMatchValueTypeProperty, typing.Dict[builtins.str, typing.Any]]],
+    inbound_token_claim_name: builtins.str,
+    inbound_token_claim_value_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49fe7faffb7239ee810ef9042613e2170f0662ddd12c96ea781d6d48894c3973(
+    *,
+    discovery_url: builtins.str,
+    allowed_audience: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allowed_clients: typing.Optional[typing.Sequence[builtins.str]] = None,
+    allowed_scopes: typing.Optional[typing.Sequence[builtins.str]] = None,
+    custom_claims: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentManager.CustomClaimValidationTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13ce683d030dc50e4700ba1267aed87709f0b103919d1d707c84b6d0dbc20f04(
+    *,
+    workload_identity_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56860bac841996075e99c57bc95c608c00af7185b61eaa735cec0ff6fbfd7372(
+    *,
+    authorizer_type: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    authorizer_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPaymentManager.AuthorizerConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -69027,6 +74038,54 @@ def _typecheckingstub__95094990d09b6f6bc15ab83744a973bf7541ebc86b713d23c0165d623
     policy_engine_id: builtins.str,
     description: typing.Optional[builtins.str] = None,
     validation_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac9ef0714a465a9986114a3de164465210484085ba1d6d309fb124d4e99576e8(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy: builtins.str,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42dc7554b9006293d614ca9226151b2f86db6b473e04fae51fcbf3cc9b84c26c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e5a952febe0ca3d0e00ca20b9871a5a9c00051a117b27af964979f5658ecf47(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8df74b44ca7fe60c3978f472fc0d5f8e352fd8598fca549676805f7d9941e541(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a241e594351cd8acf69bd18a2a7880dfd12761ce89d7551ef94977fb42bd0661(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae6a8afd15bec271030e452411fca0890b95c18e41212805f245be69f498e469(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebd71c27109087f974e7c2132c4931c1fb6d9e9c37af445196770b737ab76d99(
+    *,
+    policy: builtins.str,
+    resource_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

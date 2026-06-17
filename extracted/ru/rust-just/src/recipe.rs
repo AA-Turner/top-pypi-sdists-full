@@ -83,25 +83,26 @@ impl<'src> Recipe<'src> {
     self.recipe_path().to_string().replace("::", " ")
   }
 
-  pub(crate) fn argument_range(&self) -> RangeInclusive<usize> {
-    self.min_arguments()..=self.max_arguments()
+  pub(crate) fn argument_range(&self, settings: &Settings) -> RangeInclusive<usize> {
+    self.min_arguments()..=self.max_arguments(settings)
   }
 
   pub(crate) fn group_arguments(
     &self,
-    arguments: &[Expression<'src>],
-  ) -> Vec<Vec<Expression<'src>>> {
+    arguments: &[DependencyArgument<'src>],
+    settings: &Settings,
+  ) -> Vec<Vec<DependencyArgument<'src>>> {
     let mut groups = Vec::new();
     let mut rest = arguments;
 
     for parameter in &self.parameters {
-      let group = if parameter.kind.is_variadic() {
+      let group = if parameter.kind.is_variadic() && !settings.lists {
         mem::take(&mut rest).into()
       } else if let Some(argument) = rest.first() {
         rest = &rest[1..];
         vec![argument.clone()]
       } else {
-        debug_assert!(parameter.default.is_some());
+        debug_assert!(parameter.default.is_some() || parameter.kind == ParameterKind::Star);
         Vec::new()
       };
 
@@ -115,8 +116,8 @@ impl<'src> Recipe<'src> {
     self.parameters.iter().filter(|p| p.is_required()).count()
   }
 
-  pub(crate) fn max_arguments(&self) -> usize {
-    if self.parameters.iter().any(|p| p.kind.is_variadic()) {
+  pub(crate) fn max_arguments(&self, settings: &Settings) -> usize {
+    if !settings.lists && self.parameters.iter().any(|p| p.kind.is_variadic()) {
       usize::MAX - 1
     } else {
       self.parameters.len()
@@ -130,7 +131,7 @@ impl<'src> Recipe<'src> {
   pub(crate) fn confirm(&self, evaluator: &mut Evaluator<'src, '_>) -> RunResult<'src, bool> {
     if let Some(Attribute::Confirm(prompt)) = self.attributes.get(AttributeDiscriminant::Confirm) {
       if let Some(expression) = prompt {
-        eprint!("{} ", evaluator.evaluate_expression(expression)?);
+        eprint!("{} ", evaluator.evaluate_value(expression)?.join());
       } else {
         eprint!("Run recipe `{}`? ", self.name);
       }
@@ -212,9 +213,10 @@ impl<'src> Recipe<'src> {
 
     for attribute in &self.attributes {
       if let Attribute::WorkingDirectory(expression) = attribute {
-        return Ok(Some(
-          working_directory.join(&evaluator.evaluate_expression(expression)?),
-        ));
+        return Ok(Some(working_directory.join(&evaluator.evaluate_string(
+          expression,
+          StringContext::WorkingDirectoryAttribute(self.attributes.name(attribute)),
+        )?)));
       }
     }
 
@@ -250,7 +252,13 @@ impl<'src> Recipe<'src> {
       }
     }
 
-    let evaluator = Evaluator::new(context, BTreeMap::new(), is_dependency, scope);
+    let evaluator = Evaluator::new(
+      context,
+      BTreeMap::new(),
+      is_dependency,
+      Some(self.name),
+      scope,
+    );
 
     let start = Instant::now();
     let result = if self.is_script(&context.module.settings) {

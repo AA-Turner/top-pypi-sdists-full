@@ -10,38 +10,37 @@ on:
   workflow_dispatch:
     inputs:
       pr:
-        description: "PR number to deploy. Slash-command dispatch fills this automatically."
+        description: "PR number. When provided, deploys to the preview service instead of production."
         required: false
         type: string
       comment-id:
-        description: "Comment ID for slash-command dispatch. Ignore for manual dry runs."
+        description: "Slash-command comment ID. Presence of either pr or comment-id triggers a preview deploy."
         required: false
         type: string
 permissions:
   contents: read
   issues: write
   id-token: write
-  pull-requests: read
+  pull-requests: write
 
 env:
   GCP_PROJECT: internal-airbyte-ai-infra
   GCP_REGION: us-west3
   IMAGE_REPOSITORY: ops-webapp
   IMAGE_NAME: ops-webapp
-  CLOUD_RUN_SERVICE: ops-webapp
-  OPS_WEBAPP_PUBLIC_URL: https://ops.internal.airbyte.ai
   OPS_WEBAPP_OAUTH_ISSUER: https://cloud.airbyte.com/auth/realms/airbyte
   OPS_WEBAPP_OAUTH_CLIENT_ID: airbyte-ops-webapp-client
   OPS_WEBAPP_PR: ${{ github.event.inputs.pr || '' }}
   OPS_WEBAPP_COMMENT_ID: ${{ github.event.inputs.comment-id || '' }}
+  PREVIEW_COMMENT_TAG: "<!-- ops-webapp-preview -->"
 
 jobs:
   deploy-ops-webapp:
     name: Deploy Ops Webapp
     runs-on: ubuntu-latest
     environment:
-      name: "Cloud Run (ops-webapp)"
-      url: https://ops.internal.airbyte.ai
+      name: ${{ (github.event.inputs.pr || github.event.inputs.comment-id) && 'Cloud Run (ops-webapp-preview)' || 'Cloud Run (ops-webapp)' }}
+      url: ${{ (github.event.inputs.pr || github.event.inputs.comment-id) && 'https://preview.ops.internal.airbyte.ai' || 'https://ops.internal.airbyte.ai' }}
     steps:
       - name: Resolve deployment variables
         id: resolve-vars
@@ -55,9 +54,16 @@ jobs:
           ref="$GITHUB_SHA"
           short_sha="${GITHUB_SHA:0:7}"
           source="manual"
+          is_preview="false"
 
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" = "main" ]; then
             source="main"
+          fi
+
+          # Presence of either pr or comment-id means this is a slash-command
+          # preview deploy rather than a production deploy.
+          if [ -n "$OPS_WEBAPP_PR" ] || [ -n "$OPS_WEBAPP_COMMENT_ID" ]; then
+            is_preview="true"
           fi
 
           if [ -n "$OPS_WEBAPP_PR" ]; then
@@ -70,12 +76,24 @@ jobs:
             source="pr-${OPS_WEBAPP_PR}"
           fi
 
-          image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${IMAGE_REPOSITORY}/${IMAGE_NAME}:${source}-${short_sha}"
+          if [ "$is_preview" = "true" ]; then
+            service="ops-webapp-preview"
+            public_url="https://preview.ops.internal.airbyte.ai"
+            image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${IMAGE_REPOSITORY}/${IMAGE_NAME}:preview-${short_sha}"
+          else
+            service="ops-webapp"
+            public_url="https://ops.internal.airbyte.ai"
+            image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT}/${IMAGE_REPOSITORY}/${IMAGE_NAME}:${source}-${short_sha}"
+          fi
+
           {
             printf "ref=%s\n" "$ref"
             printf "short_sha=%s\n" "$short_sha"
             printf "source=%s\n" "$source"
             printf "image=%s\n" "$image"
+            printf "service=%s\n" "$service"
+            printf "public_url=%s\n" "$public_url"
+            printf "is_preview=%s\n" "$is_preview"
           } | tee -a "$GITHUB_OUTPUT"
 
       - name: Append comment with deployment job link
@@ -89,7 +107,7 @@ jobs:
           body: |
             > 🚀 **Ops Webapp Deploy Job Info**
             >
-            > Deploying `${{ steps.resolve-vars.outputs.source }}` to `${{ env.OPS_WEBAPP_PUBLIC_URL }}`.
+            > Deploying `${{ steps.resolve-vars.outputs.source }}` to `${{ steps.resolve-vars.outputs.public_url }}`.
             > Image: `${{ steps.resolve-vars.outputs.image }}`
             >
             > ⏳ Job started... [Check job output.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -116,7 +134,7 @@ jobs:
 
       - name: Verify Cloud Run service
         run: >
-          gcloud run services describe "${{ env.CLOUD_RUN_SERVICE }}"
+          gcloud run services describe "${{ steps.resolve-vars.outputs.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --format="value(metadata.name)"
@@ -136,12 +154,35 @@ jobs:
 
       - name: Update Cloud Run service image
         run: >
-          gcloud run services update "${{ env.CLOUD_RUN_SERVICE }}"
+          gcloud run services update "${{ steps.resolve-vars.outputs.service }}"
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --image="${{ steps.resolve-vars.outputs.image }}"
           --quiet
-          --update-env-vars="AIRBYTE_OPS_WEBAPP_PUBLIC_URL=${{ env.OPS_WEBAPP_PUBLIC_URL }},AIRBYTE_OPS_WEBAPP_OAUTH_ISSUER=${{ env.OPS_WEBAPP_OAUTH_ISSUER }},AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID=${{ env.OPS_WEBAPP_OAUTH_CLIENT_ID }},AIRBYTE_OPS_WEBAPP_MOCKONLY=true"
+
+      - name: Route traffic to latest revision (production only)
+        if: steps.resolve-vars.outputs.is_preview != 'true'
+        run: >
+          gcloud run services update-traffic "${{ steps.resolve-vars.outputs.service }}"
+          --project="${{ env.GCP_PROJECT }}"
+          --region="${{ env.GCP_REGION }}"
+          --to-latest
+          --quiet
+
+      - name: Post or update preview comment
+        if: steps.resolve-vars.outputs.is_preview == 'true' && env.OPS_WEBAPP_PR != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ env.OPS_WEBAPP_PR }}
+          body: |
+            ${{ env.PREVIEW_COMMENT_TAG }}
+            ### 🔍 Ops Webapp Preview
+
+            **Preview URL:** ${{ steps.resolve-vars.outputs.public_url }}
+            **Commit:** `${{ steps.resolve-vars.outputs.short_sha }}`
+            **Mode:** Live (full OAuth + real API calls)
+
+            > This preview deploys to a dedicated preview service at `preview.ops.internal.airbyte.ai`. It shares the same OAuth config and secrets as production. Only one preview is active at a time — subsequent deploys replace the previous one.
 
       - name: Summarize deployment
         run: |
@@ -150,7 +191,8 @@ jobs:
             printf "Source: %s\n" "${{ steps.resolve-vars.outputs.source }}"
             printf "Commit: %s\n" "${{ steps.resolve-vars.outputs.ref }}"
             printf "Image: %s\n" "${{ steps.resolve-vars.outputs.image }}"
-            printf "URL: %s\n" "${{ env.OPS_WEBAPP_PUBLIC_URL }}"
+            printf "Service: %s\n" "${{ steps.resolve-vars.outputs.service }}"
+            printf "URL: %s\n" "${{ steps.resolve-vars.outputs.public_url }}"
           } | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Append success comment
@@ -165,7 +207,7 @@ jobs:
           edit-mode: append
           reactions: hooray
           body: |
-            > ✅ Ops Webapp deploy completed successfully: ${{ env.OPS_WEBAPP_PUBLIC_URL }}
+            > ✅ Ops Webapp deploy completed successfully: ${{ steps.resolve-vars.outputs.public_url }}
 
       - name: Append failure comment
         if: >

@@ -1,6 +1,6 @@
 [project]
 name = "runlayer"
-version = "0.25.0"
+version = "0.25.4"
 description = "A command-line interface for running MCP servers via HTTP transport"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -35,7 +35,7 @@ dependencies = [
   "questionary>=2.0.0",
   "keyring>=25.0.0,<26",
   "truststore>=0.10.4,<0.11",
-  "runlayer-sdk==0.1.0",
+  "runlayer-hooks-sdk==0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -66,7 +66,7 @@ constraint-dependencies = [
 ]
 
 [tool.uv.sources]
-runlayer-sdk = { path = "../packages/python", editable = true }
+runlayer-hooks-sdk = { path = "../packages/python", editable = true }
 
 [[tool.uv.index]]
 name = "testpypi"

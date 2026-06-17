@@ -1,21 +1,21 @@
 Metadata-Version: 2.4
 Name: pylsp-mypy
-Version: 0.7.1
+Version: 0.7.3
 Summary: Mypy linter for the Python LSP Server
-Home-page: https://github.com/python-lsp/pylsp-mypy
+Home-page: https://github.com/Richardk2n/pylsp-mypy
 Author: Richard Kellnberger, Tom van Ommeren
 License: 'MIT'
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python-lsp-server>=1.13.1
 Requires-Dist: mypy>=0.981
@@ -28,220 +28,152 @@ Requires-Dist: coverage; extra == "test"
 Dynamic: description-content-type
 Dynamic: license-file
 
-Mypy plugin for PYLSP
-======================
+# Mypy plugin for PYLSP
 
-.. image:: https://badge.fury.io/py/pylsp-mypy.svg
-    :target: https://badge.fury.io/py/pylsp-mypy
+[![PyPI version](https://badge.fury.io/py/pylsp-mypy.svg)](https://badge.fury.io/py/pylsp-mypy)
+[![Github Actions CI](https://github.com/python-lsp/pylsp-mypy/workflows/Python%20package/badge.svg?branch=master)](https://github.com/python-lsp/pylsp-mypy)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
-.. image:: https://github.com/python-lsp/pylsp-mypy/workflows/Python%20package/badge.svg?branch=master
-    :target: https://github.com/python-lsp/pylsp-mypy/
+This is a plugin for the [Python LSP Server](https://github.com/python-lsp/python-lsp-server), to make [mypy](https://github.com/python/mypy) output available directly in your IDE.
+`pylsp-mypy` uses [mypy](https://github.com/python/mypy) to help you write statically typed Python code.
+It, like [mypy](https://github.com/python/mypy), requires Python 3.10 or newer.
 
-This is a plugin for the `Python LSP Server`_.
+## Installation
 
-.. _`Python LSP Server`: https://github.com/python-lsp/python-lsp-server
+Install into the same virtualenv as `python-lsp-server` itself.
 
-It, like `mypy`_, requires Python 3.10 or newer.
+```bash
+pip install pylsp-mypy
+```
 
-.. _`mypy`: https://github.com/python/mypy
+## Configuration
 
+`pylsp-mypy` supports the use of `pyproject.toml` for configuration. This is the recommended way.
 
-Installation
-------------
+For more **advanced usecases**, it can also be configuered using configs provided directly to the LSP server.
+To use this prepend `pylsp.plugins.pylsp_mypy.` to any configuration key.
+For example `strict` becomes `pylsp.plugins.pylsp_mypy.strict`
 
-Install into the same virtualenv as python-lsp-server itself.
+The configuration keys are listed in the following.
 
-``pip install pylsp-mypy``
+| `pyproject.toml` key | Type | Description | Default |
+| -------------------- | ---- | ----------- | ------- |
+| `strict` | `bool` | **Refers to the `strict` option of `mypy`**. This option often is too strict to be useful. | false |
+| `live_mode` | `bool` | **Provides type checking as you type**. This writes to a tempfile every time a check is done. Turning off `live_mode` means you must save your changes for mypy diagnostics to update correctly. | `true` |
+| `dmypy` | `bool` | **Executes via** `dmypy run` **rather than** `mypy`. This uses the `dmypy` daemon and may dramatically improve the responsiveness of the `pylsp` server, however this currently does not work in `live_mode`. Enabling this disables `live_mode`, even for conflicting configs. | `false` |
+| `report_progress` | `bool` | **Report basic progress to the LSP client**. With this option, pylsp-mypy will report when mypy is running, given your editor supports LSP progress reporting. For small files this might produce annoying flashing in your editor, especially in `live_mode`. For large projects, enabling this can be helpful to assure yourself whether mypy is still running. | `false` |
+| `exclude` | `list` of `str` items | **A list of regular expressions which should be ignored**. The `mypy` runner wil not be invoked when a document path is matched by one of the expressions. Note that this differs from the `exclude` directive of a `mypy` config which is only used for recursively discovering files when mypy is invoked on a whole directory. For both windows or unixoid platforms you should use forward slashes (`/`) to indicate paths. | `[]` |
+| `follow-imports` | `"normal"`, `"silent"`, `"skip"` or `"error"` | `mypy` **parameter** `follow-imports`. In `mypy` this is `normal` by default. We set it `silent`, to sort out unwanted results. This can cause cache invalidation if you also run `mypy` in other ways. Setting this to `normal` avoids this at the cost of a small performance penalty. | `"silent"` |
+| `config_sub_paths` | `list` of `str` items | **Specifies sub paths under which the mypy configuration file may be found**. For each directory searched for the mypy config file, this also searches the sub paths specified here. | `[]` |
+| `mypy_command` | `list` of `str` items | **The command to run mypy**. This is useful if you want to run mypy in a specific virtual environment. Requires env variable `PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION` to be set. | `[]` |
+| `dmypy_command` | `list` of `str` items | **The command to run dmypy**. This is useful if you want to run dmypy in a specific virtual environment. Requires env variable `PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION` to be set. | `[]` |
+| `dmypy_status_file` | `str` | **Specifies which status file dmypy should use**. This modifies the `--status-file` option passed to `dmypy` given `dmypy` is active. | `.dmypy.json` |
+| `overrides` | `list` of (`str` items or `true`) | **A list of alternate or supplemental command-line options**. This modifies the options passed to `mypy` or the mypy-specific ones passed to `dmypy run`. When present, the special boolean member `true` is replaced with the command-line options that would've been passed had `overrides` not been specified. | `[true]` |
 
-Configuration
--------------
-``pylsp-mypy`` supports the use of ``pyproject.toml`` for configuration. It can also be configuered using configs provided to the LSP server. The configuration keys are listed in the following.
+Both `mypy_command` and `dmypy_command` could be used by a malicious repo to execute arbitrary code by looking at its source with this plugin active.
+Still users want this feature. For security reasons this is disabled by default. If you really want it and accept the risks, set the environment variable `PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION` in order to activate it.
 
-.. list-table:: Configuration
-   :header-rows: 1
+Using a `pyproject.toml` for configuration, which is in fact the preferred way, your configuration could look like this:
 
-   * - ``pyproject.toml`` key
-     - LSP Configuration Key
-     - Type
-     - Description
-     - Default
-   * - ``live_mode``
-     - ``pylsp.plugins.pylsp_mypy.live_mode``
-     - ``boolean``
-     - **Provides type checking as you type**. This writes to a tempfile every time a check is done. Turning off ``live_mode`` means you must save your changes for mypy diagnostics to update correctly.
-     - true
-   * - ``dmypy``
-     - ``pylsp.plugins.pylsp_mypy.dmypy``
-     - ``boolean``
-     - **Executes via** ``dmypy run`` **rather than** ``mypy``. This uses the ``dmypy`` daemon and may dramatically improve the responsiveness of the ``pylsp`` server, however this currently does not work in ``live_mode``. Enabling this disables ``live_mode``, even for conflicting configs.
-     - false
-   * - ``strict``
-     - ``pylsp.plugins.pylsp_mypy.strict``
-     - ``boolean``
-     - **Refers to the** ``strict`` **option of** ``mypy``. This option often is too strict to be useful.
-     - false
-   * - ``overrides``
-     - ``pylsp.plugins.pylsp_mypy.overrides``
-     - ``array`` of (``string`` items or ``true``)
-     - **A list of alternate or supplemental command-line options**. This modifies the options passed to ``mypy`` or the mypy-specific ones passed to ``dmypy run``. When present, the special boolean member ``true`` is replaced with the command-line options that would've been passed had ``overrides`` not been specified.
-     - ``[true]``
-   * - ``dmypy_status_file``
-     - ``pylsp.plugins.pylsp_mypy.dmypy_status_file``
-     - ``string``
-     - **Specifies which status file dmypy should use**. This modifies the ``--status-file`` option passed to ``dmypy`` given ``dmypy`` is active.
-     - ``.dmypy.json``
-   * - ``config_sub_paths``
-     - ``pylsp.plugins.pylsp_mypy.config_sub_paths``
-     - ``array`` of ``string`` items
-     - **Specifies sub paths under which the mypy configuration file may be found**. For each directory searched for the mypy config file, this also searches the sub paths specified here.
-     - ``[]``
-   * - ``report_progress``
-     - ``pylsp.plugins.pylsp_mypy.report_progress``
-     - ``boolean``
-     - **Report basic progress to the LSP client**. With this option, pylsp-mypy will report when mypy is running, given your editor supports LSP progress reporting. For small files this might produce annoying flashing in your editor, especially in ``live_mode``. For large projects, enabling this can be helpful to assure yourself whether mypy is still running.
-     - false
-   * - ``exclude``
-     - ``pylsp.plugins.pylsp_mypy.exclude``
-     - ``array`` of ``string`` items
-     - **A list of regular expressions which should be ignored**. The ``mypy`` runner wil not be invoked when a document path is matched by one of the expressions. Note that this differs from the ``exclude`` directive of a ``mypy`` config which is only used for recursively discovering files when mypy is invoked on a whole directory. For both windows or unix platforms you should use forward slashes (``/``) to indicate paths.
-     - ``[]``
-   * - ``follow-imports``
-     - ``pylsp.plugins.pylsp_mypy.follow-imports``
-     - ``normal``, ``silent``, ``skip`` or ``error``
-     - ``mypy`` **parameter** ``follow-imports``. In ``mypy`` this is ``normal`` by default. We set it ``silent``, to sort out unwanted results. This can cause cache invalidation if you also run ``mypy`` in other ways. Setting this to ``normal`` avoids this at the cost of a small performance penalty.
-     - ``silent``
-   * - ``mypy_command``
-     - ``pylsp.plugins.pylsp_mypy.mypy_command``
-     - ``array`` of ``string`` items
-     - **The command to run mypy**. This is useful if you want to run mypy in a specific virtual environment. Requires env variable ``PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION`` to be set.
-     - ``[]``
-   * - ``dmypy_command``
-     - ``pylsp.plugins.pylsp_mypy.dmypy_command``
-     - ``array`` of ``string`` items
-     - **The command to run dmypy**. This is useful if you want to run dmypy in a specific virtual environment. Requires env variable ``PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION`` to be set.
-     - ``[]``
+```toml
+[tool.pylsp-mypy]
+enabled = true
+live_mode = true
+strict = true
+exclude = ["tests/*"]
+```
 
-Both ``mypy_command`` and ``dmypy_command`` could be used by a malicious repo to execute arbitrary code by looking at its source with this plugin active.
-Still users want this feature. For security reasons this is disabled by default. If you really want it and accept the risks set the environment variable ``PYLSP_MYPY_ALLOW_DANGEROUS_CODE_EXECUTION`` in order to activate it.
+It should be roughly like this for a standard configuration:
 
-Using a ``pyproject.toml`` for configuration, which is in fact the preferred way, your configuration could look like this:
+```toml
+[tool.pylsp-mypy]
+enabled = true
+live_mode = true
+strict = false
+exclude = ["tests/*"]
+```
 
-::
+With `dmypy` enabled your config should look like this:
 
-    [tool.pylsp-mypy]
-    enabled = true
-    live_mode = true
-    strict = true
-    exclude = ["tests/*"]
+```toml
+[tool.pylsp-mypy]
+enabled = true
+live_mode = false
+dmypy = true
+strict = false
+```
 
-A ``pyproject.toml`` does not conflict with the legacy config file (deprecated) given that it does not contain a ``pylsp-mypy`` section. The following explanation uses the syntax of the legacy config file (deprecated). However, all these options also apply to the ``pyproject.toml`` configuration (note the lowercase bools).
-Depending on your editor, the configuration (found in a file called ``pylsp-mypy.cfg`` in your workspace or a parent directory) should be roughly like this for a standard configuration:
+With `overrides` specified (for example to tell mypy to use a different python than the currently active venv), your config could look like this:
 
-::
+```toml
+[tool.pylsp-mypy]
+enabled = true
+overrides = ["--python-executable", "/home/me/bin/python", true]
+```
 
-    {
-        "enabled": True,
-        "live_mode": True,
-        "strict": False,
-        "exclude": ["tests/*"]
-    }
+With `dmypy_status_file` your config could look like this:
 
-With ``dmypy`` enabled your config should look like this:
+```toml
+[tool.pylsp-mypy]
+enabled = true
+live_mode = false
+dmypy = true
+strict = false
+dmypy_status_file = ".custom_dmypy_status_file.json"
+```
 
-::
+With `config_sub_paths` your config could look like this:
 
-    {
-        "enabled": True,
-        "live_mode": False,
-        "dmypy": True,
-        "strict": False
-    }
+```toml
+[tool.pylsp-mypy]
+enabled = true
+config_sub_paths = [".config"]
+```
 
-With ``overrides`` specified (for example to tell mypy to use a different python than the currently active venv), your config could look like this:
+With `report_progress` your config could look like this:
 
-::
+```toml
+[tool.pylsp-mypy]
+enabled = true
+report_progress = true
+```
 
-    {
-        "enabled": True,
-        "overrides": ["--python-executable", "/home/me/bin/python", True]
-    }
+With `mypy_command` your config could look like this:
 
-With ``dmypy_status_file`` your config could look like this:
+```toml
+[tool.pylsp-mypy]
+enabled = true
+mypy_command = ["poetry", "run", "mypy"]
+```
 
-::
+With `dmypy_command` your config could look like this:
 
-    {
-        "enabled": True,
-        "live_mode": False,
-        "dmypy": True,
-        "strict": False,
-        "dmypy_status_file": ".custom_dmypy_status_file.json"
-    }
+```toml
+[tool.pylsp-mypy]
+enabled = true
+live_mode = false
+dmypy = true
+dmypy_command = ["/path/to/venv/bin/dmypy"]
+```
 
-With ``config_sub_paths`` your config could look like this:
-
-::
-
-    {
-        "enabled": True,
-        "config_sub_paths": [".config"]
-    }
-
-With ``report_progress`` your config could look like this:
-
-::
-
-    {
-        "enabled": True,
-        "report_progress": True
-    }
-
-With ``mypy_command`` your config could look like this:
-
-::
-
-    {
-        "enabled": True,
-        "mypy_command": ["poetry", "run", "mypy"]
-    }
-
-With ``dmypy_command`` your config could look like this:
-
-::
-
-    {
-        "enabled": True,
-        "live_mode": False,
-        "dmypy": True,
-        "dmypy_command": ["/path/to/venv/bin/dmypy"]
-    }
-
-Developing
--------------
+## Developing
 
 Install development dependencies with (you might want to create a virtualenv first):
 
-::
+```bash
+pip install -r requirements.txt
+```
 
-   pip install -r requirements.txt
+The project is formatted with [black](https://github.com/psf/black). You can either configure your IDE to automatically format code with it, run it manually (`black .`) or rely on pre-commit (see below) to format files on git commit.
 
-The project is formatted with `black`_. You can either configure your IDE to automatically format code with it, run it manually (``black .``) or rely on pre-commit (see below) to format files on git commit.
+The project is formatted with [isort](https://github.com/PyCQA/isort). You can either configure your IDE to automatically sort imports with it, run it manually (`isort .`) or rely on pre-commit (see below) to sort files on git commit.
 
-The project is formatted with `isort`_. You can either configure your IDE to automatically sort imports with it, run it manually (``isort .``) or rely on pre-commit (see below) to sort files on git commit.
+The project uses a markdown test in order to assure uploadability to pypi: [markdownlint](https://github.com/DavidAnson/markdownlint-cli2) as a pre-commit hook and in a GitHub workflow. This does not catch all errors.
 
-The project uses two rst tests in order to assure uploadability to pypi: `rst-linter`_ as a pre-commit hook and `rstcheck`_ in a GitHub workflow. This does not catch all errors.
+This project uses [pre-commit](https://pre-commit.com/) to enforce code-quality. After cloning the repository install the pre-commit hooks with:
 
-This project uses `pre-commit`_ to enforce code-quality. After cloning the repository install the pre-commit hooks with:
+```bash
+pre-commit install
+```
 
-::
-
-   pre-commit install
-
-After that pre-commit will run `all defined hooks`_ on every ``git commit`` and keep you from committing if there are any errors.
-
-.. _black: https://github.com/psf/black
-.. _isort: https://github.com/PyCQA/isort
-.. _rst-linter: https://github.com/Lucas-C/pre-commit-hooks-markup
-.. _rstcheck: https://github.com/myint/rstcheck
-.. _pre-commit: https://pre-commit.com/
-.. _all defined hooks: .pre-commit-config.yaml
+After that pre-commit will run [all defined hooks](.pre-commit-config.yaml) on every `git commit` and keep you from committing if there are any errors.

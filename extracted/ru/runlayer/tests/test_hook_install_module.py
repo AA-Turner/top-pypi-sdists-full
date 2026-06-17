@@ -11,9 +11,12 @@ from runlayer_cli.hook_install import (
     Client,
     ClientStatus,
     InstallScope,
+    check_absent_all,
+    check_absent_client,
     check_all,
     check_client,
     install_client,
+    uninstall_client,
 )
 from runlayer_cli.hook_install.clients import (
     _merge_claude_hooks,
@@ -250,6 +253,72 @@ class TestClaudeCodeInstall:
             "aiwatch-hook --client claude_code"
         )
 
+    def test_user_does_not_register_worktree_provider_hooks(
+        self, tmp_path, monkeypatch
+    ):
+        # Claude Code treats a configured WorktreeCreate hook as the worktree
+        # *provider* (it must create the worktree and print its path), so a
+        # passive telemetry entry there breaks worktree creation entirely.
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.USER,
+            include_pipeline=True,
+            hook_command="/usr/local/bin/aiwatch-hook",
+        )
+
+        hooks = json.loads((claude_dir / "settings.json").read_text())["hooks"]
+        assert "SessionStart" in hooks
+        assert "WorktreeCreate" not in hooks
+        assert "WorktreeRemove" not in hooks
+
+    def test_user_removes_stale_worktree_hook_entries(self, tmp_path, monkeypatch):
+        # Deployed fleets already carry worktree entries; reinstall must strip
+        # Runlayer's while preserving third-party providers.
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        runlayer_entry = {
+            "matcher": "",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": (
+                        '"/usr/local/lib/runlayer/aiwatch/aiwatch"'
+                        " hook --client claude_code"
+                    ),
+                }
+            ],
+        }
+        third_party_entry = {
+            "matcher": "",
+            "hooks": [{"type": "command", "command": "/opt/other/worktree-provider"}],
+        }
+        (claude_dir / "settings.json").write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "WorktreeCreate": [runlayer_entry, third_party_entry],
+                        "WorktreeRemove": [runlayer_entry],
+                    }
+                }
+            )
+        )
+
+        install_client(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.USER,
+            include_pipeline=True,
+            hook_command="/usr/local/bin/aiwatch-hook",
+        )
+
+        hooks = json.loads((claude_dir / "settings.json").read_text())["hooks"]
+        assert hooks["WorktreeCreate"] == [third_party_entry]
+        assert "WorktreeRemove" not in hooks
+
     def test_user_preserves_unrelated_settings_keys(self, tmp_path, monkeypatch):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         claude_dir = tmp_path / ".claude"
@@ -416,6 +485,138 @@ class TestHermesInstall:
         config = yaml.safe_load((hermes_dir / "config.yaml").read_text())
         commands = [entry["command"] for entry in config["hooks"]["pre_tool_call"]]
         assert commands == ["/new/path/aiwatch-hook --client hermes"]
+
+
+# ── uninstall / absent detection ───────────────────────────────────────
+
+
+class TestUninstall:
+    def test_user_cursor_removes_runlayer_and_preserves_third_party(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "theme": "dark",
+                    "hooks": {
+                        "beforeMCPExecution": [
+                            {"command": "/usr/local/bin/aiwatch hook --client cursor"},
+                            {"command": "/opt/other/hook"},
+                        ],
+                        "beforeReadFile": [{"command": "/usr/local/bin/aiwatch-hook"}],
+                    },
+                }
+            )
+        )
+
+        result = uninstall_client(Client.CURSOR, scope=InstallScope.USER)
+
+        assert result.changed
+        data = json.loads((cursor_dir / "hooks.json").read_text())
+        assert data["theme"] == "dark"
+        assert data["hooks"] == {"beforeMCPExecution": [{"command": "/opt/other/hook"}]}
+
+    def test_user_claude_removes_nested_runlayer_hooks_preserving_settings(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        claude_dir = tmp_path / ".claude"
+        claude_dir.mkdir()
+        third_party_entry = {
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": "/opt/other/hook"}],
+        }
+        (claude_dir / "settings.json").write_text(
+            json.dumps(
+                {
+                    "theme": "dark",
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "/usr/local/bin/aiwatch hook "
+                                        "--client claude_code",
+                                    }
+                                ],
+                            },
+                            third_party_entry,
+                        ],
+                        "PostToolUse": [
+                            {
+                                "matcher": "",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": "/usr/local/bin/aiwatch-hook",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                }
+            )
+        )
+
+        result = uninstall_client(Client.CLAUDE_CODE, scope=InstallScope.USER)
+
+        assert result.changed
+        settings = json.loads((claude_dir / "settings.json").read_text())
+        assert settings["theme"] == "dark"
+        assert settings["hooks"] == {"PreToolUse": [third_party_entry]}
+
+    def test_user_codex_leaves_features_hooks_enabled(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir()
+        install_client(
+            Client.CODEX,
+            scope=InstallScope.USER,
+            hook_command="/usr/local/bin/aiwatch-hook",
+        )
+
+        result = uninstall_client(Client.CODEX, scope=InstallScope.USER)
+
+        assert result.changed
+        assert not (codex_dir / "hooks.json").exists()
+        assert "hooks = true" in (codex_dir / "config.toml").read_text()
+
+    def test_user_hermes_removes_runlayer_and_preserves_yaml(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        hermes_dir = tmp_path / ".hermes"
+        hermes_dir.mkdir()
+        (hermes_dir / "config.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "mcp_servers": {"linear": {"url": "https://linear.example/mcp"}},
+                    "hooks": {
+                        "pre_tool_call": [
+                            {"command": "/usr/local/bin/aiwatch hook --client hermes"},
+                            {"command": "/opt/other/hook"},
+                        ],
+                        "transform_tool_result": [
+                            {"command": "/usr/local/bin/aiwatch-hook"}
+                        ],
+                    },
+                },
+                sort_keys=False,
+            )
+        )
+
+        result = uninstall_client(Client.HERMES, scope=InstallScope.USER)
+
+        assert result.changed
+        config = yaml.safe_load((hermes_dir / "config.yaml").read_text())
+        assert config["mcp_servers"]["linear"]["url"] == "https://linear.example/mcp"
+        assert config["hooks"] == {"pre_tool_call": [{"command": "/opt/other/hook"}]}
 
 
 # ── Install never writes runlayer-config.json (enforcement lives in MDM) ───
@@ -726,6 +927,43 @@ class TestCheck:
         )
 
         assert result.status == ClientStatus.MISSING
+
+
+class TestAbsentCheck:
+    def test_user_reports_ok_when_client_missing(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
+        result = check_absent_client(Client.CURSOR, scope=InstallScope.USER)
+
+        assert result.status == ClientStatus.OK
+
+    def test_user_reports_drifted_when_runlayer_entries_remain(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        (tmp_path / ".cursor").mkdir()
+        install_client(
+            Client.CURSOR,
+            scope=InstallScope.USER,
+            hook_command="/usr/local/bin/aiwatch-hook",
+        )
+
+        result = check_absent_client(Client.CURSOR, scope=InstallScope.USER)
+
+        assert result.status == ClientStatus.DRIFTED
+        assert "Runlayer hook entries present" in result.detail
+
+    def test_check_absent_all_returns_one_per_client(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
+        results = check_absent_all(scope=InstallScope.USER)
+
+        assert {r.client for r in results} == {
+            Client.CURSOR,
+            Client.CLAUDE_CODE,
+            Client.CODEX,
+            Client.HERMES,
+        }
 
 
 # ── merge helpers ────────────────────────────────────────────────────

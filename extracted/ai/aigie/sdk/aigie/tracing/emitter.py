@@ -11,13 +11,13 @@ calls `<event>.to_dict()` and pushes to the buffer. Adapters are
 responsible for building the typed event with the right fields; the
 emitter only ferries it to the wire.
 
-Pre-send hooks: callers may register ``SpanCompleteHook`` callables via
+Pre-send hooks: callers may register ``SpanHook`` callables via
 :meth:`TraceEmitter.register_span_complete_hook`. Each hook receives the
 dict payload that is about to hit the buffer for span-completion events
 (both the typed ``emit_span_complete*`` path and the dict-shape
-``emit_raw_sync(SPAN_UPDATE, ...)`` path used by LangGraph). Hooks may
-mutate the dict in place. Hook exceptions are logged and swallowed so a
-buggy hook cannot break tracing.
+``emit(...)`` path used by LangGraph). Hooks may mutate the dict
+in place. Hook exceptions are logged and swallowed so a buggy hook cannot
+break tracing.
 """
 
 from __future__ import annotations
@@ -26,20 +26,17 @@ import logging
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Protocol
 
-from aigie.buffer import EventType
+from aigie.tracing.types import JUDGE_SKIP_STATUSES
 
 if TYPE_CHECKING:
     from aigie.client import Aigie
     from aigie.tracing.types import (
-        SpanComplete,
-        SpanCreate,
-        TraceCreate,
-        TraceUpdate,
+        Span,
     )
 
 logger = logging.getLogger(__name__)
 
-SpanCompleteHook = Callable[[dict], None]
+SpanHook = Callable[[dict], None]
 
 
 class TracingSink(Protocol):
@@ -50,15 +47,8 @@ class TracingSink(Protocol):
     are invoked from the framework's synchronous callback dispatcher).
     """
 
-    async def emit_span_create(self, span: SpanCreate) -> None: ...
-    async def emit_span_complete(self, span: SpanComplete) -> None: ...
-    async def emit_trace_create(self, trace: TraceCreate) -> None: ...
-    async def emit_trace_update(self, update: TraceUpdate) -> None: ...
-
-    def emit_span_create_sync(self, span: SpanCreate) -> None: ...
-    def emit_span_complete_sync(self, span: SpanComplete) -> None: ...
-    def emit_trace_create_sync(self, trace: TraceCreate) -> None: ...
-    def emit_trace_update_sync(self, update: TraceUpdate) -> None: ...
+    async def emit_span_complete(self, span: Span) -> None: ...
+    def emit_span_complete_sync(self, span: Span) -> None: ...
 
 
 class TraceEmitter:
@@ -71,9 +61,9 @@ class TraceEmitter:
 
     def __init__(self, aigie: Aigie) -> None:
         self._aigie = aigie
-        self._span_complete_hooks: list[SpanCompleteHook] = []
+        self._span_complete_hooks: list[SpanHook] = []
 
-    def register_span_complete_hook(self, hook: SpanCompleteHook) -> None:
+    def register_span_complete_hook(self, hook: SpanHook) -> None:
         """Register a callable invoked with each span-completion dict before emission."""
         self._span_complete_hooks.append(hook)
 
@@ -84,61 +74,41 @@ class TraceEmitter:
             except Exception:
                 logger.exception("span_complete hook failed; continuing")
 
+    def _try_fire_evaluate(self, payload: dict) -> bool:
+        """Fire EvaluateSpan at emit time so the judge sees the span within
+        ~1s of finalization instead of after the next buffer flush. Must run
+        AFTER the span-complete hooks (KytteError enrichment). Returns whether
+        the fire was scheduled — False leaves the dispatch-time fire in
+        charge. Never raises into instrumentation code."""
+        if payload.get("status") in JUDGE_SKIP_STATUSES:
+            return False
+        try:
+            return self._aigie._try_fire_evaluate_span(payload) is True
+        except Exception:
+            logger.exception("emit-time EvaluateSpan hook failed; deferring to flush")
+            return False
+
     # --- async ---------------------------------------------------------
 
-    async def emit_span_create(self, span: SpanCreate) -> None:
-        buf = self._aigie._buffer
-        if buf is None:
-            return
-        await buf.add(EventType.SPAN_CREATE, span.to_dict())
-
-    async def emit_span_complete(self, span: SpanComplete) -> None:
+    async def emit_span_complete(self, span: Span) -> None:
         buf = self._aigie._buffer
         if buf is None:
             return
         payload = span.to_dict()
         self._run_span_complete_hooks(payload)
-        await buf.add(EventType.SPAN_UPDATE, payload)
-
-    async def emit_trace_create(self, trace: TraceCreate) -> None:
-        buf = self._aigie._buffer
-        if buf is None:
-            return
-        await buf.add(EventType.TRACE_CREATE, trace.to_dict())
-
-    async def emit_trace_update(self, update: TraceUpdate) -> None:
-        buf = self._aigie._buffer
-        if buf is None:
-            return
-        await buf.add(EventType.TRACE_UPDATE, update.to_dict())
+        evaluated = self._try_fire_evaluate(payload)
+        await buf.add(payload, evaluated=evaluated)
 
     # --- sync (for LangChain on_*_end callbacks) -----------------------
 
-    def emit_span_create_sync(self, span: SpanCreate) -> None:
-        buf = self._aigie._buffer
-        if buf is None:
-            return
-        buf.add_sync(EventType.SPAN_CREATE, span.to_dict())
-
-    def emit_span_complete_sync(self, span: SpanComplete) -> None:
+    def emit_span_complete_sync(self, span: Span) -> None:
         buf = self._aigie._buffer
         if buf is None:
             return
         payload = span.to_dict()
         self._run_span_complete_hooks(payload)
-        buf.add_sync(EventType.SPAN_UPDATE, payload)
-
-    def emit_trace_create_sync(self, trace: TraceCreate) -> None:
-        buf = self._aigie._buffer
-        if buf is None:
-            return
-        buf.add_sync(EventType.TRACE_CREATE, trace.to_dict())
-
-    def emit_trace_update_sync(self, update: TraceUpdate) -> None:
-        buf = self._aigie._buffer
-        if buf is None:
-            return
-        buf.add_sync(EventType.TRACE_UPDATE, update.to_dict())
+        evaluated = self._try_fire_evaluate(payload)
+        buf.add_sync(payload, evaluated=evaluated)
 
     # --- raw dict pass-through ----------------------------------------
     # Used by callbacks that already produce the wire-shape dict (e.g.
@@ -146,10 +116,14 @@ class TraceEmitter:
     # consumers and dict-producing callers without each reaching into
     # `aigie._buffer` directly.
 
-    def emit_raw_sync(self, event_type: EventType, payload: dict) -> None:
+    def emit(self, payload: dict) -> None:
+        """Publish a finalized span payload (wire-shape dict) to the buffer.
+
+        Runs the span-complete hooks and fires emit-time EvaluateSpan before
+        buffering."""
         buf = self._aigie._buffer
         if buf is None:
             return
-        if event_type == EventType.SPAN_UPDATE:
-            self._run_span_complete_hooks(payload)
-        buf.add_sync(event_type, payload)
+        self._run_span_complete_hooks(payload)
+        evaluated = self._try_fire_evaluate(payload)
+        buf.add_sync(payload, evaluated=evaluated)

@@ -79,6 +79,10 @@ def _first_nonempty_str(input_data: dict[str, Any], *fields: str) -> str | None:
 def _is_mcp_tool(client: Client, tool_name: str) -> bool:
     if tool_name.startswith("mcp__"):
         return True
+    # Cursor names MCP tools "MCP:<tool>" (e.g. MCP:searchJiraIssuesUsingJql),
+    # not mcp__*. Match so they take the MCP path, not the local-tool path.
+    if client == Client.CURSOR and tool_name.startswith("MCP:"):
+        return True
     return client == Client.HERMES and tool_name.startswith("mcp_")
 
 
@@ -277,12 +281,14 @@ def _resolve_enforcement() -> bool:
     ``HKLM\\Software\\Runlayer\\AIWatch`` on Windows). Absent / non-bool ->
     monitor (forward events, never block); set ``Enforcement=true`` to block.
 
-    Unfrozen ``python -m runlayer_cli.hook`` (CLI / pip / dev): preserve the
-    legacy ``sys.argv[0]``-adjacent ``runlayer-config.json`` lookup so the
-    ``runlayer setup hooks --install`` bash-shim path keeps working unchanged
-    (still enforce-by-default there).
+    Unfrozen ``python -m runlayer_cli.hook`` (CLI / pip / dev) and any other
+    frozen non-aiwatch binary: preserve the legacy ``sys.argv[0]``-adjacent
+    ``runlayer-config.json`` lookup so the ``runlayer setup hooks --install``
+    bash-shim path keeps working unchanged (still enforce-by-default there).
     """
-    if getattr(sys, "frozen", False):
+    from runlayer_cli.runtime import is_frozen_aiwatch_bundle  # noqa: PLC0415
+
+    if is_frozen_aiwatch_bundle():
         from runlayer_cli.mdm_config import read_managed_config  # noqa: PLC0415
 
         return read_managed_config().get("enforcement", False)
@@ -477,6 +483,16 @@ def _handle_post_tool_use(ctx: _DispatchCtx) -> None:
                 reason = _tool_output_block_reason(response_data)
                 _write(ctx.resp.block_output(reason))
                 return
+            # Non-blocking masked output (PII redaction, hidden-ASCII strip):
+            # replace what the model sees. Presence check (not truthiness) so a
+            # mask to the empty string is still applied rather than passing the
+            # raw output through.
+            modified = response_data.get("modified_output")
+            if isinstance(modified, str):
+                masked = ctx.resp.mask_output(modified)
+                if masked is not None:
+                    _write(masked)
+                    return
         else:
             forward_tool_lifecycle(
                 "tool-post",
@@ -613,6 +629,17 @@ def _mcp_enforce_and_respond(
     _write(make_allow_response(response_text))
 
 
+def _cursor_before_mcp_allow_response(response_text: str | None) -> str:
+    if response_text is None:
+        return '{"permission":"allow"}'
+
+    response_data = json.loads(response_text)
+    safe_response = {
+        key: value for key, value in response_data.items() if value is not None
+    }
+    return json.dumps(safe_response)
+
+
 def _handle_before_mcp_execution(
     *,
     client: Client,
@@ -651,9 +678,7 @@ def _handle_before_mcp_execution(
         enforce_payload=enforce_payload_str,
         enforcement=enforcement,
         debug=debug,
-        make_allow_response=lambda rt: (
-            rt if rt is not None else '{"permission":"allow"}'
-        ),
+        make_allow_response=_cursor_before_mcp_allow_response,
     )
 
 
@@ -717,9 +742,12 @@ def _allow_mcp_pretooluse(
 ) -> None:
     forward_event(client.value, original_hook_type, input_data, debug=debug)
     if client == Client.CURSOR:
-        session_id = _session_id_from_payload(input_data)
-        tool_input = _coerce_tool_input(input_data.get("tool_input"))
-        _write(resp.allow_with_ids(tool_input, session_id))
+        # Cursor MCP tools are enforced and session-linked via
+        # beforeMCPExecution (conversation_id). Do NOT inject
+        # _runlayer_session_id into updated_input here — strict MCP arg schemas
+        # (additionalProperties:false, e.g. Atlassian Jira) reject the extra
+        # field client-side before the call reaches Runlayer.
+        _write('{"permission":"allow"}')
     else:
         _write(resp.allow())
 

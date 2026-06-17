@@ -10,7 +10,7 @@ Mounted on the FastAPI app at /mcp. The MCP session manager lifecycle is
 tied to the FastAPI app lifespan (not a sub-app lifespan) so the task group
 is always initialized before requests arrive.
 
-Identity headers (X-OpenViking-Account, X-OpenViking-User, X-OpenViking-Agent)
+Identity headers (X-OpenViking-Account, X-OpenViking-User)
 are extracted from HTTP request scope and propagated via contextvars.
 """
 
@@ -21,7 +21,7 @@ import contextvars
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 from urllib.parse import quote
 
 from mcp.server.fastmcp import FastMCP
@@ -37,7 +37,7 @@ from openviking.parse.parsers.code.ast.code_tools import (
     search_symbols,
 )
 from openviking.parse.parsers.code.ast.extractor import get_extractor
-from openviking.server.auth import resolve_identity
+from openviking.server.auth import normalize_actor_peer_header, resolve_identity
 from openviking.server.dependencies import get_server_config, get_service
 from openviking.server.identity import RequestContext
 from openviking.server.local_input_guard import (
@@ -145,7 +145,9 @@ class _IdentityASGIMiddleware:
                 authorization=request.headers.get("authorization"),
                 x_openviking_account=request.headers.get("x-openviking-account"),
                 x_openviking_user=request.headers.get("x-openviking-user"),
-                x_openviking_agent=request.headers.get("x-openviking-agent"),
+            )
+            actor_peer_id = normalize_actor_peer_header(
+                request.headers.get("x-openviking-actor-peer")
             )
         except (UnauthenticatedError, PermissionDeniedError, InvalidArgumentError) as exc:
             status = (
@@ -175,10 +177,10 @@ class _IdentityASGIMiddleware:
             user=UserIdentifier(
                 identity.account_id or "default",
                 identity.user_id or "default",
-                identity.agent_id or "default",
             ),
             role=identity.role,
-            namespace_policy=identity.namespace_policy,
+            actor_peer_id=actor_peer_id,
+            from_oauth=identity.from_oauth,
         )
         url_info = {
             "x_forwarded_proto": request.headers.get("x-forwarded-proto"),
@@ -366,7 +368,6 @@ async def remember(messages: list[StoreMessage]) -> str:
             session.add_message(
                 msg.role,
                 [TextPart(text=msg.content)],
-                role_id=ctx.resolve_role_id(msg.role),
             )
     await service.sessions.commit_async(session_id, ctx)
     return f"Stored {len(messages)} message(s) and committed for memory extraction."
@@ -439,6 +440,7 @@ async def add_resource(
     description: str = "",
     watch_interval: float = 0,
     to: str = "",
+    args: Optional[dict[str, Any]] = None,
 ) -> str:
     """Add a resource to OpenViking. Asynchronous — processing happens in the background.
 
@@ -472,6 +474,9 @@ async def add_resource(
         to: Target URI under viking://resources/ (e.g.
             "viking://resources/volcengine/OpenViking"). Leave empty to let the
             system derive a URI from the source.
+        args: Parser-specific import options. For Feishu one-time user-token imports,
+            pass {"feishu_access_token": "..."}. For Feishu user-token watches,
+            pass {"feishu_access_token": "...", "feishu_refresh_token": "..."}.
     """
     from openviking.server.local_input_guard import require_remote_resource_source
 
@@ -499,11 +504,13 @@ async def add_resource(
                 result = await service.resources.add_resource(
                     path=resolved.local_path,
                     ctx=ctx,
+                    to=to or None,
                     reason=description,
                     source_name=resolved.original_filename,
                     wait=False,
                     allow_local_path_resolution=True,
                     enforce_public_remote_targets=True,
+                    args=args,
                 )
             except Exception as exc:
                 await store.mark_failed(resolved, ctx)
@@ -540,6 +547,7 @@ async def add_resource(
                 wait=False,
                 watch_interval=watch_interval,
                 enforce_public_remote_targets=True,
+                args=args,
             )
         except Exception as exc:
             return f"Error adding resource: {exc}"
@@ -565,7 +573,6 @@ async def add_resource(
     token, expires_at = upload_token_store.issue(
         ctx.user.account_id,
         ctx.user.user_id,
-        ctx.user.agent_id,
         ttl_seconds=ttl_seconds,
     )
     base_url, url_source = _resolve_public_base_url()
@@ -613,7 +620,7 @@ async def add_resource(
 
 @mcp.tool()
 async def list_watches() -> str:
-    """List watch tasks (auto-refresh subscriptions) visible to the current agent.
+    """List watch tasks (auto-refresh subscriptions) visible to the current user.
 
     Each line shows: target URI, refresh interval (minutes), active/paused status,
     and the next scheduled execution time. Returns "No watch tasks." when empty.
@@ -634,7 +641,6 @@ async def list_watches() -> str:
         ctx.user.user_id,
         ctx.role.value,
         active_only=False,
-        agent_id=ctx.user.agent_id,
     )
     if not tasks:
         return "No watch tasks."
@@ -670,7 +676,6 @@ async def cancel_watch(to_uri: str) -> str:
         ctx.account_id,
         ctx.user.user_id,
         ctx.role.value,
-        ctx.user.agent_id,
     )
     if task is None:
         return f"No watch task found for {to_uri}"
@@ -686,7 +691,6 @@ async def cancel_watch(to_uri: str) -> str:
             ctx.account_id,
             ctx.user.user_id,
             ctx.role.value,
-            ctx.user.agent_id,
         )
     except _wm_mod.PermissionDeniedError:
         return f"Permission denied for {to_uri}"

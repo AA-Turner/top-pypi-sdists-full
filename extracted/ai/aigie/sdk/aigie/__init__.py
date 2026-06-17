@@ -177,8 +177,6 @@ __all__ = [
     "is_compression_available",
     # Buffer
     "EventBuffer",
-    # Feedback Collection (Intelligence)
-    "FeedbackCollector",
     # W3C Trace Context
     "W3CTraceContext",
     "extract_trace_context",
@@ -459,15 +457,8 @@ __all__ = [
     "SpanStatus",
     "SpanType",
     "ObservationLevel",
-    "ErrorType",
     "FailureCategory",
     "TokenUsage",
-    "CostDetails",
-    "UsageDetails",
-    "TraceCreateRequest",
-    "TraceUpdateRequest",
-    "SpanCreateRequest",
-    "SpanUpdateRequest",
     "TraceResponse",
     "SpanResponse",
     # Platform API Clients
@@ -502,7 +493,7 @@ __all__ = [
     "AutonomousRuntime",
 ]
 
-__version__ = "0.2.43"
+__version__ = "0.2.45"
 
 
 # Lazy imports for performance
@@ -919,12 +910,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         from .buffer import EventBuffer
 
         return EventBuffer
-
-    # Feedback Collection
-    if name == "FeedbackCollector":
-        from .feedback import FeedbackCollector
-
-        return FeedbackCollector
 
     # W3C Trace Context
     if name == "W3CTraceContext":
@@ -2212,11 +2197,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
 
         return ObservationLevel
 
-    if name == "ErrorType":
-        from .types import ErrorType
-
-        return ErrorType
-
     if name == "FailureCategory":
         from .types import FailureCategory
 
@@ -2226,36 +2206,6 @@ def __getattr__(name: str) -> Any:  # noqa: C901, PLR0911, PLR0912
         from .types import TokenUsage
 
         return TokenUsage
-
-    if name == "CostDetails":
-        from .types import CostDetails
-
-        return CostDetails
-
-    if name == "UsageDetails":
-        from .types import UsageDetails
-
-        return UsageDetails
-
-    if name == "TraceCreateRequest":
-        from .types import TraceCreateRequest
-
-        return TraceCreateRequest
-
-    if name == "TraceUpdateRequest":
-        from .types import TraceUpdateRequest
-
-        return TraceUpdateRequest
-
-    if name == "SpanCreateRequest":
-        from .types import SpanCreateRequest
-
-        return SpanCreateRequest
-
-    if name == "SpanUpdateRequest":
-        from .types import SpanUpdateRequest
-
-        return SpanUpdateRequest
 
     if name == "TraceResponse":
         from .types import TraceResponse

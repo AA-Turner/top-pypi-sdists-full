@@ -379,7 +379,8 @@ class SandboxInstance:
             status_code = response.code if response.code is not UNSET else None
             message = response.message if response.message is not UNSET else response.error
             raise SandboxAPIError(message, status_code=status_code, code=response.error)
-        return [cls(sandbox) for sandbox in response]
+        sandboxes = response.data if hasattr(response, "data") else response
+        return [cls(sandbox) for sandbox in sandboxes or []]
 
     @classmethod
     async def update_metadata(

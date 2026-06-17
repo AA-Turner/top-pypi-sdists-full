@@ -1608,7 +1608,7 @@ class ModelsV1Api:
     ) -> ResourceListModel:
         """Get Workspace Models.
 
-        Returns models matching the filter and sorting criteria. If multiple filters are specified, results will only be returned that match all of the specified criteria. Requires workspace_list_models permission.
+        Returns the applications the requesting user has access to across all projects in the workspace, matching the filter and sorting criteria. If multiple filters are specified, results will only be returned that match all of the specified criteria. Requires the workspace_list_models permission (granted by the Workspace Reader role); results are further limited to the projects in which the user has access to models.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -1714,7 +1714,7 @@ class ModelsV1Api:
     ) -> ApiResponse[ResourceListModel]:
         """Get Workspace Models.
 
-        Returns models matching the filter and sorting criteria. If multiple filters are specified, results will only be returned that match all of the specified criteria. Requires workspace_list_models permission.
+        Returns the applications the requesting user has access to across all projects in the workspace, matching the filter and sorting criteria. If multiple filters are specified, results will only be returned that match all of the specified criteria. Requires the workspace_list_models permission (granted by the Workspace Reader role); results are further limited to the projects in which the user has access to models.
 
         :param workspace_id: (required)
         :type workspace_id: str
@@ -1820,7 +1820,7 @@ class ModelsV1Api:
     ) -> RESTResponseType:
         """Get Workspace Models.
 
-        Returns models matching the filter and sorting criteria. If multiple filters are specified, results will only be returned that match all of the specified criteria. Requires workspace_list_models permission.
+        Returns the applications the requesting user has access to across all projects in the workspace, matching the filter and sorting criteria. If multiple filters are specified, results will only be returned that match all of the specified criteria. Requires the workspace_list_models permission (granted by the Workspace Reader role); results are further limited to the projects in which the user has access to models.
 
         :param workspace_id: (required)
         :type workspace_id: str

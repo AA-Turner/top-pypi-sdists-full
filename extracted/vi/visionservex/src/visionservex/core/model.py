@@ -327,13 +327,57 @@ class VisionModel:
         return cls(model_id, **kwargs)
 
     @classmethod
-    def from_checkpoint(cls, checkpoint_path: str | Path, **kwargs: Any) -> VisionModel:
-        """Not generally supported. Raises a structured error with a hint."""
-        raise NotImplementedError(
-            "CHECKPOINT_LOAD_UNSUPPORTED: VisionModel does not support loading arbitrary "
-            "local checkpoints. Use VisionModel('MODEL_ID').pull() to download an official "
-            "checkpoint, or register a custom backend with visionservex model register-custom."
-        )
+    def from_checkpoint(
+        cls,
+        checkpoint_path: str | Path,
+        *,
+        model_id: str,
+        device: str | None = None,
+        **kwargs: Any,
+    ) -> VisionModel:
+        """Load a trained checkpoint for inference and return a ready model.
+
+        ``model_id`` identifies the family/variant the checkpoint was trained for
+        (e.g. ``"libreyolo-yolox-s"``) — it is required because a bare ``.pt``
+        does not reliably carry the engine/variant. The returned model predicts
+        through the SAME normalized schema as base inference, using the trained
+        weights with no base-weight fallback.
+
+        Supported for engines that implement ``load_checkpoint`` (LibreYOLO,
+        RF-DETR). Others raise a structured :class:`NotImplementedError`.
+
+        Example::
+
+            res = VisionModel("libreyolo-rtdetr-r50").train("data.yaml", epochs=1)
+            m = VisionModel.from_checkpoint(res["best_checkpoint"],
+                                            model_id="libreyolo-rtdetr-r50", device="cuda")
+            pred = m.predict(image)
+        """
+        model = cls(model_id, device=device, **kwargs)
+        model.load_checkpoint(checkpoint_path, device=device)
+        return model
+
+    def load_checkpoint(
+        self, checkpoint_path: str | Path, *, device: str | None = None
+    ) -> VisionModel:
+        """Load a trained checkpoint into this model in place (for inference).
+
+        Delegates to the engine's ``load_checkpoint``. After this call,
+        :meth:`predict` uses the trained weights — there is no silent reload of
+        the base weights. Raises :class:`NotImplementedError` for engines that
+        do not support trained-checkpoint reload.
+        """
+        fn = getattr(self.engine, "load_checkpoint", None)
+        if fn is None:
+            raise NotImplementedError(
+                f"CHECKPOINT_LOAD_UNSUPPORTED: the {self.entry.family!r} engine does not "
+                "support trained-checkpoint reload. Supported families: LibreYOLO, RF-DETR."
+            )
+        dev = device or self.device
+        fn(checkpoint_path, device=dev)
+        self.device = dev
+        self._loaded = True
+        return self
 
     def to(self, device: str) -> VisionModel:
         """Move model to a device (Ultralytics-style). Returns self."""
@@ -427,6 +471,62 @@ class VisionModel:
     def export_info(self) -> dict[str, Any]:
         """Return export capabilities for this model."""
         return _export_capabilities(self.entry.id)
+
+    def capabilities(self) -> dict[str, Any]:
+        """Return the canonical capability-truth object for this model (v3.15.0).
+
+        One honest dict: legal status, engine/inference readiness, and the
+        training/export truth. See :func:`model_capabilities`.
+        """
+        return model_capabilities(self.entry.id)
+
+    def train(self, dataset: str | Path, **kwargs: Any) -> dict[str, Any]:
+        """Train / fine-tune this model on a dataset (engine-dependent).
+
+        Supported for the LibreYOLO detector family (YOLOX / YOLOv9 / RT-DETR /
+        D-FINE) via the permissive ``libreyolo`` package. Other families return
+        a structured ``TRAINING_NOT_SUPPORTED`` dict rather than raising.
+
+        Args:
+            dataset: Path to a YOLO ``data.yaml`` or a directory containing one.
+            **kwargs: Forwarded to the engine trainer (``epochs``, ``batch``,
+                ``device``, ``imgsz``, ...). When ``device`` is omitted the
+                engine auto-detects a GPU.
+
+        Returns:
+            The engine's normalized training-result dict, or a
+            ``TRAINING_NOT_SUPPORTED`` envelope.
+        """
+        cap = _training_capabilities(self.entry.id)
+        if not (cap.get("train_supported") or cap.get("finetune_supported")):
+            return {
+                "status": "TRAINING_NOT_SUPPORTED",
+                "model_id": self.entry.id,
+                "family": self.entry.family,
+                "reason": cap.get("notes", "Training is not supported for this model."),
+                "docs": cap.get("docs", ""),
+            }
+        train_fn = getattr(self.engine, "train", None)
+        if train_fn is None:
+            # The family IS trainable, but VisionServeX does not wrap its training
+            # loop — e.g. RF-DETR trains via the mature `rfdetr` package's own API.
+            # This is not a failure; it points to the native path and the reload
+            # route VisionServeX does provide.
+            return {
+                "status": "TRAIN_VIA_NATIVE_API",
+                "model_id": self.entry.id,
+                "family": self.entry.family,
+                "reason": cap.get(
+                    "notes", "Train via this family's native package API, then reload here."
+                ),
+                "supported_dataset_formats": cap.get("supported_dataset_formats", []),
+                "reload_hint": (
+                    f"After training, reload for inference via "
+                    f"VisionModel.from_checkpoint(ckpt, model_id='{self.entry.id}')."
+                ),
+                "docs": cap.get("docs", ""),
+            }
+        return train_fn(dataset, **kwargs)
 
     def val(
         self,
@@ -633,10 +733,15 @@ _TRAINING_TABLE: dict[str, dict[str, Any]] = {
         "resume_supported": False,
         "checkpoint_save_supported": False,
         "checkpoint_load_supported": False,
+        "trained_checkpoint_predict_supported": False,
         "export_supported": ["onnx_experimental"],
         "supported_dataset_formats": [],
         "required_extra": "hf",
-        "notes": "TRAINING_NOT_SUPPORTED_IN_HF_BACKEND. HF Transformers does not expose D-FINE training. Use official Peterande/D-FINE repository for training.",
+        "notes": (
+            "TRAINING_NOT_SUPPORTED_IN_HF_BACKEND. HF Transformers does not expose "
+            "D-FINE training. For a trainable, permissive D-FINE use the LibreYOLO "
+            "variant `libreyolo-dfine-n` instead, or the official Peterande/D-FINE repo."
+        ),
         "docs": "https://github.com/Peterande/D-FINE",
     },
     "rfdetr": {
@@ -645,11 +750,72 @@ _TRAINING_TABLE: dict[str, dict[str, Any]] = {
         "resume_supported": True,
         "checkpoint_save_supported": True,
         "checkpoint_load_supported": True,
+        "trained_checkpoint_predict_supported": True,
+        "post_nms_predict_supported": True,
+        "validated_lifecycle": True,
         "export_supported": ["onnx"],
         "supported_dataset_formats": ["coco-json", "yolo"],
         "required_extra": "rfdetr",
-        "notes": "RF-DETR supports training/fine-tuning via the rfdetr package. Use rfdetr.train() directly.",
+        "notes": (
+            "RF-DETR trains/fine-tunes via the mature `rfdetr` package's native API "
+            "(model.train(dataset_dir=...), COCO format). A trained checkpoint reloads "
+            "for inference through VisionServeX via "
+            "VisionModel.from_checkpoint(ckpt, model_id='rfdetr-nano') or "
+            "engine.load_checkpoint(). Externally validated; Anastig-proven."
+        ),
         "docs": "https://github.com/roboflow/rf-detr",
+    },
+    "libreyolo": {
+        "train_supported": True,
+        "finetune_supported": True,
+        "resume_supported": True,
+        "checkpoint_save_supported": True,
+        "checkpoint_load_supported": True,
+        "trained_checkpoint_predict_supported": True,
+        "post_nms_predict_supported": True,
+        "validated_lifecycle": True,
+        "export_supported": ["onnx"],
+        "supported_dataset_formats": ["yolo"],
+        "required_extra": "libreyolo",
+        "validated_variants": [
+            "libreyolo-yolox-s",
+            "libreyolo-yolov9-s",
+            "libreyolo-rtdetr-r50",
+        ],
+        "known_blockers": ["libreyolo-dfine-*: UPSTREAM_DFINE_FDR_TOPK_CRASH (train blocked)"],
+        "notes": (
+            "LibreYOLO training via the permissive `libreyolo` package (YOLOX / "
+            "YOLOv9 / RT-DETR). YOLO data.yaml dataset format; fine-tunes from "
+            "COCO-pretrained base weights; saves best.pt/last.pt. v3.16.0 fixes the "
+            "eval/=predict gap: EMA off by default (saves the actual trained weights, "
+            "not the lagged EMA), predict uses the training imgsz, best.pt falls back "
+            "to last.pt, and predict applies class-aware NMS. Validated live for "
+            "yolox-s/yolov9-s/rtdetr-r50. D-FINE training is BLOCKED upstream "
+            "(FDR topk crash) — inference-only. No Ultralytics. YOLO-NAS excluded."
+        ),
+        "docs": "https://github.com/LibreYOLO/libreyolo",
+    },
+    "torchvision-classify": {
+        "train_supported": True,
+        "finetune_supported": True,
+        "resume_supported": False,
+        "checkpoint_save_supported": True,
+        "checkpoint_load_supported": True,
+        "trained_checkpoint_predict_supported": True,
+        "validated_lifecycle": True,
+        "post_nms_predict_supported": True,
+        "export_supported": ["onnx"],
+        "supported_dataset_formats": ["imagefolder"],
+        "required_extra": "torchvision",
+        "validated_variants": ["torchvision-resnet18"],
+        "known_blockers": [],
+        "notes": (
+            "Classic torchvision classifier fine-tune on an ImageFolder dataset "
+            "(BSD-3-Clause). Saves best.pt/last.pt with class names; reload via "
+            "VisionModel.from_checkpoint(model_id=...); ONNX export. Full lifecycle "
+            "validated live for resnet18 (the loop is arch-generic). No Ultralytics."
+        ),
+        "docs": "https://github.com/pytorch/vision",
     },
     "swinv2": {
         "train_supported": False,
@@ -717,6 +883,7 @@ _TRAINING_TABLE: dict[str, dict[str, Any]] = {
         "resume_supported": False,
         "checkpoint_save_supported": False,
         "checkpoint_load_supported": False,
+        "trained_checkpoint_predict_supported": False,
         "export_supported": [],
         "supported_dataset_formats": [],
         "notes": "TRAINING_NOT_SUPPORTED for this model family.",
@@ -751,6 +918,39 @@ _EXPORT_TABLE: dict[str, dict[str, Any]] = {
             "notes": "rfdetr supports TRT but not wired in VisionServeX.",
         },
         "torchscript": {"status": "unsupported", "notes": "Not supported."},
+        "hf_save_pretrained": {"status": "unsupported", "notes": "Not HF-based."},
+    },
+    "libreyolo": {
+        "onnx": {
+            "status": "supported",
+            "notes": "ONNX export via the libreyolo package exporter. "
+            "VisionModel.export(format='onnx', output_path=...).",
+        },
+        "torchscript": {
+            "status": "backend_supported_but_not_integrated",
+            "notes": "libreyolo supports TorchScript; not surfaced/tested in VisionServeX v3.13.",
+        },
+        "tensorrt": {
+            "status": "backend_supported_but_not_integrated",
+            "notes": "libreyolo supports TensorRT; not surfaced/tested in VisionServeX v3.13.",
+        },
+        "openvino": {
+            "status": "backend_supported_but_not_integrated",
+            "notes": "libreyolo supports OpenVINO; not surfaced/tested in VisionServeX v3.13.",
+        },
+        "hf_save_pretrained": {"status": "unsupported", "notes": "Not HF-based."},
+    },
+    "torchvision-classify": {
+        "onnx": {
+            "status": "supported",
+            "notes": "torch.onnx.export (opset 18, dynamic batch). "
+            "VisionModel.export(format='onnx', output_path=...).",
+        },
+        "torchscript": {
+            "status": "backend_supported_but_not_integrated",
+            "notes": "torch.jit.script/trace available; not surfaced/tested in v3.15.",
+        },
+        "tensorrt": {"status": "unsupported", "notes": "Not integrated."},
         "hf_save_pretrained": {"status": "unsupported", "notes": "Not HF-based."},
     },
     "swinv2": {
@@ -789,8 +989,28 @@ _EXPORT_TABLE: dict[str, dict[str, Any]] = {
 }
 
 
+# LibreYOLO sub-families that are permissive (commercial-safe). YOLO-NAS shares
+# family="libreyolo" but is Deci non-commercial and must never train.
+_LIBREYOLO_TRAINABLE_SUBFAMILIES = frozenset({"yolox", "yolov9", "rtdetr", "dfine"})
+
+# v3.16.0: variants whose FULL lifecycle (train -> checkpoint -> reload -> predict
+# confident boxes -> NMS -> export) is live-validated. Only these report
+# train-ready; larger/other variants are inference-ready (same engine, not
+# individually validated) — we do NOT overclaim.
+_LIBREYOLO_LIFECYCLE_VALIDATED = frozenset(
+    {"libreyolo-yolox-s", "libreyolo-yolov9-s", "libreyolo-rtdetr-r50"}
+)
+_LIBREYOLO_DOCS = "https://github.com/LibreYOLO/libreyolo"
+
+
+def _libreyolo_subfamily(model_id: str) -> str:
+    """Extract the sub-family token from a ``libreyolo-<sub>-<size>`` id."""
+    parts = model_id.split("-")
+    return parts[1] if len(parts) >= 2 and parts[0] == "libreyolo" else ""
+
+
 def _training_capabilities(model_id: str) -> dict[str, Any]:
-    """Return training/fine-tuning capability dict for a model."""
+    """Return training/fine-tuning capability dict for a model (per-variant truth)."""
     try:
         entry = default_registry().get(model_id)
         family = entry.family
@@ -798,6 +1018,64 @@ def _training_capabilities(model_id: str) -> dict[str, Any]:
         family = model_id.split("-")[0]
 
     info = _TRAINING_TABLE.get(family, _TRAINING_TABLE["default"]).copy()
+    info.setdefault("post_nms_predict_supported", False)
+    info.setdefault("validated_lifecycle", False)
+    info.setdefault("exact_blocker", None)
+
+    # LibreYOLO training truth is PER SUB-FAMILY and PER VARIANT (v3.16.0).
+    _sub = _libreyolo_subfamily(model_id)
+    if family == "libreyolo" and _sub:
+        not_supported = {
+            **_TRAINING_TABLE["default"],
+            "required_extra": "libreyolo",
+            "trained_checkpoint_predict_supported": False,
+            "validated_lifecycle": False,
+            "docs": _LIBREYOLO_DOCS,
+        }
+        if _sub not in _LIBREYOLO_TRAINABLE_SUBFAMILIES:
+            # YOLO-NAS (Deci non-commercial) and any non-permissive family.
+            info = {
+                **not_supported,
+                "post_nms_predict_supported": False,
+                "exact_blocker": "LIBREYOLO_NONCOMMERCIAL_FAMILY",
+                "notes": (
+                    "TRAINING_NOT_SUPPORTED: non-permissive LibreYOLO family. Only "
+                    "YOLOX / YOLOv9 / RT-DETR train; YOLO-NAS is Deci non-commercial."
+                ),
+            }
+        elif _sub == "dfine":
+            # D-FINE training crashes upstream (libreyolo FDR 'selected index k out
+            # of range'). Inference + reload of existing checkpoints still work;
+            # only the train loop is blocked. (Validated in docs/qa/v316_*.)
+            info = {
+                **not_supported,
+                "post_nms_predict_supported": True,
+                "exact_blocker": "UPSTREAM_DFINE_FDR_TOPK_CRASH",
+                "notes": (
+                    "TRAINING_BLOCKED: libreyolo D-FINE training crashes upstream "
+                    "(FDR topk 'selected index k out of range'). Inference is fully "
+                    "supported; use libreyolo-yolox/yolov9/rtdetr to train."
+                ),
+            }
+        elif model_id in _LIBREYOLO_LIFECYCLE_VALIDATED:
+            info["trained_checkpoint_predict_supported"] = True
+            info["post_nms_predict_supported"] = True
+            info["validated_lifecycle"] = True
+            info["exact_blocker"] = None
+        else:
+            # permissive yolox/yolov9/rtdetr variant NOT individually validated.
+            info = {
+                **not_supported,
+                "post_nms_predict_supported": True,
+                "exact_blocker": "VARIANT_NOT_LIFECYCLE_VALIDATED",
+                "notes": (
+                    "Inference-ready. Training uses the same validated libreyolo "
+                    "engine, but this variant is not individually lifecycle-validated "
+                    "in v3.16. Validated train targets: libreyolo-yolox-s / yolov9-s / "
+                    "rtdetr-r50."
+                ),
+            }
+
     info["model_id"] = model_id
     info["family"] = family
     return info
@@ -817,4 +1095,108 @@ def _export_capabilities(model_id: str) -> dict[str, Any]:
     return info
 
 
-__all__ = ["VisionModel"]
+def model_capabilities(model_id: str) -> dict[str, Any]:
+    """Return the canonical capability-truth object for a model (v3.15.0).
+
+    Assembles legal status (curated policy when present, else the registry
+    license), engine/inference readiness, and the training/export truth into one
+    honest dict. ``readiness`` is one of: ``train-ready`` (train + reloaded-
+    checkpoint predict), ``inference-ready`` (wired engine + pretrained load),
+    ``catalog-only`` (registry row but no wired runtime engine), or ``blocked``.
+    """
+    from visionservex.engines.registry import _FACTORIES
+    from visionservex.licensing.policy import get_policy
+
+    entry = default_registry().get(model_id)
+    tcap = _training_capabilities(model_id)
+    ecap = _export_capabilities(model_id)
+    pol = get_policy(model_id)
+
+    engine_registered = entry.engine in _FACTORIES
+    status = entry.implementation_status
+    inference_ready = status == "wired" and engine_registered
+    train_ready = bool(
+        tcap.get("train_supported") and tcap.get("trained_checkpoint_predict_supported")
+    )
+
+    if pol is not None:
+        legal_status = pol.final_policy
+        commercial_safe = bool(pol.default_safe and pol.final_policy == "commercial_safe_core")
+        gated = bool(pol.gated)
+        license_code = pol.code_license
+        license_weights = pol.weights_license
+    else:
+        # No curated policy row → fall back to the registry license, and DO NOT
+        # claim commercial-safe-by-default (only the curated policy can grant that).
+        legal_status = "registry_license_only"
+        commercial_safe = False
+        gated = bool(entry.requires_auth)
+        license_code = entry.license
+        license_weights = None
+
+    if status == "stub" or not engine_registered:
+        readiness = "catalog-only"
+    elif train_ready and inference_ready:
+        readiness = "train-ready"
+    elif inference_ready:
+        readiness = "inference-ready"
+    else:
+        readiness = "blocked"
+
+    export_supported = [
+        k for k, v in ecap.items() if isinstance(v, dict) and v.get("status") == "supported"
+    ]
+
+    exact_blocker: str | None = None
+    if readiness == "catalog-only":
+        exact_blocker = entry.unavailable_reason or (
+            f"CATALOG_ONLY: engine {entry.engine!r} not wired (implementation_status={status})"
+        )
+    elif readiness == "blocked":
+        exact_blocker = entry.unavailable_reason or (
+            f"NOT_INFERENCE_READY: implementation_status={status}, engine_registered={engine_registered}"
+        )
+    elif not train_ready and tcap.get("exact_blocker"):
+        # inference-ready detector whose TRAINING is blocked/not-validated: surface
+        # the training blocker (e.g. UPSTREAM_DFINE_FDR_TOPK_CRASH).
+        exact_blocker = tcap.get("exact_blocker")
+
+    return {
+        "model_id": model_id,
+        "family": entry.family,
+        "task": entry.task,
+        "engine": entry.engine,
+        "backend": entry.backend,
+        "model_category": str(entry.model_category) if entry.model_category else None,
+        "readiness": readiness,
+        "legal_status": legal_status,
+        "commercial_safe": commercial_safe,
+        "gated": gated,
+        "license_code": license_code,
+        "license_weights": license_weights,
+        "license_registry": entry.license,
+        "has_policy_row": pol is not None,
+        "implementation_status": status,
+        "engine_registered": engine_registered,
+        "pretrained_inference_supported": inference_ready,
+        "pretrained_load_supported": inference_ready and entry.download_type != "not_available",
+        "auto_download": bool(entry.auto_download),
+        "required_extra": entry.install_extra,
+        "train_supported": bool(tcap.get("train_supported")),
+        "finetune_supported": bool(tcap.get("finetune_supported")),
+        "checkpoint_save_supported": bool(tcap.get("checkpoint_save_supported")),
+        "checkpoint_load_supported": bool(tcap.get("checkpoint_load_supported")),
+        "trained_checkpoint_predict_supported": bool(
+            tcap.get("trained_checkpoint_predict_supported")
+        ),
+        "post_nms_predict_supported": bool(tcap.get("post_nms_predict_supported")),
+        "validated_lifecycle": bool(tcap.get("validated_lifecycle")),
+        "export_supported": export_supported,
+        "supported_dataset_formats": tcap.get("supported_dataset_formats", []),
+        "validated_variants": tcap.get("validated_variants", []),
+        "known_blockers": tcap.get("known_blockers", []),
+        "exact_blocker": exact_blocker,
+    }
+
+
+__all__ = ["VisionModel", "model_capabilities"]

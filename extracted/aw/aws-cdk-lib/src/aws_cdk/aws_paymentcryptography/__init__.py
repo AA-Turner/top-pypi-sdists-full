@@ -377,6 +377,7 @@ class CfnKey(
             derive_key_usage="deriveKeyUsage",
             enabled=False,
             key_check_value_algorithm="keyCheckValueAlgorithm",
+            policy="policy",
             replication_regions=["replicationRegions"],
             tags=[CfnTag(
                 key="key",
@@ -395,6 +396,7 @@ class CfnKey(
         derive_key_usage: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         key_check_value_algorithm: typing.Optional[builtins.str] = None,
+        policy: typing.Optional[builtins.str] = None,
         replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -407,6 +409,7 @@ class CfnKey(
         :param derive_key_usage: The cryptographic usage of an ECDH derived key as deﬁned in section A.5.2 of the TR-31 spec.
         :param enabled: Specifies whether the key is enabled.
         :param key_check_value_algorithm: The algorithm that AWS Payment Cryptography uses to calculate the key check value (KCV). It is used to validate the key integrity. For TDES keys, the KCV is computed by encrypting 8 bytes, each with value of zero, with the key to be checked and retaining the 3 highest order bytes of the encrypted result. For AES keys, the KCV is computed using a CMAC algorithm where the input data is 16 bytes of zero and retaining the 3 highest order bytes of the encrypted result.
+        :param policy: The resource-based policy attached to the key, in JSON format.
         :param replication_regions: The list of AWS Regions to remove from the key's replication configuration. The key will no longer be available for cryptographic operations in these regions after removal. Ensure no active operations depend on the key in these regions before removal.
         :param tags: 
         '''
@@ -420,6 +423,7 @@ class CfnKey(
             derive_key_usage=derive_key_usage,
             enabled=enabled,
             key_check_value_algorithm=key_check_value_algorithm,
+            policy=policy,
             replication_regions=replication_regions,
             tags=tags,
         )
@@ -603,6 +607,19 @@ class CfnKey(
             type_hints = typing.get_type_hints(_typecheckingstub__197ab67a28372d3c264e1414d929d0c2287a028faf7915197718c789307d1350)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "keyCheckValueAlgorithm", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policy")
+    def policy(self) -> typing.Optional[builtins.str]:
+        '''The resource-based policy attached to the key, in JSON format.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "policy"))
+
+    @policy.setter
+    def policy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__868580814ba43661ae6b57fce945c6240344e1666181c3478d34333fee153fc7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policy", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="replicationRegions")
@@ -1065,6 +1082,7 @@ class CfnKey(
         "derive_key_usage": "deriveKeyUsage",
         "enabled": "enabled",
         "key_check_value_algorithm": "keyCheckValueAlgorithm",
+        "policy": "policy",
         "replication_regions": "replicationRegions",
         "tags": "tags",
     },
@@ -1078,6 +1096,7 @@ class CfnKeyProps:
         derive_key_usage: typing.Optional[builtins.str] = None,
         enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         key_check_value_algorithm: typing.Optional[builtins.str] = None,
+        policy: typing.Optional[builtins.str] = None,
         replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
@@ -1088,6 +1107,7 @@ class CfnKeyProps:
         :param derive_key_usage: The cryptographic usage of an ECDH derived key as deﬁned in section A.5.2 of the TR-31 spec.
         :param enabled: Specifies whether the key is enabled.
         :param key_check_value_algorithm: The algorithm that AWS Payment Cryptography uses to calculate the key check value (KCV). It is used to validate the key integrity. For TDES keys, the KCV is computed by encrypting 8 bytes, each with value of zero, with the key to be checked and retaining the 3 highest order bytes of the encrypted result. For AES keys, the KCV is computed using a CMAC algorithm where the input data is 16 bytes of zero and retaining the 3 highest order bytes of the encrypted result.
+        :param policy: The resource-based policy attached to the key, in JSON format.
         :param replication_regions: The list of AWS Regions to remove from the key's replication configuration. The key will no longer be available for cryptographic operations in these regions after removal. Ensure no active operations depend on the key in these regions before removal.
         :param tags: 
 
@@ -1124,6 +1144,7 @@ class CfnKeyProps:
                 derive_key_usage="deriveKeyUsage",
                 enabled=False,
                 key_check_value_algorithm="keyCheckValueAlgorithm",
+                policy="policy",
                 replication_regions=["replicationRegions"],
                 tags=[CfnTag(
                     key="key",
@@ -1138,6 +1159,7 @@ class CfnKeyProps:
             check_type(argname="argument derive_key_usage", value=derive_key_usage, expected_type=type_hints["derive_key_usage"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument key_check_value_algorithm", value=key_check_value_algorithm, expected_type=type_hints["key_check_value_algorithm"])
+            check_type(argname="argument policy", value=policy, expected_type=type_hints["policy"])
             check_type(argname="argument replication_regions", value=replication_regions, expected_type=type_hints["replication_regions"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1150,6 +1172,8 @@ class CfnKeyProps:
             self._values["enabled"] = enabled
         if key_check_value_algorithm is not None:
             self._values["key_check_value_algorithm"] = key_check_value_algorithm
+        if policy is not None:
+            self._values["policy"] = policy
         if replication_regions is not None:
             self._values["replication_regions"] = replication_regions
         if tags is not None:
@@ -1212,6 +1236,15 @@ class CfnKeyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-keycheckvaluealgorithm
         '''
         result = self._values.get("key_check_value_algorithm")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def policy(self) -> typing.Optional[builtins.str]:
+        '''The resource-based policy attached to the key, in JSON format.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-paymentcryptography-key.html#cfn-paymentcryptography-key-policy
+        '''
+        result = self._values.get("policy")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -1311,6 +1344,7 @@ def _typecheckingstub__eae3f8af01ec3a496044e22e7d1ce2b96cf8f20736ded57ce899a918f
     derive_key_usage: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     key_check_value_algorithm: typing.Optional[builtins.str] = None,
+    policy: typing.Optional[builtins.str] = None,
     replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -1360,6 +1394,12 @@ def _typecheckingstub__1defb803536cf97ac83055a5760a6073dfc007fbfe2b34f9a77453809
     pass
 
 def _typecheckingstub__197ab67a28372d3c264e1414d929d0c2287a028faf7915197718c789307d1350(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__868580814ba43661ae6b57fce945c6240344e1666181c3478d34333fee153fc7(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -1417,6 +1457,7 @@ def _typecheckingstub__1ba44ca0d377189c3fde668037b0b7a8a9ee19fc052286d570ba26e88
     derive_key_usage: typing.Optional[builtins.str] = None,
     enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     key_check_value_algorithm: typing.Optional[builtins.str] = None,
+    policy: typing.Optional[builtins.str] = None,
     replication_regions: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

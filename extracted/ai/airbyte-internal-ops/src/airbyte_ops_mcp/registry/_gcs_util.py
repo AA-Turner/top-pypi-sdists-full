@@ -11,7 +11,7 @@ from typing import Literal
 
 from google.cloud import storage
 
-from airbyte_ops_mcp.gcp_auth import get_gcp_credentials
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_registry_gcs_ro
 
 # GCS bucket names for the metadata service
 PROD_METADATA_SERVICE_BUCKET_NAME = "prod-airbyte-cloud-connector-metadata-service"
@@ -31,7 +31,7 @@ def get_gcs_client() -> storage.Client:
     Returns:
         A configured GCS storage client.
     """
-    credentials = get_gcp_credentials()
+    credentials = get_gcp_credentials_for_registry_gcs_ro()
     return storage.Client(credentials=credentials)
 
 

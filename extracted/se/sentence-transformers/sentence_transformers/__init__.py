@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = "5.5.1"
+__version__ = "5.6.0"
 __MODEL_HUB_ORGANIZATION__ = "sentence-transformers"
 
 import importlib

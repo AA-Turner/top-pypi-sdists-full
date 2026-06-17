@@ -436,6 +436,8 @@ def handle_exception(
             message=str(error), error_code=ConnectorErrorCode.INTERNAL_ERROR, app_id=app_id
         ),
     )
+    # Capture the metadata auto-filled by the Error model validator
+    _initial_metadata = resp.error.error_metadata
 
     resp = DefaultHandler.handle(
         error,
@@ -450,18 +452,26 @@ def handle_exception(
                 resp = handler.handle(error, capability, resp, code)
 
     # Auto-populate metadata
+    # Priority: ConnectorError fields > handler-set metadata > derived from error_code
     if isinstance(error, ConnectorError):
         # metadata is built based on the exception
-        resp.error.error_metadata = error.get_error_metadata()
-    elif isinstance(resp.error.error_code, ConnectorErrorCode):
-        # metadata is built based on the error code
-        resp.error.error_metadata = build_metadata(resp.error.error_code)
+        error_metadata: ConnectorErrorMetadata = error.get_error_metadata()
+    elif (
+        resp.error.error_metadata is not _initial_metadata and resp.error.error_metadata is not None
+    ):
+        # metadata is coming from a handler (i.e. not populated by a validator defaults)
+        error_metadata = resp.error.error_metadata
     else:
-        # default fallback to INTERNAL_ERROR
-        resp.error.error_metadata = build_metadata(ConnectorErrorCode.INTERNAL_ERROR)
+        # metadata is built based on the error code or falls back to INTERNAL_ERROR
+        error_metadata = build_metadata(
+            resp.error.error_code
+            if isinstance(resp.error.error_code, ConnectorErrorCode)
+            else ConnectorErrorCode.INTERNAL_ERROR
+        )
+
+    resp.error.error_metadata = error_metadata
 
     # Log the error + metadata
-    error_metadata = resp.error.error_metadata
     error_logger.error(
         "%s/%s: %s | error_fault=%s error_category=%s error_retryable=%s error_throttled=%s error_refreshable=%s error_hint=%s",
         resp.error.app_id,

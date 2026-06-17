@@ -7,6 +7,7 @@ import shutil
 import socket
 import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -52,22 +53,22 @@ This is a sample markdown document for server testing.
 
 def _install_fake_embedder(monkeypatch):
     """Use an in-process fake embedder so server tests never hit external APIs."""
-    dimension = 1024
 
     class FakeEmbedder(DenseEmbedderBase):
-        def __init__(self):
+        def __init__(self, dimension: int = 2048):
             super().__init__(model_name="test-fake-embedder")
+            self._dimension = dimension
 
         def embed(self, text: str, is_query: bool = False) -> EmbedResult:
-            return EmbedResult(dense_vector=[0.1] * dimension)
+            return EmbedResult(dense_vector=[0.1] * self._dimension)
 
         def embed_batch(self, texts: list[str], is_query: bool = False) -> list[EmbedResult]:
             return [self.embed(text, is_query=is_query) for text in texts]
 
         def get_dimension(self) -> int:
-            return dimension
+            return self._dimension
 
-    monkeypatch.setattr(EmbeddingConfig, "get_embedder", lambda self: FakeEmbedder())
+    monkeypatch.setattr(EmbeddingConfig, "get_embedder", lambda self: FakeEmbedder(self.dimension))
     return FakeEmbedder
 
 
@@ -196,6 +197,12 @@ async def running_server(temp_dir: Path, monkeypatch):
     fake_embedder_cls = _install_fake_embedder(monkeypatch)
     _install_fake_vlm(monkeypatch)
 
+    @asynccontextmanager
+    async def _noop_mcp_lifespan():
+        yield
+
+    monkeypatch.setattr("openviking.server.mcp_endpoint.mcp_lifespan", _noop_mcp_lifespan)
+
     svc = OpenVikingService(
         path=str(temp_dir / "sdk_data"), user=UserIdentifier.the_default_user("sdk_test_user")
     )
@@ -231,7 +238,17 @@ async def running_server(temp_dir: Path, monkeypatch):
     else:
         raise RuntimeError("APIKeyManager did not initialize for SDK server test")
 
-    yield port, svc
+    manager = fastapi_app.state.api_key_manager
+    sdk_account_id = "sdk_test_account"
+    sdk_user_key = await manager.create_account(sdk_account_id, "sdk_test_user")
+    sdk_ctx = RequestContext(
+        user=UserIdentifier(sdk_account_id, "sdk_test_user"),
+        role=Role.ADMIN,
+    )
+    await svc.initialize_account_directories(sdk_ctx)
+    await svc.initialize_user_directories(sdk_ctx)
+
+    yield port, svc, sdk_user_key
 
     server.should_exit = True
     thread.join(timeout=5)

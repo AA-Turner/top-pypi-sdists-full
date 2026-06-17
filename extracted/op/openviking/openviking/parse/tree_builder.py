@@ -25,6 +25,7 @@ from typing import Optional
 
 from openviking.core.building_tree import BuildingTree
 from openviking.core.context import Context
+from openviking.core.namespace import is_content_root_uri
 from openviking.parse.parsers.media.utils import get_media_base_uri, get_media_type
 from openviking.server.identity import RequestContext
 from openviking.storage.viking_fs import get_viking_fs
@@ -75,8 +76,7 @@ class TreeBuilder:
         if scope == "user":
             # user resources go to memories (no separate resources dir)
             return "viking://user"
-        # Agent scope
-        return "viking://agent"
+        raise ValueError(f"unsupported tree scope: {scope}")
 
     # ============================================================================
     # v5.0 Methods (temporary directory + SemanticQueue architecture)
@@ -96,9 +96,6 @@ class TreeBuilder:
     ) -> tuple[str, Optional[str]]:
         """Resolve the final target URI and optional unique-name candidate."""
 
-        def is_resources_root(uri: Optional[str]) -> bool:
-            return (uri or "").rstrip("/") == "viking://resources"
-
         final_doc_name = VikingURI.sanitize_segment(doc_name)
         if source_path and source_format == "repository":
             parsed_org_repo = parse_code_hosting_url(source_path)
@@ -107,7 +104,7 @@ class TreeBuilder:
 
         auto_base_uri = self._get_base_uri(scope, source_path, source_format)
         base_uri = parent_uri or auto_base_uri
-        use_to_as_parent = is_resources_root(to_uri)
+        use_to_as_parent = bool(to_uri and is_content_root_uri(to_uri, ctx, kind="resource"))
         if to_uri and not use_to_as_parent:
             return to_uri, None
 
@@ -116,10 +113,15 @@ class TreeBuilder:
             effective_parent_uri = effective_parent_uri.rstrip("/")
         if effective_parent_uri:
             viking_fs = get_viking_fs()
+            parent_is_content_root = is_content_root_uri(
+                effective_parent_uri,
+                ctx,
+                kind="resource",
+            )
             try:
                 parent_exists = await viking_fs.exists(effective_parent_uri, ctx=ctx)
                 if not parent_exists:
-                    if create_parent:
+                    if create_parent or parent_is_content_root:
                         logger.info(
                             f"[TreeBuilder] Parent URI does not exist, creating: {effective_parent_uri}"
                         )
@@ -133,9 +135,7 @@ class TreeBuilder:
             except FileNotFoundError:
                 raise
             except Exception as e:
-                raise FileNotFoundError(
-                    f"Parent URI does not exist: {effective_parent_uri}"
-                ) from e
+                raise FileNotFoundError(f"Parent URI does not exist: {effective_parent_uri}") from e
             if not stat_result.get("isDir"):
                 raise ValueError(f"Parent URI is not a directory: {effective_parent_uri}")
             base_uri = effective_parent_uri

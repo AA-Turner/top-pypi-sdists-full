@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meltano
-Version: 4.2.0
+Version: 4.2.1
 Summary: Meltano is your CLI for ELT+: Open Source, Flexible, and Scalable. Move, transform, and test your data with confidence using a streamlined data engineering workflow you’ll love.
 Project-URL: Homepage, https://meltano.com
 Project-URL: Repository, https://github.com/meltano/meltano

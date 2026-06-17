@@ -1,6 +1,6 @@
 [project]
 name = "sqlalchemy-easy-softdelete"
-version = "0.9.0"
+version = "0.9.1"
 description = "Easily add soft-deletion to your SQLAlchemy Models."
 authors = [
     {name = "Cadu", email = "cadu.coelho@gmail.com"}

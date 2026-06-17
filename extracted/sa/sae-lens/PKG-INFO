@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sae-lens
-Version: 6.44.2
+Version: 6.44.3
 Summary: Training and Analyzing Sparse Autoencoders (SAEs)
 License: MIT
 License-File: LICENSE
@@ -25,7 +25,7 @@ Requires-Dist: plotly-express (>=0.4.1)
 Requires-Dist: python-dotenv (>=1.0.1)
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
 Requires-Dist: safetensors (>=0.4.2,<1.0.0)
-Requires-Dist: simple-parsing (>=0.1.6,<0.2.0)
+Requires-Dist: simple-parsing (>=0.1.8,<0.2.0)
 Requires-Dist: tenacity (>=9.0.0)
 Requires-Dist: transformer-lens (>=2.16.1)
 Requires-Dist: transformers (>=4.38.1,<6.0.0)
@@ -86,7 +86,7 @@ The new v6 update is a major refactor to SAELens and changes the way training co
 
 ## Join the Slack!
 
-Feel free to join the [Open Source Mechanistic Interpretability Slack](https://join.slack.com/t/opensourcemechanistic/shared_invite/zt-375zalm04-GFd5tdBU1yLKlu_T_JSqZQ) for support!
+Feel free to join the [Open Source Mechanistic Interpretability Slack](https://join.slack.com/t/opensourcemechanistic/shared_invite/zt-3z9o0hxjl-MDX9pbATO2qESOazNDLpdQ) for support!
 
 ## Other SAE Projects
 

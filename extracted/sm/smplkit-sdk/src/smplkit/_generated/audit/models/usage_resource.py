@@ -20,8 +20,8 @@ T = TypeVar("T", bound="UsageResource")
 class UsageResource:
     """
     Example:
-        {'attributes': {'limit_key': 'audit.events_per_month', 'period': 'current', 'value': 42}, 'id':
-            'audit.events_per_month', 'type': 'usage'}
+        {'attributes': {'limit_key': 'audit.included_events_per_month', 'period': 'current', 'value': 42}, 'id':
+            'audit.included_events_per_month', 'type': 'usage'}
 
     Attributes:
         id (str):

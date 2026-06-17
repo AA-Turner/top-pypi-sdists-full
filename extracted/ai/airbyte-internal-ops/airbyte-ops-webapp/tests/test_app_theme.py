@@ -9,6 +9,7 @@ def test_theme_defaults_to_dark(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(theme_module.THEME_MODE_ENV_VAR, raising=False)
 
     assert theme_module._theme_mode() == "dark"
+    assert "dark" in theme_module._app_root_class().split()
 
 
 def test_theme_can_follow_system_preference(monkeypatch: pytest.MonkeyPatch) -> None:

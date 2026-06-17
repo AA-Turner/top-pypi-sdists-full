@@ -38,6 +38,7 @@ from airbyte_ops_mcp.github_actions import (
     wait_for_workflow_completion,
 )
 from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
+from airbyte_ops_mcp.human_in_the_loop import HITL_SLACK_CHANNEL_URL
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,10 @@ class SecretRequestResponse(BaseModel):
         ),
     )
     message: str = Field(description="Human-readable status message")
+    slack_channel_url: str = Field(
+        default=HITL_SLACK_CHANNEL_URL,
+        description="Direct URL to the #human-in-the-loop Slack channel",
+    )
     secret_alias: str = Field(description="The requested secret alias")
     session_id: str = Field(description="The Devin session ID")
     workflow_url: str | None = Field(
@@ -320,7 +325,8 @@ def _request_secret_via_workflow(
             phase="approval_requested",
             message=(
                 f"Approval request for secret '{secret_alias}' sent to "
-                f"#human-in-the-loop. Waiting for human approval. "
+                f"#human-in-the-loop ({HITL_SLACK_CHANNEL_URL}). "
+                f"Waiting for human approval. "
                 f"Once approved, call this tool again with the "
                 f"approval_evidence_url to deliver the secret. "
                 f"View progress: {view_url}"

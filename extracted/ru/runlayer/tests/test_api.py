@@ -112,7 +112,7 @@ def test_list_skills_uses_extended_timeout() -> None:
     assert mock_httpx.call_args.kwargs["timeout"] == 30.0
 
 
-def test_list_plugins_by_namespace_uses_extended_timeout() -> None:
+def test_list_plugins_detailed_uses_extended_timeout() -> None:
     client = RunlayerClient(hostname="https://example.com", secret="test-key")
     response = _mock_response(200, {"data": [], "count": 0})
 
@@ -122,7 +122,7 @@ def test_list_plugins_by_namespace_uses_extended_timeout() -> None:
         )
         mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
 
-        client.list_plugins_by_namespace("myorg/repo")
+        client.list_plugins_detailed("myorg/repo")
 
     assert mock_httpx.call_args.kwargs["timeout"] == 30.0
 
@@ -142,7 +142,7 @@ def test_list_server_tools_uses_extended_timeout() -> None:
     assert mock_httpx.call_args.kwargs["timeout"] == 30.0
 
 
-def test_list_plugins_by_namespace_retries_transient_timeout() -> None:
+def test_list_plugins_detailed_retries_transient_timeout() -> None:
     client = RunlayerClient(hostname="https://example.com", secret="test-key")
     request = httpx.Request("GET", "https://example.com/api/v1/plugins")
     timeout_error = httpx.ReadTimeout("timed out", request=request)
@@ -155,7 +155,7 @@ def test_list_plugins_by_namespace_retries_transient_timeout() -> None:
         )
         mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = client.list_plugins_by_namespace("myorg/repo")
+        result = client.list_plugins_detailed("myorg/repo")
 
     assert result == []
     assert mock_get.call_count == 2

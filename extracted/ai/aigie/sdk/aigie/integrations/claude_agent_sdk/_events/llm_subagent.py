@@ -172,7 +172,10 @@ class LLMSubagentEvents:
         }
 
         if aigie._buffer:
-            self.open_span(payload=span_data)
+            # The LLM Response span is fully finalized at creation (start_time,
+            # end_time, status, output all known) — emit it exactly once.
+            # Previously open_span'd as SPAN_CREATE and dropped at transport.
+            self.close_span(payload=span_data)
 
 
         # Record LLM response for drift detection (captures planning from first response)

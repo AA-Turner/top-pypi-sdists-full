@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+import tempfile
 from typing import TYPE_CHECKING, Any, Optional
 
 from xorq.common.utils.env_utils import (
@@ -133,7 +134,7 @@ class Pins(Config):
     protocol: str = "gcs"
     path: str = "letsql-pins"
     storage_options: dict[str, Any] = {
-        "cache_timeout": 0,
+        "cache_timeout": 300,
         "token": "anon",
     }
 
@@ -200,8 +201,6 @@ class Pins(Config):
             pin or version, and network or filesystem failures while fetching
             from remote storage. None are caught here.
         """
-        import tempfile  # noqa: PLC0415
-
         from filelock import FileLock  # noqa: PLC0415
 
         board = board or self.get_board()

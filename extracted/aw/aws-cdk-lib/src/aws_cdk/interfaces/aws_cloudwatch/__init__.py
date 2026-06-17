@@ -579,6 +579,51 @@ class _IInsightRuleRefProxy(
 typing.cast(typing.Any, IInsightRuleRef).__jsii_proxy_class__ = lambda : _IInsightRuleRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ILogAlarmRef")
+class ILogAlarmRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LogAlarm.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="logAlarmRef")
+    def log_alarm_ref(self) -> "LogAlarmReference":
+        '''(experimental) A reference to a LogAlarm resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILogAlarmRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LogAlarm.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.ILogAlarmRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="logAlarmRef")
+    def log_alarm_ref(self) -> "LogAlarmReference":
+        '''(experimental) A reference to a LogAlarm resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LogAlarmReference", jsii.get(self, "logAlarmRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILogAlarmRef).__jsii_proxy_class__ = lambda : _ILogAlarmRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IMetricStreamRef")
 class IMetricStreamRef(
     _constructs_77d1e7e8.IConstruct,
@@ -719,6 +764,71 @@ class InsightRuleReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.LogAlarmReference",
+    jsii_struct_bases=[],
+    name_mapping={"alarm_name": "alarmName", "log_alarm_arn": "logAlarmArn"},
+)
+class LogAlarmReference:
+    def __init__(
+        self,
+        *,
+        alarm_name: builtins.str,
+        log_alarm_arn: builtins.str,
+    ) -> None:
+        '''A reference to a LogAlarm resource.
+
+        :param alarm_name: The AlarmName of the LogAlarm resource.
+        :param log_alarm_arn: The ARN of the LogAlarm resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            log_alarm_reference = interfaces_cloudwatch.LogAlarmReference(
+                alarm_name="alarmName",
+                log_alarm_arn="logAlarmArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28e9a8e96824ec45b3c3ea530f8f54c48a10639b7f1722f186ef9cc69f7355f4)
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+            check_type(argname="argument log_alarm_arn", value=log_alarm_arn, expected_type=type_hints["log_alarm_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "alarm_name": alarm_name,
+            "log_alarm_arn": log_alarm_arn,
+        }
+
+    @builtins.property
+    def alarm_name(self) -> builtins.str:
+        '''The AlarmName of the LogAlarm resource.'''
+        result = self._values.get("alarm_name")
+        assert result is not None, "Required property 'alarm_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def log_alarm_arn(self) -> builtins.str:
+        '''The ARN of the LogAlarm resource.'''
+        result = self._values.get("log_alarm_arn")
+        assert result is not None, "Required property 'log_alarm_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LogAlarmReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.MetricStreamReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -847,9 +957,11 @@ __all__ = [
     "ICompositeAlarmRef",
     "IDashboardRef",
     "IInsightRuleRef",
+    "ILogAlarmRef",
     "IMetricStreamRef",
     "IOTelEnrichmentRef",
     "InsightRuleReference",
+    "LogAlarmReference",
     "MetricStreamReference",
     "OTelEnrichmentReference",
 ]
@@ -900,6 +1012,14 @@ def _typecheckingstub__5c9eaae14b7b5fd4caa9ee9685f1e4ff2ed87f7d35cc2260e8e46c385
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__28e9a8e96824ec45b3c3ea530f8f54c48a10639b7f1722f186ef9cc69f7355f4(
+    *,
+    alarm_name: builtins.str,
+    log_alarm_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fd4b5eb67c7a5b2c989d807371acca126080a0b48d263d4d19312a05a27ad715(
     *,
     metric_stream_arn: builtins.str,
@@ -915,5 +1035,5 @@ def _typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c01
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, IMetricStreamRef, IOTelEnrichmentRef]:
+for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

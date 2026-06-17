@@ -145,3 +145,33 @@ def test_auto_validate_garbage_rejection(tmp_path):
     clean_path.write_text("const x = 1;\nconst y = 2;", encoding="utf-8")
     res_clean = _auto_validate(["complete.js"], tmp_path)
     assert res_clean is None
+
+def test_repl_status_html_escaping():
+    from sage.core.renderer import set_repl_status, clear_repl_status
+    from prompt_toolkit.formatted_text import to_formatted_text
+    
+    class DummyAgent:
+        _is_running = True
+    def dummy_execute(text):
+        pass
+    
+    repl = SageREPL(DummyAgent(), dummy_execute)
+    
+    # Set status message containing characters that are invalid in raw XML/HTML
+    set_repl_status("Running: echo \"hello\" && python <app.py>")
+    
+    children = repl.session.layout.container.children
+    status_window = children[0].content
+    status_control = status_window.content
+    
+    # Evaluate the callable using prompt_toolkit's helper
+    formatted = to_formatted_text(status_control.text)
+    
+    # Check that HTML parsing succeeded and holds resolved values
+    # formatted is a list of tuples like (style_str, text_str)
+    combined_text = "".join(text for _, text in formatted)
+    assert "echo" in combined_text
+    assert "&&" in combined_text
+    assert "<app.py>" in combined_text
+    
+    clear_repl_status()

@@ -42,6 +42,7 @@ from chalk.client.models import (
     OfflineQueryInputUri,
     OfflineQueryProfileSummary,
     OfflineQueryReport,
+    OfflineStoreTable,
     OnlineQuery,
     OnlineQueryContext,
     PlanQueryResponse,
@@ -1617,6 +1618,63 @@ class ChalkClient:
         >>> from chalk.client import ChalkClient
         >>> ChalkClient().get_offline_store_table_name(User.fico_score)
         >>> ChalkClient().get_offline_store_table_name("user.fico_score", include_historical=True)
+        """
+        ...
+
+    def get_all_offline_store_table_names(
+        self,
+        branch_id: str | None = None,
+        deployment_id: str | None = None,
+    ) -> "list[OfflineStoreTable]":
+        """Get the offline store table name for every feature and internal version in a deployment.
+
+        Useful for reverse-mapping a ``feat_<hash>`` offline store table name back to its feature.
+
+        Parameters
+        ----------
+        branch_id
+            If set, return table names for the given branch deployment.
+        deployment_id
+            The deployment to look up. If ``None``, uses the environment's active deployment.
+
+        Returns
+        -------
+        list[OfflineStoreTable]
+            One entry per feature and internal version, each with ``fqn``, ``internal_version``, and ``table_name``.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_all_offline_store_table_names()
+        """
+        ...
+
+    def get_feature_from_offline_store_table_name(
+        self,
+        table_name: str,
+        branch_id: str | None = None,
+        deployment_id: str | None = None,
+    ) -> "OfflineStoreTable | None":
+        """Find the feature for a given offline store table name (reverse lookup).
+
+        Parameters
+        ----------
+        table_name
+            The ``feat_<hash>`` offline store table name to look up.
+        branch_id
+            If set, search the given branch deployment's tables.
+        deployment_id
+            The deployment to search. If ``None``, uses the environment's active deployment.
+
+        Returns
+        -------
+        OfflineStoreTable | None
+            The matching table (with ``fqn`` and ``internal_version``), or ``None`` if no feature maps to that table name.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_feature_from_offline_store_table_name("feat_5c00ed88...")
         """
         ...
 
@@ -3204,6 +3262,7 @@ class ChalkClient:
         exact: bool = False,
         enable_profiling: bool = False,
         resource_group: str | None = None,
+        input_sql: str | None = None,
     ) -> Any:
         """Trigger one or more aggregate backfill jobs.
 
@@ -3232,6 +3291,8 @@ class ChalkClient:
             If `True`, enable profiling while running the backfill jobs.
         resource_group : str, optional
             Resource group to use for the created backfill jobs.
+        input_sql : str, optional
+            Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
 
         Returns
         -------

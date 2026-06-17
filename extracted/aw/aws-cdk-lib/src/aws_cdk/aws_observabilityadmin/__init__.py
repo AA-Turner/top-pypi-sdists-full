@@ -136,6 +136,11 @@ class CfnOrganizationCentralizationRule(
                             encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
                             kms_key_arn="kmsKeyArn"
                         )
+                    ),
+                    destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
+                        backup_configuration=observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty(
+                            region="region"
+                        )
                     )
                 ),
                 source=observabilityadmin.CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty(
@@ -149,6 +154,9 @@ class CfnOrganizationCentralizationRule(
                         # the properties below are optional
                         data_source_selection_criteria="dataSourceSelectionCriteria",
                         log_group_selection_criteria="logGroupSelectionCriteria"
+                    ),
+                    source_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty(
+                        metrics_selection_criteria="metricsSelectionCriteria"
                     )
                 )
             ),
@@ -314,6 +322,7 @@ class CfnOrganizationCentralizationRule(
             "region": "region",
             "account": "account",
             "destination_logs_configuration": "destinationLogsConfiguration",
+            "destination_metrics_configuration": "destinationMetricsConfiguration",
         },
     )
     class CentralizationRuleDestinationProperty:
@@ -323,12 +332,14 @@ class CfnOrganizationCentralizationRule(
             region: builtins.str,
             account: typing.Optional[builtins.str] = None,
             destination_logs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination_metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration specifying the primary destination for centralized telemetry data.
 
             :param region: The primary destination region to which telemetry data should be centralized.
             :param account: The destination account (within the organization) to which the telemetry data should be centralized.
             :param destination_logs_configuration: Log specific configuration for centralization destination log groups.
+            :param destination_metrics_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationruledestination.html
             :exampleMetadata: fixture=_generated
@@ -361,6 +372,11 @@ class CfnOrganizationCentralizationRule(
                             encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
                             kms_key_arn="kmsKeyArn"
                         )
+                    ),
+                    destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
+                        backup_configuration=observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty(
+                            region="region"
+                        )
                     )
                 )
             '''
@@ -369,6 +385,7 @@ class CfnOrganizationCentralizationRule(
                 check_type(argname="argument region", value=region, expected_type=type_hints["region"])
                 check_type(argname="argument account", value=account, expected_type=type_hints["account"])
                 check_type(argname="argument destination_logs_configuration", value=destination_logs_configuration, expected_type=type_hints["destination_logs_configuration"])
+                check_type(argname="argument destination_metrics_configuration", value=destination_metrics_configuration, expected_type=type_hints["destination_metrics_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "region": region,
             }
@@ -376,6 +393,8 @@ class CfnOrganizationCentralizationRule(
                 self._values["account"] = account
             if destination_logs_configuration is not None:
                 self._values["destination_logs_configuration"] = destination_logs_configuration
+            if destination_metrics_configuration is not None:
+                self._values["destination_metrics_configuration"] = destination_metrics_configuration
 
         @builtins.property
         def region(self) -> builtins.str:
@@ -406,6 +425,16 @@ class CfnOrganizationCentralizationRule(
             '''
             result = self._values.get("destination_logs_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty"]], result)
+
+        @builtins.property
+        def destination_metrics_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationruledestination.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationruledestination-destinationmetricsconfiguration
+            '''
+            result = self._values.get("destination_metrics_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -467,6 +496,11 @@ class CfnOrganizationCentralizationRule(
                                 encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
                                 kms_key_arn="kmsKeyArn"
                             )
+                        ),
+                        destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
+                            backup_configuration=observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty(
+                                region="region"
+                            )
                         )
                     ),
                     source=observabilityadmin.CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty(
@@ -480,6 +514,9 @@ class CfnOrganizationCentralizationRule(
                             # the properties below are optional
                             data_source_selection_criteria="dataSourceSelectionCriteria",
                             log_group_selection_criteria="logGroupSelectionCriteria"
+                        ),
+                        source_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty(
+                            metrics_selection_criteria="metricsSelectionCriteria"
                         )
                     )
                 )
@@ -535,6 +572,7 @@ class CfnOrganizationCentralizationRule(
             "regions": "regions",
             "scope": "scope",
             "source_logs_configuration": "sourceLogsConfiguration",
+            "source_metrics_configuration": "sourceMetricsConfiguration",
         },
     )
     class CentralizationRuleSourceProperty:
@@ -544,12 +582,14 @@ class CfnOrganizationCentralizationRule(
             regions: typing.Sequence[builtins.str],
             scope: typing.Optional[builtins.str] = None,
             source_logs_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            source_metrics_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration specifying the source of telemetry data to be centralized.
 
             :param regions: The list of source regions from which telemetry data should be centralized.
             :param scope: The organizational scope from which telemetry data should be centralized, specified using organization id, accounts or organizational unit ids.
             :param source_logs_configuration: Log specific configuration for centralization source log groups.
+            :param source_metrics_configuration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrulesource.html
             :exampleMetadata: fixture=_generated
@@ -571,6 +611,9 @@ class CfnOrganizationCentralizationRule(
                         # the properties below are optional
                         data_source_selection_criteria="dataSourceSelectionCriteria",
                         log_group_selection_criteria="logGroupSelectionCriteria"
+                    ),
+                    source_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty(
+                        metrics_selection_criteria="metricsSelectionCriteria"
                     )
                 )
             '''
@@ -579,6 +622,7 @@ class CfnOrganizationCentralizationRule(
                 check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
                 check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
                 check_type(argname="argument source_logs_configuration", value=source_logs_configuration, expected_type=type_hints["source_logs_configuration"])
+                check_type(argname="argument source_metrics_configuration", value=source_metrics_configuration, expected_type=type_hints["source_metrics_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "regions": regions,
             }
@@ -586,6 +630,8 @@ class CfnOrganizationCentralizationRule(
                 self._values["scope"] = scope
             if source_logs_configuration is not None:
                 self._values["source_logs_configuration"] = source_logs_configuration
+            if source_metrics_configuration is not None:
+                self._values["source_metrics_configuration"] = source_metrics_configuration
 
         @builtins.property
         def regions(self) -> typing.List[builtins.str]:
@@ -616,6 +662,16 @@ class CfnOrganizationCentralizationRule(
             '''
             result = self._values.get("source_logs_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty"]], result)
+
+        @builtins.property
+        def source_metrics_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrulesource.html#cfn-observabilityadmin-organizationcentralizationrule-centralizationrulesource-sourcemetricsconfiguration
+            '''
+            result = self._values.get("source_metrics_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -732,6 +788,63 @@ class CfnOrganizationCentralizationRule(
 
         def __repr__(self) -> str:
             return "DestinationLogsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"backup_configuration": "backupConfiguration"},
+    )
+    class DestinationMetricsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            backup_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param backup_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationmetricsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                destination_metrics_configuration_property = observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
+                    backup_configuration=observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty(
+                        region="region"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__12f498f9f25e327239522213ccc62495ae85e2f355fa6744ec71a746c7662a70)
+                check_type(argname="argument backup_configuration", value=backup_configuration, expected_type=type_hints["backup_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if backup_configuration is not None:
+                self._values["backup_configuration"] = backup_configuration
+
+        @builtins.property
+        def backup_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationmetricsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-destinationmetricsconfiguration-backupconfiguration
+            '''
+            result = self._values.get("backup_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationMetricsConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -959,6 +1072,56 @@ class CfnOrganizationCentralizationRule(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"region": "region"},
+    )
+    class MetricsBackupConfigurationProperty:
+        def __init__(self, *, region: builtins.str) -> None:
+            '''
+            :param region: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-metricsbackupconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                metrics_backup_configuration_property = observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty(
+                    region="region"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__22d56f473919888a6a23633e9abfc37d785e51c92e9fb8942ce190af4b0bcc5e)
+                check_type(argname="argument region", value=region, expected_type=type_hints["region"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "region": region,
+            }
+
+        @builtins.property
+        def region(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-metricsbackupconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-metricsbackupconfiguration-region
+            '''
+            result = self._values.get("region")
+            assert result is not None, "Required property 'region' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricsBackupConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1053,6 +1216,59 @@ class CfnOrganizationCentralizationRule(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"metrics_selection_criteria": "metricsSelectionCriteria"},
+    )
+    class SourceMetricsConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            metrics_selection_criteria: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param metrics_selection_criteria: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-sourcemetricsconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_observabilityadmin as observabilityadmin
+                
+                source_metrics_configuration_property = observabilityadmin.CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty(
+                    metrics_selection_criteria="metricsSelectionCriteria"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1abb00d621ef0b57f2a59903b6b7f71e880aedf0f23fa9a0f8e004a87eb64e51)
+                check_type(argname="argument metrics_selection_criteria", value=metrics_selection_criteria, expected_type=type_hints["metrics_selection_criteria"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if metrics_selection_criteria is not None:
+                self._values["metrics_selection_criteria"] = metrics_selection_criteria
+
+        @builtins.property
+        def metrics_selection_criteria(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-sourcemetricsconfiguration.html#cfn-observabilityadmin-organizationcentralizationrule-sourcemetricsconfiguration-metricsselectioncriteria
+            '''
+            result = self._values.get("metrics_selection_criteria")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceMetricsConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_observabilityadmin.CfnOrganizationCentralizationRuleProps",
@@ -1107,6 +1323,11 @@ class CfnOrganizationCentralizationRuleProps:
                                 encryption_conflict_resolution_strategy="encryptionConflictResolutionStrategy",
                                 kms_key_arn="kmsKeyArn"
                             )
+                        ),
+                        destination_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty(
+                            backup_configuration=observabilityadmin.CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty(
+                                region="region"
+                            )
                         )
                     ),
                     source=observabilityadmin.CfnOrganizationCentralizationRule.CentralizationRuleSourceProperty(
@@ -1120,6 +1341,9 @@ class CfnOrganizationCentralizationRuleProps:
                             # the properties below are optional
                             data_source_selection_criteria="dataSourceSelectionCriteria",
                             log_group_selection_criteria="logGroupSelectionCriteria"
+                        ),
+                        source_metrics_configuration=observabilityadmin.CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty(
+                            metrics_selection_criteria="metricsSelectionCriteria"
                         )
                     )
                 ),
@@ -3892,7 +4116,7 @@ class CfnTelemetryEnrichment(
         scope_: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        scope: typing.Optional[builtins.str] = None,
+        scope: builtins.str,
     ) -> None:
         '''Create a new ``AWS::ObservabilityAdmin::TelemetryEnrichment``.
 
@@ -3977,12 +4201,12 @@ class CfnTelemetryEnrichment(
 
     @builtins.property
     @jsii.member(jsii_name="scope")
-    def scope(self) -> typing.Optional[builtins.str]:
+    def scope(self) -> builtins.str:
         '''Scope of the Telemetry Enrichment.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "scope"))
+        return typing.cast(builtins.str, jsii.get(self, "scope"))
 
     @scope.setter
-    def scope(self, value: typing.Optional[builtins.str]) -> None:
+    def scope(self, value: builtins.str) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3995,7 +4219,7 @@ class CfnTelemetryEnrichment(
     name_mapping={"scope": "scope"},
 )
 class CfnTelemetryEnrichmentProps:
-    def __init__(self, *, scope: typing.Optional[builtins.str] = None) -> None:
+    def __init__(self, *, scope: builtins.str) -> None:
         '''Properties for defining a ``CfnTelemetryEnrichment``.
 
         :param scope: Scope of the Telemetry Enrichment.
@@ -4016,18 +4240,19 @@ class CfnTelemetryEnrichmentProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a30f5085a114a209191cdafe68039db0885f3e529a62c36334fd5847fe978cd4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if scope is not None:
-            self._values["scope"] = scope
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scope": scope,
+        }
 
     @builtins.property
-    def scope(self) -> typing.Optional[builtins.str]:
+    def scope(self) -> builtins.str:
         '''Scope of the Telemetry Enrichment.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-observabilityadmin-telemetryenrichment.html#cfn-observabilityadmin-telemetryenrichment-scope
         '''
         result = self._values.get("scope")
-        return typing.cast(typing.Optional[builtins.str], result)
+        assert result is not None, "Required property 'scope' is missing"
+        return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6882,6 +7107,7 @@ def _typecheckingstub__48736d0ec2563919af9b82675cbe965d2288bd15210b9c8b34911e7a8
     region: builtins.str,
     account: typing.Optional[builtins.str] = None,
     destination_logs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.DestinationLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination_metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.DestinationMetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6899,6 +7125,7 @@ def _typecheckingstub__8c4d1dff0252b97263e138c77bea2f698277762eeffd4fcf3911e496a
     regions: typing.Sequence[builtins.str],
     scope: typing.Optional[builtins.str] = None,
     source_logs_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.SourceLogsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    source_metrics_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.SourceMetricsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6908,6 +7135,13 @@ def _typecheckingstub__5dd7a39f2c94fa5f25cdcfc83cd888a8c3b22c09afa009f3ed5de76fd
     backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     log_group_name_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogGroupNameConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     logs_encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.LogsEncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12f498f9f25e327239522213ccc62495ae85e2f355fa6744ec71a746c7662a70(
+    *,
+    backup_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOrganizationCentralizationRule.MetricsBackupConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6936,11 +7170,25 @@ def _typecheckingstub__9d66f88a29d04606b9d6748d2a92fb0d7bf4a500a64fceff8556e1ac2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__22d56f473919888a6a23633e9abfc37d785e51c92e9fb8942ce190af4b0bcc5e(
+    *,
+    region: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__20a12247cb1287e19ec3a764cc738d756d26c889450a5b771811f8378a2b5d6c(
     *,
     encrypted_log_group_strategy: builtins.str,
     data_source_selection_criteria: typing.Optional[builtins.str] = None,
     log_group_selection_criteria: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1abb00d621ef0b57f2a59903b6b7f71e880aedf0f23fa9a0f8e004a87eb64e51(
+    *,
+    metrics_selection_criteria: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7256,7 +7504,7 @@ def _typecheckingstub__9ba5a5e42f36c7fc17bb7c590d5a373046157a6ffaa63db0c471053a5
     scope_: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    scope: typing.Optional[builtins.str] = None,
+    scope: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -7280,14 +7528,14 @@ def _typecheckingstub__6032d2eee341171e71bf9783d5c8885f15fc5a7521d3788723939aaa7
     pass
 
 def _typecheckingstub__02bb6f1ff0f0be33515cb6d31d7e6d46827e38f27b9969de30c0b28fd7c13d54(
-    value: typing.Optional[builtins.str],
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
 def _typecheckingstub__a30f5085a114a209191cdafe68039db0885f3e529a62c36334fd5847fe978cd4(
     *,
-    scope: typing.Optional[builtins.str] = None,
+    scope: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -240,7 +240,22 @@ def run_real_build_and_test(generated_files: list[Path]) -> None:
             # If it's a test file, run pytest on it and assert it passes
             if "test_" in f.name or "_test" in f.name:
                 try:
-                    res = subprocess.run([sys.executable, "-m", "pytest", filepath_str], capture_output=True, text=True, timeout=5.0)
+                    import os
+                    cwd = f.parent
+                    for parent in [f.parent, f.parent.parent, f.parent.parent.parent]:
+                        if (parent / "app").exists() or (parent / "pyproject.toml").exists() or (parent / "requirements.txt").exists():
+                            cwd = parent
+                            break
+                    env = os.environ.copy()
+                    env["PYTHONPATH"] = str(cwd)
+                    res = subprocess.run(
+                        [sys.executable, "-m", "pytest", str(f.resolve())],
+                        capture_output=True,
+                        text=True,
+                        timeout=5.0,
+                        cwd=str(cwd),
+                        env=env
+                    )
                     if res.returncode != 0:
                         raise AssertionError(
                             f"Generated Python test file {f.name} failed to pass all tests (exit code {res.returncode}).\n"
@@ -579,8 +594,18 @@ def verify_sms_with_rubric(prompt: str, tmp_path: Path) -> None:
     
     # Start the CLI SMS bridge in the foreground using the isolated HOME
     import sys
+    real_home = Path.home().resolve()
     env = os.environ.copy()
     env["HOME"] = str(test_home)
+    playwright_browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if not playwright_browsers_path:
+        if sys.platform == "darwin":
+            playwright_browsers_path = str(real_home / "Library/Caches/ms-playwright")
+        elif sys.platform == "win32":
+            playwright_browsers_path = str(real_home / "AppData" / "Local" / "ms-playwright")
+        else:
+            playwright_browsers_path = str(real_home / ".cache" / "ms-playwright")
+    env["PLAYWRIGHT_BROWSERS_PATH"] = playwright_browsers_path
     env["SAGE_API_BASE"] = api_base
     env["SAGE_TESTING"] = "1"
     env["PYTHONPATH"] = str(Path(__file__).resolve().parent.parent.parent)

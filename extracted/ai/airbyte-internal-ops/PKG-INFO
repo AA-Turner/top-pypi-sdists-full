@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airbyte-internal-ops
-Version: 0.64.4
+Version: 0.64.6
 Summary: MCP and API interfaces that let the agents do the admin work
 Author-email: Aaron Steers <aj@airbyte.io>
 Keywords: admin,airbyte,api,mcp
@@ -47,6 +47,7 @@ Requires-Dist: sentry-sdk>=2.50.0
 Requires-Dist: simpleeval<1.0,>=0.9.13
 Requires-Dist: slack-sdk<4.0,>=3.36.0
 Requires-Dist: sqlalchemy<3.0,>=2.0.0
+Requires-Dist: starlette
 Requires-Dist: toml<1.0,>=0.10.2
 Description-Content-Type: text/markdown
 

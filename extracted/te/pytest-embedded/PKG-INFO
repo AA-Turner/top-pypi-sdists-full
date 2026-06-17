@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-embedded
-Version: 2.8.0
+Version: 2.8.1
 Summary: A pytest plugin that designed for embedded testing.
 Author-email: Fu Hanxi <fuhanxi@espressif.com>
 Requires-Python: >=3.10

@@ -749,7 +749,7 @@ class Converter:
         re-reading from a cached file.
 
         >>> joplinURL = ('https://github.com/cuthbertLab/music21/raw/master'
-        ...              + '/music21/corpus/joplin/maple_leaf_rag.mxl')
+        ...              '/music21/corpus/joplin/maple_leaf_rag.mxl')
         >>> c = converter.Converter()
         >>> #_DOCS_SHOW c.parseURL(joplinURL)
         >>> #_DOCS_SHOW joplinStream = c.stream
@@ -798,17 +798,21 @@ class Converter:
             raise ConverterException(f'Cannot automatically find a format for {fp!r}')
 
         self.setSubConverterFromFormat(useFormat)
-        if t.TYPE_CHECKING:
-            assert isinstance(self.subConverter, subConverters.SubConverter)
 
-        self.subConverter.keywords = keywords
-        self.subConverter.parseFile(fp, number=number)
+        subConverter = t.cast(subConverters.SubConverter, self.subConverter)
+        subConverter.keywords = keywords
+        subConverter.parseFile(fp, number=number)
 
-        if self.stream is None:
+        s = self.stream
+        if s is None:
             raise ConverterException('Could not create a Stream via a subConverter.')
-        self.stream.metadata.filePath = fp
-        self.stream.metadata.fileNumber = number
-        self.stream.metadata.fileFormat = useFormat
+
+        if not s.metadata:
+            s.metadata = metadata.Metadata()
+
+        s.metadata.filePath = fp
+        s.metadata.fileNumber = number
+        s.metadata.fileFormat = useFormat
 
 
     # -----------------------------------------------------------------------#
@@ -2130,8 +2134,8 @@ class Test(unittest.TestCase):
         # These strings aren't valid documents, but they are enough to pass the detection we're
         # testing in parseData(). But it does mean we'll be testing in a strange way.
         meiString = '<?xml version="1.0" encoding="UTF-8"?><mei><note/></mei>'
-        # mxlString = ('<?xml version="1.0" encoding="UTF-8"?>' +
-        #                '<score-partwise><note/></score-partwise>')
+        # mxlString = ('<?xml version="1.0" encoding="UTF-8"?>'
+        #              '<score-partwise><note/></score-partwise>')
 
         # The "mei" module raises an MeiElementError with "meiString," so as long as that's raised,
         # we know that parseData() chose correctly.

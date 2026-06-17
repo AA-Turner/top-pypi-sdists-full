@@ -1365,6 +1365,7 @@ class CfnOriginEndpoint(
                 manifest_name="manifestName",
         
                 # the properties below are optional
+                audio_timeline_pattern="audioTimelinePattern",
                 availability_start_time_configuration=mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
                     fixed_availability_start_time="fixedAvailabilityStartTime"
                 ),
@@ -2391,6 +2392,7 @@ class CfnOriginEndpoint(
         jsii_struct_bases=[],
         name_mapping={
             "manifest_name": "manifestName",
+            "audio_timeline_pattern": "audioTimelinePattern",
             "availability_start_time_configuration": "availabilityStartTimeConfiguration",
             "base_urls": "baseUrls",
             "compactness": "compactness",
@@ -2416,6 +2418,7 @@ class CfnOriginEndpoint(
             self,
             *,
             manifest_name: builtins.str,
+            audio_timeline_pattern: typing.Optional[builtins.str] = None,
             availability_start_time_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             base_urls: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnOriginEndpoint.DashBaseUrlProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             compactness: typing.Optional[builtins.str] = None,
@@ -2438,6 +2441,7 @@ class CfnOriginEndpoint(
             '''The DASH manifest configuration associated with the origin endpoint.
 
             :param manifest_name: A short string that's appended to the endpoint URL. The child manifest name creates a unique path to this endpoint.
+            :param audio_timeline_pattern: 
             :param availability_start_time_configuration: 
             :param base_urls: The base URLs to use for retrieving segments.
             :param compactness: The layout of the DASH manifest that MediaPackage produces. ``STANDARD`` indicates a default manifest, which is compacted. ``NONE`` indicates a full manifest. For information about compactness, see `DASH manifest compactness <https://docs.aws.amazon.com/mediapackage/latest/userguide/compacted.html>`_ in the *AWS Elemental MediaPackage v2 User Guide* .
@@ -2470,6 +2474,7 @@ class CfnOriginEndpoint(
                     manifest_name="manifestName",
                 
                     # the properties below are optional
+                    audio_timeline_pattern="audioTimelinePattern",
                     availability_start_time_configuration=mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
                         fixed_availability_start_time="fixedAvailabilityStartTime"
                     ),
@@ -2537,6 +2542,7 @@ class CfnOriginEndpoint(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6)
                 check_type(argname="argument manifest_name", value=manifest_name, expected_type=type_hints["manifest_name"])
+                check_type(argname="argument audio_timeline_pattern", value=audio_timeline_pattern, expected_type=type_hints["audio_timeline_pattern"])
                 check_type(argname="argument availability_start_time_configuration", value=availability_start_time_configuration, expected_type=type_hints["availability_start_time_configuration"])
                 check_type(argname="argument base_urls", value=base_urls, expected_type=type_hints["base_urls"])
                 check_type(argname="argument compactness", value=compactness, expected_type=type_hints["compactness"])
@@ -2558,6 +2564,8 @@ class CfnOriginEndpoint(
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "manifest_name": manifest_name,
             }
+            if audio_timeline_pattern is not None:
+                self._values["audio_timeline_pattern"] = audio_timeline_pattern
             if availability_start_time_configuration is not None:
                 self._values["availability_start_time_configuration"] = availability_start_time_configuration
             if base_urls is not None:
@@ -2606,6 +2614,14 @@ class CfnOriginEndpoint(
             result = self._values.get("manifest_name")
             assert result is not None, "Required property 'manifest_name' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def audio_timeline_pattern(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-audiotimelinepattern
+            '''
+            result = self._values.get("audio_timeline_pattern")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def availability_start_time_configuration(
@@ -5410,6 +5426,7 @@ class CfnOriginEndpointProps:
                     manifest_name="manifestName",
             
                     # the properties below are optional
+                    audio_timeline_pattern="audioTimelinePattern",
                     availability_start_time_configuration=mediapackagev2.CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty(
                         fixed_availability_start_time="fixedAvailabilityStartTime"
                     ),
@@ -6220,6 +6237,7 @@ def _typecheckingstub__280a149dc1f481cd4b69b2b250e75d424c71bee34e699369b2294841b
 def _typecheckingstub__20e3bfad4ae40517c778173bab356d7bd208497ee33a09fdc9e380135384dfc6(
     *,
     manifest_name: builtins.str,
+    audio_timeline_pattern: typing.Optional[builtins.str] = None,
     availability_start_time_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashAvailabilityStartTimeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     base_urls: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnOriginEndpoint.DashBaseUrlProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     compactness: typing.Optional[builtins.str] = None,

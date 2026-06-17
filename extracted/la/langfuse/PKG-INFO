@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse
-Version: 4.8.1
+Version: 4.9.0
 Summary: A client library for accessing langfuse
 Author: langfuse
 Author-email: langfuse <developers@langfuse.com>

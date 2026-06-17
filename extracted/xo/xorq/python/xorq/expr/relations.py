@@ -2,14 +2,15 @@ import functools
 import itertools
 import operator
 from collections import defaultdict
+from itertools import tee
+from threading import Lock
 from typing import Any, Callable
 
 import pyarrow as pa
 import toolz
-from opentelemetry import trace
 
 from xorq.backends.xorq_datafusion import connect as xo_connect
-from xorq.common.utils.otel_utils import tracer
+from xorq.common.utils.otel_utils import get_current_span, tracer
 from xorq.common.utils.rbr_utils import (
     copy_rbr_batches,
     instrument_reader,
@@ -60,9 +61,6 @@ class SafeTee(object):
     @classmethod
     def tee(cls, iterable, n=2):
         """tuple of n independent thread-safe iterators"""
-        from itertools import tee  # noqa: PLC0415
-        from threading import Lock  # noqa: PLC0415
-
         lock = Lock()
         return tuple(cls(teeobj, lock) for teeobj in tee(iterable, n))
 
@@ -567,10 +565,11 @@ class Read(ops.DatabaseTable):
     normalize_method: Callable = None
 
     def make_dt(self):
+        from xorq.common.constants import READ_EXCLUDE_KEYS  # noqa: PLC0415
+
         method = getattr(self.source, self.method_name)
-        _exclude = ("hash_path", "read_path")
         args = tuple(v for k, v in self.read_kwargs if k == "hash_path")
-        kwargs = {k: v for k, v in self.read_kwargs if k not in _exclude}
+        kwargs = {k: v for k, v in self.read_kwargs if k not in READ_EXCLUDE_KEYS}
         dt = method(*args, **kwargs).op()
         return dt
 
@@ -601,7 +600,7 @@ def register_and_transform_remote_tables(expr, **kwargs):
                     counts[arg] += 1
 
     if counts:
-        trace.get_current_span().add_event(
+        get_current_span().add_event(
             "remote_table.replace", {"counts.values": tuple(counts.values())}
         )
     batches_table = {}

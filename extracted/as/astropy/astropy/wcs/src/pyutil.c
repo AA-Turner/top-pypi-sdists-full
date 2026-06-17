@@ -5,13 +5,12 @@
 
 #define NO_IMPORT_ARRAY
 
-#include <stdlib.h> // malloc, free
-#include <string.h> // memcpy
-
 /* util.h must be imported first */
 #include "astropy_wcs/pyutil.h"
-
 #include "astropy_wcs/docstrings.h"
+
+#include <stdlib.h> // malloc, free
+#include <string.h> // memcpy
 
 #include "wcsfix.h"
 #include "wcshdr.h"
@@ -19,7 +18,7 @@
 #include "wcsunits.h"
 
 /*@null@*/ static INLINE PyObject*
-_PyArrayProxy_New(
+_ArrayProxy_New(
     /*@shared@*/ PyObject* self,
     int nd,
     const npy_intp* dims,
@@ -53,25 +52,25 @@ _PyArrayProxy_New(
 }
 
 /*@null@*/ PyObject*
-PyArrayProxy_New(
+ArrayProxy_New(
     /*@shared@*/ PyObject* self,
     int nd,
     const npy_intp* dims,
     int typenum,
     const void* data) {
 
-  return _PyArrayProxy_New(self, nd, dims, typenum, data, NPY_ARRAY_WRITEABLE);
+  return _ArrayProxy_New(self, nd, dims, typenum, data, NPY_ARRAY_WRITEABLE);
 }
 
 /*@null@*/ PyObject*
-PyArrayReadOnlyProxy_New(
+ArrayReadOnlyProxy_New(
     /*@shared@*/ PyObject* self,
     int nd,
     const npy_intp* dims,
     int typenum,
     const void* data) {
 
-  return _PyArrayProxy_New(self, nd, dims, typenum, data, 0);
+  return _ArrayProxy_New(self, nd, dims, typenum, data, 0);
 }
 
 void
@@ -736,7 +735,6 @@ get_pscards(
     }
 
     if (PyList_SetItem(result, i, subresult)) {
-      Py_DECREF(subresult);
       Py_DECREF(result);
       return NULL;
     }
@@ -847,7 +845,6 @@ get_pvcards(
     }
 
     if (PyList_SetItem(result, i, subresult)) {
-      Py_DECREF(subresult);
       Py_DECREF(result);
       return NULL;
     }

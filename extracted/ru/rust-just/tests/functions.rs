@@ -747,6 +747,65 @@ fn prepend() {
 }
 
 #[test]
+fn show_string() {
+  assert_list_eq(r#""foo""#, r#""foo""#);
+}
+
+#[test]
+fn show_escapes_contents() {
+  assert_list_eq(r#""a\tb\"c""#, r#""a\tb\"c""#);
+}
+
+#[test]
+fn show_requires_lists_setting() {
+  Test::new()
+    .justfile(r#"x := show("foo")"#)
+    .args(["--evaluate", "x"])
+    .stderr(
+      r#"
+        error: the `show()` function requires `set lists`
+         ——▶ justfile:1:6
+          │
+        1 │ x := show("foo")
+          │      ^^^^
+      "#,
+    )
+    .failure();
+}
+
+#[test]
+fn show_list() {
+  Test::new()
+    .justfile(
+      r#"
+        set lists
+
+        x := show(["foo", "bar baz", "qux"])
+      "#,
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["--evaluate", "x"])
+    .stdout(r#"["foo", "bar baz", "qux"]"#)
+    .success();
+}
+
+#[test]
+fn show_empty_list() {
+  Test::new()
+    .justfile(
+      r"
+        set lists
+
+        x := show([])
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["--evaluate", "x"])
+    .stdout("[]")
+    .success();
+}
+
+#[test]
 fn join_unix() {
   if cfg!(windows) {
     return;
@@ -1273,6 +1332,84 @@ fn is_dependency() {
     .justfile(justfile)
     .stdout("beta false\ngamma true\n")
     .success();
+}
+
+#[test]
+fn recipe_name() {
+  Test::new()
+    .justfile(
+      "
+        foo: bar
+          @echo 'foo {{recipe_name()}}'
+
+        bar:
+          @echo 'bar {{recipe_name()}}'
+      ",
+    )
+    .args(["foo"])
+    .stdout("bar bar\nfoo foo\n")
+    .success();
+}
+
+#[test]
+fn recipe_name_in_parameter_default() {
+  Test::new()
+    .justfile(
+      "
+        foo x=recipe_name():
+          @echo {{x}}
+      ",
+    )
+    .stdout("foo\n")
+    .success();
+}
+
+#[test]
+fn recipe_name_in_dependency_argument() {
+  Test::new()
+    .justfile(
+      "
+        foo: (bar recipe_name())
+
+        bar x:
+          @echo {{x}}
+      ",
+    )
+    .stdout("foo\n")
+    .success();
+}
+
+#[test]
+fn recipe_name_ignores_alias() {
+  Test::new()
+    .justfile(
+      "
+        alias f := foo
+
+        foo:
+          @echo {{recipe_name()}}
+      ",
+    )
+    .args(["f"])
+    .stdout("foo\n")
+    .success();
+}
+
+#[test]
+fn recipe_name_in_assignment_is_an_error() {
+  Test::new()
+    .justfile("x := recipe_name()")
+    .args(["--evaluate"])
+    .stderr(
+      "
+        error: call to function `recipe_name` failed: `recipe_name()` can only be used within a recipe
+         ——▶ justfile:1:6
+          │
+        1 │ x := recipe_name()
+          │      ^^^^^^^^^^^
+      ",
+    )
+    .failure();
 }
 
 #[test]

@@ -1735,6 +1735,26 @@ def run(
                 model_locked=sage_agent.model_locked,
                 cfg=cfg,
             )
+
+        elif cmd_name == "/autopolit":
+            message = " ".join(args) if args else None
+            _run_autopolit_command(
+                message,
+                cwd=sage_agent.cwd,
+                sage_agent=sage_agent,
+                router=sage_agent.router,
+                model_id=sage_agent.model_id,
+                temp=sage_agent.temp,
+                tokens=sage_agent.tokens,
+                model_locked=sage_agent.model_locked,
+            )
+
+        elif cmd_name == "/autopolit-stop":
+            stop_file = _autopolit_stop_path(sage_agent.cwd)
+            stop_file.parent.mkdir(parents=True, exist_ok=True)
+            stop_file.touch()
+            sage_agent.renderer.info("Stop signal sent to autonomous loop.")
+
         else:
             sage_agent.renderer.error(f"Unknown command: {cmd_name}. Type /help to see all available commands.")
 
@@ -1770,6 +1790,20 @@ def run(
             raise typer.Exit(1) from e
         return
 
+    if os.environ.get("SAGE_AUTOPOLIT_RUN") == "1":
+        task_msg = os.environ.get("SAGE_AUTOPOLIT_TASK")
+        _run_autopolit_command(
+            task_msg,
+            cwd=sage_agent.cwd,
+            sage_agent=sage_agent,
+            router=sage_agent.router,
+            model_id=sage_agent.model_id,
+            temp=sage_agent.temp,
+            tokens=sage_agent.tokens,
+            model_locked=sage_agent.model_locked,
+        )
+        return
+
     # Start the async REPL
     run_repl(sage_agent, _repl_execute)
 
@@ -1793,6 +1827,20 @@ def ask(
             help="Output raw response only without styling or metadata",
         ),
     ] = False,
+    image: Annotated[
+        Path | None,
+        typer.Option(
+            "--image",
+            help="Path to an image file to attach for vision models",
+        ),
+    ] = None,
+    file: Annotated[
+        Path | None,
+        typer.Option(
+            "--file",
+            help="Path to a text or document file (e.g. PDF, DOCX, TXT) to import and analyze with auto-extraction",
+        ),
+    ] = None,
 ) -> None:
     """Ask Sage a question or run a one-shot task."""
     if not no_agent:
@@ -1844,10 +1892,25 @@ def ask(
     # Build prompt messages
     from sage.providers.base import Message
     system_prompt = "You are Sage, a helpful AI coding assistant. Answer the user's question directly."
-    messages = [
-        Message(role="system", content=system_prompt),
-        Message(role="user", content=prompt)
-    ]
+
+    user_prompt = prompt
+    if file:
+        from sage.core.document_extractor import DocumentExtractor
+        extracted = DocumentExtractor().extract(file)
+        user_prompt = f"Context from file {file.name}:\n{extracted.text}\n\nUser Question:\n{prompt}"
+
+    if image:
+        from sage.core.vision_input import build_vision_message
+        vision_msg = build_vision_message(user_prompt, [image])
+        messages = [
+            Message(role="system", content=system_prompt),
+            Message(role="user", content=vision_msg["content"])
+        ]
+    else:
+        messages = [
+            Message(role="system", content=system_prompt),
+            Message(role="user", content=user_prompt)
+        ]
 
     try:
         if raw:
@@ -1868,6 +1931,30 @@ def ask(
         else:
             renderer.error(str(exc))
         raise typer.Exit(1) from exc
+
+@app.command()
+def autopolit(
+    task: Annotated[str | None, typer.Argument(help="Optional focus/message for the autonomous loop")] = None,
+    model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID")] = None,
+    temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+) -> None:
+    """Run an autonomous build loop.
+
+    Without a message/task, it does a codebase analysis then TDD cycle that repeats.
+    If a message/task is provided, it runs the repeat cycle of analysis and TDD implementation
+    with that message in mind.
+    """
+    import os
+    os.environ["SAGE_AUTOPOLIT_RUN"] = "1"
+    if task:
+        os.environ["SAGE_AUTOPOLIT_TASK"] = task
+
+    run(
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
 
 @app.command()
 def cli_entry() -> None:

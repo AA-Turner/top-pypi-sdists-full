@@ -73,7 +73,7 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
       recipe
     };
 
-    let mut arguments = vec![Vec::<String>::new(); recipe.parameters.len()];
+    let mut arguments = vec![Value::new(); recipe.parameters.len()];
 
     let long = recipe
       .parameters
@@ -143,7 +143,8 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
           });
         };
 
-        let value = if let Some(flag_value) = &recipe.parameters[index].value {
+        let parameter = &recipe.parameters[index];
+        let value = if parameter.flag || parameter.value.is_some() {
           if value.is_some() {
             return Err(Error::FlagWithValue {
               recipe: recipe.name(),
@@ -151,7 +152,7 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
             });
           }
           i += 1;
-          flag_value
+          "true"
         } else if let Some(value) = value {
           i += 1;
           value
@@ -181,7 +182,7 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
           break;
         };
         let group = &mut arguments[index];
-        group.push((*argument).into());
+        group.push(argument);
         if !recipe.parameters[index].kind.is_variadic() {
           positional_index += 1;
         }
@@ -197,7 +198,7 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
         continue;
       }
 
-      if parameter.default.is_some() || parameter.kind == ParameterKind::Star {
+      if parameter.default.is_some() || parameter.kind == ParameterKind::Star || parameter.flag {
         continue;
       }
 
@@ -236,8 +237,12 @@ impl<'src: 'run, 'run> InvocationParser<'src, 'run> {
     }
 
     for (group, parameter) in arguments.iter().zip(&recipe.parameters) {
-      for argument in group {
-        parameter.check_pattern_match(recipe, argument)?;
+      if parameter.value.is_some() {
+        continue;
+      }
+
+      for element in group.elements() {
+        parameter.check_pattern_match(recipe, element)?;
       }
     }
 
@@ -360,7 +365,7 @@ mod tests {
 
     assert_eq!(invocations.len(), 1);
     assert_eq!(invocations[0].recipe.recipe_path().to_string(), "foo");
-    assert_eq!(invocations[0].arguments, vec![vec![String::from("baz")]]);
+    assert_eq!(invocations[0].arguments, vec![Value::from("baz")]);
   }
 
   #[test]
@@ -590,20 +595,16 @@ BAZ +Z:
 
     assert_eq!(invocations.len(), 3);
     assert_eq!(invocations[0].recipe.recipe_path().to_string(), "BAR");
-    assert_eq!(invocations[0].arguments, vec![vec![String::from("0")]]);
+    assert_eq!(invocations[0].arguments, vec![Value::from("0")]);
     assert_eq!(invocations[1].recipe.recipe_path().to_string(), "FOO");
     assert_eq!(
       invocations[1].arguments,
-      vec![vec![String::from("1")], vec![String::from("2")]]
+      vec![Value::from("1"), Value::from("2")]
     );
     assert_eq!(invocations[2].recipe.recipe_path().to_string(), "BAZ");
     assert_eq!(
       invocations[2].arguments,
-      vec![vec![
-        String::from("3"),
-        String::from("4"),
-        String::from("5")
-      ]]
+      vec![["3", "4", "5"].into_iter().map(String::from).collect()]
     );
   }
 
@@ -621,7 +622,7 @@ foo bar:
 
     assert_eq!(invocations.len(), 1);
     assert_eq!(invocations[0].recipe.recipe_path().to_string(), "foo");
-    assert_eq!(invocations[0].arguments, vec![vec![String::from("baz")]]);
+    assert_eq!(invocations[0].arguments, vec![Value::from("baz")]);
   }
 
   #[test]
@@ -640,7 +641,7 @@ foo baz bar:
     assert_eq!(invocations[0].recipe.recipe_path().to_string(), "foo");
     assert_eq!(
       invocations[0].arguments,
-      vec![vec![String::from("qux")], vec![String::from("baz")]]
+      vec![Value::from("qux"), Value::from("baz")]
     );
   }
 
@@ -660,7 +661,7 @@ foo baz qux='qux' bar='bar':
     assert_eq!(invocations[0].recipe.recipe_path().to_string(), "foo");
     assert_eq!(
       invocations[0].arguments,
-      vec![vec![String::from("--bar")], Vec::new(), Vec::new()]
+      vec![Value::from("--bar"), Value::new(), Value::new()]
     );
   }
 

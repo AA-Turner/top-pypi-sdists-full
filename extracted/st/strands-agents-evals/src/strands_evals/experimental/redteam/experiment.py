@@ -4,41 +4,49 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any, cast
 
 from strands import Agent
 from strands.models.model import Model
+from strands.multiagent.base import MultiAgentBase
 
 from ...case import Case
 from ...evaluation_data_store import EvaluationDataStore
 from ...evaluators.evaluator import Evaluator
 from ...experiment import Experiment
 from ...types import InputT, OutputT
+from .case import RedTeamCase
 from .evaluators import AttackSuccessEvaluator
 from .report import RedTeamReport
 from .strategies import AttackStrategy
 from .strategies.target_session import TargetSession
 from .task import _build_attacker_task
+from .utils import _put_model_field
 
 
 class RedTeamExperiment(Experiment[InputT, OutputT]):
-    """Experiment specialized for red team evaluation.
+    """Experiment that runs the case x strategy cross-product and returns a `RedTeamReport`.
 
-    Holds the attack strategies and runs the case × strategy cross-product:
-    every case is attacked by every strategy. When ``agent`` is supplied,
-    ``run_evaluations()`` builds a default multi-turn attacker task internally;
-    pass an explicit ``task`` to customize. Returns a :class:`RedTeamReport`.
+    Targets can be a single `strands.Agent`, a multi-agent system (`strands.multiagent.Graph`,
+    `strands.multiagent.Swarm`, or any `strands.multiagent.base.MultiAgentBase`), or a custom
+    `TargetSession` Protocol implementer.
 
     Example:
         ```python
-        from strands_evals.experimental.redteam import (
-            AdversarialCaseGenerator, RedTeamExperiment, CrescendoStrategy,
-        )
-
+        # Single Agent target
         cases = AdversarialCaseGenerator(model=model).generate_cases(agent=agent)
         experiment = RedTeamExperiment(
             cases=cases, agent=agent, attack_strategies=[CrescendoStrategy(max_turns=10)]
+        )
+        report = experiment.run_evaluations()
+
+        # Multi-agent (Graph / Swarm) target
+        graph = Graph(...)  # or Swarm(...)
+        experiment = RedTeamExperiment(
+            cases=cases, agent=graph, attack_strategies=[CrescendoStrategy(max_turns=10)]
         )
         report = experiment.run_evaluations()
         report.display()
@@ -49,7 +57,8 @@ class RedTeamExperiment(Experiment[InputT, OutputT]):
         self,
         cases: list[Case[InputT, OutputT]] | None = None,
         *,
-        agent: Agent | TargetSession | None = None,
+        agent: Agent | MultiAgentBase | TargetSession | None = None,
+        agent_factory: Callable[[], Agent | MultiAgentBase | TargetSession] | None = None,
         attack_strategies: list[AttackStrategy] | None = None,
         evaluators: list[Evaluator[InputT, OutputT]] | None = None,
         model: Model | str | None = None,
@@ -59,13 +68,50 @@ class RedTeamExperiment(Experiment[InputT, OutputT]):
             evaluators=evaluators or [AttackSuccessEvaluator(model=model)],
         )
         self._agent = agent
+        self._agent_factory = agent_factory
         self._attack_strategies = attack_strategies or []
         self._by_label = self._build_by_label(self._attack_strategies)
         self._model = model
-        # case name -> strategy run metadata (turns_used, backtracks, ...); the
-        # default task records into this and we join it onto the report, since the
-        # base Experiment doesn't carry task-returned metadata into EvaluationData.
+        # case name -> strategy run metadata; the base Experiment drops task-returned
+        # metadata, so we join this onto the report ourselves.
         self._run_meta: dict[str, dict[str, Any]] = {}
+
+    @property
+    def agent(self) -> Agent | MultiAgentBase | TargetSession | None:
+        """The target the default attacker task talks to.
+
+        Accepts a single `strands.Agent`, a `MultiAgentBase` (e.g. `Graph`, `Swarm`), or a custom
+        `TargetSession`. Not persisted by `to_dict`; set via this setter after `from_file` /
+        `from_dict` before `run_evaluations`.
+        """
+        return self._agent
+
+    @agent.setter
+    def agent(self, value: Agent | MultiAgentBase | TargetSession | None) -> None:
+        self._agent = value
+
+    @property
+    def agent_factory(self) -> Callable[[], Agent | MultiAgentBase | TargetSession] | None:
+        """Zero-arg callable that returns a fresh target per case.
+
+        When set, the factory is used for every case -- sequential runs included -- and takes
+        precedence over `agent`. Required for parallel runs (`max_workers > 1`): real Strands
+        targets carry non-deepcopyable client state (the default `BedrockModel` holds an httplib
+        pool with thread locks), so the runner cannot clone `self.agent` safely; the user must
+        construct each per-case target themselves.
+
+        Not persisted by `to_dict`.
+        """
+        return self._agent_factory
+
+    @agent_factory.setter
+    def agent_factory(self, value: Callable[[], Agent | MultiAgentBase | TargetSession] | None) -> None:
+        self._agent_factory = value
+
+    @property
+    def attack_strategies(self) -> list[AttackStrategy]:
+        """The configured attack strategies (read-only copy)."""
+        return list(self._attack_strategies)
 
     @staticmethod
     def _build_by_label(strategies: list[AttackStrategy]) -> dict[str, AttackStrategy]:
@@ -80,19 +126,10 @@ class RedTeamExperiment(Experiment[InputT, OutputT]):
         return by_label
 
     def _expand_cross_product(self) -> list[Case[InputT, OutputT]]:
-        """Expand held cases into the case × strategy cross-product.
+        """Return a new list of (case x strategy) work items; does not mutate `self._cases`.
 
-        Each work item is a copy of the case tagged with one strategy's label in
-        ``metadata["strategy"]`` and a unique name ``"{case}__{label}"`` (so the
-        evaluation_data_store cache keys stay unique). The base worker still sees
-        a plain case queue.
-
-        Pure: returns a new list and never mutates ``self._cases``, so reusing
-        the experiment across runs does not re-expand an already-expanded list.
-
-        Returns:
-            The expanded case list, or the held cases unchanged when no
-            strategies were supplied.
+        Each item is a copy of the case named `"{case}__{label}"` and tagged with `metadata["strategy"] = label`
+        so cache keys stay unique.
         """
         if not self._attack_strategies:
             return list(self._cases)
@@ -119,29 +156,36 @@ class RedTeamExperiment(Experiment[InputT, OutputT]):
     async def run_evaluations_async(  # type: ignore[override]
         self,
         task: Callable | None = None,
-        max_workers: int = 1,
+        max_workers: int = 5,
         evaluation_data_store: EvaluationDataStore | None = None,
     ) -> RedTeamReport:
-        # Parallel workers would interleave on the shared target Agent and on each
-        # strategy instance's per-case state, so red team runs are strictly sequential.
-        if max_workers != 1:
-            raise ValueError("RedTeamExperiment requires max_workers=1 (shared target Agent and strategy state).")
+        """Run case-strategy cross-product, in parallel when `max_workers > 1`.
+
+        Defaults to `max_workers=5`: callers reaching for the async entry point are opting into
+        concurrency, and 5 is the largest value safe across most provider tiers without user-side
+        rate-limit tuning. Bump higher for fast targets / generous TPM budgets; drop to 1 for
+        deterministic ordering or to debug a single case.
+
+        Parallel runs require each worker to have its own target so concurrent `invoke()` calls
+        cannot interleave on shared agent state. The default attacker task uses `agent_factory`
+        (called once per case to produce a fresh target). `agent` is for sequential runs only --
+        Strands targets aren't safely deepcopyable, so we don't try. A user-supplied `task`
+        callable is treated as already parallel-safe.
+
+        Strategy instances are shared across all concurrent cases; per-case state must live in
+        `run_attack` locals, not on `self`. See `AttackStrategy.run_attack` for the contract.
+        """
+        if max_workers < 1:
+            raise ValueError(f"max_workers must be >= 1, got {max_workers}")
         self._run_meta.clear()
         if task is None:
-            task = self._default_task()
-        # Swap self._cases to the expanded cross-product only for the duration of the
-        # base run, then restore it, so the experiment can be re-run without re-expanding
-        # (validated by test_run_evaluations_twice_is_idempotent). This temporary mutation
-        # is safe ONLY because max_workers=1 is enforced above: no other worker or
-        # event-loop task reads self._cases concurrently. Passing the expanded list down
-        # without mutating self is cleaner and is part of the standalone (composition)
-        # refactor tracked in the fast-follow plan; the base API doesn't accept an
-        # explicit case list today.
+            task = self._default_task(parallel=max_workers > 1)
+        # Swap _cases for the expanded cross-product. Each case has a unique name (case x strategy
+        # label), so parallel workers never collide on the same key in the base runner's results
+        # buffer or in `self._run_meta`.
         original_cases = self._cases
         self._cases = self._expand_cross_product()
         try:
-            # base now returns a single flattened EvaluationReport (#241), each case row
-            # tagged with its evaluator; RedTeamReport wraps that and joins run_meta.
             report = await super().run_evaluations_async(
                 task, max_workers=max_workers, evaluation_data_store=evaluation_data_store
             )
@@ -149,10 +193,10 @@ class RedTeamExperiment(Experiment[InputT, OutputT]):
             self._cases = original_cases
         return RedTeamReport.from_evaluation_report(report, run_meta=self._run_meta)
 
-    def _default_task(self) -> Callable[[Case[InputT, OutputT]], Any]:
-        if self._agent is None:
+    def _default_task(self, *, parallel: bool = False) -> Callable[[Case[InputT, OutputT]], Any]:
+        if self._agent is None and self._agent_factory is None:
             raise ValueError(
-                "RedTeamExperiment requires either `agent` at construction "
+                "RedTeamExperiment requires either `agent` (or `agent_factory`) at construction "
                 "or an explicit `task` argument to run_evaluations()."
             )
         return cast(
@@ -160,7 +204,77 @@ class RedTeamExperiment(Experiment[InputT, OutputT]):
             _build_attacker_task(
                 self._agent,
                 self._by_label,
+                agent_factory=self._agent_factory,
                 model=self._model,
                 run_meta=self._run_meta,
+                parallel=parallel,
             ),
+        )
+
+    def to_dict(self) -> dict:  # type: ignore[override]
+        """Serialize the experiment, omitting the live `agent` and per-run state."""
+        out = super().to_dict()
+        out["attack_strategies"] = [strategy.to_dict() for strategy in self._attack_strategies]
+        # Coerce via the strategy helper for consistency with how strategies serialize their own model field.
+        _put_model_field(out, self._model)
+        return out
+
+    @classmethod
+    def from_file(  # type: ignore[override]
+        cls,
+        path: str,
+        custom_evaluators: list[type[Evaluator]] | None = None,
+        custom_strategies: list[type[AttackStrategy]] | None = None,
+    ):
+        """Load a RedTeamExperiment from JSON.
+
+        The loaded experiment has neither `agent` nor `agent_factory` attached -- both are
+        runtime-only and not serialized. Reattach via the setters before `run_evaluations`.
+        """
+        file_path = Path(path)
+        if file_path.suffix != ".json":
+            raise ValueError(
+                f"Only .json format is supported. Got file: {path}. Please provide a path with .json extension."
+            )
+        with open(file_path, encoding="utf-8") as f:
+            data = json.load(f)
+        return cls.from_dict(
+            data,
+            custom_evaluators=custom_evaluators,
+            custom_strategies=custom_strategies,
+        )
+
+    @classmethod
+    def from_dict(  # type: ignore[override]
+        cls,
+        data: dict,
+        custom_evaluators: list[type[Evaluator]] | None = None,
+        custom_strategies: list[type[AttackStrategy]] | None = None,
+    ):
+        """Reconstruct a RedTeamExperiment from its serialized form.
+
+        Cases are validated as `RedTeamCase`. Pass `custom_evaluators` / `custom_strategies` to register
+        user-defined subclasses.
+        """
+        merged_evaluators: list[type[Evaluator]] = [AttackSuccessEvaluator, *(custom_evaluators or [])]
+        # Reuse the base evaluator-resolving path but skip its case parser; we want RedTeamCase.
+        payload = dict(data)
+        case_dicts = payload.pop("cases", [])
+        strategy_dicts = payload.pop("attack_strategies", [])
+        model = payload.pop("model", None)
+        # Drive the base only for evaluator resolution by giving it an empty case list.
+        base_for_evaluators = super().from_dict(
+            {"cases": [], "evaluators": payload.get("evaluators", [])},
+            custom_evaluators=merged_evaluators,
+        )
+        cases: list[Case[InputT, OutputT]] = [RedTeamCase.model_validate(case_data) for case_data in case_dicts]
+        strategies = [
+            AttackStrategy.from_dict(strategy_data, custom_strategies=custom_strategies)
+            for strategy_data in strategy_dicts
+        ]
+        return cls(
+            cases=cases,
+            attack_strategies=strategies,
+            evaluators=base_for_evaluators.evaluators,
+            model=model,
         )

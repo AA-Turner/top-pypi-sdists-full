@@ -170,6 +170,7 @@ class SessionTurnEvents:
         model = options.get("model", "claude-sonnet-4-20250514")
         model_short = model.split("-")[0].capitalize() if model else "Claude"
         trace_name = self.trace_name or f"{model_short} Session"
+        self._root_name = trace_name
 
         # Cache so subagent / LLM spans can pick it up from one place.
         self.metadata["model"] = model
@@ -184,9 +185,21 @@ class SessionTurnEvents:
             }
         )
 
-        # Create trace
-        trace_data = {
-            "id": self.trace_id,
+        # Capture system prompt for drift detection
+        system_prompt = options.get("system_prompt", "")
+        if system_prompt:
+            self._drift_detector.capture_system_prompt(system_prompt)
+
+        # The session span IS the trace root (root.id == trace_id, parent None,
+        # carries the trace name/input/metadata/tags). No separate trace event
+        # is emitted — trace identity rides this span.
+        self.session_span_id = self.trace_id
+        session_start_iso = _utc_isoformat()
+        self._session_start_iso = session_start_iso
+        session_span_data = {
+            "id": self.session_span_id,
+            "trace_id": self.trace_id,
+            "parent_id": None,
             "name": trace_name,
             "type": "agent",
             "input": {
@@ -196,44 +209,17 @@ class SessionTurnEvents:
             "status": "pending",
             "tags": [*self.tags, "claude_agent_sdk", "session"],
             "metadata": trace_metadata,
-            "start_time": _utc_isoformat(),
-            "created_at": _utc_isoformat(),
-        }
-
-        if self.user_id:
-            trace_data["user_id"] = self.user_id
-        if self.session_id:
-            trace_data["session_id"] = self.session_id
-
-        # Capture system prompt for drift detection
-        system_prompt = options.get("system_prompt", "")
-        if system_prompt:
-            self._drift_detector.capture_system_prompt(system_prompt)
-
-        if aigie._buffer:
-            logger.debug(f"[AIGIE] TRACE_CREATE (session): id={self.trace_id}, name={trace_name}")
-            self.open_trace(payload=trace_data)
-
-        # Create session span
-        self.session_span_id = str(uuid.uuid4())
-        session_start_iso = _utc_isoformat()
-        self._session_start_iso = session_start_iso
-        session_span_data = {
-            "id": self.session_span_id,
-            "trace_id": self.trace_id,
-            "name": "session",
-            "type": "chain",
-            "input": {"session_type": "stateful"},
-            "status": "pending",
-            "tags": self.tags or [],
-            "metadata": trace_metadata,
             "start_time": session_start_iso,
             "created_at": session_start_iso,
         }
+        if self.user_id:
+            session_span_data["user_id"] = self.user_id
+        if self.session_id:
+            session_span_data["session_id"] = self.session_id
 
         if aigie._buffer:
             logger.debug(
-                f"[AIGIE] SPAN_CREATE: id={self.session_span_id}, name=session, parent=None (trace root)"
+                f"[AIGIE] root span (session): id={self.session_span_id}, name={trace_name}, parent=None"
             )
             self.open_span(payload=session_span_data)
 
@@ -260,14 +246,17 @@ class SessionTurnEvents:
         end_time = _utc_now()
         success = error is None
 
-        # Update session span with token data
+        # The session span IS the trace root: finalize it once, folding the
+        # trace-level aggregate (top-level turn_count, name) onto it. No
+        # separate trace event — trace identity rides this span.
         if self.session_span_id:
             session_tokens = self.total_input_tokens + self.total_output_tokens
             session_update = {
                 "id": self.session_span_id,
                 "trace_id": self.trace_id,  # Required for backend merge
-                "name": "session",  # Include name for race conditions
-                "type": "chain",  # Include type for race conditions
+                "parent_id": None,
+                "name": getattr(self, "_root_name", self.trace_name),
+                "type": "agent",
                 "status": "success" if success else "failed",
                 "output": {
                     "turn_count": turn_count,
@@ -286,44 +275,20 @@ class SessionTurnEvents:
                 "completion_tokens": self.total_output_tokens,
                 "total_tokens": session_tokens,
                 "total_cost": total_cost,
+                "turn_count": turn_count,  # Top-level for backend indexing
             }
+            if self.session_id:
+                session_update["session_id"] = self.session_id
 
             if error:
                 session_update["error"] = error
                 session_update["error_message"] = error
 
             if aigie._buffer:
+                logger.debug(
+                    f"[AIGIE] root span (session) finalized: id={self.trace_id}, total_tokens={session_tokens}, cost={total_cost}, turn_count={turn_count}"
+                )
                 self.close_span(payload=session_update)
-
-        # Update trace with top-level token fields for backend aggregation
-        update_data = {
-            "id": self.trace_id,
-            "name": self.trace_name,  # Include name so auto-created traces get proper name
-            "status": "success" if success else "failed",
-            "output": {
-                "turn_count": turn_count,
-                "total_cost": total_cost,
-                "total_tokens": self.total_input_tokens + self.total_output_tokens,
-                "total_tool_calls": self.total_tool_calls,
-            },
-            "end_time": end_time.isoformat(),
-            # Top-level token/cost fields for backend aggregation display
-            "total_tokens": self.total_input_tokens + self.total_output_tokens,
-            "prompt_tokens": self.total_input_tokens,
-            "completion_tokens": self.total_output_tokens,
-            "total_cost": total_cost,
-            "turn_count": turn_count,  # Top-level for backend indexing
-        }
-
-        if error:
-            update_data["error"] = error
-            update_data["error_message"] = error
-
-        if aigie._buffer:
-            logger.debug(
-                f"[AIGIE] TRACE_UPDATE (session): id={self.trace_id}, total_tokens={update_data['total_tokens']}, cost={update_data['total_cost']}, turn_count={turn_count}"
-            )
-            self.close_trace(payload=update_data)
 
         # Complete any pending spans to ensure all have end_time
         await self.complete_pending_turn_spans()

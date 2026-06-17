@@ -4,8 +4,12 @@ from textwrap import dedent
 from typing import Optional
 
 from soda_core.cli.exit_codes import ExitCode
+from soda_core.common.env_config_helper import EnvConfigHelper
 from soda_core.common.logging_constants import Emoticons, soda_logger
-from soda_core.common.yaml import DataSourceYamlSource
+from soda_core.common.logs import Logs
+from soda_core.common.logs_queue import LogsQueue
+from soda_core.common.soda_cloud import SodaCloud
+from soda_core.common.yaml import DataSourceYamlSource, SodaCloudYamlSource
 
 
 def handle_create_data_source(data_source_file_path: str, data_source_type: str) -> ExitCode:
@@ -43,24 +47,82 @@ def handle_create_data_source(data_source_file_path: str, data_source_type: str)
         return ExitCode.LOG_ERRORS
 
 
-def handle_test_data_source(data_source_file_path: str) -> ExitCode:
+def handle_test_data_source(
+    data_source_file_path: str,
+    soda_cloud_file_path: Optional[str] = None,
+) -> ExitCode:
     soda_logger.info(f"Testing data source configuration file {data_source_file_path}")
     from soda_core.common.data_source_impl import DataSourceImpl
 
-    data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
-        DataSourceYamlSource.from_file_path(data_source_file_path)
+    # Build the upload Logs before parsing so logs emitted while loading/validating the
+    # data source YAML — often the most relevant when a connection test fails early — are
+    # captured and streamed to Soda Cloud.
+    upload_logs: Optional[Logs] = build_test_connection_log_uploader(
+        soda_cloud_file_path=soda_cloud_file_path,
     )
-    error_message: Optional[str] = (
-        data_source_impl.test_connection_error_message()
-        if data_source_impl
-        else "Data source could not be created. See logs above. Or re-run with -v"
-    )
-    if error_message:
-        soda_logger.error(
-            f"{Emoticons.POLICE_CAR_LIGHT} Could not connect using data source '{data_source_file_path}': "
-            f"{error_message}"
+
+    try:
+        data_source_impl: DataSourceImpl = DataSourceImpl.from_yaml_source(
+            DataSourceYamlSource.from_file_path(data_source_file_path)
         )
-        return ExitCode.LOG_ERRORS
-    else:
-        soda_logger.info(f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok.")
-        return ExitCode.OK
+        error_message: Optional[str] = (
+            data_source_impl.test_connection_error_message()
+            if data_source_impl
+            else "Data source could not be created. See logs above. Or re-run with -v"
+        )
+        if error_message:
+            soda_logger.error(
+                f"{Emoticons.POLICE_CAR_LIGHT} Could not connect using data source '{data_source_file_path}': "
+                f"{error_message}"
+            )
+            return ExitCode.LOG_ERRORS
+        else:
+            soda_logger.info(
+                f"{Emoticons.WHITE_CHECK_MARK} Success! Connection in '{data_source_file_path}' tested ok."
+            )
+            return ExitCode.OK
+    finally:
+        if upload_logs is not None:
+            upload_logs.close()
+
+
+def build_test_connection_log_uploader(
+    soda_cloud_file_path: Optional[str],
+) -> Optional[Logs]:
+    """Returns a ``Logs`` backed by a ``LogsQueue`` bound to the scan id, so
+    root-logger records during the test stream to Soda Cloud — or None when
+    there is no scan id / cloud config. Must be closed to flush the final batch.
+
+    Public because connection-test commands outside soda-core (e.g. the
+    soda-extensions ``diagnostics-warehouse test`` command) reuse it to stream
+    their logs to the same scan-id-keyed endpoint.
+    """
+    # The scan id is a Cloud-only concept set by the Runner/launcher as SODA_SCAN_ID; it is
+    # read from the env helper rather than a CLI argument so the generic CLI stays Cloud-agnostic.
+    scan_id: Optional[str] = EnvConfigHelper().soda_scan_id
+    if not scan_id or not soda_cloud_file_path:
+        return None
+
+    try:
+        soda_cloud = SodaCloud.from_yaml_source(
+            SodaCloudYamlSource.from_file_path(soda_cloud_file_path),
+            provided_variable_values=None,
+        )
+    except Exception as e:
+        soda_logger.warning(
+            f"Could not initialise Soda Cloud log upload for test-connection (scan_id="
+            f"{scan_id}): {e}. Continuing without log upload."
+        )
+        return None
+
+    if soda_cloud is None:
+        soda_logger.warning("Soda Cloud configuration could not be parsed; test-connection logs will not be uploaded.")
+        return None
+
+    logs_queue = LogsQueue(
+        soda_cloud=soda_cloud,
+        stage="test_connection",
+        scan_id=scan_id,
+        dataset="",
+    )
+    return Logs(gatherer=logs_queue)

@@ -312,7 +312,7 @@ impl<'src> Justfile<'src> {
         let scope = scopes.get(&module.module_path).unwrap().1;
 
         if let Some(variable) = variable {
-          print!("{}", scope.value(variable).unwrap());
+          print!("{}", scope.value(variable).unwrap().join());
         } else {
           let width = scope.names().fold(0, |max, name| name.len().max(max));
 
@@ -320,14 +320,19 @@ impl<'src> Justfile<'src> {
             if !binding.private {
               match format {
                 EvaluateFormat::Just => {
-                  println!("{0:1$} := \"{2}\"", binding.name, width, binding.value);
+                  println!(
+                    "{0:1$} := {2}",
+                    binding.name,
+                    width,
+                    binding.value.color_display(config.color.stdout()),
+                  );
                 }
                 EvaluateFormat::Shell => {
                   if binding.export || module.settings.export {
                     print!("export ");
                   }
                   print!("{}=\"", binding.name.lexeme().replace('-', "_"));
-                  for c in binding.value.chars() {
+                  for c in binding.value.join().chars() {
                     if matches!(c, '!' | '"' | '$' | '\\' | '`') {
                       print!("\\");
                     }
@@ -438,7 +443,7 @@ impl<'src> Justfile<'src> {
   }
 
   fn run_recipe(
-    arguments: &[Vec<String>],
+    arguments: &[Value],
     config: &Config,
     is_dependency: bool,
     overrides: &HashMap<Number, String>,
@@ -478,7 +483,7 @@ impl<'src> Justfile<'src> {
 
     let scope = outer.child();
 
-    let mut evaluator = Evaluator::new(&context, BTreeMap::new(), true, &scope);
+    let mut evaluator = Evaluator::new(&context, BTreeMap::new(), true, Some(recipe.name), &scope);
 
     if !config.yes && !recipe.confirm(&mut evaluator)? {
       return Err(Error::NotConfirmed {
@@ -490,10 +495,10 @@ impl<'src> Justfile<'src> {
       config,
       &context,
       recipe.priors(),
+      recipe,
       &mut evaluator,
       overrides,
       ran,
-      recipe,
       scopes,
       search,
     )?;
@@ -504,10 +509,10 @@ impl<'src> Justfile<'src> {
       config,
       &context,
       recipe.subsequents(),
+      recipe,
       &mut evaluator,
       overrides,
       &Ran::default(),
-      recipe,
       scopes,
       search,
     )?;
@@ -521,10 +526,10 @@ impl<'src> Justfile<'src> {
     config: &Config,
     context: &ExecutionContext<'src, 'run>,
     dependencies: &[Dependency<'src>],
+    dependent: &Recipe<'src>,
     evaluator: &mut Evaluator<'src, 'run>,
     overrides: &HashMap<Number, String>,
     ran: &Ran,
-    recipe: &Recipe<'src>,
     scopes: &Scopes<'src, 'run>,
     search: &Search,
   ) -> RunResult<'src> {
@@ -533,19 +538,41 @@ impl<'src> Justfile<'src> {
     }
 
     let mut evaluated = Vec::new();
-    for Dependency { recipe, arguments } in dependencies {
+    for dependency in dependencies {
       let mut grouped = Vec::new();
-      for group in arguments {
-        let evaluated_group = group
-          .iter()
-          .map(|argument| evaluator.evaluate_expression(argument))
-          .collect::<RunResult<Vec<String>>>()?;
-        grouped.push(evaluated_group);
+      for group in &dependency.arguments {
+        let value = if context.module.settings.lists {
+          match group.as_slice() {
+            [] => Value::new(),
+            [argument] => evaluator.evaluate_value(&argument.expression)?,
+            _ => {
+              return Err(Error::internal(
+                "multiple arguments grouped to one parameter with lists setting",
+              ));
+            }
+          }
+        } else {
+          let mut elements = Vec::new();
+          for argument in group {
+            elements.push(evaluator.evaluate_value(&argument.expression)?.join());
+          }
+          elements.into()
+        };
+        grouped.push(value);
       }
-      evaluated.push((recipe, grouped));
+
+      if let Some(star) = dependency.star() {
+        for element in grouped[star].elements().to_vec() {
+          let mut arguments = grouped.clone();
+          arguments[star] = element.into();
+          evaluated.push((&dependency.recipe, arguments));
+        }
+      } else {
+        evaluated.push((&dependency.recipe, grouped));
+      }
     }
 
-    if recipe.is_parallel() {
+    if dependent.is_parallel() {
       thread::scope::<_, RunResult>(|thread_scope| {
         let mut handles = Vec::new();
         for (recipe, arguments) in evaluated {

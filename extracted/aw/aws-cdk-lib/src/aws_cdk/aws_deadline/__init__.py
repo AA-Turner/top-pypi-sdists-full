@@ -613,6 +613,15 @@ class CfnFleet(
                         standby_worker_count=123,
                         worker_idle_duration_seconds=123
                     ),
+                    persistent_volume_configuration=deadline.CfnFleet.PersistentVolumeConfigurationProperty(
+                        mount_path="mountPath",
+        
+                        # the properties below are optional
+                        iops=123,
+                        last_used_ttl_hours=123,
+                        size_gi_b=123,
+                        throughput_mi_b=123
+                    ),
                     storage_profile_id="storageProfileId",
                     vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                         resource_configuration_arns=["resourceConfigurationArns"]
@@ -2263,6 +2272,15 @@ class CfnFleet(
                             standby_worker_count=123,
                             worker_idle_duration_seconds=123
                         ),
+                        persistent_volume_configuration=deadline.CfnFleet.PersistentVolumeConfigurationProperty(
+                            mount_path="mountPath",
+                
+                            # the properties below are optional
+                            iops=123,
+                            last_used_ttl_hours=123,
+                            size_gi_b=123,
+                            throughput_mi_b=123
+                        ),
                         storage_profile_id="storageProfileId",
                         vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                             resource_configuration_arns=["resourceConfigurationArns"]
@@ -2481,6 +2499,132 @@ class CfnFleet(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.PersistentVolumeConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "mount_path": "mountPath",
+            "iops": "iops",
+            "last_used_ttl_hours": "lastUsedTtlHours",
+            "size_gib": "sizeGiB",
+            "throughput_mib": "throughputMiB",
+        },
+    )
+    class PersistentVolumeConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            mount_path: builtins.str,
+            iops: typing.Optional[jsii.Number] = None,
+            last_used_ttl_hours: typing.Optional[jsii.Number] = None,
+            size_gib: typing.Optional[jsii.Number] = None,
+            throughput_mib: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param mount_path: 
+            :param iops: Default: - 3000
+            :param last_used_ttl_hours: Default: - 168
+            :param size_gib: Default: - 250
+            :param throughput_mib: Default: - 125
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-persistentvolumeconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_deadline as deadline
+                
+                persistent_volume_configuration_property = deadline.CfnFleet.PersistentVolumeConfigurationProperty(
+                    mount_path="mountPath",
+                
+                    # the properties below are optional
+                    iops=123,
+                    last_used_ttl_hours=123,
+                    size_gi_b=123,
+                    throughput_mi_b=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__237d2daa93e1b42c238b68b44d692ee0a00060e89e7633a8a4a03d971c95aca4)
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+                check_type(argname="argument iops", value=iops, expected_type=type_hints["iops"])
+                check_type(argname="argument last_used_ttl_hours", value=last_used_ttl_hours, expected_type=type_hints["last_used_ttl_hours"])
+                check_type(argname="argument size_gib", value=size_gib, expected_type=type_hints["size_gib"])
+                check_type(argname="argument throughput_mib", value=throughput_mib, expected_type=type_hints["throughput_mib"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "mount_path": mount_path,
+            }
+            if iops is not None:
+                self._values["iops"] = iops
+            if last_used_ttl_hours is not None:
+                self._values["last_used_ttl_hours"] = last_used_ttl_hours
+            if size_gib is not None:
+                self._values["size_gib"] = size_gib
+            if throughput_mib is not None:
+                self._values["throughput_mib"] = throughput_mib
+
+        @builtins.property
+        def mount_path(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-persistentvolumeconfiguration.html#cfn-deadline-fleet-persistentvolumeconfiguration-mountpath
+            '''
+            result = self._values.get("mount_path")
+            assert result is not None, "Required property 'mount_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def iops(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 3000
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-persistentvolumeconfiguration.html#cfn-deadline-fleet-persistentvolumeconfiguration-iops
+            '''
+            result = self._values.get("iops")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def last_used_ttl_hours(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 168
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-persistentvolumeconfiguration.html#cfn-deadline-fleet-persistentvolumeconfiguration-lastusedttlhours
+            '''
+            result = self._values.get("last_used_ttl_hours")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def size_gib(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 250
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-persistentvolumeconfiguration.html#cfn-deadline-fleet-persistentvolumeconfiguration-sizegib
+            '''
+            result = self._values.get("size_gib")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def throughput_mib(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 125
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-persistentvolumeconfiguration.html#cfn-deadline-fleet-persistentvolumeconfiguration-throughputmib
+            '''
+            result = self._values.get("throughput_mib")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PersistentVolumeConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_deadline.CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2572,6 +2716,7 @@ class CfnFleet(
             "instance_capabilities": "instanceCapabilities",
             "instance_market_options": "instanceMarketOptions",
             "auto_scaling_configuration": "autoScalingConfiguration",
+            "persistent_volume_configuration": "persistentVolumeConfiguration",
             "storage_profile_id": "storageProfileId",
             "vpc_configuration": "vpcConfiguration",
         },
@@ -2583,6 +2728,7 @@ class CfnFleet(
             instance_capabilities: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty", typing.Dict[builtins.str, typing.Any]]],
             instance_market_options: typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty", typing.Dict[builtins.str, typing.Any]]],
             auto_scaling_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            persistent_volume_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.PersistentVolumeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             storage_profile_id: typing.Optional[builtins.str] = None,
             vpc_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.VpcConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -2591,6 +2737,7 @@ class CfnFleet(
             :param instance_capabilities: The instance capabilities for the service managed EC2 fleet.
             :param instance_market_options: The instance market options for the service managed EC2 fleet.
             :param auto_scaling_configuration: 
+            :param persistent_volume_configuration: 
             :param storage_profile_id: The storage profile ID for the service managed EC2 fleet.
             :param vpc_configuration: The VPC configuration for the service managed EC2 fleet.
 
@@ -2666,6 +2813,15 @@ class CfnFleet(
                         standby_worker_count=123,
                         worker_idle_duration_seconds=123
                     ),
+                    persistent_volume_configuration=deadline.CfnFleet.PersistentVolumeConfigurationProperty(
+                        mount_path="mountPath",
+                
+                        # the properties below are optional
+                        iops=123,
+                        last_used_ttl_hours=123,
+                        size_gi_b=123,
+                        throughput_mi_b=123
+                    ),
                     storage_profile_id="storageProfileId",
                     vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
                         resource_configuration_arns=["resourceConfigurationArns"]
@@ -2677,6 +2833,7 @@ class CfnFleet(
                 check_type(argname="argument instance_capabilities", value=instance_capabilities, expected_type=type_hints["instance_capabilities"])
                 check_type(argname="argument instance_market_options", value=instance_market_options, expected_type=type_hints["instance_market_options"])
                 check_type(argname="argument auto_scaling_configuration", value=auto_scaling_configuration, expected_type=type_hints["auto_scaling_configuration"])
+                check_type(argname="argument persistent_volume_configuration", value=persistent_volume_configuration, expected_type=type_hints["persistent_volume_configuration"])
                 check_type(argname="argument storage_profile_id", value=storage_profile_id, expected_type=type_hints["storage_profile_id"])
                 check_type(argname="argument vpc_configuration", value=vpc_configuration, expected_type=type_hints["vpc_configuration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2685,6 +2842,8 @@ class CfnFleet(
             }
             if auto_scaling_configuration is not None:
                 self._values["auto_scaling_configuration"] = auto_scaling_configuration
+            if persistent_volume_configuration is not None:
+                self._values["persistent_volume_configuration"] = persistent_volume_configuration
             if storage_profile_id is not None:
                 self._values["storage_profile_id"] = storage_profile_id
             if vpc_configuration is not None:
@@ -2723,6 +2882,16 @@ class CfnFleet(
             '''
             result = self._values.get("auto_scaling_configuration")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty"]], result)
+
+        @builtins.property
+        def persistent_volume_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PersistentVolumeConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-deadline-fleet-servicemanagedec2fleetconfiguration.html#cfn-deadline-fleet-servicemanagedec2fleetconfiguration-persistentvolumeconfiguration
+            '''
+            result = self._values.get("persistent_volume_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.PersistentVolumeConfigurationProperty"]], result)
 
         @builtins.property
         def storage_profile_id(self) -> typing.Optional[builtins.str]:
@@ -3361,6 +3530,15 @@ class CfnFleetProps:
                             scale_out_workers_per_minute=123,
                             standby_worker_count=123,
                             worker_idle_duration_seconds=123
+                        ),
+                        persistent_volume_configuration=deadline.CfnFleet.PersistentVolumeConfigurationProperty(
+                            mount_path="mountPath",
+            
+                            # the properties below are optional
+                            iops=123,
+                            last_used_ttl_hours=123,
+                            size_gi_b=123,
+                            throughput_mi_b=123
                         ),
                         storage_profile_id="storageProfileId",
                         vpc_configuration=deadline.CfnFleet.VpcConfigurationProperty(
@@ -7853,6 +8031,17 @@ def _typecheckingstub__e0c49c5364d9d5abab3267eb2a6afca69f203020da3e42493624297dd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__237d2daa93e1b42c238b68b44d692ee0a00060e89e7633a8a4a03d971c95aca4(
+    *,
+    mount_path: builtins.str,
+    iops: typing.Optional[jsii.Number] = None,
+    last_used_ttl_hours: typing.Optional[jsii.Number] = None,
+    size_gib: typing.Optional[jsii.Number] = None,
+    throughput_mib: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6a18ab11a125a4b6c943defd6bbee05c87f2e1e35b3e83540d34cb8dae673d40(
     *,
     scale_out_workers_per_minute: typing.Optional[jsii.Number] = None,
@@ -7867,6 +8056,7 @@ def _typecheckingstub__a24a660b503191048581077a517891d27502b69620643c50907360328
     instance_capabilities: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceCapabilitiesProperty, typing.Dict[builtins.str, typing.Any]]],
     instance_market_options: typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2InstanceMarketOptionsProperty, typing.Dict[builtins.str, typing.Any]]],
     auto_scaling_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ServiceManagedEc2AutoScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    persistent_volume_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.PersistentVolumeConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     storage_profile_id: typing.Optional[builtins.str] = None,
     vpc_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.VpcConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:

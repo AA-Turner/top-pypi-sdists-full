@@ -228,10 +228,6 @@ class GuardrailChain:
                 result = await guardrail.check(content, context)
                 individual_results.append(result.to_dict())
 
-                # Report individual guardrail check to backend
-                if self._aigie_client and self._auto_report and trace_id:
-                    await self._report_guardrail_check(result, trace_id, span_id)
-
                 # Track issues
                 all_issues.extend(result.issues)
                 all_details[guardrail.name] = result.to_dict()
@@ -300,33 +296,6 @@ class GuardrailChain:
                 logger.error(f"on_remediation callback failed: {e}")
 
         return result
-
-    async def _report_guardrail_check(
-        self,
-        result: GuardrailResult,
-        trace_id: str,
-        span_id: str | None = None,
-    ) -> None:
-        """Report a guardrail check result to the Kytte backend."""
-        if not self._aigie_client:
-            return
-
-        try:
-            await self._aigie_client.report_guardrail_check(
-                trace_id=trace_id,
-                span_id=span_id,
-                guardrail_name=result.guardrail_name,
-                action=result.action.value,
-                passed=result.passed,
-                score=result.score,
-                issues=result.issues,
-                modified_content=result.modified_content,
-                details=result.details,
-                duration_ms=result.duration_ms,
-                timestamp=result.timestamp,
-            )
-        except Exception as e:
-            logger.debug(f"Failed to report guardrail check: {e}")
 
     async def check_and_remediate(
         self,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: conda-pack
-Version: 0.9.1
+Version: 0.9.2
 Summary: Package conda environments for redistribution
 Author-email: Jim Crist <jiminy.crist@gmail.com>
 Maintainer-email: Jim Crist <jiminy.crist@gmail.com>

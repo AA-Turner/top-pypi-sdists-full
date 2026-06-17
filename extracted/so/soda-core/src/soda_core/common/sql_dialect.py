@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from abc import abstractmethod
 from datetime import date, datetime, time
@@ -22,6 +23,7 @@ from soda_core.common.metadata_types import (
     SqlDataType,
 )
 from soda_core.common.sql_ast import (
+    ALIAS,
     ALTER_TABLE,
     ALTER_TABLE_ADD_COLUMN,
     ALTER_TABLE_DROP_COLUMN,
@@ -465,16 +467,40 @@ class SqlDialect:
     def _build_create_table_column_type(self, create_table_column: CREATE_TABLE_COLUMN) -> str:
         assert isinstance(create_table_column.type, SqlDataType)
 
-        if not self.supports_data_type_character_maximum_length():
-            create_table_column.type.character_maximum_length = None
-        if not self.supports_data_type_numeric_precision():
-            create_table_column.type.numeric_precision = None
-        if not self.supports_data_type_numeric_scale():
-            create_table_column.type.numeric_scale = None
-        if not self.supports_data_type_datetime_precision():
-            create_table_column.type.datetime_precision = None
+        # Work on a shallow copy so the strip pass below doesn't mutate the
+        # caller's SqlDataType. Cross-source flows reuse a single source-side
+        # SqlDataType across two dialects (source render + target render); if
+        # the first render zeroed e.g. numeric_precision, the second render
+        # would see the already-stripped value.
+        sql_data_type: SqlDataType = dataclasses.replace(create_table_column.type)
 
-        return create_table_column.type.get_sql_data_type_str_with_parameters()
+        # Strip precision/length fields that don't apply to this column's data type.
+        # Some source extensions populate multiple precision fields from a single
+        # cursor-description value (e.g. postgres sets numeric_precision AND
+        # datetime_precision from column.precision); without this filter,
+        # get_sql_data_type_str_with_parameters() picks the first non-None and would
+        # emit e.g. `timestamp(2)` from a leaked numeric_precision even after a
+        # subsequent dialect-level safeguard zeros datetime_precision.
+        type_name: str = sql_data_type.name
+        if not self.data_type_has_parameter_character_maximum_length(type_name):
+            sql_data_type.character_maximum_length = None
+        if not self.data_type_has_parameter_numeric_precision(type_name):
+            sql_data_type.numeric_precision = None
+        if not self.data_type_has_parameter_numeric_scale(type_name):
+            sql_data_type.numeric_scale = None
+        if not self.data_type_has_parameter_datetime_precision(type_name):
+            sql_data_type.datetime_precision = None
+
+        if not self.supports_data_type_character_maximum_length():
+            sql_data_type.character_maximum_length = None
+        if not self.supports_data_type_numeric_precision():
+            sql_data_type.numeric_precision = None
+        if not self.supports_data_type_numeric_scale():
+            sql_data_type.numeric_scale = None
+        if not self.supports_data_type_datetime_precision():
+            sql_data_type.datetime_precision = None
+
+        return sql_data_type.get_sql_data_type_str_with_parameters()
 
     def _quote_column_for_create_table(self, column_name: str) -> str:
         return self.quote_for_ddl(column_name)
@@ -820,6 +846,8 @@ class SqlDialect:
             return self._build_function_sql(expression)
         elif isinstance(expression, DISTINCT):
             return self._build_distinct_sql(expression)
+        elif isinstance(expression, ALIAS):
+            return f"{self.build_expression_sql(expression.expression)} AS {self.quote_default(expression.alias)}"
         elif isinstance(expression, SqlExpressionStr):
             return f"({expression.expression_str})"
         elif isinstance(expression, ORDINAL_POSITION):
@@ -837,8 +865,7 @@ class SqlDialect:
         column_sql: str = self.build_expression_sql(
             column.name
         )  # If column.name is a SqlExpression, it will be compiled; if a string, it will be quoted
-        field_alias_sql: str = f" AS {self.quote_default(column.field_alias)}" if column.field_alias else ""
-        return f"{table_alias_sql}{column_sql}{field_alias_sql}"
+        return f"{table_alias_sql}{column_sql}"
 
     def _build_or_sql(self, or_expr: OR) -> str:
         if isinstance(or_expr.clauses, list) and len(or_expr.clauses) == 1:
@@ -1017,10 +1044,7 @@ class SqlDialect:
             return "*"
 
     def _build_count_sql(self, count: COUNT) -> str:
-        count_sql = f"COUNT({self.build_expression_sql(count.expression)})"
-        if count.field_alias:
-            count_sql = f"{count_sql} AS {self.quote_default(count.field_alias)}"
-        return count_sql
+        return f"COUNT({self.build_expression_sql(count.expression)})"
 
     def _build_distinct_sql(self, distinct: DISTINCT) -> str:
         expressions: list[SqlExpression] = (

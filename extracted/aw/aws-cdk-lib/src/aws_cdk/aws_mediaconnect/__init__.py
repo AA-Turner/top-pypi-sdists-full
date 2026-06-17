@@ -6976,6 +6976,7 @@ class CfnFlowOutput(
             )],
             min_latency=123,
             name="name",
+            ndi_output_timecode_source="ndiOutputTimecodeSource",
             ndi_program_name="ndiProgramName",
             ndi_speed_hq_quality=123,
             output_status="outputStatus",
@@ -7021,6 +7022,7 @@ class CfnFlowOutput(
         media_stream_output_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
+        ndi_output_timecode_source: typing.Optional[builtins.str] = None,
         ndi_program_name: typing.Optional[builtins.str] = None,
         ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
         output_status: typing.Optional[builtins.str] = None,
@@ -7047,6 +7049,7 @@ class CfnFlowOutput(
         :param media_stream_output_configurations: The media streams that are associated with the output, and the parameters for those associations.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param name: The name of the bridge's output.
+        :param ndi_output_timecode_source: The timecode source for the NDI output.
         :param ndi_program_name: A suffix for the names of the NDI sources that the flow creates. If a custom name isn't specified, MediaConnect uses the output name.
         :param ndi_speed_hq_quality: A quality setting for the NDI Speed HQ encoder.
         :param output_status: An indication of whether the output should transmit data or not.
@@ -7074,6 +7077,7 @@ class CfnFlowOutput(
             media_stream_output_configurations=media_stream_output_configurations,
             min_latency=min_latency,
             name=name,
+            ndi_output_timecode_source=ndi_output_timecode_source,
             ndi_program_name=ndi_program_name,
             ndi_speed_hq_quality=ndi_speed_hq_quality,
             output_status=output_status,
@@ -7292,6 +7296,19 @@ class CfnFlowOutput(
             type_hints = typing.get_type_hints(_typecheckingstub__07b750df47b88518fdf7bc5d1baec396797cb9cc3a0c8bdc7742108d9c93c231)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ndiOutputTimecodeSource")
+    def ndi_output_timecode_source(self) -> typing.Optional[builtins.str]:
+        '''The timecode source for the NDI output.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "ndiOutputTimecodeSource"))
+
+    @ndi_output_timecode_source.setter
+    def ndi_output_timecode_source(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af2b939b9b012e6dcf17cf926a350589ca560617a3a127882859512aa977722d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ndiOutputTimecodeSource", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="ndiProgramName")
@@ -8225,6 +8242,7 @@ class CfnFlowOutput(
         "media_stream_output_configurations": "mediaStreamOutputConfigurations",
         "min_latency": "minLatency",
         "name": "name",
+        "ndi_output_timecode_source": "ndiOutputTimecodeSource",
         "ndi_program_name": "ndiProgramName",
         "ndi_speed_hq_quality": "ndiSpeedHqQuality",
         "output_status": "outputStatus",
@@ -8252,6 +8270,7 @@ class CfnFlowOutputProps:
         media_stream_output_configurations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFlowOutput.MediaStreamOutputConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         min_latency: typing.Optional[jsii.Number] = None,
         name: typing.Optional[builtins.str] = None,
+        ndi_output_timecode_source: typing.Optional[builtins.str] = None,
         ndi_program_name: typing.Optional[builtins.str] = None,
         ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
         output_status: typing.Optional[builtins.str] = None,
@@ -8276,6 +8295,7 @@ class CfnFlowOutputProps:
         :param media_stream_output_configurations: The media streams that are associated with the output, and the parameters for those associations.
         :param min_latency: The minimum latency in milliseconds for SRT-based streams. In streams that use the SRT protocol, this value that you set on your MediaConnect source or output represents the minimal potential latency of that connection. The latency of the stream is set to the highest number between the sender’s minimum latency and the receiver’s minimum latency.
         :param name: The name of the bridge's output.
+        :param ndi_output_timecode_source: The timecode source for the NDI output.
         :param ndi_program_name: A suffix for the names of the NDI sources that the flow creates. If a custom name isn't specified, MediaConnect uses the output name.
         :param ndi_speed_hq_quality: A quality setting for the NDI Speed HQ encoder.
         :param output_status: An indication of whether the output should transmit data or not.
@@ -8338,6 +8358,7 @@ class CfnFlowOutputProps:
                 )],
                 min_latency=123,
                 name="name",
+                ndi_output_timecode_source="ndiOutputTimecodeSource",
                 ndi_program_name="ndiProgramName",
                 ndi_speed_hq_quality=123,
                 output_status="outputStatus",
@@ -8379,6 +8400,7 @@ class CfnFlowOutputProps:
             check_type(argname="argument media_stream_output_configurations", value=media_stream_output_configurations, expected_type=type_hints["media_stream_output_configurations"])
             check_type(argname="argument min_latency", value=min_latency, expected_type=type_hints["min_latency"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument ndi_output_timecode_source", value=ndi_output_timecode_source, expected_type=type_hints["ndi_output_timecode_source"])
             check_type(argname="argument ndi_program_name", value=ndi_program_name, expected_type=type_hints["ndi_program_name"])
             check_type(argname="argument ndi_speed_hq_quality", value=ndi_speed_hq_quality, expected_type=type_hints["ndi_speed_hq_quality"])
             check_type(argname="argument output_status", value=output_status, expected_type=type_hints["output_status"])
@@ -8410,6 +8432,8 @@ class CfnFlowOutputProps:
             self._values["min_latency"] = min_latency
         if name is not None:
             self._values["name"] = name
+        if ndi_output_timecode_source is not None:
+            self._values["ndi_output_timecode_source"] = ndi_output_timecode_source
         if ndi_program_name is not None:
             self._values["ndi_program_name"] = ndi_program_name
         if ndi_speed_hq_quality is not None:
@@ -8529,6 +8553,15 @@ class CfnFlowOutputProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-name
         '''
         result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ndi_output_timecode_source(self) -> typing.Optional[builtins.str]:
+        '''The timecode source for the NDI output.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-flowoutput.html#cfn-mediaconnect-flowoutput-ndioutputtimecodesource
+        '''
+        result = self._values.get("ndi_output_timecode_source")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -18365,6 +18398,7 @@ def _typecheckingstub__50a855342b002f2aaf180af2a85e45ce23346b4a5b582c00ee1a8474e
     media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    ndi_output_timecode_source: typing.Optional[builtins.str] = None,
     ndi_program_name: typing.Optional[builtins.str] = None,
     ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
     output_status: typing.Optional[builtins.str] = None,
@@ -18448,6 +18482,12 @@ def _typecheckingstub__ddb7401a37f3ff6ff7dc25a56db1a28806074c96fc3f42a6bd90cc4fe
     pass
 
 def _typecheckingstub__07b750df47b88518fdf7bc5d1baec396797cb9cc3a0c8bdc7742108d9c93c231(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af2b939b9b012e6dcf17cf926a350589ca560617a3a127882859512aa977722d(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -18611,6 +18651,7 @@ def _typecheckingstub__90cee4cbdefa91956af92950bb2bfd2da4fa4f982f439596444cda525
     media_stream_output_configurations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFlowOutput.MediaStreamOutputConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     min_latency: typing.Optional[jsii.Number] = None,
     name: typing.Optional[builtins.str] = None,
+    ndi_output_timecode_source: typing.Optional[builtins.str] = None,
     ndi_program_name: typing.Optional[builtins.str] = None,
     ndi_speed_hq_quality: typing.Optional[jsii.Number] = None,
     output_status: typing.Optional[builtins.str] = None,

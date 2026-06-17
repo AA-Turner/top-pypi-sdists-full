@@ -15,6 +15,10 @@ from runlayer_cli.hook.relay import TRANSCRIPT_STREAM_WORKER_SENTINEL
 
 
 def main() -> None:
+    # Unlike the frozen aiwatch binary (detected via runtime.is_frozen_aiwatch_bundle),
+    # this entrypoint is the pip-installed ``runlayer`` package — it must read
+    # ``~/.runlayer/config.yaml`` to resolve host + credentials, so it does NOT
+    # mark the aiwatch runtime.
     if len(sys.argv) >= 2 and sys.argv[1] == TRANSCRIPT_STREAM_WORKER_SENTINEL:
         sys.argv = [sys.argv[0], *sys.argv[2:]]
         _transcript_stream_worker.main()

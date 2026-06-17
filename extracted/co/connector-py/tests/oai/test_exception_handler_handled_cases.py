@@ -2,7 +2,7 @@ import json
 import typing as t
 
 import httpx
-from connector.oai.errors import ConnectorError, HTTPHandler
+from connector.oai.errors import ConnectorError, ExceptionHandler, HTTPHandler
 from connector.oai.integration import DescriptionData, Integration
 from connector_sdk_types.errors import ConnectorErrorCode, build_metadata
 from connector_sdk_types.generated import (
@@ -863,4 +863,77 @@ def case_connector_error_with_sdk_error_code() -> Case:
         StandardCapabilityName.LIST_ACCOUNTS,
         request_data,
         _expected_dict(expected_response, hint=ConnectorError.DEFAULT_HINT),
+    )
+
+
+def case_custom_handler_sets_error_metadata() -> Case:
+    """A custom handler that sets error_metadata explicitly must not be overridden.
+
+    Before, the auto-populate block in handle_exception always overwrote
+    error_metadata after handlers ran, discarding any metadata a handler set.
+    Now it should be skipped when a handler already populated it.
+    """
+    app_id = "test"
+
+    class RateLimitHandlerWithHint(ExceptionHandler):
+        @staticmethod
+        def handle(
+            e: Exception,
+            original_func: t.Any,
+            response: ErrorResponse,
+            error_code: ErrorCode | ConnectorErrorCode | None = None,
+        ) -> ErrorResponse:
+            response.error.error_code = ConnectorErrorCode.RATE_LIMIT
+            response.error.error_metadata = build_metadata(
+                ConnectorErrorCode.RATE_LIMIT,
+                hint="Retry after 60 seconds, if you want!",
+                retry_after_seconds=60,
+            )
+            return response
+
+    integration = Integration(
+        app_id=app_id,
+        version="0.1.0",
+        auth=BasicCredential,
+        exception_handlers=[(httpx.HTTPStatusError, RateLimitHandlerWithHint, None)],
+        description_data=DescriptionData(user_friendly_name="hi, testing", categories=[]),
+    )
+
+    requested_url = "https://httpstat.us/429"
+    capability_name = StandardCapabilityName.LIST_ACCOUNTS
+
+    @integration.register_capability(capability_name)
+    async def list_accounts(args: ListAccountsRequest) -> ListAccountsResponse:
+        def request_handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(text="429 Too Many Requests", status_code=429)
+
+        with httpx.Client(transport=httpx.MockTransport(request_handler)) as client:
+            client.get(requested_url).raise_for_status()
+        return ListAccountsResponse(response=[], raw_data=None)
+
+    request_data = json.dumps(
+        {"auth": {"basic": {"username": "user", "password": "pass"}}, "request": {}}
+    )
+    expected_response = ErrorResponse(
+        is_error=True,
+        error=Error(
+            message="[429][https://httpstat.us/429] 429 Too Many Requests",
+            error_code=ConnectorErrorCode.RATE_LIMIT,
+            app_id=app_id,
+            status_code=429,
+            raised_by="HTTPStatusError",
+            raised_in=f"{__name__}:{capability_name.value}",
+            error_metadata=build_metadata(
+                ConnectorErrorCode.RATE_LIMIT,
+                # Handler populated hint
+                hint="Retry after 60 seconds, if you want!",
+                retry_after_seconds=60,
+            ),
+        ),
+    )
+    return (
+        integration,
+        StandardCapabilityName.LIST_ACCOUNTS,
+        request_data,
+        expected_response.model_dump(),
     )

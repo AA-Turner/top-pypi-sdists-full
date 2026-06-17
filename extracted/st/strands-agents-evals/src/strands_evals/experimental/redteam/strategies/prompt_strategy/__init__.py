@@ -19,12 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class PromptStrategy(AttackStrategy):
-    """AttackStrategy that drives the attack via a system prompt template.
-
-    Runs an :class:`ActorSimulator` that escalates over the conversation using
-    a static system prompt. The simulator decides when to stop; each turn the
-    attacker message is sent through the injected ``target_session``.
-    """
+    """`AttackStrategy` that drives the attack via an `ActorSimulator` system-prompt template."""
 
     def __init__(
         self, strategy_name: str, system_prompt_template: str, *, max_turns: int = 10, label: str | None = None
@@ -94,6 +89,15 @@ class PromptStrategy(AttackStrategy):
                 break
 
         return AttackRunResult(conversation=conversation, metadata={"turns_used": len(conversation) // 2})
+
+    def to_dict(self) -> dict[str, Any]:
+        out = super().to_dict()
+        out.update(
+            strategy_name=self._name,
+            system_prompt_template=self._system_prompt_template,
+            max_turns=self._max_turns,
+        )
+        return out
 
 
 __all__ = ["PromptStrategy"]

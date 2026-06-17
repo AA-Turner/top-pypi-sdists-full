@@ -255,17 +255,18 @@ class TestCall:
                 },
                 "tool_calls": [
                     {
-                        "name": "name",
                         "latency_ms": {
                             "op": "eq",
                             "type": "number",
                             "value": 0,
                         },
+                        "name": "name",
                         "success": {
                             "op": "eq",
                             "type": "boolean",
                             "value": True,
                         },
+                        "type": "type",
                     }
                 ],
                 "user_sentiment": {
@@ -368,9 +369,6 @@ class TestCall:
                     "allow_user_dtmf": True,
                     "ambient_sound": "coffee-shop",
                     "ambient_sound_volume": 1,
-                    "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
-                    "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
-                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -389,7 +387,10 @@ class TestCall:
                     "enable_backchannel": True,
                     "enable_dynamic_responsiveness": True,
                     "enable_dynamic_voice_speed": True,
+                    "enable_expressive_mode": True,
                     "end_call_after_silence_ms": 600000,
+                    "expressive_emotion_tags": ["empathetic", "excited", "sigh", "clear throat", "emphasis"],
+                    "expressive_mode_prompt": "Use [sigh] for thoughtful pauses and [excited] for good news.",
                     "fallback_voice_ids": ["cartesia-Cimo", "minimax-Cimo"],
                     "guardrail_config": {
                         "input_topics": ["platform_integrity_jailbreaking"],
@@ -397,6 +398,7 @@ class TestCall:
                     },
                     "handbook_config": {
                         "ai_disclosure": True,
+                        "conversational_personality": True,
                         "default_personality": True,
                         "echo_verification": True,
                         "high_empathy": True,
@@ -454,14 +456,13 @@ class TestCall:
                         "timeout_ms": 1000,
                     },
                     "version_description": "Customer support agent for handling product inquiries",
+                    "version_title": "Production hotfix",
                     "vocab_specialization": "general",
                     "voice_emotion": "calm",
                     "voice_id": "retell-Cimo",
                     "voice_model": "eleven_turbo_v2",
                     "voice_speed": 1,
                     "voice_temperature": 1,
-                    "voicemail_detection_timeout_ms": 30000,
-                    "voicemail_message": "Hi, please give us a callback.",
                     "voicemail_option": {
                         "action": {
                             "text": "Please give us a callback tomorrow at 10am.",
@@ -563,9 +564,6 @@ class TestCall:
                     "allow_user_dtmf": True,
                     "ambient_sound": "coffee-shop",
                     "ambient_sound_volume": 1,
-                    "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
-                    "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
-                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -584,7 +582,10 @@ class TestCall:
                     "enable_backchannel": True,
                     "enable_dynamic_responsiveness": True,
                     "enable_dynamic_voice_speed": True,
+                    "enable_expressive_mode": True,
                     "end_call_after_silence_ms": 600000,
+                    "expressive_emotion_tags": ["empathetic", "excited", "sigh", "clear throat", "emphasis"],
+                    "expressive_mode_prompt": "Use [sigh] for thoughtful pauses and [excited] for good news.",
                     "fallback_voice_ids": ["cartesia-Cimo", "minimax-Cimo"],
                     "guardrail_config": {
                         "input_topics": ["platform_integrity_jailbreaking"],
@@ -592,6 +593,7 @@ class TestCall:
                     },
                     "handbook_config": {
                         "ai_disclosure": True,
+                        "conversational_personality": True,
                         "default_personality": True,
                         "echo_verification": True,
                         "high_empathy": True,
@@ -649,14 +651,13 @@ class TestCall:
                         "timeout_ms": 1000,
                     },
                     "version_description": "Customer support agent for handling product inquiries",
+                    "version_title": "Production hotfix",
                     "vocab_specialization": "general",
                     "voice_emotion": "calm",
                     "voice_id": "retell-Cimo",
                     "voice_model": "eleven_turbo_v2",
                     "voice_speed": 1,
                     "voice_temperature": 1,
-                    "voicemail_detection_timeout_ms": 30000,
-                    "voicemail_message": "Hi, please give us a callback.",
                     "voicemail_option": {
                         "action": {
                             "text": "Please give us a callback tomorrow at 10am.",
@@ -755,9 +756,6 @@ class TestCall:
                     "allow_user_dtmf": True,
                     "ambient_sound": "coffee-shop",
                     "ambient_sound_volume": 1,
-                    "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
-                    "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
-                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -776,7 +774,10 @@ class TestCall:
                     "enable_backchannel": True,
                     "enable_dynamic_responsiveness": True,
                     "enable_dynamic_voice_speed": True,
+                    "enable_expressive_mode": True,
                     "end_call_after_silence_ms": 600000,
+                    "expressive_emotion_tags": ["empathetic", "excited", "sigh", "clear throat", "emphasis"],
+                    "expressive_mode_prompt": "Use [sigh] for thoughtful pauses and [excited] for good news.",
                     "fallback_voice_ids": ["cartesia-Cimo", "minimax-Cimo"],
                     "guardrail_config": {
                         "input_topics": ["platform_integrity_jailbreaking"],
@@ -784,6 +785,7 @@ class TestCall:
                     },
                     "handbook_config": {
                         "ai_disclosure": True,
+                        "conversational_personality": True,
                         "default_personality": True,
                         "echo_verification": True,
                         "high_empathy": True,
@@ -841,14 +843,13 @@ class TestCall:
                         "timeout_ms": 1000,
                     },
                     "version_description": "Customer support agent for handling product inquiries",
+                    "version_title": "Production hotfix",
                     "vocab_specialization": "general",
                     "voice_emotion": "calm",
                     "voice_id": "retell-Cimo",
                     "voice_model": "eleven_turbo_v2",
                     "voice_speed": 1,
                     "voice_temperature": 1,
-                    "voicemail_detection_timeout_ms": 30000,
-                    "voicemail_message": "Hi, please give us a callback.",
                     "voicemail_option": {
                         "action": {
                             "text": "Please give us a callback tomorrow at 10am.",
@@ -1209,17 +1210,18 @@ class TestAsyncCall:
                 },
                 "tool_calls": [
                     {
-                        "name": "name",
                         "latency_ms": {
                             "op": "eq",
                             "type": "number",
                             "value": 0,
                         },
+                        "name": "name",
                         "success": {
                             "op": "eq",
                             "type": "boolean",
                             "value": True,
                         },
+                        "type": "type",
                     }
                 ],
                 "user_sentiment": {
@@ -1322,9 +1324,6 @@ class TestAsyncCall:
                     "allow_user_dtmf": True,
                     "ambient_sound": "coffee-shop",
                     "ambient_sound_volume": 1,
-                    "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
-                    "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
-                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -1343,7 +1342,10 @@ class TestAsyncCall:
                     "enable_backchannel": True,
                     "enable_dynamic_responsiveness": True,
                     "enable_dynamic_voice_speed": True,
+                    "enable_expressive_mode": True,
                     "end_call_after_silence_ms": 600000,
+                    "expressive_emotion_tags": ["empathetic", "excited", "sigh", "clear throat", "emphasis"],
+                    "expressive_mode_prompt": "Use [sigh] for thoughtful pauses and [excited] for good news.",
                     "fallback_voice_ids": ["cartesia-Cimo", "minimax-Cimo"],
                     "guardrail_config": {
                         "input_topics": ["platform_integrity_jailbreaking"],
@@ -1351,6 +1353,7 @@ class TestAsyncCall:
                     },
                     "handbook_config": {
                         "ai_disclosure": True,
+                        "conversational_personality": True,
                         "default_personality": True,
                         "echo_verification": True,
                         "high_empathy": True,
@@ -1408,14 +1411,13 @@ class TestAsyncCall:
                         "timeout_ms": 1000,
                     },
                     "version_description": "Customer support agent for handling product inquiries",
+                    "version_title": "Production hotfix",
                     "vocab_specialization": "general",
                     "voice_emotion": "calm",
                     "voice_id": "retell-Cimo",
                     "voice_model": "eleven_turbo_v2",
                     "voice_speed": 1,
                     "voice_temperature": 1,
-                    "voicemail_detection_timeout_ms": 30000,
-                    "voicemail_message": "Hi, please give us a callback.",
                     "voicemail_option": {
                         "action": {
                             "text": "Please give us a callback tomorrow at 10am.",
@@ -1517,9 +1519,6 @@ class TestAsyncCall:
                     "allow_user_dtmf": True,
                     "ambient_sound": "coffee-shop",
                     "ambient_sound_volume": 1,
-                    "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
-                    "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
-                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -1538,7 +1537,10 @@ class TestAsyncCall:
                     "enable_backchannel": True,
                     "enable_dynamic_responsiveness": True,
                     "enable_dynamic_voice_speed": True,
+                    "enable_expressive_mode": True,
                     "end_call_after_silence_ms": 600000,
+                    "expressive_emotion_tags": ["empathetic", "excited", "sigh", "clear throat", "emphasis"],
+                    "expressive_mode_prompt": "Use [sigh] for thoughtful pauses and [excited] for good news.",
                     "fallback_voice_ids": ["cartesia-Cimo", "minimax-Cimo"],
                     "guardrail_config": {
                         "input_topics": ["platform_integrity_jailbreaking"],
@@ -1546,6 +1548,7 @@ class TestAsyncCall:
                     },
                     "handbook_config": {
                         "ai_disclosure": True,
+                        "conversational_personality": True,
                         "default_personality": True,
                         "echo_verification": True,
                         "high_empathy": True,
@@ -1603,14 +1606,13 @@ class TestAsyncCall:
                         "timeout_ms": 1000,
                     },
                     "version_description": "Customer support agent for handling product inquiries",
+                    "version_title": "Production hotfix",
                     "vocab_specialization": "general",
                     "voice_emotion": "calm",
                     "voice_id": "retell-Cimo",
                     "voice_model": "eleven_turbo_v2",
                     "voice_speed": 1,
                     "voice_temperature": 1,
-                    "voicemail_detection_timeout_ms": 30000,
-                    "voicemail_message": "Hi, please give us a callback.",
                     "voicemail_option": {
                         "action": {
                             "text": "Please give us a callback tomorrow at 10am.",
@@ -1709,9 +1711,6 @@ class TestAsyncCall:
                     "allow_user_dtmf": True,
                     "ambient_sound": "coffee-shop",
                     "ambient_sound_volume": 1,
-                    "analysis_successful_prompt": "The agent finished the task and the call was complete without being cutoff.",
-                    "analysis_summary_prompt": "Summarize the outcome of the conversation in two sentences.",
-                    "analysis_user_sentiment_prompt": "Evaluate the user's sentiment based on their tone and satisfaction level.",
                     "backchannel_frequency": 0.9,
                     "backchannel_words": ["yeah", "uh-huh"],
                     "begin_message_delay_ms": 1000,
@@ -1730,7 +1729,10 @@ class TestAsyncCall:
                     "enable_backchannel": True,
                     "enable_dynamic_responsiveness": True,
                     "enable_dynamic_voice_speed": True,
+                    "enable_expressive_mode": True,
                     "end_call_after_silence_ms": 600000,
+                    "expressive_emotion_tags": ["empathetic", "excited", "sigh", "clear throat", "emphasis"],
+                    "expressive_mode_prompt": "Use [sigh] for thoughtful pauses and [excited] for good news.",
                     "fallback_voice_ids": ["cartesia-Cimo", "minimax-Cimo"],
                     "guardrail_config": {
                         "input_topics": ["platform_integrity_jailbreaking"],
@@ -1738,6 +1740,7 @@ class TestAsyncCall:
                     },
                     "handbook_config": {
                         "ai_disclosure": True,
+                        "conversational_personality": True,
                         "default_personality": True,
                         "echo_verification": True,
                         "high_empathy": True,
@@ -1795,14 +1798,13 @@ class TestAsyncCall:
                         "timeout_ms": 1000,
                     },
                     "version_description": "Customer support agent for handling product inquiries",
+                    "version_title": "Production hotfix",
                     "vocab_specialization": "general",
                     "voice_emotion": "calm",
                     "voice_id": "retell-Cimo",
                     "voice_model": "eleven_turbo_v2",
                     "voice_speed": 1,
                     "voice_temperature": 1,
-                    "voicemail_detection_timeout_ms": 30000,
-                    "voicemail_message": "Hi, please give us a callback.",
                     "voicemail_option": {
                         "action": {
                             "text": "Please give us a callback tomorrow at 10am.",

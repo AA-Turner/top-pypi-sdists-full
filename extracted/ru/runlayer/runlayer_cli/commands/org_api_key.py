@@ -4,7 +4,11 @@ from typing import Optional
 
 import typer
 
-from runlayer_cli.config import load_config, resolve_host, save_config
+from runlayer_cli.cli_persistence import save_config_or_exit
+from runlayer_cli.config import (
+    load_config,
+    resolve_host,
+)
 
 app = typer.Typer(help="Manage stored organization API keys")
 
@@ -43,7 +47,9 @@ def add(
     except ValueError as exc:
         typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
         raise typer.Exit(1) from None
-    save_config(config)
+    # Org keys live only in config.yaml; aiwatch runtime never writes it, so the
+    # key would not be persisted (it only lived in the in-memory Config).
+    save_config_or_exit(config, subject=f"org API key '{name}'", host=effective_host)
     typer.secho(
         f"Org API key '{name}' saved for {effective_host}.",
         fg=typer.colors.GREEN,
@@ -66,7 +72,12 @@ def remove(
     config = load_config()
     effective_host = resolve_host(ctx, host, config.default_host)
     if config.remove_org_api_key(effective_host, name):
-        save_config(config)
+        # Org keys live only in config.yaml; aiwatch runtime never writes it, so
+        # the removal would not be persisted (it only mutated the in-memory
+        # Config) — error instead of falsely reporting success.
+        save_config_or_exit(
+            config, subject=f"org API key '{name}' removal", host=effective_host
+        )
         typer.secho(
             f"Org API key '{name}' removed for {effective_host}.",
             fg=typer.colors.GREEN,

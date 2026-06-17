@@ -59,17 +59,24 @@ class SessionState(BaseModel):
             data["session_prefix"] = session_prefix
         return data
 
+    @property
+    def prefixed_jwt(self) -> t.Optional[str]:
+        """The JWT in PEP-295 wire format: ``<session_prefix>+<jwt>`` when a
+        session prefix is set, the bare ``jwt`` otherwise, ``None`` when there
+        is no JWT.
+        """
+        if not self.jwt:
+            return None
+        if not self.session_prefix:
+            return self.jwt
+        return f"{self.session_prefix}{SESSION_PREFIX_SEPARATOR}{self.jwt}"
+
     def to_auth_headers(self) -> t.Dict[str, str]:
         headers: t.Dict[str, str] = {}
         if self.api_key:
             headers["X-Api-Key"] = str(self.api_key)
-        if self.jwt:
-            prefix = (
-                f"{self.session_prefix}{SESSION_PREFIX_SEPARATOR}"
-                if self.session_prefix
-                else ""
-            )
-            headers["Authorization"] = f"Bearer {prefix}{self.jwt}"
+        if self.prefixed_jwt:
+            headers["Authorization"] = f"Bearer {self.prefixed_jwt}"
         return headers
 
 

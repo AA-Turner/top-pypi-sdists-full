@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-units
-Version: 0.12.0
+Version: 0.12.1
 Summary: Pythonic interface for units, unit systems, and unit conversions.
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>

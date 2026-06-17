@@ -40,6 +40,11 @@ class TraceServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanResponse.FromString,
         )
+        self.GetSpanLatencyDistribution = channel.unary_unary(
+            "/chalk.server.v1.TraceService/GetSpanLatencyDistribution",
+            request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanLatencyDistributionRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanLatencyDistributionResponse.FromString,
+        )
         self.ListSpan = channel.unary_unary(
             "/chalk.server.v1.TraceService/ListSpan",
             request_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.ListSpanRequest.SerializeToString,
@@ -96,6 +101,12 @@ class TraceServiceServicer(object):
 
     def GetSpan(self, request, context):
         """GetSpan retrieves a specific span by span ID and trace ID"""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetSpanLatencyDistribution(self, request, context):
+        """GetSpanLatencyDistribution returns latency percentiles for spans matching selected spans."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -157,6 +168,11 @@ def add_TraceServiceServicer_to_server(servicer, server):
             servicer.GetSpan,
             request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanResponse.SerializeToString,
+        ),
+        "GetSpanLatencyDistribution": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSpanLatencyDistribution,
+            request_deserializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanLatencyDistributionRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanLatencyDistributionResponse.SerializeToString,
         ),
         "ListSpan": grpc.unary_unary_rpc_method_handler(
             servicer.ListSpan,
@@ -327,6 +343,35 @@ class TraceService(object):
             "/chalk.server.v1.TraceService/GetSpan",
             chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSpanLatencyDistribution(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.TraceService/GetSpanLatencyDistribution",
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanLatencyDistributionRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_trace__pb2.GetSpanLatencyDistributionResponse.FromString,
             options,
             channel_credentials,
             insecure,

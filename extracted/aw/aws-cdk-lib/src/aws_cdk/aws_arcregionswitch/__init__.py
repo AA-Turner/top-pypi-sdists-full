@@ -127,6 +127,32 @@ class CfnPlan(
                             external_id="externalId",
                             timeout_minutes=123
                         ),
+                        aurora_provisioned_scaling_config=arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                            global_cluster_identifier="globalClusterIdentifier",
+                            instance_arns={
+                                "instance_arns_key": "instanceArns"
+                            },
+                            region_database_cluster_arns={
+                                "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                            },
+        
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123
+                        ),
+                        aurora_serverless_scaling_config=arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                            global_cluster_identifier="globalClusterIdentifier",
+                            region_database_cluster_arns={
+                                "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                            },
+        
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            target_percent=123,
+                            timeout_minutes=123
+                        ),
                         custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
                             lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                 arn="arn",
@@ -253,6 +279,21 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
                                 behavior="behavior"
+                            )
+                        ),
+                        neptune_global_database_config=arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                            behavior="behavior",
+                            global_cluster_identifier="globalClusterIdentifier",
+                            region_database_cluster_arns={
+                                "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                            },
+        
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                                ungraceful="ungraceful"
                             )
                         ),
                         parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
@@ -1097,6 +1138,290 @@ class CfnPlan(
 
         def __repr__(self) -> str:
             return "AssociatedAlarmProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "global_cluster_identifier": "globalClusterIdentifier",
+            "instance_arns": "instanceArns",
+            "region_database_cluster_arns": "regionDatabaseClusterArns",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+            "timeout_minutes": "timeoutMinutes",
+        },
+    )
+    class AuroraProvisionedScalingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            global_cluster_identifier: builtins.str,
+            instance_arns: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            region_database_cluster_arns: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param global_cluster_identifier: 
+            :param instance_arns: 
+            :param region_database_cluster_arns: 
+            :param cross_account_role: 
+            :param external_id: 
+            :param timeout_minutes: Default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                aurora_provisioned_scaling_configuration_property = arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                    global_cluster_identifier="globalClusterIdentifier",
+                    instance_arns={
+                        "instance_arns_key": "instanceArns"
+                    },
+                    region_database_cluster_arns={
+                        "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                    },
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId",
+                    timeout_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__89c204344a2ae7b4244845906fdf9d6f2289fd5055d9d80a39e9fcf91867ca79)
+                check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
+                check_type(argname="argument instance_arns", value=instance_arns, expected_type=type_hints["instance_arns"])
+                check_type(argname="argument region_database_cluster_arns", value=region_database_cluster_arns, expected_type=type_hints["region_database_cluster_arns"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "global_cluster_identifier": global_cluster_identifier,
+                "instance_arns": instance_arns,
+                "region_database_cluster_arns": region_database_cluster_arns,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+
+        @builtins.property
+        def global_cluster_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html#cfn-arcregionswitch-plan-auroraprovisionedscalingconfiguration-globalclusteridentifier
+            '''
+            result = self._values.get("global_cluster_identifier")
+            assert result is not None, "Required property 'global_cluster_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def instance_arns(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html#cfn-arcregionswitch-plan-auroraprovisionedscalingconfiguration-instancearns
+            '''
+            result = self._values.get("instance_arns")
+            assert result is not None, "Required property 'instance_arns' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def region_database_cluster_arns(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html#cfn-arcregionswitch-plan-auroraprovisionedscalingconfiguration-regiondatabaseclusterarns
+            '''
+            result = self._values.get("region_database_cluster_arns")
+            assert result is not None, "Required property 'region_database_cluster_arns' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html#cfn-arcregionswitch-plan-auroraprovisionedscalingconfiguration-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html#cfn-arcregionswitch-plan-auroraprovisionedscalingconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraprovisionedscalingconfiguration.html#cfn-arcregionswitch-plan-auroraprovisionedscalingconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuroraProvisionedScalingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "global_cluster_identifier": "globalClusterIdentifier",
+            "region_database_cluster_arns": "regionDatabaseClusterArns",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+            "target_percent": "targetPercent",
+            "timeout_minutes": "timeoutMinutes",
+        },
+    )
+    class AuroraServerlessScalingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            global_cluster_identifier: builtins.str,
+            region_database_cluster_arns: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            target_percent: typing.Optional[jsii.Number] = None,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param global_cluster_identifier: 
+            :param region_database_cluster_arns: 
+            :param cross_account_role: 
+            :param external_id: 
+            :param target_percent: Default: - 100
+            :param timeout_minutes: Default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                aurora_serverless_scaling_configuration_property = arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                    global_cluster_identifier="globalClusterIdentifier",
+                    region_database_cluster_arns={
+                        "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                    },
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId",
+                    target_percent=123,
+                    timeout_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__640e15fc6973c167a28b9220d84ceca072bb0035e235b503d697e09b7683dd1d)
+                check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
+                check_type(argname="argument region_database_cluster_arns", value=region_database_cluster_arns, expected_type=type_hints["region_database_cluster_arns"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument target_percent", value=target_percent, expected_type=type_hints["target_percent"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "global_cluster_identifier": global_cluster_identifier,
+                "region_database_cluster_arns": region_database_cluster_arns,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if target_percent is not None:
+                self._values["target_percent"] = target_percent
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+
+        @builtins.property
+        def global_cluster_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html#cfn-arcregionswitch-plan-auroraserverlessscalingconfiguration-globalclusteridentifier
+            '''
+            result = self._values.get("global_cluster_identifier")
+            assert result is not None, "Required property 'global_cluster_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region_database_cluster_arns(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html#cfn-arcregionswitch-plan-auroraserverlessscalingconfiguration-regiondatabaseclusterarns
+            '''
+            result = self._values.get("region_database_cluster_arns")
+            assert result is not None, "Required property 'region_database_cluster_arns' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html#cfn-arcregionswitch-plan-auroraserverlessscalingconfiguration-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html#cfn-arcregionswitch-plan-auroraserverlessscalingconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_percent(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 100
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html#cfn-arcregionswitch-plan-auroraserverlessscalingconfiguration-targetpercent
+            '''
+            result = self._values.get("target_percent")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-auroraserverlessscalingconfiguration.html#cfn-arcregionswitch-plan-auroraserverlessscalingconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AuroraServerlessScalingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2336,6 +2661,8 @@ class CfnPlan(
         jsii_struct_bases=[],
         name_mapping={
             "arc_routing_control_config": "arcRoutingControlConfig",
+            "aurora_provisioned_scaling_config": "auroraProvisionedScalingConfig",
+            "aurora_serverless_scaling_config": "auroraServerlessScalingConfig",
             "custom_action_lambda_config": "customActionLambdaConfig",
             "document_db_config": "documentDbConfig",
             "ec2_asg_capacity_increase_config": "ec2AsgCapacityIncreaseConfig",
@@ -2344,6 +2671,7 @@ class CfnPlan(
             "execution_approval_config": "executionApprovalConfig",
             "global_aurora_config": "globalAuroraConfig",
             "lambda_event_source_mapping_config": "lambdaEventSourceMappingConfig",
+            "neptune_global_database_config": "neptuneGlobalDatabaseConfig",
             "parallel_config": "parallelConfig",
             "rds_create_cross_region_read_replica_config": "rdsCreateCrossRegionReadReplicaConfig",
             "rds_promote_read_replica_config": "rdsPromoteReadReplicaConfig",
@@ -2356,6 +2684,8 @@ class CfnPlan(
             self,
             *,
             arc_routing_control_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ArcRoutingControlConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aurora_provisioned_scaling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.AuroraProvisionedScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            aurora_serverless_scaling_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.AuroraServerlessScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             custom_action_lambda_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.CustomActionLambdaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             document_db_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.DocumentDbConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ec2_asg_capacity_increase_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2364,6 +2694,7 @@ class CfnPlan(
             execution_approval_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ExecutionApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             global_aurora_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.GlobalAuroraConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             lambda_event_source_mapping_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.LambdaEventSourceMappingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            neptune_global_database_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.NeptuneGlobalDatabaseConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             parallel_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.ParallelExecutionBlockConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rds_create_cross_region_read_replica_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rds_promote_read_replica_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.RdsPromoteReadReplicaConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2375,6 +2706,8 @@ class CfnPlan(
             An execution block represents a specific type of action to perform during a Region switch.
 
             :param arc_routing_control_config: An ARC routing control execution block.
+            :param aurora_provisioned_scaling_config: 
+            :param aurora_serverless_scaling_config: 
             :param custom_action_lambda_config: An AWS Lambda execution block.
             :param document_db_config: 
             :param ec2_asg_capacity_increase_config: An EC2 Auto Scaling group execution block.
@@ -2383,6 +2716,7 @@ class CfnPlan(
             :param execution_approval_config: A manual approval execution block.
             :param global_aurora_config: An Aurora Global Database execution block.
             :param lambda_event_source_mapping_config: 
+            :param neptune_global_database_config: 
             :param parallel_config: A parallel configuration execution block.
             :param rds_create_cross_region_read_replica_config: 
             :param rds_promote_read_replica_config: 
@@ -2412,6 +2746,32 @@ class CfnPlan(
                         # the properties below are optional
                         cross_account_role="crossAccountRole",
                         external_id="externalId",
+                        timeout_minutes=123
+                    ),
+                    aurora_provisioned_scaling_config=arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                        global_cluster_identifier="globalClusterIdentifier",
+                        instance_arns={
+                            "instance_arns_key": "instanceArns"
+                        },
+                        region_database_cluster_arns={
+                            "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                        },
+                
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId",
+                        timeout_minutes=123
+                    ),
+                    aurora_serverless_scaling_config=arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                        global_cluster_identifier="globalClusterIdentifier",
+                        region_database_cluster_arns={
+                            "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                        },
+                
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId",
+                        target_percent=123,
                         timeout_minutes=123
                     ),
                     custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
@@ -2542,6 +2902,21 @@ class CfnPlan(
                             behavior="behavior"
                         )
                     ),
+                    neptune_global_database_config=arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                        behavior="behavior",
+                        global_cluster_identifier="globalClusterIdentifier",
+                        region_database_cluster_arns={
+                            "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                        },
+                
+                        # the properties below are optional
+                        cross_account_role="crossAccountRole",
+                        external_id="externalId",
+                        timeout_minutes=123,
+                        ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                            ungraceful="ungraceful"
+                        )
+                    ),
                     parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
                         steps=[arcregionswitch.CfnPlan.StepProperty(
                             execution_block_configuration=execution_block_configuration_property_,
@@ -2597,6 +2972,8 @@ class CfnPlan(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c98c02098)
                 check_type(argname="argument arc_routing_control_config", value=arc_routing_control_config, expected_type=type_hints["arc_routing_control_config"])
+                check_type(argname="argument aurora_provisioned_scaling_config", value=aurora_provisioned_scaling_config, expected_type=type_hints["aurora_provisioned_scaling_config"])
+                check_type(argname="argument aurora_serverless_scaling_config", value=aurora_serverless_scaling_config, expected_type=type_hints["aurora_serverless_scaling_config"])
                 check_type(argname="argument custom_action_lambda_config", value=custom_action_lambda_config, expected_type=type_hints["custom_action_lambda_config"])
                 check_type(argname="argument document_db_config", value=document_db_config, expected_type=type_hints["document_db_config"])
                 check_type(argname="argument ec2_asg_capacity_increase_config", value=ec2_asg_capacity_increase_config, expected_type=type_hints["ec2_asg_capacity_increase_config"])
@@ -2605,6 +2982,7 @@ class CfnPlan(
                 check_type(argname="argument execution_approval_config", value=execution_approval_config, expected_type=type_hints["execution_approval_config"])
                 check_type(argname="argument global_aurora_config", value=global_aurora_config, expected_type=type_hints["global_aurora_config"])
                 check_type(argname="argument lambda_event_source_mapping_config", value=lambda_event_source_mapping_config, expected_type=type_hints["lambda_event_source_mapping_config"])
+                check_type(argname="argument neptune_global_database_config", value=neptune_global_database_config, expected_type=type_hints["neptune_global_database_config"])
                 check_type(argname="argument parallel_config", value=parallel_config, expected_type=type_hints["parallel_config"])
                 check_type(argname="argument rds_create_cross_region_read_replica_config", value=rds_create_cross_region_read_replica_config, expected_type=type_hints["rds_create_cross_region_read_replica_config"])
                 check_type(argname="argument rds_promote_read_replica_config", value=rds_promote_read_replica_config, expected_type=type_hints["rds_promote_read_replica_config"])
@@ -2613,6 +2991,10 @@ class CfnPlan(
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if arc_routing_control_config is not None:
                 self._values["arc_routing_control_config"] = arc_routing_control_config
+            if aurora_provisioned_scaling_config is not None:
+                self._values["aurora_provisioned_scaling_config"] = aurora_provisioned_scaling_config
+            if aurora_serverless_scaling_config is not None:
+                self._values["aurora_serverless_scaling_config"] = aurora_serverless_scaling_config
             if custom_action_lambda_config is not None:
                 self._values["custom_action_lambda_config"] = custom_action_lambda_config
             if document_db_config is not None:
@@ -2629,6 +3011,8 @@ class CfnPlan(
                 self._values["global_aurora_config"] = global_aurora_config
             if lambda_event_source_mapping_config is not None:
                 self._values["lambda_event_source_mapping_config"] = lambda_event_source_mapping_config
+            if neptune_global_database_config is not None:
+                self._values["neptune_global_database_config"] = neptune_global_database_config
             if parallel_config is not None:
                 self._values["parallel_config"] = parallel_config
             if rds_create_cross_region_read_replica_config is not None:
@@ -2650,6 +3034,26 @@ class CfnPlan(
             '''
             result = self._values.get("arc_routing_control_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.ArcRoutingControlConfigurationProperty"]], result)
+
+        @builtins.property
+        def aurora_provisioned_scaling_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.AuroraProvisionedScalingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-auroraprovisionedscalingconfig
+            '''
+            result = self._values.get("aurora_provisioned_scaling_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.AuroraProvisionedScalingConfigurationProperty"]], result)
+
+        @builtins.property
+        def aurora_serverless_scaling_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.AuroraServerlessScalingConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-auroraserverlessscalingconfig
+            '''
+            result = self._values.get("aurora_serverless_scaling_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.AuroraServerlessScalingConfigurationProperty"]], result)
 
         @builtins.property
         def custom_action_lambda_config(
@@ -2736,6 +3140,16 @@ class CfnPlan(
             '''
             result = self._values.get("lambda_event_source_mapping_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.LambdaEventSourceMappingConfigurationProperty"]], result)
+
+        @builtins.property
+        def neptune_global_database_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.NeptuneGlobalDatabaseConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-executionblockconfiguration.html#cfn-arcregionswitch-plan-executionblockconfiguration-neptuneglobaldatabaseconfig
+            '''
+            result = self._values.get("neptune_global_database_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.NeptuneGlobalDatabaseConfigurationProperty"]], result)
 
         @builtins.property
         def parallel_config(
@@ -3546,6 +3960,213 @@ class CfnPlan(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "behavior": "behavior",
+            "global_cluster_identifier": "globalClusterIdentifier",
+            "region_database_cluster_arns": "regionDatabaseClusterArns",
+            "cross_account_role": "crossAccountRole",
+            "external_id": "externalId",
+            "timeout_minutes": "timeoutMinutes",
+            "ungraceful": "ungraceful",
+        },
+    )
+    class NeptuneGlobalDatabaseConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            behavior: builtins.str,
+            global_cluster_identifier: builtins.str,
+            region_database_cluster_arns: typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]],
+            cross_account_role: typing.Optional[builtins.str] = None,
+            external_id: typing.Optional[builtins.str] = None,
+            timeout_minutes: typing.Optional[jsii.Number] = None,
+            ungraceful: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlan.NeptuneUngracefulProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param behavior: 
+            :param global_cluster_identifier: 
+            :param region_database_cluster_arns: 
+            :param cross_account_role: 
+            :param external_id: 
+            :param timeout_minutes: Default: - 60
+            :param ungraceful: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                neptune_global_database_configuration_property = arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                    behavior="behavior",
+                    global_cluster_identifier="globalClusterIdentifier",
+                    region_database_cluster_arns={
+                        "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                    },
+                
+                    # the properties below are optional
+                    cross_account_role="crossAccountRole",
+                    external_id="externalId",
+                    timeout_minutes=123,
+                    ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                        ungraceful="ungraceful"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__04fa8f00587cab3e26d59026a2d4f89558f221b8740d16fee5809447f26f0cc7)
+                check_type(argname="argument behavior", value=behavior, expected_type=type_hints["behavior"])
+                check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
+                check_type(argname="argument region_database_cluster_arns", value=region_database_cluster_arns, expected_type=type_hints["region_database_cluster_arns"])
+                check_type(argname="argument cross_account_role", value=cross_account_role, expected_type=type_hints["cross_account_role"])
+                check_type(argname="argument external_id", value=external_id, expected_type=type_hints["external_id"])
+                check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+                check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "behavior": behavior,
+                "global_cluster_identifier": global_cluster_identifier,
+                "region_database_cluster_arns": region_database_cluster_arns,
+            }
+            if cross_account_role is not None:
+                self._values["cross_account_role"] = cross_account_role
+            if external_id is not None:
+                self._values["external_id"] = external_id
+            if timeout_minutes is not None:
+                self._values["timeout_minutes"] = timeout_minutes
+            if ungraceful is not None:
+                self._values["ungraceful"] = ungraceful
+
+        @builtins.property
+        def behavior(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-behavior
+            '''
+            result = self._values.get("behavior")
+            assert result is not None, "Required property 'behavior' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def global_cluster_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-globalclusteridentifier
+            '''
+            result = self._values.get("global_cluster_identifier")
+            assert result is not None, "Required property 'global_cluster_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def region_database_cluster_arns(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-regiondatabaseclusterarns
+            '''
+            result = self._values.get("region_database_cluster_arns")
+            assert result is not None, "Required property 'region_database_cluster_arns' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]], result)
+
+        @builtins.property
+        def cross_account_role(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-crossaccountrole
+            '''
+            result = self._values.get("cross_account_role")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def external_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-externalid
+            '''
+            result = self._values.get("external_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def timeout_minutes(self) -> typing.Optional[jsii.Number]:
+            '''
+            :default: - 60
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-timeoutminutes
+            '''
+            result = self._values.get("timeout_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def ungraceful(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.NeptuneUngracefulProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneglobaldatabaseconfiguration.html#cfn-arcregionswitch-plan-neptuneglobaldatabaseconfiguration-ungraceful
+            '''
+            result = self._values.get("ungraceful")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlan.NeptuneUngracefulProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NeptuneGlobalDatabaseConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.NeptuneUngracefulProperty",
+        jsii_struct_bases=[],
+        name_mapping={"ungraceful": "ungraceful"},
+    )
+    class NeptuneUngracefulProperty:
+        def __init__(self, *, ungraceful: typing.Optional[builtins.str] = None) -> None:
+            '''
+            :param ungraceful: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneungraceful.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_arcregionswitch as arcregionswitch
+                
+                neptune_ungraceful_property = arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                    ungraceful="ungraceful"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__6640506a55361b1dae65adfc2d707185cd142b3534e96c8fa322fba9363a7c56)
+                check_type(argname="argument ungraceful", value=ungraceful, expected_type=type_hints["ungraceful"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if ungraceful is not None:
+                self._values["ungraceful"] = ungraceful
+
+        @builtins.property
+        def ungraceful(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-arcregionswitch-plan-neptuneungraceful.html#cfn-arcregionswitch-plan-neptuneungraceful-ungraceful
+            '''
+            result = self._values.get("ungraceful")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "NeptuneUngracefulProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={"steps": "steps"},
@@ -3585,6 +4206,32 @@ class CfnPlan(
                                 # the properties below are optional
                                 cross_account_role="crossAccountRole",
                                 external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            aurora_provisioned_scaling_config=arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                                global_cluster_identifier="globalClusterIdentifier",
+                                instance_arns={
+                                    "instance_arns_key": "instanceArns"
+                                },
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            aurora_serverless_scaling_config=arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                                global_cluster_identifier="globalClusterIdentifier",
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                target_percent=123,
                                 timeout_minutes=123
                             ),
                             custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
@@ -3713,6 +4360,21 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
                                     behavior="behavior"
+                                )
+                            ),
+                            neptune_global_database_config=arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                                behavior="behavior",
+                                global_cluster_identifier="globalClusterIdentifier",
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                                    ungraceful="ungraceful"
                                 )
                             ),
                             parallel_config=parallel_execution_block_configuration_property_,
@@ -4785,6 +5447,32 @@ class CfnPlan(
                             external_id="externalId",
                             timeout_minutes=123
                         ),
+                        aurora_provisioned_scaling_config=arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                            global_cluster_identifier="globalClusterIdentifier",
+                            instance_arns={
+                                "instance_arns_key": "instanceArns"
+                            },
+                            region_database_cluster_arns={
+                                "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                            },
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123
+                        ),
+                        aurora_serverless_scaling_config=arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                            global_cluster_identifier="globalClusterIdentifier",
+                            region_database_cluster_arns={
+                                "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                            },
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            target_percent=123,
+                            timeout_minutes=123
+                        ),
                         custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
                             lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                 arn="arn",
@@ -4911,6 +5599,21 @@ class CfnPlan(
                             timeout_minutes=123,
                             ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
                                 behavior="behavior"
+                            )
+                        ),
+                        neptune_global_database_config=arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                            behavior="behavior",
+                            global_cluster_identifier="globalClusterIdentifier",
+                            region_database_cluster_arns={
+                                "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                            },
+                
+                            # the properties below are optional
+                            cross_account_role="crossAccountRole",
+                            external_id="externalId",
+                            timeout_minutes=123,
+                            ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                                ungraceful="ungraceful"
                             )
                         ),
                         parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
@@ -5295,6 +5998,32 @@ class CfnPlan(
                                 external_id="externalId",
                                 timeout_minutes=123
                             ),
+                            aurora_provisioned_scaling_config=arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                                global_cluster_identifier="globalClusterIdentifier",
+                                instance_arns={
+                                    "instance_arns_key": "instanceArns"
+                                },
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            aurora_serverless_scaling_config=arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                                global_cluster_identifier="globalClusterIdentifier",
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                target_percent=123,
+                                timeout_minutes=123
+                            ),
                             custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
                                 lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                     arn="arn",
@@ -5421,6 +6150,21 @@ class CfnPlan(
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
                                     behavior="behavior"
+                                )
+                            ),
+                            neptune_global_database_config=arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                                behavior="behavior",
+                                global_cluster_identifier="globalClusterIdentifier",
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+                
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                                    ungraceful="ungraceful"
                                 )
                             ),
                             parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
@@ -5631,6 +6375,32 @@ class CfnPlanProps:
                                 external_id="externalId",
                                 timeout_minutes=123
                             ),
+                            aurora_provisioned_scaling_config=arcregionswitch.CfnPlan.AuroraProvisionedScalingConfigurationProperty(
+                                global_cluster_identifier="globalClusterIdentifier",
+                                instance_arns={
+                                    "instance_arns_key": "instanceArns"
+                                },
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123
+                            ),
+                            aurora_serverless_scaling_config=arcregionswitch.CfnPlan.AuroraServerlessScalingConfigurationProperty(
+                                global_cluster_identifier="globalClusterIdentifier",
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                target_percent=123,
+                                timeout_minutes=123
+                            ),
                             custom_action_lambda_config=arcregionswitch.CfnPlan.CustomActionLambdaConfigurationProperty(
                                 lambdas=[arcregionswitch.CfnPlan.LambdasProperty(
                                     arn="arn",
@@ -5757,6 +6527,21 @@ class CfnPlanProps:
                                 timeout_minutes=123,
                                 ungraceful=arcregionswitch.CfnPlan.LambdaEventSourceMappingUngracefulProperty(
                                     behavior="behavior"
+                                )
+                            ),
+                            neptune_global_database_config=arcregionswitch.CfnPlan.NeptuneGlobalDatabaseConfigurationProperty(
+                                behavior="behavior",
+                                global_cluster_identifier="globalClusterIdentifier",
+                                region_database_cluster_arns={
+                                    "region_database_cluster_arns_key": "regionDatabaseClusterArns"
+                                },
+            
+                                # the properties below are optional
+                                cross_account_role="crossAccountRole",
+                                external_id="externalId",
+                                timeout_minutes=123,
+                                ungraceful=arcregionswitch.CfnPlan.NeptuneUngracefulProperty(
+                                    ungraceful="ungraceful"
                                 )
                             ),
                             parallel_config=arcregionswitch.CfnPlan.ParallelExecutionBlockConfigurationProperty(
@@ -6180,6 +6965,30 @@ def _typecheckingstub__da9567b68c112553218c3dc6b107e275b5f8974694e79a06ee1f35ade
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__89c204344a2ae7b4244845906fdf9d6f2289fd5055d9d80a39e9fcf91867ca79(
+    *,
+    global_cluster_identifier: builtins.str,
+    instance_arns: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    region_database_cluster_arns: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__640e15fc6973c167a28b9220d84ceca072bb0035e235b503d697e09b7683dd1d(
+    *,
+    global_cluster_identifier: builtins.str,
+    region_database_cluster_arns: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    target_percent: typing.Optional[jsii.Number] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__677cc1e3776f9941a3e383511e2b156b9b18584e59ab2742e9aeb2a068d4a396(
     *,
     lambdas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.LambdasProperty, typing.Dict[builtins.str, typing.Any]]]]],
@@ -6296,6 +7105,8 @@ def _typecheckingstub__332cd445173cd90befd93793d12cf56d6b9d0cf5f0f950d8f1c8da40b
 def _typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c98c02098(
     *,
     arc_routing_control_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ArcRoutingControlConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aurora_provisioned_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AuroraProvisionedScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    aurora_serverless_scaling_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.AuroraServerlessScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom_action_lambda_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.CustomActionLambdaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     document_db_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.DocumentDbConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ec2_asg_capacity_increase_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.Ec2AsgCapacityIncreaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6304,6 +7115,7 @@ def _typecheckingstub__bf03412277ce24dfa861d02429118a5e512a97579dd1c299024e646c9
     execution_approval_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ExecutionApprovalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     global_aurora_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.GlobalAuroraConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     lambda_event_source_mapping_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.LambdaEventSourceMappingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    neptune_global_database_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.NeptuneGlobalDatabaseConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     parallel_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.ParallelExecutionBlockConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rds_create_cross_region_read_replica_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RdsCreateCrossRegionReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rds_promote_read_replica_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.RdsPromoteReadReplicaConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -6387,6 +7199,26 @@ def _typecheckingstub__382b21febb492930836b8663cd8745c59e5e805caa04c745c3509c5be
     arn: typing.Optional[builtins.str] = None,
     cross_account_role: typing.Optional[builtins.str] = None,
     external_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__04fa8f00587cab3e26d59026a2d4f89558f221b8740d16fee5809447f26f0cc7(
+    *,
+    behavior: builtins.str,
+    global_cluster_identifier: builtins.str,
+    region_database_cluster_arns: typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]],
+    cross_account_role: typing.Optional[builtins.str] = None,
+    external_id: typing.Optional[builtins.str] = None,
+    timeout_minutes: typing.Optional[jsii.Number] = None,
+    ungraceful: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlan.NeptuneUngracefulProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6640506a55361b1dae65adfc2d707185cd142b3534e96c8fa322fba9363a7c56(
+    *,
+    ungraceful: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

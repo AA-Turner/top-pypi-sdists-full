@@ -272,20 +272,19 @@ def _build_trace_start_payload(trace: Any) -> dict[str, Any]:
     return payload
 
 
-async def _dispatch_trace_start_payload(trace: Any, payload: dict[str, Any]) -> None:
-    """Send a trace_create payload via buffer or HTTP, swallowing transport errors."""
-    if trace.buffer:
-        trace.buffer.add({"type": "trace_create", "trace_id": trace.id, "data": payload})
-        return
-    with contextlib.suppress(Exception):
-        await trace.client.post(f"{trace.api_url}/traces", json=payload)
-
-
 async def _send_trace_start(trace: Any) -> None:
-    """Build the trace_create payload and dispatch it; log+swallow any error."""
+    """Register the trace as an open root span (record-only).
+
+    Trace identity rides the root span (root.id == trace_id) emitted once at
+    completion — no trace-create event. Registering the trace's finalize
+    callable means an unclean shutdown still ships the root (interrupted).
+    (The prior dispatch did a malformed ``buffer.add`` that always failed.)"""
     try:
-        payload = _build_trace_start_payload(trace)
-        await _dispatch_trace_start_payload(trace, payload)
+        from ..tracing.trace_state import register_open_span
+
+        finalize = getattr(trace, "_build_interrupted_root_payload", None)
+        if finalize is not None and getattr(trace, "id", None):
+            register_open_span(trace.id, finalize)
     except Exception as e:
         logger.debug(f"Error in _send_trace_start: {e}")
 

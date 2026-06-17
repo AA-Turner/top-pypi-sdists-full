@@ -11,8 +11,6 @@ import typing
 class EdrTrellix(UncheckedBaseModel):
     """
     Configuration for Trellix ePolicy Orchestrator as an EDR provider. A tenant with only the Trellix EDR product enabled cannot use ePO-backed device queries.
-
-    [Configuration guide](https://docs.synqly.com/guides/provider-configuration/trellix-edr-setup)
     """
 
     api_key: TrellixApiKeyCredential = pydantic.Field()

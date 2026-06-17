@@ -32,3 +32,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "pylsp_mypy.plugin"
 disallow_untyped_decorators = false
+
+[tool.markdownlint-cli2.config]
+line_length = false

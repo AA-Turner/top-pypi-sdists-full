@@ -9,9 +9,10 @@ from uuid import uuid4
 
 import httpx
 
-from .buffer import EventBuffer, EventType
+from .buffer import EventBuffer
 from .sampling import should_send_event
 from .span import SpanContext
+from .tracing.trace_state import deregister_open_span, register_open_span
 
 logger = logging.getLogger(__name__)
 
@@ -155,27 +156,33 @@ class TraceContext:
             # Not sampled - skip sending but still return context for local use
             return self
 
-        # Use buffer if available, otherwise send directly
-        if self.buffer:
-            await self.buffer.add(EventType.TRACE_CREATE, payload)
-            # Don't flush immediately - let the natural buffer interval handle it.
-            # The backend should handle spans arriving before their parent trace.
-        elif self.client:
-            # Direct API call (no buffering)
-            try:
-                response = await self.client.post(f"{self.api_url}/v1/traces", json=payload)
-                response.raise_for_status()
-                trace_data = response.json()
-
-                # Handle 207 Multi-Status response (async queue pattern)
-                if response.status_code == 207:
-                    self.id = trace_data.get("trace_id") or trace_data.get("id") or self.id
-                else:
-                    self.id = trace_data.get("id") or self.id
-            except Exception as e:
-                logger.warning(f"Failed to create trace {self.id}: {e}")
+        # Trace identity rides the root span (root.id == trace_id, parent None).
+        # The trace is emitted exactly once on __aexit__/complete — no
+        # TRACE_CREATE. Register a finalize callable so an unclean shutdown
+        # still ships the root (interrupted).
+        self._open_payload = payload
+        register_open_span(self.id, self._build_interrupted_root_payload)
+        if not self.buffer:
+            logger.debug(f"No buffer configured, trace open not registered for {self.id}")
 
         return self
+
+    def _build_interrupted_root_payload(self) -> dict[str, Any]:
+        """Root-span finalize payload for the shutdown drain (status
+        overwritten to ``interrupted`` by the registry)."""
+        base = dict(getattr(self, "_open_payload", {}) or {})
+        base.update(
+            {
+                "id": self.id,
+                "span_id": self.id,
+                "trace_id": self.id,
+                "parent_id": None,
+                "name": self.name,
+                "status": "interrupted",
+                "end_time": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        return base
 
     def update(
         self,
@@ -511,6 +518,7 @@ class TraceContext:
                 "id": self.id,  # Include ID for buffered updates
                 "trace_id": self.id,  # Alternative field name
                 "status": status,
+                "start_time": self.start_time.isoformat(),
                 "end_time": end_time.isoformat(),
                 "total_cost": total_cost if total_cost > 0 else None,
                 "total_tokens": total_tokens if total_tokens > 0 else None,
@@ -552,37 +560,24 @@ class TraceContext:
             if spans_data:
                 update_data["spans"] = spans_data
 
-            # Use buffer if available, otherwise send directly
+            # The trace IS the root span: emit it exactly once, finalized,
+            # carrying trace identity (span_id == trace_id, parent_id None,
+            # name). The platform mints the trace row from it — no TRACE_*
+            # events, so the old name-restore TRACE_CREATE hack is gone too.
+            update_data["span_id"] = self.id
+            update_data["parent_id"] = None
+            update_data["name"] = self.name
+            update_data.setdefault("type", "workflow")
+
+            deregister_open_span(self.id)
             try:
                 if self.buffer:
-                    await self.buffer.add(EventType.TRACE_UPDATE, update_data)
-                elif self.client:
-                    response = await self.client.put(
-                        f"{self.api_url}/v1/traces/{self.id}", json=update_data
-                    )
-                    response.raise_for_status()
+                    await self.buffer.add(update_data)
                 else:
-                    logger.debug(f"Client is None, skipping trace update for {self.id}")
+                    logger.debug(f"No buffer configured, trace update dropped for {self.id}")
             except Exception as e:
                 # Never re-raise from __aexit__ - this would crash the caller's app
                 logger.warning(f"Failed to send trace update for {self.id}: {e}")
-
-            # Always try to restore the correct trace name as the final operation.
-            # Backend's _process_span_event_list auto-creates traces with "Auto-created..."
-            # using upsert name=EXCLUDED.name, which overwrites the correct name.
-            # A final TRACE_CREATE after all events are processed ensures the correct
-            # name wins. We add a brief delay to let the backend finish processing
-            # prior span events before we send the name-restore.
-            try:
-                if self.buffer:
-                    await self.buffer.flush()
-                    # Send a single name-restore event after flush
-                    await self.buffer.add(
-                        EventType.TRACE_CREATE, {"id": self.id, "name": self.name}
-                    )
-                    await self.buffer.flush()
-            except Exception as e:
-                logger.debug(f"Name restore failed for {self.id}: {e}")
 
     def span(
         self, name: str, type: str = "tool", parent: str | None = None, stream: bool = False
@@ -721,20 +716,25 @@ class TraceContext:
         if not self.id:
             return
 
-        data = {"id": self.id, "trace_id": self.id, "status": status}
+        # The trace IS the root span (span_id == trace_id, parent_id None).
+        data = {
+            "id": self.id,
+            "span_id": self.id,
+            "trace_id": self.id,
+            "parent_id": None,
+            "name": self.name,
+            "type": "workflow",
+            "status": status,
+        }
         if error:
             data.update({"error_message": str(error), "error_type": type(error).__name__})
 
-        # Use buffer if available
+        # Emit the single finalized root event + deregister.
+        deregister_open_span(self.id)
         if self.buffer:
-            await self.buffer.add(EventType.TRACE_UPDATE, data)
-        elif self.client:
-            try:
-                await self.client.put(f"{self.api_url}/v1/traces/{self.id}", json=data)
-            except Exception as e:
-                logger.warning(f"Failed to complete trace {self.id}: {e}")
+            await self.buffer.add(data)
         else:
-            logger.debug(f"Client is None, skipping trace complete for {self.id}")
+            logger.debug(f"No buffer configured, trace complete dropped for {self.id}")
 
 
 def get_current_trace() -> TraceContext | None:

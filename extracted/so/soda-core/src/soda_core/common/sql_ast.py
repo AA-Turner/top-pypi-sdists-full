@@ -181,6 +181,9 @@ class SqlExpression(BaseSqlExpression):
     def __post_init__(self):
         super().__post_init__()
 
+    def AS(self, alias: str) -> "ALIAS":
+        return ALIAS(self, alias)
+
 
 @dataclass
 class STAR(SqlExpression):
@@ -193,7 +196,6 @@ class STAR(SqlExpression):
 @dataclass
 class COUNT(SqlExpression):
     expression: SqlExpression | str
-    field_alias: Optional[str] = None
 
     def __post_init__(self):
         super().__post_init__()
@@ -221,6 +223,18 @@ class SUM(SqlExpression):
 @dataclass
 class RANDOM(SqlExpression):
     """Generates a random number in the range [0.0, 1.0)."""
+
+
+@dataclass
+class ALIAS(SqlExpression):
+    """Wraps any expression so it is emitted with `<expr> AS <alias>`."""
+
+    expression: SqlExpression | str
+    alias: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.handle_parent_node_update(self.expression)
 
 
 @dataclass
@@ -355,13 +369,9 @@ class COLUMN(SqlExpression):
         SqlExpression | str
     )  # Use SqlExpression if you need to generate and/or rename a column dymamically, e.g. using a CASE statement
     table_alias: Optional[str] = None
-    field_alias: Optional[str] = None
 
     def IN(self, table_alias: str) -> COLUMN:
-        return COLUMN(name=self.name, table_alias=table_alias, field_alias=self.field_alias)
-
-    def AS(self, field_alias: str) -> COLUMN:
-        return COLUMN(name=self.name, table_alias=self.table_alias, field_alias=field_alias)
+        return COLUMN(name=self.name, table_alias=table_alias)
 
 
 @dataclass
@@ -666,10 +676,8 @@ class CREATE_TABLE_COLUMN(BaseSqlExpression):
         super().__post_init__()
         self.handle_parent_node_update(self.default)
 
-    def convert_to_standard_column(
-        self, table_alias: Optional[str] = None, field_alias: Optional[str] = None
-    ) -> COLUMN:
-        return COLUMN(name=self.name, table_alias=table_alias, field_alias=field_alias)
+    def convert_to_standard_column(self, table_alias: Optional[str] = None) -> COLUMN:
+        return COLUMN(name=self.name, table_alias=table_alias)
 
 
 @dataclass

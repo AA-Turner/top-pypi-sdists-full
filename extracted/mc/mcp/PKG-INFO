@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp
-Version: 1.27.2
+Version: 1.28.0
 Summary: Model Context Protocol SDK
 Project-URL: Homepage, https://modelcontextprotocol.io
 Project-URL: Documentation, https://py.sdk.modelcontextprotocol.io/
@@ -19,18 +19,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Requires-Dist: anyio>=4.5
 Requires-Dist: httpx-sse>=0.4
 Requires-Dist: httpx<1.0.0,>=0.27.1
 Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: pydantic-settings>=2.5.2
-Requires-Dist: pydantic<3.0.0,>=2.11.0
+Requires-Dist: pydantic<3.0.0,>=2.11.0; python_version < '3.14'
+Requires-Dist: pydantic<3.0.0,>=2.12.0; python_version >= '3.14'
 Requires-Dist: pyjwt[crypto]>=2.10.1
 Requires-Dist: python-multipart>=0.0.9
-Requires-Dist: pywin32>=310; sys_platform == 'win32'
+Requires-Dist: pywin32>=310; sys_platform == 'win32' and python_version < '3.14'
+Requires-Dist: pywin32>=311; sys_platform == 'win32' and python_version >= '3.14'
 Requires-Dist: sse-starlette>=1.6.1
-Requires-Dist: starlette>=0.27
+Requires-Dist: starlette>=0.27; python_version < '3.14'
+Requires-Dist: starlette>=0.48.0; python_version >= '3.14'
 Requires-Dist: typing-extensions>=4.9.0
 Requires-Dist: typing-inspection>=0.4.1
 Requires-Dist: uvicorn>=0.31.1; sys_platform != 'emscripten'
@@ -57,6 +61,12 @@ Description-Content-Type: text/markdown
 [![Specification][spec-badge]][spec-url]
 
 </div>
+
+> **This documents v1.x, the stable release line of the MCP Python SDK. v2 is in alpha.**
+>
+> v2 pre-releases are published to PyPI as `2.0.0aN`. Installers never select a pre-release unless you opt in (for example `pip install mcp==2.0.0a1`), so v1.x users are unaffected. **If your package depends on `mcp`, add a `<2` upper bound to your version constraint (for example `mcp>=1.27,<2`) before the stable v2 release lands.** See the [v2 documentation](https://github.com/modelcontextprotocol/python-sdk/blob/main/README.v2.md) and the [migration guide](https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md) for what's changing.
+>
+> v1.x remains recommended for production use. It is in maintenance mode and continues to receive critical bug fixes and security patches.
 
 <!-- omit in toc -->
 ## Table of Contents

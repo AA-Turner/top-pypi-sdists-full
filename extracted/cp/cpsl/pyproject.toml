@@ -1,6 +1,6 @@
 [project]
 name = "cpsl"
-version = "0.3.175"
+version = "0.3.177"
 description = "Capsule SDK and CLI"
 requires-python = ">=3.10"
 dependencies = [

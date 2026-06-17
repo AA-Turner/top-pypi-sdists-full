@@ -18,6 +18,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from runlayer_cli.api import (
+    ListFilter,
     RunlayerClient,
     SkillDetail,
     SkillFileDetail,
@@ -92,9 +93,13 @@ class UpdateResult(BaseModel):
 
 
 class SkillInstallerClient(Protocol):
-    def list_all_skills(self, *, mine_only: bool) -> list[SkillDetail]: ...
-
-    def list_skills(self, *, namespace: str, mine_only: bool) -> list[SkillDetail]: ...
+    def list_skills(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: ListFilter = "created_by_me",
+        query: str | None = None,
+    ) -> list[SkillDetail]: ...
 
     def get_skill(self, skill_id: str) -> SkillDetail: ...
 
@@ -261,7 +266,7 @@ async def install_skills(
     skills: list[SkillDetail] = []
     if install_all:
         all_skills = await anyio.to_thread.run_sync(
-            partial(client.list_all_skills, mine_only=False)
+            partial(client.list_skills, filter="all")
         )
         if skill_name:
             matched = [
@@ -286,7 +291,7 @@ async def install_skills(
         except ValueError:
             namespace = source
             all_ns = await anyio.to_thread.run_sync(
-                partial(client.list_skills, namespace=namespace, mine_only=False)
+                partial(client.list_skills, namespace=namespace, filter="all")
             )
             if skill_name:
                 matched = [

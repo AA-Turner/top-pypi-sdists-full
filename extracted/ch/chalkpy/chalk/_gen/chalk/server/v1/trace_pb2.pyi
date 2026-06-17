@@ -679,6 +679,99 @@ class ListSpanResponse(_message.Message):
         self, spans: _Optional[_Iterable[_Union[ChalkSpan, _Mapping]]] = ..., next_page_token: _Optional[str] = ...
     ) -> None: ...
 
+class GetSpanLatencyDistributionRequest(_message.Message):
+    __slots__ = ("trace_id", "span_ids", "start_time", "end_time")
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    SPAN_IDS_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    span_ids: _containers.RepeatedScalarFieldContainer[str]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        trace_id: _Optional[str] = ...,
+        span_ids: _Optional[_Iterable[str]] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class SpanLatencyDistribution(_message.Message):
+    __slots__ = (
+        "span_id",
+        "operation_name",
+        "service_name",
+        "start_time",
+        "end_time",
+        "selected_duration",
+        "sample_count",
+        "p50",
+        "p75",
+        "p90",
+        "p95",
+        "p99",
+        "min_duration",
+        "max_duration",
+        "selected_percentile",
+    )
+    SPAN_ID_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_NAME_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    SELECTED_DURATION_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    P50_FIELD_NUMBER: _ClassVar[int]
+    P75_FIELD_NUMBER: _ClassVar[int]
+    P90_FIELD_NUMBER: _ClassVar[int]
+    P95_FIELD_NUMBER: _ClassVar[int]
+    P99_FIELD_NUMBER: _ClassVar[int]
+    MIN_DURATION_FIELD_NUMBER: _ClassVar[int]
+    MAX_DURATION_FIELD_NUMBER: _ClassVar[int]
+    SELECTED_PERCENTILE_FIELD_NUMBER: _ClassVar[int]
+    span_id: str
+    operation_name: str
+    service_name: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    selected_duration: _duration_pb2.Duration
+    sample_count: int
+    p50: _duration_pb2.Duration
+    p75: _duration_pb2.Duration
+    p90: _duration_pb2.Duration
+    p95: _duration_pb2.Duration
+    p99: _duration_pb2.Duration
+    min_duration: _duration_pb2.Duration
+    max_duration: _duration_pb2.Duration
+    selected_percentile: float
+    def __init__(
+        self,
+        span_id: _Optional[str] = ...,
+        operation_name: _Optional[str] = ...,
+        service_name: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        selected_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        sample_count: _Optional[int] = ...,
+        p50: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        p75: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        p90: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        p95: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        p99: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        min_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        max_duration: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        selected_percentile: _Optional[float] = ...,
+    ) -> None: ...
+
+class GetSpanLatencyDistributionResponse(_message.Message):
+    __slots__ = ("distributions",)
+    DISTRIBUTIONS_FIELD_NUMBER: _ClassVar[int]
+    distributions: _containers.RepeatedCompositeFieldContainer[SpanLatencyDistribution]
+    def __init__(
+        self, distributions: _Optional[_Iterable[_Union[SpanLatencyDistribution, _Mapping]]] = ...
+    ) -> None: ...
+
 class SpanFacet(_message.Message):
     __slots__ = ("path", "name")
     PATH_FIELD_NUMBER: _ClassVar[int]

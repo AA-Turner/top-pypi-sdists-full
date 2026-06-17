@@ -1,6 +1,6 @@
 /*============================================================================
-  WCSLIB 8.4 - an implementation of the FITS WCS standard.
-  Copyright (C) 1995-2024, Mark Calabretta
+  WCSLIB 8.6 - an implementation of the FITS WCS standard.
+  Copyright (C) 1995-2026, Mark Calabretta
 
   This file is part of WCSLIB.
 
@@ -18,8 +18,8 @@
   along with WCSLIB.  If not, see http://www.gnu.org/licenses.
 
   Author: Mark Calabretta, Australia Telescope National Facility, CSIRO.
-  http://www.atnf.csiro.au/people/Mark.Calabretta
-  $Id: lin.c,v 8.4 2024/10/28 13:56:16 mcalabre Exp $
+  http://www.atnf.csiro.au/computing/software/wcs
+  $Id: lin.c,v 8.6 2026/03/29 13:53:56 mcalabre Exp $
 *===========================================================================*/
 
 #include <math.h>
@@ -822,7 +822,13 @@ int linp2x(
         // Column-wise multiplication allows this to be cached.
         double temp = *(pix++) - lin->crpix[j];
         for (int i = 0; i < naxis; i++, piximg += naxis) {
-          img[i] += *piximg * temp;
+          if (*piximg != 0.0) {
+            // Skipped if *piximg == 0.0 in case temp is NaN, noting that
+            // zero * NaN = NaN.  Thus, if the PCij matrix is diagonal, this
+            // quarantines NaN coordinate elements of pixcrd[] from infecting
+            // non-NaN elements.
+            img[i] += *piximg * temp;
+          }
         }
       }
 
@@ -862,7 +868,11 @@ int linp2x(
         for (int i = 0; i < naxis; i++) {
           img[i] = 0.0;
           for (int j = 0; j < naxis; j++) {
-            img[i] += *(piximg++) * tmp[j];
+            if (*piximg != 0.0) {
+              // See comment above.
+              img[i] += *piximg * tmp[j];
+            }
+            piximg++;
           }
         }
       }
@@ -870,7 +880,7 @@ int linp2x(
       if (lin->disseq) {
         int status = disp2x(lin->disseq, img, tmp);
         if (status) {
-	  free(tmp);
+          free(tmp);
           return wcserr_set(LIN_ERRMSG(lin_diserr[status]));
         }
 
@@ -949,7 +959,13 @@ int linx2p(
       for (int j = 0; j < naxis; j++) {
         *pix = 0.0;
         for (int i = 0; i < naxis; i++) {
-          *pix += *imgpix * img[i];
+          if (*imgpix != 0.0) {
+            // Skipped if *imgpix == 0.0 in case img[i] is NaN, noting that
+            // zero * NaN = NaN.  Thus, if the PCij matrix is diagonal, this
+            // quarantines NaN coordinate elements of imgcrd[] from infecting
+            // non-NaN elements.
+            *pix += *imgpix * img[i];
+          }
           imgpix++;
         }
 
@@ -976,8 +992,8 @@ int linx2p(
         }
 
         if ((status = disx2p(lin->disseq, tmp, pix))) {
-          wcserr_set(LIN_ERRMSG(lin_diserr[status]));
-          goto cleanup;
+          free(tmp);
+          return wcserr_set(LIN_ERRMSG(lin_diserr[status]));
         }
 
         memcpy(tmp, pix, ndbl);
@@ -1003,7 +1019,11 @@ int linx2p(
         for (int j = 0; j < naxis; j++) {
           pix[j] = lin->crpix[j];
           for (int i = 0; i < naxis; i++) {
-            pix[j] += *(imgpix++) * tmp[i];
+            if (*imgpix != 0.0) {
+              // See comment above.
+              pix[j] += *imgpix * tmp[i];
+            }
+            imgpix++;
           }
         }
       }
@@ -1012,8 +1032,8 @@ int linx2p(
         memcpy(tmp, pix, ndbl);
 
         if ((status = disx2p(lin->dispre, tmp, pix))) {
-          wcserr_set(LIN_ERRMSG(lin_diserr[status]));
-          goto cleanup;
+          free(tmp);
+          return wcserr_set(LIN_ERRMSG(lin_diserr[status]));
         }
       }
 
@@ -1021,11 +1041,10 @@ int linx2p(
       pix += nelem;
     }
 
-    cleanup:
     free(tmp);
   }
 
-  return status;
+  return 0;
 }
 
 //----------------------------------------------------------------------------

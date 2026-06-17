@@ -7,13 +7,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from strands.hooks.events import AfterToolCallEvent
+from strands.hooks.events import AfterToolCallEvent, BeforeModelCallEvent
 from strands.types.tools import ToolContext, ToolUse
 from strands.vended_plugins.context_offloader import (
     ContextOffloader,
     FileStorage,
     InMemoryStorage,
 )
+from tests.fixtures.sandbox import TestSandbox
 
 
 @pytest.fixture
@@ -32,10 +33,13 @@ def plugin(storage):
 
 
 @pytest.fixture
-def mock_agent():
+def mock_agent(tmp_path):
     agent = MagicMock()
     agent.model = MagicMock()
     agent.model.count_tokens = AsyncMock(side_effect=_heuristic_count_tokens)
+    # A real sandbox rooted at a temp dir so FileStorage.for_sandbox binds to a working
+    # backend (mirrors the TS suite injecting a TestSandbox into the mock agent).
+    agent.sandbox = TestSandbox(str(tmp_path))
     return agent
 
 
@@ -84,8 +88,10 @@ class TestContextOffloader:
         assert plugin.name == "context_offloader"
 
     def test_hooks_auto_discovered(self, plugin):
-        assert len(plugin.hooks) == 1
-        assert plugin.hooks[0].__name__ == "_handle_tool_result"
+        assert len(plugin.hooks) == 2
+        hook_names = {h.__name__ for h in plugin.hooks}
+        assert "_handle_tool_result" in hook_names
+        assert "_on_before_model_call" in hook_names
 
     def test_raises_on_non_positive_max_result_tokens(self):
         with pytest.raises(ValueError, match="max_result_tokens must be positive"):
@@ -118,7 +124,7 @@ class TestContextOffloader:
         # Verify stored content
         assert len(storage._store) == 1
         ref = list(storage._store.keys())[0]
-        content, content_type = storage.retrieve(ref)
+        content, content_type = await storage.retrieve(ref)
         assert content == large_text.encode("utf-8")
         assert content_type == "text/plain"
 
@@ -225,7 +231,7 @@ class TestContextOffloader:
         # Verify image was stored
         assert len(storage._store) == 2  # text + image
         img_ref = placeholder.split("ref: ")[1].rstrip("]")
-        img_content, img_type = storage.retrieve(img_ref)
+        img_content, img_type = await storage.retrieve(img_ref)
         assert img_content == img_bytes
         assert img_type == "image/png"
 
@@ -247,7 +253,7 @@ class TestContextOffloader:
 
         # Verify document was stored
         doc_ref = placeholder.split("ref: ")[1].rstrip("]")
-        doc_content, doc_type = storage.retrieve(doc_ref)
+        doc_content, doc_type = await storage.retrieve(doc_ref)
         assert doc_content == doc_bytes
         assert doc_type == "application/pdf"
 
@@ -264,8 +270,8 @@ class TestContextOffloader:
         # Two text blocks stored separately
         assert len(storage._store) == 2
         refs = list(storage._store.keys())
-        assert storage.retrieve(refs[0]) == (b"a" * 60, "text/plain")
-        assert storage.retrieve(refs[1]) == (b"b" * 60, "text/plain")
+        assert await storage.retrieve(refs[0]) == (b"a" * 60, "text/plain")
+        assert await storage.retrieve(refs[1]) == (b"b" * 60, "text/plain")
 
     @pytest.mark.asyncio
     async def test_json_content_stored_as_json(self, plugin, storage, mock_agent):
@@ -277,7 +283,7 @@ class TestContextOffloader:
 
         assert len(storage._store) == 1
         ref = list(storage._store.keys())[0]
-        stored_content, content_type = storage.retrieve(ref)
+        stored_content, content_type = await storage.retrieve(ref)
         assert content_type == "application/json"
         assert json.loads(stored_content) == large_json
 
@@ -294,8 +300,8 @@ class TestContextOffloader:
         # Both stored separately with correct types
         assert len(storage._store) == 2
         refs = list(storage._store.keys())
-        assert storage.retrieve(refs[0])[1] == "text/plain"
-        assert storage.retrieve(refs[1])[1] == "application/json"
+        assert (await storage.retrieve(refs[0]))[1] == "text/plain"
+        assert (await storage.retrieve(refs[1]))[1] == "application/json"
 
     @pytest.mark.asyncio
     async def test_small_json_passes_through(self, plugin, mock_agent):
@@ -480,38 +486,44 @@ class TestRetrievalTool:
         tool_names = [t.tool_name for t in plugin.tools]
         assert "retrieve_offloaded_content" not in tool_names
 
-    def test_retrieve_text_content(self, plugin, storage, tool_context):
-        ref = storage.store("key_1", b"hello world", "text/plain")
-        result = plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
+    @pytest.mark.asyncio
+    async def test_retrieve_text_content(self, plugin, storage, tool_context):
+        ref = await storage.store("key_1", b"hello world", "text/plain")
+        result = await plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
         assert result == "hello world"
 
-    def test_retrieve_json_content(self, plugin, storage, tool_context):
-        ref = storage.store("key_1", b'{"key": "value"}', "application/json")
-        result = plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
+    @pytest.mark.asyncio
+    async def test_retrieve_json_content(self, plugin, storage, tool_context):
+        ref = await storage.store("key_1", b'{"key": "value"}', "application/json")
+        result = await plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
         assert result["content"][0]["json"] == {"key": "value"}
 
-    def test_retrieve_large_text_returns_full_content(self, plugin, storage, tool_context):
+    @pytest.mark.asyncio
+    async def test_retrieve_large_text_returns_full_content(self, plugin, storage, tool_context):
         large_text = "a" * 50_000
-        ref = storage.store("key_1", large_text.encode("utf-8"), "text/plain")
-        result = plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
+        ref = await storage.store("key_1", large_text.encode("utf-8"), "text/plain")
+        result = await plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
         assert result == large_text
 
-    def test_retrieve_missing_reference(self, plugin, tool_context):
-        result = plugin.retrieve_offloaded_content(reference="nonexistent", tool_context=tool_context)
+    @pytest.mark.asyncio
+    async def test_retrieve_missing_reference(self, plugin, tool_context):
+        result = await plugin.retrieve_offloaded_content(reference="nonexistent", tool_context=tool_context)
         assert "Error: reference not found" in result
 
-    def test_retrieve_image_content(self, plugin, storage, tool_context):
+    @pytest.mark.asyncio
+    async def test_retrieve_image_content(self, plugin, storage, tool_context):
         img_bytes = b"\x89PNG\x00\x00"
-        ref = storage.store("key_1", img_bytes, "image/png")
-        result = plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
+        ref = await storage.store("key_1", img_bytes, "image/png")
+        result = await plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
         assert result["status"] == "success"
         assert result["content"][0]["image"]["format"] == "png"
         assert result["content"][0]["image"]["source"]["bytes"] == img_bytes
 
-    def test_retrieve_document_content(self, plugin, storage, tool_context):
+    @pytest.mark.asyncio
+    async def test_retrieve_document_content(self, plugin, storage, tool_context):
         doc_bytes = b"%PDF-1.4 content"
-        ref = storage.store("key_1", doc_bytes, "application/pdf")
-        result = plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
+        ref = await storage.store("key_1", doc_bytes, "application/pdf")
+        result = await plugin.retrieve_offloaded_content(reference=ref, tool_context=tool_context)
         assert result["status"] == "success"
         assert result["content"][0]["document"]["format"] == "pdf"
         assert result["content"][0]["document"]["source"]["bytes"] == doc_bytes
@@ -589,3 +601,37 @@ class TestActionableReferences:
 
         result_text = event.result["content"][0]["text"]
         assert "mem_" in result_text
+
+
+class TestBeforeModelCallHook:
+    @staticmethod
+    def _make_event(cycle_count):
+        agent = MagicMock()
+        agent.event_loop_metrics.cycle_count = cycle_count
+        return BeforeModelCallEvent(agent=agent, invocation_state={})
+
+    def test_calls_evict_with_cycle_count(self):
+        storage = InMemoryStorage(evict_after_turns=5)
+        plugin = ContextOffloader(storage=storage, max_result_tokens=25, preview_tokens=10)
+
+        plugin._on_before_model_call(self._make_event(7))
+
+        assert storage._current_cycle == 7
+
+    def test_does_not_crash_on_storage_without_evict(self):
+        storage = MagicMock(spec=["store", "retrieve"])
+        plugin = ContextOffloader(storage=storage, max_result_tokens=25, preview_tokens=10)
+
+        plugin._on_before_model_call(self._make_event(1))
+
+    @pytest.mark.asyncio
+    async def test_eviction_triggered_via_hook(self):
+        storage = InMemoryStorage(evict_after_turns=2)
+        plugin = ContextOffloader(storage=storage, max_result_tokens=25, preview_tokens=10)
+
+        ref = await storage.store("key_1", b"content")
+
+        # stored at cycle 0, evict at cycle 3: threshold = 3 - 2 = 1, 0 < 1 → evicted
+        plugin._on_before_model_call(self._make_event(3))
+        with pytest.raises(KeyError):
+            await storage.retrieve(ref)

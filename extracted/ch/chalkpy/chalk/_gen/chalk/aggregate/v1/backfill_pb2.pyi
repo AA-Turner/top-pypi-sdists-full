@@ -68,7 +68,16 @@ class AggregateBackfillCostEstimate(_message.Message):
     ) -> None: ...
 
 class AggregateBackfillUserParams(_message.Message):
-    __slots__ = ("features", "resolver", "timestamp_column_name", "lower_bound", "upper_bound", "exact", "tags")
+    __slots__ = (
+        "features",
+        "resolver",
+        "timestamp_column_name",
+        "lower_bound",
+        "upper_bound",
+        "exact",
+        "tags",
+        "input_sql",
+    )
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     RESOLVER_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_COLUMN_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -76,6 +85,7 @@ class AggregateBackfillUserParams(_message.Message):
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     EXACT_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
+    INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     resolver: str
     timestamp_column_name: str
@@ -83,6 +93,7 @@ class AggregateBackfillUserParams(_message.Message):
     upper_bound: _timestamp_pb2.Timestamp
     exact: bool
     tags: _containers.RepeatedScalarFieldContainer[str]
+    input_sql: str
     def __init__(
         self,
         features: _Optional[_Iterable[str]] = ...,
@@ -92,6 +103,7 @@ class AggregateBackfillUserParams(_message.Message):
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         exact: bool = ...,
         tags: _Optional[_Iterable[str]] = ...,
+        input_sql: _Optional[str] = ...,
     ) -> None: ...
 
 class AggregateBackfill(_message.Message):
@@ -105,6 +117,7 @@ class AggregateBackfill(_message.Message):
         "max_retention",
         "lower_bound",
         "upper_bound",
+        "input_sql",
     )
     SERIES_FIELD_NUMBER: _ClassVar[int]
     RESOLVER_FIELD_NUMBER: _ClassVar[int]
@@ -115,6 +128,7 @@ class AggregateBackfill(_message.Message):
     MAX_RETENTION_FIELD_NUMBER: _ClassVar[int]
     LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    INPUT_SQL_FIELD_NUMBER: _ClassVar[int]
     series: _containers.RepeatedCompositeFieldContainer[_timeseries_pb2.AggregateTimeSeries]
     resolver: str
     datetime_feature: str
@@ -124,6 +138,7 @@ class AggregateBackfill(_message.Message):
     max_retention: _duration_pb2.Duration
     lower_bound: _timestamp_pb2.Timestamp
     upper_bound: _timestamp_pb2.Timestamp
+    input_sql: str
     def __init__(
         self,
         series: _Optional[_Iterable[_Union[_timeseries_pb2.AggregateTimeSeries, _Mapping]]] = ...,
@@ -135,6 +150,7 @@ class AggregateBackfill(_message.Message):
         max_retention: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        input_sql: _Optional[str] = ...,
     ) -> None: ...
 
 class AggregateBackfillWithCostEstimate(_message.Message):

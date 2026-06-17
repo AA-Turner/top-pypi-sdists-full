@@ -49,6 +49,7 @@ class LogicalTableNodeType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     LOGICAL_TABLE_NODE_TYPE_SOURCE_OPERATOR_MARKER: _ClassVar[LogicalTableNodeType]
     LOGICAL_TABLE_NODE_TYPE_EMPTY_RELATION: _ClassVar[LogicalTableNodeType]
     LOGICAL_TABLE_NODE_TYPE_TOP_N_ROW_NUMBER: _ClassVar[LogicalTableNodeType]
+    LOGICAL_TABLE_NODE_TYPE_TABLE_WRITE_AND_LOAD: _ClassVar[LogicalTableNodeType]
 
 LOGICAL_TABLE_NODE_TYPE_UNSPECIFIED: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_NAMED_TABLE: LogicalTableNodeType
@@ -79,6 +80,7 @@ LOGICAL_TABLE_NODE_TYPE_TIMELINE_TRACER: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_SOURCE_OPERATOR_MARKER: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_EMPTY_RELATION: LogicalTableNodeType
 LOGICAL_TABLE_NODE_TYPE_TOP_N_ROW_NUMBER: LogicalTableNodeType
+LOGICAL_TABLE_NODE_TYPE_TABLE_WRITE_AND_LOAD: LogicalTableNodeType
 
 class LogicalPlan(_message.Message):
     __slots__ = ("nodes",)

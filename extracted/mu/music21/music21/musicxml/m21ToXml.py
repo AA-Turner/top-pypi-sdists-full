@@ -903,9 +903,9 @@ class XMLExporterBase:
 
         conforms to attr-group %font in the MusicXML DTD
 
-        >>> from xml.etree.ElementTree import fromstring as El
+        >>> from xml.etree.ElementTree import fromstring as EL
         >>> XB = musicxml.m21ToXml.XMLExporterBase()
-        >>> mxObj = El('<text>hi</text>')
+        >>> mxObj = EL('<text>hi</text>')
         >>> te = expressions.TextExpression('hi!')
         >>> te.style.fontFamily = ['Courier', 'monospaced']
         >>> te.style.fontStyle = 'italic'
@@ -915,7 +915,7 @@ class XMLExporterBase:
         <text font-family="Courier,monospaced" font-size="24" font-style="italic">hi</text>
 
         >>> XB = musicxml.m21ToXml.XMLExporterBase()
-        >>> mxObj = El('<text>hi</text>')
+        >>> mxObj = EL('<text>hi</text>')
         >>> te = expressions.TextExpression('hi!')
         >>> te.style.fontStyle = 'bold'
         >>> XB.setFont(mxObj, te)
@@ -964,9 +964,9 @@ class XMLExporterBase:
 
     def setEditorial(self, mxObject, m21Object):
         '''
-        >>> from xml.etree.ElementTree import fromstring as El
+        >>> from xml.etree.ElementTree import fromstring as EL
         >>> XB = musicxml.m21ToXml.XMLExporterBase()
-        >>> mxObj = El('<note />')
+        >>> mxObj = EL('<note />')
         >>> n = note.Note('C-5')
 
         Most common case: does nothing
@@ -988,7 +988,7 @@ class XMLExporterBase:
 
         Placing information in `.editorial.comments` only puts out the level:
 
-        >>> mxObj = El('<note />')
+        >>> mxObj = EL('<note />')
         >>> n = note.Note('C-5')
         >>> com = editorial.Comment('flat is obvious error for sharp')
         >>> com.levelInformation = 'hello'
@@ -1399,7 +1399,7 @@ class ScoreExporter(XMLExporterBase, PartStaffExporterMixin):
 
         self.instrumentList: list[instrument.Instrument] = []
         self.instrumentIdList: list[str|None] = []
-        self.midiChannelList: list[int|None] = []
+        self.midiChannelList: list[int|None] = []  # TODO: just list[int]?
 
         self.parts: list[stream.Part] = []
 
@@ -1927,14 +1927,17 @@ class ScoreExporter(XMLExporterBase, PartStaffExporterMixin):
         Demonstrating round tripping:
 
         >>> import xml.etree.ElementTree as ET
-        >>> defaults = ET.fromstring('<defaults>'
-        ...          + '<music-font font-family="Maestro, Opus" font-weight="bold" />'
-        ...          + '<word-font font-family="Garamond" font-style="italic" />'
-        ...          + '<lyric-font name="verse" font-size="12" />'
-        ...          + '<lyric-font name="chorus" font-size="14" />'
-        ...          + '<lyric-language name="verse" xml:lang="fr" />'
-        ...          + '<lyric-language name="chorus" xml:lang="en" />'
-        ...          + '</defaults>')
+        >>> from xml.etree.ElementTree import fromstring as EL
+        >>> defaults = ET.fromstring(
+        ...     '<defaults>'
+        ...     '<music-font font-family="Maestro, Opus" font-weight="bold" />'
+        ...     '<word-font font-family="Garamond" font-style="italic" />'
+        ...     '<lyric-font name="verse" font-size="12" />'
+        ...     '<lyric-font name="chorus" font-size="14" />'
+        ...     '<lyric-language name="verse" xml:lang="fr" />'
+        ...     '<lyric-language name="chorus" xml:lang="en" />'
+        ...     '</defaults>'
+        ... )
 
         >>> MI = musicxml.xmlToM21.MusicXMLImporter()
         >>> MI.styleFromXmlDefaults(defaults)
@@ -2596,6 +2599,8 @@ class PartExporter(XMLExporterBase):
             in the :class:`~music21.layout.StaffGroup`, if any. (E.g. if this is
             the left hand, store a reference to the right hand.)''',
     }
+    midiChannelList: list[int|None]  # TODO: just list[int]?
+    meterStream: stream.Stream[meter.TimeSignatureBase]
 
     def __init__(self,
                  partObj: stream.Part|stream.Score|None = None,
@@ -2611,14 +2616,15 @@ class PartExporter(XMLExporterBase):
         self.xmlRoot = Element('part')
 
         if parent is None:
-            self.meterStream: stream.Stream[meter.TimeSignatureBase] = stream.Stream()
+            self.meterStream = stream.Stream[meter.TimeSignatureBase]()
             self.refStreamOrTimeRange = [0.0, 0.0]
             self.midiChannelList = []
             self.makeNotation = True
         else:
+            # else should not be executed.
             self.meterStream = (parent.meterStream
                                 if parent.meterStream is not None
-                                else stream.Stream())  # else should not be executed.
+                                else stream.Stream[meter.TimeSignatureBase]())
             self.refStreamOrTimeRange = parent.refStreamOrTimeRange
             self.midiChannelList = parent.midiChannelList  # shared list
             self.makeNotation = parent.makeNotation
@@ -2626,7 +2632,7 @@ class PartExporter(XMLExporterBase):
         self.previousPartStaffInGroup: stream.PartStaff|None = None
 
         self.instrumentStream: stream.Stream[instrument.Instrument]|None = None
-        self.firstInstrumentObject = None
+        self.firstInstrumentObject: instrument.Instrument|None = None
 
         # keep track of this so that we only put out new attributes when something
         # has changed
@@ -2737,16 +2743,19 @@ class PartExporter(XMLExporterBase):
         else:
             # get a default instrument if not assigned
             self.instrumentStream = self.stream.getInstruments(returnDefault=True, recurse=True)
-        self.firstInstrumentObject = self.instrumentStream[0]  # store first, as handled differently
+        firstInstrumentObject = self.instrumentStream[0]  # store first, as handled differently
+        if t.TYPE_CHECKING:
+            assert isinstance(firstInstrumentObject, instrument.Instrument)
+        self.firstInstrumentObject = firstInstrumentObject
 
         if self.parent is not None:
             instIdList = [x.partId for x in self.parent.instrumentList]
         else:
             instIdList = [self.stream.id]
 
-        firstInstId = self.firstInstrumentObject.partId
+        firstInstId = firstInstrumentObject.partId
         if firstInstId in instIdList or firstInstId is None:  # must have unique ids
-            self.firstInstrumentObject.partIdRandomize()  # set new random id
+            firstInstrumentObject.partIdRandomize()  # set new random id
 
         should_short_circuit = self.mergeInstrumentStreamPartStaffAware()
         if should_short_circuit:
@@ -2769,6 +2778,7 @@ class PartExporter(XMLExporterBase):
 
             # this is shared among all PartExporters, so long as they are created by a
             # ScoreExporter
+            # TODO: skip if .midiChannel is None?
             self.midiChannelList.append(thisInstrument.midiChannel)
             # environLocal.printDebug(['midiChannel list', self.midiChannelList])
 
@@ -2781,7 +2791,7 @@ class PartExporter(XMLExporterBase):
             # add to the lists for checking on next part
             if self.parent is not None:
                 self.parent.instrumentIdList.append(thisInstrument.instrumentId)
-                if thisInstrument is self.firstInstrumentObject:
+                if thisInstrument is firstInstrumentObject:
                     self.parent.instrumentList.append(thisInstrument)
 
     def mergeInstrumentStreamPartStaffAware(self) -> bool:

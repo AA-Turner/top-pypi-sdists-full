@@ -10,9 +10,10 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
+import grpc
 import httpx
 
-from .buffer import BufferedEvent, EventBuffer, EventType
+from .buffer import BufferedEvent, EventBuffer
 from .config import Config
 from .diagnostics import (
     A001,
@@ -26,6 +27,9 @@ from .diagnostics import (
     R006,
     format_diagnostic,
 )
+from .ingest import span_to_proto as _span_to_proto
+from .tracing.trace_state import drain_open_spans_as_interrupted
+from .tracing.types import JUDGE_SKIP_STATUSES
 from .trace import TraceContext
 
 if TYPE_CHECKING:
@@ -391,7 +395,45 @@ class Aigie:
 
             if self.config.internal_telemetry.enabled:
                 from aigie import telemetry as _internal_telemetry
+
                 _internal_telemetry.initialize(self.config.internal_telemetry)
+
+            # When kytte_grpc_url is configured, finalized spans (SPAN_UPDATE)
+            # are routed to IngestService.IngestSpans instead of HTTP.
+            self._ingest_client = None
+            if self.config.kytte_grpc_url:
+                from aigie.ingest import IngestClient as _IngestClient
+
+                self._ingest_client = _IngestClient(
+                    self.config.kytte_grpc_url,
+                    api_key=self._auth_token,
+                    use_tls=self.config.kytte_grpc_use_tls,
+                )
+                logger.info(
+                    "[AIGIE] gRPC ingest enabled: target=%s tls=%s",
+                    self._ingest_client.target,
+                    self.config.kytte_grpc_use_tls,
+                )
+
+            # Determine Error MVP: when configured, one fire-and-forget
+            # EvaluateSpan is sent per finalized span to the Decision
+            # Orchestrator (verdicts land platform-side; the SDK ignores the
+            # response).
+            self._decision_client = None
+            self._decision_tasks: set = set()
+            if self.config.kytte_decision_grpc_url:
+                from aigie.decision import DecisionClient as _DecisionClient
+
+                self._decision_client = _DecisionClient(
+                    self.config.kytte_decision_grpc_url,
+                    api_key=self._auth_token,
+                    use_tls=self.config.kytte_grpc_use_tls,
+                )
+                logger.info(
+                    "[AIGIE] gRPC determine enabled: target=%s tls=%s",
+                    self._decision_client.target,
+                    self.config.kytte_grpc_use_tls,
+                )
 
             # Initialize event buffer if enabled
             if self.config.enable_buffering:
@@ -405,16 +447,6 @@ class Aigie:
                     circuit_breaker_timeout=self.config.circuit_breaker_timeout,
                 )
                 self._buffer.set_flusher(self._flush_events)
-                # Wire the atexit-safe sync-urllib fallback so terminal
-                # trace_update events still reach the backend after the bg
-                # loop has been torn down. Buffer is a no-op fallback when
-                # url is None.
-                fallback_headers: dict[str, str] = {}
-                if self._auth_token:
-                    fallback_headers["Authorization"] = f"Bearer {self._auth_token}"
-                self._buffer.set_sync_fallback(
-                    api_url=self._aigie_url, headers=fallback_headers
-                )
                 await self._buffer.start_background_flusher()
 
             # Validate configuration for self-hosted deployments
@@ -499,9 +531,7 @@ class Aigie:
                 try:
                     from .integrations.install import install_framework_adapters
 
-                    install_framework_adapters(
-                        aigie=self, runtime=self._autonomous_runtime
-                    )
+                    install_framework_adapters(aigie=self, runtime=self._autonomous_runtime)
                 except Exception as e:
                     logger.debug("Framework adapter install failed (non-fatal): %s", e)
                 _enable_auto_instrumentation()
@@ -556,7 +586,7 @@ class Aigie:
         # Auto-instrument
         frameworks = []
         if _instrumentation_enabled:
-            for name in ["langchain", "langgraph", "openai", "anthropic", "strands", "google_adk"]:
+            for name in ["langchain", "langgraph", "openai", "anthropic"]:
                 try:
                     __import__(name)
                     frameworks.append(name)
@@ -1072,33 +1102,6 @@ class Aigie:
         return self._prompt_manager
 
     @property
-    def feedback(self):
-        """
-        Get feedback collector for human feedback and eval ground truth.
-
-        Usage:
-            # Submit human override of LLM judgment
-            await aigie.feedback.submit_eval_override(
-                judge_run_id="judge-123",
-                human_score=0.9,
-                human_verdict="pass",
-                human_reasoning="The response was actually helpful"
-            )
-
-            # Submit trace feedback (thumbs up/down)
-            await aigie.feedback.submit_trace_feedback(
-                trace_id="trace-abc",
-                rating="positive",
-                comment="Great response!"
-            )
-        """
-        from .feedback import FeedbackCollector
-
-        if not hasattr(self, "_feedback_collector"):
-            self._feedback_collector = FeedbackCollector(self._buffer)
-        return self._feedback_collector
-
-    @property
     def gateway(self):
         """Get the Gateway client for real-time validation."""
         return self._legacy_gateway
@@ -1395,207 +1398,121 @@ class Aigie:
         response.raise_for_status()
         return response.json()
 
-    async def _send_batch(self, events: list[dict[str, Any]]) -> None:
+    async def _dispatch_v2_spans(self, events: list[BufferedEvent]) -> None:
+        """Send finalized spans to the gRPC Ingest Gateway.
+
+        This is the only telemetry that leaves the SDK — every buffered event
+        is a finalized span, and the platform mints trace rows server-side
+        from root spans. The legacy HTTP write endpoints no longer exist.
+
+        Raises on gRPC failure so the buffer's retry/offline machinery owns
+        redelivery; there is no HTTP fallback.
         """
-        Send batch of events to batch ingestion endpoint.
-
-        Supports compression with Zstandard if available.
-
-        Args:
-            events: List of event dictionaries already in correct format from _flush_events
-                   Format: {"type": "trace-create", "id": "...", "timestamp": "...", "body": {...}}
-        """
-        from datetime import datetime
-
-        # Events are already in the correct format from _flush_events
-        # Just ensure timestamps are strings and validate structure
-        batch_events = []
-        for event in events:
-            # Validate required fields
-            if "type" not in event or "id" not in event or "body" not in event:
-                logger.warning(f"Skipping invalid event: missing required fields: {event.keys()}")
-                continue
-
-            # Ensure timestamp is a string
-            if "timestamp" not in event:
-                event["timestamp"] = datetime.utcnow().isoformat()
-            elif isinstance(event["timestamp"], datetime):
-                event["timestamp"] = event["timestamp"].isoformat()
-
-            # Ensure body is a dict
-            if not isinstance(event.get("body"), dict):
-                logger.warning(f"Skipping event with invalid body type: {type(event.get('body'))}")
-                continue
-
-            batch_events.append(event)
-
-        if not batch_events:
-            logger.warning("No valid events to send in batch")
+        if not events:
             return
 
-        # Skip while auth is suspended (backing off after 401)
-        if self._is_auth_suspended():
-            return
-
-        # Prepare request payload
-        request_payload = {"batch": batch_events}
-
-        # Validate payload can be serialized to JSON
-        import json
-
-        try:
-            json.dumps(request_payload, default=str)  # Test serialization
-        except Exception as e:
-            logger.error(format_diagnostic(R002, extra=str(e)))
-            return
-
-        # Debug: Log first event structure (only in debug mode)
-        if logger.isEnabledFor(logging.DEBUG) and batch_events:
-            logger.debug(f"Sample event structure: {batch_events[0]}")
-
-        headers = {"Content-Type": "application/json"}
-        if self._auth_token:
-            headers["X-API-Key"] = self._auth_token
-        try:
-            from . import __version__ as _ver
-
-            headers["X-SDK-Version"] = str(_ver)
-        except Exception:
-            pass
-
-        # Check if event loop is available before attempting to send
-        try:
-            loop = asyncio.get_running_loop()
-            if loop.is_closed():
-                logger.debug(
-                    f"Event loop is closed, skipping batch send ({len(batch_events)} events)"
-                )
-                return
-        except RuntimeError:
-            # No event loop running - this is expected during shutdown
-            logger.debug(f"No event loop running, skipping batch send ({len(batch_events)} events)")
-            return
-
-        try:
-            if self._enable_compression:
-                # Use Zstandard compression for bandwidth savings
-                from .compression import get_compressor, is_compression_available
-
-                if is_compression_available():
-                    if self._compressor is None:
-                        self._compressor = get_compressor(level=1)
-                    json_bytes = json.dumps(request_payload, default=str).encode("utf-8")
-                    compressed = self._compressor.compress(json_bytes)
-                    headers["Content-Encoding"] = "zstd"
-                    headers["Content-Type"] = "application/json"
-                    response = await self.client.post(
-                        f"{self.api_url}/v1/ingestion",
-                        content=compressed,
-                        headers=headers,
-                    )
-                    if logger.isEnabledFor(logging.DEBUG):
-                        ratio = len(compressed) / len(json_bytes) if json_bytes else 1.0
-                        logger.debug(
-                            f"Compressed batch: {len(json_bytes)}→{len(compressed)} bytes ({ratio:.1%})"
-                        )
-                else:
-                    response = await self.client.post(
-                        f"{self.api_url}/v1/ingestion",
-                        json=request_payload,
-                        headers=headers,
-                    )
-            else:
-                # Use content= with default=str to handle any non-serializable types (UUID, datetime, etc.)
-                json_bytes = json.dumps(request_payload, default=str).encode("utf-8")
-                headers["Content-Type"] = "application/json"
-                response = await self.client.post(
-                    f"{self.api_url}/v1/ingestion",
-                    content=json_bytes,
-                    headers=headers,
-                )
-        except Exception as e:
-            # Check if it's an event loop issue - if so, we can't recover
-            error_str = str(e).lower()
-            if (
-                "event loop is closed" in error_str
-                or "event loop" in error_str
-                or "runtimeerror" in error_str
-            ):
-                # This is expected during application shutdown - log as debug instead of error
-                logger.debug(
-                    f"Event loop issue, cannot send batch ({len(batch_events)} events): {e}"
-                )
-                return  # Can't recover from event loop closure
-            # Re-raise network/connectivity errors so the buffer's circuit breaker and
-            # retry/offline-storage logic can handle them.  Swallowing these caused the
-            # circuit breaker to never open and events to be silently dropped (AIGIE-R001).
-            if isinstance(e, (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)):
-                raise
-            logger.error(format_diagnostic(R001, extra=f"{type(e).__name__}: {e}"))
-            import traceback
-
-            logger.error(f"Batch send traceback: {traceback.format_exc()}")
-            return
-
-        # Handle response - log validation/server errors with details for debugging
-        if response.status_code == 401:
-            self._handle_auth_failure()
-            return  # Suspended — will retry after backoff
-        if response.status_code == 403:
-            # 403 is retryable (transient permission propagation, nginx rate limit)
-            logger.warning("[AIGIE] 403 Forbidden on /v1/ingestion — will retry via buffer.")
-            raise httpx.HTTPStatusError(
-                "403 Forbidden", request=response.request, response=response
-            )
-        if response.status_code in (400, 422):  # 422 is FastAPI validation error
-            error_text = response.text[:1000] if response.text else "No error message"
-            status_name = "validation" if response.status_code == 422 else "client"
+        client = self._ingest_client
+        if client is None:
             logger.warning(
-                f"Batch ingestion {status_name} error ({response.status_code}): {error_text}"
+                "[AIGIE] gRPC ingest not configured — dropping %d finalized spans "
+                "(set KYTTE_URL so the gRPC target can be derived).",
+                len(events),
             )
-            # Try to parse error details
-            try:
-                error_json = response.json()
-                if isinstance(error_json, dict):
-                    detail = error_json.get("detail", error_json)
-                    logger.warning(f"Batch ingestion error details: {detail}")
-                else:
-                    logger.warning(f"Batch ingestion error response: {error_json}")
-            except Exception as e:
-                logger.warning(f"Failed to parse batch ingestion error response: {e}")
-            return  # Don't process response, just return
-        if response.status_code == 500:
-            error_text = response.text[:1000] if response.text else "No error message"
-            logger.error(format_diagnostic(R006, extra=error_text))
-            return  # Don't process response, just return
+            return
 
-        response.raise_for_status()
-        self._handle_auth_success()  # Reset retry state on success
+        pairs = [(e, _span_to_proto(e.payload)) for e in events]
+        spans_pb = [span_pb for _, span_pb in pairs]
+        # First-attempt, not-yet-judged spans only: judge verdicts are not
+        # idempotent, so neither a buffer-driven ingest retry (retry_count > 0)
+        # nor a span already fired at emit time (evaluated) may be judged again.
+        self._fire_evaluate_spans(
+            [span_pb for e, span_pb in pairs if e.retry_count == 0 and not e.evaluated]
+        )
+        response = await client.send_spans(spans_pb)
+        if response.rejected:
+            logger.warning(
+                "[AIGIE] gRPC ingest rejected %d of %d spans: %s",
+                response.rejected,
+                response.rejected + response.accepted,
+                "; ".join(response.errors[:3]),
+            )
 
-        # Check for errors in 207 Multi-Status response
+    async def _drain_decision_tasks(self, timeout_s: float) -> None:
+        """Bounded wait for in-flight EvaluateSpan tasks before closing the
+        decision channel: a client-side cancel propagates to the server
+        handler and kills verdict persistence mid-flight. Never raises."""
+        tasks = getattr(self, "_decision_tasks", None)
+        if not tasks:
+            return
         try:
-            result = response.json()
-            if result.get("errors"):
-                # Log errors but don't fail (some events may have succeeded)
-                logger.debug(
-                    f"Batch ingestion had {len(result.get('errors', []))} errors out of {len(result.get('successes', [])) + len(result.get('errors', []))} total events"
-                )
-                # Log first few errors for debugging
-                for error in result.get("errors", [])[:3]:
-                    logger.debug(f"Batch ingestion error: {error}")
-            else:
-                logger.debug(
-                    f"Batch ingestion successful: {len(result.get('successes', []))} events processed"
-                )
+            await asyncio.wait(set(tasks), timeout=timeout_s)
         except Exception as e:
-            # If response parsing fails, just continue
-            logger.warning(f"Batch ingestion response parsing failed (non-critical): {e}")
+            logger.debug("decision task drain: %s", e)
+
+    def _try_fire_evaluate_span(self, payload: dict[str, Any]) -> bool:
+        """Fire EvaluateSpan for one finalized span at emit time (Determine
+        Error MVP) instead of waiting for the next buffer flush.
+
+        Called by ``TraceEmitter`` on every span-completion emission —
+        including from framework worker threads — so this never raises and
+        never blocks. The task must run on the buffer's owner loop: the
+        decision channel (``grpc.aio``) is bound to the loop it was created
+        on, which is where the dispatch-time fires already run.
+
+        Returns True only when the call was actually scheduled. False means
+        the dispatch-time fire in ``_dispatch_v2_spans`` still owns this
+        span (no decision client, proto conversion error, no usable loop).
+        """
+        try:
+            if payload.get("status") in JUDGE_SKIP_STATUSES:
+                return False
+            if getattr(self, "_decision_client", None) is None:
+                return False
+            buffer = getattr(self, "_buffer", None)
+            owner = getattr(buffer, "_owner_loop", None)
+            if owner is None or owner.is_closed():
+                return False
+            try:
+                current = asyncio.get_running_loop()
+            except RuntimeError:
+                current = None
+            if current is not owner and not owner.is_running():
+                return False
+            span_pb = _span_to_proto(payload)
+            if current is owner:
+                self._fire_evaluate_spans([span_pb])
+            else:
+                owner.call_soon_threadsafe(self._fire_evaluate_spans, [span_pb])
+            return True
+        except Exception as e:
+            logger.debug("[AIGIE] emit-time EvaluateSpan skipped (%s); deferring to flush", e)
+            return False
+
+    def _fire_evaluate_spans(self, spans_pb: list) -> None:
+        """Fire one fire-and-forget EvaluateSpan task per finalized span
+        (Determine Error MVP). ``DecisionClient.evaluate_span`` never raises,
+        so these tasks can't surface errors into the ingest path; the bounded
+        set just keeps strong references until each task completes."""
+        decision_client = getattr(self, "_decision_client", None)
+        if decision_client is None:
+            return
+        tasks = getattr(self, "_decision_tasks", None)
+        if tasks is None:
+            tasks = self._decision_tasks = set()
+        for span_pb in spans_pb:
+            # Authoritative judge gate (covers both the emit-time and
+            # dispatch-time fire paths): never judge a paused/interrupted span.
+            if span_pb.status in JUDGE_SKIP_STATUSES:
+                continue
+            task = asyncio.create_task(decision_client.evaluate_span(span_pb))
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
 
     async def _flush_events(self, events: list[BufferedEvent]) -> None:
         """
-        Flush buffered events to the API.
-
-        Tries batch ingestion endpoint first, falls back to individual endpoints.
+        Flush buffered events: finalized spans go to the gRPC Ingest
+        Gateway; everything else is dropped (no V2 transport yet — the legacy
+        HTTP write endpoints were removed from the platform).
 
         SECURITY: Requires valid authentication token. Without a token,
         data will NOT be sent to the platform to prevent unauthorized injection.
@@ -1625,266 +1542,7 @@ class Aigie:
                 except Exception as e:
                     logger.warning(f"Mask function failed for event {event.event_type.value}: {e}")
 
-        # Try batch ingestion endpoint first
-        try:
-            # Convert to batch format matching backend schema
-            batch_events = []
-            for event in events:
-                # Map event type from underscore to hyphen format
-                # Core events use hyphen format, intelligence events keep underscore
-                event_type_map = {
-                    "trace_create": "trace-create",
-                    "trace_update": "trace-update",
-                    "span_create": "span-create",
-                    "span_update": "span-update",
-                    # Intelligence events stay as-is (underscore format)
-                    "guardrail_check": "guardrail_check",
-                    "eval_feedback": "eval_feedback",
-                    "remediation_result": "remediation_result",
-                    "workflow_pattern": "workflow_pattern",
-                    "health_ping": "health_ping",
-                }
-                event_type = event_type_map.get(event.event_type.value, event.event_type.value)
-
-                # Get event ID
-                event_id = (
-                    event.payload.get("id")
-                    or event.payload.get("trace_id")
-                    or event.payload.get("span_id")
-                )
-                if not event_id:
-                    logger.warning(f"Skipping event without ID: {event.event_type.value}")
-                    continue
-
-                # Get timestamp from payload or use current time
-                timestamp_str = (
-                    event.payload.get("timestamp")
-                    or event.payload.get("start_time")
-                    or event.payload.get("created_at")
-                )
-                if timestamp_str:
-                    # If it's already a string, use it; if datetime, convert
-                    if isinstance(timestamp_str, datetime):
-                        timestamp = timestamp_str.isoformat()
-                    else:
-                        timestamp = timestamp_str
-                else:
-                    timestamp = datetime.now(timezone.utc).isoformat()
-
-                # Prepare body - ensure it matches TraceBody/SpanBody schema
-                body = event.payload.copy()
-
-                # For trace events, map fields to TraceBody schema
-                if "trace" in event_type:
-                    # TraceBody expects: id, timestamp, name, input, output, metadata, tags, etc.
-                    # Ensure id is in body
-                    if "id" not in body:
-                        body["id"] = event_id
-                    # Convert start_time/created_at to timestamp (as ISO string, Pydantic will parse)
-                    if "timestamp" not in body:
-                        if "start_time" in body:
-                            body["timestamp"] = body.pop("start_time")
-                        elif "created_at" in body:
-                            body["timestamp"] = body.pop("created_at")
-                    # Remove fields not in TraceBody schema
-                    body.pop("type", None)  # TraceBody doesn't have type
-                    if event_type == "trace-create":
-                        body.pop("status", None)  # TraceBody CREATE doesn't have status
-                    # Ensure timestamp is a string if it's a datetime
-                    if "timestamp" in body and isinstance(body["timestamp"], datetime):
-                        body["timestamp"] = body["timestamp"].isoformat()
-
-                # For span events, map fields to SpanBody schema
-                elif "span" in event_type:
-                    # SpanBody expects: id, trace_id, parent_id, name, type, start_time, end_time, input, output, etc.
-                    # Ensure id is in body
-                    if "id" not in body:
-                        body["id"] = event_id
-                    # Ensure trace_id is in body (not traceId)
-                    if "trace_id" not in body and "traceId" in body:
-                        body["trace_id"] = body.pop("traceId")
-                    if "parent_id" not in body and "parentId" in body:
-                        body["parent_id"] = body.pop("parentId")
-                    # Ensure start_time is present (not created_at)
-                    if "start_time" not in body and "created_at" in body:
-                        body["start_time"] = body.pop("created_at")
-                    # Convert endTime to end_time
-                    if "end_time" not in body and "endTime" in body:
-                        body["end_time"] = body.pop("endTime")
-                    # Note: Keep status field for backend (it may extract it for span status)
-                    # Remove timestamp as SpanBody uses start_time/end_time
-                    body.pop("timestamp", None)  # SpanBody uses start_time/end_time, not timestamp
-                    # Ensure start_time/end_time are strings if they're datetimes
-                    if "start_time" in body and isinstance(body["start_time"], datetime):
-                        body["start_time"] = body["start_time"].isoformat()
-                    if "end_time" in body and isinstance(body["end_time"], datetime):
-                        body["end_time"] = body["end_time"].isoformat()
-
-                # Create event dict matching IngestionEvent schema
-                # The type must be exactly "trace-create", "span-create", etc. (literal)
-                event_dict = {
-                    "type": event_type,  # Must match EventType enum exactly
-                    "id": event_id,
-                    "timestamp": timestamp,  # ISO string, Pydantic will parse to datetime
-                    "body": body,  # Must match TraceBody or SpanBody schema
-                }
-                batch_events.append(event_dict)
-
-            if not batch_events:
-                logger.warning("No valid events to send in batch")
-                return
-
-            # Sort events so trace-create comes first, then span-create, span-update, trace-update
-            # This prevents the backend from auto-creating traces from orphan spans
-            _event_order = {
-                "trace-create": 0,
-                "span-create": 1,
-                "span-update": 2,
-                "trace-update": 3,
-            }
-            batch_events.sort(key=lambda e: _event_order.get(e["type"], 99))
-
-            logger.info(
-                f"Attempting batch ingestion for {len(batch_events)} events via /v1/ingestion"
-            )
-            await self._send_batch(batch_events)
-            logger.info(
-                f"Successfully sent {len(batch_events)} events via batch ingestion endpoint"
-            )
-            return  # Success, exit early
-        except Exception as e:
-            # Connectivity errors (ConnectTimeout, ConnectError, NetworkError) must propagate so
-            # the buffer's circuit breaker can open and stop hammering the unreachable backend.
-            # Falling back to individual endpoints on a connectivity failure would just multiply
-            # the timeouts (N events × connect_timeout seconds) and make things much slower.
-            if isinstance(e, (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError)):
-                raise
-            # Fallback to individual endpoints for non-connectivity failures (e.g. 4xx schema errors)
-            logger.warning(
-                f"Batch ingestion failed for {len(events)} events, falling back to individual endpoints: {type(e).__name__}: {e!s}"
-            )
-
-        # Fallback: Group events by type and send individually
-        events_by_type: dict[EventType, list[BufferedEvent]] = {}
-        for event in events:
-            if event.event_type not in events_by_type:
-                events_by_type[event.event_type] = []
-            events_by_type[event.event_type].append(event)
-
-        # Send batches
-        for event_type, type_events in events_by_type.items():
-            if self._is_auth_suspended():
-                return  # Auth suspended during this flush — stop immediately
-            if event_type == EventType.TRACE_CREATE:
-                # Batch create traces
-                for event in type_events:
-                    try:
-                        response = await self.client.post(
-                            f"{self.api_url}/v1/traces", json=event.payload
-                        )
-                        response.raise_for_status()
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code == 401:
-                            self._handle_auth_failure()
-                            return
-                        if e.response.status_code == 403:
-                            raise  # Retryable — let buffer retry
-                        if e.response.status_code in (400, 500):
-                            logger.debug(
-                                f"Trace creation failed (non-critical): {e.response.status_code} - {e.response.text[:200]}"
-                            )
-                            continue
-                        raise
-                    except Exception as e:
-                        logger.debug(f"Trace creation failed (non-critical): {e}")
-                        continue
-            elif event_type == EventType.TRACE_UPDATE:
-                # Batch update traces
-                for event in type_events:
-                    try:
-                        # Get trace_id without modifying original payload
-                        payload = event.payload.copy()
-                        trace_id = payload.pop("id", payload.pop("trace_id", None))
-                        if not trace_id:
-                            logger.debug("Trace update skipped: trace_id not found in payload")
-                            continue
-                        response = await self.client.put(
-                            f"{self.api_url}/v1/traces/{trace_id}", json=payload
-                        )
-                        response.raise_for_status()
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code == 401:
-                            self._handle_auth_failure()
-                            return
-                        if e.response.status_code == 403:
-                            raise  # Retryable — let buffer retry
-                        if e.response.status_code in (400, 500):
-                            logger.debug(
-                                f"Trace update failed (non-critical): {e.response.status_code} - {e.response.text[:200]}"
-                            )
-                            continue
-                        raise
-                    except Exception as e:
-                        logger.debug(f"Trace update failed (non-critical): {e}")
-                        continue
-            elif event_type == EventType.SPAN_CREATE:
-                # Batch create spans
-                for event in type_events:
-                    try:
-                        response = await self.client.post(
-                            f"{self.api_url}/v1/spans",
-                            json=event.payload,
-                            headers={"X-API-Key": self._auth_token} if self._auth_token else {},
-                            timeout=5.0,
-                        )
-                        response.raise_for_status()
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code == 401:
-                            self._handle_auth_failure()
-                            return
-                        # Suppress 400/500 errors - likely format or backend issues
-                        if e.response.status_code in (400, 500):
-                            logger.debug(
-                                f"Span creation failed (non-critical): {e.response.status_code} - {e.response.text[:200]}"
-                            )
-                            continue
-                        raise
-                    except Exception as e:
-                        # Suppress connection errors
-                        logger.debug(f"Span creation failed (non-critical): {e}")
-                        continue
-            elif event_type == EventType.SPAN_UPDATE:
-                # Batch update spans
-                for event in type_events:
-                    try:
-                        # Get span_id without modifying original payload
-                        payload = event.payload.copy()
-                        span_id = payload.pop("id", payload.pop("span_id", None))
-                        if not span_id:
-                            logger.debug("Span update skipped: span_id not found in payload")
-                            continue
-                        response = await self.client.put(
-                            f"{self.api_url}/v1/spans/{span_id}",
-                            json=payload,
-                            headers={"X-API-Key": self._auth_token} if self._auth_token else {},
-                            timeout=5.0,
-                        )
-                        response.raise_for_status()
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code == 401:
-                            self._handle_auth_failure()
-                            return
-                        # Suppress 400/500 errors - likely format or backend issues
-                        if e.response.status_code in (400, 500):
-                            logger.debug(
-                                f"Span update failed (non-critical): {e.response.status_code} - {e.response.text[:200]}"
-                            )
-                            continue
-                        raise
-                    except Exception as e:
-                        # Suppress connection errors
-                        logger.debug(f"Span update failed (non-critical): {e}")
-                        continue
+        await self._dispatch_v2_spans(events)
 
     async def flush(self) -> None:
         """Manually flush all buffered events."""
@@ -2052,11 +1710,27 @@ class Aigie:
         except Exception as e:
             logger.warning(f"[AIGIE] {name} stop raised: {e}")
 
+    def _finalize_open_spans_at_shutdown(self) -> None:
+        """Emit any spans still open at shutdown as interrupted.
+
+        A span built mutably in memory registers a finalize callable in the
+        global open-span registry; on clean close the emitter deregisters it.
+        Survivors here are orphans (unclean exit) — emit each finalized with
+        ``status="interrupted"`` so the root still ships instead of being
+        abandoned in a handler's ``_open`` map. ``evaluated=True`` keeps the
+        judge from firing on an incomplete span.
+        """
+        if self._buffer is None:
+            return
+        for payload in drain_open_spans_as_interrupted():
+            self._buffer.add_sync(payload, evaluated=True)
+
     async def close(self) -> None:
         """Close the HTTP client and flush remaining events."""
         self._closing = True
 
         from aigie import telemetry as _internal_telemetry
+
         await _internal_telemetry.shutdown(timeout_ms=5_000)
 
         # Tear down event-emitting components FIRST. Several of these can
@@ -2103,11 +1777,33 @@ class Aigie:
                 logger.debug(f"Pattern cache stop: {e}")
             self._pattern_cache = None
 
+        # Finalize any spans still open at shutdown before draining the buffer.
+        self._finalize_open_spans_at_shutdown()
+
         # Now drain the buffer. Background flusher's final flush picks up any
         # events the components above queued during their teardown.
         if self._buffer:
             await self._buffer.stop_background_flusher()
             self._buffer = None
+
+        # gRPC clients close AFTER the buffer drain — the final flush sends
+        # the run's last finalized spans through them.
+        if self._ingest_client is not None:
+            try:
+                await self._ingest_client.close()
+            except grpc.RpcError as e:
+                logger.debug("ingest client close: %s", e)
+            self._ingest_client = None
+
+        if getattr(self, "_decision_client", None) is not None:
+            await self._drain_decision_tasks(
+                timeout_s=float(os.getenv("KYTTE_DECISION_DRAIN_TIMEOUT_S", "30"))
+            )
+            try:
+                await self._decision_client.close()
+            except grpc.RpcError as e:
+                logger.debug("decision client close: %s", e)
+            self._decision_client = None
 
         # Close judge LLM client (httpx connection pool)
         if self._judge_llm_client and hasattr(self._judge_llm_client, "close"):
@@ -2162,74 +1858,6 @@ class Aigie:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
-
-    # ==================== Guardrails API ====================
-
-    async def report_guardrail_check(
-        self,
-        trace_id: str,
-        guardrail_name: str,
-        action: str,
-        passed: bool,
-        span_id: str | None = None,
-        score: float = 1.0,
-        issues: list[str] | None = None,
-        modified_content: str | None = None,
-        details: dict[str, Any] | None = None,
-        duration_ms: float | None = None,
-        timestamp: datetime | None = None,
-    ) -> None:
-        """
-        Report a guardrail check result to the backend.
-
-        This sends guardrail check events to Kytte for monitoring and display
-        in the execution detail view.
-
-        Args:
-            trace_id: ID of the trace this guardrail check belongs to
-            guardrail_name: Name of the guardrail (e.g., "PIIDetector", "ToxicityDetector")
-            action: Action taken (pass, warn, retry, redirect, adjust, escalate)
-            passed: Whether the content passed the check
-            span_id: Optional span ID if check is associated with a specific span
-            score: Confidence score (0.0 to 1.0)
-            issues: List of detected issues
-            modified_content: Modified content if action was adjust
-            details: Additional details about the check
-            duration_ms: Time taken for the check in milliseconds
-            timestamp: When the check was performed (defaults to now)
-
-        Example:
-            await aigie.report_guardrail_check(
-                trace_id="abc-123",
-                guardrail_name="PIIDetector",
-                action="adjust",
-                passed=True,
-                score=0.95,
-                issues=["Found email address"],
-                modified_content="[REDACTED]",
-                duration_ms=12.5,
-            )
-        """
-        if not self._buffer:
-            logger.warning("Event buffer not initialized, skipping guardrail check report")
-            return
-
-        payload = {
-            "trace_id": trace_id,
-            "span_id": span_id,
-            "guardrail_name": guardrail_name,
-            "action": action,
-            "passed": passed,
-            "score": score,
-            "issues": issues or [],
-            "modified_content": modified_content,
-            "details": details or {},
-            "duration_ms": duration_ms,
-            "timestamp": (timestamp or datetime.utcnow()).isoformat(),
-        }
-
-        await self._buffer.add(EventType.GUARDRAIL_CHECK, payload)
-        logger.debug(f"Queued guardrail check event for trace {trace_id}: {guardrail_name}")
 
     # ==================== Real-time Interception API ====================
 
@@ -3430,6 +3058,7 @@ def shutdown(timeout: float = 10.0) -> None:
     Automatically registered via atexit when init() is called.
     """
     from aigie import telemetry as _internal_telemetry
+
     _internal_telemetry.shutdown_sync(timeout_ms=5_000)
 
     global _global_aigie

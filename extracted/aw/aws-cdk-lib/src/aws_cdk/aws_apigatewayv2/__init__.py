@@ -5622,6 +5622,17 @@ class CfnIntegration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForIntegration")
+    @builtins.classmethod
+    def arn_for_integration(cls, resource: "_IIntegrationRef_0c967a25") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1454c0b352cf5833156e2ae23215e63255ef381dfde14cef3c82ba6618f7744c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIntegration", [resource]))
+
     @jsii.member(jsii_name="isCfnIntegration")
     @builtins.classmethod
     def is_cfn_integration(cls, x: typing.Any) -> builtins.bool:
@@ -9357,15 +9368,6 @@ class CfnStage(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The identifier.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -23848,6 +23850,12 @@ def _typecheckingstub__89ee25d7b8304fd6f8c1196e47b946d8bf8256f5a9f37b58c7c5f5cb8
     template_selection_expression: typing.Optional[builtins.str] = None,
     timeout_in_millis: typing.Optional[jsii.Number] = None,
     tls_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.TlsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1454c0b352cf5833156e2ae23215e63255ef381dfde14cef3c82ba6618f7744c(
+    resource: _IIntegrationRef_0c967a25,
 ) -> None:
     """Type checking stubs"""
     pass

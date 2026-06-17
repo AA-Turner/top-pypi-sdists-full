@@ -71,6 +71,7 @@ class ExecuteSqlQueryRequest(_message.Message):
         "correlation_id",
         "persistence_settings",
         "max_memory_bytes",
+        "datasource_name",
         "sync_options",
         "async_options",
         "compilation_options",
@@ -89,6 +90,7 @@ class ExecuteSqlQueryRequest(_message.Message):
     CORRELATION_ID_FIELD_NUMBER: _ClassVar[int]
     PERSISTENCE_SETTINGS_FIELD_NUMBER: _ClassVar[int]
     MAX_MEMORY_BYTES_FIELD_NUMBER: _ClassVar[int]
+    DATASOURCE_NAME_FIELD_NUMBER: _ClassVar[int]
     SYNC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     ASYNC_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     COMPILATION_OPTIONS_FIELD_NUMBER: _ClassVar[int]
@@ -96,6 +98,7 @@ class ExecuteSqlQueryRequest(_message.Message):
     correlation_id: str
     persistence_settings: ExecuteSqlResultPersistenceSettings
     max_memory_bytes: int
+    datasource_name: str
     sync_options: ExecuteSqlSyncQueryRequestOptions
     async_options: ExecuteSqlAsyncQueryRequestOptions
     compilation_options: _containers.MessageMap[str, _struct_pb2.Value]
@@ -105,6 +108,7 @@ class ExecuteSqlQueryRequest(_message.Message):
         correlation_id: _Optional[str] = ...,
         persistence_settings: _Optional[_Union[ExecuteSqlResultPersistenceSettings, _Mapping]] = ...,
         max_memory_bytes: _Optional[int] = ...,
+        datasource_name: _Optional[str] = ...,
         sync_options: _Optional[_Union[ExecuteSqlSyncQueryRequestOptions, _Mapping]] = ...,
         async_options: _Optional[_Union[ExecuteSqlAsyncQueryRequestOptions, _Mapping]] = ...,
         compilation_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry_cli
-Version: 3.5.0
+Version: 3.5.1
 Summary: A command line utility to work with Sentry.
 Home-page: https://github.com/getsentry/sentry-cli
 Author: Sentry

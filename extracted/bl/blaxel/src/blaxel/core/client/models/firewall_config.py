@@ -15,7 +15,8 @@ class FirewallConfig:
 
         Attributes:
             rulesets (Union[Unset, list[str]]): List of firewall rulesets to apply. Valid values: "default" (no-op), "proxy"
-                (restrict egress to proxy), "dedicated-ip" (restrict egress to dedicated IP gateway). Example: ["proxy"].
+                (restrict egress to proxy), "dedicated-ip" (restrict egress to dedicated IP gateway). Example: ["proxy",
+                "dedicated-ip"].
     """
 
     rulesets: Union[Unset, list[str]] = UNSET

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastmcp-extensions
-Version: 0.5.0
+Version: 0.6.0
 Summary: Unofficial extension library for FastMCP 2.0 with patterns, practices, and utilities
 Project-URL: Homepage, https://github.com/airbytehq/fastmcp-extensions
 Project-URL: Repository, https://github.com/airbytehq/fastmcp-extensions
@@ -219,13 +219,22 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: fastmcp<4.0,>=3.0
+Requires-Dist: mcp
+Requires-Dist: segment-analytics-python<3.0,>=2.3
+Requires-Dist: sentry-sdk<3.0,>=2.0
+Requires-Dist: uvicorn
+Provides-Extra: cli
+Requires-Dist: cyclopts<5.0,>=4.0.0; extra == 'cli'
+Requires-Dist: rich<14.0,>=13.0; extra == 'cli'
 Provides-Extra: dev
+Requires-Dist: cyclopts<5.0,>=4.0.0; extra == 'dev'
 Requires-Dist: deptry>=0.12.0; extra == 'dev'
 Requires-Dist: mypy>=1.8.0; extra == 'dev'
 Requires-Dist: poethepoet>=0.24.0; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.23.0; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0; extra == 'dev'
 Requires-Dist: pytest>=7.0; extra == 'dev'
+Requires-Dist: rich<14.0,>=13.0; extra == 'dev'
 Requires-Dist: ruff>=0.1.0; extra == 'dev'
 Description-Content-Type: text/markdown
 

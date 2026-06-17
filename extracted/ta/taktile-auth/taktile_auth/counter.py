@@ -12,6 +12,10 @@ class SharedCounter(t.Protocol):
         increment."""
         ...  # pragma: no cover
 
+    def get(self, key: str) -> int:
+        """Return the current counter value at ``key`` (0 if absent)."""
+        ...  # pragma: no cover
+
 
 class DynamoDBSharedCounter:
     """``SharedCounter`` backed by a DynamoDB table.
@@ -33,10 +37,15 @@ class DynamoDBSharedCounter:
         client: t.Any,
         table_name: str,
         realm: str,
+        consistent_read: bool = True,
     ) -> None:
         self._client = client
         self._table_name = table_name
         self._realm = realm
+        # Strongly-consistent reads by default so an abort check sees the
+        # weight a concurrent hop just wrote; callers can relax to
+        # eventually consistent to trade accuracy for read latency.
+        self._consistent_read = consistent_read
 
     def increment(self, key: str, amount: int, ttl_seconds: int) -> int:
         response = self._client.update_item(
@@ -55,3 +64,17 @@ class DynamoDBSharedCounter:
             ReturnValues="ALL_NEW",
         )
         return int(response["Attributes"]["value"]["N"])
+
+    def get(self, key: str) -> int:
+        response = self._client.get_item(
+            TableName=self._table_name,
+            Key={
+                "realm": {"S": f"{self._realm}_{key}"},
+                "key": {"S": key},
+            },
+            ConsistentRead=self._consistent_read,
+        )
+        item = response.get("Item")
+        if not item:
+            return 0
+        return int(item["value"]["N"])

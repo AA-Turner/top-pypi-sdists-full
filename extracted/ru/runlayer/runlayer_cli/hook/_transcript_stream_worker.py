@@ -22,6 +22,11 @@ from runlayer_cli.hook.transcript_stream import (
 
 
 def main() -> None:
+    # Frozen aiwatch spawns the worker via the sentinel argv re-exec (routed
+    # through aiwatch.py:main, which marks the runtime + is frozen-detected).
+    # The unfrozen ``-m runlayer_cli.hook._transcript_stream_worker`` spawn is
+    # the pip-installed ``runlayer`` package and must keep reading config.yaml,
+    # so it does NOT mark the aiwatch runtime.
     parser = argparse.ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()

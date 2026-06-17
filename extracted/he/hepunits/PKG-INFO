@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hepunits
-Version: 2.4.5
+Version: 2.4.6
 Summary: Units and constants in the HEP system of units
 Project-URL: Homepage, https://github.com/scikit-hep/hepunits
 Author-email: Eduardo Rodrigues <eduardo.rodrigues@cern.ch>

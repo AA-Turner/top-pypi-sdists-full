@@ -26,7 +26,7 @@ available after importing `music21`.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'10.3.0'
+'10.5.0'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -2447,8 +2447,8 @@ class Music21Object(prebase.ProtoM21Object):
             self._activeSiteStoredOffset = storedOffset
             # siteId = id(site)
             # if not self.sites.hasSiteId(siteId):  # This should raise a warning, should not happen
-            #    # environLocal.warn('Adding a siteDict entry for a ' +
-            #    #                        'site that should already be there!')
+            #    # environLocal.warn('Adding a siteDict entry for a '
+            #    #                   'site that should already be there!')
             #    self.sites.add(site, idKey=siteId)
         else:
             self._activeSiteStoredOffset = None

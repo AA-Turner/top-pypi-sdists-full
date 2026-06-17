@@ -881,7 +881,8 @@ class ActionsResource(SyncAPIResource):
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
               - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -1158,7 +1159,9 @@ class ActionsResource(SyncAPIResource):
                 `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
                 `voice_settings` to configure precision, sample_rate, and format.
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`. Use `voice_settings` to configure `delivery_mode` (`STABLE`,
+                `BALANCED`, `CREATIVE`), supported by `TTS2` only.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -1881,7 +1884,9 @@ class ActionsResource(SyncAPIResource):
                 `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
                 `voice_settings` to configure precision, sample_rate, and format.
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`. Use `voice_settings` to configure `delivery_mode` (`STABLE`,
+                `BALANCED`, `CREATIVE`), supported by `TTS2` only.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -2032,7 +2037,8 @@ class ActionsResource(SyncAPIResource):
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
               - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -2214,7 +2220,8 @@ class ActionsResource(SyncAPIResource):
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
               - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -2346,7 +2353,19 @@ class ActionsResource(SyncAPIResource):
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
         direction: Literal["inbound", "outbound", "both"] | Omit = omit,
-        noise_suppression_engine: Literal["Denoiser", "DeepFilterNet", "Krisp", "AiCoustics"] | Omit = omit,
+        noise_suppression_engine: Literal[
+            "Denoiser",
+            "DeepFilterNet",
+            "Krisp",
+            "AiCoustics",
+            "aic_l_quail",
+            "aic_l_rook",
+            "aic_s_quail",
+            "aic_s_rook",
+            "quail_voice_focus_s",
+            "quail_voice_focus_xs",
+        ]
+        | Omit = omit,
         noise_suppression_engine_config: action_start_noise_suppression_params.NoiseSuppressionEngineConfig
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -4790,7 +4809,8 @@ class AsyncActionsResource(AsyncAPIResource):
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
               - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -5067,7 +5087,9 @@ class AsyncActionsResource(AsyncAPIResource):
                 `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
                 `voice_settings` to configure precision, sample_rate, and format.
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`. Use `voice_settings` to configure `delivery_mode` (`STABLE`,
+                `BALANCED`, `CREATIVE`), supported by `TTS2` only.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -5790,7 +5812,9 @@ class AsyncActionsResource(AsyncAPIResource):
                 `Resemble.Turbo.my_voice`). Only `Turbo` model is supported. Use
                 `voice_settings` to configure precision, sample_rate, and format.
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`. Use `voice_settings` to configure `delivery_mode` (`STABLE`,
+                `BALANCED`, `CREATIVE`), supported by `TTS2` only.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -5941,7 +5965,8 @@ class AsyncActionsResource(AsyncAPIResource):
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
               - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -6123,7 +6148,8 @@ class AsyncActionsResource(AsyncAPIResource):
                 [available voices](https://elevenlabs.io/docs/api-reference/get-voices).
               - **Telnyx:** Use `Telnyx.<model_id>.<voice_id>`
               - **Inworld:** Use `Inworld.<ModelId>.<VoiceId>` (e.g., `Inworld.Mini.Loretta`,
-                `Inworld.Max.Oliver`). Supported models: `Mini`, `Max`.
+                `Inworld.Max.Oliver`, `Inworld.TTS2.Loretta`). Supported models: `Mini`,
+                `Max`, `TTS2`.
               - **xAI:** Use `xAI.<VoiceId>` (e.g., `xAI.eve`). Available voices: `eve`,
                 `ara`, `rex`, `sal`, `leo`.
 
@@ -6255,7 +6281,19 @@ class AsyncActionsResource(AsyncAPIResource):
         client_state: str | Omit = omit,
         command_id: str | Omit = omit,
         direction: Literal["inbound", "outbound", "both"] | Omit = omit,
-        noise_suppression_engine: Literal["Denoiser", "DeepFilterNet", "Krisp", "AiCoustics"] | Omit = omit,
+        noise_suppression_engine: Literal[
+            "Denoiser",
+            "DeepFilterNet",
+            "Krisp",
+            "AiCoustics",
+            "aic_l_quail",
+            "aic_l_rook",
+            "aic_s_quail",
+            "aic_s_rook",
+            "quail_voice_focus_s",
+            "quail_voice_focus_xs",
+        ]
+        | Omit = omit,
         noise_suppression_engine_config: action_start_noise_suppression_params.NoiseSuppressionEngineConfig
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.

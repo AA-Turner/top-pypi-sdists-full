@@ -35,10 +35,10 @@ else:
         return ["__all__", "__file__", "__path__"] + list(__all__)
 
     def __getattr__(name: str) -> t.Any:
-        require()
-
-        mod = sys.modules[__name__]
         if name in ("loads", "dumps"):
+            require()
+
+            mod = sys.modules[__name__]
             value = getattr(orjson, name)
             setattr(mod, name, value)
             return value

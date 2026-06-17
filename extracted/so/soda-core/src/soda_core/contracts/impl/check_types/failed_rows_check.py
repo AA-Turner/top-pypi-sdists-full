@@ -6,11 +6,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import soda_logger
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    CheckResult,
-    Measurement,
-)
+from soda_core.contracts.contract_verification import CheckResult, Measurement
 from soda_core.contracts.impl.check_types.failed_rows_check_yaml import (
     FailedRowsCheckYaml,
 )
@@ -104,8 +100,11 @@ class FailedRowsCheckImpl(CheckImpl):
                 self.queries.append(failed_rows_count_query)
 
             if self.failed_rows_check_yaml.rows_tested_query and contract_impl.data_source_impl:
+                # Must NOT use RowCountMetricImpl here — its identity hash
+                # would match the contract-wide row_count metric and the
+                # custom-query measurement would clobber dataset_rows_tested.
                 self.check_rows_tested_metric_impl = self._resolve_metric(
-                    RowCountMetricImpl(contract_impl=contract_impl, check_impl=self)
+                    RowsTestedQueryMetricImpl(contract_impl=contract_impl, check_impl=self)
                 )
                 rows_tested_sql = self.failed_rows_check_yaml.rows_tested_query
                 if contract_impl.should_apply_sampling:
@@ -121,32 +120,46 @@ class FailedRowsCheckImpl(CheckImpl):
                 )
                 self.queries.append(rows_tested_query)
 
+    def get_required_metric_impls(self) -> list[MetricImpl]:
+        # failed_rows_count is the threshold value for `metric: count` and the
+        # numerator for `metric: percent`. check_rows_tested is the denominator for
+        # percent; for count it's a nullable diagnostic (rows_tested_query may
+        # legitimately return NULL), so we do NOT require it on that path.
+        #
+        # Both metric impls are Optional — setup_metrics only creates them when the
+        # YAML provides `expression` or `query` (or `rows_tested_query`). If the
+        # YAML provides none (malformed config the parser warned about but accepted),
+        # we return an empty list so the framework skips gating; evaluate() then
+        # produces a None threshold_value via its bare-query fallback, and
+        # evaluate_threshold(None) drives NOT_EVALUATED — no `all_measured(None)`
+        # crash on `get_value(None).id`.
+        required: list[MetricImpl] = []
+        if self.failed_rows_count_metric_impl is not None:
+            required.append(self.failed_rows_count_metric_impl)
+        if self.failed_rows_check_yaml.metric == "percent" and self.check_rows_tested_metric_impl is not None:
+            required.append(self.check_rows_tested_metric_impl)
+        return required
+
     def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
-        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+        failed_rows_count: int = measurement_values.get_value(self.failed_rows_count_metric_impl)
 
-        failed_rows_count: Optional[int] = measurement_values.get_value(self.failed_rows_count_metric_impl)
-
-        diagnostic_metric_values: dict[str, float] = {}
-        threshold_value: Optional[float] = None
-
-        if self.failed_rows_check_yaml.expression:
+        # Use `check_rows_tested_metric_impl is not None` rather than reading
+        # `rows_tested_query` directly: the YAML parser only *warns* (not rejects)
+        # when rows_tested_query is supplied without a query, so the YAML field can
+        # be truthy with no corresponding metric. Gating on the metric impl avoids
+        # a `get_value(None) -> AttributeError` crash in that pathological config.
+        if self.check_rows_tested_metric_impl is not None:
             threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
                 failed_rows_count, measurement_values
             )
-
-        elif self.failed_rows_check_yaml.query:
-            if self.failed_rows_check_yaml.rows_tested_query:
-                threshold_value, diagnostic_metric_values = self._evaluate_with_rows_tested(
-                    failed_rows_count, measurement_values
-                )
-            else:
-                threshold_value = failed_rows_count
-
-                diagnostic_metric_values = {
-                    "failed_rows_count": failed_rows_count,
-                    "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
-                    "check_rows_tested": None,
-                }
+        else:
+            # Bare query branch: no rows_tested_query, so check_rows_tested is unknown.
+            threshold_value = failed_rows_count
+            diagnostic_metric_values = {
+                "failed_rows_count": failed_rows_count,
+                "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
+                "check_rows_tested": None,
+            }
 
         outcome = self.evaluate_threshold(threshold_value)
 
@@ -158,19 +171,22 @@ class FailedRowsCheckImpl(CheckImpl):
         )
 
     def _evaluate_with_rows_tested(
-        self, failed_rows_count: Optional[int], measurement_values: MeasurementValues
-    ) -> tuple[Optional[float], dict[str, float]]:
+        self, failed_rows_count: int, measurement_values: MeasurementValues
+    ) -> tuple[Number, dict[str, Optional[Number]]]:
+        # check_rows_tested may be None (rows_tested_query returned NULL) on the
+        # count-metric path. We deliberately do NOT require it for that path
+        # (see get_required_metric_impls). For the percent path the framework
+        # gates upstream, so check_rows_tested is guaranteed non-None here.
         check_rows_tested: Optional[int] = measurement_values.get_value(self.check_rows_tested_metric_impl)
-        failed_rows_percent: Optional[float] = 0
-        if isinstance(check_rows_tested, Number) and isinstance(failed_rows_count, Number) and check_rows_tested > 0:
-            failed_rows_percent = failed_rows_count * 100 / check_rows_tested
-
-        if self.failed_rows_check_yaml.metric == "percent":
-            threshold_value = failed_rows_percent
-        else:
-            threshold_value = failed_rows_count
-
-        diagnostic_metric_values = {
+        failed_rows_percent: float = (
+            failed_rows_count * 100 / check_rows_tested
+            if isinstance(check_rows_tested, Number) and check_rows_tested > 0
+            else 0
+        )
+        threshold_value: Number = (
+            failed_rows_percent if self.failed_rows_check_yaml.metric == "percent" else failed_rows_count
+        )
+        diagnostic_metric_values: dict[str, Optional[Number]] = {
             "failed_rows_count": failed_rows_count,
             "failed_rows_percent": failed_rows_percent,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
@@ -220,6 +236,30 @@ class FailedRowsExpressionMetricImpl(AggregationMetricImpl):
 
     def convert_db_value(self, value) -> any:
         return int(value) if value is not None else 0
+
+
+class RowsTestedQueryMetricImpl(MetricImpl):
+    """Row count from a user-provided rows_tested_query. SQL is part of the
+    identity so it can't collide with the contract row_count metric, and two
+    checks with the same SQL still share one measurement. Not an
+    AggregationMetricImpl: the value comes from the user's query, not COUNT(*).
+    """
+
+    def __init__(self, contract_impl: ContractImpl, check_impl: FailedRowsCheckImpl):
+        self.rows_tested_query: str = check_impl.failed_rows_check_yaml.rows_tested_query
+        super().__init__(
+            contract_impl=contract_impl,
+            metric_type="rows_tested_query",
+            check_filter=check_impl.check_yaml.filter,
+        )
+
+    def _get_id_properties(self) -> dict[str, any]:
+        id_properties: dict[str, any] = super()._get_id_properties()
+        id_properties["rows_tested_query"] = self.rows_tested_query
+        return id_properties
+
+    def sql_condition_expression(self) -> Optional[SqlExpression]:
+        return None
 
 
 class FailedRowsQueryMetricImpl(MetricImpl):

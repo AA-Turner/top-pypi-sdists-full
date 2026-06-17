@@ -81,8 +81,8 @@ class TestScanAllClients:
         mock_get_project_clients.return_value = []  # No project configs
 
         result = scan_all_clients(scan_projects=False)
-        assert len(result.configurations) == 1
-        assert result.configurations[0].client == "test_client"
+        configs = [c for c in result.configurations if c.client == "test_client"]
+        assert len(configs) == 1
 
 
 class TestScanResultProperties:

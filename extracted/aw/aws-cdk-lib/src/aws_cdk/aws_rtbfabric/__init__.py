@@ -85,11 +85,13 @@ from ..interfaces.aws_ec2 import (
 from ..interfaces.aws_rtbfabric import (
     IInboundExternalLinkRef as _IInboundExternalLinkRef_087c1bc6,
     ILinkRef as _ILinkRef_1c71e733,
+    ILinkRoutingRuleRef as _ILinkRoutingRuleRef_1a99f018,
     IOutboundExternalLinkRef as _IOutboundExternalLinkRef_06bb6289,
     IRequesterGatewayRef as _IRequesterGatewayRef_d92bcdf1,
     IResponderGatewayRef as _IResponderGatewayRef_2bdaa070,
     InboundExternalLinkReference as _InboundExternalLinkReference_89bab665,
     LinkReference as _LinkReference_a62a8bc7,
+    LinkRoutingRuleReference as _LinkRoutingRuleReference_b021a204,
     OutboundExternalLinkReference as _OutboundExternalLinkReference_b1d46069,
     RequesterGatewayReference as _RequesterGatewayReference_37e2965b,
     ResponderGatewayReference as _ResponderGatewayReference_a8195bef,
@@ -2594,6 +2596,626 @@ class CfnLinkProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ILinkRoutingRuleRef_1a99f018, _ITaggableV2_4e6798f8)
+class CfnLinkRoutingRule(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_rtbfabric.CfnLinkRoutingRule",
+):
+    '''Resource Type definition for AWS::RTBFabric::LinkRoutingRule.
+
+    A routing rule on a link within RTB Fabric that controls request routing based on conditions such as host headers, path matching, and query string parameters.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html
+    :cloudformationResource: AWS::RTBFabric::LinkRoutingRule
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_rtbfabric as rtbfabric
+        
+        cfn_link_routing_rule = rtbfabric.CfnLinkRoutingRule(self, "MyCfnLinkRoutingRule",
+            conditions=rtbfabric.CfnLinkRoutingRule.RuleConditionProperty(
+                host_header="hostHeader",
+                host_header_wildcard="hostHeaderWildcard",
+                path_exact="pathExact",
+                path_prefix="pathPrefix",
+                query_string_equals=rtbfabric.CfnLinkRoutingRule.QueryStringKeyValuePairProperty(
+                    key="key",
+                    value="value"
+                ),
+                query_string_exists="queryStringExists"
+            ),
+            gateway_id="gatewayId",
+            link_id="linkId",
+            priority=123,
+        
+            # the properties below are optional
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        conditions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLinkRoutingRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+        gateway_id: builtins.str,
+        link_id: builtins.str,
+        priority: jsii.Number,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::RTBFabric::LinkRoutingRule``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param conditions: Conditions for a routing rule. All non-null fields must match (AND logic). At least one field must be set. HostHeader and HostHeaderWildcard are mutually exclusive. PathPrefix and PathExact are mutually exclusive.
+        :param gateway_id: 
+        :param link_id: 
+        :param priority: 
+        :param tags: Tags to assign to the LinkRoutingRule.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__db28c924acf747369535729d8c6637b8e23e0f6c90a6cd1f5cc9d48d344f4620)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLinkRoutingRuleProps(
+            conditions=conditions,
+            gateway_id=gateway_id,
+            link_id=link_id,
+            priority=priority,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForLinkRoutingRule")
+    @builtins.classmethod
+    def arn_for_link_routing_rule(
+        cls,
+        resource: "_ILinkRoutingRuleRef_1a99f018",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb1a2e81fa8f1ecbb8d99e15809796fdf174605f03a15522c5be072beabd85e6)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLinkRoutingRule", [resource]))
+
+    @jsii.member(jsii_name="isCfnLinkRoutingRule")
+    @builtins.classmethod
+    def is_cfn_link_routing_rule(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLinkRoutingRule.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__786df57310f0eb7ab911502bc08d94ccffa60573fc096c32826ca177d3479693)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLinkRoutingRule", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdc30152ed3302452ce7a1b2782c50c80b5ae4288eacfddadcc91e02d74aba49)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a390646c7e8532ae1ad80f8b3177a726db080bf73c9f68e065bcd633746a5ae3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRuleId")
+    def attr_rule_id(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: RuleId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRuleId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedTimestamp")
+    def attr_updated_timestamp(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: UpdatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="linkRoutingRuleRef")
+    def link_routing_rule_ref(self) -> "_LinkRoutingRuleReference_b021a204":
+        '''A reference to a LinkRoutingRule resource.'''
+        return typing.cast("_LinkRoutingRuleReference_b021a204", jsii.get(self, "linkRoutingRuleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="conditions")
+    def conditions(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"]:
+        '''Conditions for a routing rule.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"], jsii.get(self, "conditions"))
+
+    @conditions.setter
+    def conditions(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47a7fb625657336fbaa66586b4b49f43894aa1a8b7b8d801a401b1220db07084)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "conditions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayId")
+    def gateway_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "gatewayId"))
+
+    @gateway_id.setter
+    def gateway_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a726c2abf9a8e6c4517fb33b309e500b6190169012783e928ea592b5f13fd6ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "gatewayId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="linkId")
+    def link_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "linkId"))
+
+    @link_id.setter
+    def link_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4d8e9732da4eeaf6ac4701e7c64e8d731361d235beb57244bae9617eed8d9d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "linkId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="priority")
+    def priority(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "priority"))
+
+    @priority.setter
+    def priority(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ebe945371a0eff207746d83bd4af45ac9cf6efd96ca5d9e38e251066f72c2b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the LinkRoutingRule.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ca8ae3e4347383becce77d565409673c9db7904bb1301268338097b02929902f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rtbfabric.CfnLinkRoutingRule.QueryStringKeyValuePairProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class QueryStringKeyValuePairProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: Query string key — RFC 3986 unreserved characters.
+            :param value: Query string value — RFC 3986 unreserved characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-querystringkeyvaluepair.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rtbfabric as rtbfabric
+                
+                query_string_key_value_pair_property = rtbfabric.CfnLinkRoutingRule.QueryStringKeyValuePairProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__67e7900939b8072ab921f050ffbd570b2c6dac8e926cfcd26f6aa9293a50fcdd)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''Query string key — RFC 3986 unreserved characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-querystringkeyvaluepair.html#cfn-rtbfabric-linkroutingrule-querystringkeyvaluepair-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''Query string value — RFC 3986 unreserved characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-querystringkeyvaluepair.html#cfn-rtbfabric-linkroutingrule-querystringkeyvaluepair-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "QueryStringKeyValuePairProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rtbfabric.CfnLinkRoutingRule.RuleConditionProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "host_header": "hostHeader",
+            "host_header_wildcard": "hostHeaderWildcard",
+            "path_exact": "pathExact",
+            "path_prefix": "pathPrefix",
+            "query_string_equals": "queryStringEquals",
+            "query_string_exists": "queryStringExists",
+        },
+    )
+    class RuleConditionProperty:
+        def __init__(
+            self,
+            *,
+            host_header: typing.Optional[builtins.str] = None,
+            host_header_wildcard: typing.Optional[builtins.str] = None,
+            path_exact: typing.Optional[builtins.str] = None,
+            path_prefix: typing.Optional[builtins.str] = None,
+            query_string_equals: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnLinkRoutingRule.QueryStringKeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            query_string_exists: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Conditions for a routing rule.
+
+            All non-null fields must match (AND logic). At least one field must be set. HostHeader and HostHeaderWildcard are mutually exclusive. PathPrefix and PathExact are mutually exclusive.
+
+            :param host_header: Exact host match — RFC 3986 unreserved characters. Mutually exclusive with HostHeaderWildcard.
+            :param host_header_wildcard: Wildcard host pattern (e.g., *.example.com) — RFC 3986 unreserved characters plus *. Mutually exclusive with HostHeader.
+            :param path_exact: Exact path match — must start with /. Mutually exclusive with PathPrefix.
+            :param path_prefix: Path prefix matching — strict starts-with, must start with /. Mutually exclusive with PathExact.
+            :param query_string_equals: 
+            :param query_string_exists: Query string key presence check (any value accepted).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rtbfabric as rtbfabric
+                
+                rule_condition_property = rtbfabric.CfnLinkRoutingRule.RuleConditionProperty(
+                    host_header="hostHeader",
+                    host_header_wildcard="hostHeaderWildcard",
+                    path_exact="pathExact",
+                    path_prefix="pathPrefix",
+                    query_string_equals=rtbfabric.CfnLinkRoutingRule.QueryStringKeyValuePairProperty(
+                        key="key",
+                        value="value"
+                    ),
+                    query_string_exists="queryStringExists"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f6bd900db875426cc6d8a63710192ecb34888a51680c82ee556c3e1694a27ef4)
+                check_type(argname="argument host_header", value=host_header, expected_type=type_hints["host_header"])
+                check_type(argname="argument host_header_wildcard", value=host_header_wildcard, expected_type=type_hints["host_header_wildcard"])
+                check_type(argname="argument path_exact", value=path_exact, expected_type=type_hints["path_exact"])
+                check_type(argname="argument path_prefix", value=path_prefix, expected_type=type_hints["path_prefix"])
+                check_type(argname="argument query_string_equals", value=query_string_equals, expected_type=type_hints["query_string_equals"])
+                check_type(argname="argument query_string_exists", value=query_string_exists, expected_type=type_hints["query_string_exists"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if host_header is not None:
+                self._values["host_header"] = host_header
+            if host_header_wildcard is not None:
+                self._values["host_header_wildcard"] = host_header_wildcard
+            if path_exact is not None:
+                self._values["path_exact"] = path_exact
+            if path_prefix is not None:
+                self._values["path_prefix"] = path_prefix
+            if query_string_equals is not None:
+                self._values["query_string_equals"] = query_string_equals
+            if query_string_exists is not None:
+                self._values["query_string_exists"] = query_string_exists
+
+        @builtins.property
+        def host_header(self) -> typing.Optional[builtins.str]:
+            '''Exact host match — RFC 3986 unreserved characters.
+
+            Mutually exclusive with HostHeaderWildcard.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-hostheader
+            '''
+            result = self._values.get("host_header")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def host_header_wildcard(self) -> typing.Optional[builtins.str]:
+            '''Wildcard host pattern (e.g., *.example.com) — RFC 3986 unreserved characters plus *. Mutually exclusive with HostHeader.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-hostheaderwildcard
+            '''
+            result = self._values.get("host_header_wildcard")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def path_exact(self) -> typing.Optional[builtins.str]:
+            '''Exact path match — must start with /.
+
+            Mutually exclusive with PathPrefix.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-pathexact
+            '''
+            result = self._values.get("path_exact")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def path_prefix(self) -> typing.Optional[builtins.str]:
+            '''Path prefix matching — strict starts-with, must start with /.
+
+            Mutually exclusive with PathExact.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-pathprefix
+            '''
+            result = self._values.get("path_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def query_string_equals(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.QueryStringKeyValuePairProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-querystringequals
+            '''
+            result = self._values.get("query_string_equals")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.QueryStringKeyValuePairProperty"]], result)
+
+        @builtins.property
+        def query_string_exists(self) -> typing.Optional[builtins.str]:
+            '''Query string key presence check (any value accepted).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-linkroutingrule-rulecondition.html#cfn-rtbfabric-linkroutingrule-rulecondition-querystringexists
+            '''
+            result = self._values.get("query_string_exists")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RuleConditionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rtbfabric.CfnLinkRoutingRuleProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "conditions": "conditions",
+        "gateway_id": "gatewayId",
+        "link_id": "linkId",
+        "priority": "priority",
+        "tags": "tags",
+    },
+)
+class CfnLinkRoutingRuleProps:
+    def __init__(
+        self,
+        *,
+        conditions: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLinkRoutingRule.RuleConditionProperty", typing.Dict[builtins.str, typing.Any]]],
+        gateway_id: builtins.str,
+        link_id: builtins.str,
+        priority: jsii.Number,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLinkRoutingRule``.
+
+        :param conditions: Conditions for a routing rule. All non-null fields must match (AND logic). At least one field must be set. HostHeader and HostHeaderWildcard are mutually exclusive. PathPrefix and PathExact are mutually exclusive.
+        :param gateway_id: 
+        :param link_id: 
+        :param priority: 
+        :param tags: Tags to assign to the LinkRoutingRule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rtbfabric as rtbfabric
+            
+            cfn_link_routing_rule_props = rtbfabric.CfnLinkRoutingRuleProps(
+                conditions=rtbfabric.CfnLinkRoutingRule.RuleConditionProperty(
+                    host_header="hostHeader",
+                    host_header_wildcard="hostHeaderWildcard",
+                    path_exact="pathExact",
+                    path_prefix="pathPrefix",
+                    query_string_equals=rtbfabric.CfnLinkRoutingRule.QueryStringKeyValuePairProperty(
+                        key="key",
+                        value="value"
+                    ),
+                    query_string_exists="queryStringExists"
+                ),
+                gateway_id="gatewayId",
+                link_id="linkId",
+                priority=123,
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de4617dbfad28ff2183655aa1e76a72dd06fa11704b1afdee10f708213d03737)
+            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+            check_type(argname="argument gateway_id", value=gateway_id, expected_type=type_hints["gateway_id"])
+            check_type(argname="argument link_id", value=link_id, expected_type=type_hints["link_id"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "conditions": conditions,
+            "gateway_id": gateway_id,
+            "link_id": link_id,
+            "priority": priority,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def conditions(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"]:
+        '''Conditions for a routing rule.
+
+        All non-null fields must match (AND logic). At least one field must be set. HostHeader and HostHeaderWildcard are mutually exclusive. PathPrefix and PathExact are mutually exclusive.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html#cfn-rtbfabric-linkroutingrule-conditions
+        '''
+        result = self._values.get("conditions")
+        assert result is not None, "Required property 'conditions' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLinkRoutingRule.RuleConditionProperty"], result)
+
+    @builtins.property
+    def gateway_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html#cfn-rtbfabric-linkroutingrule-gatewayid
+        '''
+        result = self._values.get("gateway_id")
+        assert result is not None, "Required property 'gateway_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def link_id(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html#cfn-rtbfabric-linkroutingrule-linkid
+        '''
+        result = self._values.get("link_id")
+        assert result is not None, "Required property 'link_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def priority(self) -> jsii.Number:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html#cfn-rtbfabric-linkroutingrule-priority
+        '''
+        result = self._values.get("priority")
+        assert result is not None, "Required property 'priority' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to assign to the LinkRoutingRule.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-linkroutingrule.html#cfn-rtbfabric-linkroutingrule-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLinkRoutingRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _IOutboundExternalLinkRef_06bb6289, _ITaggableV2_4e6798f8)
 class CfnOutboundExternalLink(
     _CfnResource_9df397a6,
@@ -3820,8 +4442,13 @@ class CfnResponderGateway(
             vpc_id="vpcId",
         
             # the properties below are optional
+            acm_certificate_arn="acmCertificateArn",
             description="description",
             domain_name="domainName",
+            gateway_type="gatewayType",
+            listener_config=rtbfabric.CfnResponderGateway.ListenerConfigProperty(
+                protocols=["protocols"]
+            ),
             managed_endpoint_configuration=rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty(
                 auto_scaling_groups_configuration=rtbfabric.CfnResponderGateway.AutoScalingGroupsConfigurationProperty(
                     auto_scaling_group_name_list=["autoScalingGroupNameList"],
@@ -3870,8 +4497,11 @@ class CfnResponderGateway(
         security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
         subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
         vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
+        acm_certificate_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
+        gateway_type: typing.Optional[builtins.str] = None,
+        listener_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ListenerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         managed_endpoint_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ManagedEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.TrustStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3885,8 +4515,11 @@ class CfnResponderGateway(
         :param security_group_ids: The unique identifiers of the security groups.
         :param subnet_ids: The unique identifiers of the subnets.
         :param vpc_id: The unique identifier of the Virtual Private Cloud (VPC).
+        :param acm_certificate_arn: 
         :param description: An optional description for the responder gateway.
         :param domain_name: The domain name for the responder gateway.
+        :param gateway_type: 
+        :param listener_config: 
         :param managed_endpoint_configuration: The configuration for the managed endpoint.
         :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
         :param trust_store_configuration: The configuration of the trust store.
@@ -3901,8 +4534,11 @@ class CfnResponderGateway(
             security_group_ids=security_group_ids,
             subnet_ids=subnet_ids,
             vpc_id=vpc_id,
+            acm_certificate_arn=acm_certificate_arn,
             description=description,
             domain_name=domain_name,
+            gateway_type=gateway_type,
+            listener_config=listener_config,
             managed_endpoint_configuration=managed_endpoint_configuration,
             tags=tags,
             trust_store_configuration=trust_store_configuration,
@@ -3975,12 +4611,28 @@ class CfnResponderGateway(
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrCertificateAssociationStatus")
+    def attr_certificate_association_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: CertificateAssociationStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCertificateAssociationStatus"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrCreatedTimestamp")
     def attr_created_timestamp(self) -> builtins.str:
         '''
         :cloudformationAttribute: CreatedTimestamp
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrExternalInboundEndpoint")
+    def attr_external_inbound_endpoint(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ExternalInboundEndpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrExternalInboundEndpoint"))
 
     @builtins.property
     @jsii.member(jsii_name="attrGatewayId")
@@ -4094,6 +4746,18 @@ class CfnResponderGateway(
         jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="acmCertificateArn")
+    def acm_certificate_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "acmCertificateArn"))
+
+    @acm_certificate_arn.setter
+    def acm_certificate_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b9f03c1e2ea420bfbd00643eb4e4d057523a296c09730dcd4870bfe282ad8a1e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "acmCertificateArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description for the responder gateway.'''
@@ -4118,6 +4782,35 @@ class CfnResponderGateway(
             type_hints = typing.get_type_hints(_typecheckingstub__661744fbbe0ebbf7d0da02d43ad93534aa4716cfe31f0ca98ac17ceaff284331)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="gatewayType")
+    def gateway_type(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "gatewayType"))
+
+    @gateway_type.setter
+    def gateway_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e07c674b7e23967ee36b3ebbe9d995cd5317f9cb877417b1fdbc07fa49589b12)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "gatewayType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="listenerConfig")
+    def listener_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]], jsii.get(self, "listenerConfig"))
+
+    @listener_config.setter
+    def listener_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d0babd9ac8aad056c622994288ded984b5a80bc7fd9cf69a746490aa7da0e7fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "listenerConfig", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="managedEndpointConfiguration")
@@ -4574,6 +5267,56 @@ class CfnResponderGateway(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_rtbfabric.CfnResponderGateway.ListenerConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"protocols": "protocols"},
+    )
+    class ListenerConfigProperty:
+        def __init__(self, *, protocols: typing.Sequence[builtins.str]) -> None:
+            '''
+            :param protocols: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-listenerconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_rtbfabric as rtbfabric
+                
+                listener_config_property = rtbfabric.CfnResponderGateway.ListenerConfigProperty(
+                    protocols=["protocols"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__92ed326d734b9c201ac72b6ed163ed09ec540f2aa990762e2dd76a0f0129d370)
+                check_type(argname="argument protocols", value=protocols, expected_type=type_hints["protocols"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "protocols": protocols,
+            }
+
+        @builtins.property
+        def protocols(self) -> typing.List[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rtbfabric-respondergateway-listenerconfig.html#cfn-rtbfabric-respondergateway-listenerconfig-protocols
+            '''
+            result = self._values.get("protocols")
+            assert result is not None, "Required property 'protocols' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ListenerConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4742,8 +5485,11 @@ class CfnResponderGateway(
         "security_group_ids": "securityGroupIds",
         "subnet_ids": "subnetIds",
         "vpc_id": "vpcId",
+        "acm_certificate_arn": "acmCertificateArn",
         "description": "description",
         "domain_name": "domainName",
+        "gateway_type": "gatewayType",
+        "listener_config": "listenerConfig",
         "managed_endpoint_configuration": "managedEndpointConfiguration",
         "tags": "tags",
         "trust_store_configuration": "trustStoreConfiguration",
@@ -4758,8 +5504,11 @@ class CfnResponderGatewayProps:
         security_group_ids: typing.Sequence[typing.Union[builtins.str, "_ISecurityGroupRef_efa4ff18"]],
         subnet_ids: typing.Sequence[typing.Union[builtins.str, "_ISubnetRef_ac31e361"]],
         vpc_id: typing.Union[builtins.str, "_IVPCRef_f02a11df"],
+        acm_certificate_arn: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         domain_name: typing.Optional[builtins.str] = None,
+        gateway_type: typing.Optional[builtins.str] = None,
+        listener_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ListenerConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         managed_endpoint_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.ManagedEndpointConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnResponderGateway.TrustStoreConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -4771,8 +5520,11 @@ class CfnResponderGatewayProps:
         :param security_group_ids: The unique identifiers of the security groups.
         :param subnet_ids: The unique identifiers of the subnets.
         :param vpc_id: The unique identifier of the Virtual Private Cloud (VPC).
+        :param acm_certificate_arn: 
         :param description: An optional description for the responder gateway.
         :param domain_name: The domain name for the responder gateway.
+        :param gateway_type: 
+        :param listener_config: 
         :param managed_endpoint_configuration: The configuration for the managed endpoint.
         :param tags: A map of the key-value pairs of the tag or tags to assign to the resource.
         :param trust_store_configuration: The configuration of the trust store.
@@ -4795,8 +5547,13 @@ class CfnResponderGatewayProps:
                 vpc_id="vpcId",
             
                 # the properties below are optional
+                acm_certificate_arn="acmCertificateArn",
                 description="description",
                 domain_name="domainName",
+                gateway_type="gatewayType",
+                listener_config=rtbfabric.CfnResponderGateway.ListenerConfigProperty(
+                    protocols=["protocols"]
+                ),
                 managed_endpoint_configuration=rtbfabric.CfnResponderGateway.ManagedEndpointConfigurationProperty(
                     auto_scaling_groups_configuration=rtbfabric.CfnResponderGateway.AutoScalingGroupsConfigurationProperty(
                         auto_scaling_group_name_list=["autoScalingGroupNameList"],
@@ -4841,8 +5598,11 @@ class CfnResponderGatewayProps:
             check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            check_type(argname="argument acm_certificate_arn", value=acm_certificate_arn, expected_type=type_hints["acm_certificate_arn"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument gateway_type", value=gateway_type, expected_type=type_hints["gateway_type"])
+            check_type(argname="argument listener_config", value=listener_config, expected_type=type_hints["listener_config"])
             check_type(argname="argument managed_endpoint_configuration", value=managed_endpoint_configuration, expected_type=type_hints["managed_endpoint_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument trust_store_configuration", value=trust_store_configuration, expected_type=type_hints["trust_store_configuration"])
@@ -4853,10 +5613,16 @@ class CfnResponderGatewayProps:
             "subnet_ids": subnet_ids,
             "vpc_id": vpc_id,
         }
+        if acm_certificate_arn is not None:
+            self._values["acm_certificate_arn"] = acm_certificate_arn
         if description is not None:
             self._values["description"] = description
         if domain_name is not None:
             self._values["domain_name"] = domain_name
+        if gateway_type is not None:
+            self._values["gateway_type"] = gateway_type
+        if listener_config is not None:
+            self._values["listener_config"] = listener_config
         if managed_endpoint_configuration is not None:
             self._values["managed_endpoint_configuration"] = managed_endpoint_configuration
         if tags is not None:
@@ -4919,6 +5685,14 @@ class CfnResponderGatewayProps:
         return typing.cast(typing.Union[builtins.str, "_IVPCRef_f02a11df"], result)
 
     @builtins.property
+    def acm_certificate_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-acmcertificatearn
+        '''
+        result = self._values.get("acm_certificate_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''An optional description for the responder gateway.
 
@@ -4935,6 +5709,24 @@ class CfnResponderGatewayProps:
         '''
         result = self._values.get("domain_name")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def gateway_type(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-gatewaytype
+        '''
+        result = self._values.get("gateway_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def listener_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rtbfabric-respondergateway.html#cfn-rtbfabric-respondergateway-listenerconfig
+        '''
+        result = self._values.get("listener_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnResponderGateway.ListenerConfigProperty"]], result)
 
     @builtins.property
     def managed_endpoint_configuration(
@@ -4984,6 +5776,8 @@ __all__ = [
     "CfnInboundExternalLinkProps",
     "CfnLink",
     "CfnLinkProps",
+    "CfnLinkRoutingRule",
+    "CfnLinkRoutingRuleProps",
     "CfnOutboundExternalLink",
     "CfnOutboundExternalLinkProps",
     "CfnRequesterGateway",
@@ -5313,6 +6107,104 @@ def _typecheckingstub__012c58c752deffb32adb9b9c3e8a29a8373d9f395d7e2679c67f05f37
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__db28c924acf747369535729d8c6637b8e23e0f6c90a6cd1f5cc9d48d344f4620(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    conditions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLinkRoutingRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    gateway_id: builtins.str,
+    link_id: builtins.str,
+    priority: jsii.Number,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb1a2e81fa8f1ecbb8d99e15809796fdf174605f03a15522c5be072beabd85e6(
+    resource: _ILinkRoutingRuleRef_1a99f018,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__786df57310f0eb7ab911502bc08d94ccffa60573fc096c32826ca177d3479693(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdc30152ed3302452ce7a1b2782c50c80b5ae4288eacfddadcc91e02d74aba49(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a390646c7e8532ae1ad80f8b3177a726db080bf73c9f68e065bcd633746a5ae3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47a7fb625657336fbaa66586b4b49f43894aa1a8b7b8d801a401b1220db07084(
+    value: typing.Union[_IResolvable_da3f097b, CfnLinkRoutingRule.RuleConditionProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a726c2abf9a8e6c4517fb33b309e500b6190169012783e928ea592b5f13fd6ce(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4d8e9732da4eeaf6ac4701e7c64e8d731361d235beb57244bae9617eed8d9d5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ebe945371a0eff207746d83bd4af45ac9cf6efd96ca5d9e38e251066f72c2b8(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca8ae3e4347383becce77d565409673c9db7904bb1301268338097b02929902f(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67e7900939b8072ab921f050ffbd570b2c6dac8e926cfcd26f6aa9293a50fcdd(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f6bd900db875426cc6d8a63710192ecb34888a51680c82ee556c3e1694a27ef4(
+    *,
+    host_header: typing.Optional[builtins.str] = None,
+    host_header_wildcard: typing.Optional[builtins.str] = None,
+    path_exact: typing.Optional[builtins.str] = None,
+    path_prefix: typing.Optional[builtins.str] = None,
+    query_string_equals: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnLinkRoutingRule.QueryStringKeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    query_string_exists: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de4617dbfad28ff2183655aa1e76a72dd06fa11704b1afdee10f708213d03737(
+    *,
+    conditions: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLinkRoutingRule.RuleConditionProperty, typing.Dict[builtins.str, typing.Any]]],
+    gateway_id: builtins.str,
+    link_id: builtins.str,
+    priority: jsii.Number,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b83212e7efe505cb3ee08383229ed92a52ff4ae1914a3bae275aa32769a538f2(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -5518,8 +6410,11 @@ def _typecheckingstub__cb840846f651123d9a88e886198c38a19418b49d00a405569125e9b5f
     security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
     subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
     vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
+    acm_certificate_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
+    gateway_type: typing.Optional[builtins.str] = None,
+    listener_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ListenerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_endpoint_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ManagedEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.TrustStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5581,6 +6476,12 @@ def _typecheckingstub__44015d889f5b99adbe6056ed6c8499be47c63f2c6c4914c9ad7283aac
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b9f03c1e2ea420bfbd00643eb4e4d057523a296c09730dcd4870bfe282ad8a1e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__1e6878cd3f2c8e8e361bc8d2c86209d26a1fb58fbe2d62b7edf129a163c2a858(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -5589,6 +6490,18 @@ def _typecheckingstub__1e6878cd3f2c8e8e361bc8d2c86209d26a1fb58fbe2d62b7edf129a16
 
 def _typecheckingstub__661744fbbe0ebbf7d0da02d43ad93534aa4716cfe31f0ca98ac17ceaff284331(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e07c674b7e23967ee36b3ebbe9d995cd5317f9cb877417b1fdbc07fa49589b12(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0babd9ac8aad056c622994288ded984b5a80bc7fd9cf69a746490aa7da0e7fe(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnResponderGateway.ListenerConfigProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5646,6 +6559,13 @@ def _typecheckingstub__4812b8fce1a268f8afb2e03c72b425e5823b9de35c2b7f18f2b1e0409
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__92ed326d734b9c201ac72b6ed163ed09ec540f2aa990762e2dd76a0f0129d370(
+    *,
+    protocols: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ec35a25a4306a45d1288fed4ad734e82e67a0cf2e49ef915d8568d687b0c56ee(
     *,
     auto_scaling_groups_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.AutoScalingGroupsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5668,8 +6588,11 @@ def _typecheckingstub__c9eb5e991b472975a887a9142289f690ca12906379267bff2fae6a074
     security_group_ids: typing.Sequence[typing.Union[builtins.str, _ISecurityGroupRef_efa4ff18]],
     subnet_ids: typing.Sequence[typing.Union[builtins.str, _ISubnetRef_ac31e361]],
     vpc_id: typing.Union[builtins.str, _IVPCRef_f02a11df],
+    acm_certificate_arn: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     domain_name: typing.Optional[builtins.str] = None,
+    gateway_type: typing.Optional[builtins.str] = None,
+    listener_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ListenerConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     managed_endpoint_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.ManagedEndpointConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnResponderGateway.TrustStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

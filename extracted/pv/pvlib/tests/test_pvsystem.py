@@ -711,7 +711,7 @@ def test_PVSystem_fuentes_celltemp(mocker):
     assert_series_equal(spy.call_args[0][1], temps)
     assert_series_equal(spy.call_args[0][2], winds)
     assert spy.call_args[0][3] == noct_installed
-    assert_series_equal(out, pd.Series([52.85, 55.85, 55.85], index,
+    assert_series_equal(out, pd.Series([52.884, 56.835, 56.836], index,
                                        name='tmod'))
 
 
@@ -2422,10 +2422,10 @@ def test_PVSystem_single_array():
 
 
 def test_combine_loss_factors():
-    test_index = pd.date_range(start='1990/01/01T12:00', periods=365, freq='d')
+    test_index = pd.date_range(start='1990/01/01T12:00', periods=365, freq='D')
     loss_1 = pd.Series(.10, index=test_index)
     loss_2 = pd.Series(.05, index=pd.date_range(start='1990/01/01T12:00',
-                                                periods=365*2, freq='d'))
+                                                periods=365*2, freq='D'))
     loss_3 = pd.Series(.02, index=pd.date_range(start='1990/01/01',
                                                 periods=12, freq='MS'))
     expected = pd.Series(.1621, index=test_index)

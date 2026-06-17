@@ -127,6 +127,19 @@ class URLBuilder:
             base_domain=flavor.get_base_domain(),
         )
 
+    @staticmethod
+    def search(environment: Environment) -> str:
+        domain = "net" if environment == Environment.net else "org"
+        return f"https://search.openfoodfacts.{domain}"
+
+    @staticmethod
+    def nutripatrol(environment: Environment) -> str:
+        return URLBuilder._get_url(
+            prefix="nutripatrol",
+            tld=environment.value,
+            base_domain=Flavor.off.get_base_domain(),
+        )
+
 
 def jsonl_iter(jsonl_path: Union[str, Path]) -> Iterable[Dict]:
     """Iterate over elements of a JSONL file.

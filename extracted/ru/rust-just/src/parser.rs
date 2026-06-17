@@ -28,6 +28,7 @@ pub(crate) struct Parser<'run, 'src> {
   file_depth: u32,
   import_offsets: Vec<usize>,
   items: Vec<Item<'src>>,
+  list_features: Vec<(ListFeature, Token<'src>)>,
   module_namepath: Option<&'run Namepath<'src>>,
   next_token: usize,
   numerator: &'run mut Numerator,
@@ -52,6 +53,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       file_depth,
       import_offsets: import_offsets.to_vec(),
       items: Vec::new(),
+      list_features: Vec::new(),
       module_namepath,
       next_token: 0,
       numerator,
@@ -91,6 +93,10 @@ impl<'run, 'src> Parser<'run, 'src> {
 
   fn error(&self, kind: CompileErrorKind<'src>) -> CompileResult<'src, CompileError<'src>> {
     Ok(self.next()?.error(kind))
+  }
+
+  fn list_feature(&mut self, feature: ListFeature, token: Token<'src>) {
+    self.list_features.push((feature, token));
   }
 
   /// Construct an unexpected token error with the token returned by
@@ -133,6 +139,14 @@ impl<'run, 'src> Parser<'run, 'src> {
   /// Check if the next significant token is of kind `kind`
   fn next_is(&mut self, kind: TokenKind) -> bool {
     self.next_are(&[kind])
+  }
+
+  /// Check if the next significant token is `keyword`
+  fn next_is_keyword(&self, keyword: Keyword) -> bool {
+    self
+      .rest()
+      .next()
+      .is_some_and(|token| token.kind == Identifier && token.lexeme() == keyword.lexeme())
   }
 
   /// Check if the next significant tokens are of kinds `kinds`
@@ -249,8 +263,8 @@ impl<'run, 'src> Parser<'run, 'src> {
   }
 
   /// Return an internal error if the next token is not of kind `Identifier`
-  /// with lexeme `lexeme`.
-  fn presume_keyword(&mut self, keyword: Keyword) -> CompileResult<'src> {
+  /// with lexeme `keyword`.
+  fn presume_keyword(&mut self, keyword: Keyword) -> CompileResult<'src, Token<'src>> {
     let next = self.advance()?;
 
     if next.kind != Identifier {
@@ -259,7 +273,7 @@ impl<'run, 'src> Parser<'run, 'src> {
         next.kind
       ))?)
     } else if keyword == next.lexeme() {
-      Ok(())
+      Ok(next)
     } else {
       Err(self.internal_error(format!(
         "presumed next token would have lexeme \"{keyword}\", but found \"{}\"",
@@ -350,13 +364,46 @@ impl<'run, 'src> Parser<'run, 'src> {
         arguments: Vec::new(),
         recipe,
       }))
-    } else if self.accepted(ParenL)? {
+    } else if self.next_is(Asterisk) || self.next_is(ParenL) {
+      let star = self.accept(Asterisk)?;
+
+      self.expect(ParenL)?;
+
       let recipe = self.parse_namepath()?;
 
       let mut arguments = Vec::new();
+      let mut starred_argument = None;
 
       while !self.accepted(ParenR)? {
-        arguments.push(self.parse_expression()?);
+        let token = self.accept(Asterisk)?;
+
+        if let Some(token) = token {
+          if starred_argument.is_some() {
+            return Err(token.error(CompileErrorKind::MappedDependencyMultipleStarredArguments));
+          }
+          starred_argument = Some(token);
+        }
+
+        let expression = if token.is_some() {
+          self.parse_value()?
+        } else {
+          self.parse_expression()?
+        };
+
+        arguments.push(DependencyArgument {
+          expression,
+          starred: token.is_some(),
+        });
+      }
+
+      match (star, starred_argument) {
+        (None, None) | (Some(_), Some(_)) => {}
+        (Some(star), None) => {
+          return Err(star.error(CompileErrorKind::MappedDependencyWithoutStarredArgument));
+        }
+        (None, Some(starred)) => {
+          return Err(starred.error(CompileErrorKind::StarredArgumentOutsideMappedDependency));
+        }
       }
 
       Ok(Some(UnresolvedDependency { arguments, recipe }))
@@ -444,6 +491,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     Ok(Ast {
       items: self.items,
+      list_features: self.list_features,
       module_path: self.module_namepath.map(Into::into).unwrap_or_default(),
       unstable_features: self.unstable_features,
       warnings: Vec::new(),
@@ -653,6 +701,13 @@ impl<'run, 'src> Parser<'run, 'src> {
 
   /// Parse an expression, e.g. `1 + 2`
   fn parse_expression(&mut self) -> CompileResult<'src, Expression<'src>> {
+    self.parse_expression_with_condition(false)
+  }
+
+  fn parse_expression_with_condition(
+    &mut self,
+    condition: bool,
+  ) -> CompileResult<'src, Expression<'src>> {
     if self.recursion_depth == RECURSION_LIMIT {
       let token = self.next()?;
       return Err(CompileError::new(
@@ -663,14 +718,12 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     self.recursion_depth += 1;
 
-    let disjunct = self.parse_disjunct()?;
+    let disjunct = self.parse_disjunct(condition)?;
 
-    let expression = if self.accepted(BarBar)? {
-      self
-        .unstable_features
-        .insert(UnstableFeature::LogicalOperators);
+    let expression = if let Some(token) = self.accept(BarBar)? {
+      self.list_feature(ListFeature::LogicalOperator, token);
       let lhs = disjunct.into();
-      let rhs = self.parse_expression()?.into();
+      let rhs = self.parse_expression_with_condition(false)?.into();
       Expression::Or { lhs, rhs }
     } else {
       disjunct
@@ -681,41 +734,72 @@ impl<'run, 'src> Parser<'run, 'src> {
     Ok(expression)
   }
 
-  fn parse_disjunct(&mut self) -> CompileResult<'src, Expression<'src>> {
-    let conjunct = self.parse_conjunct()?;
+  fn parse_disjunct(&mut self, condition: bool) -> CompileResult<'src, Expression<'src>> {
+    let conjunct = self.parse_comparison(condition)?;
 
-    let disjunct = if self.accepted(AmpersandAmpersand)? {
-      self
-        .unstable_features
-        .insert(UnstableFeature::LogicalOperators);
+    let expression = if let Some(token) = self.accept(AmpersandAmpersand)? {
+      self.list_feature(ListFeature::LogicalOperator, token);
       let lhs = conjunct.into();
-      let rhs = self.parse_disjunct()?.into();
+      let rhs = self.parse_disjunct(false)?.into();
       Expression::And { lhs, rhs }
     } else {
       conjunct
     };
 
-    Ok(disjunct)
+    Ok(expression)
+  }
+
+  fn parse_comparison(&mut self, condition: bool) -> CompileResult<'src, Expression<'src>> {
+    let lhs = self.parse_conjunct()?;
+
+    let (token, operator) = if let Some(token) = self.accept(BangEquals)? {
+      (token, ConditionalOperator::Inequality)
+    } else if let Some(token) = self.accept(EqualsTilde)? {
+      (token, ConditionalOperator::RegexMatch)
+    } else if let Some(token) = self.accept(BangTilde)? {
+      (token, ConditionalOperator::RegexMismatch)
+    } else if let Some(token) = self.accept(EqualsEquals)? {
+      (token, ConditionalOperator::Equality)
+    } else {
+      return Ok(lhs);
+    };
+
+    if !condition {
+      self.list_feature(ListFeature::ComparisonOperator, token);
+    }
+
+    let rhs = self.parse_conjunct()?;
+
+    Ok(Expression::Comparison {
+      lhs: lhs.into(),
+      operator,
+      rhs: rhs.into(),
+    })
   }
 
   fn parse_conjunct(&mut self) -> CompileResult<'src, Expression<'src>> {
-    if self.accepted_keyword(Keyword::If)? {
+    if self.next_is_keyword(Keyword::If) {
       self.parse_conditional()
-    } else if self.accepted(Slash)? {
+    } else if let Some(operator) = self.accept(Slash)? {
       let lhs = None;
       let rhs = self.parse_conjunct()?.into();
-      Ok(Expression::Join { lhs, rhs })
+      Ok(Expression::Join { lhs, operator, rhs })
     } else {
       let value = self.parse_value()?;
 
-      if self.accepted(Slash)? {
+      if let Some(operator) = self.accept(Slash)? {
         let lhs = Some(Box::new(value));
         let rhs = self.parse_conjunct()?.into();
-        Ok(Expression::Join { lhs, rhs })
-      } else if self.accepted(Plus)? {
+        Ok(Expression::Join { lhs, operator, rhs })
+      } else if let Some(operator) = self.accept(PlusPlus)? {
+        self.list_feature(ListFeature::ListConcatenationOperator, operator);
         let lhs = value.into();
         let rhs = self.parse_conjunct()?.into();
-        Ok(Expression::Concatenation { lhs, rhs })
+        Ok(Expression::ListConcatenation { lhs, operator, rhs })
+      } else if let Some(operator) = self.accept(Plus)? {
+        let lhs = value.into();
+        let rhs = self.parse_conjunct()?.into();
+        Ok(Expression::Concatenation { lhs, operator, rhs })
       } else {
         Ok(value)
       }
@@ -724,6 +808,8 @@ impl<'run, 'src> Parser<'run, 'src> {
 
   /// Parse a conditional, e.g. `if a == b { "foo" } else { "bar" }`
   fn parse_conditional(&mut self) -> CompileResult<'src, Expression<'src>> {
+    let if_token = self.presume_keyword(Keyword::If)?;
+
     let condition = self.parse_condition()?;
 
     self.expect(BraceL)?;
@@ -732,46 +818,39 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     self.expect(BraceR)?;
 
-    self.expect_keyword(Keyword::Else)?;
-
-    let otherwise = if self.accepted_keyword(Keyword::If)? {
-      self.parse_conditional()?
+    let otherwise = if self.accepted_keyword(Keyword::Else)? {
+      if self.next_is_keyword(Keyword::If) {
+        Some(self.parse_conditional()?.into())
+      } else {
+        self.expect(BraceL)?;
+        let otherwise = self.parse_expression()?;
+        self.expect(BraceR)?;
+        Some(otherwise.into())
+      }
     } else {
-      self.expect(BraceL)?;
-      let otherwise = self.parse_expression()?;
-      self.expect(BraceR)?;
-      otherwise
+      self.list_feature(ListFeature::IfWithoutElse, if_token);
+      None
     };
 
     Ok(Expression::Conditional {
-      condition,
+      condition: condition.into(),
       then: then.into(),
-      otherwise: otherwise.into(),
+      otherwise,
     })
   }
 
-  fn parse_condition(&mut self) -> CompileResult<'src, Condition<'src>> {
-    let lhs = self.parse_expression()?;
-    let operator = if self.accepted(BangEquals)? {
-      ConditionalOperator::Inequality
-    } else if self.accepted(EqualsTilde)? {
-      ConditionalOperator::RegexMatch
-    } else if self.accepted(BangTilde)? {
-      ConditionalOperator::RegexMismatch
-    } else {
-      self.expect(EqualsEquals)?;
-      ConditionalOperator::Equality
-    };
-    let rhs = self.parse_expression()?;
-    Ok(Condition {
-      lhs: lhs.into(),
-      rhs: rhs.into(),
-      operator,
-    })
+  /// Parse the condition of an `if` or `assert`
+  fn parse_condition(&mut self) -> CompileResult<'src, Expression<'src>> {
+    let token = self.next()?;
+    let condition = self.parse_expression_with_condition(true)?;
+    if !matches!(condition, Expression::Comparison { .. }) {
+      self.list_feature(ListFeature::NonComparisonCondition, token);
+    }
+    Ok(condition)
   }
 
   fn parse_format_string(&mut self) -> CompileResult<'src, Expression<'src>> {
-    self.expect_keyword(Keyword::F)?;
+    self.presume_keyword(Keyword::F)?;
 
     let start = self.parse_string_literal_in_state(StringState::FormatStart)?;
 
@@ -833,7 +912,12 @@ impl<'run, 'src> Parser<'run, 'src> {
 
   /// Parse a value, e.g. `(bar)`
   fn parse_value(&mut self) -> CompileResult<'src, Expression<'src>> {
-    if self.next_is(StringToken) || self.next_is_shell_expanded_string() {
+    if let Some(token) = self.accept(Bang)? {
+      self.list_feature(ListFeature::NegationOperator, token);
+      Ok(Expression::Not {
+        operand: self.parse_value()?.into(),
+      })
+    } else if self.next_is(StringToken) || self.next_is_shell_expanded_string() {
       Ok(Expression::StringLiteral {
         string_literal: self.parse_string_literal()?,
       })
@@ -858,13 +942,16 @@ impl<'run, 'src> Parser<'run, 'src> {
     } else if self.next_is(Identifier) {
       if let Some(name) = self.accept_keyword(Keyword::Assert)? {
         self.expect(ParenL)?;
-        let condition = self.parse_condition()?;
-        self.expect(Comma)?;
-        let error = Box::new(self.parse_expression()?);
+        let condition = Box::new(self.parse_condition()?);
+        let message = if self.accepted(Comma)? {
+          Some(Box::new(self.parse_expression()?))
+        } else {
+          None
+        };
         self.expect(ParenR)?;
         Ok(Expression::Assert {
           condition,
-          error,
+          message,
           name,
         })
       } else {
@@ -872,10 +959,23 @@ impl<'run, 'src> Parser<'run, 'src> {
 
         if self.next_is(ParenL) {
           let arguments = self.parse_sequence()?;
-          if name.lexeme() == "which" {
-            self
-              .unstable_features
-              .insert(UnstableFeature::WhichFunction);
+          match name.lexeme() {
+            "bool" => {
+              self.list_feature(ListFeature::BoolFunction, *name);
+            }
+            "join_list" => {
+              self.list_feature(ListFeature::JoinListFunction, *name);
+            }
+            "show" => {
+              self.list_feature(ListFeature::ShowFunction, *name);
+            }
+            "split" => {
+              self.list_feature(ListFeature::SplitFunction, *name);
+            }
+            "which" => {
+              self.list_feature(ListFeature::WhichFunction, *name);
+            }
+            _ => {}
           }
           Ok(Expression::Call { name, arguments })
         } else {
@@ -887,9 +987,35 @@ impl<'run, 'src> Parser<'run, 'src> {
       let contents = self.parse_expression()?.into();
       self.expect(ParenR)?;
       Ok(Expression::Group { contents })
+    } else if self.next_is(BracketL) {
+      self.parse_list()
     } else {
       Err(self.unexpected_token()?)
     }
+  }
+
+  /// Parse a list literal, e.g. `[a, b, c]`
+  fn parse_list(&mut self) -> CompileResult<'src, Expression<'src>> {
+    let bracket = self.presume(BracketL)?;
+
+    self.list_feature(ListFeature::ListLiteral, bracket);
+
+    let mut elements = Vec::new();
+
+    while !self.next_is(BracketR) {
+      elements.push(self.parse_expression()?);
+
+      if !self.accepted(Comma)? {
+        break;
+      }
+    }
+
+    self.expect(BracketR)?;
+
+    Ok(Expression::List {
+      elements,
+      open: bracket,
+    })
   }
 
   /// Parse a string literal, e.g. `"FOO"`
@@ -1123,6 +1249,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     for attribute in &attributes {
       let Attribute::Arg {
+        flag,
         help,
         long,
         long_key,
@@ -1130,11 +1257,14 @@ impl<'run, 'src> Parser<'run, 'src> {
         pattern,
         short,
         value,
-        ..
       } = attribute
       else {
         continue;
       };
+
+      if let Some(token) = flag {
+        self.list_feature(ListFeature::Flag, *token);
+      }
 
       if let Some(option) = long {
         if !longs.insert(&option.cooked) {
@@ -1161,6 +1291,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       arg_attributes.insert(
         arg.cooked.clone(),
         ArgAttribute {
+          flag: flag.is_some(),
           help: help.as_ref().map(|literal| literal.cooked.clone()),
           name: arg.token,
           pattern: pattern.clone(),
@@ -1168,7 +1299,7 @@ impl<'run, 'src> Parser<'run, 'src> {
           short: short
             .as_ref()
             .map(|short| short.cooked.chars().next().unwrap()),
-          value: value.as_ref().map(|value| value.cooked.clone()),
+          value: value.clone(),
         },
       );
     }
@@ -1305,6 +1436,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       None
     };
 
+    let mut flag = false;
     let mut help = None;
     let mut long = None;
     let mut pattern = None;
@@ -1312,6 +1444,7 @@ impl<'run, 'src> Parser<'run, 'src> {
     let mut value = None;
 
     if let Some(arg) = arg_attributes.remove(name.lexeme()) {
+      flag = arg.flag;
       help = arg.help;
       long = arg.long;
       pattern = arg.pattern;
@@ -1323,9 +1456,16 @@ impl<'run, 'src> Parser<'run, 'src> {
       return Err(name.error(CompileErrorKind::VariadicParameterWithOption));
     }
 
+    if flag && default.is_some() {
+      return Err(name.error(CompileErrorKind::FlagWithDefault {
+        parameter: name.lexeme().into(),
+      }));
+    }
+
     Ok(Parameter {
       default,
       export,
+      flag,
       help,
       kind,
       long,
@@ -1426,6 +1566,10 @@ impl<'run, 'src> Parser<'run, 'src> {
       Keyword::Guards => Some(Setting::Guards(self.parse_set_bool()?)),
       Keyword::IgnoreComments => Some(Setting::IgnoreComments(self.parse_set_bool()?)),
       Keyword::Lazy => Some(Setting::Lazy(self.parse_set_bool()?)),
+      Keyword::Lists => {
+        self.unstable_features.insert(UnstableFeature::ListsSetting);
+        Some(Setting::Lists(self.parse_set_bool()?))
+      }
       Keyword::NoCd => Some(Setting::NoCd(self.parse_set_bool()?)),
       Keyword::NoExitMessage => Some(Setting::NoExitMessage(self.parse_set_bool()?)),
       Keyword::PositionalArguments => Some(Setting::PositionalArguments(self.parse_set_bool()?)),
@@ -1525,7 +1669,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
                 let value = self
                   .accepted(Equals)?
-                  .then(|| self.parse_string_literal())
+                  .then(|| self.parse_expression())
                   .transpose()?;
 
                 keyword_arguments.insert(key.lexeme(), (key, value));
@@ -1577,7 +1721,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
         discriminants.insert(attribute.discriminant(), name.line);
 
-        attributes.push(attribute);
+        attributes.push((attribute, name));
 
         if !self.accepted(Comma)? {
           break;
@@ -1637,6 +1781,20 @@ mod tests {
       line:   $line:expr,
       column: $column:expr,
       width:  $width:expr,
+      found:  $found:expr,
+    ) => {
+      #[test]
+      fn $name() {
+        unexpected_token($input, $offset, $line, $column, $width, $found);
+      }
+    };
+    (
+      name:   $name:ident,
+      input:  $input:expr,
+      offset: $offset:expr,
+      line:   $line:expr,
+      column: $column:expr,
+      width:  $width:expr,
       kind:   $kind:expr,
     ) => {
       #[test]
@@ -1673,6 +1831,40 @@ mod tests {
           kind: kind.into(),
         };
         assert_eq!(have, want);
+      }
+    }
+  }
+
+  #[track_caller]
+  fn unexpected_token(
+    src: &str,
+    offset: usize,
+    line: usize,
+    column: usize,
+    length: usize,
+    found: TokenKind,
+  ) {
+    let tokens = Lexer::test_lex(src).expect("Lexing failed in parse test...");
+
+    match Parser::parse_tokens(&mut Numerator::new(), &tokens) {
+      Ok(_) => panic!("Parsing unexpectedly succeeded"),
+      Err(have) => {
+        assert_eq!(
+          have.token,
+          Token {
+            kind: have.token.kind,
+            src,
+            offset,
+            line,
+            column,
+            length,
+            path: "justfile".as_ref(),
+          },
+        );
+        match *have.kind {
+          UnexpectedToken { found: actual, .. } => assert_eq!(actual, found),
+          kind => panic!("expected `UnexpectedToken`, but got: {kind:?}"),
+        }
       }
     }
   }
@@ -1829,6 +2021,12 @@ mod tests {
     name: addition_single,
     text: "x := a + b",
     tree: (justfile (assignment x (+ a b))),
+  }
+
+  test! {
+    name: list_concatenation_single,
+    text: "x := a ++ b",
+    tree: (justfile (assignment x (++ a b))),
   }
 
   test! {
@@ -2723,44 +2921,86 @@ mod tests {
 
   test! {
     name: conditional,
-    text: "a := if b == c { d } else { e }",
-    tree: (justfile (assignment a (if b == c d e))),
+    text: "a := if b { c } else { d }",
+    tree: (justfile (assignment a (if b c d))),
+  }
+
+  test! {
+    name: conditional_without_otherwise,
+    text: "a := if b { c }",
+    tree: (justfile (assignment a (if b c))),
   }
 
   test! {
     name: conditional_inverted,
     text: "a := if b != c { d } else { e }",
-    tree: (justfile (assignment a (if b != c d e))),
+    tree: (justfile (assignment a (if (!= b c) d e))),
   }
 
   test! {
     name: conditional_concatenations,
-    text: "a := if b0 + b1 == c0 + c1 { d0 + d1 } else { e0 + e1 }",
-    tree: (justfile (assignment a (if (+ b0 b1) == (+ c0 c1) (+ d0 d1) (+ e0 e1)))),
+    text: "a := if b0 + b1 { c0 + c1 } else { d0 + d1 }",
+    tree: (justfile (assignment a (if (+ b0 b1) (+ c0 c1) (+ d0 d1)))),
   }
 
   test! {
     name: conditional_nested_lhs,
     text: "a := if if b == c { d } else { e } == c { d } else { e }",
-    tree: (justfile (assignment a (if (if b == c d e) == c d e))),
+    tree: (justfile (assignment a (if (== (if (== b c) d e) c) d e))),
   }
 
   test! {
     name: conditional_nested_rhs,
     text: "a := if c == if b == c { d } else { e } { d } else { e }",
-    tree: (justfile (assignment a (if c == (if b == c d e) d e))),
+    tree: (justfile (assignment a (if (== c (if (== b c) d e)) d e))),
   }
 
   test! {
     name: conditional_nested_then,
-    text: "a := if b == c { if b == c { d } else { e } } else { e }",
-    tree: (justfile (assignment a (if b == c (if b == c d e) e))),
+    text: "a := if b { if c { d } else { e } } else { f }",
+    tree: (justfile (assignment a (if b (if c d e) f))),
   }
 
   test! {
     name: conditional_nested_otherwise,
-    text: "a := if b == c { d } else { if b == c { d } else { e } }",
-    tree: (justfile (assignment a (if b == c d (if b == c d e)))),
+    text: "a := if b { c } else { if d { e } else { f } }",
+    tree: (justfile (assignment a (if b c (if d e f)))),
+  }
+
+  test! {
+    name: comparison,
+    text: "a := b == c",
+    tree: (justfile (assignment a (== b c))),
+  }
+
+  test! {
+    name: comparison_binds_looser_than_concatenation,
+    text: "a := b + c == d + e",
+    tree: (justfile (assignment a (== (+ b c) (+ d e)))),
+  }
+
+  test! {
+    name: comparison_binds_tighter_than_logical_operators,
+    text: "a := b == c && d == e || f == g",
+    tree: (justfile (assignment a (|| (&& (== b c) (== d e)) (== f g)))),
+  }
+
+  test! {
+    name: negation,
+    text: "a := !b",
+    tree: (justfile (assignment a (! b))),
+  }
+
+  test! {
+    name: negation_binds_tighter_than_comparison,
+    text: "a := !b == c",
+    tree: (justfile (assignment a (== (! b) c))),
+  }
+
+  test! {
+    name: double_negation,
+    text: "a := !!b",
+    tree: (justfile (assignment a (! (! b)))),
   }
 
   test! {
@@ -2801,14 +3041,14 @@ mod tests {
 
   test! {
     name: assert,
-    text: "a := assert(foo == \"bar\", \"error\")",
-    tree: (justfile (assignment a (assert foo == "bar" "error"))),
+    text: "a := assert(b, \"error\")",
+    tree: (justfile (assignment a (assert b "error"))),
   }
 
   test! {
     name: assert_conditional_condition,
-    text: "foo := assert(if a != b { c } else { d } == \"abc\", \"error\")",
-    tree: (justfile (assignment foo (assert (if a != b c d) == "abc" "error"))),
+    text: "foo := assert(if a { b } else { c }, \"error\")",
+    tree: (justfile (assignment foo (assert (if a b c) "error"))),
   }
 
   test! {
@@ -2836,7 +3076,7 @@ mod tests {
     line:   0,
     column: 17,
     width:  3,
-    kind:   UnexpectedToken { expected: vec![ColonColon, Comment, Eof, Eol], found: Identifier },
+    found:  Identifier,
   }
 
   error! {
@@ -2846,7 +3086,7 @@ mod tests {
     line:   0,
     column: 13,
     width:  1,
-    kind:   UnexpectedToken {expected: vec![Identifier], found:Eol},
+    found:  Eol,
   }
 
   error! {
@@ -2856,7 +3096,7 @@ mod tests {
     line:   0,
     column: 18,
     width:  1,
-    kind:   UnexpectedToken {expected: vec![Identifier], found:Eol},
+    found:  Eol,
   }
 
   error! {
@@ -2866,10 +3106,7 @@ mod tests {
     line:   0,
     column: 16,
     width:  1,
-    kind:   UnexpectedToken {
-      found:    Colon,
-      expected: vec![ColonColon, Comment, Eof, Eol],
-    },
+    found:  Colon,
   }
 
   error! {
@@ -2879,10 +3116,7 @@ mod tests {
     line:   0,
     column: 5,
     width:  1,
-    kind:   UnexpectedToken{
-      expected: vec![Asterisk, Colon, Dollar, Equals, Identifier, Plus],
-      found:    Eol
-    },
+    found:  Eol,
   }
 
   error! {
@@ -2895,6 +3129,8 @@ mod tests {
     kind:   UnexpectedToken {
       expected: vec![
         Backtick,
+        Bang,
+        BracketL,
         Identifier,
         ParenL,
         StringToken,
@@ -2910,15 +3146,7 @@ mod tests {
     line:   0,
     column: 10,
     width:  0,
-    kind:   UnexpectedToken {
-      expected: vec![
-        Backtick,
-        Identifier,
-        ParenL,
-        StringToken,
-      ],
-      found: Eof,
-    },
+    found:  Eof,
   }
 
   error! {
@@ -2928,10 +3156,7 @@ mod tests {
     line:    0,
     column:  9,
     width:   1,
-    kind:    UnexpectedToken{
-      expected: vec![AmpersandAmpersand, ColonColon, Comment, Eof, Eol, Identifier, Indent, ParenL],
-      found: Equals
-    },
+    found:  Equals,
   }
 
   error! {
@@ -2941,10 +3166,7 @@ mod tests {
     line:   0,
     column: 0,
     width:  1,
-    kind: UnexpectedToken {
-      expected: vec![At, BracketL, Comment, Eof, Eol, Identifier],
-      found: BraceL,
-    },
+    found:  BraceL,
   }
 
   error! {
@@ -2954,17 +3176,7 @@ mod tests {
     line:   0,
     column: 9,
     width:  0,
-    kind: UnexpectedToken{
-      expected: vec![
-        Backtick,
-        Identifier,
-        ParenL,
-        ParenR,
-        Slash,
-        StringToken,
-      ],
-      found: Eof,
-    },
+    found:  Eof,
   }
 
   error! {
@@ -2974,7 +3186,7 @@ mod tests {
     line:   0,
     column: 6,
     width:  1,
-    kind:   UnexpectedToken{expected: vec![Dollar, Identifier], found: Colon},
+    found:  Colon,
   }
 
   error! {
@@ -2994,10 +3206,7 @@ mod tests {
     line:   0,
     column: 8,
     width:  0,
-    kind:   UnexpectedToken {
-      expected: vec![Asterisk, Colon, Dollar, Equals, Identifier, Plus],
-      found:    Eof
-    },
+    found:  Eof,
   }
 
   error! {
@@ -3037,16 +3246,7 @@ mod tests {
     line:   0,
     column: 14,
     width:  1,
-    kind:   UnexpectedToken {
-      expected: vec![
-        Backtick,
-        Identifier,
-        ParenL,
-        Slash,
-        StringToken,
-      ],
-      found: BracketR,
-    },
+    found:  BracketR,
   }
 
   error! {
@@ -3056,17 +3256,7 @@ mod tests {
     line:   0,
     column: 21,
     width:  0,
-    kind:   UnexpectedToken {
-      expected: vec![
-        Backtick,
-        BracketR,
-        Identifier,
-        ParenL,
-        Slash,
-        StringToken,
-      ],
-      found: Eof,
-    },
+    found:  Eof,
   }
 
   error! {
@@ -3076,10 +3266,7 @@ mod tests {
     line:   0,
     column: 20,
     width:  0,
-    kind:   UnexpectedToken {
-      expected: vec![AmpersandAmpersand, BarBar, BracketR, Comma, Plus, Slash],
-      found: Eof,
-    },
+    found:  Eof,
   }
 
   error! {
@@ -3089,10 +3276,7 @@ mod tests {
     line:   0,
     column: 1,
     width:  1,
-    kind:   UnexpectedToken {
-      expected: vec![Identifier],
-      found: BracketR,
-    },
+    found:  BracketR,
   }
 
   error! {
@@ -3107,18 +3291,6 @@ mod tests {
 
   error! {
     name:   set_unknown,
-    input:  "set shall := []",
-    offset: 4,
-    line:   0,
-    column: 4,
-    width:  5,
-    kind:   UnknownSetting {
-      setting: "shall",
-    },
-  }
-
-  error! {
-    name:   set_shell_non_string,
     input:  "set shall := []",
     offset: 4,
     line:   0,

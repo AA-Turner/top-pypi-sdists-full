@@ -21,6 +21,8 @@ from airbyte_ops_mcp.prod_db_access.db_engine import (
     get_pool,
 )
 from airbyte_ops_mcp.prod_db_access.sql import (
+    SEARCH_ORGANIZATIONS,
+    SEARCH_WORKSPACES,
     SELECT_ACTIVE_CONNECTOR_ROLLOUTS,
     SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION,
     SELECT_ACTORS_PINNED_TO_VERSION,
@@ -76,6 +78,14 @@ def _inject_exclude_pinned(
         sql_str = sql_str.replace("ORDER BY", f"{_EXCLUDE_PINNED_SQL}\n    ORDER BY", 1)
     else:
         sql_str = sql_str.replace("LIMIT :", f"{_EXCLUDE_PINNED_SQL}\n    LIMIT :")
+    return sqlalchemy.text(sql_str)
+
+
+def _without_limit_clause(
+    statement: sqlalchemy.sql.elements.TextClause,
+) -> sqlalchemy.sql.elements.TextClause:
+    """Return a new SQL text clause without the final `LIMIT :limit` clause."""
+    sql_str = str(statement.text).replace("    LIMIT :limit", "")
     return sqlalchemy.text(sql_str)
 
 
@@ -288,7 +298,7 @@ def query_connector_versions(
 
 def query_new_connector_releases(
     days: int = 7,
-    limit: int = 100,
+    limit: int | None = 100,
     *,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
@@ -296,16 +306,24 @@ def query_new_connector_releases(
 
     Args:
         days: Number of days to look back (default: 7)
-        limit: Maximum number of results (default: 100)
+        limit: Maximum number of results (default: 100). Pass `None` for no limit.
         gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
 
     Returns:
         List of recently published connector versions
     """
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+    statement = (
+        SELECT_NEW_CONNECTOR_RELEASES
+        if limit is not None
+        else _without_limit_clause(SELECT_NEW_CONNECTOR_RELEASES)
+    )
+    parameters: dict[str, Any] = {"cutoff_date": cutoff_date}
+    if limit is not None:
+        parameters["limit"] = limit
     return _run_sql_query(
-        SELECT_NEW_CONNECTOR_RELEASES,
-        parameters={"cutoff_date": cutoff_date, "limit": limit},
+        statement,
+        parameters=parameters,
         query_name="SELECT_NEW_CONNECTOR_RELEASES",
         gsm_client=gsm_client,
     )
@@ -606,6 +624,44 @@ def query_workspaces_by_email_domain(
     )
 
 
+def search_organizations(
+    name_contains: str,
+    limit: int = 20,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Search organizations by name/email substring (case-insensitive ILIKE)."""
+    name_contains = name_contains.strip()
+    if not name_contains:
+        return []
+
+    return _run_sql_query(
+        SEARCH_ORGANIZATIONS,
+        parameters={"name_contains": name_contains, "limit": limit},
+        query_name="SEARCH_ORGANIZATIONS",
+        gsm_client=gsm_client,
+    )
+
+
+def search_workspaces(
+    name_contains: str,
+    limit: int = 100,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Search workspaces by name/slug substring (case-insensitive ILIKE)."""
+    name_contains = name_contains.strip()
+    if not name_contains:
+        return []
+
+    return _run_sql_query(
+        SEARCH_WORKSPACES,
+        parameters={"name_contains": name_contains, "limit": limit},
+        query_name="SEARCH_WORKSPACES",
+        gsm_client=gsm_client,
+    )
+
+
 def query_connection_workspace_details(
     connection_ids: list[str],
     *,
@@ -748,7 +804,7 @@ def query_connector_rollouts(
     actor_definition_id: str | None = None,
     rollout_id: str | None = None,
     active_only: bool = False,
-    limit: int = 100,
+    limit: int | None = 100,
     *,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
@@ -765,6 +821,13 @@ def query_connector_rollouts(
     `actor_definition_id` and `rollout_id` narrow the returned rollout records.
     `active_only` excludes terminal rollout states.
     """
+    limit_statement = (
+        _without_limit_clause if limit is None else lambda statement: statement
+    )
+    parameters: dict[str, Any] = {}
+    if limit is not None:
+        parameters["limit"] = limit
+
     if rollout_id is not None:
         rows = _run_sql_query(
             SELECT_CONNECTOR_ROLLOUT_BY_ID,
@@ -778,39 +841,35 @@ def query_connector_rollouts(
     if active_only:
         if actor_definition_id is not None:
             # Filter by both active states AND actor_definition_id
+            parameters["actor_definition_id"] = actor_definition_id
             return _run_sql_query(
-                SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION,
-                parameters={
-                    "actor_definition_id": actor_definition_id,
-                    "limit": limit,
-                },
+                limit_statement(SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION),
+                parameters=parameters,
                 query_name="SELECT_ACTIVE_CONNECTOR_ROLLOUTS_BY_DEFINITION",
                 gsm_client=gsm_client,
             )
         # Only active filter, no actor_definition_id
         return _run_sql_query(
-            SELECT_ACTIVE_CONNECTOR_ROLLOUTS,
-            parameters={"limit": limit},
+            limit_statement(SELECT_ACTIVE_CONNECTOR_ROLLOUTS),
+            parameters=parameters,
             query_name="SELECT_ACTIVE_CONNECTOR_ROLLOUTS",
             gsm_client=gsm_client,
         )
 
     # Not active_only, but filter by actor_definition_id (all states)
     if actor_definition_id is not None:
+        parameters["actor_definition_id"] = actor_definition_id
         return _run_sql_query(
-            SELECT_CONNECTOR_ROLLOUTS,
-            parameters={
-                "actor_definition_id": actor_definition_id,
-                "limit": limit,
-            },
+            limit_statement(SELECT_CONNECTOR_ROLLOUTS),
+            parameters=parameters,
             query_name="SELECT_CONNECTOR_ROLLOUTS",
             gsm_client=gsm_client,
         )
 
     # Default: return active rollouts if no filters specified
     return _run_sql_query(
-        SELECT_ACTIVE_CONNECTOR_ROLLOUTS,
-        parameters={"limit": limit},
+        limit_statement(SELECT_ACTIVE_CONNECTOR_ROLLOUTS),
+        parameters=parameters,
         query_name="SELECT_ACTIVE_CONNECTOR_ROLLOUTS",
         gsm_client=gsm_client,
     )
@@ -820,7 +879,7 @@ def query_connector_rollouts_for_connector(
     *,
     actor_definition_id: str,
     active_only: bool = True,
-    limit: int = 100,
+    limit: int | None = 100,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Query connector rollouts for a specific connector definition."""

@@ -2,14 +2,8 @@ from __future__ import annotations
 
 import contextlib
 
-from attr import (
-    field,
-    frozen,
-)
-from attr.validators import (
-    instance_of,
-)
-from opentelemetry import trace
+from attr import field, frozen
+from attr.validators import instance_of
 from public import public
 
 from xorq.caching.storage import (
@@ -25,8 +19,6 @@ from xorq.caching.strategy import (
     SnapshotStrategy,
 )
 from xorq.common.exceptions import XorqError
-from xorq.common.utils.otel_utils import tracer
-from xorq.vendor.ibis.expr import types as ir
 
 
 __all__ = [  # noqa: PLE0604
@@ -73,34 +65,37 @@ class Cache:
         key = self.calc_key(expr)
         return self.storage.exists(key)
 
-    def get(self, expr: ir.Expr):
+    def get(self, expr):
         key = self.calc_key(expr)
         if not self.key_exists(key):
             raise KeyError(key)
         else:
             return self.storage.get(key)
 
-    def put(self, expr: ir.Expr, value, parquet_metadata=None):
+    def put(self, expr, value, parquet_metadata=None):
         key = self.calc_key(expr)
         if self.key_exists(key):
             raise ValueError(f"cache entry already exists for key {key!r}")
         else:
             return self.storage.put(key, value, parquet_metadata=parquet_metadata)
 
-    @tracer.start_as_current_span("cache.set_default")
-    def set_default(self, expr: ir.Expr, default, parquet_metadata=None):
-        span = trace.get_current_span()
-        key = self.calc_key(expr)
-        if not self.key_exists(key):
-            span.add_event("cache.miss", {"key": key})
-            with tracer.start_as_current_span("cache.put") as child_span:
-                child_span.add_event("cache.miss", {"key": key})
-                return self.storage.put(key, default, parquet_metadata=parquet_metadata)
-        else:
-            span.add_event("cache.hit", {"key": key})
-            return self.storage.get(key)
+    def set_default(self, expr, default, parquet_metadata=None):
+        from xorq.common.utils.otel_utils import tracer  # noqa: PLC0415
 
-    def drop(self, expr: ir.Expr):
+        with tracer.start_as_current_span("cache.set_default") as span:
+            key = self.calc_key(expr)
+            if not self.key_exists(key):
+                span.add_event("cache.miss", {"key": key})
+                with tracer.start_as_current_span("cache.put") as child_span:
+                    child_span.add_event("cache.miss", {"key": key})
+                    return self.storage.put(
+                        key, default, parquet_metadata=parquet_metadata
+                    )
+            else:
+                span.add_event("cache.hit", {"key": key})
+                return self.storage.get(key)
+
+    def drop(self, expr):
         key = self.calc_key(expr)
         if not self.key_exists(key):
             raise KeyError(key)
@@ -125,20 +120,23 @@ class Cache:
 @public
 @frozen
 class ParquetCache(Cache):
-    """Cache expressions as Parquet files using a snapshot invalidation strategy.
+    """Cache expression results as Parquet files, re-hashing when source data changes.
 
-    This storage class saves intermediate results as Parquet files in a specified
-    directory and uses a snapshot-based approach for cache invalidation.
-    The snapshot strategy ensures cached data is only invalidated when the
-    expression's definition changes, making it suitable for stable datasets.
+    Pairs ``ModificationTimeStrategy`` with ``ParquetStorage``: results are
+    written as Parquet files on local disk, and the cache key folds in
+    source-data metadata so the cache invalidates automatically when the
+    upstream data changes. Build it with :meth:`from_kwargs`.
 
     Parameters
     ----------
-    source : ibis.backends.BaseBackend
-        The backend to use for execution. Defaults to xorq's default backend.
-    path : Path
-        The directory where Parquet files will be stored. Defaults to
-        xorq.config.options.cache.default_path.
+    source : ibis.backends.BaseBackend, optional
+        Backend used to write the file on a miss and read it back on a hit.
+        Defaults to xorq's default backend.
+    relative_path : Path, optional
+        Subdirectory under the cache root. Defaults to
+        ``xorq.config.options.cache.default_relative_path`` (``parquet``).
+    base_path : Path, optional
+        Cache root. Defaults to ``None``, which resolves to ``XORQ_CACHE_DIR``.
     """
 
     strategy_typ = ModificationTimeStrategy
@@ -148,20 +146,24 @@ class ParquetCache(Cache):
 @public
 @frozen
 class ParquetSnapshotCache(Cache):
-    """Cache expressions as Parquet files using a snapshot invalidation strategy.
+    """Cache expression results as Parquet files with a stable, snapshot key.
 
     Unlike :class:`ParquetCache` (which uses ``ModificationTimeStrategy`` and
-    re-hashes when source files change), this class uses ``SnapshotStrategy``
-    which normalizes cache keys based on expression structure only — source
-    data changes do not invalidate cached results.
+    re-hashes when source data changes), this class pairs ``SnapshotStrategy``
+    with ``ParquetStorage``: the cache key is computed from the expression
+    structure only, so source-data changes do not invalidate cached results.
+    Build it with :meth:`from_kwargs`.
 
     Parameters
     ----------
-    source : ibis.backends.BaseBackend
-        The backend to use for execution. Defaults to xorq's default backend.
-    path : Path
-        The directory where Parquet files will be stored. Defaults to
-        xorq.config.options.cache.default_path.
+    source : ibis.backends.BaseBackend, optional
+        Backend used to write the file on a miss and read it back on a hit.
+        Defaults to xorq's default backend.
+    relative_path : Path, optional
+        Subdirectory under the cache root. Defaults to
+        ``xorq.config.options.cache.default_relative_path`` (``parquet``).
+    base_path : Path, optional
+        Cache root. Defaults to ``None``, which resolves to ``XORQ_CACHE_DIR``.
     """
 
     strategy_typ = SnapshotStrategy
@@ -171,6 +173,26 @@ class ParquetSnapshotCache(Cache):
 @public
 @frozen
 class ParquetTTLSnapshotCache(Cache):
+    """Cache expression results as Parquet files with a stable key and a time-to-live.
+
+    Like :class:`ParquetSnapshotCache` (``SnapshotStrategy`` + Parquet storage)
+    but backed by ``ParquetTTLStorage``: a cached file older than ``ttl`` is
+    treated as expired and recomputed. Build it with :meth:`from_kwargs`.
+
+    Parameters
+    ----------
+    source : ibis.backends.BaseBackend, optional
+        Backend used to write the file on a miss and read it back on a hit.
+        Defaults to xorq's default backend.
+    relative_path : Path, optional
+        Subdirectory under the cache root. Defaults to
+        ``xorq.config.options.cache.default_relative_path`` (``parquet``).
+    base_path : Path, optional
+        Cache root. Defaults to ``None``, which resolves to ``XORQ_CACHE_DIR``.
+    ttl : datetime.timedelta, optional
+        How long a cached file stays valid. Defaults to one day.
+    """
+
     strategy_typ = SnapshotStrategy
     storage_typ = ParquetTTLStorage
 
@@ -184,6 +206,19 @@ class ParquetDummySnapshotCache(ParquetSnapshotCache):
 @public
 @frozen
 class SourceCache(Cache):
+    """Cache expression results as a table in a source backend, with automatic invalidation.
+
+    Pairs ``ModificationTimeStrategy`` with ``SourceStorage``: the result is
+    stored as a table in the ``source`` backend, and the cache key folds in
+    source-data metadata so the cache invalidates automatically when the
+    upstream data changes. Build it with :meth:`from_kwargs`.
+
+    Parameters
+    ----------
+    source : ibis.backends.BaseBackend, optional
+        Backend the cache table lives in. Defaults to xorq's default backend.
+    """
+
     strategy_typ = ModificationTimeStrategy
     storage_typ = SourceStorage
 
@@ -191,6 +226,19 @@ class SourceCache(Cache):
 @public
 @frozen
 class SourceSnapshotCache(Cache):
+    """Cache expression results as a table in a source backend, with a stable key.
+
+    Pairs ``SnapshotStrategy`` with ``SourceStorage``: the result is stored as
+    a table in the ``source`` backend, and the cache key is computed from the
+    expression structure only, so source-data changes do not invalidate cached
+    results. Build it with :meth:`from_kwargs`.
+
+    Parameters
+    ----------
+    source : ibis.backends.BaseBackend, optional
+        Backend the cache table lives in. Defaults to xorq's default backend.
+    """
+
     strategy_typ = SnapshotStrategy
     storage_typ = SourceStorage
 
@@ -198,6 +246,21 @@ class SourceSnapshotCache(Cache):
 @public
 @frozen
 class GCSCache(Cache):
+    """Cache expression results as Parquet files in a Google Cloud Storage bucket.
+
+    Pairs ``ModificationTimeStrategy`` with ``GCStorage``: results are written
+    as Parquet to a GCS bucket via ``gcsfs`` instead of local disk, and the
+    cache key folds in source-data metadata so the cache invalidates when the
+    upstream data changes. Build it with :meth:`from_kwargs`.
+
+    Parameters
+    ----------
+    bucket_name : str
+        Name of the GCS bucket to store cached Parquet files in.
+    source : ibis.backends.BaseBackend
+        Backend used to write the file on a miss and read it back on a hit.
+    """
+
     strategy_typ = ModificationTimeStrategy
     storage_typ = None
 

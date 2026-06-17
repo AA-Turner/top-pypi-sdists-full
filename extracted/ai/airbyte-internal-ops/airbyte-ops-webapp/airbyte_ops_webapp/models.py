@@ -17,8 +17,11 @@ CustomerTierFilter = TierFilter
 
 __all__ = [
     "ConnectorOption",
+    "ConnectorRelease",
+    "ConnectorRollout",
     "ConnectorType",
     "ConnectorVersion",
+    "ContextResolution",
     "CurrentVersionState",
     "CustomerTierFilter",
     "OperationPreview",
@@ -30,6 +33,7 @@ __all__ = [
     "VersionOverridePayload",
     "VersionOverrideTargetPayload",
     "VersionOverrideToolName",
+    "VersionPinRow",
     "build_version_override_payload",
     "version_override_tool_name",
 ]
@@ -116,6 +120,20 @@ class ConnectorOption:
 
 
 @dataclass(frozen=True)
+class ConnectorRelease:
+    """Recently published connector release option."""
+
+    version_id: str
+    connector_id: str
+    connector_name: str
+    connector_type: ConnectorType
+    docker_image_tag: str
+    docker_repository: str
+    release_stage: str
+    last_published: str
+
+
+@dataclass(frozen=True)
 class ConnectorVersion:
     """Published connector version row."""
 
@@ -127,6 +145,24 @@ class ConnectorVersion:
     cdk_version: str
     language: str
     last_published: str
+
+
+@dataclass(frozen=True)
+class ConnectorRollout:
+    """Active progressive rollout row."""
+
+    rollout_id: str
+    connector_id: str
+    connector_name: str
+    connector_type: ConnectorType
+    docker_repository: str
+    state: str
+    rc_docker_image_tag: str
+    initial_docker_image_tag: str
+    current_target_rollout_pct: str
+    final_target_rollout_pct: str
+    created_at: str
+    updated_at: str
 
 
 @dataclass(frozen=True)
@@ -146,6 +182,34 @@ class ScopedConfiguration:
     origin_name: str
     expires_at: str
     reference_url: str
+
+
+@dataclass(frozen=True)
+class VersionPinRow:
+    """A single pin row for display in the version pin list."""
+
+    scope_type: str
+    scope_id: str
+    scope_url: str
+    origin_type: str
+    origin_name: str
+    description: str
+    created_at: str
+    created_at_display: str
+    expires_at: str
+    expires_at_display: str
+    reference_url: str
+
+
+@dataclass(frozen=True)
+class ContextResolution:
+    """Resolved organization/workspace/actor context for a GUID."""
+
+    scope_type: ScopeType
+    scope_id: str
+    organization_id: str
+    workspace_id: str | None = None
+    actor_id: str | None = None
 
 
 @dataclass(frozen=True)

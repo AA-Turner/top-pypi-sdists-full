@@ -2,8 +2,8 @@ import json
 import os
 import re
 import tarfile
-from collections import OrderedDict
-from datetime import date, datetime, timezone
+import uuid
+from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple, Type
 from unittest.mock import Mock, patch
@@ -271,7 +271,7 @@ def test_health_check(client: GGClient):
     assert bool(health)
     assert health.success
 
-    assert type(health.to_dict()) == OrderedDict
+    assert type(health.to_dict()) == dict
     assert type(health.to_json()) == str
 
 
@@ -313,7 +313,7 @@ def test_multi_content_scan(
     assert multiscan.status_code == 200
     assert isinstance(multiscan, MultiScanResult)
 
-    assert type(multiscan.to_dict()) == OrderedDict
+    assert type(multiscan.to_dict()) == dict
     assert type(multiscan.to_json()) == str
     assert type(repr(multiscan)) == str
     assert type(str(multiscan)) == str
@@ -443,7 +443,7 @@ def test_content_scan(
         else:
             pytest.fail("returned should be a ScanResult")
 
-        assert isinstance(scan_result.to_dict(), OrderedDict)
+        assert isinstance(scan_result.to_dict(), dict)
         scan_result_json = scan_result.to_json()
         assert isinstance(scan_result_json, str)
         assert isinstance(json.loads(scan_result_json), dict)
@@ -939,7 +939,7 @@ def test_quota_overview(client: GGClient):
         else:
             pytest.fail("returned should be a QuotaResponse")
 
-        assert isinstance(quota_response.to_dict(), OrderedDict)
+        assert isinstance(quota_response.to_dict(), dict)
         quota_response_json = quota_response.to_json()
         assert isinstance(quota_response_json, str)
         assert isinstance(json.loads(quota_response_json), dict)
@@ -1986,27 +1986,24 @@ def test_log_mcp_activities_bulk_posts_to_correct_endpoint(
     THEN a POST is made to the bulk endpoint
     AND an MCPActivityBulkResponse is returned with ingested/duplicate counts
     """
+    # Fresh, per-run-unique events so the cassette-less release run
+    # (`scripts/release run-tests`) always ingests them: a stale timestamp is
+    # rejected by the backfill window and repeated events are deduplicated.
+    # Cassette replay matches on method+url (see conftest.my_vcr), so the
+    # request body here does not affect recorded-cassette runs.
+    recent = datetime.now(timezone.utc) - timedelta(hours=1)
     activities = [
         MCPActivityRequest(
-            user=UserInfo(hostname="h", username="u", machine_id="m"),
+            user=UserInfo(hostname="h", username="u", machine_id=uuid.uuid4().hex),
             tool="t",
             server="s",
             agent="claude-code",
             model="m",
             cwd="/tmp",
             input={},
-            timestamp=datetime(2026, 4, 1, 9, 0, tzinfo=timezone.utc),
-        ),
-        MCPActivityRequest(
-            user=UserInfo(hostname="h", username="u", machine_id="m"),
-            tool="t",
-            server="s",
-            agent="claude-code",
-            model="m",
-            cwd="/tmp",
-            input={},
-            timestamp=datetime(2026, 4, 1, 9, 0, tzinfo=timezone.utc),
-        ),
+            timestamp=recent,
+        )
+        for _ in range(2)
     ]
 
     result = client.log_mcp_activities_bulk(activities)

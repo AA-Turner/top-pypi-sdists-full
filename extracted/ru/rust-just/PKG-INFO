@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rust-just
-Version: 1.52.0
+Version: 1.53.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -1074,9 +1074,10 @@ foo:
 | `export` | boolean | `false` | Export all variables as environment variables. |
 | `fallback` | boolean | `false` | Search `justfile` in parent directory if the first recipe on the command line is not found. |
 | `ignore-comments` | boolean | `false` | Ignore recipe lines beginning with `#`. |
-| `no-exit-message`<sup>1.39.0</sup> | boolean | `false` | Don't print exit messages if recipes fail. |
 | `lazy`<sup>1.47.0</sup> | boolean | `false` | Don't evaluate unused variables. |
+| `lists`<sup>1.53.0</sup> | boolean | `false` | Values may be lists of strings instead of strings. Currently unstable. |
 | `no-cd`<sup>1.51.0</sup> | boolean | `false` | Don't change directory when executing recipes by recipe attribute. |
+| `no-exit-message`<sup>1.39.0</sup> | boolean | `false` | Don't print exit messages if recipes fail. |
 | `positional-arguments` | boolean | `false` | Pass positional arguments. |
 | `quiet` | boolean | `false` | Disable echoing recipe lines before executing. |
 | `script-interpreter`<sup>1.33.0</sup> | `[COMMAND, ARGS…]` | `['sh', '-eu']` | Set command used to invoke recipes with empty `[script]` attribute. |
@@ -1256,6 +1257,211 @@ bar:
 Because `just` cannot determine when exported variables are used, assignments
 with `export` and assignments in a module with `set export` will always be
 evaluated.
+
+#### Lists
+
+The `lists` setting<sup>1.53.0</sup> allows values that are lists of strings.
+It is currently unstable and will change in backwards incompatible ways. This
+section documents changes in behavior when `set lists` is enabled.
+
+It has not yet been decided how lists should behave with many of the built-in
+functions. Functions that have been updated to accept lists are mentioned in
+this section. Using lists with any other function is an error. The
+`join_list()` function can be used to convert lists into space-separated
+strings for use with un-upgraded functions. Feedback on how built-in functions
+should behave with lists, and on lists in general, is most welcome! Feel free
+to open an issue or leave a comment in the
+[`set lists` tracking issue](https://github.com/casey/just/issues/3377).
+
+Variadic recipe parameters are lists of strings instead of single
+space-separated strings.
+
+List literals are written `[a, b, c]`. List literals flatten their arguments,
+lists may only contain strings and not other lists. For example,
+`[["a", "b"], [], "c"]` evaluates to `["a", "b", "c"]`.
+
+Lists in recipe and `f`-string interpolations are joined with spaces into a
+single string.
+
+Each argument to a dependency binds to exactly one parameter, and supplying
+extra arguments to a variadic dependency is an error.
+
+Dependencies may be invoked once per element of a list with
+`*(recipe *argument)`.
+
+A parameter evaluates to the default when the argument is an empty list.
+
+Passing an empty list to a non-`*` parameter without a default is an error.
+
+The `else` of an `if` may be omitted, in which case the `if` evaluates to `[]`
+when its condition is false.
+
+Message values in `assert(condition, message)` and `[confirm(message)]` are
+space-joined for display.
+
+The `+` and `/` operators combine strings and lists. A string and a non-empty
+list are combined by concatenating the string with each element of the list.
+Two lists of the same length are combined into a list containing the pairwise
+concatenated elements of both operands. Combining two lists of different
+lengths is an error.
+
+The `++` operator performs list concatenation.
+
+##### Booleans
+
+The canonical boolean true value is the string `"true"`, and the canonical
+boolean false value is the empty list `[]`. All values other than the empty
+list are truthy, including `''`.
+
+The condition of an `if` or `assert()` may be any expression, which is
+evaluated for truthiness.
+
+The comparison operators `==`, `!=`, `=~`, and `!~` may be used anywhere, not
+just in `if` and `assert()`, and evaluate to `"true"` or `[]`.
+
+`value =~ regexes` is true if any element in `value` matches any regex in
+`regexes`. It is false if either `value` or `regexes` is empty.
+
+`value !~ regexes` is true if no element in `value` matches any regex in
+`regexes`. It is true if either `value` or `regexes` is empty.
+
+Values may be negated with `!`. `!expression` evaluates to `"true"` if
+`expression` is `[]`, otherwise it evaluates to `[]`.
+
+##### Settings
+
+The `script-interpreter`, `shell`, and `windows-shell` settings flatten their
+elements like list literals.
+
+When `positional-arguments` is set, list arguments are space-joined unless they
+are variadic, in which case they are passed as one positional argument per
+element.
+
+The `--dotenv-filename` and `--dotenv-path` options may be passed multiple
+times, and the `dotenv-filename` and `dotenv-path` settings accept lists, in
+which case multiple environment files may be loaded. The values of
+`dotenv-path` are tried first. If none are found the current directory is
+searched for the names in `dotenv-filename`, followed by its ancestors,
+stopping in the first directory that contains any of them and loading all
+matching files in that directory. If multiple environment files are loaded,
+variables in files later in list take precedence over earlier ones.
+
+##### Attributes
+
+The `[arg]` `flag` attribute makes the parameter a flag which does not take a
+value on the command line. For example, with `[arg('foo', long, flag)]`, `foo`
+will be `"true"` when `--foo` is passed, and `[]` otherwise. Flag parameters may
+not have a default.
+
+In `[env(variable, value)]` if `value` is `[]`, `variable` is not set.
+Otherwise it is set to `value` joined with spaces.
+
+##### Functions
+
+- `absolute_path()` - Applies to each list element individually.
+- `append()` - Applies to each list element individually and does not split
+  elements on whitespace.
+- `assert(condition, message)` - Evaluates to `condition`.
+- `bool(value)` Converts `value` to the canonical boolean values. Returns `[]`
+  when `value` is `""` `"0"` `"false"`, or `[]`, and `"true"` when `value` is
+  `"1"` or `"true"`. All other values are an error. Can be used to parse
+  booleans passed as arguments or environment variables.
+- `env(keys, default)` Checks for the environment variables named in `keys` in
+  order and returns the value of the first that is set. Returns `default` if
+  none are set or an error if `default` is omitted.
+- `is_dependency()` - Returns the canonical booleans.
+- `join_list(value, separator)` - Joins `value` into a single string. Elements
+  are joined with `separator`, or with a single space if `separator` is
+  omitted.
+- `path_exists()` - Returns the canonical booleans.
+- `prepend()` - Applies to each list element individually and does not split
+  elements on whitespace.
+- `quote()` - Applies to each list element individually.
+- `semver_matches()` - Returns the canonical booleans.
+- `show(value)` - Converts `value` into a string containing its literal
+  representation. Brackets are used for empty and multi-element lists, e.g.,
+  `"[]"` and `"["foo", "bar"]"`, but not single-element lists, e.g., `"foo"`.
+- `split(string, separator)` - Splits `string` into a list on each occurrence
+  of `separator`. If `separator` is omitted, `string` is split on whitespace,
+  with leading and trailing whitespace trimmed.
+- `which()` - Returns the empty list when no executable is found.
+
+##### Examples
+
+Each list element is `quote()`'ed separately:
+
+```just
+set unstable
+set lists
+
+@foo *args:
+  printf '%s\n' {{ quote(args) }}
+```
+
+```console
+$ just foo bar 'baz bob'
+bar
+baz bob
+```
+
+The return value of `quote(args)` is `'bar' 'baz bob'`, instead of
+`'bar baz bob'`, as would be the case without `set lists`.
+
+Variadic positional arguments:
+
+```just
+set unstable
+set lists
+set positional-arguments
+
+foo *args: (bar args 'bob') (baz args)
+
+@bar first second:
+  echo first=$1
+  echo second=$2
+
+@baz *args:
+  echo '$1='$1
+  echo '$2='$2
+```
+
+```console
+$ just foo one two
+first=one two
+second=bob
+$1=one
+$2=two
+```
+
+A mapped dependency is invoked once per element of its starred argument, with
+`[parallel]` to run them in parallel:
+
+```just
+set unstable
+set lists
+
+[parallel]
+build target *platform: *(compile target *platform)
+
+@compile target platform:
+  echo compiling {{ target }} for {{ platform }}…
+```
+
+```console
+$ just build x86 foo bar
+compiling foo for x86…
+compiling bar for x86…
+```
+
+The canonical false value `[]` is recommended as a default for options:
+
+```just
+set unstable
+set lists
+
+[arg('bar', long)]
+foo bar=[]:
+```
 
 #### Positional Arguments
 
@@ -1551,25 +1757,27 @@ foobar := 'foo' + 'bar'
 
 #### Logical Operators
 
-The logical operators `&&` and `||` can be used to coalesce string
-values<sup>1.37.0</sup>, similar to Python's `and` and `or`. These operators
-consider the empty string `''` to be false, and all other strings to be true.
+The logical operators `&&` and `||` can be used to coalesce
+values<sup>1.37.0</sup>, similar to Python's `and` and `or`. The only false
+value is the empty list `[]`; every other value, including the empty string
+`''`, is true.
 
-These operators are currently unstable.
+These operators require `set lists`<sup>1.53.0</sup>, which is currently
+unstable.
 
-The `&&` operator returns the empty string if the left-hand argument is the
-empty string, otherwise it returns the right-hand argument:
+The `&&` operator returns the empty list if the left-hand argument is false,
+otherwise it returns the right-hand argument:
 
 ```justfile
-foo := '' && 'goodbye'      # ''
+foo := [] && 'goodbye'      # []
 bar := 'hello' && 'goodbye' # 'goodbye'
 ```
 
-The `||` operator returns the left-hand argument if it is non-empty, otherwise
-it returns the right-hand argument:
+The `||` operator returns the left-hand argument if it is true, otherwise it
+returns the right-hand argument:
 
 ```justfile
-foo := '' || 'goodbye'      # 'goodbye'
+foo := [] || 'goodbye'      # 'goodbye'
 bar := 'hello' || 'goodbye' # 'hello'
 ```
 
@@ -1923,15 +2131,6 @@ $ just
 - `env_var(key)` — Deprecated alias for `env(key)`.
 - `env_var_or_default(key, default)` — Deprecated alias for `env(key, default)`.
 
-A default can be substituted for an empty environment variable value with the
-`||` operator, currently unstable:
-
-```just
-set unstable
-
-foo := env('FOO', '') || 'DEFAULT_VALUE'
-```
-
 #### Executables
 
 - `require(name)`<sup>1.39.0</sup> — Search directories in the `PATH`
@@ -1952,11 +2151,12 @@ foo := env('FOO', '') || 'DEFAULT_VALUE'
 
 - `which(name)`<sup>1.39.0</sup> — Search directories in the `PATH` environment
   variable for the executable `name` and return its full path, or the empty
-  string if no executable with `name` exists. Currently unstable.
+  list if not found. Requires `set lists`<sup>1.53.0</sup>.
 
 
   ```just
   set unstable
+  set lists
 
   bosh := which("bosh")
 
@@ -1974,6 +2174,8 @@ foo := env('FOO', '') || 'DEFAULT_VALUE'
 - `is_dependency()` - Returns the string `true` if the current recipe is being
   run as a dependency of another recipe, rather than being run directly,
   otherwise returns the string `false`.
+
+- `recipe_name()`<sup>1.53.0</sup> - Returns the name of the current recipe.
 
 #### Invocation Directory
 
@@ -2079,8 +2281,9 @@ The process ID is: 420
 
 #### String Manipulation
 
-- `append(suffix, s)`<sup>1.27.0</sup> - Append `suffix` to whitespace-separated
-  strings in `s`. `append('/src', 'foo bar baz')` → `'foo/src bar/src baz/src'`
+- `append(suffix, s)`<sup>1.27.0</sup> - Append `suffix` to
+  whitespace-separated strings in `s`. `append('/src', 'foo bar baz')` →
+  `'foo/src bar/src baz/src'`
 - `prepend(prefix, s)`<sup>1.27.0</sup> - Prepend `prefix` to
   whitespace-separated strings in `s`. `prepend('src/', 'foo bar baz')` →
   `'src/foo src/bar src/baz'`
@@ -2167,7 +2370,8 @@ which will halt execution.
 #### Assertions and Error Reporting
 
 - `assert(CONDITION, EXPRESSION)`<sup>1.27.0</sup> - Error with message
-  `EXPRESSION` if `CONDITION` is false.
+  `EXPRESSION` if `CONDITION` is false. `EXPRESSION` may be
+  omitted<sup>1.53.0</sup>,
 - `error(message)` - Abort execution and report error `message` to user.
 
 #### UUID and Hash Generation
@@ -2370,7 +2574,7 @@ change their behavior.
 | `[arg(ARG, long="LONG")]`<sup>1.46.0</sup> | recipe | Require values of argument `ARG` to be passed as `--LONG` option. |
 | `[arg(ARG, pattern="PATTERN")]`<sup>1.45.0</sup> | recipe | Require values of argument `ARG` to match regular expression `PATTERN`. |
 | `[arg(ARG, short="S")]`<sup>1.46.0</sup> | recipe | Require values of argument `ARG` to be passed as short `-S` option. |
-| `[arg(ARG, value="VALUE")]`<sup>1.46.0</sup> | recipe | Makes option `ARG` a flag which does not take a value. |
+| `[arg(ARG, value=VALUE)]`<sup>1.46.0</sup> | recipe | Makes option `ARG` a flag which does not take a value. |
 | `[confirm(PROMPT)]`<sup>1.23.0</sup> | recipe | Require confirmation prior to executing recipe with a custom prompt. |
 | `[confirm]`<sup>1.17.0</sup> | recipe | Require confirmation prior to executing recipe. |
 | `[default]`<sup>1.43.0</sup> | recipe | Use recipe as module's default recipe. |
@@ -3134,6 +3338,7 @@ Variadic `*` and `+` parameters cannot be options.
 
 The `[arg(ARG, value=VALUE, …)]`<sup>1.46.0</sup> attribute can be used with
 `long` or `short` to make a parameter a flag which does not take a value.
+`VALUE` may be an expression<sup>master</sup>.
 
 In this `justfile`:
 
@@ -4319,6 +4524,29 @@ default:
   echo foo
 ```
 
+### Markdown `justfile`s
+
+If the argument to `--justfile` ends in `.md`, `just` extracts the contents of
+unindented `just` fenced code blocks and writes them to a `justfile` in a
+temporary directory<sup>1.53.0</sup>:
+
+````markdown
+# Project
+
+Build the project:
+
+```just
+build:
+  echo Building…
+```
+````
+
+```console
+$ just --justfile README.md build
+echo Building…
+Building…
+```
+
 ### Formatting and dumping `justfile`s
 
 Each `justfile` has a canonical formatting with respect to whitespace and
@@ -4345,8 +4573,9 @@ some-recipe:
     echo "foo"
 ```
 
-When the `justfile` is read from standard input with `--justfile -`, `--fmt`
-prints the formatted `justfile` to stdout.
+When the `justfile` is read from standard input with `--justfile -` or
+extracted from a markdown file, `--fmt` prints the formatted `justfile` to
+stdout.
 
 Note that formatting is not covered by any backwards compatibility guarantee
 and is subject to change from time to time.

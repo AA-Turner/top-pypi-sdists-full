@@ -16736,6 +16736,466 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"m2_ts_settings": "m2TsSettings"},
+    )
+    class MediaConnectRouterContainerSettingsProperty:
+        def __init__(
+            self,
+            *,
+            m2_ts_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.M2tsSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param m2_ts_settings: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectroutercontainersettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_connect_router_container_settings_property = medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                    m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
+                        absent_input_audio_behavior="absentInputAudioBehavior",
+                        arib="arib",
+                        arib_captions_pid="aribCaptionsPid",
+                        arib_captions_pid_control="aribCaptionsPidControl",
+                        audio_buffer_model="audioBufferModel",
+                        audio_frames_per_pes=123,
+                        audio_pids="audioPids",
+                        audio_stream_type="audioStreamType",
+                        bitrate=123,
+                        buffer_model="bufferModel",
+                        cc_descriptor="ccDescriptor",
+                        dvb_nit_settings=medialive.CfnChannel.DvbNitSettingsProperty(
+                            network_id=123,
+                            network_name="networkName",
+                            rep_interval=123
+                        ),
+                        dvb_sdt_settings=medialive.CfnChannel.DvbSdtSettingsProperty(
+                            output_sdt="outputSdt",
+                            rep_interval=123,
+                            service_name="serviceName",
+                            service_provider_name="serviceProviderName"
+                        ),
+                        dvb_sub_pids="dvbSubPids",
+                        dvb_tdt_settings=medialive.CfnChannel.DvbTdtSettingsProperty(
+                            rep_interval=123
+                        ),
+                        dvb_teletext_pid="dvbTeletextPid",
+                        ebif="ebif",
+                        ebp_audio_interval="ebpAudioInterval",
+                        ebp_lookahead_ms=123,
+                        ebp_placement="ebpPlacement",
+                        ecm_pid="ecmPid",
+                        es_rate_in_pes="esRateInPes",
+                        etv_platform_pid="etvPlatformPid",
+                        etv_signal_pid="etvSignalPid",
+                        fragment_time=123,
+                        klv="klv",
+                        klv_data_pids="klvDataPids",
+                        nielsen_id3_behavior="nielsenId3Behavior",
+                        null_packet_bitrate=123,
+                        pat_interval=123,
+                        pcr_control="pcrControl",
+                        pcr_period=123,
+                        pcr_pid="pcrPid",
+                        pmt_interval=123,
+                        pmt_pid="pmtPid",
+                        program_num=123,
+                        rate_mode="rateMode",
+                        scte27_pids="scte27Pids",
+                        scte35_control="scte35Control",
+                        scte35_pid="scte35Pid",
+                        scte35_preroll_pullup_milliseconds=123,
+                        segmentation_markers="segmentationMarkers",
+                        segmentation_style="segmentationStyle",
+                        segmentation_time=123,
+                        timed_metadata_behavior="timedMetadataBehavior",
+                        timed_metadata_pid="timedMetadataPid",
+                        transport_stream_id=123,
+                        video_pid="videoPid"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a6ac25b04b1dd9818b55ce4f1c60aa48824eea57c303f2bb649be28cff1fbdf8)
+                check_type(argname="argument m2_ts_settings", value=m2_ts_settings, expected_type=type_hints["m2_ts_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if m2_ts_settings is not None:
+                self._values["m2_ts_settings"] = m2_ts_settings
+
+        @builtins.property
+        def m2_ts_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M2tsSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectroutercontainersettings.html#cfn-medialive-channel-mediaconnectroutercontainersettings-m2tssettings
+            '''
+            result = self._values.get("m2_ts_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.M2tsSettingsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaConnectRouterContainerSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterGroupSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"availability_zones": "availabilityZones"},
+    )
+    class MediaConnectRouterGroupSettingsProperty:
+        def __init__(
+            self,
+            *,
+            availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''
+            :param availability_zones: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectroutergroupsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_connect_router_group_settings_property = medialive.CfnChannel.MediaConnectRouterGroupSettingsProperty(
+                    availability_zones=["availabilityZones"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ba0feb925fb981d412189ce9bddc6e7f235f1e91db91596d86684c3930cdc7cc)
+                check_type(argname="argument availability_zones", value=availability_zones, expected_type=type_hints["availability_zones"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if availability_zones is not None:
+                self._values["availability_zones"] = availability_zones
+
+        @builtins.property
+        def availability_zones(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectroutergroupsettings.html#cfn-medialive-channel-mediaconnectroutergroupsettings-availabilityzones
+            '''
+            result = self._values.get("availability_zones")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaConnectRouterGroupSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterOutputConnectionMapProperty",
+        jsii_struct_bases=[],
+        name_mapping={"pipeline0": "pipeline0", "pipeline1": "pipeline1"},
+    )
+    class MediaConnectRouterOutputConnectionMapProperty:
+        def __init__(
+            self,
+            *,
+            pipeline0: typing.Optional[builtins.str] = None,
+            pipeline1: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param pipeline0: 
+            :param pipeline1: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputconnectionmap.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_connect_router_output_connection_map_property = medialive.CfnChannel.MediaConnectRouterOutputConnectionMapProperty(
+                    pipeline0="pipeline0",
+                    pipeline1="pipeline1"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__20ecbd1f45d03ed5897dd109eb58eb16c80d93af8fbc588f551b7f7b5cdb9ba0)
+                check_type(argname="argument pipeline0", value=pipeline0, expected_type=type_hints["pipeline0"])
+                check_type(argname="argument pipeline1", value=pipeline1, expected_type=type_hints["pipeline1"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if pipeline0 is not None:
+                self._values["pipeline0"] = pipeline0
+            if pipeline1 is not None:
+                self._values["pipeline1"] = pipeline1
+
+        @builtins.property
+        def pipeline0(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputconnectionmap.html#cfn-medialive-channel-mediaconnectrouteroutputconnectionmap-pipeline0
+            '''
+            result = self._values.get("pipeline0")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def pipeline1(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputconnectionmap.html#cfn-medialive-channel-mediaconnectrouteroutputconnectionmap-pipeline1
+            '''
+            result = self._values.get("pipeline1")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaConnectRouterOutputConnectionMapProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"encryption_type": "encryptionType", "secret_arn": "secretArn"},
+    )
+    class MediaConnectRouterOutputDestinationSettingsProperty:
+        def __init__(
+            self,
+            *,
+            encryption_type: typing.Optional[builtins.str] = None,
+            secret_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param encryption_type: 
+            :param secret_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputdestinationsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_connect_router_output_destination_settings_property = medialive.CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty(
+                    encryption_type="encryptionType",
+                    secret_arn="secretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__de784512527b5b99829b3f34b3d3b0bebd7b36042e76edff2b569997272c6efc)
+                check_type(argname="argument encryption_type", value=encryption_type, expected_type=type_hints["encryption_type"])
+                check_type(argname="argument secret_arn", value=secret_arn, expected_type=type_hints["secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if encryption_type is not None:
+                self._values["encryption_type"] = encryption_type
+            if secret_arn is not None:
+                self._values["secret_arn"] = secret_arn
+
+        @builtins.property
+        def encryption_type(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputdestinationsettings.html#cfn-medialive-channel-mediaconnectrouteroutputdestinationsettings-encryptiontype
+            '''
+            result = self._values.get("encryption_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def secret_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputdestinationsettings.html#cfn-medialive-channel-mediaconnectrouteroutputdestinationsettings-secretarn
+            '''
+            result = self._values.get("secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaConnectRouterOutputDestinationSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaConnectRouterOutputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "connected_router_inputs": "connectedRouterInputs",
+            "container_settings": "containerSettings",
+            "destination": "destination",
+        },
+    )
+    class MediaConnectRouterOutputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            connected_router_inputs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaConnectRouterOutputConnectionMapProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            container_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaConnectRouterContainerSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param connected_router_inputs: 
+            :param container_settings: 
+            :param destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_connect_router_output_settings_property = medialive.CfnChannel.MediaConnectRouterOutputSettingsProperty(
+                    connected_router_inputs=medialive.CfnChannel.MediaConnectRouterOutputConnectionMapProperty(
+                        pipeline0="pipeline0",
+                        pipeline1="pipeline1"
+                    ),
+                    container_settings=medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                        m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
+                            absent_input_audio_behavior="absentInputAudioBehavior",
+                            arib="arib",
+                            arib_captions_pid="aribCaptionsPid",
+                            arib_captions_pid_control="aribCaptionsPidControl",
+                            audio_buffer_model="audioBufferModel",
+                            audio_frames_per_pes=123,
+                            audio_pids="audioPids",
+                            audio_stream_type="audioStreamType",
+                            bitrate=123,
+                            buffer_model="bufferModel",
+                            cc_descriptor="ccDescriptor",
+                            dvb_nit_settings=medialive.CfnChannel.DvbNitSettingsProperty(
+                                network_id=123,
+                                network_name="networkName",
+                                rep_interval=123
+                            ),
+                            dvb_sdt_settings=medialive.CfnChannel.DvbSdtSettingsProperty(
+                                output_sdt="outputSdt",
+                                rep_interval=123,
+                                service_name="serviceName",
+                                service_provider_name="serviceProviderName"
+                            ),
+                            dvb_sub_pids="dvbSubPids",
+                            dvb_tdt_settings=medialive.CfnChannel.DvbTdtSettingsProperty(
+                                rep_interval=123
+                            ),
+                            dvb_teletext_pid="dvbTeletextPid",
+                            ebif="ebif",
+                            ebp_audio_interval="ebpAudioInterval",
+                            ebp_lookahead_ms=123,
+                            ebp_placement="ebpPlacement",
+                            ecm_pid="ecmPid",
+                            es_rate_in_pes="esRateInPes",
+                            etv_platform_pid="etvPlatformPid",
+                            etv_signal_pid="etvSignalPid",
+                            fragment_time=123,
+                            klv="klv",
+                            klv_data_pids="klvDataPids",
+                            nielsen_id3_behavior="nielsenId3Behavior",
+                            null_packet_bitrate=123,
+                            pat_interval=123,
+                            pcr_control="pcrControl",
+                            pcr_period=123,
+                            pcr_pid="pcrPid",
+                            pmt_interval=123,
+                            pmt_pid="pmtPid",
+                            program_num=123,
+                            rate_mode="rateMode",
+                            scte27_pids="scte27Pids",
+                            scte35_control="scte35Control",
+                            scte35_pid="scte35Pid",
+                            scte35_preroll_pullup_milliseconds=123,
+                            segmentation_markers="segmentationMarkers",
+                            segmentation_style="segmentationStyle",
+                            segmentation_time=123,
+                            timed_metadata_behavior="timedMetadataBehavior",
+                            timed_metadata_pid="timedMetadataPid",
+                            transport_stream_id=123,
+                            video_pid="videoPid"
+                        )
+                    ),
+                    destination=medialive.CfnChannel.OutputLocationRefProperty(
+                        destination_ref_id="destinationRefId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3f73c1680f6008c8895fdf330da5ebbe0a7f33a76e77edb89c5d40d309736646)
+                check_type(argname="argument connected_router_inputs", value=connected_router_inputs, expected_type=type_hints["connected_router_inputs"])
+                check_type(argname="argument container_settings", value=container_settings, expected_type=type_hints["container_settings"])
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if connected_router_inputs is not None:
+                self._values["connected_router_inputs"] = connected_router_inputs
+            if container_settings is not None:
+                self._values["container_settings"] = container_settings
+            if destination is not None:
+                self._values["destination"] = destination
+
+        @builtins.property
+        def connected_router_inputs(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterOutputConnectionMapProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputsettings.html#cfn-medialive-channel-mediaconnectrouteroutputsettings-connectedrouterinputs
+            '''
+            result = self._values.get("connected_router_inputs")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterOutputConnectionMapProperty"]], result)
+
+        @builtins.property
+        def container_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterContainerSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputsettings.html#cfn-medialive-channel-mediaconnectrouteroutputsettings-containersettings
+            '''
+            result = self._values.get("container_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterContainerSettingsProperty"]], result)
+
+        @builtins.property
+        def destination(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediaconnectrouteroutputsettings.html#cfn-medialive-channel-mediaconnectrouteroutputsettings-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaConnectRouterOutputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty",
         jsii_struct_bases=[],
         name_mapping={"destination": "destination"},
@@ -19550,6 +20010,7 @@ class CfnChannel(
         name_mapping={
             "id": "id",
             "logical_interface_names": "logicalInterfaceNames",
+            "media_connect_router_settings": "mediaConnectRouterSettings",
             "media_package_settings": "mediaPackageSettings",
             "multiplex_settings": "multiplexSettings",
             "settings": "settings",
@@ -19562,6 +20023,7 @@ class CfnChannel(
             *,
             id: typing.Optional[builtins.str] = None,
             logical_interface_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+            media_connect_router_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             media_package_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageOutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             multiplex_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexProgramChannelDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputDestinationSettingsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -19573,6 +20035,7 @@ class CfnChannel(
 
             :param id: The ID for this destination.
             :param logical_interface_names: 
+            :param media_connect_router_settings: 
             :param media_package_settings: The destination settings for a MediaPackage output.
             :param multiplex_settings: Destination settings for a Multiplex output; one destination for both encoders.
             :param settings: The destination settings for an output.
@@ -19590,6 +20053,10 @@ class CfnChannel(
                 output_destination_property = medialive.CfnChannel.OutputDestinationProperty(
                     id="id",
                     logical_interface_names=["logicalInterfaceNames"],
+                    media_connect_router_settings=[medialive.CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty(
+                        encryption_type="encryptionType",
+                        secret_arn="secretArn"
+                    )],
                     media_package_settings=[medialive.CfnChannel.MediaPackageOutputDestinationSettingsProperty(
                         channel_endpoint_id="channelEndpointId",
                         channel_group="channelGroup",
@@ -19620,6 +20087,7 @@ class CfnChannel(
                 type_hints = typing.get_type_hints(_typecheckingstub__d1c3f4cbc44fec2f5cf6dcc1097499d83d328f8fd1f15b8dd6ce6bc45153265a)
                 check_type(argname="argument id", value=id, expected_type=type_hints["id"])
                 check_type(argname="argument logical_interface_names", value=logical_interface_names, expected_type=type_hints["logical_interface_names"])
+                check_type(argname="argument media_connect_router_settings", value=media_connect_router_settings, expected_type=type_hints["media_connect_router_settings"])
                 check_type(argname="argument media_package_settings", value=media_package_settings, expected_type=type_hints["media_package_settings"])
                 check_type(argname="argument multiplex_settings", value=multiplex_settings, expected_type=type_hints["multiplex_settings"])
                 check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
@@ -19629,6 +20097,8 @@ class CfnChannel(
                 self._values["id"] = id
             if logical_interface_names is not None:
                 self._values["logical_interface_names"] = logical_interface_names
+            if media_connect_router_settings is not None:
+                self._values["media_connect_router_settings"] = media_connect_router_settings
             if media_package_settings is not None:
                 self._values["media_package_settings"] = media_package_settings
             if multiplex_settings is not None:
@@ -19654,6 +20124,16 @@ class CfnChannel(
             '''
             result = self._values.get("logical_interface_names")
             return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def media_connect_router_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputdestination.html#cfn-medialive-channel-outputdestination-mediaconnectroutersettings
+            '''
+            result = self._values.get("media_connect_router_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty"]]]], result)
 
         @builtins.property
         def media_package_settings(
@@ -19921,6 +20401,7 @@ class CfnChannel(
             "cmaf_ingest_group_settings": "cmafIngestGroupSettings",
             "frame_capture_group_settings": "frameCaptureGroupSettings",
             "hls_group_settings": "hlsGroupSettings",
+            "media_connect_router_group_settings": "mediaConnectRouterGroupSettings",
             "media_package_group_settings": "mediaPackageGroupSettings",
             "ms_smooth_group_settings": "msSmoothGroupSettings",
             "multiplex_group_settings": "multiplexGroupSettings",
@@ -19937,6 +20418,7 @@ class CfnChannel(
             cmaf_ingest_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CmafIngestGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             frame_capture_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hls_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_connect_router_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaConnectRouterGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_package_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ms_smooth_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MsSmoothGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             multiplex_group_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexGroupSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19952,6 +20434,7 @@ class CfnChannel(
             :param cmaf_ingest_group_settings: 
             :param frame_capture_group_settings: The configuration of a frame capture output group.
             :param hls_group_settings: The configuration of an HLS output group.
+            :param media_connect_router_group_settings: 
             :param media_package_group_settings: The configuration of a MediaPackage output group.
             :param ms_smooth_group_settings: The configuration of a Microsoft Smooth output group.
             :param multiplex_group_settings: The settings for a Multiplex output group.
@@ -20111,6 +20594,9 @@ class CfnChannel(
                         timestamp_delta_milliseconds=123,
                         ts_file_mode="tsFileMode"
                     ),
+                    media_connect_router_group_settings=medialive.CfnChannel.MediaConnectRouterGroupSettingsProperty(
+                        availability_zones=["availabilityZones"]
+                    ),
                     media_package_group_settings=medialive.CfnChannel.MediaPackageGroupSettingsProperty(
                         destination=medialive.CfnChannel.OutputLocationRefProperty(
                             destination_ref_id="destinationRefId"
@@ -20187,6 +20673,7 @@ class CfnChannel(
                 check_type(argname="argument cmaf_ingest_group_settings", value=cmaf_ingest_group_settings, expected_type=type_hints["cmaf_ingest_group_settings"])
                 check_type(argname="argument frame_capture_group_settings", value=frame_capture_group_settings, expected_type=type_hints["frame_capture_group_settings"])
                 check_type(argname="argument hls_group_settings", value=hls_group_settings, expected_type=type_hints["hls_group_settings"])
+                check_type(argname="argument media_connect_router_group_settings", value=media_connect_router_group_settings, expected_type=type_hints["media_connect_router_group_settings"])
                 check_type(argname="argument media_package_group_settings", value=media_package_group_settings, expected_type=type_hints["media_package_group_settings"])
                 check_type(argname="argument ms_smooth_group_settings", value=ms_smooth_group_settings, expected_type=type_hints["ms_smooth_group_settings"])
                 check_type(argname="argument multiplex_group_settings", value=multiplex_group_settings, expected_type=type_hints["multiplex_group_settings"])
@@ -20202,6 +20689,8 @@ class CfnChannel(
                 self._values["frame_capture_group_settings"] = frame_capture_group_settings
             if hls_group_settings is not None:
                 self._values["hls_group_settings"] = hls_group_settings
+            if media_connect_router_group_settings is not None:
+                self._values["media_connect_router_group_settings"] = media_connect_router_group_settings
             if media_package_group_settings is not None:
                 self._values["media_package_group_settings"] = media_package_group_settings
             if ms_smooth_group_settings is not None:
@@ -20259,6 +20748,16 @@ class CfnChannel(
             '''
             result = self._values.get("hls_group_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsGroupSettingsProperty"]], result)
+
+        @builtins.property
+        def media_connect_router_group_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterGroupSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputgroupsettings.html#cfn-medialive-channel-outputgroupsettings-mediaconnectroutergroupsettings
+            '''
+            result = self._values.get("media_connect_router_group_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterGroupSettingsProperty"]], result)
 
         @builtins.property
         def media_package_group_settings(
@@ -20658,6 +21157,78 @@ class CfnChannel(
                             name_modifier="nameModifier",
                             segment_modifier="segmentModifier"
                         ),
+                        media_connect_router_output_settings=medialive.CfnChannel.MediaConnectRouterOutputSettingsProperty(
+                            connected_router_inputs=medialive.CfnChannel.MediaConnectRouterOutputConnectionMapProperty(
+                                pipeline0="pipeline0",
+                                pipeline1="pipeline1"
+                            ),
+                            container_settings=medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                                m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
+                                    absent_input_audio_behavior="absentInputAudioBehavior",
+                                    arib="arib",
+                                    arib_captions_pid="aribCaptionsPid",
+                                    arib_captions_pid_control="aribCaptionsPidControl",
+                                    audio_buffer_model="audioBufferModel",
+                                    audio_frames_per_pes=123,
+                                    audio_pids="audioPids",
+                                    audio_stream_type="audioStreamType",
+                                    bitrate=123,
+                                    buffer_model="bufferModel",
+                                    cc_descriptor="ccDescriptor",
+                                    dvb_nit_settings=medialive.CfnChannel.DvbNitSettingsProperty(
+                                        network_id=123,
+                                        network_name="networkName",
+                                        rep_interval=123
+                                    ),
+                                    dvb_sdt_settings=medialive.CfnChannel.DvbSdtSettingsProperty(
+                                        output_sdt="outputSdt",
+                                        rep_interval=123,
+                                        service_name="serviceName",
+                                        service_provider_name="serviceProviderName"
+                                    ),
+                                    dvb_sub_pids="dvbSubPids",
+                                    dvb_tdt_settings=medialive.CfnChannel.DvbTdtSettingsProperty(
+                                        rep_interval=123
+                                    ),
+                                    dvb_teletext_pid="dvbTeletextPid",
+                                    ebif="ebif",
+                                    ebp_audio_interval="ebpAudioInterval",
+                                    ebp_lookahead_ms=123,
+                                    ebp_placement="ebpPlacement",
+                                    ecm_pid="ecmPid",
+                                    es_rate_in_pes="esRateInPes",
+                                    etv_platform_pid="etvPlatformPid",
+                                    etv_signal_pid="etvSignalPid",
+                                    fragment_time=123,
+                                    klv="klv",
+                                    klv_data_pids="klvDataPids",
+                                    nielsen_id3_behavior="nielsenId3Behavior",
+                                    null_packet_bitrate=123,
+                                    pat_interval=123,
+                                    pcr_control="pcrControl",
+                                    pcr_period=123,
+                                    pcr_pid="pcrPid",
+                                    pmt_interval=123,
+                                    pmt_pid="pmtPid",
+                                    program_num=123,
+                                    rate_mode="rateMode",
+                                    scte27_pids="scte27Pids",
+                                    scte35_control="scte35Control",
+                                    scte35_pid="scte35Pid",
+                                    scte35_preroll_pullup_milliseconds=123,
+                                    segmentation_markers="segmentationMarkers",
+                                    segmentation_style="segmentationStyle",
+                                    segmentation_time=123,
+                                    timed_metadata_behavior="timedMetadataBehavior",
+                                    timed_metadata_pid="timedMetadataPid",
+                                    transport_stream_id=123,
+                                    video_pid="videoPid"
+                                )
+                            ),
+                            destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            )
+                        ),
                         media_package_output_settings=medialive.CfnChannel.MediaPackageOutputSettingsProperty(
                             media_package_v2_destination_settings=medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty(
                                 audio_group_id="audioGroupId",
@@ -20937,6 +21508,7 @@ class CfnChannel(
             "cmaf_ingest_output_settings": "cmafIngestOutputSettings",
             "frame_capture_output_settings": "frameCaptureOutputSettings",
             "hls_output_settings": "hlsOutputSettings",
+            "media_connect_router_output_settings": "mediaConnectRouterOutputSettings",
             "media_package_output_settings": "mediaPackageOutputSettings",
             "ms_smooth_output_settings": "msSmoothOutputSettings",
             "multiplex_output_settings": "multiplexOutputSettings",
@@ -20953,6 +21525,7 @@ class CfnChannel(
             cmaf_ingest_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CmafIngestOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             frame_capture_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.FrameCaptureOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             hls_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.HlsOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            media_connect_router_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaConnectRouterOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             media_package_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             ms_smooth_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MsSmoothOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             multiplex_output_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MultiplexOutputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20968,6 +21541,7 @@ class CfnChannel(
             :param cmaf_ingest_output_settings: 
             :param frame_capture_output_settings: The settings for a frame capture output. The parent of this entity is OutputGroupSettings.
             :param hls_output_settings: The settings for an HLS output. The parent of this entity is OutputGroupSettings.
+            :param media_connect_router_output_settings: 
             :param media_package_output_settings: The settings for a MediaPackage output. The parent of this entity is OutputGroupSettings.
             :param ms_smooth_output_settings: The settings for a Microsoft Smooth output.
             :param multiplex_output_settings: Configuration of a Multiplex output.
@@ -21105,6 +21679,78 @@ class CfnChannel(
                         ),
                         name_modifier="nameModifier",
                         segment_modifier="segmentModifier"
+                    ),
+                    media_connect_router_output_settings=medialive.CfnChannel.MediaConnectRouterOutputSettingsProperty(
+                        connected_router_inputs=medialive.CfnChannel.MediaConnectRouterOutputConnectionMapProperty(
+                            pipeline0="pipeline0",
+                            pipeline1="pipeline1"
+                        ),
+                        container_settings=medialive.CfnChannel.MediaConnectRouterContainerSettingsProperty(
+                            m2_ts_settings=medialive.CfnChannel.M2tsSettingsProperty(
+                                absent_input_audio_behavior="absentInputAudioBehavior",
+                                arib="arib",
+                                arib_captions_pid="aribCaptionsPid",
+                                arib_captions_pid_control="aribCaptionsPidControl",
+                                audio_buffer_model="audioBufferModel",
+                                audio_frames_per_pes=123,
+                                audio_pids="audioPids",
+                                audio_stream_type="audioStreamType",
+                                bitrate=123,
+                                buffer_model="bufferModel",
+                                cc_descriptor="ccDescriptor",
+                                dvb_nit_settings=medialive.CfnChannel.DvbNitSettingsProperty(
+                                    network_id=123,
+                                    network_name="networkName",
+                                    rep_interval=123
+                                ),
+                                dvb_sdt_settings=medialive.CfnChannel.DvbSdtSettingsProperty(
+                                    output_sdt="outputSdt",
+                                    rep_interval=123,
+                                    service_name="serviceName",
+                                    service_provider_name="serviceProviderName"
+                                ),
+                                dvb_sub_pids="dvbSubPids",
+                                dvb_tdt_settings=medialive.CfnChannel.DvbTdtSettingsProperty(
+                                    rep_interval=123
+                                ),
+                                dvb_teletext_pid="dvbTeletextPid",
+                                ebif="ebif",
+                                ebp_audio_interval="ebpAudioInterval",
+                                ebp_lookahead_ms=123,
+                                ebp_placement="ebpPlacement",
+                                ecm_pid="ecmPid",
+                                es_rate_in_pes="esRateInPes",
+                                etv_platform_pid="etvPlatformPid",
+                                etv_signal_pid="etvSignalPid",
+                                fragment_time=123,
+                                klv="klv",
+                                klv_data_pids="klvDataPids",
+                                nielsen_id3_behavior="nielsenId3Behavior",
+                                null_packet_bitrate=123,
+                                pat_interval=123,
+                                pcr_control="pcrControl",
+                                pcr_period=123,
+                                pcr_pid="pcrPid",
+                                pmt_interval=123,
+                                pmt_pid="pmtPid",
+                                program_num=123,
+                                rate_mode="rateMode",
+                                scte27_pids="scte27Pids",
+                                scte35_control="scte35Control",
+                                scte35_pid="scte35Pid",
+                                scte35_preroll_pullup_milliseconds=123,
+                                segmentation_markers="segmentationMarkers",
+                                segmentation_style="segmentationStyle",
+                                segmentation_time=123,
+                                timed_metadata_behavior="timedMetadataBehavior",
+                                timed_metadata_pid="timedMetadataPid",
+                                transport_stream_id=123,
+                                video_pid="videoPid"
+                            )
+                        ),
+                        destination=medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        )
                     ),
                     media_package_output_settings=medialive.CfnChannel.MediaPackageOutputSettingsProperty(
                         media_package_v2_destination_settings=medialive.CfnChannel.MediaPackageV2DestinationSettingsProperty(
@@ -21302,6 +21948,7 @@ class CfnChannel(
                 check_type(argname="argument cmaf_ingest_output_settings", value=cmaf_ingest_output_settings, expected_type=type_hints["cmaf_ingest_output_settings"])
                 check_type(argname="argument frame_capture_output_settings", value=frame_capture_output_settings, expected_type=type_hints["frame_capture_output_settings"])
                 check_type(argname="argument hls_output_settings", value=hls_output_settings, expected_type=type_hints["hls_output_settings"])
+                check_type(argname="argument media_connect_router_output_settings", value=media_connect_router_output_settings, expected_type=type_hints["media_connect_router_output_settings"])
                 check_type(argname="argument media_package_output_settings", value=media_package_output_settings, expected_type=type_hints["media_package_output_settings"])
                 check_type(argname="argument ms_smooth_output_settings", value=ms_smooth_output_settings, expected_type=type_hints["ms_smooth_output_settings"])
                 check_type(argname="argument multiplex_output_settings", value=multiplex_output_settings, expected_type=type_hints["multiplex_output_settings"])
@@ -21317,6 +21964,8 @@ class CfnChannel(
                 self._values["frame_capture_output_settings"] = frame_capture_output_settings
             if hls_output_settings is not None:
                 self._values["hls_output_settings"] = hls_output_settings
+            if media_connect_router_output_settings is not None:
+                self._values["media_connect_router_output_settings"] = media_connect_router_output_settings
             if media_package_output_settings is not None:
                 self._values["media_package_output_settings"] = media_package_output_settings
             if ms_smooth_output_settings is not None:
@@ -21376,6 +22025,16 @@ class CfnChannel(
             '''
             result = self._values.get("hls_output_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.HlsOutputSettingsProperty"]], result)
+
+        @builtins.property
+        def media_connect_router_output_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterOutputSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputsettings.html#cfn-medialive-channel-outputsettings-mediaconnectrouteroutputsettings
+            '''
+            result = self._values.get("media_connect_router_output_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaConnectRouterOutputSettingsProperty"]], result)
 
         @builtins.property
         def media_package_output_settings(
@@ -36343,6 +37002,45 @@ def _typecheckingstub__c9392d58176c012cd3edcfd8cba809739bf0435a5bf1d6a207b2696cd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a6ac25b04b1dd9818b55ce4f1c60aa48824eea57c303f2bb649be28cff1fbdf8(
+    *,
+    m2_ts_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.M2tsSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba0feb925fb981d412189ce9bddc6e7f235f1e91db91596d86684c3930cdc7cc(
+    *,
+    availability_zones: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20ecbd1f45d03ed5897dd109eb58eb16c80d93af8fbc588f551b7f7b5cdb9ba0(
+    *,
+    pipeline0: typing.Optional[builtins.str] = None,
+    pipeline1: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de784512527b5b99829b3f34b3d3b0bebd7b36042e76edff2b569997272c6efc(
+    *,
+    encryption_type: typing.Optional[builtins.str] = None,
+    secret_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f73c1680f6008c8895fdf330da5ebbe0a7f33a76e77edb89c5d40d309736646(
+    *,
+    connected_router_inputs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaConnectRouterOutputConnectionMapProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    container_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaConnectRouterContainerSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0e8b10ee21ff2438e6fb9561b09663137ff1b02db22819c6e3f84e41e12a8f6c(
     *,
     destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -36588,6 +37286,7 @@ def _typecheckingstub__d1c3f4cbc44fec2f5cf6dcc1097499d83d328f8fd1f15b8dd6ce6bc45
     *,
     id: typing.Optional[builtins.str] = None,
     logical_interface_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    media_connect_router_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaConnectRouterOutputDestinationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     media_package_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaPackageOutputDestinationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     multiplex_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MultiplexProgramChannelDestinationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputDestinationSettingsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -36621,6 +37320,7 @@ def _typecheckingstub__99268924a18ec05b9988ead6054214f4699ced2eb8edf3f3c27809068
     cmaf_ingest_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CmafIngestGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     frame_capture_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.FrameCaptureGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hls_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.HlsGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_connect_router_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaConnectRouterGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_package_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaPackageGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ms_smooth_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MsSmoothGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     multiplex_group_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MultiplexGroupSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -36664,6 +37364,7 @@ def _typecheckingstub__f51710b013df89803afb3f2517730a72a64c710d2e8f52fa7b934290b
     cmaf_ingest_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CmafIngestOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     frame_capture_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.FrameCaptureOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     hls_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.HlsOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    media_connect_router_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaConnectRouterOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     media_package_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaPackageOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ms_smooth_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MsSmoothOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     multiplex_output_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MultiplexOutputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

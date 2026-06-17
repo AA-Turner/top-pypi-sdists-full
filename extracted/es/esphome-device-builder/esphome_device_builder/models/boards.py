@@ -6,9 +6,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from mashumaro.mixins.orjson import DataClassORJSONMixin
-
 from .common import (
+    DashboardModel,
     FieldPreset,
     PagedResponse,
     PinFeature,
@@ -86,6 +85,7 @@ class BoardTag(StrEnum):
     IMU = "imu"
 
     # Power / connectivity
+    WIFI = "wifi"
     LIPO = "lipo"
     POE = "poe"
     USB_C = "usb-c"
@@ -100,7 +100,7 @@ class BoardTag(StrEnum):
 
 
 @dataclass
-class BoardPin(DataClassORJSONMixin):
+class BoardPin(DashboardModel):
     """A single GPIO pin on a board."""
 
     gpio: int
@@ -116,20 +116,25 @@ class BoardPin(DataClassORJSONMixin):
 
 
 @dataclass
-class BoardEsphomeConfig(DataClassORJSONMixin):
+class BoardEsphomeConfig(DashboardModel):
     """Maps this board to an ESPHome YAML platform configuration."""
 
     platform: Platform
     board: str  # PlatformIO board ID
     variant: Esp32Variant | None = None
     framework: str | None = None  # "arduino" or "esp-idf"
+    # Chip series within an ESPHome platform that lumps several under one
+    # key: currently rp2040 ("rp2040" / "rp2350"). Reusable to split the
+    # libretiny families (e.g. bk72xx chips) the same way later. None where
+    # the platform needs no split; esp32 uses ``variant`` for the same role.
+    mcu: str | None = None
 
     class Config(_CatalogConfig):
         """Skip empty defaults on serialise; see :class:`_CatalogConfig`."""
 
 
 @dataclass
-class BoardHardware(DataClassORJSONMixin):
+class BoardHardware(DashboardModel):
     """Hardware specifications of a board."""
 
     flash_size: str | None = None
@@ -142,7 +147,7 @@ class BoardHardware(DataClassORJSONMixin):
 
 
 @dataclass
-class FeaturedComponent(DataClassORJSONMixin):
+class FeaturedComponent(DashboardModel):
     """
     A component recommended for this board.
 
@@ -170,7 +175,7 @@ class FeaturedComponent(DataClassORJSONMixin):
 
 
 @dataclass
-class FeaturedBundle(DataClassORJSONMixin):
+class FeaturedBundle(DashboardModel):
     """
     A logical group of featured components added together.
 
@@ -197,7 +202,7 @@ class FeaturedBundle(DataClassORJSONMixin):
 
 
 @dataclass
-class DefaultComponent(DataClassORJSONMixin):
+class DefaultComponent(DashboardModel):
     """A component installed by default in every new device on this board.
 
     ``id`` resolves through the same two-step lookup the
@@ -217,7 +222,7 @@ class DefaultComponent(DataClassORJSONMixin):
 
 
 @dataclass
-class BoardCatalogEntry(DataClassORJSONMixin):
+class BoardCatalogEntry(DashboardModel):
     """A board definition in the catalog."""
 
     id: str
@@ -251,7 +256,7 @@ class BoardCatalogEntry(DataClassORJSONMixin):
 
 
 @dataclass
-class BoardCatalogIndex(DataClassORJSONMixin):
+class BoardCatalogIndex(DashboardModel):
     """Slim card-view of :class:`BoardCatalogEntry` (no body fields).
 
     Picker / list endpoints (``boards/get_boards``) return this shape:
@@ -277,7 +282,7 @@ class BoardCatalogIndex(DataClassORJSONMixin):
 
 
 @dataclass
-class BoardCatalogResponse(DataClassORJSONMixin):
+class BoardCatalogResponse(DashboardModel):
     """Internal: raw board list from definitions loader."""
 
     boards: list[BoardCatalogEntry]

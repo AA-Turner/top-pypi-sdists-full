@@ -320,9 +320,10 @@ class ToolEvents:
         self._append_hook_entry(tool_use_id, entry)
 
     async def maybe_capture_sdk_session_id(self, message: Any) -> None:
-        """If `message` is the SDK's init SystemMessage, propagate its
-        session_id onto the trace via a TRACE_UPDATE. Cross-correlates aigie
-        traces with the underlying Claude Code session log."""
+        """If `message` is the SDK's init SystemMessage, capture its
+        session_id onto the handler. It rides the root span's single
+        finalized emit (root.id == trace_id), cross-correlating aigie traces
+        with the underlying Claude Code session log."""
         if getattr(message, "subtype", None) != "init":
             return
         data = getattr(message, "data", {}) or {}
@@ -330,21 +331,6 @@ class ToolEvents:
         if not sdk_session_id or sdk_session_id == self.session_id:
             return
         self.session_id = sdk_session_id
-        aigie = self._get_aigie()
-        if not aigie or not aigie._buffer or not self.trace_id:
-            return
-        # Use TRACE_CREATE with a sparse payload — upsert_trace merges into
-        # the existing row (TRACE_UPDATE goes via PUT /v1/traces/<id> which
-        # the platform does not currently expose). Include `name` so the
-        # merger doesn't default-replace it with "Untitled Trace".
-        payload = {
-            "id": self.trace_id,
-            "session_id": sdk_session_id,
-            "start_time": _utc_isoformat(),
-        }
-        if self.trace_name:
-            payload["name"] = self.trace_name
-        self.open_trace(payload=payload)
 
     async def handle_hook_event(self, message: Any) -> None:
         """Record a HookEventMessage emitted by the CLI (when

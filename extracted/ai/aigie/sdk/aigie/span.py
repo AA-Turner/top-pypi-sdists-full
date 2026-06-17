@@ -2,14 +2,14 @@
 Span Context Manager for Aigie.
 """
 
-import asyncio
 import logging
 from typing import Any
 from uuid import uuid4
 
 import httpx
 
-from .buffer import EventBuffer, EventType
+from .buffer import EventBuffer
+from .tracing.trace_state import deregister_open_span, register_open_span
 
 logger = logging.getLogger(__name__)
 
@@ -82,70 +82,38 @@ class SpanContext:
         if self._start_time is None:
             self._start_time = datetime.now(timezone.utc)
 
-        payload = {
+        # A span is built mutably in memory and emitted exactly once
+        # (finalized) by __aexit__/complete — no SPAN_CREATE is sent. Register
+        # a finalize callable so an unclean shutdown still ships the span
+        # (interrupted). Parent resolution rides the pre-generated self.id,
+        # which children already reference.
+        register_open_span(self.id, self._build_interrupted_payload)
+        if not self.buffer:
+            logger.debug(f"No buffer configured, span open not registered for {self.id}")
+        return self
+
+    def _build_interrupted_payload(self) -> dict[str, Any]:
+        """Finalize payload for the shutdown drain (status overwritten to
+        ``interrupted`` by the registry)."""
+        from datetime import datetime, timezone
+
+        end_time = datetime.now(timezone.utc)
+        payload: dict[str, Any] = {
             "id": self.id,
+            "span_id": self.id,
             "trace_id": self.trace_id,
             "name": self.name,
             "type": self.span_type,
-            "start_time": self._start_time.isoformat(),
+            "start_time": self._start_time.isoformat() if self._start_time else None,
+            "end_time": end_time.isoformat(),
+            "input": self._input,
+            "output": self._output,
             "metadata": self._metadata,
+            "status": "interrupted",
         }
-        # Don't send input/output in SPAN_CREATE - they're usually empty at this point.
-        # User calls set_input()/set_output() after __aenter__, so we send them
-        # in SPAN_UPDATE at __aexit__ where they'll have actual data.
-
-        # Add parent_id as direct field (not in metadata)
         if self.parent_id:
             payload["parent_id"] = self.parent_id
-
-        # Use buffer if available, otherwise send directly with retry logic
-        if self.buffer:
-            # IMPORTANT: Send SPAN_CREATE immediately to establish parent-child relationships.
-            # This ensures the parent span exists in the buffer BEFORE any child spans are added.
-            # Without this, child spans would have parent_id pointing to a non-existent span.
-            # The complete span data (tokens, cost, end_time, etc.) will be sent in __aexit__.
-            await self.buffer.add(EventType.SPAN_CREATE, payload)
-            return self
-        # Direct API call with retry logic (original behavior)
-        if not self.client:
-            logger.debug(f"Client is None, skipping span create for {self.id}")
-            return self
-        max_retries = 3
-        base_delay = 0.1
-
-        for attempt in range(max_retries):
-            try:
-                response = await self.client.post(
-                    f"{self.api_url}/v1/spans", json=payload, timeout=10.0
-                )
-
-                if response.status_code == 404:
-                    if attempt < max_retries - 1:
-                        delay = base_delay * (2**attempt)
-                        print(
-                            f"⚠️  Span creation failed (404), retrying in {delay * 1000:.0f}ms (attempt {attempt + 1}/{max_retries})..."
-                        )
-                        await asyncio.sleep(delay)
-                        continue
-                    response.raise_for_status()
-
-                response.raise_for_status()
-                span_data = response.json()
-                self.id = span_data.get("id", self.id)
-                return self
-
-            except httpx.HTTPStatusError as e:
-                if e.response.status_code != 404 or attempt == max_retries - 1:
-                    raise
-                delay = base_delay * (2**attempt)
-                await asyncio.sleep(delay)
-            except Exception:
-                if attempt == max_retries - 1:
-                    raise
-                delay = base_delay * (2**attempt)
-                await asyncio.sleep(delay)
-
-        raise RuntimeError("Failed to create span after retries")
+        return payload
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Update the span when exiting context."""
@@ -300,16 +268,14 @@ class SpanContext:
                     data["metadata"] = {}
                 data["metadata"]["model_parameters"] = self._model_parameters
 
-            # Use buffer if available, otherwise send directly
+            # Emit the single finalized event + deregister from the open-span
+            # registry (the span is no longer an orphan candidate).
+            deregister_open_span(self.id)
             try:
                 if self.buffer:
-                    # SPAN_CREATE was sent in __aenter__, now send SPAN_UPDATE with complete data.
-                    # This includes end_time, output, tokens, cost, and any other enriched data.
-                    await self.buffer.add(EventType.SPAN_UPDATE, data)
-                elif self.client:
-                    await self.client.put(f"{self.api_url}/v1/spans/{self.id}", json=data)
+                    await self.buffer.add(data)
                 else:
-                    logger.debug(f"Client is None, skipping span update for {self.id}")
+                    logger.debug(f"No buffer configured, span update dropped for {self.id}")
             except Exception as e:
                 # Never re-raise from __aexit__ - this would crash the caller's app
                 logger.warning(f"Failed to send span update for {self.id}: {e}")
@@ -378,8 +344,7 @@ class SpanContext:
         """Update span input immediately (if span already created)."""
         if data:
             self._input = data
-        if self.id and self.client:
-            await self.client.put(f"{self.api_url}/v1/spans/{self.id}", json={"input": self._input})
+        # Input rides the finalized SPAN_UPDATE emitted in __aexit__ / complete().
 
     async def complete(self, status: str = "success", error: Exception | None = None) -> None:
         """
@@ -399,13 +364,14 @@ class SpanContext:
             "output": self._output,
             "status": status,
         }
+        if self._start_time:
+            data["start_time"] = self._start_time.isoformat()
         if error:
             data["error_message"] = str(error)
 
-        # Use buffer if available
+        # Emit the single finalized event + deregister.
+        deregister_open_span(self.id)
         if self.buffer:
-            await self.buffer.add(EventType.SPAN_UPDATE, data)
-        elif self.client:
-            await self.client.put(f"{self.api_url}/v1/spans/{self.id}", json=data)
+            await self.buffer.add(data)
         else:
-            logger.debug(f"Client is None, skipping span complete for {self.id}")
+            logger.debug(f"No buffer configured, span complete dropped for {self.id}")

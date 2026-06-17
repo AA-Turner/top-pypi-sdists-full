@@ -446,12 +446,22 @@ def require_approval_decision(
     action: str,
     scope: str,
     approval_gate_input: ApprovalGateInput | None = None,
+    approval_gate_grant: ApprovalGateGrant | None = None,
     now: str | None = None,
 ) -> ApprovalGateGrant | None:
     state = _load_state(guard_home)
     if not _requires_decision_gate(state, action=action, scope=scope):
         return None
     strict = _is_strict_approval_action(action=action, scope=scope)
+    if approval_gate_grant is not None:
+        validate_grant(
+            guard_home,
+            approval_gate_grant,
+            purpose="approval_decision",
+            strict=strict,
+            now=now,
+        )
+        return approval_gate_grant
     return _verify_or_raise(
         guard_home,
         state,
@@ -576,7 +586,8 @@ def validate_grant(
     now_epoch = _epoch(now)
     if metadata.get("guard_home") != str(guard_home):
         raise ApprovalGateError("approval_gate_required", "Approval password is required.")
-    if float(metadata.get("expires_epoch", 0.0)) <= now_epoch:
+    expires_epoch = _optional_float(metadata.get("expires_epoch")) or 0.0
+    if expires_epoch <= now_epoch:
         _ACTIVE_GRANTS.pop(approval_gate_grant.grant_id, None)
         raise ApprovalGateError("approval_gate_required", "Approval password is required.")
     if purpose is not None and approval_gate_grant.purpose != purpose:
@@ -811,9 +822,14 @@ def _cooldown_seconds(state: dict[str, object]) -> int:
 
 
 def _coerce_cooldown_seconds(value: object) -> int:
-    try:
-        seconds = int(value)
-    except (TypeError, ValueError):
+    if isinstance(value, int):
+        seconds = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            seconds = int(value)
+        except ValueError:
+            seconds = 0
+    else:
         seconds = 0
     if seconds not in APPROVAL_GATE_ALLOWED_COOLDOWNS:
         raise ApprovalGateError(
@@ -829,6 +845,17 @@ def _optional_int(value: object) -> int | None:
     if isinstance(value, str) and value.strip():
         try:
             return int(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _optional_float(value: object) -> float | None:
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return float(value)
         except ValueError:
             return None
     return None

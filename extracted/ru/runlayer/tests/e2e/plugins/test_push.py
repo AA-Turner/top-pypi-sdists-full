@@ -72,7 +72,7 @@ def test_plugins_push_lifecycle(
         in output
     )
 
-    plugins = api_client.list_plugins_by_namespace(namespace)
+    plugins = api_client.list_plugins_detailed(namespace)
     assert len(plugins) == 1
     plugin = plugins[0]
     assert plugin.path == "review-suite"
@@ -147,7 +147,7 @@ def test_plugins_push_lifecycle(
     prune_output = strip_ansi(prune.output)
     assert prune.exit_code == 0, prune_output
     assert "1 plugins deleted" in prune_output
-    assert api_client.list_plugins_by_namespace(namespace) == []
+    assert api_client.list_plugins_detailed(namespace) == []
     remaining_skills = api_client.list_skills(namespace)
     assert [skill.path for skill in remaining_skills] == ["standalone/survivor"]
 
@@ -226,7 +226,7 @@ def test_plugins_push_then_add_uses_plugin_json_and_installs_runlayer_only(
         in push_output
     )
 
-    plugins = api_client.list_plugins_by_namespace(namespace)
+    plugins = api_client.list_plugins_detailed(namespace)
     assert len(plugins) == 1
     assert plugins[0].server_count == 1
 
@@ -313,5 +313,5 @@ def test_plugins_push_dry_run_does_not_mutate(
     output = strip_ansi(result.output)
     assert result.exit_code == 0, output
     assert "[dry run]" in output
-    assert api_client.list_plugins_by_namespace(namespace) == []
+    assert api_client.list_plugins_detailed(namespace) == []
     assert api_client.list_skills(namespace) == []

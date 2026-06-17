@@ -26,6 +26,9 @@ DEPLOY_YAML_SCHEMA: dict[str, object] = {
         "memory": None,
         "platform": None,
         "enable_db": None,
+        "aws": {
+            "assume_roles": None,
+        },
     },
     "env": None,
 }

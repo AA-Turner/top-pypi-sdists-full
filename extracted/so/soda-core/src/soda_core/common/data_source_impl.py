@@ -38,8 +38,9 @@ class DataSourceImpl(ABC):
     def from_yaml_source(
         cls, data_source_yaml_source: DataSourceYamlSource, provided_variable_values: Optional[dict] = None
     ) -> Optional[DataSourceImpl]:
-        data_source_yaml_source.resolve(variables=provided_variable_values)
-        data_source_yaml: YamlObject = data_source_yaml_source.parse()
+        data_source_yaml: Optional[YamlObject] = data_source_yaml_source.parse_and_resolve(
+            variables=provided_variable_values,
+        )
         if not data_source_yaml:
             return None
 
@@ -90,6 +91,19 @@ class DataSourceImpl(ABC):
     def create_copy_with_different_connection(self, connection: DataSourceConnection) -> DataSourceImpl:
         "Use this method when you want to use the DataSourceImpl while having multiple connections open. Can be used for bulk inserts for example."
         return self.__class__(data_source_model=self.data_source_model, connection=connection)
+
+    def create_additional_connection(self) -> DataSourceConnection:
+        """
+        Open and return a fresh DataSourceConnection independent from self.connection.
+
+        Useful for features that need two concurrent cursors against the same data
+        source where sharing self.connection would conflict — e.g. within-database
+        rows_diff in soda-reconciliation, or SqlServer DWH bulk insert in
+        soda-extensions (see ExtraDwhConnection for the higher-level RAII wrapper).
+
+        The caller owns the returned connection and MUST close it.
+        """
+        return self._create_data_source_connection()
 
     def __str__(self) -> str:
         return self.name

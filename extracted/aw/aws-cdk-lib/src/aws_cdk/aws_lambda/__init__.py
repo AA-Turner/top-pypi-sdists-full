@@ -4687,7 +4687,13 @@ class CfnCapacityProvider(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            telemetry_config=lambda.CfnCapacityProvider.CapacityProviderTelemetryConfigProperty(
+                logging_config=lambda.CfnCapacityProvider.CapacityProviderLoggingConfigProperty(
+                    log_group="logGroup",
+                    system_log_level="systemLogLevel"
+                )
+            )
         )
     '''
 
@@ -4704,6 +4710,7 @@ class CfnCapacityProvider(
         kms_key_arn: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.PropagateTagsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        telemetry_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityProviderTelemetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Lambda::CapacityProvider``.
 
@@ -4717,6 +4724,7 @@ class CfnCapacityProvider(
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
         :param propagate_tags: 
         :param tags: A key-value pair that provides metadata for the capacity provider.
+        :param telemetry_config: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a330cee966095402be57b20cbf348c99c8e7dbae1f12bacb4337a86817b66c21)
@@ -4731,6 +4739,7 @@ class CfnCapacityProvider(
             kms_key_arn=kms_key_arn,
             propagate_tags=propagate_tags,
             tags=tags,
+            telemetry_config=telemetry_config,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -4999,6 +5008,92 @@ class CfnCapacityProvider(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="telemetryConfig")
+    def telemetry_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]], jsii.get(self, "telemetryConfig"))
+
+    @telemetry_config.setter
+    def telemetry_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cddbc2a7f164840bebe1042ef51c0d70e4444b1c81b03b5547164ce67be006d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "telemetryConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnCapacityProvider.CapacityProviderLoggingConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"log_group": "logGroup", "system_log_level": "systemLogLevel"},
+    )
+    class CapacityProviderLoggingConfigProperty:
+        def __init__(
+            self,
+            *,
+            log_group: typing.Optional[builtins.str] = None,
+            system_log_level: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param log_group: The log group name.
+            :param system_log_level: System log granularity level.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                capacity_provider_logging_config_property = lambda.CfnCapacityProvider.CapacityProviderLoggingConfigProperty(
+                    log_group="logGroup",
+                    system_log_level="systemLogLevel"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__991f089e2fc4bdf835299c844d13e87df88ebbda9d254789ac4e2600c43ce0fc)
+                check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
+                check_type(argname="argument system_log_level", value=system_log_level, expected_type=type_hints["system_log_level"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if log_group is not None:
+                self._values["log_group"] = log_group
+            if system_log_level is not None:
+                self._values["system_log_level"] = system_log_level
+
+        @builtins.property
+        def log_group(self) -> typing.Optional[builtins.str]:
+            '''The log group name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html#cfn-lambda-capacityprovider-capacityproviderloggingconfig-loggroup
+            '''
+            result = self._values.get("log_group")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def system_log_level(self) -> typing.Optional[builtins.str]:
+            '''System log granularity level.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html#cfn-lambda-capacityprovider-capacityproviderloggingconfig-systemloglevel
+            '''
+            result = self._values.get("system_log_level")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityProviderLoggingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lambda.CfnCapacityProvider.CapacityProviderPermissionsConfigProperty",
         jsii_struct_bases=[],
@@ -5148,6 +5243,64 @@ class CfnCapacityProvider(
 
         def __repr__(self) -> str:
             return "CapacityProviderScalingConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lambda.CfnCapacityProvider.CapacityProviderTelemetryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"logging_config": "loggingConfig"},
+    )
+    class CapacityProviderTelemetryConfigProperty:
+        def __init__(
+            self,
+            *,
+            logging_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityProviderLoggingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param logging_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidertelemetryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lambda as lambda_
+                
+                capacity_provider_telemetry_config_property = lambda.CfnCapacityProvider.CapacityProviderTelemetryConfigProperty(
+                    logging_config=lambda.CfnCapacityProvider.CapacityProviderLoggingConfigProperty(
+                        log_group="logGroup",
+                        system_log_level="systemLogLevel"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__86165970d3282791d269498eb8d4f84a3226fd07b789edf4c7383dc409b2d882)
+                check_type(argname="argument logging_config", value=logging_config, expected_type=type_hints["logging_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if logging_config is not None:
+                self._values["logging_config"] = logging_config
+
+        @builtins.property
+        def logging_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderLoggingConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidertelemetryconfig.html#cfn-lambda-capacityprovider-capacityprovidertelemetryconfig-loggingconfig
+            '''
+            result = self._values.get("logging_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderLoggingConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CapacityProviderTelemetryConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5331,7 +5484,7 @@ class CfnCapacityProvider(
             mode: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
-            :param explicit_tags: A list of tags to explicitly propagate to managed resources.
+            :param explicit_tags: 
             :param mode: The mode for tag propagation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-propagatetagsconfig.html
@@ -5366,8 +5519,7 @@ class CfnCapacityProvider(
         def explicit_tags(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "_CfnTag_f6864754"]]]]:
-            '''A list of tags to explicitly propagate to managed resources.
-
+            '''
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-propagatetagsconfig.html#cfn-lambda-capacityprovider-propagatetagsconfig-explicittags
             '''
             result = self._values.get("explicit_tags")
@@ -5480,6 +5632,7 @@ class CfnCapacityProvider(
         "kms_key_arn": "kmsKeyArn",
         "propagate_tags": "propagateTags",
         "tags": "tags",
+        "telemetry_config": "telemetryConfig",
     },
 )
 class CfnCapacityProviderProps:
@@ -5494,6 +5647,7 @@ class CfnCapacityProviderProps:
         kms_key_arn: typing.Optional[builtins.str] = None,
         propagate_tags: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.PropagateTagsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        telemetry_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCapacityProvider.CapacityProviderTelemetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCapacityProvider``.
 
@@ -5505,6 +5659,7 @@ class CfnCapacityProviderProps:
         :param kms_key_arn: The ARN of the KMS key used to encrypt the capacity provider's resources.
         :param propagate_tags: 
         :param tags: A key-value pair that provides metadata for the capacity provider.
+        :param telemetry_config: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html
         :exampleMetadata: fixture=_generated
@@ -5551,7 +5706,13 @@ class CfnCapacityProviderProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                telemetry_config=lambda.CfnCapacityProvider.CapacityProviderTelemetryConfigProperty(
+                    logging_config=lambda.CfnCapacityProvider.CapacityProviderLoggingConfigProperty(
+                        log_group="logGroup",
+                        system_log_level="systemLogLevel"
+                    )
+                )
             )
         '''
         if __debug__:
@@ -5564,6 +5725,7 @@ class CfnCapacityProviderProps:
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument telemetry_config", value=telemetry_config, expected_type=type_hints["telemetry_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "permissions_config": permissions_config,
             "vpc_config": vpc_config,
@@ -5580,6 +5742,8 @@ class CfnCapacityProviderProps:
             self._values["propagate_tags"] = propagate_tags
         if tags is not None:
             self._values["tags"] = tags
+        if telemetry_config is not None:
+            self._values["telemetry_config"] = telemetry_config
 
     @builtins.property
     def permissions_config(
@@ -5662,6 +5826,16 @@ class CfnCapacityProviderProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def telemetry_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html#cfn-lambda-capacityprovider-telemetryconfig
+        '''
+        result = self._values.get("telemetry_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCapacityProvider.CapacityProviderTelemetryConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9386,7 +9560,6 @@ class CfnFunction(
                 image_uri="imageUri",
                 s3_bucket="s3Bucket",
                 s3_key="s3Key",
-                s3_object_storage_mode="s3ObjectStorageMode",
                 s3_object_version="s3ObjectVersion",
                 source_kms_key_arn="sourceKmsKeyArn",
                 zip_file="zipFile"
@@ -10305,7 +10478,6 @@ class CfnFunction(
             "image_uri": "imageUri",
             "s3_bucket": "s3Bucket",
             "s3_key": "s3Key",
-            "s3_object_storage_mode": "s3ObjectStorageMode",
             "s3_object_version": "s3ObjectVersion",
             "source_kms_key_arn": "sourceKmsKeyArn",
             "zip_file": "zipFile",
@@ -10318,7 +10490,6 @@ class CfnFunction(
             image_uri: typing.Optional[builtins.str] = None,
             s3_bucket: typing.Optional[builtins.str] = None,
             s3_key: typing.Optional[builtins.str] = None,
-            s3_object_storage_mode: typing.Optional[builtins.str] = None,
             s3_object_version: typing.Optional[builtins.str] = None,
             source_kms_key_arn: typing.Optional[builtins.str] = None,
             zip_file: typing.Optional[builtins.str] = None,
@@ -10334,7 +10505,6 @@ class CfnFunction(
             :param image_uri: URI of a `container image <https://docs.aws.amazon.com/lambda/latest/dg/lambda-images.html>`_ in the Amazon ECR registry.
             :param s3_bucket: An Amazon S3 bucket in the same AWS Region as your function. The bucket can be in a different AWS account .
             :param s3_key: The Amazon S3 key of the deployment package.
-            :param s3_object_storage_mode: 
             :param s3_object_version: For versioned objects, the version of the deployment package object to use.
             :param source_kms_key_arn: The ARN of the AWS Key Management Service ( AWS ) customer managed key that's used to encrypt your function's .zip deployment package. If you don't provide a customer managed key, Lambda uses an `AWS owned key <https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#aws-owned-cmk>`_ .
             :param zip_file: (Node.js and Python) The source code of your Lambda function. If you include your function source inline with this parameter, CloudFormation places it in a file named ``index`` and zips it to create a `deployment package <https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-package.html>`_ . This zip file cannot exceed 4MB. For the ``Handler`` property, the first part of the handler identifier must be ``index`` . For example, ``index.handler`` . .. epigraph:: When you specify source code inline for a Node.js function, the ``index`` file that CloudFormation creates uses the extension ``.js`` . This means that Node.js treats the file as a CommonJS module. When using Node.js 24 or later, Node.js can automatically detect if a ``.js`` file should be treated as CommonJS or as an ES module. To enable auto-detection, add the ``--experimental-detect-module`` flag to the ``NODE_OPTIONS`` environment variable. For more information, see `Experimental Node.js features <https://docs.aws.amazon.com//lambda/latest/dg/lambda-nodejs.html#nodejs-experimental-features>`_ . For JSON, you must escape quotes and special characters such as newline ( ``\\n`` ) with a backslash. If you specify a function that interacts with an AWS CloudFormation custom resource, you don't have to write your own functions to send responses to the custom resource that invoked the function. AWS CloudFormation provides a response module ( `cfn-response <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/cfn-lambda-function-code-cfnresponsemodule.html>`_ ) that simplifies sending responses. See `Using AWS Lambda with AWS CloudFormation <https://docs.aws.amazon.com/lambda/latest/dg/services-cloudformation.html>`_ for details.
@@ -10352,7 +10522,6 @@ class CfnFunction(
                     image_uri="imageUri",
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
-                    s3_object_storage_mode="s3ObjectStorageMode",
                     s3_object_version="s3ObjectVersion",
                     source_kms_key_arn="sourceKmsKeyArn",
                     zip_file="zipFile"
@@ -10363,7 +10532,6 @@ class CfnFunction(
                 check_type(argname="argument image_uri", value=image_uri, expected_type=type_hints["image_uri"])
                 check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
                 check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
-                check_type(argname="argument s3_object_storage_mode", value=s3_object_storage_mode, expected_type=type_hints["s3_object_storage_mode"])
                 check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
                 check_type(argname="argument source_kms_key_arn", value=source_kms_key_arn, expected_type=type_hints["source_kms_key_arn"])
                 check_type(argname="argument zip_file", value=zip_file, expected_type=type_hints["zip_file"])
@@ -10374,8 +10542,6 @@ class CfnFunction(
                 self._values["s3_bucket"] = s3_bucket
             if s3_key is not None:
                 self._values["s3_key"] = s3_key
-            if s3_object_storage_mode is not None:
-                self._values["s3_object_storage_mode"] = s3_object_storage_mode
             if s3_object_version is not None:
                 self._values["s3_object_version"] = s3_object_version
             if source_kms_key_arn is not None:
@@ -10410,14 +10576,6 @@ class CfnFunction(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-s3key
             '''
             result = self._values.get("s3_key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_object_storage_mode(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-code.html#cfn-lambda-function-code-s3objectstoragemode
-            '''
-            result = self._values.get("s3_object_storage_mode")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -11707,7 +11865,6 @@ class CfnFunctionProps:
                     image_uri="imageUri",
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
-                    s3_object_storage_mode="s3ObjectStorageMode",
                     s3_object_version="s3ObjectVersion",
                     source_kms_key_arn="sourceKmsKeyArn",
                     zip_file="zipFile"
@@ -35532,6 +35689,7 @@ def _typecheckingstub__a330cee966095402be57b20cbf348c99c8e7dbae1f12bacb4337a8681
     kms_key_arn: typing.Optional[builtins.str] = None,
     propagate_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.PropagateTagsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telemetry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityProviderTelemetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35624,6 +35782,20 @@ def _typecheckingstub__a3d57757477f5395c4e105ab2ba74a856bc7d4a2af7c4b17d35842fa0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cddbc2a7f164840bebe1042ef51c0d70e4444b1c81b03b5547164ce67be006d3(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnCapacityProvider.CapacityProviderTelemetryConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__991f089e2fc4bdf835299c844d13e87df88ebbda9d254789ac4e2600c43ce0fc(
+    *,
+    log_group: typing.Optional[builtins.str] = None,
+    system_log_level: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0e762622e7c444c9aaab6f9c2bc7c925219c77600f45392a3db6d67e39792acc(
     *,
     capacity_provider_operator_role_arn: builtins.str,
@@ -35636,6 +35808,13 @@ def _typecheckingstub__b1baad71cad92a313ccf7c7e2572c6c5377ec18e7460e3e187253a281
     max_v_cpu_count: typing.Optional[jsii.Number] = None,
     scaling_mode: typing.Optional[builtins.str] = None,
     scaling_policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.TargetTrackingScalingPolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__86165970d3282791d269498eb8d4f84a3226fd07b789edf4c7383dc409b2d882(
+    *,
+    logging_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityProviderLoggingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35683,6 +35862,7 @@ def _typecheckingstub__0ac7403cb426712d5ba0f6bfc8a4c3e190442b508eaf06e47b5ff9676
     kms_key_arn: typing.Optional[builtins.str] = None,
     propagate_tags: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.PropagateTagsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telemetry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCapacityProvider.CapacityProviderTelemetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -36534,7 +36714,6 @@ def _typecheckingstub__7102a6215772d5cf5b9392746e4c0cd11ba84424f7dbcd39e9d78ba08
     image_uri: typing.Optional[builtins.str] = None,
     s3_bucket: typing.Optional[builtins.str] = None,
     s3_key: typing.Optional[builtins.str] = None,
-    s3_object_storage_mode: typing.Optional[builtins.str] = None,
     s3_object_version: typing.Optional[builtins.str] = None,
     source_kms_key_arn: typing.Optional[builtins.str] = None,
     zip_file: typing.Optional[builtins.str] = None,

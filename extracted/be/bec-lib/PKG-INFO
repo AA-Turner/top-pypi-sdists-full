@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bec_lib
-Version: 3.139.0
+Version: 3.140.0
 Summary: BEC library
 Project-URL: Bug Tracker, https://github.com/bec-project/bec/issues
 Project-URL: Homepage, https://github.com/bec-project/bec
@@ -9,6 +9,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.11
 Requires-Dist: astroid<5.0,>=3.3
+Requires-Dist: beautifulsoup4~=4.14
 Requires-Dist: fastjsonschema~=2.19
 Requires-Dist: fpdf2>=2.7.7,~=2.7
 Requires-Dist: h5py~=3.10

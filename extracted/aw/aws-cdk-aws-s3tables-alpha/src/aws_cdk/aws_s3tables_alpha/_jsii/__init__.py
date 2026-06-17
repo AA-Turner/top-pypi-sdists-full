@@ -33,9 +33,9 @@ import constructs._jsii
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/aws-s3tables-alpha",
-    "2.259.0-alpha.0",
+    "2.260.0-alpha.0",
     __name__[0:-6],
-    "aws-s3tables-alpha@2.259.0-alpha.0.jsii.tgz",
+    "aws-s3tables-alpha@2.260.0-alpha.0.jsii.tgz",
 )
 
 __all__ = [

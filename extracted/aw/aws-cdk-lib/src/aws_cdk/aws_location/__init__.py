@@ -1077,48 +1077,6 @@ class CfnGeofenceCollection(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGeofenceCollection", [resource]))
 
-    @jsii.member(jsii_name="fromCollectionName")
-    @builtins.classmethod
-    def from_collection_name(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        collection_name: builtins.str,
-    ) -> "_IGeofenceCollectionRef_40bd2c98":
-        '''Creates a new IGeofenceCollectionRef from a collectionName.
-
-        :param scope: -
-        :param id: -
-        :param collection_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2db63a46e35bb9b60c434522ebfeb44645b416f72aee9dcca112a00dca6fe7d5)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument collection_name", value=collection_name, expected_type=type_hints["collection_name"])
-        return typing.cast("_IGeofenceCollectionRef_40bd2c98", jsii.sinvoke(cls, "fromCollectionName", [scope, id, collection_name]))
-
-    @jsii.member(jsii_name="fromGeofenceCollectionArn")
-    @builtins.classmethod
-    def from_geofence_collection_arn(
-        cls,
-        scope: "_constructs_77d1e7e8.Construct",
-        id: builtins.str,
-        arn: builtins.str,
-    ) -> "_IGeofenceCollectionRef_40bd2c98":
-        '''Creates a new IGeofenceCollectionRef from an ARN.
-
-        :param scope: -
-        :param id: -
-        :param arn: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c08c10d57c8eee3a7ab3b16b2260e0eba901740b7d53feea0bc19561f58ee7cf)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
-        return typing.cast("_IGeofenceCollectionRef_40bd2c98", jsii.sinvoke(cls, "fromGeofenceCollectionArn", [scope, id, arn]))
-
     @jsii.member(jsii_name="isCfnGeofenceCollection")
     @builtins.classmethod
     def is_cfn_geofence_collection(cls, x: typing.Any) -> builtins.bool:
@@ -4122,22 +4080,6 @@ def _typecheckingstub__8e0601ccc1fece7d46bccf997c94a7f51bea09a1590d5ce84823ed5c0
 
 def _typecheckingstub__93dd00d0af47e16860417840b84d8a174f9bedd1cb04423d80cce3ab6446726b(
     resource: _IGeofenceCollectionRef_40bd2c98,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2db63a46e35bb9b60c434522ebfeb44645b416f72aee9dcca112a00dca6fe7d5(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    collection_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c08c10d57c8eee3a7ab3b16b2260e0eba901740b7d53feea0bc19561f58ee7cf(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

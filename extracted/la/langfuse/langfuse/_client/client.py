@@ -134,7 +134,13 @@ from langfuse.model import (
     PromptClient,
     TextPromptClient,
 )
-from langfuse.types import MaskFunction, ScoreDataType, SpanLevel, TraceContext
+from langfuse.types import (
+    MaskFunction,
+    MaskOtelSpansFunction,
+    ScoreDataType,
+    SpanLevel,
+    TraceContext,
+)
 
 
 class Langfuse:
@@ -171,7 +177,40 @@ class Langfuse:
         release (Optional[str]): Release version/hash of your application. Used for grouping analytics by release.
         media_upload_thread_count (Optional[int]): Number of background threads for handling media uploads. Defaults to 1. Can also be set via LANGFUSE_MEDIA_UPLOAD_THREAD_COUNT environment variable.
         sample_rate (Optional[float]): Sampling rate for traces (0.0 to 1.0). Defaults to 1.0 (100% of traces are sampled). Can also be set via LANGFUSE_SAMPLE_RATE environment variable.
-        mask (Optional[MaskFunction]): Function to mask sensitive data in traces before sending to the API.
+        mask (Optional[MaskFunction]): Function to mask sensitive data synchronously when Langfuse SDK attributes are created. This applies only to data set through Langfuse SDK APIs such as `start_observation()`, `update()`, and `set_trace_io()`.
+        mask_otel_spans (Optional[MaskOtelSpansFunction]): Synchronous export-stage hook for masking raw OpenTelemetry span attributes before this Langfuse client sends them to Langfuse. Use this for spans created by third-party OpenTelemetry instrumentations, or when you need to inspect final span attributes after export filtering and Langfuse media handling. It does not modify spans already exported through other OpenTelemetry exporters.
+
+            The hook receives one OpenTelemetry export batch. A batch is not guaranteed to contain a complete trace, request, or Langfuse observation tree. The hook usually runs on the OpenTelemetry batch span processor worker thread; during `flush()` and shutdown it may run on the caller thread. Keep it synchronous, deterministic, and fast.
+
+            Return `None` to leave the batch unchanged. Return `MaskOtelSpansResult` with `OtelSpanPatch` values to delete or replace attributes on selected spans. If the hook raises or returns an invalid batch result, Langfuse drops the whole export batch. If one returned span patch is invalid, Langfuse drops only that span from the Langfuse export.
+
+            Example:
+                ```python
+                from typing import Optional
+
+                from langfuse import Langfuse
+                from langfuse.types import (
+                    MaskOtelSpansParams,
+                    MaskOtelSpansResult,
+                    OtelSpanPatch,
+                )
+
+                def mask_otel_spans(
+                    *, params: MaskOtelSpansParams
+                ) -> Optional[MaskOtelSpansResult]:
+                    patches = {}
+
+                    for identifier, span in params.spans.items():
+                        if "gen_ai.prompt.0.content" in span.attributes:
+                            patches[identifier] = OtelSpanPatch(
+                                delete_attributes=("gen_ai.prompt.0.content",),
+                                set_attributes={"masking.applied": True},
+                            )
+
+                    return MaskOtelSpansResult(span_patches=patches)
+
+                langfuse = Langfuse(mask_otel_spans=mask_otel_spans)
+                ```
         blocked_instrumentation_scopes (Optional[List[str]]): Deprecated. Use `should_export_span` instead. Equivalent behavior:
             ```python
             from langfuse.span_filter import is_default_export_span
@@ -248,6 +287,7 @@ class Langfuse:
         media_upload_thread_count: Optional[int] = None,
         sample_rate: Optional[float] = None,
         mask: Optional[MaskFunction] = None,
+        mask_otel_spans: Optional[MaskOtelSpansFunction] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         should_export_span: Optional[Callable[[ReadableSpan], bool]] = None,
         additional_headers: Optional[Dict[str, str]] = None,
@@ -344,6 +384,7 @@ class Langfuse:
             media_upload_thread_count=media_upload_thread_count,
             sample_rate=sample_rate,
             mask=mask,
+            mask_otel_spans=mask_otel_spans,
             tracing_enabled=self._tracing_enabled,
             blocked_instrumentation_scopes=blocked_instrumentation_scopes,
             should_export_span=should_export_span,
@@ -1786,7 +1827,9 @@ class Langfuse:
         trace_id: Optional[str] = None,
         score_id: Optional[str] = None,
         observation_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal["CATEGORICAL", "TEXT", "CORRECTION"]
+        ] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -1816,13 +1859,13 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
             session_id: ID of the Langfuse session to associate the score with
             dataset_run_id: ID of the Langfuse dataset run to associate the score with
             trace_id: ID of the Langfuse trace to associate the score with
             observation_id: Optional ID of the specific observation to score. Trace ID must be provided too.
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -1946,7 +1989,9 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal["CATEGORICAL", "TEXT", "CORRECTION"]
+        ] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -1970,9 +2015,9 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "relevance", "accuracy")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -2010,7 +2055,7 @@ class Langfuse:
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
+                data_type=cast(Literal["CATEGORICAL", "TEXT", "CORRECTION"], data_type),
                 comment=comment,
                 config_id=config_id,
                 metadata=metadata,
@@ -2036,7 +2081,9 @@ class Langfuse:
         name: str,
         value: str,
         score_id: Optional[str] = None,
-        data_type: Optional[Literal["CATEGORICAL", "TEXT"]] = "CATEGORICAL",
+        data_type: Optional[
+            Literal["CATEGORICAL", "TEXT", "CORRECTION"]
+        ] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
         metadata: Optional[Any] = None,
@@ -2061,9 +2108,9 @@ class Langfuse:
 
         Args:
             name: Name of the score (e.g., "user_satisfaction", "overall_quality")
-            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT)
+            value: Score value (can be numeric for NUMERIC/BOOLEAN types or string for CATEGORICAL/TEXT/CORRECTION)
             score_id: Optional custom ID for the score (auto-generated if not provided)
-            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, or TEXT)
+            data_type: Type of score (NUMERIC, BOOLEAN, CATEGORICAL, TEXT, or CORRECTION)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
             metadata: Optional metadata to be attached to the score
@@ -2099,7 +2146,7 @@ class Langfuse:
                 name=name,
                 value=cast(str, value),
                 score_id=score_id,
-                data_type=cast(Literal["CATEGORICAL", "TEXT"], data_type),
+                data_type=cast(Literal["CATEGORICAL", "TEXT", "CORRECTION"], data_type),
                 comment=comment,
                 config_id=config_id,
                 metadata=metadata,

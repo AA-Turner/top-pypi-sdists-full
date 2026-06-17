@@ -691,6 +691,8 @@ class ServerSpecificationDetailsTypeDef(TypedDict):
 class CreateOrderInputTypeDef(TypedDict):
     OutpostIdentifier: str
     PaymentOption: PaymentOptionType
+    QuoteIdentifier: NotRequired[str]
+    QuoteOptionIdentifier: NotRequired[str]
     LineItems: NotRequired[Sequence[LineItemRequestTypeDef]]
     PaymentTerm: NotRequired[PaymentTermType]
 
@@ -1066,6 +1068,8 @@ class StartCapacityTaskInputTypeDef(TypedDict):
 
 class OrderTypeDef(TypedDict):
     OutpostId: NotRequired[str]
+    QuoteIdentifier: NotRequired[str]
+    QuoteOptionIdentifier: NotRequired[str]
     OrderId: NotRequired[str]
     Status: NotRequired[OrderStatusType]
     LineItems: NotRequired[list[LineItemTypeDef]]

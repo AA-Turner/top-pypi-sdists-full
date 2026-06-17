@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use crate::error::{Error, Result};
 
 const OPENVIKING_CLI_CONFIG_ENV: &str = "OPENVIKING_CLI_CONFIG_FILE";
-pub const DEFAULT_SELF_MANAGED_PORT: &str = "1933";
-pub const DEFAULT_SELF_MANAGED_URL: &str = "http://127.0.0.1:1933";
+pub const DEFAULT_CUSTOM_PORT: &str = "1933";
+pub const DEFAULT_CUSTOM_URL: &str = "http://127.0.0.1:1933";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UploadConfig {
@@ -45,6 +45,8 @@ pub struct Config {
     pub account: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none", alias = "user_id")]
     pub user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_peer_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent_id: Option<String>,
     #[serde(
@@ -92,7 +94,7 @@ pub(crate) struct EffectiveAuth {
 }
 
 fn default_url() -> String {
-    DEFAULT_SELF_MANAGED_URL.to_string()
+    DEFAULT_CUSTOM_URL.to_string()
 }
 
 fn default_timeout() -> f64 {
@@ -146,11 +148,12 @@ fn is_default_profile(value: &bool) -> bool {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            url: DEFAULT_SELF_MANAGED_URL.to_string(),
+            url: DEFAULT_CUSTOM_URL.to_string(),
             api_key: None,
             root_api_key: None,
             account: None,
             user: None,
+            actor_peer_id: None,
             agent_id: None,
             timeout: 60.0,
             output: "table".to_string(),
@@ -238,6 +241,7 @@ impl Config {
             .map_err(|e| Error::Config(format!("Failed to read config file: {}", e)))?;
         let config: Config = serde_json::from_str(&content)
             .map_err(|e| Error::Config(format!("Failed to parse config file: {}", e)))?;
+        config.validate_identity_mode()?;
         Ok(config)
     }
 
@@ -256,6 +260,19 @@ impl Config {
 
     pub(crate) fn effective_auth(&self, sudo: bool) -> EffectiveAuth {
         self.effective_auth_with_overrides(None, None, None, sudo)
+    }
+
+    pub(crate) fn effective_actor_peer_id(&self) -> Option<String> {
+        self.actor_peer_id.clone().or_else(|| self.agent_id.clone())
+    }
+
+    fn validate_identity_mode(&self) -> Result<()> {
+        if self.actor_peer_id.is_some() && self.agent_id.is_some() {
+            return Err(Error::Config(
+                "actor_peer_id cannot be used with legacy agent_id".to_string(),
+            ));
+        }
+        Ok(())
     }
 
     pub(crate) fn effective_auth_with_overrides(
@@ -359,17 +376,55 @@ mod tests {
                 "api_key": "test-key",
                 "account": "acme",
                 "user": "alice",
-                "agent_id": "assistant-1"
+                "actor_peer_id": "peer-a"
             }"#,
         )
         .expect("config should deserialize");
 
         assert_eq!(config.account.as_deref(), Some("acme"));
         assert_eq!(config.user.as_deref(), Some("alice"));
-        assert_eq!(config.agent_id.as_deref(), Some("assistant-1"));
+        assert_eq!(config.actor_peer_id.as_deref(), Some("peer-a"));
         assert!(config.upload.ignore_dirs.is_none());
         assert!(config.upload.include.is_none());
         assert!(config.upload.exclude.is_none());
+    }
+
+    #[test]
+    fn config_deserializes_legacy_agent_id_as_effective_actor_peer() {
+        let config: Config = serde_json::from_str(
+            r#"{
+                "url": "http://127.0.0.1:1933",
+                "api_key": "test-key",
+                "agent_id": "legacy-agent"
+            }"#,
+        )
+        .expect("config should deserialize");
+
+        assert_eq!(config.agent_id.as_deref(), Some("legacy-agent"));
+        assert_eq!(
+            config.effective_actor_peer_id().as_deref(),
+            Some("legacy-agent")
+        );
+    }
+
+    #[test]
+    fn config_file_rejects_mixed_actor_peer_and_legacy_agent_id() {
+        let dir = tempfile::tempdir().expect("tempdir should be created");
+        let path = dir.path().join("ovcli.conf");
+        std::fs::write(
+            &path,
+            r#"{
+                "url": "http://127.0.0.1:1933",
+                "actor_peer_id": "peer-a",
+                "agent_id": "legacy-agent"
+            }"#,
+        )
+        .expect("config file should be written");
+
+        let error = Config::from_file(&path.to_string_lossy())
+            .expect_err("mixed identity mode should fail");
+
+        assert!(error.to_string().contains("actor_peer_id cannot be used"));
     }
 
     #[test]

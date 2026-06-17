@@ -50,7 +50,7 @@ from docutils.parsers.rst.directives import unchanged
 from docutils.statemachine import StringList
 from sphinx.util import logging as sphinx_logging
 
-__version__ = '0.19'
+__version__ = '0.20'
 
 logger = sphinx_logging.getLogger('contrib.programoutput')
 
@@ -128,7 +128,7 @@ class ProgramOutputDirective(rst.Directive):
                        ellipsis=_slice, extraargs=unchanged,
                        returncode=nonnegative_int, cwd=unchanged,
                        caption=unchanged, name=unchanged,
-                       language=unchanged)
+                       language=unchanged, **{'class': unchanged})
 
     def run(self):
         env = self.state.document.settings.env
@@ -151,16 +151,23 @@ class ProgramOutputDirective(rst.Directive):
         node['language'] = self.options.get('language', 'text')
         if 'ellipsis' in self.options:
             node['strip_lines'] = self.options['ellipsis']
+
+        classes = self.options.get('class', '').split() if 'class' in self.options else []
+        if classes:
+            node['classes'] = classes
+
         if 'caption' in self.options:
             caption = self.options['caption'] or self.arguments[0]
             node = _container_wrapper(self, node, caption)
+            if classes:
+                node['classes'].extend(classes)
 
         self.add_name(node)
         return [node]
 
 
 _Command = namedtuple(
-    'Command', 'command shell hide_standard_error working_directory')
+    '_Command', 'command shell hide_standard_error working_directory')
 
 
 class Command(_Command):
@@ -184,14 +191,7 @@ class Command(_Command):
 
     @staticmethod
     def __normalize_command(command, shell): # pylint:disable=unused-private-member
-        # Returns either a native string, to a tuple.
-        if (bytes is str
-                and not isinstance(command, str)
-                and hasattr(command, 'encode')):
-            # Python 2, given a unicode string
-            command = command.encode(sys.getfilesystemencoding())
-            assert isinstance(command, str)
-
+        # Returns either a native string, or a tuple.
         if not shell and isinstance(command, str):
             command = shlex.split(command)
 
@@ -347,6 +347,8 @@ def run_programs(app, doctree):
                 output, app.config.programoutput_use_ansi, app
             )
             new_node['language'] = node['language']
+            if 'classes' in node:
+                new_node['classes'].extend(node['classes'])
             node.replace_self(new_node)
 
 

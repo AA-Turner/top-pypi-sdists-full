@@ -142,6 +142,18 @@ class GetNodesAndPodsResponse(_message.Message):
         pods: _Optional[_Iterable[_Union[_pod_status_pb2.PodStatusPubSub, _Mapping]]] = ...,
     ) -> None: ...
 
+class PublishNodeUsageRequest(_message.Message):
+    __slots__ = ("nodes",)
+    NODES_FIELD_NUMBER: _ClassVar[int]
+    nodes: _containers.RepeatedCompositeFieldContainer[_node_status_pb2.NodeStatusPubSub]
+    def __init__(
+        self, nodes: _Optional[_Iterable[_Union[_node_status_pb2.NodeStatusPubSub, _Mapping]]] = ...
+    ) -> None: ...
+
+class PublishNodeUsageResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetNodesAndPodsUIRequest(_message.Message):
     __slots__ = ("namespace", "pod_label_selector", "environment_id")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]

@@ -30,6 +30,8 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetUsageChartResponse,
     GetUtilizationRatesRequest,
     GetUtilizationRatesResponse,
+    PublishNodeUsageRequest,
+    PublishNodeUsageResponse,
     SyncUtilizationRequest,
     SyncUtilizationResponse,
 )
@@ -64,6 +66,11 @@ class BillingServiceStub:
     not just a single environment. To limit the scope, add filters to
     the request object.
     """
+    PublishNodeUsage: UnaryUnaryMultiCallable[
+        PublishNodeUsageRequest,
+        PublishNodeUsageResponse,
+    ]
+    """PublishNodeUsage republishes node usage messages to the billing Pub/Sub topic."""
     GetUsageChart: UnaryUnaryMultiCallable[
         GetUsageChartRequest,
         GetUsageChartResponse,
@@ -153,6 +160,13 @@ class BillingServiceServicer(metaclass=ABCMeta):
         not just a single environment. To limit the scope, add filters to
         the request object.
         """
+    @abstractmethod
+    def PublishNodeUsage(
+        self,
+        request: PublishNodeUsageRequest,
+        context: ServicerContext,
+    ) -> PublishNodeUsageResponse:
+        """PublishNodeUsage republishes node usage messages to the billing Pub/Sub topic."""
     @abstractmethod
     def GetUsageChart(
         self,

@@ -45,7 +45,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, TypeVar
 from uuid import uuid4
 
-from .buffer import EventType
 from .context_manager import (
     RunContext,
     get_current_span_context,
@@ -564,31 +563,11 @@ async def _queue_events(run_ctx: RunContext, parent_ctx: RunContext | None) -> N
 
         end_time = datetime.utcnow()
 
-        # Determine trace_id
+        # Determine trace_id. A root span (no parent) carries trace identity:
+        # its span_id == trace_id and parent_span_id is None, so the platform
+        # mints the trace row from it — no separate trace event is emitted.
         if not parent_ctx:
             trace_id = run_ctx.id
-
-            # Queue trace event
-            trace_payload = {
-                "id": run_ctx.id,
-                "name": run_ctx.name,
-                "start_time": run_ctx.start_time.isoformat()
-                if run_ctx.start_time
-                else end_time.isoformat(),
-                "end_time": end_time.isoformat(),
-                "metadata": run_ctx.metadata,
-                "tags": run_ctx.tags,
-                "status": "error" if run_ctx.metadata.get("status") == "error" else "success",
-            }
-
-            if run_ctx.user_id:
-                trace_payload["user_id"] = run_ctx.user_id
-            if run_ctx.session_id:
-                trace_payload["session_id"] = run_ctx.session_id
-            if run_ctx.project_name:
-                trace_payload["project_name"] = run_ctx.project_name
-
-            await aigie._buffer.add(EventType.TRACE_CREATE, trace_payload)
         else:
             trace_ctx = get_current_trace_context()
             trace_id = trace_ctx.id if trace_ctx else run_ctx.id
@@ -622,7 +601,7 @@ async def _queue_events(run_ctx: RunContext, parent_ctx: RunContext | None) -> N
             duration_ns = int((end_time - run_ctx.start_time).total_seconds() * 1e9)
             span_payload["duration"] = duration_ns
 
-        await aigie._buffer.add(EventType.SPAN_CREATE, span_payload)
+        await aigie._buffer.add(span_payload)
 
     except Exception as e:
         logger.debug(f"Failed to queue events: {e}")

@@ -1367,7 +1367,10 @@ class CfnPolicy(
                     )
                 )
             ),
-            policy_store_id="policyStoreId"
+            policy_store_id="policyStoreId",
+        
+            # the properties below are optional
+            name="name"
         )
     '''
 
@@ -1378,6 +1381,7 @@ class CfnPolicy(
         *,
         definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.PolicyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         policy_store_id: builtins.str,
+        name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::VerifiedPermissions::Policy``.
 
@@ -1385,12 +1389,15 @@ class CfnPolicy(
         :param id: Construct identifier for this resource (unique in its scope).
         :param definition: Specifies the policy type and content to use for the new or updated policy. The definition structure must include either a ``Static`` or a ``TemplateLinked`` element.
         :param policy_store_id: Specifies the ``PolicyStoreId`` of the policy store you want to store the policy in.
+        :param name: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__932d37260f4c95ce0d4cfb6f5e3796b8f66e65d7a495df114c5b4f584fdfede3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPolicyProps(definition=definition, policy_store_id=policy_store_id)
+        props = CfnPolicyProps(
+            definition=definition, policy_store_id=policy_store_id, name=name
+        )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -1503,6 +1510,18 @@ class CfnPolicy(
             type_hints = typing.get_type_hints(_typecheckingstub__af5f964efa4eebd0aad31a50c66d1e8fb17861ac0f6d2918c9fae4d65ae3ed65)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "policyStoreId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d34eca01e3239f1b03747397e4da27d17978efad067b2471fbcd5164cf37610)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicy.EntityIdentifierProperty",
@@ -1865,7 +1884,11 @@ class CfnPolicy(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyProps",
     jsii_struct_bases=[],
-    name_mapping={"definition": "definition", "policy_store_id": "policyStoreId"},
+    name_mapping={
+        "definition": "definition",
+        "policy_store_id": "policyStoreId",
+        "name": "name",
+    },
 )
 class CfnPolicyProps:
     def __init__(
@@ -1873,11 +1896,13 @@ class CfnPolicyProps:
         *,
         definition: typing.Union["_IResolvable_da3f097b", typing.Union["CfnPolicy.PolicyDefinitionProperty", typing.Dict[builtins.str, typing.Any]]],
         policy_store_id: builtins.str,
+        name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPolicy``.
 
         :param definition: Specifies the policy type and content to use for the new or updated policy. The definition structure must include either a ``Static`` or a ``TemplateLinked`` element.
         :param policy_store_id: Specifies the ``PolicyStoreId`` of the policy store you want to store the policy in.
+        :param name: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policy.html
         :exampleMetadata: fixture=_generated
@@ -1910,17 +1935,23 @@ class CfnPolicyProps:
                         )
                     )
                 ),
-                policy_store_id="policyStoreId"
+                policy_store_id="policyStoreId",
+            
+                # the properties below are optional
+                name="name"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__191bbebc841c99122e08daf1974076e79203748010138391f8f044b50c7f6a8b)
             check_type(argname="argument definition", value=definition, expected_type=type_hints["definition"])
             check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "definition": definition,
             "policy_store_id": policy_store_id,
         }
+        if name is not None:
+            self._values["name"] = name
 
     @builtins.property
     def definition(
@@ -1945,6 +1976,14 @@ class CfnPolicyProps:
         result = self._values.get("policy_store_id")
         assert result is not None, "Required property 'policy_store_id' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policy.html#cfn-verifiedpermissions-policy-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2827,6 +2866,41 @@ class CfnPolicyStoreAlias(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForPolicyStoreAlias")
+    @builtins.classmethod
+    def arn_for_policy_store_alias(
+        cls,
+        resource: "_IPolicyStoreAliasRef_07f4310b",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13da0bdebf2428c15e21b5d369fe9502e39ef44c374ef597e4795746660d154c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPolicyStoreAlias", [resource]))
+
+    @jsii.member(jsii_name="fromAliasName")
+    @builtins.classmethod
+    def from_alias_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        alias_name: builtins.str,
+    ) -> "_IPolicyStoreAliasRef_07f4310b":
+        '''Creates a new IPolicyStoreAliasRef from a aliasName.
+
+        :param scope: -
+        :param id: -
+        :param alias_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4904fa198cea2ff2eaac8e406499ec09b88aa8f22e057c0cb6ec536bf9661410)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument alias_name", value=alias_name, expected_type=type_hints["alias_name"])
+        return typing.cast("_IPolicyStoreAliasRef_07f4310b", jsii.sinvoke(cls, "fromAliasName", [scope, id, alias_name]))
+
     @jsii.member(jsii_name="isCfnPolicyStoreAlias")
     @builtins.classmethod
     def is_cfn_policy_store_alias(cls, x: typing.Any) -> builtins.bool:
@@ -3184,7 +3258,8 @@ class CfnPolicyTemplate(
             statement="statement",
         
             # the properties below are optional
-            description="description"
+            description="description",
+            name="name"
         )
     '''
 
@@ -3196,6 +3271,7 @@ class CfnPolicyTemplate(
         policy_store_id: builtins.str,
         statement: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::VerifiedPermissions::PolicyTemplate``.
 
@@ -3204,6 +3280,7 @@ class CfnPolicyTemplate(
         :param policy_store_id: The unique identifier of the policy store that contains the template.
         :param statement: Specifies the content that you want to use for the new policy template, written in the Cedar policy language.
         :param description: The description to attach to the new or updated policy template.
+        :param name: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ed3e86dfb81e6515352391c646d690df7f34c6022cd94a51863a664c57bd434a)
@@ -3213,6 +3290,7 @@ class CfnPolicyTemplate(
             policy_store_id=policy_store_id,
             statement=statement,
             description=description,
+            name=name,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -3323,6 +3401,18 @@ class CfnPolicyTemplate(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b435b2c6a1d951aac409d7376791a42e2dd3b05997194a70e98d09cc789d4c7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_verifiedpermissions.CfnPolicyTemplateProps",
@@ -3331,6 +3421,7 @@ class CfnPolicyTemplate(
         "policy_store_id": "policyStoreId",
         "statement": "statement",
         "description": "description",
+        "name": "name",
     },
 )
 class CfnPolicyTemplateProps:
@@ -3340,12 +3431,14 @@ class CfnPolicyTemplateProps:
         policy_store_id: builtins.str,
         statement: builtins.str,
         description: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnPolicyTemplate``.
 
         :param policy_store_id: The unique identifier of the policy store that contains the template.
         :param statement: Specifies the content that you want to use for the new policy template, written in the Cedar policy language.
         :param description: The description to attach to the new or updated policy template.
+        :param name: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policytemplate.html
         :exampleMetadata: fixture=_generated
@@ -3361,7 +3454,8 @@ class CfnPolicyTemplateProps:
                 statement="statement",
             
                 # the properties below are optional
-                description="description"
+                description="description",
+                name="name"
             )
         '''
         if __debug__:
@@ -3369,12 +3463,15 @@ class CfnPolicyTemplateProps:
             check_type(argname="argument policy_store_id", value=policy_store_id, expected_type=type_hints["policy_store_id"])
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "policy_store_id": policy_store_id,
             "statement": statement,
         }
         if description is not None:
             self._values["description"] = description
+        if name is not None:
+            self._values["name"] = name
 
     @builtins.property
     def policy_store_id(self) -> builtins.str:
@@ -3403,6 +3500,14 @@ class CfnPolicyTemplateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policytemplate.html#cfn-verifiedpermissions-policytemplate-description
         '''
         result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-verifiedpermissions-policytemplate.html#cfn-verifiedpermissions-policytemplate-name
+        '''
+        result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3570,6 +3675,7 @@ def _typecheckingstub__932d37260f4c95ce0d4cfb6f5e3796b8f66e65d7a495df114c5b4f584
     *,
     definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.PolicyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     policy_store_id: builtins.str,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3600,6 +3706,12 @@ def _typecheckingstub__f0e3117111907b9eabd5104f9c3da934606ecead2cc1dd472a311797c
 
 def _typecheckingstub__af5f964efa4eebd0aad31a50c66d1e8fb17861ac0f6d2918c9fae4d65ae3ed65(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0d34eca01e3239f1b03747397e4da27d17978efad067b2471fbcd5164cf37610(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3641,6 +3753,7 @@ def _typecheckingstub__191bbebc841c99122e08daf1974076e79203748010138391f8f044b50
     *,
     definition: typing.Union[_IResolvable_da3f097b, typing.Union[CfnPolicy.PolicyDefinitionProperty, typing.Dict[builtins.str, typing.Any]]],
     policy_store_id: builtins.str,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3798,6 +3911,20 @@ def _typecheckingstub__e0f75882a045f98a615d8786e90ba7101f2e4bf7506b1fda7011638af
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__13da0bdebf2428c15e21b5d369fe9502e39ef44c374ef597e4795746660d154c(
+    resource: _IPolicyStoreAliasRef_07f4310b,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4904fa198cea2ff2eaac8e406499ec09b88aa8f22e057c0cb6ec536bf9661410(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    alias_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a1ca42a0502fd719fdf70dbea65a8668ae656e67da16a92d02578ab46c840b2a(
     x: typing.Any,
 ) -> None:
@@ -3855,6 +3982,7 @@ def _typecheckingstub__ed3e86dfb81e6515352391c646d690df7f34c6022cd94a51863a664c5
     policy_store_id: builtins.str,
     statement: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3895,11 +4023,18 @@ def _typecheckingstub__c58edfa87a5f12d9679dc9e906de042ce6fb26dbf1811d4fbdfc9c7e8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7b435b2c6a1d951aac409d7376791a42e2dd3b05997194a70e98d09cc789d4c7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__075de1d4e460af7b2858245a89bb9d63ffdb6f2cd0276b3d8b519fb35d765a82(
     *,
     policy_store_id: builtins.str,
     statement: builtins.str,
     description: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

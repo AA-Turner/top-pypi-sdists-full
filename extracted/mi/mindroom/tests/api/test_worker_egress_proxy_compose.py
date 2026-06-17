@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
+
 from mindroom import constants
 from mindroom.api import sandbox_exec
 from mindroom.constants import resolve_runtime_paths, worker_proxy_execution_env
@@ -20,6 +22,7 @@ def _runtime_paths_with_vault(tmp_path: Path, *, with_ca: bool = True) -> tuple[
     env = {
         "MINDROOM_WORKER_EGRESS_PROXY_URL": "http://agent-vault:14322",
         "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE": str(token_path),
+        "MINDROOM_WORKER_EGRESS_PROXY_VAULT": "agent-vault-worker",
     }
     if with_ca:
         env["MINDROOM_WORKER_EGRESS_PROXY_CA_FILE"] = "/etc/agent-vault/ca.pem"
@@ -28,7 +31,7 @@ def _runtime_paths_with_vault(tmp_path: Path, *, with_ca: bool = True) -> tuple[
         storage_path=tmp_path,
         process_env=env,
     )
-    return runtime_paths, "http://av_sess_worker_token:@agent-vault:14322"
+    return runtime_paths, "http://av_sess_worker_token:agent-vault-worker@agent-vault:14322"
 
 
 def test_request_execution_env_overlays_proxy_when_no_primary_env(tmp_path: Path) -> None:
@@ -41,6 +44,51 @@ def test_request_execution_env_overlays_proxy_when_no_primary_env(tmp_path: Path
     # git and node ignore the curl/python bundles; they need their own keys.
     assert env["GIT_SSL_CAINFO"] == "/etc/agent-vault/ca.pem"
     assert env["NODE_EXTRA_CA_CERTS"] == "/etc/agent-vault/ca.pem"
+
+
+def test_worker_proxy_execution_env_configures_git_proxy_auth(tmp_path: Path) -> None:
+    """Git must receive proxy auth as config, not only env proxy userinfo."""
+    _, expected_proxy = _runtime_paths_with_vault(tmp_path)
+    token_path = tmp_path / "token"
+
+    env = worker_proxy_execution_env(
+        {
+            "MINDROOM_WORKER_EGRESS_PROXY_URL": "http://agent-vault:14322",
+            "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE": str(token_path),
+            "MINDROOM_WORKER_EGRESS_PROXY_VAULT": "agent-vault-worker",
+        },
+    )
+
+    assert env["GIT_CONFIG_COUNT"] == "2"
+    assert env["GIT_CONFIG_KEY_0"] == "http.proxy"
+    assert env["GIT_CONFIG_VALUE_0"] == expected_proxy
+    assert env["GIT_CONFIG_KEY_1"] == "http.proxyAuthMethod"
+    assert env["GIT_CONFIG_VALUE_1"] == "basic"
+
+
+def test_worker_proxy_execution_env_appends_to_existing_git_config(tmp_path: Path) -> None:
+    """Worker proxy Git config must not discard caller-supplied Git config."""
+    _, expected_proxy = _runtime_paths_with_vault(tmp_path)
+    token_path = tmp_path / "token"
+
+    env = worker_proxy_execution_env(
+        {
+            "MINDROOM_WORKER_EGRESS_PROXY_URL": "http://agent-vault:14322",
+            "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE": str(token_path),
+            "MINDROOM_WORKER_EGRESS_PROXY_VAULT": "agent-vault-worker",
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "safe.directory",
+            "GIT_CONFIG_VALUE_0": "*",
+        },
+    )
+
+    assert env["GIT_CONFIG_COUNT"] == "3"
+    assert env["GIT_CONFIG_KEY_0"] == "safe.directory"
+    assert env["GIT_CONFIG_VALUE_0"] == "*"
+    assert env["GIT_CONFIG_KEY_1"] == "http.proxy"
+    assert env["GIT_CONFIG_VALUE_1"] == expected_proxy
+    assert env["GIT_CONFIG_KEY_2"] == "http.proxyAuthMethod"
+    assert env["GIT_CONFIG_VALUE_2"] == "basic"
 
 
 def test_request_execution_env_overlays_proxy_onto_shipped_env(tmp_path: Path) -> None:
@@ -71,16 +119,46 @@ def test_request_execution_env_skips_non_execution_tools(tmp_path: Path) -> None
 
 
 def test_worker_proxy_execution_env_percent_encodes_token(tmp_path: Path) -> None:
-    """A token with URL-significant characters must be percent-encoded into the proxy URL."""
+    """Proxy userinfo with URL-significant characters must be percent-encoded."""
     token_path = tmp_path / "token"
     token_path.write_text("av/sess+a:b@c\n", encoding="utf-8")
     env = worker_proxy_execution_env(
         {
             "MINDROOM_WORKER_EGRESS_PROXY_URL": "http://agent-vault:14322",
             "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE": str(token_path),
+            "MINDROOM_WORKER_EGRESS_PROXY_VAULT": "vault/a:b@c",
         },
     )
-    assert env["HTTP_PROXY"] == "http://av%2Fsess%2Ba%3Ab%40c:@agent-vault:14322"
+    assert env["HTTP_PROXY"] == "http://av%2Fsess%2Ba%3Ab%40c:vault%2Fa%3Ab%40c@agent-vault:14322"
+
+
+@pytest.mark.parametrize(
+    "vault_env",
+    [
+        pytest.param(None, id="absent"),
+        pytest.param(" \t\n", id="blank"),
+    ],
+)
+def test_worker_proxy_execution_env_allows_missing_vault_as_empty_proxy_password(
+    tmp_path: Path,
+    vault_env: str | None,
+) -> None:
+    """Missing/blank vault keeps the backwards-compatible token-only proxy URL."""
+    token_path = tmp_path / "token"
+    token_path.write_text("av/sess+a:b@c\n", encoding="utf-8")
+    process_env = {
+        "MINDROOM_WORKER_EGRESS_PROXY_URL": "http://agent-vault:14322",
+        "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE": str(token_path),
+    }
+    if vault_env is not None:
+        process_env["MINDROOM_WORKER_EGRESS_PROXY_VAULT"] = vault_env
+
+    env = worker_proxy_execution_env(process_env)
+
+    expected_proxy = "http://av%2Fsess%2Ba%3Ab%40c:@agent-vault:14322"
+    assert env["HTTP_PROXY"] == expected_proxy
+    assert env["HTTPS_PROXY"] == expected_proxy
+    assert env["GIT_CONFIG_VALUE_0"] == expected_proxy
 
 
 def test_worker_proxy_execution_env_fail_closed_guards(tmp_path: Path) -> None:
@@ -90,6 +168,7 @@ def test_worker_proxy_execution_env_fail_closed_guards(tmp_path: Path) -> None:
     base = {
         "MINDROOM_WORKER_EGRESS_PROXY_URL": "http://agent-vault:14322",
         "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE": str(token_path),
+        "MINDROOM_WORKER_EGRESS_PROXY_VAULT": "agent-vault-worker",
     }
     # scheme-less proxy URL
     assert worker_proxy_execution_env({**base, "MINDROOM_WORKER_EGRESS_PROXY_URL": "agent-vault:14322"}) == {}
@@ -118,6 +197,11 @@ def test_worker_egress_proxy_env_names_have_single_source() -> None:
         resources._WORKER_EGRESS_PROXY_TOKEN_FILE_ENV
         == constants._WORKER_EGRESS_PROXY_TOKEN_FILE_ENV
         == WORKER_EGRESS_PROXY_ENV_BY_KEY["token_file"]
+    )
+    assert (
+        resources._WORKER_EGRESS_PROXY_VAULT_ENV
+        == constants._WORKER_EGRESS_PROXY_VAULT_ENV
+        == WORKER_EGRESS_PROXY_ENV_BY_KEY["vault"]
     )
     assert (
         resources._WORKER_EGRESS_PROXY_CA_FILE_ENV

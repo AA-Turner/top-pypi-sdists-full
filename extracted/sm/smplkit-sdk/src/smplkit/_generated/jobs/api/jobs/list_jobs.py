@@ -8,12 +8,16 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.job_list_response import JobListResponse
+from ...models.list_jobs_sort import ListJobsSort
 from ...types import Unset
 
 
 def _get_kwargs(
     *,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
+    filtername: None | str | Unset = UNSET,
+    sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
@@ -27,6 +31,26 @@ def _get_kwargs(
     else:
         json_filterenabled = filterenabled
     params["filter[enabled]"] = json_filterenabled
+
+    json_filterrecurring: bool | None | Unset
+    if isinstance(filterrecurring, Unset):
+        json_filterrecurring = UNSET
+    else:
+        json_filterrecurring = filterrecurring
+    params["filter[recurring]"] = json_filterrecurring
+
+    json_filtername: None | str | Unset
+    if isinstance(filtername, Unset):
+        json_filtername = UNSET
+    else:
+        json_filtername = filtername
+    params["filter[name]"] = json_filtername
+
+    json_sort: str | Unset = UNSET
+    if not isinstance(sort, Unset):
+        json_sort = sort
+
+    params["sort"] = json_sort
 
     params["page[number]"] = pagenumber
 
@@ -70,16 +94,32 @@ def sync_detailed(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
+    filtername: None | str | Unset = UNSET,
+    sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
 ) -> Response[JobListResponse]:
     """List Jobs
 
-     List this account's jobs, newest first.
+     List this account's jobs.
+
+    Default sort is `name` ascending. Sort by `name`, `created_at`,
+    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
+    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
+    and `filter[name]` (case-insensitive substring match on the name); filters
+    compose with AND.
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
+        filtername (None | str | Unset): Case-insensitive substring match on the job `name`
+            (matches when the name contains the given text).
+        sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
+            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
+            'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -101,6 +141,9 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         filterenabled=filterenabled,
+        filterrecurring=filterrecurring,
+        filtername=filtername,
+        sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -117,16 +160,32 @@ def sync(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
+    filtername: None | str | Unset = UNSET,
+    sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
 ) -> JobListResponse | None:
     """List Jobs
 
-     List this account's jobs, newest first.
+     List this account's jobs.
+
+    Default sort is `name` ascending. Sort by `name`, `created_at`,
+    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
+    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
+    and `filter[name]` (case-insensitive substring match on the name); filters
+    compose with AND.
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
+        filtername (None | str | Unset): Case-insensitive substring match on the job `name`
+            (matches when the name contains the given text).
+        sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
+            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
+            'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -149,6 +208,9 @@ def sync(
     return sync_detailed(
         client=client,
         filterenabled=filterenabled,
+        filterrecurring=filterrecurring,
+        filtername=filtername,
+        sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -159,16 +221,32 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
+    filtername: None | str | Unset = UNSET,
+    sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
 ) -> Response[JobListResponse]:
     """List Jobs
 
-     List this account's jobs, newest first.
+     List this account's jobs.
+
+    Default sort is `name` ascending. Sort by `name`, `created_at`,
+    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
+    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
+    and `filter[name]` (case-insensitive substring match on the name); filters
+    compose with AND.
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
+        filtername (None | str | Unset): Case-insensitive substring match on the job `name`
+            (matches when the name contains the given text).
+        sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
+            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
+            'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -190,6 +268,9 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         filterenabled=filterenabled,
+        filterrecurring=filterrecurring,
+        filtername=filtername,
+        sort=sort,
         pagenumber=pagenumber,
         pagesize=pagesize,
         metatotal=metatotal,
@@ -204,16 +285,32 @@ async def asyncio(
     *,
     client: AuthenticatedClient,
     filterenabled: bool | None | Unset = UNSET,
+    filterrecurring: bool | None | Unset = UNSET,
+    filtername: None | str | Unset = UNSET,
+    sort: ListJobsSort | Unset = "name",
     pagenumber: int | Unset = 1,
     pagesize: int | Unset = 1000,
     metatotal: bool | Unset = False,
 ) -> JobListResponse | None:
     """List Jobs
 
-     List this account's jobs, newest first.
+     List this account's jobs.
+
+    Default sort is `name` ascending. Sort by `name`, `created_at`,
+    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
+    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
+    and `filter[name]` (case-insensitive substring match on the name); filters
+    compose with AND.
 
     Args:
         filterenabled (bool | None | Unset):
+        filterrecurring (bool | None | Unset):
+        filtername (None | str | Unset): Case-insensitive substring match on the job `name`
+            (matches when the name contains the given text).
+        sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
+            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
+            'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -237,6 +334,9 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             filterenabled=filterenabled,
+            filterrecurring=filterrecurring,
+            filtername=filtername,
+            sort=sort,
             pagenumber=pagenumber,
             pagesize=pagesize,
             metatotal=metatotal,

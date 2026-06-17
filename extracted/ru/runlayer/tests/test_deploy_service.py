@@ -63,6 +63,8 @@ def mock_deployment():
     deployment.name = "test-service"
     deployment.deletion_status = None
     deployment.connected_servers = []
+    deployment.task_role_arn = None
+    deployment.configuration = {}
     deployment.created_at = datetime.datetime.now(datetime.timezone.utc)
     return deployment
 
@@ -604,8 +606,7 @@ def test_trigger_and_monitor_deployment_shows_backend_trigger_detail(mock_api_cl
         assert exc_info.value.exit_code == 1
         rendered_calls = [str(call) for call in mock_secho.call_args_list]
         assert any(
-            "Cannot trigger deployment while a deployment is in progress."
-            in call
+            "Cannot trigger deployment while a deployment is in progress." in call
             for call in rendered_calls
         )
 
@@ -719,6 +720,40 @@ service:
     error = str(exc_info.value)
     assert "Unsupported runlayer.yaml key: service.environment" in error
     assert "Allowed keys here: port, path, expose" in error
+
+
+def test_validate_deploy_yaml_keys_accepts_infrastructure_aws_assume_roles():
+    yaml_content = """
+name: test-service
+runtime: docker
+image: repo.example.com/app:latest
+service:
+  port: 8000
+infrastructure:
+  aws:
+    assume_roles:
+      secrets: arn:aws:iam::123456789012:role/example
+"""
+
+    validate_deploy_yaml_keys(yaml_content)
+
+
+def test_validate_deploy_yaml_keys_rejects_top_level_aws():
+    yaml_content = """
+name: test-service
+runtime: docker
+image: repo.example.com/app:latest
+service:
+  port: 8000
+aws:
+  assume_roles:
+    secrets: arn:aws:iam::123456789012:role/example
+"""
+
+    with pytest.raises(ValueError) as exc_info:
+        validate_deploy_yaml_keys(yaml_content)
+
+    assert "Unsupported runlayer.yaml key: aws" in str(exc_info.value)
 
 
 def test_validate_deploy_yaml_keys_allows_env_and_build_args_keys():
@@ -1272,4 +1307,6 @@ def test_pull_deployment_write_failure_restores_backup():
 
             # Verify restoration message was shown
             secho_calls = [str(call) for call in mock_secho.call_args_list]
-            assert any("Restored original file from backup" in call for call in secho_calls)
+            assert any(
+                "Restored original file from backup" in call for call in secho_calls
+            )

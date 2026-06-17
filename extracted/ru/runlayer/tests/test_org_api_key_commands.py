@@ -193,7 +193,7 @@ class TestOrgApiKeyAddCommand:
         with patch(
             "runlayer_cli.commands.org_api_key.load_config", return_value=config
         ):
-            with patch("runlayer_cli.commands.org_api_key.save_config") as mock_save:
+            with patch("runlayer_cli.config.save_config") as mock_save:
                 result = runner.invoke(
                     app,
                     ["org-api-key", "add", "my-key", "--secret", "rl_org_test123"],
@@ -206,6 +206,29 @@ class TestOrgApiKeyAddCommand:
                     saved.get_org_api_key("https://app.runlayer.com", "my-key")
                     == "rl_org_test123"
                 )
+
+    def test_add_errors_when_not_persisted(self):
+        """aiwatch runtime: save_config is a no-op (returns False) so the org key
+        was never persisted — must error, not print success."""
+        config = Config(
+            default_host="https://app.runlayer.com",
+            hosts={
+                "app.runlayer.com": {
+                    "url": "https://app.runlayer.com",
+                    "secret": "rl_user",
+                }
+            },
+        )
+        with (
+            patch("runlayer_cli.commands.org_api_key.load_config", return_value=config),
+            patch("runlayer_cli.config.save_config", return_value=False),
+        ):
+            result = runner.invoke(
+                app,
+                ["org-api-key", "add", "my-key", "--secret", "rl_org_test123"],
+            )
+            assert result.exit_code == 1
+            assert "could not be persisted" in result.output
 
     def test_add_requires_host(self):
         config = Config()
@@ -246,11 +269,26 @@ class TestOrgApiKeyRemoveCommand:
         with patch(
             "runlayer_cli.commands.org_api_key.load_config", return_value=config
         ):
-            with patch("runlayer_cli.commands.org_api_key.save_config") as mock_save:
+            with patch(
+                "runlayer_cli.config.save_config", return_value=True
+            ) as mock_save:
                 result = runner.invoke(app, ["org-api-key", "remove", "mcp-watch"])
                 assert result.exit_code == 0
                 assert "removed" in result.output
                 mock_save.assert_called_once()
+
+    def test_remove_errors_when_not_persisted(self):
+        """aiwatch runtime: save_config is a no-op (returns False) so the removal
+        was never persisted — must error, not print success."""
+        config = _config_with_org_keys()
+        with (
+            patch("runlayer_cli.commands.org_api_key.load_config", return_value=config),
+            patch("runlayer_cli.config.save_config", return_value=False),
+        ):
+            result = runner.invoke(app, ["org-api-key", "remove", "mcp-watch"])
+            assert result.exit_code == 1
+            assert "could not be persisted" in result.output
+            assert "removed" not in result.output
 
     def test_remove_nonexistent(self):
         config = _config_with_org_keys()

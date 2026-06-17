@@ -49,6 +49,17 @@ fn from_stdin() {
 }
 
 #[test]
+fn already_formatted_from_stdin() {
+  Test::new()
+    .no_justfile()
+    .args(["--fmt", "--justfile", "-"])
+    .stdin("x := ``\n")
+    .stdout("x := ``\n")
+    .test_round_trip(false)
+    .success();
+}
+
+#[test]
 fn check_from_stdin() {
   Test::new()
     .no_justfile()
@@ -383,6 +394,28 @@ fn assignment_concat_values() {
 }
 
 #[test]
+fn assignment_list_concat_values() {
+  Test::new()
+    .arg("--dump")
+    .justfile(
+      "
+        set lists
+
+        foo := ['bar'] ++ ['baz']
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .stdout(
+      "
+        set lists
+
+        foo := ['bar'] ++ ['baz']
+      ",
+    )
+    .success();
+}
+
+#[test]
 fn assignment_if_oneline() {
   Test::new()
     .arg("--dump")
@@ -394,6 +427,28 @@ fn assignment_if_oneline() {
     .stdout(
       "
         foo := if 'foo' == 'foo' { 'foo' } else { 'bar' }
+      ",
+    )
+    .success();
+}
+
+#[test]
+fn assignment_if_without_else() {
+  Test::new()
+    .arg("--dump")
+    .justfile(
+      "
+        set lists
+
+        foo := if 'foo' == 'foo' { 'foo' }
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .stdout(
+      "
+        set lists
+
+        foo := if 'foo' == 'foo' { 'foo' }
       ",
     )
     .success();
@@ -1581,6 +1636,25 @@ fn arg_attribute_long() {
 }
 
 #[test]
+fn arg_attribute_long_bare() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long)]
+        @foo bar:
+      ",
+    )
+    .arg("--dump")
+    .stdout(
+      "
+        [arg('bar', long)]
+        @foo bar:
+      ",
+    )
+    .success();
+}
+
+#[test]
 fn arg_attribute_pattern() {
   Test::new()
     .justfile(
@@ -1631,6 +1705,53 @@ fn arg_attribute_help() {
     .stdout(
       "
         [arg('bar', help='foo')]
+        @foo bar:
+      ",
+    )
+    .success();
+}
+
+#[test]
+fn arg_attribute_flag() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long='bar', flag)]
+        @foo bar:
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .arg("--dump")
+    .stdout(
+      "
+        set lists
+
+        [arg('bar', long='bar', flag)]
+        @foo bar:
+      ",
+    )
+    .success();
+}
+
+#[test]
+fn arg_attribute_value() {
+  Test::new()
+    .justfile(
+      "
+        BAZ := 'baz'
+
+        [arg('bar', long='bar', value=BAZ + env('FOO', 'foo'))]
+        @foo bar:
+      ",
+    )
+    .arg("--dump")
+    .stdout(
+      "
+        BAZ := 'baz'
+
+        [arg('bar', long='bar', value=BAZ + env('FOO', 'foo'))]
         @foo bar:
       ",
     )

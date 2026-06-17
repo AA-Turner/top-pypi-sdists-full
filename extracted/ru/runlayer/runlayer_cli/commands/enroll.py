@@ -6,7 +6,11 @@ from typing import Optional
 
 import typer
 
-from runlayer_cli.config import load_config, save_config
+from runlayer_cli.cli_persistence import (
+    complete_device_enrollment,
+    credential_dest,
+)
+from runlayer_cli.config import load_config
 from runlayer_cli.enrollment import (
     EnrollmentError,
     exchange_enrollment_key,
@@ -98,10 +102,11 @@ def enroll(
         raise typer.Exit(1) from None
 
     config = load_config()
-    keyring_used = config.set_host_credentials(resolved_host, result.api_key)
-    save_config(config)
-    write_enrollment_marker(resolved_host)
-    dest = "credential store" if keyring_used else "config file"
+    dest = credential_dest(
+        complete_device_enrollment(
+            config, resolved_host, result.api_key, subject="enrollment API key"
+        )
+    )
     typer.secho(
         f"Enrollment successful. API key saved to {dest} for {resolved_host}.",
         fg=typer.colors.GREEN,

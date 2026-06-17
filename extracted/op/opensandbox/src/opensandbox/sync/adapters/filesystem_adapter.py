@@ -22,7 +22,6 @@ import logging
 from collections.abc import Iterator
 from io import IOBase, TextIOBase
 from typing import TypedDict
-from urllib.parse import quote
 
 import httpx
 
@@ -40,6 +39,8 @@ from opensandbox.config.connection_sync import ConnectionConfigSync
 from opensandbox.exceptions import InvalidArgumentException, SandboxApiException
 from opensandbox.models.filesystem import (
     ContentReplaceEntry,
+    ContentReplaceResult,
+    DirectoryListEntry,
     EntryInfo,
     MoveEntry,
     SearchEntry,
@@ -53,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 class _DownloadRequest(TypedDict):
     url: str
-    params: dict[str, str] | None
+    params: dict[str, str]
     headers: dict[str, str]
 
 
@@ -90,13 +91,24 @@ class FilesystemAdapterSync(FilesystemSync):
     def _get_execd_url(self, path: str) -> str:
         return f"{self.connection_config.protocol}://{self.execd_endpoint.endpoint}{path}"
 
-    def _build_download_request(self, path: str, range_header: str | None = None) -> _DownloadRequest:
-        encoded_path = quote(path, safe="/")
-        url = f"{self._get_execd_url(self.FILESYSTEM_DOWNLOAD_PATH)}?path={encoded_path}"
+    def _build_download_request(
+        self,
+        path: str,
+        range_header: str | None = None,
+        *,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> _DownloadRequest:
+        url = self._get_execd_url(self.FILESYSTEM_DOWNLOAD_PATH)
         headers: dict[str, str] = {}
+        params: dict[str, str] = {"path": path}
         if range_header:
             headers["Range"] = range_header
-        return {"url": url, "params": None, "headers": headers}
+        if offset is not None:
+            params["offset"] = str(offset)
+        if limit is not None:
+            params["limit"] = str(limit)
+        return {"url": url, "params": params, "headers": headers}
 
     def read_file(
         self,
@@ -104,25 +116,28 @@ class FilesystemAdapterSync(FilesystemSync):
         *,
         encoding: str = "utf-8",
         range_header: str | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> str:
-        content = self.read_bytes(path, range_header=range_header)
+        content = self.read_bytes(path, range_header=range_header, offset=offset, limit=limit)
         return content.decode(encoding)
 
-    def read_bytes(self, path: str, *, range_header: str | None = None) -> bytes:
+    def read_bytes(
+        self,
+        path: str,
+        *,
+        range_header: str | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
+    ) -> bytes:
         logger.debug("Reading file as bytes: %s", path)
         try:
-            request_data = self._build_download_request(path, range_header)
-            if request_data["params"] is None:
-                response = self._httpx_client.get(
-                    request_data["url"],
-                    headers=request_data["headers"],
-                )
-            else:
-                response = self._httpx_client.get(
-                    request_data["url"],
-                    headers=request_data["headers"],
-                    params=request_data["params"],
-                )
+            request_data = self._build_download_request(path, range_header, offset=offset, limit=limit)
+            response = self._httpx_client.get(
+                request_data["url"],
+                headers=request_data["headers"],
+                params=request_data["params"],
+            )
             response.raise_for_status()
             return response.content
         except Exception as e:
@@ -130,23 +145,26 @@ class FilesystemAdapterSync(FilesystemSync):
             raise ExceptionConverter.to_sandbox_exception(e) from e
 
     def read_bytes_stream(
-        self, path: str, *, chunk_size: int = 64 * 1024, range_header: str | None = None
+        self,
+        path: str,
+        *,
+        chunk_size: int = 64 * 1024,
+        range_header: str | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> Iterator[bytes]:
         logger.debug("Streaming file as bytes: %s (chunk_size=%s)", path, chunk_size)
-        request_data = self._build_download_request(path, range_header)
+        request_data = self._build_download_request(path, range_header, offset=offset, limit=limit)
         url = request_data["url"]
         params = request_data["params"]
         headers = request_data["headers"]
 
-        if params is None:
-            request = self._httpx_client.build_request("GET", url, headers=headers)
-        else:
-            request = self._httpx_client.build_request(
-                "GET",
-                url,
-                headers=headers,
-                params=params,
-            )
+        request = self._httpx_client.build_request(
+            "GET",
+            url,
+            headers=headers,
+            params=params,
+        )
         response = self._httpx_client.send(request, stream=True)
 
         if response.status_code >= 300:
@@ -288,13 +306,35 @@ class FilesystemAdapterSync(FilesystemSync):
 
     def replace_contents(self, entries: list[ContentReplaceEntry]) -> None:
         try:
+            from json import JSONDecodeError
+
+            from opensandbox.api.execd.api.filesystem import replace_content
+
+            try:
+                response_obj = replace_content.sync_detailed(
+                    client=self._client,
+                    body=FilesystemModelConverter.to_api_replace_content_body(entries),
+                )
+                handle_api_error(response_obj, "Replace contents")
+            except JSONDecodeError:
+                pass
+        except Exception as e:
+            logger.error("Failed to replace contents", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    def replace_contents_detailed(self, entries: list[ContentReplaceEntry]) -> list[ContentReplaceResult]:
+        try:
             from opensandbox.api.execd.api.filesystem import replace_content
 
             response_obj = replace_content.sync_detailed(
                 client=self._client,
                 body=FilesystemModelConverter.to_api_replace_content_body(entries),
+                verbose=True,
             )
+
             handle_api_error(response_obj, "Replace contents")
+
+            return FilesystemModelConverter.to_replace_results(response_obj.parsed)
         except Exception as e:
             logger.error("Failed to replace contents", exc_info=e)
             raise ExceptionConverter.to_sandbox_exception(e) from e
@@ -321,6 +361,31 @@ class FilesystemAdapterSync(FilesystemSync):
             )
         except Exception as e:
             logger.error("Failed to search files", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    def list_directory(self, entry: DirectoryListEntry) -> list[EntryInfo]:
+        try:
+            from opensandbox.api.execd.api.filesystem import list_directory
+            from opensandbox.api.execd.models import FileInfo
+            from opensandbox.api.execd.types import UNSET
+
+            response_obj = list_directory.sync_detailed(
+                client=self._client,
+                path=entry.path,
+                depth=entry.depth if entry.depth is not None else UNSET,
+            )
+            handle_api_error(response_obj, "List directory")
+            parsed = response_obj.parsed
+            if not parsed:
+                return []
+            if isinstance(parsed, list) and all(isinstance(x, FileInfo) for x in parsed):
+                return FilesystemModelConverter.to_entry_info_list(parsed)
+            raise SandboxApiException(
+                message="List directory failed: unexpected response type",
+                request_id=extract_request_id(getattr(response_obj, "headers", None)),
+            )
+        except Exception as e:
+            logger.error("Failed to list directory", exc_info=e)
             raise ExceptionConverter.to_sandbox_exception(e) from e
 
     def get_file_info(self, paths: list[str]) -> dict[str, EntryInfo]:

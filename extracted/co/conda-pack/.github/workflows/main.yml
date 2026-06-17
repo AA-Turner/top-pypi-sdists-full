@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Retrieve the source code
-      uses: actions/checkout@v6.0.1
+      uses: actions/checkout@v6.0.3
       with:
         fetch-depth: 0
     - name: Install build dependencies
@@ -43,7 +43,7 @@ jobs:
     - name: Reduce the size of the build artifact
       run: rm -rf /usr/share/miniconda/conda-bld/{git_cache,work,conda-pack*,*/.cache}
     - name: Upload the build artifact
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: package-${{ github.sha }}
         path: /usr/share/miniconda/conda-bld
@@ -59,8 +59,8 @@ jobs:
         os: [ubuntu-latest,macos-14,windows-latest]
     steps:
     - name: Retrieve the source code
-      uses: actions/checkout@v6.0.1
-    - uses: conda-incubator/setup-miniconda@v3.3.0
+      uses: actions/checkout@v6.0.3
+    - uses: conda-incubator/setup-miniconda@v4.0.1
       with:
         auto-update-conda: true
         python-version: '3.9'
@@ -115,7 +115,7 @@ jobs:
             conda_deps: ""
     steps:
     - name: Retrieve the source code
-      uses: actions/checkout@v6.0.1
+      uses: actions/checkout@v6.0.3
     - id: conda-root
       name: Set CONDA_ROOT
       run: |
@@ -131,7 +131,7 @@ jobs:
         path: ${{ steps.conda-root.outputs.value }}
         key: testbed-${{ matrix.os }}-${{ hashFiles('testing') }}-5
     - name: Download the build artifact
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: package-${{ github.sha }}
         path: conda-bld
@@ -147,7 +147,7 @@ jobs:
         conda create -n cptest local::conda-pack conda-forge::pytest conda-forge::pytest-cov defaults::python=${{ matrix.pyver }} zstandard>=0.23.0 ${{ matrix.conda_deps }}
         conda activate cptest
         pytest -v -ss --cov=conda_pack --cov-branch --cov-report=xml conda_pack/tests
-    - uses: codecov/codecov-action@v5
+    - uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
   upload:
@@ -156,11 +156,11 @@ jobs:
     if: github.event_name == 'push'
     steps:
     - name: Retrieve the source code
-      uses: actions/checkout@v6.0.1
+      uses: actions/checkout@v6.0.3
       with:
         fetch-depth: 0
     - name: Download the build artifacts
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         name: package-${{ github.sha }}
         path: conda-bld
@@ -175,7 +175,7 @@ jobs:
     - name: Deploy the documentation
       if: startsWith(github.ref, 'refs/tags/')
       id: deployment
-      uses: actions/upload-pages-artifact@v4
+      uses: actions/upload-pages-artifact@v5
       with:
         path: ./docs/build/html
     - name: Upload to anaconda.org
@@ -206,4 +206,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4 # or specific "vX.X.X" version tag for this action
+        uses: actions/deploy-pages@v5 # or specific "vX.X.X" version tag for this action

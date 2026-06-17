@@ -1004,6 +1004,19 @@ pipeline definition. This can be useful if any Docker image assets — in the pi
 any of the application stages — require authentication, either due to being in a
 different environment (e.g., ECR repo) or to avoid throttling (e.g., DockerHub).
 
+For authenticating to Docker registries that require a username and password combination
+(like DockerHub), create a Secrets Manager Secret with fields named `username`
+and `secret`:
+
+```json
+{
+  "username": "<username>",
+  "secret": "<DockerHub secret>"
+}
+```
+
+Then reference it like this:
+
 ```python
 docker_hub_secret = secretsmanager.Secret.from_secret_complete_arn(self, "DHSecret", "arn:aws:...")
 custom_reg_secret = secretsmanager.Secret.from_secret_complete_arn(self, "CRSecret", "arn:aws:...")
@@ -1024,10 +1037,6 @@ pipeline = pipelines.CodePipeline(self, "Pipeline",
     )
 )
 ```
-
-For authenticating to Docker registries that require a username and password combination
-(like DockerHub), create a Secrets Manager Secret with fields named `username`
-and `secret`, and import it (the field names change be customized).
 
 Authentication to ECR repositories is done using the execution role of the
 relevant CodeBuild job. Both types of credentials can be provided with an

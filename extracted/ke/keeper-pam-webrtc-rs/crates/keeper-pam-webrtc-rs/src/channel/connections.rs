@@ -655,6 +655,16 @@ pub async fn setup_outbound_task(
         // **NO STRING ALLOCATIONS, NO UNNECESSARY OBJECT CREATION**
         // **USE BORROWED DATA, BUFFER POOLS, AND ZERO-COPY TECHNIQUES**
 
+        // Tracks last forced Tokio sleep for SCTP ACK starvation prevention.
+        // yield_now() only cooperatively reschedules within the current worker's local
+        // run queue.  On macOS ARM64 CI (3 workers), two hot send loops can pin two
+        // workers, leaving the SCTP ACK-processing task stuck on a third worker behind
+        // a long backlog.  Delayed ACKs cause T3-RTX to fire, cwnd to collapse, and
+        // RTO to double until it hits RTO_MAX (60 s) — at which point the 5 MB test
+        // also times out.  A 1 ms timer sleep every 50 ms releases the current worker
+        // entirely so the Tokio runtime can steal the SCTP ACK task from any worker.
+        let mut last_sctp_ack_yield = tokio::time::Instant::now();
+
         loop {
             // Universal SCTP backpressure: pause reading from the backend when the
             // SCTP send buffer exceeds SCTP_HIGH_WATER (32 KB). The outbound task
@@ -673,6 +683,18 @@ pub async fn setup_outbound_task(
             if should_break {
                 break;
             }
+
+            // Periodic forced sleep: releases this Tokio worker so the runtime can
+            // schedule SCTP ACK tasks on any worker (not just this one's local queue).
+            // Fires at most once per 50 ms → ≤2 % throughput overhead.
+            {
+                let now = tokio::time::Instant::now();
+                if now.duration_since(last_sctp_ack_yield) >= Duration::from_millis(50) {
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                    last_sctp_ack_yield = tokio::time::Instant::now();
+                }
+            }
+
             if pause_us > 0 {
                 crate::metrics::METRICS_COLLECTOR.record_backpressure_pause(
                     &channel_id_for_task,

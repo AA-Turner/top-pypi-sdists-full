@@ -41865,6 +41865,7 @@ __all__ = [
     "aws_refactorspaces",
     "aws_rekognition",
     "aws_resiliencehub",
+    "aws_resiliencehubv2",
     "aws_resourceexplorer2",
     "aws_resourcegroups",
     "aws_robomaker",
@@ -42193,6 +42194,7 @@ if typing.TYPE_CHECKING:
     from . import aws_refactorspaces as aws_refactorspaces
     from . import aws_rekognition as aws_rekognition
     from . import aws_resiliencehub as aws_resiliencehub
+    from . import aws_resiliencehubv2 as aws_resiliencehubv2
     from . import aws_resourceexplorer2 as aws_resourceexplorer2
     from . import aws_resourcegroups as aws_resourcegroups
     from . import aws_robomaker as aws_robomaker
@@ -42520,6 +42522,7 @@ _SUBMODULES = {
     "aws_refactorspaces",
     "aws_rekognition",
     "aws_resiliencehub",
+    "aws_resiliencehubv2",
     "aws_resourceexplorer2",
     "aws_resourcegroups",
     "aws_robomaker",

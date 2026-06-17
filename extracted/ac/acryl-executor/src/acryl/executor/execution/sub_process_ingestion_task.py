@@ -515,11 +515,21 @@ class SubProcessIngestionTask(Task):
             secret_values,
         )
 
+        cancelled = False
         try:
             await self._monitor_subprocess(
                 ingest_process, exec_id, ctx, shared_logs, full_log_file
             )
+        except asyncio.CancelledError:
+            # Track for the finally cleanup; the bare raise re-raises so
+            # DefaultExecutor.execute_task reports the task as CANCELLED.
+            cancelled = True
+            raise
         finally:
+            # _handle_subprocess_completion is contractually safe to call here:
+            # it only raises TaskError on a real non-cancelled failure. All
+            # cleanup steps are internally guarded, so this finally cannot mask
+            # the in-flight CancelledError.
             self._handle_subprocess_completion(
                 ingest_process,
                 ctx,
@@ -528,6 +538,7 @@ class SubProcessIngestionTask(Task):
                 recipe,
                 exec_out_dir,
                 shared_logs,
+                cancelled=cancelled,
             )
 
     async def _monitor_subprocess(
@@ -743,25 +754,34 @@ class SubProcessIngestionTask(Task):
         recipe: dict,
         exec_out_dir: str,
         shared_logs: LogHolder,
+        cancelled: bool = False,
     ) -> None:
-        """Handle subprocess completion, including report processing and cleanup."""
+        """Handle subprocess completion: report processing, cleanup, and status.
+
+        Cleanup steps are individually guarded. The only exception that escapes
+        this method is the intentional `TaskError` raised on a non-zero return
+        code from a non-cancelled run — so callers can invoke this from a
+        `finally` block without fear of masking an in-flight exception.
+        """
 
         if os.path.exists(report_out_file):
-            with open(report_out_file) as structured_report_fp:
-                report_content = structured_report_fp.read()
-                # Mask secrets in structured report before setting it
-                # This catches secrets in error messages from subprocess
+            try:
+                with open(report_out_file) as structured_report_fp:
+                    report_content = structured_report_fp.read()
                 try:
                     registry = SecretRegistry.get_instance()
                     if registry and registry.get_count() > 0:
-                        # Use DataHub's masking to mask the structured report
-                        temp_filter = SecretMaskingFilter(registry)
-                        report_content = temp_filter.mask_text(report_content)
+                        report_content = SecretMaskingFilter(registry).mask_text(
+                            report_content
+                        )
                 except Exception:
-                    # If masking fails, continue with unmasked report
-                    # Better to have the report than to fail completely
+                    # Better to have the report than to fail completely.
                     logger.warning("Failed to mask structured report, using original")
                 ctx.get_report().set_structured_report(report_content)
+            except Exception:
+                logger.exception(
+                    "Failed to process structured report from %s", report_out_file
+                )
 
         try:
             self._upload_logs_to_s3(recipe, ctx, artifact_output_dir)
@@ -770,20 +790,26 @@ class SubProcessIngestionTask(Task):
             # that don't have the endpoints
             logger.exception("Failed to upload logs to S3")
 
-        ctx.get_report().set_logs(
-            SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
-        )
+        try:
+            ctx.get_report().set_logs(
+                SubProcessTaskUtil._format_log_lines(shared_logs.get_lines())
+            )
+        except Exception:
+            logger.exception("Failed to set logs on execution report")
 
-        # Cleanup execution directory
         SubProcessTaskUtil._remove_directory(exec_out_dir)
 
-        # Shutdown DataHub masking framework to clean up resources
         try:
             shutdown_secret_masking()
         except Exception as e:
             logger.warning(f"Failed to shutdown secret masking: {e}")
 
+        if cancelled:
+            ctx.get_report().report_info("Ingestion task was cancelled")
+            return
+
         return_code = ingest_process.returncode
+
         if return_code != 0:  # Failed
             if return_code and return_code < 0:
                 try:

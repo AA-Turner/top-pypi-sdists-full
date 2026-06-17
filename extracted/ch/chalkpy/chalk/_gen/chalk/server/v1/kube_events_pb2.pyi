@@ -30,6 +30,7 @@ class KubeEvent(_message.Message):
         "first_timestamp",
         "last_timestamp",
         "count",
+        "id",
     )
     TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     EVENT_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -44,6 +45,7 @@ class KubeEvent(_message.Message):
     FIRST_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     LAST_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     COUNT_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
     timestamp: _timestamp_pb2.Timestamp
     event_type: str
     severity: str
@@ -57,6 +59,7 @@ class KubeEvent(_message.Message):
     first_timestamp: _timestamp_pb2.Timestamp
     last_timestamp: _timestamp_pb2.Timestamp
     count: int
+    id: str
     def __init__(
         self,
         timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -72,6 +75,7 @@ class KubeEvent(_message.Message):
         first_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         last_timestamp: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         count: _Optional[int] = ...,
+        id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListKubeEventsPageToken(_message.Message):

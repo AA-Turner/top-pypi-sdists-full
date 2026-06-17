@@ -87,6 +87,7 @@ AGENT_VAULT_ACCESS_ENV_BY_KEY: Mapping[str, str] = MappingProxyType(
         "ui_base_url": "MINDROOM_AGENT_VAULT_ACCESS_UI_BASE_URL",
         "email_domain": "MINDROOM_AGENT_VAULT_ACCESS_EMAIL_DOMAIN",
         "vault_name_prefix": "MINDROOM_AGENT_VAULT_ACCESS_VAULT_NAME_PREFIX",
+        "owner_email": "MINDROOM_AGENT_VAULT_ACCESS_OWNER_EMAIL",
     },
 )
 
@@ -98,6 +99,7 @@ WORKER_EGRESS_PROXY_ENV_BY_KEY: Mapping[str, str] = MappingProxyType(
     {
         "proxy_url": "MINDROOM_WORKER_EGRESS_PROXY_URL",
         "token_file": "MINDROOM_WORKER_EGRESS_PROXY_TOKEN_FILE",
+        "vault": "MINDROOM_WORKER_EGRESS_PROXY_VAULT",
         "ca_file": "MINDROOM_WORKER_EGRESS_PROXY_CA_FILE",
     },
 )

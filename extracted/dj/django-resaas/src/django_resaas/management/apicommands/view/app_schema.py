@@ -233,9 +233,10 @@ def _get_resaas_field_config(field_obj):
 # ==========================================================
 def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
     ui = {}
-    component = "s-input"
+    component = ""
     props = {}
 
+    
     # ---------------- FILE ----------------
     if ftype == "FileField":
         component = "s-file"
@@ -264,7 +265,10 @@ def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
 
     # ---------------- NUMBERS ----------------
     elif ftype in ["IntegerField", "FloatField", "DecimalField"]:
-        component = "s-input"
+        if payload.get("choices"):
+            component = "s-select"
+        else:
+            component = "s-input"
         props["type"] = "number"
 
         if payload.get("min") is not None:
@@ -282,19 +286,35 @@ def _resolve_ui(field_obj, ftype: str, payload: dict) -> dict:
             ["bold", "italic", "underline"],
             ["quote", "unordered", "ordered"],
             ["link"],
-            ["undo", "redo"]
+            ["undo", "redo", "fullscreen"]
         ]
+        
         props["minHeight"] = "150px"
 
     # ---------------- CHAR ----------------
     elif ftype == "CharField":
-        component = "s-input"
-
+        if payload.get("choices"):
+            component = "s-select"
+        else:
+            component = "s-input"
+            
         if payload.get("max_length"):
             props["maxlength"] = payload["max_length"]
 
         if payload.get("min_length"):
             props["minlength"] = payload["min_length"]
+
+    # ---------------- DATE ----------------
+    elif ftype == "DateField":
+        component = "s-date"
+
+    # ---------------- TIME ----------------
+    elif ftype == "TimeField":
+        component = "s-time"
+
+    # ---------------- DATETIME ----------------
+    elif ftype == "DateTimeField":
+        component = "s-datetime"
 
     result = {
         "component": component,

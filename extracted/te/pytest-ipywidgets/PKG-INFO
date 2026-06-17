@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: pytest-ipywidgets
-Version: 1.57.4
+Version: 1.57.5
 Dynamic: Summary
 Project-URL: Home, https://github.com/widgetti/solara/tree/master/packages/pytest-ipywidgets
 Project-URL: Documentation, https://solara.dev
@@ -33,8 +33,8 @@ Requires-Dist: pixelmatch
 Requires-Dist: playwright
 Requires-Dist: pytest
 Requires-Dist: pytest-playwright
-Requires-Dist: solara-server[starlette]==1.57.4
-Requires-Dist: solara-ui==1.57.4
+Requires-Dist: solara-server[starlette]==1.57.5
+Requires-Dist: solara-ui==1.57.5
 Provides-Extra: all
 Requires-Dist: jupyterlab<4; extra == 'all'
 Requires-Dist: notebook<7; extra == 'all'

@@ -10,7 +10,7 @@
             ]
         ],
         "include_dirs": [
-            "/tmp/build-env-52bqfsdq/lib/python3.12/site-packages/numpy/_core/include"
+            "/tmp/build-env-mbdah98z/lib/python3.12/site-packages/numpy/_core/include"
         ],
         "name": "pyart.io.nexrad_interpolate",
         "sources": [

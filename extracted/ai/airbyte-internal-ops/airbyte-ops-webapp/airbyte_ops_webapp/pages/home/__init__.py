@@ -1,1 +1,1 @@
-"""Ops Webapp home page."""
+"""Airbyte Ops home page."""

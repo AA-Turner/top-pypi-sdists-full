@@ -58,6 +58,10 @@ def _send_request(
         request_args["cookies"] = request_args.get("cookies", dict()) | {
             "session": api_config.session_cookie,
         }
+    elif api_config.access_token:
+        request_args["headers"] = request_args.get("headers", dict()) | {
+            "Authorization": f"Bearer {api_config.access_token}",
+        }
     if "auth" not in request_args:
         request_args["auth"] = get_http_auth(api_config.environment)
 
@@ -141,6 +145,162 @@ class RobotoffResource:
         ).json()
 
 
+class NutriPatrolResource:
+    def __init__(self, api_config: APIConfig):
+        self.api_config = api_config
+        self.base_url = URLBuilder.nutripatrol(environment=api_config.environment)
+
+    def check_auth_method(self) -> None:
+        """Check that the only authentication method is through session cookie,
+        as other methods are currently not supported."""
+        if not self.api_config.session_cookie:
+            raise ValueError("session_cookie must be set to call Nutripatrol API")
+
+        if self.api_config.username or self.api_config.password:
+            raise ValueError(
+                "Only authentication based on session cookie is supported with "
+                "Nutripatrol API. Don't provide username and password, only "
+                "session_cookie."
+            )
+
+        if self.api_config.access_token:
+            raise ValueError(
+                "Only authentication based on session cookie is supported with "
+                "Nutripatrol API. Don't provide access_token, only "
+                "session_cookie."
+            )
+
+    def get_flag(self, flag_id: int) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/flags/{flag_id}",
+                api_config=self.api_config,
+                method="GET",
+            ),
+        )
+        return r.json()
+
+    def get_flags(self) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/flags",
+                api_config=self.api_config,
+                method="GET",
+            ),
+        )
+        return r.json()
+
+    def create_flag(self, flag_data: JSONType) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/flags",
+                api_config=self.api_config,
+                method="POST",
+                json=flag_data,
+            ),
+        )
+        return r.json()
+
+    def get_flags_by_ticket_batch(self, ticket_ids: list[int]) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/flags/batch",
+                api_config=self.api_config,
+                method="POST",
+                json={"ticket_ids": ticket_ids},
+            ),
+        )
+        return r.json()
+
+    def get_ticket(self, ticket_id: int) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/tickets/{ticket_id}",
+                api_config=self.api_config,
+                method="GET",
+            ),
+        )
+        return r.json()
+
+    def get_tickets(
+        self,
+        barcode: str | None = None,
+        status: str | None = None,
+        type_: str | None = None,
+        reason: list[str] | None = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> JSONType:
+        self.check_auth_method()
+        params: dict = {"page": page, "page_size": page_size}
+        if barcode is not None:
+            params["barcode"] = barcode
+        if status is not None:
+            params["status"] = status
+        if type_ is not None:
+            params["type_"] = type_
+        if reason is not None:
+            params["reason"] = reason
+
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/tickets",
+                api_config=self.api_config,
+                method="GET",
+                params=params,
+            ),
+        )
+        return r.json()
+
+    def update_ticket_status(self, ticket_id: int, status: str) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/tickets/{ticket_id}/status",
+                api_config=self.api_config,
+                method="PUT",
+                params={"status": status},
+            ),
+        )
+        return r.json()
+
+    def get_stats(self, n_days: int = 31) -> JSONType:
+        self.check_auth_method()
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/stats",
+                api_config=self.api_config,
+                method="GET",
+                params={"n_days": n_days},
+            ),
+        )
+        return r.json()
+
+    def status(self) -> JSONType:
+        r = typing.cast(
+            requests.Response,
+            _send_request(
+                f"{self.base_url}/api/v1/status",
+                api_config=self.api_config,
+                method="GET",
+            ),
+        )
+        return r.json()
+
+
 class FacetResource:
     def __init__(self, api_config: APIConfig):
         self.api_config = api_config
@@ -222,6 +382,7 @@ class ProductResource:
             environment=api_config.environment,
             country_code=self.api_config.country.name,
         )
+        self.base_search_url = URLBuilder.search(self.api_config.environment)
 
     def get(
         self,
@@ -308,6 +469,35 @@ class ProductResource:
             method="GET",
         )
         return typing.cast(requests.Response, r).json()
+
+    def search(
+        self,
+        query: str,
+        page: int = 1,
+        page_size: int = 24,
+        sort_by: Optional[str] = None,
+    ) -> JSONType:
+        """Search products using the search-a-licious endpoint.
+
+        .. warning::
+            This feature is in alpha. The search-a-licious API may
+            change without notice.
+
+        :param query: the search query
+        :param page: page number (starts at 1), defaults to 1
+        :param page_size: number of results per page, defaults to 24
+        :param sort_by: field to sort by, optional
+        :return: search results dict with a 'hits' key containing products
+        """
+        params: dict = {"q": query, "page": page, "page_size": page_size}
+        if sort_by is not None:
+            params["sort_by"] = sort_by
+        resp = http_session.get(
+            f"{self.base_search_url}/search",
+            params=params,
+        )
+        resp.raise_for_status()
+        return typing.cast(JSONType, resp.json())
 
     def update(self, body: Dict[str, Any]):
         """Create a new product or update an existing one."""
@@ -595,6 +785,7 @@ class API:
         environment: Union[Environment, str] = Environment.org,
         session_cookie: Optional[str] = None,
         timeout: int = 10,
+        access_token: Optional[str] = None,
     ) -> None:
         """Initialize the API instance.
 
@@ -615,6 +806,8 @@ class API:
         :param session_cookie: a session cookie, only used for write requests,
             defaults to None
         :param timeout: the timeout for HTTP requests, defaults to 10 seconds
+        :param access_token: a keycloak access token, generated with single sign on,
+            only used for write requests, defaults to None
         """
         if not isinstance(country, Country):
             country = Country[country]
@@ -632,12 +825,14 @@ class API:
             password=password,
             session_cookie=session_cookie,
             timeout=timeout,
+            access_token=access_token,
         )
         self.password = password
         self.country = country
         self.product = ProductResource(self.api_config)
         self.facet = FacetResource(self.api_config)
         self.robotoff = RobotoffResource(self.api_config)
+        self.nutripatrol = NutriPatrolResource(self.api_config)
 
 
 def parse_ingredients(text: str, lang: str, api_config: APIConfig) -> list[JSONType]:

@@ -1,6 +1,6 @@
 [project]
 name = "libtmux"
-version = "0.58.0"
+version = "0.58.1"
 description = "Typed library that provides an ORM wrapper for tmux, a terminal multiplexer."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -52,9 +52,9 @@ Changes = "https://github.com/tmux-python/libtmux/blob/master/CHANGES"
 [dependency-groups]
 dev = [
   # Docs (via gp-sphinx)
-  "gp-sphinx==0.0.1a20",
-  "sphinx-autodoc-api-style==0.0.1a20",
-  "sphinx-autodoc-pytest-fixtures==0.0.1a20",
+  "gp-sphinx==0.0.1a31",
+  "sphinx-autodoc-api-style==0.0.1a31",
+  "sphinx-autodoc-pytest-fixtures==0.0.1a31",
   "sphinx-autobuild",
   "types-docutils",
   # Testing
@@ -75,9 +75,9 @@ dev = [
 ]
 
 docs = [
-  "gp-sphinx==0.0.1a20",
-  "sphinx-autodoc-api-style==0.0.1a20",
-  "sphinx-autodoc-pytest-fixtures==0.0.1a20",
+  "gp-sphinx==0.0.1a31",
+  "sphinx-autodoc-api-style==0.0.1a31",
+  "sphinx-autodoc-pytest-fixtures==0.0.1a31",
   "sphinx-autobuild",
 ]
 testing = [
@@ -125,6 +125,7 @@ sphinx-autodoc-sphinx = false
 sphinx-autodoc-typehints-gp = false
 sphinx-fonts = false
 sphinx-gp-opengraph = false
+sphinx-gp-llms = false
 sphinx-gp-sitemap = false
 sphinx-gp-theme = false
 sphinx-ux-autodoc-layout = false
@@ -249,9 +250,4 @@ testpaths = [
 ]
 markers = [
   "integration: sphinx integration tests (require full sphinx build)",
-]
-filterwarnings = [
-  "ignore:The frontend.Option(Parser)? class.*:DeprecationWarning::",
-  "ignore::DeprecationWarning:libtmux.*:",
-  "ignore::DeprecationWarning:tests:",  # tests/
 ]

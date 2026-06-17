@@ -10,6 +10,9 @@ from airbyte.exceptions import PyAirbyteInputError
 MCP_SERVER_NAME = "airbyte-internal-ops"
 """The name of the MCP server."""
 
+PACKAGE_NAME = "airbyte-internal-ops"
+"""The installed package name, as declared in `pyproject.toml`."""
+
 
 class ServerConfigKey(StrEnum):
     """Config keys for MCP server configuration arguments.

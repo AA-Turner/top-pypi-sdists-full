@@ -77,6 +77,10 @@ def _apply_managed_config() -> None:
 
 
 def main() -> None:
+    from runlayer_cli.runtime import mark_aiwatch_runtime  # noqa: PLC0415
+
+    mark_aiwatch_runtime()
+
     from runlayer_cli.hook.relay import (  # noqa: PLC0415
         TRANSCRIPT_STREAM_WORKER_SENTINEL,
     )

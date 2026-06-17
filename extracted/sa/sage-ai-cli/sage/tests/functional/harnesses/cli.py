@@ -17,9 +17,20 @@ def execute(request: dict, model: str) -> TestResult:
     if "ask" in cmd and "--model" not in cmd:
         cmd.extend(["--model", model, "--agent"])
         
+    import sys
+    real_home = Path.home().resolve()
     env = os.environ.copy()
     env["SAGE_TESTING"] = "1"
     env["HOME"] = str(test_home)
+    playwright_browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if not playwright_browsers_path:
+        if sys.platform == "darwin":
+            playwright_browsers_path = str(real_home / "Library/Caches/ms-playwright")
+        elif sys.platform == "win32":
+            playwright_browsers_path = str(real_home / "AppData" / "Local" / "ms-playwright")
+        else:
+            playwright_browsers_path = str(real_home / ".cache" / "ms-playwright")
+    env["PLAYWRIGHT_BROWSERS_PATH"] = playwright_browsers_path
     env["SAGE_API_BASE"] = "http://127.0.0.1:8091"
     env["SAGE_DISABLE_RAG"] = "1"
     

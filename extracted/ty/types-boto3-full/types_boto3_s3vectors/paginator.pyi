@@ -15,6 +15,7 @@ Usage::
         ListIndexesPaginator,
         ListVectorBucketsPaginator,
         ListVectorsPaginator,
+        QueryVectorsPaginator,
     )
 
     session = Session()
@@ -23,6 +24,7 @@ Usage::
     list_indexes_paginator: ListIndexesPaginator = client.get_paginator("list_indexes")
     list_vector_buckets_paginator: ListVectorBucketsPaginator = client.get_paginator("list_vector_buckets")
     list_vectors_paginator: ListVectorsPaginator = client.get_paginator("list_vectors")
+    query_vectors_paginator: QueryVectorsPaginator = client.get_paginator("query_vectors")
     ```
 """
 
@@ -40,6 +42,8 @@ from .type_defs import (
     ListVectorBucketsOutputTypeDef,
     ListVectorsInputPaginateTypeDef,
     ListVectorsOutputTypeDef,
+    QueryVectorsInputPaginateTypeDef,
+    QueryVectorsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -47,7 +51,12 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListIndexesPaginator", "ListVectorBucketsPaginator", "ListVectorsPaginator")
+__all__ = (
+    "ListIndexesPaginator",
+    "ListVectorBucketsPaginator",
+    "ListVectorsPaginator",
+    "QueryVectorsPaginator",
+)
 
 if TYPE_CHECKING:
     _ListIndexesPaginatorBase = Paginator[ListIndexesOutputTypeDef]
@@ -101,4 +110,22 @@ class ListVectorsPaginator(_ListVectorsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/paginator/ListVectors.html#S3Vectors.Paginator.ListVectors.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3vectors/paginators/#listvectorspaginator)
+        """
+
+if TYPE_CHECKING:
+    _QueryVectorsPaginatorBase = Paginator[QueryVectorsOutputTypeDef]
+else:
+    _QueryVectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class QueryVectorsPaginator(_QueryVectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/paginator/QueryVectors.html#S3Vectors.Paginator.QueryVectors)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3vectors/paginators/#queryvectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[QueryVectorsInputPaginateTypeDef]
+    ) -> PageIterator[QueryVectorsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/paginator/QueryVectors.html#S3Vectors.Paginator.QueryVectors.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_s3vectors/paginators/#queryvectorspaginator)
         """

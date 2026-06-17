@@ -1,7 +1,4 @@
-try:
-    from enum import StrEnum
-except ImportError:
-    from strenum import StrEnum
+from xorq.common.compat import StrEnum
 
 
 class DumpFiles(StrEnum):
@@ -31,6 +28,19 @@ class ExprKind(StrEnum):
     ExprBuilder = "expr_builder"
 
 
-class MemtableTypes(StrEnum):
+class BundledSourceTypes(StrEnum):
     inmemory = "memtables"
     database_table = "database_tables"
+    read = "reads"
+
+
+class RefEnum(StrEnum):
+    dtype_ref = "dtype_ref"
+    node_ref = "node_ref"
+    schema_ref = "schema_ref"
+
+
+class RegistryEnum(StrEnum):
+    dtypes = "dtypes"
+    nodes = "nodes"
+    schemas = "schemas"

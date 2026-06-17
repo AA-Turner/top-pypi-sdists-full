@@ -40,6 +40,25 @@ func parseSpec(t *testing.T, info *PredictorInfo) map[string]any {
 	return spec
 }
 
+func extractInputProperty(t *testing.T, raw []byte, name string) string {
+	t.Helper()
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal(raw, &doc))
+	components, ok := doc["components"].(map[string]any)
+	require.True(t, ok)
+	schemas, ok := components["schemas"].(map[string]any)
+	require.True(t, ok)
+	input, ok := schemas["Input"].(map[string]any)
+	require.True(t, ok)
+	properties, ok := input["properties"].(map[string]any)
+	require.True(t, ok)
+	prop, ok := properties[name]
+	require.True(t, ok)
+	out, err := json.Marshal(prop)
+	require.NoError(t, err)
+	return string(out)
+}
+
 func getPath(m map[string]any, keys ...string) any {
 	var cur any = m
 	for _, k := range keys {
@@ -534,6 +553,62 @@ func TestInputOptionalRepeatedType(t *testing.T) {
 	assert.Nil(t, inputSchema["required"])
 }
 
+func TestOpenAPIUnionInputStringFloat(t *testing.T) {
+	inputs := NewOrderedMap[string, InputField]()
+	inputs.Set("value", InputField{
+		Name:      "value",
+		Order:     0,
+		FieldType: FieldType{Primitive: TypeAny, Repetition: Required},
+		InputType: ptr(InputUnionOf(
+			InputPrimitive(TypeString),
+			InputPrimitive(TypeFloat),
+		)),
+	})
+
+	out, err := GenerateOpenAPISchema(&PredictorInfo{
+		Inputs: inputs,
+		Output: SchemaPrim(TypeString),
+		Mode:   ModePredict,
+	})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"anyOf":[{"type":"string"},{"type":"number"}],"title":"Value","x-order":0}`, extractInputProperty(t, out, "value"))
+}
+
+func TestOpenAPIRequiredNullableUnionInput(t *testing.T) {
+	inputs := NewOrderedMap[string, InputField]()
+	it := InputUnionOf(InputPrimitive(TypeString), InputPrimitive(TypeFloat))
+	it.Nullable = true
+	inputs.Set("value", InputField{
+		Name:      "value",
+		Order:     0,
+		FieldType: FieldType{Primitive: TypeAny, Repetition: Required},
+		InputType: &it,
+	})
+
+	out, err := GenerateOpenAPISchema(&PredictorInfo{
+		Inputs: inputs,
+		Output: SchemaPrim(TypeString),
+		Mode:   ModePredict,
+	})
+	require.NoError(t, err)
+
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal(out, &doc))
+	input := doc["components"].(map[string]any)["schemas"].(map[string]any)["Input"].(map[string]any)
+	require.Equal(t, []any{"value"}, input["required"])
+	prop := input["properties"].(map[string]any)["value"].(map[string]any)
+	require.JSONEq(t, `{
+		"anyOf":[
+			{"nullable":true,"type":"string"},
+			{"nullable":true,"type":"number"}
+		],
+		"nullable":true,
+		"title":"Value",
+		"x-order":0
+	}`, extractInputProperty(t, out, "value"))
+	require.Equal(t, true, prop["nullable"])
+}
+
 // ---------------------------------------------------------------------------
 // Tests: Choices / Enums
 // ---------------------------------------------------------------------------
@@ -655,6 +730,55 @@ func TestOutputConcatenateIterator(t *testing.T) {
 	assert.Equal(t, "array", output["type"])
 	assert.Equal(t, "iterator", output["x-cog-array-type"])
 	assert.Equal(t, "concatenate", output["x-cog-array-display"])
+}
+
+func TestPredictionOperationIncludesStreamingExtensionWhenEnabled(t *testing.T) {
+	inputs := NewOrderedMap[string, InputField]()
+	info := &PredictorInfo{
+		Inputs:            inputs,
+		Output:            SchemaIteratorOf(SchemaPrim(TypeString)),
+		Mode:              ModePredict,
+		SupportsStreaming: true,
+	}
+
+	spec := parseSpec(t, info)
+	postPath := getPath(spec, "paths", "/predictions", "post")
+	require.NotNil(t, postPath)
+	post := postPath.(map[string]any)
+	assert.Equal(t, true, post["x-cog-streaming"])
+}
+
+func TestPredictionOperationOmitsStreamingExtensionByDefault(t *testing.T) {
+	inputs := NewOrderedMap[string, InputField]()
+	info := &PredictorInfo{
+		Inputs: inputs,
+		Output: SchemaIteratorOf(SchemaPrim(TypeString)),
+		Mode:   ModePredict,
+	}
+
+	spec := parseSpec(t, info)
+	postPath := getPath(spec, "paths", "/predictions", "post")
+	require.NotNil(t, postPath)
+	post := postPath.(map[string]any)
+	_, ok := post["x-cog-streaming"]
+	assert.False(t, ok)
+}
+
+func TestTrainingOperationOmitsStreamingExtensionWhenEnabled(t *testing.T) {
+	inputs := NewOrderedMap[string, InputField]()
+	info := &PredictorInfo{
+		Inputs:            inputs,
+		Output:            SchemaIteratorOf(SchemaPrim(TypeString)),
+		Mode:              ModeTrain,
+		SupportsStreaming: true,
+	}
+
+	spec := parseSpec(t, info)
+	postPath := getPath(spec, "paths", "/trainings", "post")
+	require.NotNil(t, postPath)
+	post := postPath.(map[string]any)
+	_, ok := post["x-cog-streaming"]
+	assert.False(t, ok)
 }
 
 func TestOutputObject(t *testing.T) {

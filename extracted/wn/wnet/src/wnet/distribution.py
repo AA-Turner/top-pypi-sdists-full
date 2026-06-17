@@ -8,8 +8,10 @@ from wnet.wnet_cpp import *
 class Distribution:
     """
     Distribution represents a collection of points and their associated intensities. Meant to be immutable.
-    Inherits from:
-        CDistribution (wnet.wnet_cpp): A C++ extension class that provides core functionality for handling distributions.
+
+    Positions and intensities are owned by a C++ ``CVectorDistributionFloat``
+    object (``vecdist``); the ``positions``/``intensities`` properties are
+    read-only numpy views over its buffers.
     Args:
         positions (array-like): The spatial positions of the distribution.
         intensities (array-like): The intensity values corresponding to each position.
@@ -39,22 +41,67 @@ class Distribution:
             intensities (np.ndarray): Array of intensities corresponding to each position.
             label (str | None): Optional label for the distribution.
         """
-        # super().__init__(positions, intensities.astype(np.int64, copy=False))
-        self.positions = positions
-        self.intensities = intensities
+        positions = np.asarray(positions)
+        intensities = np.asarray(intensities)
+        # positions is (dimension, n_points); a bare 1D array is the classic
+        # footgun (its length gets read as the dimension), so reject it early
+        # and point at the helper instead of failing cryptically downstream.
+        if positions.ndim != 2:
+            raise ValueError(
+                f"positions must be a 2D array of shape (dimension, n_points), "
+                f"got shape {positions.shape}. For 1D data use "
+                f"Distribution_1D(positions, intensities) or pass "
+                f"positions[np.newaxis, :]."
+            )
+        if intensities.ndim != 1 or intensities.shape[0] != positions.shape[1]:
+            raise ValueError(
+                f"intensities must be a 1D array with one value per point "
+                f"(n_points={positions.shape[1]}), got shape {intensities.shape}."
+            )
         dimension = positions.shape[0]
         if dimension < 1 or dimension > 20:
             raise ValueError(
                 f"Unsupported dimension: {dimension}. Must be between 1 and 20."
             )
+        cls = globals().get(f"CVectorDistributionFloat{dimension}")
+        if cls is None:
+            raise ValueError(
+                f"Dimension {dimension} is unavailable in this build of the wnet "
+                f"C++ extension (compiled with a smaller WNET_MAX_DIM)."
+            )
+        # The C++ VectorDistribution owns positions/intensities (as real float64)
+        # — the single source of truth.  The `positions`/`intensities` properties
+        # below are read-only numpy views over its buffers (zero-copy).
+        # Use np.array (always copies) so the C++ ctor receives a writable,
+        # C-contiguous float64 array — passing a read-only view (e.g. another
+        # Distribution's `.positions`) would otherwise be rejected by nanobind.
+        self._cpp = cls(
+            np.array(positions, dtype=np.float64, order="C"),
+            np.array(intensities, dtype=np.float64, order="C"),
+        )
+        self._dimension = dimension
         self.label = label
 
-    @cached_property
+    @property
     def vecdist(self):
-        cfun = globals()[f"CVectorDistribution{self.dimension}"]
-        return cfun(
-            self.positions.astype(np.float64), self.intensities.astype(np.int64)
-        )
+        # The C++ distribution object (CVectorDistributionFloat{dim}) — the
+        # single source of truth, consumed directly by the network.
+        return self._cpp
+
+    @property
+    def positions(self) -> np.ndarray:
+        # Read-only (dimension, n_points) view over the C++ buffer (zero-copy;
+        # the view keeps the C++ object alive). Copy it if you need to mutate.
+        v = self._cpp.positions_view().T
+        v.flags.writeable = False
+        return v
+
+    @property
+    def intensities(self) -> np.ndarray:
+        # Read-only (n_points,) view over the C++ buffer (zero-copy).
+        v = self._cpp.intensities_view()
+        v.flags.writeable = False
+        return v
 
     def n_highest(self, n: int) -> "Distribution":
         """
@@ -99,7 +146,8 @@ class Distribution:
         """
         new_positions = self.positions
         new_intensities = self.intensities * scale_factor
-        return Distribution(new_positions, new_intensities, label=self.label)
+        # Polymorphic: subclasses (e.g. Spectrum) get back their own type.
+        return type(self)(new_positions, new_intensities, label=self.label)
 
     def positions_intensities_scaled(self, scale_factor: float) -> "Distribution":
         """
@@ -113,7 +161,7 @@ class Distribution:
         """
         new_positions = self.positions.astype(np.float64, copy=False) * scale_factor
         new_intensities = self.intensities.astype(np.float64, copy=False) * scale_factor
-        return Distribution(new_positions, new_intensities, label=self.label)
+        return type(self)(new_positions, new_intensities, label=self.label)
 
     def normalized(self) -> "Distribution":
         """
@@ -129,21 +177,34 @@ class Distribution:
             )
         new_positions = self.positions
         new_intensities = self.intensities / total_intensity
-        return Distribution(new_positions, new_intensities, label=self.label)
+        return type(self)(new_positions, new_intensities, label=self.label)
+
+    def as_distribution(self) -> "Distribution":
+        """
+        Returns a plain Distribution with the same positions and intensities.
+
+        For a bare Distribution this is a typed copy; for subclasses (e.g.
+        Spectrum) it strips the subclass-specific state, yielding a base
+        Distribution. Always returns a Distribution, never ``type(self)``.
+
+        Returns:
+            Distribution: A base Distribution with the same data.
+        """
+        return Distribution(self.positions, self.intensities, label=self.label)
 
     @cached_property
     def sum_intensities(self) -> float:
-        return np.sum(self.intensities)
+        return float(np.sum(self.intensities))
 
     @property
     def dimension(self) -> int:
-        return self.positions.shape[0]
+        return self._dimension
 
     def cpp_repr(self) -> str:
         return f"VectorDistribution<{self.dimension}> distribution(\n{{{self.positions.tolist()}}},\n{{{self.intensities.tolist()}}}\n);"
 
     def __len__(self):
-        return self.intensities.shape[0]
+        return self._cpp.size()
 
     def plot(self, filename: Optional[str] = None) -> None:
         """
@@ -216,19 +277,21 @@ class Distribution:
 
     def __getstate__(self) -> dict:
         """
-        Prepares the state of the Distribution object for pickling.
-
-        Returns:
-            dict: A dictionary containing the state of the object, including positions, intensities, and label.
+        Prepares the state for pickling.  The C++ object isn't directly
+        picklable, so serialize writable copies of the (read-only) array views
+        and rebuild on unpickle.
         """
-        state = self.__dict__.copy()
-        # Remove cached properties to avoid pickling them
-        if "vecdist" in state:
-            del state["vecdist"]
-        return state
+        return {
+            "positions": np.array(self.positions),
+            "intensities": np.array(self.intensities),
+            "label": self.label,
+        }
 
-    # def __setstate__(self, state: dict) -> None: default is fine
+    def __setstate__(self, state: dict) -> None:
+        self.__init__(state["positions"], state["intensities"], label=state["label"])
 
+    def __str__(self) -> str:
+        return f"Distribution(label={self.label}, dimension={self.dimension}, num_peaks={len(self)}, total_intensity={self.sum_intensities:.4f})"
 
 def Distribution_1D(
     positions: np.ndarray, intensities: np.ndarray, label: Optional[str] = None

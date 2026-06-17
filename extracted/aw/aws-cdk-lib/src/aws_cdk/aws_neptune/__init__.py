@@ -82,12 +82,14 @@ from ..interfaces.aws_neptune import (
     DBParameterGroupReference as _DBParameterGroupReference_9bb44206,
     DBSubnetGroupReference as _DBSubnetGroupReference_27cd8411,
     EventSubscriptionReference as _EventSubscriptionReference_8038a89c,
+    GlobalClusterReference as _GlobalClusterReference_ae43b63a,
     IDBClusterParameterGroupRef as _IDBClusterParameterGroupRef_be75ec22,
     IDBClusterRef as _IDBClusterRef_14961392,
     IDBInstanceRef as _IDBInstanceRef_5e0e3745,
     IDBParameterGroupRef as _IDBParameterGroupRef_9e461d1a,
     IDBSubnetGroupRef as _IDBSubnetGroupRef_b2b07796,
     IEventSubscriptionRef as _IEventSubscriptionRef_21b725e3,
+    IGlobalClusterRef as _IGlobalClusterRef_ea1eccd8,
 )
 
 
@@ -136,8 +138,10 @@ class CfnDBCluster(
             deletion_protection=False,
             enable_cloudwatch_logs_exports=["enableCloudwatchLogsExports"],
             engine_version="engineVersion",
+            global_cluster_identifier="globalClusterIdentifier",
             iam_auth_enabled=False,
             kms_key_id="kmsKeyId",
+            network_type="networkType",
             preferred_backup_window="preferredBackupWindow",
             preferred_maintenance_window="preferredMaintenanceWindow",
             restore_to_time="restoreToTime",
@@ -175,8 +179,10 @@ class CfnDBCluster(
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
         engine_version: typing.Optional[builtins.str] = None,
+        global_cluster_identifier: typing.Optional[builtins.str] = None,
         iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        network_type: typing.Optional[builtins.str] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         restore_to_time: typing.Optional[builtins.str] = None,
@@ -205,8 +211,10 @@ class CfnDBCluster(
         :param deletion_protection: Indicates whether or not the DB cluster has deletion protection enabled. The database can't be deleted when deletion protection is enabled.
         :param enable_cloudwatch_logs_exports: Specifies a list of log types that are enabled for export to CloudWatch Logs.
         :param engine_version: Indicates the database engine version.
+        :param global_cluster_identifier: The ID of the Neptune global database to which this new DB cluster should be added.
         :param iam_auth_enabled: True if mapping of Amazon Identity and Access Management (IAM) accounts to database accounts is enabled, and otherwise false.
         :param kms_key_id: The Amazon Resource Name (ARN) of the KMS key that is used to encrypt the database instances in the DB cluster, such as ``arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef`` . If you enable the ``StorageEncrypted`` property but don't specify this property, the default KMS key is used. If you specify this property, you must set the ``StorageEncrypted`` property to ``true`` .
+        :param network_type: The network type of the DB cluster.
         :param preferred_backup_window: Specifies the daily time range during which automated backups are created if automated backups are enabled, as determined by the ``BackupRetentionPeriod`` . An update may require some interruption.
         :param preferred_maintenance_window: Specifies the weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).
         :param restore_to_time: Creates a new DB cluster from a DB snapshot or DB cluster snapshot. If a DB snapshot is specified, the target DB cluster is created from the source DB snapshot with a default configuration and default security group. If a DB cluster snapshot is specified, the target DB cluster is created from the source DB cluster restore point with the same configuration as the original source DB cluster, except that the new DB cluster is created with the default security group.
@@ -236,8 +244,10 @@ class CfnDBCluster(
             deletion_protection=deletion_protection,
             enable_cloudwatch_logs_exports=enable_cloudwatch_logs_exports,
             engine_version=engine_version,
+            global_cluster_identifier=global_cluster_identifier,
             iam_auth_enabled=iam_auth_enabled,
             kms_key_id=kms_key_id,
+            network_type=network_type,
             preferred_backup_window=preferred_backup_window,
             preferred_maintenance_window=preferred_maintenance_window,
             restore_to_time=restore_to_time,
@@ -545,6 +555,19 @@ class CfnDBCluster(
         jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="globalClusterIdentifier")
+    def global_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Neptune global database to which this new DB cluster should be added.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "globalClusterIdentifier"))
+
+    @global_cluster_identifier.setter
+    def global_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d24a7e61cc203496aed46c5e445a79dcdeecc3a482e6952dfecbbe2f3377913)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="iamAuthEnabled")
     def iam_auth_enabled(
         self,
@@ -574,6 +597,19 @@ class CfnDBCluster(
             type_hints = typing.get_type_hints(_typecheckingstub__93cb5809ab54e2bc5a79b4ccc486c495436b940752d1a61e435b1d141fd4fe48)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="networkType")
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type of the DB cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "networkType"))
+
+    @network_type.setter
+    def network_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3069414028714ea9e8ef5c2ccb00f163c59ee83477b3d452d0d692cef6dd44e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "networkType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="preferredBackupWindow")
@@ -1253,8 +1289,10 @@ class CfnDBClusterParameterGroupProps:
         "deletion_protection": "deletionProtection",
         "enable_cloudwatch_logs_exports": "enableCloudwatchLogsExports",
         "engine_version": "engineVersion",
+        "global_cluster_identifier": "globalClusterIdentifier",
         "iam_auth_enabled": "iamAuthEnabled",
         "kms_key_id": "kmsKeyId",
+        "network_type": "networkType",
         "preferred_backup_window": "preferredBackupWindow",
         "preferred_maintenance_window": "preferredMaintenanceWindow",
         "restore_to_time": "restoreToTime",
@@ -1284,8 +1322,10 @@ class CfnDBClusterProps:
         deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
         engine_version: typing.Optional[builtins.str] = None,
+        global_cluster_identifier: typing.Optional[builtins.str] = None,
         iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         kms_key_id: typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]] = None,
+        network_type: typing.Optional[builtins.str] = None,
         preferred_backup_window: typing.Optional[builtins.str] = None,
         preferred_maintenance_window: typing.Optional[builtins.str] = None,
         restore_to_time: typing.Optional[builtins.str] = None,
@@ -1312,8 +1352,10 @@ class CfnDBClusterProps:
         :param deletion_protection: Indicates whether or not the DB cluster has deletion protection enabled. The database can't be deleted when deletion protection is enabled.
         :param enable_cloudwatch_logs_exports: Specifies a list of log types that are enabled for export to CloudWatch Logs.
         :param engine_version: Indicates the database engine version.
+        :param global_cluster_identifier: The ID of the Neptune global database to which this new DB cluster should be added.
         :param iam_auth_enabled: True if mapping of Amazon Identity and Access Management (IAM) accounts to database accounts is enabled, and otherwise false.
         :param kms_key_id: The Amazon Resource Name (ARN) of the KMS key that is used to encrypt the database instances in the DB cluster, such as ``arn:aws:kms:us-east-1:012345678910:key/abcd1234-a123-456a-a12b-a123b4cd56ef`` . If you enable the ``StorageEncrypted`` property but don't specify this property, the default KMS key is used. If you specify this property, you must set the ``StorageEncrypted`` property to ``true`` .
+        :param network_type: The network type of the DB cluster.
         :param preferred_backup_window: Specifies the daily time range during which automated backups are created if automated backups are enabled, as determined by the ``BackupRetentionPeriod`` . An update may require some interruption.
         :param preferred_maintenance_window: Specifies the weekly time range during which system maintenance can occur, in Universal Coordinated Time (UTC).
         :param restore_to_time: Creates a new DB cluster from a DB snapshot or DB cluster snapshot. If a DB snapshot is specified, the target DB cluster is created from the source DB snapshot with a default configuration and default security group. If a DB cluster snapshot is specified, the target DB cluster is created from the source DB cluster restore point with the same configuration as the original source DB cluster, except that the new DB cluster is created with the default security group.
@@ -1354,8 +1396,10 @@ class CfnDBClusterProps:
                 deletion_protection=False,
                 enable_cloudwatch_logs_exports=["enableCloudwatchLogsExports"],
                 engine_version="engineVersion",
+                global_cluster_identifier="globalClusterIdentifier",
                 iam_auth_enabled=False,
                 kms_key_id="kmsKeyId",
+                network_type="networkType",
                 preferred_backup_window="preferredBackupWindow",
                 preferred_maintenance_window="preferredMaintenanceWindow",
                 restore_to_time="restoreToTime",
@@ -1389,8 +1433,10 @@ class CfnDBClusterProps:
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument enable_cloudwatch_logs_exports", value=enable_cloudwatch_logs_exports, expected_type=type_hints["enable_cloudwatch_logs_exports"])
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
             check_type(argname="argument iam_auth_enabled", value=iam_auth_enabled, expected_type=type_hints["iam_auth_enabled"])
             check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
             check_type(argname="argument preferred_backup_window", value=preferred_backup_window, expected_type=type_hints["preferred_backup_window"])
             check_type(argname="argument preferred_maintenance_window", value=preferred_maintenance_window, expected_type=type_hints["preferred_maintenance_window"])
             check_type(argname="argument restore_to_time", value=restore_to_time, expected_type=type_hints["restore_to_time"])
@@ -1427,10 +1473,14 @@ class CfnDBClusterProps:
             self._values["enable_cloudwatch_logs_exports"] = enable_cloudwatch_logs_exports
         if engine_version is not None:
             self._values["engine_version"] = engine_version
+        if global_cluster_identifier is not None:
+            self._values["global_cluster_identifier"] = global_cluster_identifier
         if iam_auth_enabled is not None:
             self._values["iam_auth_enabled"] = iam_auth_enabled
         if kms_key_id is not None:
             self._values["kms_key_id"] = kms_key_id
+        if network_type is not None:
+            self._values["network_type"] = network_type
         if preferred_backup_window is not None:
             self._values["preferred_backup_window"] = preferred_backup_window
         if preferred_maintenance_window is not None:
@@ -1596,6 +1646,15 @@ class CfnDBClusterProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def global_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The ID of the Neptune global database to which this new DB cluster should be added.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-globalclusteridentifier
+        '''
+        result = self._values.get("global_cluster_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def iam_auth_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
@@ -1618,6 +1677,15 @@ class CfnDBClusterProps:
         '''
         result = self._values.get("kms_key_id")
         return typing.cast(typing.Optional[typing.Union[builtins.str, "_IKeyRef_d4fc6ef3"]], result)
+
+    @builtins.property
+    def network_type(self) -> typing.Optional[builtins.str]:
+        '''The network type of the DB cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-dbcluster.html#cfn-neptune-dbcluster-networktype
+        '''
+        result = self._values.get("network_type")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preferred_backup_window(self) -> typing.Optional[builtins.str]:
@@ -3554,6 +3622,411 @@ class CfnEventSubscriptionProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IGlobalClusterRef_ea1eccd8, _ITaggableV2_4e6798f8)
+class CfnGlobalCluster(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_neptune.CfnGlobalCluster",
+):
+    '''Resource Type definition for AWS::Neptune::GlobalCluster.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html
+    :cloudformationResource: AWS::Neptune::GlobalCluster
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_neptune as neptune
+        
+        cfn_global_cluster = neptune.CfnGlobalCluster(self, "MyCfnGlobalCluster",
+            deletion_protection=False,
+            engine="engine",
+            engine_version="engineVersion",
+            global_cluster_identifier="globalClusterIdentifier",
+            source_db_cluster_identifier="sourceDbClusterIdentifier",
+            storage_encrypted=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        engine: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        global_cluster_identifier: typing.Optional[builtins.str] = None,
+        source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Neptune::GlobalCluster``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param deletion_protection: Whether deletion protection is enabled.
+        :param engine: The name of the database engine.
+        :param engine_version: The version number of the database engine.
+        :param global_cluster_identifier: The cluster identifier of the global database cluster.
+        :param source_db_cluster_identifier: The Amazon Resource Name (ARN) of an existing Neptune DB cluster to use as the primary cluster of the new global database.
+        :param storage_encrypted: Whether the global database cluster is storage encrypted.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__606962d9b88ee761d4fa4c63ab1d624bfd7c886743ea4e51fc406864e4f321d9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGlobalClusterProps(
+            deletion_protection=deletion_protection,
+            engine=engine,
+            engine_version=engine_version,
+            global_cluster_identifier=global_cluster_identifier,
+            source_db_cluster_identifier=source_db_cluster_identifier,
+            storage_encrypted=storage_encrypted,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnGlobalCluster")
+    @builtins.classmethod
+    def is_cfn_global_cluster(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGlobalCluster.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7d0d8e06edd20a6b3aade4e8ec97aa6df27ed01c64cdcb94744a9d4e24da1f4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGlobalCluster", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f11eccadb595608a5c0c184cfd939fe8ae4cddfc84cf1e7efb4c4c4b9f12922)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__074238b06642f255a9ad86e72c5ac6ab1a30ccb1f8959b82ac11edf8bb33e8c2)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="globalClusterRef")
+    def global_cluster_ref(self) -> "_GlobalClusterReference_ae43b63a":
+        '''A reference to a GlobalCluster resource.'''
+        return typing.cast("_GlobalClusterReference_ae43b63a", jsii.get(self, "globalClusterRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtection")
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether deletion protection is enabled.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deletionProtection"))
+
+    @deletion_protection.setter
+    def deletion_protection(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1abec91200bbf44b1b8c20402669c6c105d8be230d5bba71e06ffd66b0f54e3d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtection", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="engine")
+    def engine(self) -> typing.Optional[builtins.str]:
+        '''The name of the database engine.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "engine"))
+
+    @engine.setter
+    def engine(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c7df92c4ae2e585ba5aec7a1fad7ed34a66c3154869696988ebd18e3be13c62)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "engine", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="engineVersion")
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version number of the database engine.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "engineVersion"))
+
+    @engine_version.setter
+    def engine_version(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8810cd4cb9e83a4e840ef20b67ea0d50554a79ac12cb8a2c6e0acb6dfee87787)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "engineVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="globalClusterIdentifier")
+    def global_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The cluster identifier of the global database cluster.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "globalClusterIdentifier"))
+
+    @global_cluster_identifier.setter
+    def global_cluster_identifier(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__043e1e122833f3cc8031a370be94b07fa8e316f621efce737bb83cb3f859137e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="sourceDbClusterIdentifier")
+    def source_db_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an existing Neptune DB cluster to use as the primary cluster of the new global database.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "sourceDbClusterIdentifier"))
+
+    @source_db_cluster_identifier.setter
+    def source_db_cluster_identifier(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11a459f864d2a17054bb44649efcb8d439927d059de326a81fec308c18cce4aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "sourceDbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="storageEncrypted")
+    def storage_encrypted(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether the global database cluster is storage encrypted.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "storageEncrypted"))
+
+    @storage_encrypted.setter
+    def storage_encrypted(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fe62e10d18bab6713cc486efda9f2bc2497e42ee6153afbb38397a168b606221)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "storageEncrypted", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da0826eb96697e3449063631b1edc0e56631f8c6b93519ca1c600a4cb81acfb7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_neptune.CfnGlobalClusterProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "deletion_protection": "deletionProtection",
+        "engine": "engine",
+        "engine_version": "engineVersion",
+        "global_cluster_identifier": "globalClusterIdentifier",
+        "source_db_cluster_identifier": "sourceDbClusterIdentifier",
+        "storage_encrypted": "storageEncrypted",
+        "tags": "tags",
+    },
+)
+class CfnGlobalClusterProps:
+    def __init__(
+        self,
+        *,
+        deletion_protection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        engine: typing.Optional[builtins.str] = None,
+        engine_version: typing.Optional[builtins.str] = None,
+        global_cluster_identifier: typing.Optional[builtins.str] = None,
+        source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+        storage_encrypted: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnGlobalCluster``.
+
+        :param deletion_protection: Whether deletion protection is enabled.
+        :param engine: The name of the database engine.
+        :param engine_version: The version number of the database engine.
+        :param global_cluster_identifier: The cluster identifier of the global database cluster.
+        :param source_db_cluster_identifier: The Amazon Resource Name (ARN) of an existing Neptune DB cluster to use as the primary cluster of the new global database.
+        :param storage_encrypted: Whether the global database cluster is storage encrypted.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_neptune as neptune
+            
+            cfn_global_cluster_props = neptune.CfnGlobalClusterProps(
+                deletion_protection=False,
+                engine="engine",
+                engine_version="engineVersion",
+                global_cluster_identifier="globalClusterIdentifier",
+                source_db_cluster_identifier="sourceDbClusterIdentifier",
+                storage_encrypted=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab87ed42ec0c0abef208c5513b7f5e22c6719d9246acce13a1b225bbddb51daa)
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
+            check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
+            check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
+            check_type(argname="argument global_cluster_identifier", value=global_cluster_identifier, expected_type=type_hints["global_cluster_identifier"])
+            check_type(argname="argument source_db_cluster_identifier", value=source_db_cluster_identifier, expected_type=type_hints["source_db_cluster_identifier"])
+            check_type(argname="argument storage_encrypted", value=storage_encrypted, expected_type=type_hints["storage_encrypted"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
+        if engine is not None:
+            self._values["engine"] = engine
+        if engine_version is not None:
+            self._values["engine_version"] = engine_version
+        if global_cluster_identifier is not None:
+            self._values["global_cluster_identifier"] = global_cluster_identifier
+        if source_db_cluster_identifier is not None:
+            self._values["source_db_cluster_identifier"] = source_db_cluster_identifier
+        if storage_encrypted is not None:
+            self._values["storage_encrypted"] = storage_encrypted
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def deletion_protection(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether deletion protection is enabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-deletionprotection
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def engine(self) -> typing.Optional[builtins.str]:
+        '''The name of the database engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-engine
+        '''
+        result = self._values.get("engine")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def engine_version(self) -> typing.Optional[builtins.str]:
+        '''The version number of the database engine.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-engineversion
+        '''
+        result = self._values.get("engine_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def global_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The cluster identifier of the global database cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-globalclusteridentifier
+        '''
+        result = self._values.get("global_cluster_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def source_db_cluster_identifier(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an existing Neptune DB cluster to use as the primary cluster of the new global database.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-sourcedbclusteridentifier
+        '''
+        result = self._values.get("source_db_cluster_identifier")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def storage_encrypted(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether the global database cluster is storage encrypted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-storageencrypted
+        '''
+        result = self._values.get("storage_encrypted")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-neptune-globalcluster.html#cfn-neptune-globalcluster-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnGlobalClusterProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnDBCluster",
     "CfnDBClusterParameterGroup",
@@ -3567,6 +4040,8 @@ __all__ = [
     "CfnDBSubnetGroupProps",
     "CfnEventSubscription",
     "CfnEventSubscriptionProps",
+    "CfnGlobalCluster",
+    "CfnGlobalClusterProps",
 ]
 
 publication.publish()
@@ -3587,8 +4062,10 @@ def _typecheckingstub__c02a97dc4524b23c97bacdafe22108ee784060ff42aa0df4868429383
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
     engine_version: typing.Optional[builtins.str] = None,
+    global_cluster_identifier: typing.Optional[builtins.str] = None,
     iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    network_type: typing.Optional[builtins.str] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     restore_to_time: typing.Optional[builtins.str] = None,
@@ -3694,6 +4171,12 @@ def _typecheckingstub__ac0ffa0cb5e6cb96f0ac41b0ad60f41fec7830c2c78b28087b7ad47eb
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0d24a7e61cc203496aed46c5e445a79dcdeecc3a482e6952dfecbbe2f3377913(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__09c179ddac73df63b3357ed10cb368f7009ffc4f4639e0086cdec01ad3f89c08(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
 ) -> None:
@@ -3701,6 +4184,12 @@ def _typecheckingstub__09c179ddac73df63b3357ed10cb368f7009ffc4f4639e0086cdec01ad
     pass
 
 def _typecheckingstub__93cb5809ab54e2bc5a79b4ccc486c495436b940752d1a61e435b1d141fd4fe48(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3069414028714ea9e8ef5c2ccb00f163c59ee83477b3d452d0d692cef6dd44e6(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -3874,8 +4363,10 @@ def _typecheckingstub__88c4bf370341b0e8b113f0ee9d80be6e0b45183ba249011ead676b8c5
     deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     enable_cloudwatch_logs_exports: typing.Optional[typing.Sequence[builtins.str]] = None,
     engine_version: typing.Optional[builtins.str] = None,
+    global_cluster_identifier: typing.Optional[builtins.str] = None,
     iam_auth_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     kms_key_id: typing.Optional[typing.Union[builtins.str, _IKeyRef_d4fc6ef3]] = None,
+    network_type: typing.Optional[builtins.str] = None,
     preferred_backup_window: typing.Optional[builtins.str] = None,
     preferred_maintenance_window: typing.Optional[builtins.str] = None,
     restore_to_time: typing.Optional[builtins.str] = None,
@@ -4266,6 +4757,94 @@ def _typecheckingstub__be12afbc64d35614ba28986fc60eff385d7080e57aabefaff50d73a28
     source_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     source_type: typing.Optional[builtins.str] = None,
     subscription_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__606962d9b88ee761d4fa4c63ab1d624bfd7c886743ea4e51fc406864e4f321d9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    engine: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    global_cluster_identifier: typing.Optional[builtins.str] = None,
+    source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7d0d8e06edd20a6b3aade4e8ec97aa6df27ed01c64cdcb94744a9d4e24da1f4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f11eccadb595608a5c0c184cfd939fe8ae4cddfc84cf1e7efb4c4c4b9f12922(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__074238b06642f255a9ad86e72c5ac6ab1a30ccb1f8959b82ac11edf8bb33e8c2(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1abec91200bbf44b1b8c20402669c6c105d8be230d5bba71e06ffd66b0f54e3d(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c7df92c4ae2e585ba5aec7a1fad7ed34a66c3154869696988ebd18e3be13c62(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8810cd4cb9e83a4e840ef20b67ea0d50554a79ac12cb8a2c6e0acb6dfee87787(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__043e1e122833f3cc8031a370be94b07fa8e316f621efce737bb83cb3f859137e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11a459f864d2a17054bb44649efcb8d439927d059de326a81fec308c18cce4aa(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fe62e10d18bab6713cc486efda9f2bc2497e42ee6153afbb38397a168b606221(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da0826eb96697e3449063631b1edc0e56631f8c6b93519ca1c600a4cb81acfb7(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab87ed42ec0c0abef208c5513b7f5e22c6719d9246acce13a1b225bbddb51daa(
+    *,
+    deletion_protection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    engine: typing.Optional[builtins.str] = None,
+    engine_version: typing.Optional[builtins.str] = None,
+    global_cluster_identifier: typing.Optional[builtins.str] = None,
+    source_db_cluster_identifier: typing.Optional[builtins.str] = None,
+    storage_encrypted: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

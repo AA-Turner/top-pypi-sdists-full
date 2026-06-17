@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import signal
+import shutil
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -37,6 +38,28 @@ def _hf_write_token(store) -> str:
     return _HF_WRITE_TOK["t"]
 
 HEARTBEAT_INTERVAL = 60  # write a fresh heartbeat every 60s; HEARTBEAT_STALE_MINUTES=15 leaves 15 missed-write tolerance
+
+
+def _raw_active_disk_refusal(command: str) -> str:
+    if not activation_extraction_must_share_gpu(command):
+        return ""
+    root = os.path.join(os.environ.get("TMPDIR", "/tmp"), "wisent_raw_pending")
+    try:
+        os.makedirs(root, exist_ok=True)
+        free_gb = shutil.disk_usage(root).free / (1024 ** 3)
+    except OSError as exc:
+        return f"raw active root unavailable: {root}: {exc}"
+    reserve = float(os.environ.get("WISENT_RAW_CLAIM_RESERVE_GB", "180") or 180)
+    min_free = float(os.environ.get(
+        "WISENT_RAW_CLAIM_MIN_FREE_GB",
+        os.environ.get("WISENT_RAW_HOT_FREE_TARGET_GB", "270"),
+    ) or 270)
+    if free_gb - reserve < min_free:
+        return (
+            f"raw active staging low: {root} free={free_gb:.1f}GB "
+            f"reserve={reserve:.1f}GB min_free={min_free:.1f}GB"
+        )
+    return ""
 
 
 def _gsutil_bin() -> str:
@@ -268,6 +291,10 @@ def start_slot(store: JobStorage, job, hostname: str, log_fn,
         log_fn(f"refuse {job.job_id}: {reason}")
         return None
     if not _install_apt_packages(job, kind, log_fn):
+        return None
+    raw_refusal = _raw_active_disk_refusal(cmd)
+    if raw_refusal:
+        log_fn(f"refuse {job.job_id}: {raw_refusal}")
         return None
     work_dir = f"/tmp/wc-{job.job_id}"
     os.makedirs(f"{work_dir}/output", exist_ok=True)

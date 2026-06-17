@@ -23,6 +23,7 @@ struct Assignment<'a> {
 struct Dependency<'a> {
   arguments: Vec<Value>,
   recipe: &'a str,
+  star: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize, PartialEq, Serialize)]
@@ -54,6 +55,7 @@ struct Module<'a> {
 struct Parameter<'a> {
   default: Option<&'a str>,
   export: bool,
+  flag: bool,
   help: Option<&'a str>,
   kind: &'a str,
   long: Option<&'a str>,
@@ -79,6 +81,13 @@ struct Recipe<'a> {
   shebang: bool,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[serde(untagged)]
+enum Dotenv<'a> {
+  Many(Vec<&'a str>),
+  One(&'a str),
+}
+
 #[derive(Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Settings<'a> {
@@ -86,16 +95,17 @@ struct Settings<'a> {
   allow_duplicate_variables: bool,
   default_list: bool,
   default_script: bool,
-  dotenv_filename: Option<&'a str>,
+  dotenv_filename: Option<Dotenv<'a>>,
   dotenv_load: bool,
   dotenv_override: bool,
-  dotenv_path: Option<&'a str>,
+  dotenv_path: Option<Dotenv<'a>>,
   dotenv_required: bool,
   export: bool,
   fallback: bool,
   guards: bool,
   ignore_comments: bool,
   lazy: bool,
+  lists: bool,
   no_cd: bool,
   no_exit_message: bool,
   positional_arguments: bool,
@@ -367,6 +377,7 @@ fn dependency_argument() {
                 json!(["call", "replace", "a", "b", "c"]),
               ]
               .into(),
+              star: None,
             }]
             .into(),
             priors: 1,
@@ -711,8 +722,8 @@ fn settings() {
         allow_duplicate_recipes: true,
         default_list: true,
         default_script: true,
-        dotenv_filename: Some("filename"),
-        dotenv_path: Some("path"),
+        dotenv_filename: Some(Dotenv::One("filename")),
+        dotenv_path: Some(Dotenv::One("path")),
         dotenv_load: true,
         export: true,
         fallback: true,
@@ -728,6 +739,87 @@ fn settings() {
       ..default()
     },
   );
+}
+
+#[test]
+fn dotenv_filename_list() {
+  let test = Test::new()
+    .justfile(
+      "
+        set lists
+        set dotenv-filename := ['foo', 'bar']
+
+        foo:
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["--dump", "--dump-format", "json"])
+    .stdout_regex(".*");
+
+  let mut expected = Module {
+    first: Some("foo"),
+    recipes: [(
+      "foo",
+      Recipe {
+        name: "foo",
+        namepath: "foo",
+        ..default()
+      },
+    )]
+    .into(),
+    settings: Settings {
+      dotenv_filename: Some(Dotenv::Many(vec!["foo", "bar"])),
+      lists: true,
+      ..default()
+    },
+    ..default()
+  };
+
+  fix_source(test.tempdir.path(), &mut expected);
+
+  let stdout = test.success().stdout;
+  let actual = serde_json::from_str::<Module>(&stdout).unwrap();
+
+  pretty_assertions::assert_eq!(actual, expected);
+}
+
+#[test]
+fn list_concatenation() {
+  let test = Test::new()
+    .justfile(
+      "
+        set lists
+
+        foo := ['bar'] ++ ['baz']
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["--dump", "--dump-format", "json"])
+    .stdout_regex(".*");
+
+  let mut expected = Module {
+    assignments: [(
+      "foo",
+      Assignment {
+        name: "foo",
+        value: json!(["list-concatenate", ["list", "bar"], ["list", "baz"]]),
+        ..default()
+      },
+    )]
+    .into(),
+    settings: Settings {
+      lists: true,
+      ..default()
+    },
+    ..default()
+  };
+
+  fix_source(test.tempdir.path(), &mut expected);
+
+  let stdout = test.success().stdout;
+  let actual = serde_json::from_str::<Module>(&stdout).unwrap();
+
+  pretty_assertions::assert_eq!(actual, expected);
 }
 
 #[test]
@@ -1210,6 +1302,50 @@ fn arg_value() {
         },
       )]
       .into(),
+      ..default()
+    },
+  );
+}
+
+#[test]
+fn arg_flag() {
+  case(
+    "set unstable\nset lists\n[arg('bar', long, flag)]\nfoo bar:",
+    Module {
+      first: Some("foo"),
+      recipes: [(
+        "foo",
+        Recipe {
+          name: "foo",
+          namepath: "foo",
+          attributes: [json!({
+            "arg": {
+              "help": null,
+              "long": "bar",
+              "name": "bar",
+              "pattern": null,
+              "short": null,
+              "value": null,
+            }
+          })]
+          .into(),
+          parameters: [Parameter {
+            flag: true,
+            kind: "singular",
+            long: Some("bar"),
+            name: "bar",
+            ..default()
+          }]
+          .into(),
+          ..default()
+        },
+      )]
+      .into(),
+      settings: Settings {
+        lists: true,
+        unstable: true,
+        ..default()
+      },
       ..default()
     },
   );

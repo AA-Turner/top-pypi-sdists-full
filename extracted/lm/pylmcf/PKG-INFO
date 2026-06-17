@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylmcf
-Version: 0.9.14
+Version: 1.0.0
 Summary: Python bindings for Network Simplex algorithm from LEMON library
 Keywords: network simplex,minimum cost flow,lemon,graph algorithms
 Author-Email: =?utf-8?q?Micha=C5=82_Startek?= <michal.startek@mimuw.edu.pl>
@@ -11,7 +11,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Project-URL: Homepage, https://github.com/michalsta/pylmcf
 Project-URL: Repository, https://github.com/michalsta/pylmcf.git
 Requires-Python: >=3.9

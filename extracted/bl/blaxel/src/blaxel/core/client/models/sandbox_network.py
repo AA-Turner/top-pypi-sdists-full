@@ -20,21 +20,20 @@ class SandboxNetwork:
     proxy settings
 
         Attributes:
-            allowed_domains (Union[Unset, list[str]]): Deprecated: use proxy.allowedDomains or firewall rulesets instead.
-                List of allowed external domains (allowlist). When set, only these domains are reachable. Supports wildcards (e.g.
-                *.s3.amazonaws.com). Example: ["api.stripe.com", "api.openai.com", "*.s3.amazonaws.com"].
+            allowed_domains (Union[Unset, list[str]]): Deprecated: use proxy.allowedDomains instead. List of allowed
+                external domains (allowlist). Kept for backward compatibility. Example: ["api.stripe.com", "api.openai.com",
+                "*.s3.amazonaws.com"].
             egress (Union[Unset, EgressConfig]): Egress configuration for routing sandbox outbound traffic through a
                 dedicated IP gateway
             firewall (Union[Unset, FirewallConfig]): Firewall configuration specifying which network lockdown rulesets to
                 apply. Valid rulesets are "default" (no-op), "proxy" (restrict egress to proxy), and "dedicated-ip" (restrict
                 egress to dedicated IP gateway).
-            forbidden_domains (Union[Unset, list[str]]): Deprecated: use proxy.forbiddenDomains or firewall rulesets
-                instead. List of forbidden external domains (denylist). When set, all domains except these are reachable. Supports
-                wildcards (e.g. *.malware.com). If both allowedDomains and forbiddenDomains are set, allowedDomains takes
-                precedence. Example: ["*.malware.com", "evil.example.org"].
+            forbidden_domains (Union[Unset, list[str]]): Deprecated: use proxy.forbiddenDomains instead. List of forbidden
+                external domains (denylist). Kept for backward compatibility. Example: ["*.malware.com", "evil.example.org"].
             proxy (Union[Unset, ProxyConfig]): Proxy configuration for routing sandbox HTTP traffic through the platform
                 proxy with MITM inspection and per-destination header/body injection
-            subnet (Union[Unset, str]): Name of the subnet to attach the sandbox to.
+            subnet (Union[Unset, str]): Subnet name for the sandbox. Takes priority over any subnet derived from egress
+                config. Defaults to "default" when absent. Example: default.
     """
 
     allowed_domains: Union[Unset, list[str]] = UNSET
@@ -46,6 +45,7 @@ class SandboxNetwork:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+
         allowed_domains: Union[Unset, list[str]] = UNSET
         if not isinstance(self.allowed_domains, Unset):
             allowed_domains = self.allowed_domains

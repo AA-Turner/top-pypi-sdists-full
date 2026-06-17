@@ -54,18 +54,6 @@ SpanType = Literal[
     "unknown",  # Unknown/unclassified span
 ]
 
-# Error types - aligned with backend error inference (backend/src/api/v1/spans.py)
-ErrorType = Literal[
-    "timeout",  # Operation timed out
-    "rate_limit",  # Rate limit exceeded (429)
-    "network_error",  # Network/connection issues
-    "authentication_error",  # Auth/permission issues
-    "validation_error",  # Input validation failed
-    "llm_error",  # LLM/model error
-    "tool_error",  # Tool execution error
-    "unknown",  # Unclassified error
-]
-
 # Failure categories for analysis (backend/src/models/enums.py)
 FailureCategory = Literal[
     "timeout_error",
@@ -88,127 +76,34 @@ class TokenUsage(TypedDict):
     unit: NotRequired[str]  # Token unit (e.g., "TOKENS")
 
 
-# Cost tracking (Langfuse-compatible)
-class CostDetails(TypedDict):
-    """Cost breakdown for LLM spans."""
-
-    input_cost: NotRequired[float]  # Cost for input tokens
-    output_cost: NotRequired[float]  # Cost for output tokens
-    total_cost: NotRequired[float]  # Total cost
-
-
-# Usage details for extended token tracking (cache tokens, reasoning tokens, etc.)
-class UsageDetails(TypedDict):
-    """Extended usage details for LLM spans."""
-
-    input: NotRequired[int]
-    output: NotRequired[int]
-    total: NotRequired[int]
-    cache_read: NotRequired[int]  # Tokens read from cache
-    cache_write: NotRequired[int]  # Tokens written to cache
-    reasoning: NotRequired[int]  # Reasoning tokens (e.g., o1 models)
-
-
 # Metadata and tags
 Metadata = dict[str, Any]
 Tags = list[str]
 
+# JSON-compatible value. Buffered event payloads are JSON-serialized for
+# offline storage, so they must stay within these types.
+JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 
-# API request/response types
-class TraceCreateRequest(TypedDict):
-    """Request payload for creating a trace."""
-
-    id: NotRequired[str]  # Client-provided ID (optional)
-    name: str
-    status: NotRequired[TraceStatus]
-    metadata: NotRequired[Metadata]
-    tags: NotRequired[Tags]
-    spans: NotRequired[list[dict[str, Any]]]
-    # Langfuse-compatible fields
-    input: NotRequired[Any]  # Trace input
-    output: NotRequired[Any]  # Trace output
-    user_id: NotRequired[str]  # User identifier
-    session_id: NotRequired[str]  # Session identifier
-    environment: NotRequired[str]  # Environment (default, staging, production)
-    version: NotRequired[str]  # Version tag
-    release: NotRequired[str]  # Release tag
+# Payload of a buffered event (see aigie.buffer.BufferedEvent).
+EventPayload = dict[str, JsonValue]
 
 
-class TraceUpdateRequest(TypedDict):
-    """Request payload for updating a trace."""
+class OfflineStorageStats(TypedDict):
+    """Statistics for the on-disk offline event store."""
 
-    name: NotRequired[str]
-    status: NotRequired[TraceStatus]
-    error_message: NotRequired[str]
-    error_type: NotRequired[str]
-    metadata: NotRequired[Metadata]
-    tags: NotRequired[Tags]
-    spans: NotRequired[list[dict[str, Any]]]
-    input: NotRequired[Any]
-    output: NotRequired[Any]
-    user_id: NotRequired[str]
-    session_id: NotRequired[str]
-    environment: NotRequired[str]
-    version: NotRequired[str]
-    release: NotRequired[str]
+    pending_files: int
+    total_size_bytes: int
+    storage_dir: str
 
 
-class SpanCreateRequest(TypedDict):
-    """Request payload for creating a span."""
+class OfflineModeStats(TypedDict):
+    """Offline-mode statistics reported by ``EventBuffer.get_offline_stats``."""
 
-    id: NotRequired[str]  # Client-provided ID (optional)
-    trace_id: str
-    name: str
-    type: SpanType
-    parent_id: NotRequired[str]  # Parent span for hierarchy
-    input: NotRequired[Any]
-    output: NotRequired[Any]
-    metadata: NotRequired[Metadata]
-    tags: NotRequired[Tags]
-    # Error tracking
-    error: NotRequired[str]  # Error message (max 5000 chars)
-    error_type: NotRequired[ErrorType]  # Error classification
-    # Token/Cost tracking
-    token_usage: NotRequired[TokenUsage]
-    usage: NotRequired[TokenUsage]  # Langfuse-style
-    usage_details: NotRequired[UsageDetails]
-    cost_details: NotRequired[CostDetails]
-    # LLM-specific fields
-    model: NotRequired[str]  # Model name
-    model_parameters: NotRequired[dict[str, Any]]  # temperature, top_p, etc.
-    # Observation level
-    level: NotRequired[ObservationLevel]
-    status_message: NotRequired[str]
-    version: NotRequired[str]
-
-
-class SpanUpdateRequest(TypedDict):
-    """Request payload for updating a span."""
-
-    name: NotRequired[str]
-    input: NotRequired[Any]
-    output: NotRequired[Any]
-    parent_id: NotRequired[str]
-    status: NotRequired[SpanStatus]
-    # Error tracking
-    error: NotRequired[str]
-    error_message: NotRequired[str]  # SDK alias for error
-    error_type: NotRequired[ErrorType]
-    # Token/Cost tracking
-    model: NotRequired[str]
-    model_parameters: NotRequired[dict[str, Any]]
-    prompt_tokens: NotRequired[int]
-    completion_tokens: NotRequired[int]
-    total_tokens: NotRequired[int]
-    input_cost: NotRequired[float]
-    output_cost: NotRequired[float]
-    total_cost: NotRequired[float]
-    # Observation level
-    level: NotRequired[ObservationLevel]
-    status_message: NotRequired[str]
-    version: NotRequired[str]
-    metadata: NotRequired[Metadata]
-    tags: NotRequired[Tags]
+    enabled: bool
+    is_offline: bool
+    consecutive_failures: int
+    offline_threshold: int
+    storage: NotRequired[OfflineStorageStats]
 
 
 # Response types

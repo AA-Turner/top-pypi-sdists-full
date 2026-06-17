@@ -13,7 +13,6 @@ Typical flow:
 from __future__ import annotations
 
 import base64
-import imghdr
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
@@ -33,6 +32,20 @@ _IMGHDR_TO_MIME = {
     "webp": "image/webp",
     "bmp": "image/bmp",
 }
+
+
+def _guess_image_type(h: bytes) -> str | None:
+    if h.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if h.startswith(b"\xff\xd8"):
+        return "jpeg"
+    if h.startswith(b"GIF87a") or h.startswith(b"GIF89a"):
+        return "gif"
+    if h.startswith(b"RIFF") and len(h) >= 12 and h[8:12] == b"WEBP":
+        return "webp"
+    if h.startswith(b"BM"):
+        return "bmp"
+    return None
 
 
 @dataclass(frozen=True)
@@ -65,9 +78,9 @@ def encode_image_for_vision(path: Path | str) -> VisionAttachment:
             "Resize before attaching."
         )
 
-    # Use imghdr to identify by content (more reliable than file extension).
-    # If imghdr fails, fall back to extension as a last resort.
-    fmt = imghdr.what(None, h=raw)
+    # Use helper to identify by content (more reliable than file extension).
+    # If content check fails, fall back to extension as a last resort.
+    fmt = _guess_image_type(raw)
     mime = _IMGHDR_TO_MIME.get(fmt) if fmt else None
     if mime is None:
         # Last-ditch: trust the extension if it's a known image type

@@ -25,6 +25,7 @@ from tdda.serial.pandasio import (
     pandas_df_to_metadata,
     pandas_dtype_to_fieldtype,
     serial_to_pandas_read_csv_args,
+    serial_to_pandas_write_csv_python,
 )
 from tdda.serial.reader import (
     load_metadata,
@@ -46,9 +47,12 @@ from tdda.serial.testserial import (
     epath,
     tmppath,
 )
+from tdda.utils import testwarn
+
 from tdda.serial.datautils import (
     tiny_pandas_df,
 )
+
 
 ROW_HEADER = '#'
 
@@ -1857,6 +1861,108 @@ class TestSerialPandasAlternateBooleans(ReferenceTestCase):
             tdpath('bools.csv'), tdpath('bools.serial'), backend='n'
         )
         self.assertDataFrameCorrect(df, tdpath('bools.parquet'))
+
+
+class TestPandasWritePython(ReferenceTestCase):
+    """
+    Tests for serial_to_pandas_write_csv_python.
+
+    Each test:
+    1. Loads metadata from a .serial file
+    2. Generates Python write code and checks it against a reference .py
+    3. Executes the generated Python and writes a CSV to a temp path
+    4. Checks the written CSV against a reference file
+    """
+
+    def _run(self, serial_path, csv_path, ref_py, ref_csv,
+             expected_warnings=None):
+        md = load_metadata(serial_path)
+        warn, buf = testwarn()
+        py = serial_to_pandas_write_csv_python(md, warner=warn)
+        if expected_warnings is not None:
+            self.assertEqual(buf, expected_warnings)
+        self.assertStringCorrect(py, ref_py)
+        df = csv_to_pandas(csv_path, serial_path)
+        ns = {}
+        exec(py, ns)
+        out = tmppath(os.path.basename(ref_csv))
+        ns['write_data'](df, out)
+        self.assertFileCorrect(out, ref_csv)
+
+    def test_write_py_weird(self):
+        self._run(
+            tdpath('tiny1nd-weird.serial'),
+            tdpath('tiny1nd-weird.ssv'),
+            tdpath('tiny1nd-weird-write-pd.py'),
+            tdpath('tiny1nd-weird-write-pd.ssv'),
+            expected_warnings=[
+                'Boolean formats cannot be expressed in'
+                ' pandas.DataFrame.to_csv;'
+                ' booleans will be written as True/False.'
+            ],
+        )
+
+    def test_write_py_a1k_mixed(self):
+        self._run(
+            tdpath('a10-mixed.csv.serial'),
+            tdpath('a10-mixed.csv'),
+            tdpath('a10-mixed-write-pd.py'),
+            tdpath('a10-mixed-write-pd.csv'),
+            expected_warnings=[
+                'Boolean formats cannot be expressed in'
+                ' pandas.DataFrame.to_csv;'
+                ' booleans will be written as True/False.',
+                'Multiple data formats; using ISO 8601.',
+            ],
+        )
+
+
+class TestPandasToCSV(ReferenceTestCase):
+
+    def test_write_csv_no_metadata(self):
+        out = tmppath('tiny1cd-pd.csv')
+        pandas_to_csv(tiny_pandas_df(), out, index=False)
+        self.assertFileCorrect(out, tdpath('tiny1cd-pd.csv'))
+
+    def test_write_csv_with_md_out(self):
+        out = tmppath('tiny1cd-pd.csv')
+        md_out = tmppath('tiny1cd-pd.serial')
+        pandas_to_csv(tiny_pandas_df(), out, md_outpath=md_out, index=False)
+        self.assertFileCorrect(out, tdpath('tiny1cd-pd.csv'))
+        self.assertFileCorrect(
+            md_out,
+            tdpath('tiny1cd-pd.serial'),
+            ignore_patterns=TDDASERIAL_PATTERNS,
+        )
+
+    def test_write_csv_with_md_in(self):
+        out = tmppath('tiny1cd-pd-from-serial.csv')
+        pandas_to_csv(
+            tiny_pandas_df(), out, md_inpath=tdpath('tiny1cd.serial'),
+            index=False,
+        )
+        self.assertFileCorrect(out, tdpath('tiny1cd-pd-from-serial.csv'))
+
+    def test_round_trip_null_value(self):
+        # With default na_rep='', null and '' are both written as ""
+        # so '' comes back as null on read. Known pandas limitation.
+        out = tmppath('tiny1cd-pd-rt.csv')
+        md_out = tmppath('tiny1cd-pd-rt.serial')
+        pandas_to_csv(tiny_pandas_df(), out, md_outpath=md_out, index=False)
+        df2 = csv_to_pandas(out, md_out)
+        expected = tiny_pandas_df().copy()
+        expected['s'] = expected['s'].where(expected['s'] != '', other=None)
+        self.assertDataFramesEqual(expected, df2, type_matching='medium')
+
+    def test_round_trip_safe_null(self):
+        out = tmppath('tiny1cd-pd-rt-null.csv')
+        md_out = tmppath('tiny1cd-pd-rt-null.serial')
+        pandas_to_csv(
+            tiny_pandas_df(), out, md_outpath=md_out,
+            index=False, na_rep='NULL',
+        )
+        df2 = csv_to_pandas(out, md_out)
+        self.assertDataFramesEqual(tiny_pandas_df(), df2, type_matching='medium')
 
 
 if __name__ == '__main__':

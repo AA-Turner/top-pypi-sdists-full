@@ -94,7 +94,7 @@ class SpanContext:
     Attributes:
         trace_id:         OTel trace identifier.
         span_id:          OTel span identifier.
-        framework:        Framework name (e.g. "langgraph", "openai_agents").
+        framework:        Framework name (e.g. "langgraph", "claude_agent_sdk").
         framework_handle: The framework's native object (LangGraph state,
                           RunContext, etc.).  Typed loosely — the adapter
                           knows what to expect for its framework.
@@ -171,7 +171,7 @@ class FrameworkAdapter(abc.ABC):
         """Patch the framework so it emits typed tracing events to *emitter*.
 
         Default: no-op. Override to wire framework callbacks/hooks that
-        publish via :py:meth:`TraceEmitter.emit_span_create` and friends.
+        publish via :py:meth:`TraceEmitter.emit_span_complete` and friends.
         """
         return
 

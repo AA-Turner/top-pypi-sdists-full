@@ -424,6 +424,7 @@ class ListMetaQueryRunsRequest(_message.Message):
         "trace_id",
         "resource_group",
         "query_version",
+        "deployment_filter",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -443,6 +444,7 @@ class ListMetaQueryRunsRequest(_message.Message):
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_FILTER_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -461,6 +463,7 @@ class ListMetaQueryRunsRequest(_message.Message):
     trace_id: str
     resource_group: str
     query_version: str
+    deployment_filter: str
     def __init__(
         self,
         include_latency: bool = ...,
@@ -481,6 +484,7 @@ class ListMetaQueryRunsRequest(_message.Message):
         trace_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
         query_version: _Optional[str] = ...,
+        deployment_filter: _Optional[str] = ...,
     ) -> None: ...
 
 class ListMetaQueryRunsResponse(_message.Message):

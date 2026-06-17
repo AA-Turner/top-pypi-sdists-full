@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wnet
-Version: 0.9.16
+Version: 1.0.0
 Summary: Tools for calculation of Wasserstein metric between distributions based on Network Flow algorithm
 Keywords: Wasserstein,Optimal Transport,Network Flow,Earth Mover's Distance
 Author-Email: =?utf-8?q?Micha=C5=82_Startek?= <michal.startek@mimuw.edu.pl>
@@ -10,11 +10,11 @@ License-File: LICENCE
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Project-URL: Homepage, https://github.com/michalsta/wnet
 Project-URL: Repository, https://github.com/michalsta/wnet.git
 Requires-Python: >=3.9
-Requires-Dist: pylmcf>=0.9.13
+Requires-Dist: pylmcf>=1.0.0
 Requires-Dist: numpy
 Provides-Extra: extras
 Requires-Dist: networkx; extra == "extras"
@@ -30,6 +30,7 @@ Wasserstein Network (wnet) is a Python/C++ library for working with Wasserstein 
 ## Features
 - Wasserstein and Truncated Wasserstein distance between multidimensional distributions (dimensions 1–20)
 - Three distance metrics: L1, L2, L∞
+- Order-p (Lp) Wasserstein for any real p ≥ 1 (per-pair cost = `ground_distance**p`, result is the p-th root; fractional p via automatic cost scaling)
 - Derivatives with respect to peak intensities and spectrum mixture proportions
 - Position gradients (∂cost/∂position) with warm-restart re-solving after peak position updates
 - Support for distribution mixtures and efficient recalculation with changed mixture proportions
@@ -64,6 +65,34 @@ S2 = Distribution(positions2, intensities2)
 print(WassersteinDistance(S1, S2, DistanceMetric.L1))
 # 45
 ```
+
+### Order-p (Lp) Wasserstein
+
+By default the distance is the 1-Wasserstein distance. Pass `p` to use the order-p
+Wasserstein distance, where each unit of mass moved a ground distance `d` costs `d**p`
+and the returned value is the p-th root of the optimal transport cost:
+
+```python
+# Quadratic (W2) Wasserstein distance with a Euclidean ground metric
+print(WassersteinDistance(S1, S2, DistanceMetric.L2, p=2))
+print(TruncatedWassersteinDistance(S1, S2, DistanceMetric.L2, max_distance=3.0, p=2))
+
+# Fractional orders work too (e.g. p = 1.5)
+print(WassersteinDistance(S1, S2, DistanceMetric.L2, p=1.5))
+```
+
+`p` can be any real number ≥ 1. The ground metric (L1/L2/L∞) is chosen independently of `p`.
+For `p != 1` the dense transport network is always used — the fast 1D chain solver is only
+valid for `p == 1`, since exponentiated step costs are not additive along a chain.
+
+`p == 1` is bit-exact with the classic 1-Wasserstein distance. For `p != 1` the cost
+`d**p` is fractional, so the integer min-cost-flow solver works in automatically scaled
+units (`round(scale_factor() * d**p)`); the public results divide that scale back out, so
+no tuning is needed.
+
+> At the `WassersteinNetwork` level, `total_cost()` and all derivatives are in `W_p**p`
+> units (the sum of `d**p · flow`); take the p-th root for the literal `W_p` distance,
+> as `WassersteinDistance()` does.
 
 ### Truncated Wasserstein
 
@@ -105,6 +134,28 @@ for _ in range(100):
 
 ## Licence
 MIT Licence
+
+## Citation
+
+If you use this software, please cite:
+
+Król J, Bochenek M, Jopa S, Kazimierczuk K, Gambin A, Startek MP (2026).
+WNetAlign: fast and accurate spectra alignment using truncated Wasserstein distance and network simplex.
+*Briefings in Bioinformatics*, 27(3), bbag247.
+https://doi.org/10.1093/bib/bbag247
+
+```bibtex
+@article{krol2026wnetalign,
+  title   = {WNetAlign: fast and accurate spectra alignment using truncated Wasserstein distance and network simplex},
+  author  = {Kr{\'o}l, Justyna and Bochenek, Maria and Jopa, Sylwia and Kazimierczuk, Krzysztof and Gambin, Anna and Startek, Micha{\l} Piotr},
+  journal = {Briefings in Bioinformatics},
+  volume  = {27},
+  number  = {3},
+  pages   = {bbag247},
+  year    = {2026},
+  doi     = {10.1093/bib/bbag247}
+}
+```
 
 ## Related Projects
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runlayer
-Version: 0.25.0
+Version: 0.25.4
 Summary: A command-line interface for running MCP servers via HTTP transport
 Project-URL: Homepage, https://runlayer.com
 Project-URL: Documentation, https://docs.runlayer.com/
@@ -230,7 +230,7 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: questionary>=2.0.0
 Requires-Dist: rich>=13.0.0
-Requires-Dist: runlayer-sdk==0.1.0
+Requires-Dist: runlayer-hooks-sdk==0.1.0
 Requires-Dist: structlog>=25.4.0
 Requires-Dist: tomli>=2.0.0; python_version < '3.11'
 Requires-Dist: truststore<0.11,>=0.10.4
@@ -772,6 +772,73 @@ uvx runlayer setup sync
 
 # Sync to a specific client
 uvx runlayer setup sync --client cursor --yes
+```
+
+### `catalog` - Browse Available Resources
+
+Discover available skills, plugins, and MCP connectors without installing anything.
+
+#### `catalog skills`
+
+```bash
+uvx runlayer catalog skills [OPTIONS]
+```
+
+- `--query, -q`: Search skills by name or description
+- `--namespace, -N`: Filter skills by namespace
+- `--json`: Print machine-readable JSON
+
+#### `catalog plugins`
+
+```bash
+uvx runlayer catalog plugins [OPTIONS]
+```
+
+- `--query, -q`: Search plugins by name or description
+- `--namespace, -N`: Filter plugins by namespace
+- `--json`: Print machine-readable JSON
+
+#### `catalog connectors`
+
+```bash
+uvx runlayer catalog connectors [OPTIONS]
+```
+
+- `--query, -q`: Search connectors by name, title, or description
+- `--include-beta`: Include beta connectors
+- `--json`: Print machine-readable JSON
+
+#### `catalog search`
+
+```bash
+uvx runlayer catalog search <QUERY> [OPTIONS]
+```
+
+Search skills, plugins, and connectors together.
+
+- `--include-beta`: Include beta connectors
+- `--json`: Print machine-readable JSON
+
+#### `catalog info`
+
+```bash
+uvx runlayer catalog info <skill|plugin|connector> <name-or-id> [OPTIONS]
+```
+
+Show detailed metadata for one catalog item. Skill and plugin refs can be UUIDs, exact install names, or exact names. Connector refs can be exact catalog names or exact titles.
+
+- `--json`: Print machine-readable JSON
+
+#### Examples
+
+```bash
+uvx runlayer catalog skills --query review
+uvx runlayer catalog plugins --query review
+uvx runlayer catalog connectors --query github
+uvx runlayer catalog search github
+uvx runlayer catalog info connector com.github/mcp
+uvx runlayer catalog info skill review-code
+uvx runlayer catalog connectors --json | jq '.[].name'
 ```
 
 ### `skills` - Manage Skills

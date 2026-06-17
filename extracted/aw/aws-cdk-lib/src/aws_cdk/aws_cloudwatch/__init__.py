@@ -1257,9 +1257,11 @@ from ..interfaces.aws_cloudwatch import (
     ICompositeAlarmRef as _ICompositeAlarmRef_fa51824d,
     IDashboardRef as _IDashboardRef_3c35946b,
     IInsightRuleRef as _IInsightRuleRef_436d0d73,
+    ILogAlarmRef as _ILogAlarmRef_1add8d52,
     IMetricStreamRef as _IMetricStreamRef_2c784fc6,
     IOTelEnrichmentRef as _IOTelEnrichmentRef_d7a7e26b,
     InsightRuleReference as _InsightRuleReference_d30ddeea,
+    LogAlarmReference as _LogAlarmReference_622068d1,
     MetricStreamReference as _MetricStreamReference_e417a88f,
     OTelEnrichmentReference as _OTelEnrichmentReference_8678d69f,
 )
@@ -2028,8 +2030,8 @@ class CfnAlarm(
         :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
         :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
         :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
-        :param evaluation_criteria: 
-        :param evaluation_interval: 
+        :param evaluation_criteria: The evaluation criteria for an alarm. This is a union type that currently supports ``PromQLCriteria``.
+        :param evaluation_interval: The frequency, in seconds, at which the alarm is evaluated.
         :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
@@ -2326,6 +2328,7 @@ class CfnAlarm(
     def evaluation_criteria(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]]:
+        '''The evaluation criteria for an alarm.'''
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]], jsii.get(self, "evaluationCriteria"))
 
     @evaluation_criteria.setter
@@ -2341,6 +2344,7 @@ class CfnAlarm(
     @builtins.property
     @jsii.member(jsii_name="evaluationInterval")
     def evaluation_interval(self) -> typing.Optional[jsii.Number]:
+        '''The frequency, in seconds, at which the alarm is evaluated.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "evaluationInterval"))
 
     @evaluation_interval.setter
@@ -2563,10 +2567,11 @@ class CfnAlarm(
             query: typing.Optional[builtins.str] = None,
             recovery_period: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''
-            :param pending_period: The pending period for the alarm.
-            :param query: The PromQL query string.
-            :param recovery_period: The recovery period for the alarm.
+            '''Contains the configuration that determines how a PromQL alarm evaluates its contributors, including the query to run and the durations that define when contributors transition between states.
+
+            :param pending_period: The duration, in seconds, that a contributor must be continuously breaching before it transitions to the ``ALARM`` state.
+            :param query: The PromQL query that the alarm evaluates. The query must return a result of vector type. Each entry in the vector result represents an alarm contributor.
+            :param recovery_period: The duration, in seconds, that a contributor must continuously not be breaching before it transitions back to the ``OK`` state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html
             :exampleMetadata: fixture=_generated
@@ -2598,7 +2603,7 @@ class CfnAlarm(
 
         @builtins.property
         def pending_period(self) -> typing.Optional[jsii.Number]:
-            '''The pending period for the alarm.
+            '''The duration, in seconds, that a contributor must be continuously breaching before it transitions to the ``ALARM`` state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html#cfn-cloudwatch-alarm-alarmpromqlcriteria-pendingperiod
             '''
@@ -2607,7 +2612,9 @@ class CfnAlarm(
 
         @builtins.property
         def query(self) -> typing.Optional[builtins.str]:
-            '''The PromQL query string.
+            '''The PromQL query that the alarm evaluates.
+
+            The query must return a result of vector type. Each entry in the vector result represents an alarm contributor.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html#cfn-cloudwatch-alarm-alarmpromqlcriteria-query
             '''
@@ -2616,7 +2623,7 @@ class CfnAlarm(
 
         @builtins.property
         def recovery_period(self) -> typing.Optional[jsii.Number]:
-            '''The recovery period for the alarm.
+            '''The duration, in seconds, that a contributor must continuously not be breaching before it transitions back to the ``OK`` state.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-alarmpromqlcriteria.html#cfn-cloudwatch-alarm-alarmpromqlcriteria-recoveryperiod
             '''
@@ -2715,8 +2722,11 @@ class CfnAlarm(
             *,
             prom_ql_criteria: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAlarm.AlarmPromQLCriteriaProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''
-            :param prom_ql_criteria: 
+            '''The evaluation criteria for an alarm.
+
+            This is a union type that currently supports ``PromQLCriteria``.
+
+            :param prom_ql_criteria: Contains the configuration that determines how a PromQL alarm evaluates its contributors, including the query to run and the durations that define when contributors transition between states.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationcriteria.html
             :exampleMetadata: fixture=_generated
@@ -2746,7 +2756,8 @@ class CfnAlarm(
         def prom_ql_criteria(
             self,
         ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.AlarmPromQLCriteriaProperty"]]:
-            '''
+            '''Contains the configuration that determines how a PromQL alarm evaluates its contributors, including the query to run and the durations that define when contributors transition between states.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationcriteria.html#cfn-cloudwatch-alarm-evaluationcriteria-promqlcriteria
             '''
             result = self._values.get("prom_ql_criteria")
@@ -3941,8 +3952,8 @@ class CfnAlarmProps:
         :param datapoints_to_alarm: The number of datapoints that must be breaching to trigger the alarm. This is used only if you are setting an "M out of N" alarm. In that case, this value is the M, and the value that you set for ``EvaluationPeriods`` is the N value. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* . If you omit this parameter, CloudWatch uses the same value here that you set for ``EvaluationPeriods`` , and the alarm goes to alarm state if that many consecutive periods are breaching.
         :param dimensions: The dimensions for the metric associated with the alarm. For an alarm based on a math expression, you can't specify ``Dimensions`` . Instead, you use ``Metrics`` .
         :param evaluate_low_sample_count_percentile: Used only for alarms based on percentiles. If ``ignore`` , the alarm state does not change during periods with too few data points to be statistically significant. If ``evaluate`` or this parameter is not used, the alarm is always evaluated and possibly changes state no matter how many data points are available.
-        :param evaluation_criteria: 
-        :param evaluation_interval: 
+        :param evaluation_criteria: The evaluation criteria for an alarm. This is a union type that currently supports ``PromQLCriteria``.
+        :param evaluation_interval: The frequency, in seconds, at which the alarm is evaluated.
         :param evaluation_periods: The number of periods over which data is compared to the specified threshold. If you are setting an alarm that requires that a number of consecutive data points be breaching to trigger the alarm, this value specifies that number. If you are setting an "M out of N" alarm, this value is the N, and ``DatapointsToAlarm`` is the M. For more information, see `Evaluating an Alarm <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html#alarm-evaluation>`_ in the *Amazon CloudWatch User Guide* .
         :param extended_statistic: The percentile statistic for the metric associated with the alarm. Specify a value between p0.0 and p100. For an alarm based on a metric, you must specify either ``Statistic`` or ``ExtendedStatistic`` but not both. For an alarm based on a math expression, you can't specify ``ExtendedStatistic`` . Instead, you use ``Metrics`` .
         :param insufficient_data_actions: The actions to execute when this alarm transitions to the ``INSUFFICIENT_DATA`` state from any other state. Each action is specified as an Amazon Resource Name (ARN).
@@ -4210,7 +4221,10 @@ class CfnAlarmProps:
     def evaluation_criteria(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnAlarm.EvaluationCriteriaProperty"]]:
-        '''
+        '''The evaluation criteria for an alarm.
+
+        This is a union type that currently supports ``PromQLCriteria``.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationcriteria
         '''
         result = self._values.get("evaluation_criteria")
@@ -4218,7 +4232,8 @@ class CfnAlarmProps:
 
     @builtins.property
     def evaluation_interval(self) -> typing.Optional[jsii.Number]:
-        '''
+        '''The frequency, in seconds, at which the alarm is evaluated.
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html#cfn-cloudwatch-alarm-evaluationinterval
         '''
         result = self._values.get("evaluation_interval")
@@ -7263,6 +7278,978 @@ class CfnInsightRuleProps:
 
     def __repr__(self) -> str:
         return "CfnInsightRuleProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ILogAlarmRef_1add8d52, _ITaggableV2_4e6798f8)
+class CfnLogAlarm(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm",
+):
+    '''Resource Type definition for AWS::CloudWatch::LogAlarm.
+
+    A LogAlarm evaluates scheduled query results from CloudWatch Logs and triggers actions when thresholds are breached.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html
+    :cloudformationResource: AWS::CloudWatch::LogAlarm
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_log_alarm = cloudwatch.CfnLogAlarm(self, "MyCfnLogAlarm",
+            comparison_operator="comparisonOperator",
+            query_results_to_alarm=123,
+            query_results_to_evaluate=123,
+            scheduled_query_configuration=cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty(
+                aggregation_expression="aggregationExpression",
+                log_group_identifiers=["logGroupIdentifiers"],
+                query_language="queryLanguage",
+                query_string="queryString",
+                schedule_configuration=cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
+                    schedule_expression="scheduleExpression",
+        
+                    # the properties below are optional
+                    end_time_offset=123,
+                    start_time_offset=123
+                ),
+                scheduled_query_role_arn="scheduledQueryRoleArn"
+            ),
+            threshold=123,
+        
+            # the properties below are optional
+            action_log_line_count=123,
+            action_log_line_role_arn="actionLogLineRoleArn",
+            actions_enabled=False,
+            alarm_actions=["alarmActions"],
+            alarm_description="alarmDescription",
+            alarm_name="alarmName",
+            insufficient_data_actions=["insufficientDataActions"],
+            ok_actions=["okActions"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            treat_missing_data="treatMissingData"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        comparison_operator: builtins.str,
+        query_results_to_alarm: jsii.Number,
+        query_results_to_evaluate: jsii.Number,
+        scheduled_query_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        threshold: jsii.Number,
+        action_log_line_count: typing.Optional[jsii.Number] = None,
+        action_log_line_role_arn: typing.Optional[builtins.str] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        alarm_description: typing.Optional[builtins.str] = None,
+        alarm_name: typing.Optional[builtins.str] = None,
+        insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        treat_missing_data: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::LogAlarm``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param comparison_operator: The arithmetic operation to use when comparing the specified threshold and the query results. Valid values are GreaterThanOrEqualToThreshold, GreaterThanThreshold, LessThanThreshold, and LessThanOrEqualToThreshold.
+        :param query_results_to_alarm: The number of query results that must be breaching to trigger the alarm.
+        :param query_results_to_evaluate: The number of query results over which data is compared to the specified threshold.
+        :param scheduled_query_configuration: The scheduled query configuration for the log alarm.
+        :param threshold: The value to compare against the results of the scheduled query evaluation.
+        :param action_log_line_count: The number of log lines to include in alarm notifications. Valid values are 0 to 50.
+        :param action_log_line_role_arn: The ARN of the IAM role that grants CloudWatch permissions to fetch log lines for alarm notifications. Required when ActionLogLineCount is greater than 0.
+        :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
+        :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state.
+        :param alarm_description: The description of the log alarm.
+        :param alarm_name: The name of the log alarm.
+        :param insufficient_data_actions: The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state.
+        :param ok_actions: The actions to execute when this alarm transitions to the OK state from any other state.
+        :param tags: A list of key-value pairs to associate with the log alarm.
+        :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are breaching, notBreaching, ignore, and missing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54cfe154f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLogAlarmProps(
+            comparison_operator=comparison_operator,
+            query_results_to_alarm=query_results_to_alarm,
+            query_results_to_evaluate=query_results_to_evaluate,
+            scheduled_query_configuration=scheduled_query_configuration,
+            threshold=threshold,
+            action_log_line_count=action_log_line_count,
+            action_log_line_role_arn=action_log_line_role_arn,
+            actions_enabled=actions_enabled,
+            alarm_actions=alarm_actions,
+            alarm_description=alarm_description,
+            alarm_name=alarm_name,
+            insufficient_data_actions=insufficient_data_actions,
+            ok_actions=ok_actions,
+            tags=tags,
+            treat_missing_data=treat_missing_data,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForLogAlarm")
+    @builtins.classmethod
+    def arn_for_log_alarm(cls, resource: "_ILogAlarmRef_1add8d52") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__efd401d53febd8a3df2d1052494ea095140d0c2c5c73ff6eab4a24121702d4c7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLogAlarm", [resource]))
+
+    @jsii.member(jsii_name="isCfnLogAlarm")
+    @builtins.classmethod
+    def is_cfn_log_alarm(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLogAlarm.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__601f99701a21cd7e5da6fb7ccc6ee1080fdfc7fff053001432c549bd368aefc1)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLogAlarm", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5c207e74c519d34045081f1bb4b073dd5ba661d0f71ac173878794a8e97a49dc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b182a083d5c9132c40d6586fc0ae7b4f75e1376683012b815343beaf3b5bdb86)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the log alarm.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="logAlarmRef")
+    def log_alarm_ref(self) -> "_LogAlarmReference_622068d1":
+        '''A reference to a LogAlarm resource.'''
+        return typing.cast("_LogAlarmReference_622068d1", jsii.get(self, "logAlarmRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="comparisonOperator")
+    def comparison_operator(self) -> builtins.str:
+        '''The arithmetic operation to use when comparing the specified threshold and the query results.'''
+        return typing.cast(builtins.str, jsii.get(self, "comparisonOperator"))
+
+    @comparison_operator.setter
+    def comparison_operator(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c4429adac9487d84439545e51a8c003a8c23309dd0e27adebe431280b092c65)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "comparisonOperator", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queryResultsToAlarm")
+    def query_results_to_alarm(self) -> jsii.Number:
+        '''The number of query results that must be breaching to trigger the alarm.'''
+        return typing.cast(jsii.Number, jsii.get(self, "queryResultsToAlarm"))
+
+    @query_results_to_alarm.setter
+    def query_results_to_alarm(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a00d4632a3df5d0052f9efe64255f0d0ec03d2dd2e1c7a0b2cd688a036e327ef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryResultsToAlarm", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queryResultsToEvaluate")
+    def query_results_to_evaluate(self) -> jsii.Number:
+        '''The number of query results over which data is compared to the specified threshold.'''
+        return typing.cast(jsii.Number, jsii.get(self, "queryResultsToEvaluate"))
+
+    @query_results_to_evaluate.setter
+    def query_results_to_evaluate(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8d8c93bbd3e07385c80bd96a2d0978d09e3e3265e8161a4623e6f18cc249d09)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryResultsToEvaluate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryConfiguration")
+    def scheduled_query_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"]:
+        '''The scheduled query configuration for the log alarm.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"], jsii.get(self, "scheduledQueryConfiguration"))
+
+    @scheduled_query_configuration.setter
+    def scheduled_query_configuration(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb2a5e26a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduledQueryConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="threshold")
+    def threshold(self) -> jsii.Number:
+        '''The value to compare against the results of the scheduled query evaluation.'''
+        return typing.cast(jsii.Number, jsii.get(self, "threshold"))
+
+    @threshold.setter
+    def threshold(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3bb33172b25e6cf8c31958a687a9a23d7bbf2dacda2f02fda012ae41bc92a4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "threshold", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionLogLineCount")
+    def action_log_line_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of log lines to include in alarm notifications.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "actionLogLineCount"))
+
+    @action_log_line_count.setter
+    def action_log_line_count(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c48f5b3e0b866349933dbee5a0837092dd1ec510160c8daa75ec9fb9ede0668)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionLogLineCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionLogLineRoleArn")
+    def action_log_line_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that grants CloudWatch permissions to fetch log lines for alarm notifications.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "actionLogLineRoleArn"))
+
+    @action_log_line_role_arn.setter
+    def action_log_line_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1dac53e98c25f8a94dc0def2d27ebde656e1f944f0a3d37790c60b5057b256e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionLogLineRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="actionsEnabled")
+    def actions_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether actions should be executed during any changes to the alarm state.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "actionsEnabled"))
+
+    @actions_enabled.setter
+    def actions_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__10225652bb1876bd4b88c21e82c803d1f077b109d18cf005dfc7612f03aa801c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "actionsEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmActions")
+    def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of actions to execute when this alarm transitions into an ALARM state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "alarmActions"))
+
+    @alarm_actions.setter
+    def alarm_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a07ccc15bb9aba841cec4859b59e545772527029140fee5a5bfe973c4b27f588)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmDescription")
+    def alarm_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the log alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmDescription"))
+
+    @alarm_description.setter
+    def alarm_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__608691ef4aa71a9c9cb5f60979b313b23ba1833636e17d6f6d21e04af5f23486)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="alarmName")
+    def alarm_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the log alarm.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "alarmName"))
+
+    @alarm_name.setter
+    def alarm_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad540f5ba271076fa582d5879ca7f9098ab95f4de8fbb8a5f2809390e047609d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "alarmName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="insufficientDataActions")
+    def insufficient_data_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "insufficientDataActions"))
+
+    @insufficient_data_actions.setter
+    def insufficient_data_actions(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a73ba3eb046f253c0b8fb17671850149e739e98335311ca54dc5e6a478ba8db5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "insufficientDataActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="okActions")
+    def ok_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the OK state from any other state.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "okActions"))
+
+    @ok_actions.setter
+    def ok_actions(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__052016f1c9c4eddc8b4a8dcbfa13d08695657b6f4703a580fb7a0e8bbef35ed6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "okActions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of key-value pairs to associate with the log alarm.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__802b86ac81fe37df0e75cb619d85e89933f45875eb9df1799fe69adc48e53cc8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="treatMissingData")
+    def treat_missing_data(self) -> typing.Optional[builtins.str]:
+        '''Sets how this alarm is to handle missing data points.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "treatMissingData"))
+
+    @treat_missing_data.setter
+    def treat_missing_data(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__67cdad3895817945c11d079d150eedd2b9f00e676c26f36803a927c2a4059095)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "treatMissingData", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "schedule_expression": "scheduleExpression",
+            "end_time_offset": "endTimeOffset",
+            "start_time_offset": "startTimeOffset",
+        },
+    )
+    class ScheduleConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            schedule_expression: builtins.str,
+            end_time_offset: typing.Optional[jsii.Number] = None,
+            start_time_offset: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''The schedule configuration for the scheduled query.
+
+            :param schedule_expression: The expression that defines when the scheduled query runs, e.g. rate(1 minute).
+            :param end_time_offset: The number of seconds into the past to end the query window.
+            :param start_time_offset: The number of seconds into the past to start the query window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduleconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                schedule_configuration_property = cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
+                    schedule_expression="scheduleExpression",
+                
+                    # the properties below are optional
+                    end_time_offset=123,
+                    start_time_offset=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__667c1019a9984b84c525857c349836c0dc54f901df7ce89cbaf01d9dd1a69ef0)
+                check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+                check_type(argname="argument end_time_offset", value=end_time_offset, expected_type=type_hints["end_time_offset"])
+                check_type(argname="argument start_time_offset", value=start_time_offset, expected_type=type_hints["start_time_offset"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "schedule_expression": schedule_expression,
+            }
+            if end_time_offset is not None:
+                self._values["end_time_offset"] = end_time_offset
+            if start_time_offset is not None:
+                self._values["start_time_offset"] = start_time_offset
+
+        @builtins.property
+        def schedule_expression(self) -> builtins.str:
+            '''The expression that defines when the scheduled query runs, e.g. rate(1 minute).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduleconfiguration.html#cfn-cloudwatch-logalarm-scheduleconfiguration-scheduleexpression
+            '''
+            result = self._values.get("schedule_expression")
+            assert result is not None, "Required property 'schedule_expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def end_time_offset(self) -> typing.Optional[jsii.Number]:
+            '''The number of seconds into the past to end the query window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduleconfiguration.html#cfn-cloudwatch-logalarm-scheduleconfiguration-endtimeoffset
+            '''
+            result = self._values.get("end_time_offset")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def start_time_offset(self) -> typing.Optional[jsii.Number]:
+            '''The number of seconds into the past to start the query window.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduleconfiguration.html#cfn-cloudwatch-logalarm-scheduleconfiguration-starttimeoffset
+            '''
+            result = self._values.get("start_time_offset")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduleConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "aggregation_expression": "aggregationExpression",
+            "log_group_identifiers": "logGroupIdentifiers",
+            "query_language": "queryLanguage",
+            "query_string": "queryString",
+            "schedule_configuration": "scheduleConfiguration",
+            "scheduled_query_role_arn": "scheduledQueryRoleArn",
+        },
+    )
+    class ScheduledQueryConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            aggregation_expression: builtins.str,
+            log_group_identifiers: typing.Sequence[builtins.str],
+            query_language: builtins.str,
+            query_string: builtins.str,
+            schedule_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduleConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+            scheduled_query_role_arn: builtins.str,
+        ) -> None:
+            '''The scheduled query configuration for the log alarm.
+
+            :param aggregation_expression: The aggregation expression for the scheduled query, e.g. count(*) or avg(latency) by host.
+            :param log_group_identifiers: The log groups to query.
+            :param query_language: The query language to use for the scheduled query (CWLI or SQL).
+            :param query_string: The query string to execute against the specified log groups.
+            :param schedule_configuration: The schedule configuration for the scheduled query.
+            :param scheduled_query_role_arn: The ARN of the IAM role that grants permissions to execute the scheduled query.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                scheduled_query_configuration_property = cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty(
+                    aggregation_expression="aggregationExpression",
+                    log_group_identifiers=["logGroupIdentifiers"],
+                    query_language="queryLanguage",
+                    query_string="queryString",
+                    schedule_configuration=cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
+                        schedule_expression="scheduleExpression",
+                
+                        # the properties below are optional
+                        end_time_offset=123,
+                        start_time_offset=123
+                    ),
+                    scheduled_query_role_arn="scheduledQueryRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6c351b1a)
+                check_type(argname="argument aggregation_expression", value=aggregation_expression, expected_type=type_hints["aggregation_expression"])
+                check_type(argname="argument log_group_identifiers", value=log_group_identifiers, expected_type=type_hints["log_group_identifiers"])
+                check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
+                check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+                check_type(argname="argument schedule_configuration", value=schedule_configuration, expected_type=type_hints["schedule_configuration"])
+                check_type(argname="argument scheduled_query_role_arn", value=scheduled_query_role_arn, expected_type=type_hints["scheduled_query_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "aggregation_expression": aggregation_expression,
+                "log_group_identifiers": log_group_identifiers,
+                "query_language": query_language,
+                "query_string": query_string,
+                "schedule_configuration": schedule_configuration,
+                "scheduled_query_role_arn": scheduled_query_role_arn,
+            }
+
+        @builtins.property
+        def aggregation_expression(self) -> builtins.str:
+            '''The aggregation expression for the scheduled query, e.g. count(*) or avg(latency) by host.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-aggregationexpression
+            '''
+            result = self._values.get("aggregation_expression")
+            assert result is not None, "Required property 'aggregation_expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def log_group_identifiers(self) -> typing.List[builtins.str]:
+            '''The log groups to query.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-loggroupidentifiers
+            '''
+            result = self._values.get("log_group_identifiers")
+            assert result is not None, "Required property 'log_group_identifiers' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def query_language(self) -> builtins.str:
+            '''The query language to use for the scheduled query (CWLI or SQL).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-querylanguage
+            '''
+            result = self._values.get("query_language")
+            assert result is not None, "Required property 'query_language' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def query_string(self) -> builtins.str:
+            '''The query string to execute against the specified log groups.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-querystring
+            '''
+            result = self._values.get("query_string")
+            assert result is not None, "Required property 'query_string' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def schedule_configuration(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduleConfigurationProperty"]:
+            '''The schedule configuration for the scheduled query.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-scheduleconfiguration
+            '''
+            result = self._values.get("schedule_configuration")
+            assert result is not None, "Required property 'schedule_configuration' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduleConfigurationProperty"], result)
+
+        @builtins.property
+        def scheduled_query_role_arn(self) -> builtins.str:
+            '''The ARN of the IAM role that grants permissions to execute the scheduled query.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration-scheduledqueryrolearn
+            '''
+            result = self._values.get("scheduled_query_role_arn")
+            assert result is not None, "Required property 'scheduled_query_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduledQueryConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnLogAlarmProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "comparison_operator": "comparisonOperator",
+        "query_results_to_alarm": "queryResultsToAlarm",
+        "query_results_to_evaluate": "queryResultsToEvaluate",
+        "scheduled_query_configuration": "scheduledQueryConfiguration",
+        "threshold": "threshold",
+        "action_log_line_count": "actionLogLineCount",
+        "action_log_line_role_arn": "actionLogLineRoleArn",
+        "actions_enabled": "actionsEnabled",
+        "alarm_actions": "alarmActions",
+        "alarm_description": "alarmDescription",
+        "alarm_name": "alarmName",
+        "insufficient_data_actions": "insufficientDataActions",
+        "ok_actions": "okActions",
+        "tags": "tags",
+        "treat_missing_data": "treatMissingData",
+    },
+)
+class CfnLogAlarmProps:
+    def __init__(
+        self,
+        *,
+        comparison_operator: builtins.str,
+        query_results_to_alarm: jsii.Number,
+        query_results_to_evaluate: jsii.Number,
+        scheduled_query_configuration: typing.Union["_IResolvable_da3f097b", typing.Union["CfnLogAlarm.ScheduledQueryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        threshold: jsii.Number,
+        action_log_line_count: typing.Optional[jsii.Number] = None,
+        action_log_line_role_arn: typing.Optional[builtins.str] = None,
+        actions_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        alarm_description: typing.Optional[builtins.str] = None,
+        alarm_name: typing.Optional[builtins.str] = None,
+        insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        treat_missing_data: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLogAlarm``.
+
+        :param comparison_operator: The arithmetic operation to use when comparing the specified threshold and the query results. Valid values are GreaterThanOrEqualToThreshold, GreaterThanThreshold, LessThanThreshold, and LessThanOrEqualToThreshold.
+        :param query_results_to_alarm: The number of query results that must be breaching to trigger the alarm.
+        :param query_results_to_evaluate: The number of query results over which data is compared to the specified threshold.
+        :param scheduled_query_configuration: The scheduled query configuration for the log alarm.
+        :param threshold: The value to compare against the results of the scheduled query evaluation.
+        :param action_log_line_count: The number of log lines to include in alarm notifications. Valid values are 0 to 50.
+        :param action_log_line_role_arn: The ARN of the IAM role that grants CloudWatch permissions to fetch log lines for alarm notifications. Required when ActionLogLineCount is greater than 0.
+        :param actions_enabled: Indicates whether actions should be executed during any changes to the alarm state. The default is TRUE. Default: - true
+        :param alarm_actions: The list of actions to execute when this alarm transitions into an ALARM state from any other state.
+        :param alarm_description: The description of the log alarm.
+        :param alarm_name: The name of the log alarm.
+        :param insufficient_data_actions: The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state.
+        :param ok_actions: The actions to execute when this alarm transitions to the OK state from any other state.
+        :param tags: A list of key-value pairs to associate with the log alarm.
+        :param treat_missing_data: Sets how this alarm is to handle missing data points. Valid values are breaching, notBreaching, ignore, and missing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_log_alarm_props = cloudwatch.CfnLogAlarmProps(
+                comparison_operator="comparisonOperator",
+                query_results_to_alarm=123,
+                query_results_to_evaluate=123,
+                scheduled_query_configuration=cloudwatch.CfnLogAlarm.ScheduledQueryConfigurationProperty(
+                    aggregation_expression="aggregationExpression",
+                    log_group_identifiers=["logGroupIdentifiers"],
+                    query_language="queryLanguage",
+                    query_string="queryString",
+                    schedule_configuration=cloudwatch.CfnLogAlarm.ScheduleConfigurationProperty(
+                        schedule_expression="scheduleExpression",
+            
+                        # the properties below are optional
+                        end_time_offset=123,
+                        start_time_offset=123
+                    ),
+                    scheduled_query_role_arn="scheduledQueryRoleArn"
+                ),
+                threshold=123,
+            
+                # the properties below are optional
+                action_log_line_count=123,
+                action_log_line_role_arn="actionLogLineRoleArn",
+                actions_enabled=False,
+                alarm_actions=["alarmActions"],
+                alarm_description="alarmDescription",
+                alarm_name="alarmName",
+                insufficient_data_actions=["insufficientDataActions"],
+                ok_actions=["okActions"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                treat_missing_data="treatMissingData"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5bc1d264)
+            check_type(argname="argument comparison_operator", value=comparison_operator, expected_type=type_hints["comparison_operator"])
+            check_type(argname="argument query_results_to_alarm", value=query_results_to_alarm, expected_type=type_hints["query_results_to_alarm"])
+            check_type(argname="argument query_results_to_evaluate", value=query_results_to_evaluate, expected_type=type_hints["query_results_to_evaluate"])
+            check_type(argname="argument scheduled_query_configuration", value=scheduled_query_configuration, expected_type=type_hints["scheduled_query_configuration"])
+            check_type(argname="argument threshold", value=threshold, expected_type=type_hints["threshold"])
+            check_type(argname="argument action_log_line_count", value=action_log_line_count, expected_type=type_hints["action_log_line_count"])
+            check_type(argname="argument action_log_line_role_arn", value=action_log_line_role_arn, expected_type=type_hints["action_log_line_role_arn"])
+            check_type(argname="argument actions_enabled", value=actions_enabled, expected_type=type_hints["actions_enabled"])
+            check_type(argname="argument alarm_actions", value=alarm_actions, expected_type=type_hints["alarm_actions"])
+            check_type(argname="argument alarm_description", value=alarm_description, expected_type=type_hints["alarm_description"])
+            check_type(argname="argument alarm_name", value=alarm_name, expected_type=type_hints["alarm_name"])
+            check_type(argname="argument insufficient_data_actions", value=insufficient_data_actions, expected_type=type_hints["insufficient_data_actions"])
+            check_type(argname="argument ok_actions", value=ok_actions, expected_type=type_hints["ok_actions"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument treat_missing_data", value=treat_missing_data, expected_type=type_hints["treat_missing_data"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "comparison_operator": comparison_operator,
+            "query_results_to_alarm": query_results_to_alarm,
+            "query_results_to_evaluate": query_results_to_evaluate,
+            "scheduled_query_configuration": scheduled_query_configuration,
+            "threshold": threshold,
+        }
+        if action_log_line_count is not None:
+            self._values["action_log_line_count"] = action_log_line_count
+        if action_log_line_role_arn is not None:
+            self._values["action_log_line_role_arn"] = action_log_line_role_arn
+        if actions_enabled is not None:
+            self._values["actions_enabled"] = actions_enabled
+        if alarm_actions is not None:
+            self._values["alarm_actions"] = alarm_actions
+        if alarm_description is not None:
+            self._values["alarm_description"] = alarm_description
+        if alarm_name is not None:
+            self._values["alarm_name"] = alarm_name
+        if insufficient_data_actions is not None:
+            self._values["insufficient_data_actions"] = insufficient_data_actions
+        if ok_actions is not None:
+            self._values["ok_actions"] = ok_actions
+        if tags is not None:
+            self._values["tags"] = tags
+        if treat_missing_data is not None:
+            self._values["treat_missing_data"] = treat_missing_data
+
+    @builtins.property
+    def comparison_operator(self) -> builtins.str:
+        '''The arithmetic operation to use when comparing the specified threshold and the query results.
+
+        Valid values are GreaterThanOrEqualToThreshold, GreaterThanThreshold, LessThanThreshold, and LessThanOrEqualToThreshold.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-comparisonoperator
+        '''
+        result = self._values.get("comparison_operator")
+        assert result is not None, "Required property 'comparison_operator' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def query_results_to_alarm(self) -> jsii.Number:
+        '''The number of query results that must be breaching to trigger the alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-queryresultstoalarm
+        '''
+        result = self._values.get("query_results_to_alarm")
+        assert result is not None, "Required property 'query_results_to_alarm' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def query_results_to_evaluate(self) -> jsii.Number:
+        '''The number of query results over which data is compared to the specified threshold.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-queryresultstoevaluate
+        '''
+        result = self._values.get("query_results_to_evaluate")
+        assert result is not None, "Required property 'query_results_to_evaluate' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def scheduled_query_configuration(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"]:
+        '''The scheduled query configuration for the log alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-scheduledqueryconfiguration
+        '''
+        result = self._values.get("scheduled_query_configuration")
+        assert result is not None, "Required property 'scheduled_query_configuration' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnLogAlarm.ScheduledQueryConfigurationProperty"], result)
+
+    @builtins.property
+    def threshold(self) -> jsii.Number:
+        '''The value to compare against the results of the scheduled query evaluation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-threshold
+        '''
+        result = self._values.get("threshold")
+        assert result is not None, "Required property 'threshold' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def action_log_line_count(self) -> typing.Optional[jsii.Number]:
+        '''The number of log lines to include in alarm notifications.
+
+        Valid values are 0 to 50.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-actionloglinecount
+        '''
+        result = self._values.get("action_log_line_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def action_log_line_role_arn(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the IAM role that grants CloudWatch permissions to fetch log lines for alarm notifications.
+
+        Required when ActionLogLineCount is greater than 0.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-actionloglinerolearn
+        '''
+        result = self._values.get("action_log_line_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def actions_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether actions should be executed during any changes to the alarm state.
+
+        The default is TRUE.
+
+        :default: - true
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-actionsenabled
+        '''
+        result = self._values.get("actions_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def alarm_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of actions to execute when this alarm transitions into an ALARM state from any other state.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-alarmactions
+        '''
+        result = self._values.get("alarm_actions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def alarm_description(self) -> typing.Optional[builtins.str]:
+        '''The description of the log alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-alarmdescription
+        '''
+        result = self._values.get("alarm_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def alarm_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the log alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-alarmname
+        '''
+        result = self._values.get("alarm_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def insufficient_data_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the INSUFFICIENT_DATA state from any other state.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-insufficientdataactions
+        '''
+        result = self._values.get("insufficient_data_actions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def ok_actions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The actions to execute when this alarm transitions to the OK state from any other state.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-okactions
+        '''
+        result = self._values.get("ok_actions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of key-value pairs to associate with the log alarm.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def treat_missing_data(self) -> typing.Optional[builtins.str]:
+        '''Sets how this alarm is to handle missing data points.
+
+        Valid values are breaching, notBreaching, ignore, and missing.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html#cfn-cloudwatch-logalarm-treatmissingdata
+        '''
+        result = self._values.get("treat_missing_data")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLogAlarmProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -18704,6 +19691,8 @@ __all__ = [
     "CfnDashboardProps",
     "CfnInsightRule",
     "CfnInsightRuleProps",
+    "CfnLogAlarm",
+    "CfnLogAlarmProps",
     "CfnMetricStream",
     "CfnMetricStreamProps",
     "CfnOTelEnrichment",
@@ -19744,6 +20733,185 @@ def _typecheckingstub__ea720192b6c423ff900f4b69425db7a31e90fed21a852500910edce45
     rule_state: builtins.str,
     apply_on_transformed_logs: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66ae5639341bc4e888439b14358c6e84e1de3f7e4ddb559673ce44c54cfe154f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    comparison_operator: builtins.str,
+    query_results_to_alarm: jsii.Number,
+    query_results_to_evaluate: jsii.Number,
+    scheduled_query_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    threshold: jsii.Number,
+    action_log_line_count: typing.Optional[jsii.Number] = None,
+    action_log_line_role_arn: typing.Optional[builtins.str] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    alarm_description: typing.Optional[builtins.str] = None,
+    alarm_name: typing.Optional[builtins.str] = None,
+    insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    treat_missing_data: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efd401d53febd8a3df2d1052494ea095140d0c2c5c73ff6eab4a24121702d4c7(
+    resource: _ILogAlarmRef_1add8d52,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__601f99701a21cd7e5da6fb7ccc6ee1080fdfc7fff053001432c549bd368aefc1(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c207e74c519d34045081f1bb4b073dd5ba661d0f71ac173878794a8e97a49dc(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b182a083d5c9132c40d6586fc0ae7b4f75e1376683012b815343beaf3b5bdb86(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c4429adac9487d84439545e51a8c003a8c23309dd0e27adebe431280b092c65(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a00d4632a3df5d0052f9efe64255f0d0ec03d2dd2e1c7a0b2cd688a036e327ef(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8d8c93bbd3e07385c80bd96a2d0978d09e3e3265e8161a4623e6f18cc249d09(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f7f51ca7734072f016f6b6cb5c3e4f640d93a0d0089a910e806ef9fb2a5e26a(
+    value: typing.Union[_IResolvable_da3f097b, CfnLogAlarm.ScheduledQueryConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3bb33172b25e6cf8c31958a687a9a23d7bbf2dacda2f02fda012ae41bc92a4f(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c48f5b3e0b866349933dbee5a0837092dd1ec510160c8daa75ec9fb9ede0668(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1dac53e98c25f8a94dc0def2d27ebde656e1f944f0a3d37790c60b5057b256e6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__10225652bb1876bd4b88c21e82c803d1f077b109d18cf005dfc7612f03aa801c(
+    value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a07ccc15bb9aba841cec4859b59e545772527029140fee5a5bfe973c4b27f588(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__608691ef4aa71a9c9cb5f60979b313b23ba1833636e17d6f6d21e04af5f23486(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad540f5ba271076fa582d5879ca7f9098ab95f4de8fbb8a5f2809390e047609d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a73ba3eb046f253c0b8fb17671850149e739e98335311ca54dc5e6a478ba8db5(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__052016f1c9c4eddc8b4a8dcbfa13d08695657b6f4703a580fb7a0e8bbef35ed6(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__802b86ac81fe37df0e75cb619d85e89933f45875eb9df1799fe69adc48e53cc8(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__67cdad3895817945c11d079d150eedd2b9f00e676c26f36803a927c2a4059095(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__667c1019a9984b84c525857c349836c0dc54f901df7ce89cbaf01d9dd1a69ef0(
+    *,
+    schedule_expression: builtins.str,
+    end_time_offset: typing.Optional[jsii.Number] = None,
+    start_time_offset: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8402428f8b2868e4cbb2f43635f42d8e2e2090c5674b0e512c490d0c6c351b1a(
+    *,
+    aggregation_expression: builtins.str,
+    log_group_identifiers: typing.Sequence[builtins.str],
+    query_language: builtins.str,
+    query_string: builtins.str,
+    schedule_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduleConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    scheduled_query_role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3dd0c09c40300084ab958ab27e45b173c7de0c8e06e81fd1f5726ba5bc1d264(
+    *,
+    comparison_operator: builtins.str,
+    query_results_to_alarm: jsii.Number,
+    query_results_to_evaluate: jsii.Number,
+    scheduled_query_configuration: typing.Union[_IResolvable_da3f097b, typing.Union[CfnLogAlarm.ScheduledQueryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    threshold: jsii.Number,
+    action_log_line_count: typing.Optional[jsii.Number] = None,
+    action_log_line_role_arn: typing.Optional[builtins.str] = None,
+    actions_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    alarm_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    alarm_description: typing.Optional[builtins.str] = None,
+    alarm_name: typing.Optional[builtins.str] = None,
+    insufficient_data_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ok_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    treat_missing_data: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bx_py_utils
-Version: 118
+Version: 119
 Summary: Various Python utility functions
 Project-URL: Documentation, https://github.com/boxine/bx_py_utils/
 Project-URL: Source, https://github.com/boxine/bx_py_utils/
@@ -123,11 +123,13 @@ Doc-Write, see: https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/do
 
 ### bx_py_utils.html_utils
 
-* [`ElementsNotFoundError()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L44-L48) - Happens if requested HTML elements cannot be found
-* [`InvalidHtml()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L18-L41) - XMLSyntaxError with better error messages: used in validate_html()
-* [`get_html_elements()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L95-L106) - Returns the selected HTML elements as string
-* [`pretty_format_html()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L87-L92) - Pretty format given HTML document via BeautifulSoup (Needs 'beautifulsoup4' package)
-* [`validate_html()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L51-L73) - Validate a HTML document via XMLParser (Needs 'lxml' package)
+* [`ElementsNotFoundError()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L49-L53) - Happens if requested HTML elements cannot be found
+* [`InvalidHtml()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L23-L46) - XMLSyntaxError with better error messages: used in validate_html()
+* [`get_html_elements()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L100-L112) - Returns the selected HTML elements as string
+* [`html2text()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L186-L201) - Convert HTML to plain text, preserving paragraph breaks as double newlines.
+* [`pretty_format_html()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L92-L97) - Pretty format given HTML document via BeautifulSoup (Needs 'beautifulsoup4' package)
+* [`strip_html_tags()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L163-L183) - Remove HTML tags from a string using stdlib HTMLParser.
+* [`validate_html()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/html_utils.py#L56-L78) - Validate a HTML document via XMLParser (Needs 'lxml' package)
 
 #### bx_py_utils.humanize.pformat
 
@@ -155,7 +157,7 @@ Doc-Write, see: https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/do
 
 ### bx_py_utils.processify
 
-* [`processify()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/processify.py#L12-L53) - Decorator to run a function as a process.
+* [`processify()`](https://github.com/boxine/bx_py_utils/blob/master/bx_py_utils/processify.py#L42-L66) - Decorator to run a function as a process.
 
 ### bx_py_utils.pyproject_toml
 
@@ -325,10 +327,9 @@ help                       List all commands
 install-base-req           Install needed base packages via apt
 install                    Install the project in a Python virtualenv
 update-requirements        Update requirements
-lint                       Run code formatters and linter
-fix-code-style             Fix code formatting
-tox-listenvs               List all tox test environments
-tox                        Run tests via tox with all environments
+lint                       Check/fix code style by running: "ruff check"
+lint-fix                   Check/fix code style by running: "ruff check --fix"
+nox                        Run tests via nox with all environments
 test                       Run tests
 coverage                   Run tests with coverage
 update-test-snapshot-files Update all snapshot files (by remove and recreate all snapshot files)

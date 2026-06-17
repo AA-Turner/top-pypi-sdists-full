@@ -82,6 +82,7 @@ from chalk._gen.chalk.server.v1.deploy_pb2 import (
 from chalk._gen.chalk.server.v1.deploy_pb2_grpc import DeployServiceStub
 from chalk._gen.chalk.server.v1.environment_pb2 import DeploymentBuildProfile
 from chalk._gen.chalk.server.v1.graph_pb2 import (
+    GetAllOfflineStoreTablesRequest,
     GetCodegenFeaturesFromGraphRequest,
     GetCodegenFeaturesFromGraphResponse,
     GetGraphRequest,
@@ -180,6 +181,7 @@ from chalk.client.models import (
     OfflineQueryInfo,
     OfflineQueryProfileSummary,
     OfflineQueryReport,
+    OfflineStoreTable,
     OnlineQuery,
     OnlineQueryResponse,
     RedeployResponse,
@@ -2240,6 +2242,74 @@ class ChalkGRPCClient:
             return table_names
         return table_names[-1]
 
+    def get_all_offline_store_table_names(
+        self,
+        branch_id: "str | None" = None,
+        deployment_id: "str | None" = None,
+    ) -> "list[OfflineStoreTable]":
+        """Get the offline store table name for every feature and internal version in a deployment.
+
+        Useful for reverse-mapping a ``feat_<hash>`` offline store table name back to its feature.
+
+        Parameters
+        ----------
+        branch_id
+            If set, return table names for the given branch deployment.
+        deployment_id
+            The deployment to look up. If ``None``, uses the environment's active deployment.
+
+        Returns
+        -------
+        list[OfflineStoreTable]
+            One entry per feature and internal version, each with ``fqn``, ``internal_version``, and ``table_name``.
+        """
+        if self._environment is None:
+            chalk_logger.error(
+                "No environment set on ChalkGRPCClient. Please specify an environment when initializing the client."
+            )
+            raise ValueError("environment is required to look up offline store table names")
+
+        resp = self._stub_refresher.call_graph_stub(
+            lambda x: x.GetAllOfflineStoreTables(
+                GetAllOfflineStoreTablesRequest(deployment_id=deployment_id or "", branch_id=branch_id)
+            )
+        )
+        return [
+            OfflineStoreTable(
+                fqn=table.fqn,
+                internal_version=table.internal_version,
+                table_name=table.table_name,
+            )
+            for table in resp.tables
+        ]
+
+    def get_feature_from_offline_store_table_name(
+        self,
+        table_name: str,
+        branch_id: "str | None" = None,
+        deployment_id: "str | None" = None,
+    ) -> "OfflineStoreTable | None":
+        """Find the feature for a given offline store table name (reverse lookup).
+
+        Parameters
+        ----------
+        table_name
+            The ``feat_<hash>`` offline store table name to look up.
+        branch_id
+            If set, search the given branch deployment's tables.
+        deployment_id
+            The deployment to search. If ``None``, uses the environment's active deployment.
+
+        Returns
+        -------
+        OfflineStoreTable | None
+            The matching table (with ``fqn`` and ``internal_version``), or ``None`` if no feature maps to that table name.
+        """
+        for table in self.get_all_offline_store_table_names(branch_id=branch_id, deployment_id=deployment_id):
+            if table.table_name == table_name:
+                return table
+        return None
+
     def cancel_offline_query(
         self,
         offline_query_id: str,
@@ -3645,6 +3715,7 @@ class ChalkGRPCClient:
                                         for file in additional_files_upload_paths
                                     ],
                                     model_type=model_serializer.model_type,
+                                    model_class=model_serializer.model_class,
                                     model_encoding=model_encoding,
                                     model_signature=_model_artifact_pb2.ModelSignature(
                                         inputs=input_model_schema,
@@ -4181,6 +4252,7 @@ class ChalkGRPCClient:
         exact: bool = False,
         enable_profiling: bool = False,
         resource_group: str | None = None,
+        input_sql: str | None = None,
     ) -> list[CreateAggregateBackfillJobResponse]:
         """Trigger one or more aggregate backfill jobs.
 
@@ -4227,6 +4299,7 @@ class ChalkGRPCClient:
                 resolver=resolver,
                 exact=exact,
                 tags=query_tags or [],
+                input_sql=input_sql,
             )
         )
 
@@ -4248,6 +4321,7 @@ class ChalkGRPCClient:
                 enable_profiling=enable_profiling,
                 aggregate_backfill_id=plan_response.aggregate_backfill_id,
                 query_tags=query_tags or [],
+                input_sql=backfill.input_sql,
             )
 
             for series in backfill.series:

@@ -183,6 +183,21 @@ def write_enrollment_marker(host: str) -> None:
         pass
 
 
+def clear_enrollment_marker(host: str) -> None:
+    """Best-effort removal of the per-host enrollment marker; swallows ``OSError``.
+
+    Delete-side mirror of :func:`write_enrollment_marker`. Called on logout so
+    the marker stops falsely satisfying the bootstrap credential gate
+    (``hook_install.console_user.has_enrolled_credential_for_host``) after the
+    underlying credential is gone. Idempotent; no-op if the marker is absent.
+    """
+    path = enrollment_marker_path(host)
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def exchange_enrollment_key(
     *,
     host: str,

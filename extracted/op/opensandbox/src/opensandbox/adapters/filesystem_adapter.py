@@ -25,7 +25,6 @@ import logging
 from collections.abc import AsyncIterator
 from io import IOBase, TextIOBase
 from typing import TypedDict
-from urllib.parse import quote
 
 import httpx
 
@@ -43,6 +42,8 @@ from opensandbox.config import ConnectionConfig
 from opensandbox.exceptions import InvalidArgumentException, SandboxApiException
 from opensandbox.models.filesystem import (
     ContentReplaceEntry,
+    ContentReplaceResult,
+    DirectoryListEntry,
     EntryInfo,
     MoveEntry,
     SearchEntry,
@@ -56,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 class _DownloadRequest(TypedDict):
     url: str
-    params: dict[str, str] | None
+    params: dict[str, str]
     headers: dict[str, str]
 
 
@@ -134,9 +135,11 @@ class FilesystemAdapter(Filesystem):
         *,
         encoding: str = "utf-8",
         range_header: str | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> str:
         """Read file content as string via HTTP API."""
-        content = await self.read_bytes(path, range_header=range_header)
+        content = await self.read_bytes(path, range_header=range_header, offset=offset, limit=limit)
         return content.decode(encoding)
 
     async def read_bytes(
@@ -144,12 +147,19 @@ class FilesystemAdapter(Filesystem):
         path: str,
         *,
         range_header: str | None = None,
+        offset: int | None = None,
+        limit: int | None = None,
     ) -> bytes:
-        """Read file content as bytes with support for range requests.
+        """Read file content as bytes with support for range and line-based requests.
 
         Args:
             path: Path to the file to read
-            range_header: Optional range header for partial content requests
+            range_header: Optional range header for partial content requests.
+                Mutually exclusive with offset/limit.
+            offset: Starting line number (1-based) for line-based reading.
+                Mutually exclusive with range_header.
+            limit: Number of lines to return for line-based reading.
+                Mutually exclusive with range_header.
 
         Returns:
             File content as bytes
@@ -159,20 +169,14 @@ class FilesystemAdapter(Filesystem):
         """
         logger.debug(f"Reading file as bytes: {path}")
         try:
-            request_data = self._build_download_request(path, range_header)
+            request_data = self._build_download_request(path, range_header, offset=offset, limit=limit)
             client = await self._get_httpx_client()
 
-            if request_data["params"] is None:
-                response = await client.get(
-                    request_data["url"],
-                    headers=request_data["headers"],
-                )
-            else:
-                response = await client.get(
-                    request_data["url"],
-                    headers=request_data["headers"],
-                    params=request_data["params"],
-                )
+            response = await client.get(
+                request_data["url"],
+                headers=request_data["headers"],
+                params=request_data["params"],
+            )
             response.raise_for_status()
             return response.content
         except Exception as e:
@@ -185,26 +189,25 @@ class FilesystemAdapter(Filesystem):
             *,
             chunk_size: int = 64 * 1024,
             range_header: str | None = None,
+            offset: int | None = None,
+            limit: int | None = None,
     ) -> AsyncIterator[bytes]:
         """Stream file content as bytes chunks via HTTP (true streaming)."""
         logger.debug(f"Streaming file as bytes: {path} (chunk_size={chunk_size})")
         try:
-            request_data = self._build_download_request(path, range_header)
+            request_data = self._build_download_request(path, range_header, offset=offset, limit=limit)
             client = await self._get_httpx_client()
 
             url = request_data["url"]
             params = request_data["params"]
             headers = request_data["headers"]
 
-            if params is None:
-                request = client.build_request("GET", url, headers=headers)
-            else:
-                request = client.build_request(
-                    "GET",
-                    url,
-                    headers=headers,
-                    params=params,
-                )
+            request = client.build_request(
+                "GET",
+                url,
+                headers=headers,
+                params=params,
+            )
 
             response = await client.send(request, stream=True)
 
@@ -413,15 +416,39 @@ class FilesystemAdapter(Filesystem):
     async def replace_contents(self, entries: list[ContentReplaceEntry]) -> None:
         """Replace file contents using auto-generated API."""
         try:
+            from json import JSONDecodeError
+
+            from opensandbox.api.execd.api.filesystem import replace_content
+
+            client = await self._get_client()
+            try:
+                response_obj = await replace_content.asyncio_detailed(
+                    client=client,
+                    body=FilesystemModelConverter.to_api_replace_content_body(entries),
+                )
+                handle_api_error(response_obj, "Replace contents")
+            except JSONDecodeError:
+                pass
+
+        except Exception as e:
+            logger.error("Failed to replace contents", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
+    async def replace_contents_detailed(self, entries: list[ContentReplaceEntry]) -> list[ContentReplaceResult]:
+        """Replace file contents and return per-file replacement counts."""
+        try:
             from opensandbox.api.execd.api.filesystem import replace_content
 
             client = await self._get_client()
             response_obj = await replace_content.asyncio_detailed(
                 client=client,
                 body=FilesystemModelConverter.to_api_replace_content_body(entries),
+                verbose=True,
             )
 
             handle_api_error(response_obj, "Replace contents")
+
+            return FilesystemModelConverter.to_replace_results(response_obj.parsed)
 
         except Exception as e:
             logger.error("Failed to replace contents", exc_info=e)
@@ -457,6 +484,37 @@ class FilesystemAdapter(Filesystem):
             logger.error("Failed to search files", exc_info=e)
             raise ExceptionConverter.to_sandbox_exception(e) from e
 
+    async def list_directory(self, entry: DirectoryListEntry) -> list[EntryInfo]:
+        """List directory contents using auto-generated API."""
+        try:
+            from opensandbox.api.execd.api.filesystem import list_directory
+            from opensandbox.api.execd.models import FileInfo
+            from opensandbox.api.execd.types import UNSET
+
+            client = await self._get_client()
+            response_obj = await list_directory.asyncio_detailed(
+                client=client,
+                path=entry.path,
+                depth=entry.depth if entry.depth is not None else UNSET,
+            )
+
+            handle_api_error(response_obj, "List directory")
+
+            parsed = response_obj.parsed
+            if not parsed:
+                return []
+
+            if isinstance(parsed, list) and all(isinstance(x, FileInfo) for x in parsed):
+                return FilesystemModelConverter.to_entry_info_list(parsed)
+            raise SandboxApiException(
+                message="List directory failed: unexpected response type",
+                request_id=extract_request_id(getattr(response_obj, "headers", None)),
+            )
+
+        except Exception as e:
+            logger.error("Failed to list directory", exc_info=e)
+            raise ExceptionConverter.to_sandbox_exception(e) from e
+
     async def get_file_info(self, paths: list[str]) -> dict[str, EntryInfo]:
         """Get file information using auto-generated API."""
         try:
@@ -480,26 +538,38 @@ class FilesystemAdapter(Filesystem):
             raise ExceptionConverter.to_sandbox_exception(e) from e
 
     def _build_download_request(
-            self, path: str, range_header: str | None = None
+            self,
+            path: str,
+            range_header: str | None = None,
+            *,
+            offset: int | None = None,
+            limit: int | None = None,
     ) -> _DownloadRequest:
         """Build HTTP request for file download operations.
 
         Args:
             path: File path to download
             range_header: Optional range header for partial downloads
+            offset: Starting line number (1-based) for line-based reading
+            limit: Number of lines to return for line-based reading
 
         Returns:
             Dictionary containing URL, parameters, and headers for the request
         """
-        encoded_path = quote(path, safe="/")
-        url = f"{self._get_execd_url(self.FILESYSTEM_DOWNLOAD_PATH)}?path={encoded_path}"
+        url = self._get_execd_url(self.FILESYSTEM_DOWNLOAD_PATH)
         headers: dict[str, str] = {}
+        params: dict[str, str] = {"path": path}
 
         if range_header:
             headers["Range"] = range_header
 
+        if offset is not None:
+            params["offset"] = str(offset)
+        if limit is not None:
+            params["limit"] = str(limit)
+
         return {
             "url": url,
-            "params": None,
+            "params": params,
             "headers": headers,
         }

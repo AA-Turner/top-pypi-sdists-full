@@ -106,6 +106,7 @@ from ..interfaces.aws_sagemaker import (
     IImageVersionRef as _IImageVersionRef_eb63b8d2,
     IInferenceComponentRef as _IInferenceComponentRef_ebf71f07,
     IInferenceExperimentRef as _IInferenceExperimentRef_ae1a2c8c,
+    IMlflowAppRef as _IMlflowAppRef_4e43a49d,
     IMlflowTrackingServerRef as _IMlflowTrackingServerRef_a10c6cb6,
     IModelBiasJobDefinitionRef as _IModelBiasJobDefinitionRef_94e9971e,
     IModelCardRef as _IModelCardRef_94b5bd5a,
@@ -129,6 +130,7 @@ from ..interfaces.aws_sagemaker import (
     ImageVersionReference as _ImageVersionReference_c7dbe233,
     InferenceComponentReference as _InferenceComponentReference_e6a85a32,
     InferenceExperimentReference as _InferenceExperimentReference_7464e95f,
+    MlflowAppReference as _MlflowAppReference_6ddbd84f,
     MlflowTrackingServerReference as _MlflowTrackingServerReference_d5e7e96a,
     ModelBiasJobDefinitionReference as _ModelBiasJobDefinitionReference_73010afe,
     ModelCardReference as _ModelCardReference_8dc960c9,
@@ -23508,6 +23510,436 @@ class CfnInferenceExperimentProps:
 
     def __repr__(self) -> str:
         return "CfnInferenceExperimentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IMlflowAppRef_4e43a49d, _ITaggableV2_4e6798f8)
+class CfnMlflowApp(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnMlflowApp",
+):
+    '''Resource type definition for AWS::SageMaker::MlflowApp.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html
+    :cloudformationResource: AWS::SageMaker::MlflowApp
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_sagemaker as sagemaker
+        
+        cfn_mlflow_app = sagemaker.CfnMlflowApp(self, "MyCfnMlflowApp",
+            artifact_store_uri="artifactStoreUri",
+            name="name",
+            role_arn="roleArn",
+        
+            # the properties below are optional
+            model_registration_mode="modelRegistrationMode",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            weekly_maintenance_window_start="weeklyMaintenanceWindowStart"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        artifact_store_uri: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        model_registration_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::SageMaker::MlflowApp``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow App artifact store.
+        :param name: The name of the MLflow App.
+        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the MLflow App uses to access the artifact store in Amazon S3.
+        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
+        :param tags: Tags to associate with the MLflow App.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time that weekly maintenance updates are scheduled. For example: Tue:03:30.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a900a887eed9aa1fc0ab744c7920021c8d0d9d7d22526ca204541fb815a2f484)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnMlflowAppProps(
+            artifact_store_uri=artifact_store_uri,
+            name=name,
+            role_arn=role_arn,
+            model_registration_mode=model_registration_mode,
+            tags=tags,
+            weekly_maintenance_window_start=weekly_maintenance_window_start,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForMlflowApp")
+    @builtins.classmethod
+    def arn_for_mlflow_app(cls, resource: "_IMlflowAppRef_4e43a49d") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d119892a2a1985ca8bafc9d2831d0d5b4dfad0b94d87f81bd34f1022cd6e1567)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForMlflowApp", [resource]))
+
+    @jsii.member(jsii_name="isCfnMlflowApp")
+    @builtins.classmethod
+    def is_cfn_mlflow_app(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnMlflowApp.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d49f30e4e53bd0085903d9bd7addaa45cc4826fff5c56c81bfe47ae2c9a7d73d)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnMlflowApp", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2742032955ad7fef322dd9fca60c0d50f03a912d0f455de53b2a25eb8d639499)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5316c58946ab6e43e1901ccc1849e935098cc0367b727f35be88574a3e3bf148)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the MLflow App.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> builtins.str:
+        '''The date and time that the MLflow App was created.
+
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The date and time that the MLflow App was last modified.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMlflowAppId")
+    def attr_mlflow_app_id(self) -> builtins.str:
+        '''The server-generated identifier of the MLflow App.
+
+        :cloudformationAttribute: MlflowAppId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMlflowAppId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrMlflowVersion")
+    def attr_mlflow_version(self) -> builtins.str:
+        '''The MLflow version used by the MLflow App.
+
+        :cloudformationAttribute: MlflowVersion
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrMlflowVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the MLflow App.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mlflowAppRef")
+    def mlflow_app_ref(self) -> "_MlflowAppReference_6ddbd84f":
+        '''A reference to a MlflowApp resource.'''
+        return typing.cast("_MlflowAppReference_6ddbd84f", jsii.get(self, "mlflowAppRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactStoreUri")
+    def artifact_store_uri(self) -> builtins.str:
+        '''The S3 URI for a general purpose bucket to use as the MLflow App artifact store.'''
+        return typing.cast(builtins.str, jsii.get(self, "artifactStoreUri"))
+
+    @artifact_store_uri.setter
+    def artifact_store_uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2594445950367d954f3c800b66b471b5bf1707ec26abcfa9a0dbbd18ca26730c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactStoreUri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the MLflow App.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39bcd5809136fc92037818f2aec55310bf2ee753cb7cd63d69998ee8e30ac5ed)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleArn")
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for an IAM role in your account that the MLflow App uses to access the artifact store in Amazon S3.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleArn"))
+
+    @role_arn.setter
+    def role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d0e6bb180e2d6b3f6a0b9290d357dc5e2f0e404b9f26c02f65127dbceeebc75)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="modelRegistrationMode")
+    def model_registration_mode(self) -> typing.Optional[builtins.str]:
+        '''Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "modelRegistrationMode"))
+
+    @model_registration_mode.setter
+    def model_registration_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ddd73da5602e992b07935c4bb2d381b68521dcb730acd4a26fcffe218af4adc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "modelRegistrationMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to associate with the MLflow App.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__28e023008d4a6032fb8a1ab0def29d8f05b516a7179d4ab692350186681608dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="weeklyMaintenanceWindowStart")
+    def weekly_maintenance_window_start(self) -> typing.Optional[builtins.str]:
+        '''The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time that weekly maintenance updates are scheduled.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "weeklyMaintenanceWindowStart"))
+
+    @weekly_maintenance_window_start.setter
+    def weekly_maintenance_window_start(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94b0e3bdca317e9b94478ccd95122197782b3599bd51189de95d6c904380ff61)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "weeklyMaintenanceWindowStart", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_sagemaker.CfnMlflowAppProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "artifact_store_uri": "artifactStoreUri",
+        "name": "name",
+        "role_arn": "roleArn",
+        "model_registration_mode": "modelRegistrationMode",
+        "tags": "tags",
+        "weekly_maintenance_window_start": "weeklyMaintenanceWindowStart",
+    },
+)
+class CfnMlflowAppProps:
+    def __init__(
+        self,
+        *,
+        artifact_store_uri: builtins.str,
+        name: builtins.str,
+        role_arn: builtins.str,
+        model_registration_mode: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnMlflowApp``.
+
+        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow App artifact store.
+        :param name: The name of the MLflow App.
+        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the MLflow App uses to access the artifact store in Amazon S3.
+        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
+        :param tags: Tags to associate with the MLflow App.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time that weekly maintenance updates are scheduled. For example: Tue:03:30.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_sagemaker as sagemaker
+            
+            cfn_mlflow_app_props = sagemaker.CfnMlflowAppProps(
+                artifact_store_uri="artifactStoreUri",
+                name="name",
+                role_arn="roleArn",
+            
+                # the properties below are optional
+                model_registration_mode="modelRegistrationMode",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                weekly_maintenance_window_start="weeklyMaintenanceWindowStart"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91ef5e044287144dde64a0f9edc862a4c9b07849e71ce4462fcfe48aa84ef4cb)
+            check_type(argname="argument artifact_store_uri", value=artifact_store_uri, expected_type=type_hints["artifact_store_uri"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            check_type(argname="argument model_registration_mode", value=model_registration_mode, expected_type=type_hints["model_registration_mode"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument weekly_maintenance_window_start", value=weekly_maintenance_window_start, expected_type=type_hints["weekly_maintenance_window_start"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "artifact_store_uri": artifact_store_uri,
+            "name": name,
+            "role_arn": role_arn,
+        }
+        if model_registration_mode is not None:
+            self._values["model_registration_mode"] = model_registration_mode
+        if tags is not None:
+            self._values["tags"] = tags
+        if weekly_maintenance_window_start is not None:
+            self._values["weekly_maintenance_window_start"] = weekly_maintenance_window_start
+
+    @builtins.property
+    def artifact_store_uri(self) -> builtins.str:
+        '''The S3 URI for a general purpose bucket to use as the MLflow App artifact store.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html#cfn-sagemaker-mlflowapp-artifactstoreuri
+        '''
+        result = self._values.get("artifact_store_uri")
+        assert result is not None, "Required property 'artifact_store_uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the MLflow App.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html#cfn-sagemaker-mlflowapp-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def role_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for an IAM role in your account that the MLflow App uses to access the artifact store in Amazon S3.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html#cfn-sagemaker-mlflowapp-rolearn
+        '''
+        result = self._values.get("role_arn")
+        assert result is not None, "Required property 'role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def model_registration_mode(self) -> typing.Optional[builtins.str]:
+        '''Whether to enable or disable automatic registration of new MLflow models to the SageMaker Model Registry.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html#cfn-sagemaker-mlflowapp-modelregistrationmode
+        '''
+        result = self._values.get("model_registration_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to associate with the MLflow App.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html#cfn-sagemaker-mlflowapp-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def weekly_maintenance_window_start(self) -> typing.Optional[builtins.str]:
+        '''The day and time of the week in Coordinated Universal Time (UTC) 24-hour standard time that weekly maintenance updates are scheduled.
+
+        For example: Tue:03:30.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-mlflowapp.html#cfn-sagemaker-mlflowapp-weeklymaintenancewindowstart
+        '''
+        result = self._values.get("weekly_maintenance_window_start")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnMlflowAppProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -58204,6 +58636,8 @@ __all__ = [
     "CfnInferenceComponentProps",
     "CfnInferenceExperiment",
     "CfnInferenceExperimentProps",
+    "CfnMlflowApp",
+    "CfnMlflowAppProps",
     "CfnMlflowTrackingServer",
     "CfnMlflowTrackingServerProps",
     "CfnModel",
@@ -61095,6 +61529,92 @@ def _typecheckingstub__92df73cfaf86dc9fd85986305f2cf4611dafd4cb962187062714c75ad
     shadow_mode_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnInferenceExperiment.ShadowModeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     status_reason: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a900a887eed9aa1fc0ab744c7920021c8d0d9d7d22526ca204541fb815a2f484(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    artifact_store_uri: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    model_registration_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d119892a2a1985ca8bafc9d2831d0d5b4dfad0b94d87f81bd34f1022cd6e1567(
+    resource: _IMlflowAppRef_4e43a49d,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d49f30e4e53bd0085903d9bd7addaa45cc4826fff5c56c81bfe47ae2c9a7d73d(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2742032955ad7fef322dd9fca60c0d50f03a912d0f455de53b2a25eb8d639499(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5316c58946ab6e43e1901ccc1849e935098cc0367b727f35be88574a3e3bf148(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2594445950367d954f3c800b66b471b5bf1707ec26abcfa9a0dbbd18ca26730c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39bcd5809136fc92037818f2aec55310bf2ee753cb7cd63d69998ee8e30ac5ed(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d0e6bb180e2d6b3f6a0b9290d357dc5e2f0e404b9f26c02f65127dbceeebc75(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ddd73da5602e992b07935c4bb2d381b68521dcb730acd4a26fcffe218af4adc(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__28e023008d4a6032fb8a1ab0def29d8f05b516a7179d4ab692350186681608dc(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94b0e3bdca317e9b94478ccd95122197782b3599bd51189de95d6c904380ff61(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91ef5e044287144dde64a0f9edc862a4c9b07849e71ce4462fcfe48aa84ef4cb(
+    *,
+    artifact_store_uri: builtins.str,
+    name: builtins.str,
+    role_arn: builtins.str,
+    model_registration_mode: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    weekly_maintenance_window_start: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

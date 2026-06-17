@@ -165,9 +165,15 @@ def _file_meta(file_id: str, skill_id: str) -> SkillFileMetadata:
 
 
 class _FakeClientWithDuplicateNames:
-    def list_skills(self, *, namespace: str, mine_only: bool):
+    def list_skills(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         assert namespace == "org/repo"
-        assert mine_only is False
+        assert filter == "all"
         return [
             SkillDetail(
                 id="skill-1",
@@ -199,9 +205,15 @@ class _FakeClientSingleSkill:
         self.installation_events: list[InstallationAnalyticsEvent] = []
         self.install_name = install_name
 
-    def list_skills(self, *, namespace: str, mine_only: bool):
+    def list_skills(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         assert namespace == "org/repo"
-        assert mine_only is False
+        assert filter == "all"
         return [
             SkillDetail(
                 id="skill-1",
@@ -364,9 +376,10 @@ async def test_install_skills_uses_api_install_name(tmp_path: Path) -> None:
     assert result.errors == []
     assert result.installed == ["api-install-name"]
     assert (canonical / "api-install-name" / "SKILL.md").exists()
-    assert "name: api-install-name" in (
-        canonical / "api-install-name" / "SKILL.md"
-    ).read_text()
+    assert (
+        "name: api-install-name"
+        in (canonical / "api-install-name" / "SKILL.md").read_text()
+    )
     assert (editor / "api-install-name").is_symlink()
     entries = read_lockfile(lockfile)
     assert [e.name for e in entries] == ["api-install-name"]
@@ -569,8 +582,14 @@ async def test_install_skills_vscode_uses_agents_skills_directly(tmp_path: Path)
 
 
 class _FakeClientAllAccessible:
-    def list_all_skills(self, *, mine_only: bool):
-        assert mine_only is False
+    def list_skills(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
+        assert filter == "all"
         return [
             SkillDetail(
                 id="skill-1",
@@ -675,8 +694,14 @@ async def test_install_all_accessible_skips_locked(tmp_path: Path):
 
 
 class _FakeClientAllCollision:
-    def list_all_skills(self, *, mine_only: bool):
-        assert mine_only is False
+    def list_skills(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
+        assert filter == "all"
         return [
             SkillDetail(
                 id="skill-1",
@@ -1123,8 +1148,16 @@ async def test_install_stores_identifier_in_lockfile(tmp_path: Path):
     lockfile = tmp_path / "lock" / "skill-lock.yml"
 
     class _ClientWithIdent(_FakeClientSingleSkill):
-        def list_skills(self, *, namespace: str, mine_only: bool):
-            skills = super().list_skills(namespace=namespace, mine_only=mine_only)
+        def list_skills(
+            self,
+            namespace: str | None = None,
+            *,
+            filter: str = "created_by_me",
+            query: str | None = None,
+        ):
+            skills = super().list_skills(
+                namespace=namespace, filter=filter, query=query
+            )
             for s in skills:
                 s.identifier = _IDENT_A
             return skills

@@ -77,6 +77,16 @@ class InstallResult:
     skipped_reason: str | None = None
 
 
+@dataclass(frozen=True)
+class UninstallResult:
+    """Outcome of removing Runlayer hook entries for one client."""
+
+    client: Client
+    config_path: Path
+    changed: bool
+    skipped_reason: str | None = None
+
+
 _CURSOR_ENFORCEMENT_HOOKS = (
     "beforeMCPExecution",
     "beforeReadFile",
@@ -109,6 +119,9 @@ _CLAUDE_CODE_ENFORCEMENT_HOOKS = (
     "PostToolUseFailure",
 )
 
+# WorktreeCreate/WorktreeRemove must never be registered: Claude Code treats
+# them as *provider* hooks (the command must create/remove the worktree and
+# print its path), so a telemetry-only entry breaks worktree creation.
 _CLAUDE_CODE_PIPELINE_HOOKS = (
     "SessionStart",
     "SessionEnd",
@@ -123,8 +136,6 @@ _CLAUDE_CODE_PIPELINE_HOOKS = (
     "TaskCompleted",
     "InstructionsLoaded",
     "ConfigChange",
-    "WorktreeCreate",
-    "WorktreeRemove",
 )
 
 _CODEX_ENFORCEMENT_HOOKS = (
@@ -499,6 +510,24 @@ def install_client(
     return InstallResult(client=client, config_path=config_path, written=True)
 
 
+def uninstall_client(
+    client: Client,
+    *,
+    scope: InstallScope = InstallScope.MDM,
+) -> UninstallResult:
+    """Remove Runlayer hook entries while preserving third-party config."""
+    if scope == InstallScope.USER and not _user_client_is_detected(client):
+        return UninstallResult(
+            client=client,
+            config_path=config_path_for(client, scope),
+            changed=False,
+            skipped_reason="client not installed",
+        )
+
+    remover = _UNINSTALLERS[client]
+    return remover(scope=scope)
+
+
 def _reown_to_console_user(path: Path) -> None:
     """Hand a root-written console-user-home config back to its owner.
 
@@ -520,6 +549,165 @@ def _read_existing_config(path: Path, *, home: Path | None) -> str | None:
 def _write_config(path: Path, text: str, *, home: Path | None) -> None:
     """Write a config file; link-safe (no symlink following) when *home* is set."""
     maybe_safe_write_text(path, text, home=home)
+
+
+def _remove_plain_file(path: Path) -> None:
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def _json_config_has_content(config: dict) -> bool:
+    """True when deleting the file would discard non-generated content."""
+    return any(key != "version" for key in config)
+
+
+def _uninstall_json_hooks(
+    *,
+    client: Client,
+    path: Path,
+    home: Path | None,
+    filter_hooks: Callable[[dict], dict],
+    remove_empty_file: bool,
+    reown: bool = False,
+) -> UninstallResult:
+    existing_text = _read_existing_config(path, home=home)
+    if existing_text is None:
+        return UninstallResult(
+            client=client,
+            config_path=path,
+            changed=False,
+            skipped_reason=f"no {path.name}",
+        )
+
+    try:
+        existing = read_dict(existing_text)
+    except (ValueError, OSError) as exc:
+        return UninstallResult(
+            client=client,
+            config_path=path,
+            changed=False,
+            skipped_reason=str(exc),
+        )
+
+    hooks = existing.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return UninstallResult(
+            client=client,
+            config_path=path,
+            changed=False,
+            skipped_reason="hooks section is not a dict",
+        )
+
+    filtered = filter_hooks(hooks)
+    if filtered == hooks:
+        return UninstallResult(client=client, config_path=path, changed=False)
+
+    if filtered:
+        existing["hooks"] = filtered
+    else:
+        existing.pop("hooks", None)
+
+    if remove_empty_file and home is None and not _json_config_has_content(existing):
+        _remove_plain_file(path)
+    else:
+        _write_config(path, json.dumps(existing, indent=2) + "\n", home=home)
+
+    if reown:
+        _reown_to_console_user(path)
+    return UninstallResult(client=client, config_path=path, changed=True)
+
+
+def _uninstall_cursor(*, scope: InstallScope) -> UninstallResult:
+    return _uninstall_json_hooks(
+        client=Client.CURSOR,
+        path=_cursor_config_file(scope),
+        home=None,
+        filter_hooks=_filter_runlayer_cursor_hooks,
+        remove_empty_file=True,
+    )
+
+
+def _uninstall_claude_code(*, scope: InstallScope) -> UninstallResult:
+    config_dir = client_config_dir(Client.CLAUDE_CODE, scope)
+    home = console_home_anchor(config_dir, mdm=scope == InstallScope.MDM)
+    return _uninstall_json_hooks(
+        client=Client.CLAUDE_CODE,
+        path=config_dir / "settings.json",
+        home=home,
+        filter_hooks=_filter_runlayer_claude_hooks,
+        remove_empty_file=False,
+        reown=scope == InstallScope.MDM,
+    )
+
+
+def _uninstall_codex(*, scope: InstallScope) -> UninstallResult:
+    # Leave features.hooks = true in config.toml; other hook users may depend on it.
+    return _uninstall_json_hooks(
+        client=Client.CODEX,
+        path=_codex_config_file(scope),
+        home=None,
+        filter_hooks=_filter_runlayer_claude_hooks,
+        remove_empty_file=True,
+    )
+
+
+def _uninstall_hermes(*, scope: InstallScope) -> UninstallResult:
+    config_dir = client_config_dir(Client.HERMES, scope)
+    path = config_dir / "config.yaml"
+    home = console_home_anchor(config_dir, mdm=scope == InstallScope.MDM)
+    existing_text = _read_existing_config(path, home=home)
+    if existing_text is None:
+        return UninstallResult(
+            client=Client.HERMES,
+            config_path=path,
+            changed=False,
+            skipped_reason=f"no {path.name}",
+        )
+
+    try:
+        loaded = yaml.safe_load(existing_text)
+    except yaml.YAMLError as exc:
+        return UninstallResult(
+            client=Client.HERMES,
+            config_path=path,
+            changed=False,
+            skipped_reason=str(exc),
+        )
+    if not isinstance(loaded, dict):
+        loaded = {}
+
+    hooks = loaded.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return UninstallResult(
+            client=Client.HERMES,
+            config_path=path,
+            changed=False,
+            skipped_reason="hooks section is not a dict",
+        )
+
+    filtered = _filter_runlayer_hermes_hooks(hooks)
+    if filtered == hooks:
+        return UninstallResult(client=Client.HERMES, config_path=path, changed=False)
+
+    if filtered:
+        loaded["hooks"] = filtered
+    else:
+        loaded.pop("hooks", None)
+
+    if home is None and not loaded:
+        _remove_plain_file(path)
+    else:
+        _write_config(
+            path,
+            yaml.safe_dump(loaded, default_flow_style=False, sort_keys=False),
+            home=home,
+        )
+
+    if scope == InstallScope.MDM:
+        _reown_to_console_user(path)
+    return UninstallResult(client=Client.HERMES, config_path=path, changed=True)
 
 
 def _write_cursor(
@@ -732,15 +920,24 @@ _WRITERS: dict[Client, Callable[..., Path]] = {
     Client.HERMES: _write_hermes,
 }
 
+_UNINSTALLERS: dict[Client, Callable[..., UninstallResult]] = {
+    Client.CURSOR: _uninstall_cursor,
+    Client.CLAUDE_CODE: _uninstall_claude_code,
+    Client.CODEX: _uninstall_codex,
+    Client.HERMES: _uninstall_hermes,
+}
+
 
 __all__ = [
     "CONSOLE_HOME_CLIENTS",
     "Client",
     "InstallResult",
+    "UninstallResult",
     "client_config_dir",
     "config_path_for",
     "expected_event_names",
     "install_client",
     "iter_supported_clients",
     "hook_command_for_client",
+    "uninstall_client",
 ]

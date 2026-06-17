@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import itertools
 import json
@@ -6,17 +8,27 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import cache, partial, reduce
 from pathlib import Path
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
+import attr
 import click
+
+from xorq.catalog import constants as catalog_constants
+
+
+if TYPE_CHECKING:
+    from xorq.catalog.content_store import ContentStoreConfig
 
 from xorq.cli_options import (
     cache_dir_option,
     cache_strategy_options,
     code_option,
+    content_store_option,
     env_options,
     fuse_option,
     gcs_option,
@@ -29,9 +41,10 @@ from xorq.cli_options import (
     sync_option,
     unbind_options,
 )
+from xorq.ibis_yaml.enums import DumpFiles, ExprKind
 
 
-def click_handler(e):
+def click_handler(e: Exception) -> None:
     raise click.ClickException(str(e)) from e
 
 
@@ -53,7 +66,7 @@ def _pdb_active(ctx):
 
 
 @contextmanager
-def click_context(ctx, *typs):
+def click_context(ctx: click.Context, *typs: type[Exception]) -> Iterator[None]:
     try:
         yield
     except click.ClickException:
@@ -65,7 +78,7 @@ def click_context(ctx, *typs):
 
 
 @contextmanager
-def click_context_catalog(ctx):
+def click_context_catalog(ctx: click.Context) -> Iterator[None]:
     from git import NoSuchPathError  # noqa: PLC0415
 
     try:
@@ -238,16 +251,58 @@ def _resolve_annex_option(env_file, env_prefix, gcs):
     return None
 
 
+def _resolve_content_store_option(
+    content_store_type: str | None, gcs: bool
+) -> ContentStoreConfig | None:
+    """Return a ContentStoreConfig from CLI options, or None."""
+    from xorq.catalog.content_store import (  # noqa: PLC0415
+        DirectoryContentStoreConfig,
+        S3ContentStoreConfig,
+    )
+
+    match content_store_type:
+        case None:
+            return None
+        case "s3":
+            if gcs:
+                return S3ContentStoreConfig.from_env_gcs()
+            return S3ContentStoreConfig.from_env()
+        case "directory":
+            return DirectoryContentStoreConfig.from_env()
+        case _:
+            raise click.UsageError(
+                f"unknown content store type: {content_store_type!r}"
+            )
+
+
+def _check_backend_exclusive_cli(
+    content_store_config: object | None, annex: object | None
+) -> None:
+    if content_store_config is not None and annex is not None:
+        raise click.UsageError(
+            "--content-store and annex options (--env-file/--env-prefix) "
+            "are mutually exclusive."
+        )
+
+
 @cli.command()
 @env_options
 @gcs_option
+@content_store_option
 @click.option(
     "--remote-url",
     default=None,
     help="Git remote URL (sets origin).",
 )
 @click.pass_context
-def init(ctx, env_file, env_prefix, gcs, remote_url):
+def init(
+    ctx: click.Context,
+    env_file: str | None,
+    env_prefix: str | None,
+    gcs: bool,
+    content_store_type: str | None,
+    remote_url: str | None,
+) -> None:
     """Create a new catalog repository.
 
     The destination comes from the catalog group's selectors (`-n/--name`
@@ -265,10 +320,13 @@ def init(ctx, env_file, env_prefix, gcs, remote_url):
     """
     with click_context_catalog(ctx):
         annex = _resolve_annex_option(env_file, env_prefix, gcs)
+        content_store_config = _resolve_content_store_option(content_store_type, gcs)
+        _check_backend_exclusive_cli(content_store_config, annex)
         try:
-            catalog = ctx.obj.make_catalog(init=True, annex=annex)
-        except AssertionError as err:
-            # init_repo_path asserts the path does not already exist
+            catalog = ctx.obj.make_catalog(
+                init=True, annex=annex, content_store_config=content_store_config
+            )
+        except FileExistsError as err:
             probe = ctx.obj.make_catalog(init=False)
             raise click.ClickException(
                 f"Catalog already exists at {probe.repo_path}"
@@ -417,7 +475,7 @@ def remove_alias(ctx, aliases, sync):
     help="Print a second column showing each entry's kind.",
 )
 @click.pass_context
-def list_entries(ctx, kind):
+def list_entries(ctx: click.Context, kind: bool) -> None:
     """List all entries.
 
     \b
@@ -505,19 +563,20 @@ def default_catalog(set_name, unset):
       xorq catalog default --unset
     """
     from xorq.catalog.catalog import Catalog  # noqa: PLC0415
-    from xorq.catalog.constants import DEFAULT_CATALOG_CONFIG  # noqa: PLC0415
     from xorq.vendor.ibis.config import env_config  # noqa: PLC0415
 
     if set_name and unset:
         raise click.UsageError("--set and --unset are mutually exclusive.")
 
     if set_name:
-        DEFAULT_CATALOG_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-        DEFAULT_CATALOG_CONFIG.write_text(set_name + "\n")
+        catalog_constants.DEFAULT_CATALOG_CONFIG.parent.mkdir(
+            parents=True, exist_ok=True
+        )
+        catalog_constants.DEFAULT_CATALOG_CONFIG.write_text(set_name + "\n")
         click.echo(f"Default catalog set to {set_name!r}")
     elif unset:
         try:
-            DEFAULT_CATALOG_CONFIG.unlink()
+            catalog_constants.DEFAULT_CATALOG_CONFIG.unlink()
             click.echo("Default catalog unset (reverted to 'default')")
         except FileNotFoundError:
             click.echo("No persisted default to unset.")
@@ -525,8 +584,8 @@ def default_catalog(set_name, unset):
         name = Catalog._resolve_default_name()
         if env_config.XORQ_DEFAULT_CATALOG:
             source = "env (XORQ_DEFAULT_CATALOG)"
-        elif DEFAULT_CATALOG_CONFIG.exists():
-            source = f"config ({DEFAULT_CATALOG_CONFIG})"
+        elif catalog_constants.DEFAULT_CATALOG_CONFIG.exists():
+            source = f"config ({catalog_constants.DEFAULT_CATALOG_CONFIG})"
         else:
             source = "built-in"
         click.echo(f"{name}  (source: {source})")
@@ -727,8 +786,6 @@ def schema(ctx, name, as_json):
       # Machine-readable metadata
       xorq catalog schema penguins-prod --json
     """
-    from xorq.ibis_yaml.enums import ExprKind  # noqa: PLC0415
-
     with click_context_catalog(ctx):
         catalog = ctx.obj.make_catalog(init=False)
         entry = _get_catalog_entry(catalog, name)
@@ -798,8 +855,6 @@ def show(ctx, name, as_json, as_raw):
         if as_json:
             click.echo(json.dumps(entry.sidecar_metadata, indent=2, default=str))
             return
-
-        from xorq.ibis_yaml.enums import ExprKind  # noqa: PLC0415
 
         meta = entry.metadata
         type_label = {
@@ -873,9 +928,36 @@ def check(ctx):
 
 
 @cli.command()
+@click.option(
+    "--dry-run/--no-dry-run", default=True, help="List orphans without deleting."
+)
+@click.pass_context
+def gc(ctx: click.Context, dry_run: bool) -> None:
+    """Remove orphaned content store objects (pointer backend only)."""
+    from xorq.catalog.backend import GitPointerBackend  # noqa: PLC0415
+
+    with click_context_catalog(ctx):
+        catalog = ctx.obj.make_catalog(init=False)
+        if not isinstance(catalog.backend, GitPointerBackend):
+            raise click.ClickException(
+                "gc is only supported for pointer-backend catalogs"
+            )
+        orphans = catalog.backend.gc_content_store(dry_run=dry_run)
+        if not orphans:
+            click.echo("No orphaned content store objects found.")
+        else:
+            action = "Would delete" if dry_run else "Deleted"
+            for key in orphans:
+                click.echo(f"  {action}: {key}")
+            click.echo(
+                f"\n{len(orphans)} orphan(s) {'found' if dry_run else 'deleted'}."
+            )
+
+
+@cli.command()
 @json_option
 @click.pass_context
-def log(ctx, as_json):
+def log(ctx: click.Context, as_json: bool) -> None:
     """Show the catalog's history as structured operations.
 
     These are the same operations `xorq catalog replay` consumes when
@@ -886,7 +968,6 @@ def log(ctx, as_json):
       xorq catalog log
       xorq catalog log --json | jq '.[] | select(.type == "Add")'
     """
-    import attr  # noqa: PLC0415
 
     from xorq.catalog.replay import Replayer  # noqa: PLC0415
 
@@ -911,6 +992,7 @@ def log(ctx, as_json):
 @click.argument("target_path", type=click.Path(file_okay=False))
 @env_options
 @gcs_option
+@content_store_option
 @click.option(
     "--remote-url",
     default=None,
@@ -938,6 +1020,7 @@ def replay(
     env_file,
     env_prefix,
     gcs,
+    content_store_type,
     remote_url,
     preserve_commits,
     force,
@@ -977,7 +1060,11 @@ def replay(
             replayer.print_plan()
             return
         annex = _resolve_annex_option(env_file, env_prefix, gcs)
-        target = Catalog.from_repo_path(target_path, annex=annex)
+        content_store_config = _resolve_content_store_option(content_store_type, gcs)
+        _check_backend_exclusive_cli(content_store_config, annex)
+        target = Catalog.from_repo_path(
+            target_path, annex=annex, content_store_config=content_store_config
+        )
         replayer.replay(target, preserve_commits=preserve_commits)
         click.echo(f"Replayed {len(replayer.ops)} operations into {target_path}")
         if remote_url:
@@ -1048,7 +1135,6 @@ def _get_catalog_entry(catalog, name):
 def _eval_entry(catalog_entry, code, instream=None, cache_dir=None):
     """Evaluate a single catalog entry to an expression."""
     from xorq.catalog.bind import _eval_code, _make_source_expr  # noqa: PLC0415
-    from xorq.ibis_yaml.enums import ExprKind  # noqa: PLC0415
 
     match catalog_entry.kind:
         case ExprKind.UnboundExpr:
@@ -1195,8 +1281,6 @@ def _assert_requirements_identical(entry_reqs):
 
 
 def _stage_bundle_into_build(bundle, build_path):
-    from xorq.ibis_yaml.enums import DumpFiles  # noqa: PLC0415
-
     for w in bundle.wheel_paths:
         dst = build_path / w.name
         if not dst.exists():
@@ -1222,7 +1306,6 @@ def _extract_wheel(zf, member, harvest_dir, seen_wheels, entry_name):
 
 
 def _harvest_entry_from_zip(zf, harvest_dir, entry_name=None, seen_wheels=None):
-    from xorq.ibis_yaml.enums import DumpFiles  # noqa: PLC0415
     from xorq.ibis_yaml.packager import (  # noqa: PLC0415
         _python_minor_from_metadata_text,
     )
@@ -1258,7 +1341,6 @@ def _harvest_entry_from_zip(zf, harvest_dir, entry_name=None, seen_wheels=None):
 @contextmanager
 def _entry_run_bundle(catalog, entries):
     from xorq.common.utils.otel_utils import tracer  # noqa: PLC0415
-    from xorq.ibis_yaml.enums import DumpFiles  # noqa: PLC0415
     from xorq.ibis_yaml.packager import JointBundle  # noqa: PLC0415
 
     if not entries:
@@ -1586,8 +1668,6 @@ def _resolve_single_entry(
     """Resolve a single catalog entry to an expression."""
     catalog_entry = _get_catalog_entry(catalog, entry)
 
-    from xorq.ibis_yaml.enums import ExprKind  # noqa: PLC0415
-
     span.set_attribute("kind", str(catalog_entry.kind))
     expr = _eval_entry(catalog_entry, code, instream, cache_dir=cache_dir)
 
@@ -1819,7 +1899,6 @@ def run(
                     from xorq.catalog.zip_utils import (  # noqa: PLC0415
                         extract_build_zip_context,
                     )
-                    from xorq.ibis_yaml.enums import ExprKind  # noqa: PLC0415
                     from xorq.ibis_yaml.packager import (  # noqa: PLC0415
                         PackagedRunner,
                     )
@@ -2045,8 +2124,6 @@ def serve_unbound(
       # Bind a runtime parameter
       xorq catalog serve-unbound scorer --params threshold=0.5
     """
-    from functools import partial  # noqa: PLC0415
-
     import xorq.expr.relations  # noqa: PLC0415
     import xorq.flight  # noqa: PLC0415
     from xorq.caching.strategy import SnapshotStrategy  # noqa: PLC0415

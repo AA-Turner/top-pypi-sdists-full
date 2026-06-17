@@ -30,13 +30,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
+import google.auth.credentials
 from google.cloud import bigquery
 from pydantic import BaseModel, Field
 
-from airbyte_ops_mcp.gcp_auth import get_gcp_credentials
+from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
 from airbyte_ops_mcp.prod_db_access.queries import query_workspace_info
 
 logger = logging.getLogger(__name__)
+
 
 # Type alias for customer tier values
 CustomerTier = Literal["TIER_0", "TIER_1", "TIER_2"]
@@ -236,13 +238,16 @@ def _is_cache_fresh(fetched_at: float | None) -> bool:
 # =============================================================================
 
 
-def _fetch_tier_data_from_bigquery() -> dict[str, dict[str, str]]:
+def _fetch_tier_data_from_bigquery(
+    credentials: google.auth.credentials.Credentials | None = None,
+) -> dict[str, dict[str, str]]:
     """Fetch org -> tier mappings from BigQuery.
 
     Returns a dict of `{org_id: {"customer_tier": "Tier 0"}}`.
     Only includes Tier 0 and Tier 1 orgs (Tier 2 is the default).
     """
-    credentials = get_gcp_credentials()
+    if credentials is None:
+        credentials = get_gcp_credentials_for_bigquery_ro()
     client = bigquery.Client(project=BIGQUERY_PROJECT, credentials=credentials)
     query_job = client.query(BIGQUERY_TIER_QUERY)
     results = query_job.result()
@@ -258,11 +263,16 @@ def _fetch_tier_data_from_bigquery() -> dict[str, dict[str, str]]:
     return tier_data
 
 
-def _load_tier_cache(*, force_refresh: bool = False) -> dict[str, dict[str, str]]:
+def _load_tier_cache(
+    *,
+    force_refresh: bool = False,
+    credentials: google.auth.credentials.Credentials | None = None,
+) -> dict[str, dict[str, str]]:
     """Load the org tier cache, refreshing from BigQuery if stale or missing.
 
     Args:
         force_refresh: If True, bypass TTL check and refresh from BigQuery.
+        credentials: Optional GCP credentials for BigQuery. Falls back to default.
 
     Returns:
         Dict mapping org_id to `{"customer_tier": "Tier 0"}`.
@@ -274,7 +284,7 @@ def _load_tier_cache(*, force_refresh: bool = False) -> dict[str, dict[str, str]
             return data  # type: ignore[return-value]
 
     # Fetch fresh data from BigQuery — hard-fail if unavailable
-    tier_data = _fetch_tier_data_from_bigquery()
+    tier_data = _fetch_tier_data_from_bigquery(credentials=credentials)
     if not tier_data:
         raise RuntimeError(
             "BigQuery tier query returned no rows. Cannot proceed without tier data. "
@@ -326,13 +336,21 @@ def _resolve_workspace_from_db(workspace_id: str) -> WorkspaceOrgEntry | None:
 # =============================================================================
 
 
-def get_org_tier(organization_id: str) -> OrgTierResult:
+def get_org_tier(
+    organization_id: str,
+    *,
+    credentials: google.auth.credentials.Credentials | None = None,
+) -> OrgTierResult:
     """Resolve a single organization's customer tier.
 
     Loads the tier cache (refreshing from BigQuery if stale), looks up the org,
     and returns the tier. Orgs not in the cache default to TIER_2.
+
+    Args:
+        organization_id: The organization ID to look up.
+        credentials: Optional GCP credentials for BigQuery refresh. Falls back to default.
     """
-    tier_cache = _load_tier_cache()
+    tier_cache = _load_tier_cache(credentials=credentials)
     entry = tier_cache.get(organization_id)
     if entry is not None:
         bq_tier = entry.get("customer_tier", "")

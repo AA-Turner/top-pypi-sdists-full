@@ -150,7 +150,7 @@ class CfnConnection(
         :param description: A description of the connection.
         :param environment_id: The ID of the environment for the connection. Required when creating a connection through AWS. Mutually exclusive with ActivationKey.
         :param remote_account: The remote account identifier for the connection. Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
-        :param remote_owner_account: Deprecated. Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
+        :param remote_owner_account: (deprecated) Deprecated. Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
         :param tags: An array of key-value pairs to apply to this resource.
         '''
         if __debug__:
@@ -408,7 +408,12 @@ class CfnConnection(
     @builtins.property
     @jsii.member(jsii_name="remoteOwnerAccount")
     def remote_owner_account(self) -> typing.Optional[builtins.str]:
-        '''Deprecated.'''
+        '''(deprecated) Deprecated.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "remoteOwnerAccount"))
 
     @remote_owner_account.setter
@@ -664,7 +669,7 @@ class CfnConnectionProps:
         :param description: A description of the connection.
         :param environment_id: The ID of the environment for the connection. Required when creating a connection through AWS. Mutually exclusive with ActivationKey.
         :param remote_account: The remote account identifier for the connection. Required when creating a connection through AWS. Replaces RemoteOwnerAccount.
-        :param remote_owner_account: Deprecated. Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
+        :param remote_owner_account: (deprecated) Deprecated. Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
         :param tags: An array of key-value pairs to apply to this resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html
@@ -793,11 +798,14 @@ class CfnConnectionProps:
 
     @builtins.property
     def remote_owner_account(self) -> typing.Optional[builtins.str]:
-        '''Deprecated.
+        '''(deprecated) Deprecated.
 
         Use RemoteAccount instead. The account ID of the remote owner. Required when creating a connection through AWS.
 
+        :deprecated: this property has been deprecated
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-interconnect-connection.html#cfn-interconnect-connection-remoteowneraccount
+        :stability: deprecated
         '''
         result = self._values.get("remote_owner_account")
         return typing.cast(typing.Optional[builtins.str], result)

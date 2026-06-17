@@ -8,6 +8,7 @@ use crate::utils::emphasis_utils::{
     replace_inline_math,
 };
 use crate::utils::kramdown_utils::has_span_ial;
+use crate::utils::range_utils::byte_to_char_count;
 use crate::utils::regex_cache::UNORDERED_LIST_MARKER_REGEX;
 use crate::utils::skip_context::{
     is_in_inline_html_code, is_in_jsx_expression, is_in_math_context, is_in_mdx_comment, is_in_mkdocs_markup,
@@ -127,10 +128,13 @@ impl Rule for MD037NoSpaceInEmphasis {
             // Find warnings for this line
             for warning in &warnings {
                 if warning.line == line_num {
-                    // Calculate byte position of the warning
+                    // `warning.column` is a byte offset within the line at this stage.
+                    // Derive the byte position (for byte-based skip checks) and the
+                    // character column (for char-based checks and the emitted warning).
                     let byte_pos = line_start_pos + (warning.column - 1);
-                    // Calculate position within the line (0-indexed)
+                    // Calculate byte position within the line (0-indexed)
                     let line_pos = warning.column - 1;
+                    let char_col = byte_to_char_count(line, warning.column - 1);
 
                     // Skip if inside links, HTML comments, math contexts, tables, code spans, MDX constructs, or MkDocs markup
                     // Note: is_in_code_span uses pulldown-cmark and correctly handles multi-line spans
@@ -144,15 +148,18 @@ impl Rule for MD037NoSpaceInEmphasis {
                         && !self.is_in_link(ctx, byte_pos)
                         && !ctx.is_in_html_comment(byte_pos)
                         && !is_in_math_context(ctx, byte_pos)
-                        && !is_in_table_cell(ctx, line_num, warning.column)
-                        && !ctx.is_in_code_span(line_num, warning.column)
+                        && !is_in_table_cell(ctx, line_num, char_col)
+                        && !ctx.is_in_code_span(line_num, char_col)
                         && !is_in_inline_html_code(line, line_pos)
                         && !is_in_jsx_expression(ctx, byte_pos)
                         && !is_in_mdx_comment(ctx, byte_pos)
                         && !is_in_mkdocs_markup(line, line_pos, ctx.flavor)
-                        && !ctx.is_position_in_obsidian_comment(line_num, warning.column)
+                        && !ctx.is_position_in_obsidian_comment(line_num, char_col)
                     {
                         let mut adjusted_warning = warning.clone();
+                        // Emit character-based columns (byte-based skip checks done above).
+                        adjusted_warning.column = char_col;
+                        adjusted_warning.end_column = byte_to_char_count(line, warning.end_column - 1);
                         if let Some(fix) = &mut adjusted_warning.fix {
                             // Convert line-relative range to absolute range
                             let abs_start = line_start_pos + fix.range.start;
@@ -335,8 +342,11 @@ impl MD037NoSpaceInEmphasis {
                 let warning = LintWarning {
                     rule_name: Some(self.name().to_string()),
                     message: format!("Spaces inside emphasis markers: {display_text:?}"),
+                    // Byte-based columns within the line. The filter pass below relies
+                    // on `column` being a byte offset for its skip checks, then converts
+                    // the emitted columns to character offsets.
                     line: line_num,
-                    column: offset + full_start + 1, // +1 because columns are 1-indexed
+                    column: offset + full_start + 1,
                     end_line: line_num,
                     end_column: offset + full_end + 1,
                     severity: Severity::Warning,

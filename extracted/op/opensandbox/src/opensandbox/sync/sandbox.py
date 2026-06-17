@@ -34,6 +34,7 @@ from opensandbox.exceptions import (
 from opensandbox.models.diagnostics import DiagnosticContent
 from opensandbox.models.sandboxes import (
     CreateSnapshotRequest,
+    CredentialProxyConfig,
     NetworkPolicy,
     NetworkRule,
     PlatformSpec,
@@ -48,6 +49,7 @@ from opensandbox.models.sandboxes import (
 from opensandbox.sync.adapters.factory import AdapterFactorySync
 from opensandbox.sync.services import (
     CommandsSync,
+    CredentialVaultSync,
     DiagnosticsSync,
     EgressSync,
     FilesystemSync,
@@ -171,6 +173,13 @@ class SandboxSync:
         Allows retrieving resource usage statistics (CPU, memory) and other performance metrics.
         """
         return self._metrics_service
+
+    @property
+    def credential_vault(self) -> CredentialVaultSync:
+        """
+        Provides access to sandbox-scoped Credential Vault operations.
+        """
+        return self._egress_service
 
     @property
     def diagnostics(self) -> DiagnosticsSync:
@@ -467,8 +476,10 @@ class SandboxSync:
         env: dict[str, str] | None = None,
         metadata: dict[str, str] | None = None,
         resource: dict[str, str] | None = None,
+        resource_requests: dict[str, str] | None = None,
         platform: PlatformSpec | None = None,
         network_policy: NetworkPolicy | None = None,
+        credential_proxy: CredentialProxyConfig | None = None,
         extensions: dict[str, str] | None = None,
         secure_access: bool = False,
         entrypoint: list[str] | None = None,
@@ -489,6 +500,7 @@ class SandboxSync:
             metadata: Custom metadata for the sandbox
             resource: Resource limits (CPU, memory, etc.)
             network_policy: Optional outbound network policy (egress).
+            credential_proxy: Optional Credential Vault proxy startup settings.
             extensions: Opaque extension parameters passed through to the server as-is.
                 Prefer namespaced keys (e.g. ``storage.id``).
             secure_access: Whether to enable secured access for sandbox endpoints.
@@ -541,11 +553,13 @@ class SandboxSync:
                 timeout=timeout,
                 resource=resource,
                 network_policy=network_policy,
+                credential_proxy=credential_proxy,
                 extensions=extensions,
                 volumes=volumes,
                 platform=platform,
                 secure_access=secure_access,
                 snapshot_id=snapshot_id,
+                resource_requests=resource_requests,
             )
             sandbox_id = response.id
             execd_endpoint = sandbox_service.get_sandbox_endpoint(

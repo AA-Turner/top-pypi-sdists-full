@@ -361,6 +361,16 @@ class DeleteExternalFunctionVersionResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class DeleteExternalFunctionRequest(_message.Message):
+    __slots__ = ("function_name",)
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    function_name: str
+    def __init__(self, function_name: _Optional[str] = ...) -> None: ...
+
+class DeleteExternalFunctionResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class ExternalFunctionSummary(_message.Message):
     __slots__ = (
         "name",

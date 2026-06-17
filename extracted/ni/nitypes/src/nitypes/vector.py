@@ -8,13 +8,14 @@ Valid types for the scalar value are :any:`bool`, :any:`int`, :any:`float`, and 
 
 from __future__ import annotations
 
-from collections.abc import Iterable, MutableSequence
-from typing import TYPE_CHECKING, overload, Any, Union
+from collections.abc import Iterable, Mapping, MutableSequence, Sequence
+from typing import TYPE_CHECKING, Any, Union, overload
 
-from typing_extensions import TypeVar, final, override
+from typing_extensions import Self, TypeVar, final, override
 
 from nitypes._exceptions import invalid_arg_type
 from nitypes.waveform._extended_properties import UNIT_DESCRIPTION
+from nitypes.waveform.typing import ExtendedPropertyValue
 
 if TYPE_CHECKING:
     # Import from the public package so the docs don't reference private submodules.
@@ -35,9 +36,9 @@ class Vector(MutableSequence[TScalar]):
     To construct a vector data object, use the :class:`Vector` class:
 
     >>> Vector([False, True])
-    nitypes.vector.Vector(values=[False, True], units='')
+    nitypes.vector.Vector(values=[False, True])
     >>> Vector([0, 1, 2])
-    nitypes.vector.Vector(values=[0, 1, 2], units='')
+    nitypes.vector.Vector(values=[0, 1, 2])
     >>> Vector([5.0, 6.0], 'volts')
     nitypes.vector.Vector(values=[5.0, 6.0], units='volts')
     >>> Vector(["one", "two"], "volts")
@@ -60,6 +61,8 @@ class Vector(MutableSequence[TScalar]):
         units: str = "",
         *,
         value_type: type[TScalar] | None = None,
+        extended_properties: Mapping[str, ExtendedPropertyValue] | None = None,
+        copy_extended_properties: bool = True,
     ) -> None:
         """Initialize a new vector.
 
@@ -69,23 +72,26 @@ class Vector(MutableSequence[TScalar]):
             value_type: The type of values that will be added to this Vector.
                 This parameter should only be used when creating a Vector with
                 an empty Iterable.
+            extended_properties: The extended properties of the Vector.
+            copy_extended_properties: Specifies whether to copy the extended properties or take
+                ownership.
 
         Returns:
             A vector data object.
         """
-        if not values:
+        backing_values = list(values)
+        if not backing_values:
             if not value_type:
                 raise TypeError("You must specify values as non-empty or specify value_type.")
             self._value_type = value_type
         else:
+            self._value_type = type(backing_values[0])
             # Validate the values input
-            for index, value in enumerate(values):
-                # Only set _value_type once.
-                if not index:
-                    self._value_type = type(value)
-
+            for value in backing_values:
                 if not isinstance(value, (bool, int, float, str)):
-                    raise invalid_arg_type("vector input data", "bool, int, float, or str", values)
+                    raise invalid_arg_type(
+                        "vector input data", "bool, int, float, or str", backing_values
+                    )
 
                 if not isinstance(value, self._value_type):
                     raise TypeError("All values in the values input must be of the same type.")
@@ -93,9 +99,21 @@ class Vector(MutableSequence[TScalar]):
         if not isinstance(units, str):
             raise invalid_arg_type("units", "str", units)
 
-        self._values = list(values)
-        self._extended_properties = ExtendedPropertyDictionary()
-        self._extended_properties[UNIT_DESCRIPTION] = units
+        self._values = backing_values
+        if copy_extended_properties or not isinstance(
+            extended_properties, ExtendedPropertyDictionary
+        ):
+            extended_properties = ExtendedPropertyDictionary(extended_properties)
+        self._extended_properties = extended_properties
+
+        # If units are not already in extended properties, set them.
+        if UNIT_DESCRIPTION not in self._extended_properties:
+            self._extended_properties[UNIT_DESCRIPTION] = units
+        elif units and units != self._extended_properties.get(UNIT_DESCRIPTION):
+            raise ValueError(
+                "The specified units input does not match the units specified in "
+                "extended_properties."
+            )
 
     @property
     def units(self) -> str:
@@ -160,14 +178,20 @@ class Vector(MutableSequence[TScalar]):
                 raise TypeError("You must assign an Iterable to a Vector slice.")
             elif isinstance(value, str):  # Narrow the type to exclude string.
                 raise TypeError("You cannot assign a string to Vector slice.")
-            else:
-                # Assigning an empty Iterable to a slice is valid, so we don't check for empty.
-                # If an empty Iterable is assigned to a slice, that slice is deleted.
-                for subval in value:
-                    if not isinstance(subval, self._value_type):
-                        raise self._create_value_mismatch_exception(subval)
 
-            self._values[index] = value
+            if isinstance(value, Sequence):
+                # A Sequence can be iterated over multiple times, so no need for a wrapper list.
+                replacement_values = value
+            else:
+                replacement_values = list(value)
+
+            # Assigning an empty Iterable to a slice is valid, so we don't check for empty.
+            # If an empty Iterable is assigned to a slice, that slice is deleted.
+            for subval in replacement_values:
+                if not isinstance(subval, self._value_type):
+                    raise self._create_value_mismatch_exception(subval)
+
+            self._values[index] = replacement_values
 
     def __delitem__(self, index: int | slice) -> None:
         """Delete item(s) from the specified location."""
@@ -191,11 +215,29 @@ class Vector(MutableSequence[TScalar]):
 
     def __reduce__(self) -> tuple[Any, ...]:
         """Return object state for pickling."""
-        return (self.__class__, (self._values, self.units))
+        ctor_args = (self._values,)
+        ctor_kwargs: dict[str, Any] = {
+            "value_type": self._value_type,
+            "extended_properties": self._extended_properties,
+            "copy_extended_properties": False,
+        }
+        return (self.__class__._unpickle, (ctor_args, ctor_kwargs))
+
+    @classmethod
+    def _unpickle(cls, args: tuple[Any, ...], kwargs: dict[str, Any]) -> Self:
+        return cls(*args, **kwargs)
 
     def __repr__(self) -> str:
         """Return repr(self)."""
-        args = [f"values={self._values!r}", f"units={self.units!r}"]
+        args = [f"values={self._values!r}"]
+
+        if self.units:
+            args.append(f"units={self.units!r}")
+
+        # Only display the extended properties if non-units entries are specified.
+        if any(key for key in self.extended_properties.keys() if key != UNIT_DESCRIPTION):
+            args.append(f"extended_properties={self.extended_properties!r}")
+
         return f"{self.__class__.__module__}.{self.__class__.__name__}({', '.join(args)})"
 
     def __str__(self) -> str:

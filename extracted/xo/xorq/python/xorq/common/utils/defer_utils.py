@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-import hashlib
 import itertools
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-import pyarrow as pa
 import toolz
 
 import xorq.vendor.ibis.expr.types as ir
 from xorq.backends.xorq_datafusion import connect as xo_connect
+from xorq.common.utils.file_utils import (
+    normalize_read_path_md5sum,
+    normalize_read_path_stat,
+)
 from xorq.common.utils.inspect_utils import (
     get_arguments,
 )
@@ -53,53 +55,17 @@ def make_read_kwargs(f, *args, **kwargs):
     return tpl
 
 
-def _manual_file_digest(path, digest=hashlib.md5, size=2**20):
-    from contextlib import closing  # noqa: PLC0415
+def relocatable_read_path(path: str | Path) -> tuple[str, str]:
+    from xorq.common.utils.dasher import tokenize  # noqa: PLC0415
 
-    fh = path if hasattr(path, "read") else Path(path).open("rb")
-    with closing(fh):
-        obj = digest()
-        for chunk in itertools.takewhile(
-            bool, (fh.read(size) for fh in itertools.repeat(fh))
-        ):
-            obj.update(chunk)
-        return obj.hexdigest()
-
-
-def _file_digest(path, digest=hashlib.md5, size=2**20):
-    from zipfile import ZipExtFile  # noqa: PLC0415
-
-    if hasattr(hashlib, "file_digest"):
-        if isinstance(path, ZipExtFile):
-            return hashlib.file_digest(path, digest).hexdigest()
-        if isinstance(path, (str, Path)):
-            with Path(path).open("rb") as fh:
-                return hashlib.file_digest(fh, digest).hexdigest()
-        raise ValueError(f"Don't know how to handle type {type(path)}")
-    return _manual_file_digest(path, digest, size=size)
-
-
-def normalize_read_path_md5sum(path):
-    return (("content-md5sum", _file_digest(path)),)
-
-
-def normalize_read_path_stat(path):
-    stat = path.stat()
-    tpls = tuple(
-        (attrname, getattr(stat, attrname))
-        for attrname in (
-            "st_mtime",
-            "st_size",
-            # mtime, size <?-?> md5sum
-            "st_ino",
-        )
-    )
-    return tpls
+    path = Path(path)
+    return ("reads", f"{tokenize(normalize_read_path_md5sum(path))}{path.suffix}")
 
 
 @toolz.curry
 def infer_csv_schema_pandas(path, chunksize=DEFAULT_CHUNKSIZE, **kwargs):
     import pandas as pd  # noqa: PLC0415
+    import pyarrow as pa  # noqa: PLC0415
 
     path = normalize_filenames(path)
     gen = pd.read_csv(path[0], chunksize=chunksize, **kwargs)
@@ -112,6 +78,7 @@ def infer_csv_schema_pandas(path, chunksize=DEFAULT_CHUNKSIZE, **kwargs):
 def read_csv_rbr(*args, schema=None, chunksize=DEFAULT_CHUNKSIZE, dtype=None, **kwargs):
     """Deferred and streaming csv reading via pandas"""
     import pandas as pd  # noqa: PLC0415
+    import pyarrow as pa  # noqa: PLC0415
 
     if dtype is not None:
         raise TypeError("pass `dtype` as pyarrow `schema`")
@@ -156,6 +123,7 @@ def deferred_read_csv(
     table_name: str | None = None,
     schema: Schema | None = None,
     normalize_method: Callable = normalize_read_path_stat,
+    relocatable: bool = False,
     **kwargs,
 ) -> ir.Table:
     """
@@ -171,13 +139,13 @@ def deferred_read_csv(
 
     Parameters
     ----------
-    con : Backend
+    path : str or Path
+        The path to the CSV file to be read. This can be a local file path or a URL.
+
+    con : Backend, optional
         The connection object representing the backend where the CSV will be read.
         This can be any backend that supports reading CSV files (pandas, duckdb,
         postgres, etc.).
-
-    path : str or Path
-        The path to the CSV file to be read. This can be a local file path or a URL.
 
     table_name : str, optional
         The name to give to the resulting table in the backend. If not provided,
@@ -186,6 +154,10 @@ def deferred_read_csv(
     schema : Schema, optional
         The schema definition for the CSV data. If not provided, the schema will
         be inferred from the data by sampling the CSV file.
+
+    relocatable : bool, optional
+        When True, ``xorq build`` will copy the backing file into the build
+        artifact and rewrite the path so the archive is self-contained.
 
     kwargs : Any
         Additional keyword arguments that will be passed to the backend's read_csv
@@ -222,6 +194,9 @@ def deferred_read_csv(
         read_kwargs = make_read_kwargs(
             method, path, table_name, schema=schema, **kwargs
         )
+    if relocatable:
+        read_kwargs = read_kwargs + (("relocatable", True),)
+        normalize_method = normalize_read_path_md5sum
     return Read(
         method_name=method_name,
         name=table_name,
@@ -238,6 +213,7 @@ def deferred_read_parquet(
     table_name: str | None = None,
     schema: Schema | None = None,
     normalize_method: Callable = normalize_read_path_stat,
+    relocatable: bool = False,
     **kwargs,
 ) -> ir.Table:
     """
@@ -249,26 +225,30 @@ def deferred_read_parquet(
 
     Parameters
     ----------
-    con : Backend
-        The connection object representing the backend where the Parquet data will be read.
-
     path : str or Path
         The path to the Parquet file or directory to be read.
+
+    con : Backend, optional
+        The connection object representing the backend where the Parquet data will be read.
 
     table_name : str, optional
         The name to give to the resulting table in the backend. If not provided,
         a unique name will be generated automatically.
 
     normalize_method : Callable, optional
-     The method that returns the values to be used in the hashing of the Read operation.
+        The method that returns the values to be used in the hashing of the Read operation.
+
+    relocatable : bool, optional
+        When True, ``xorq build`` will copy the backing file into the build
+        artifact and rewrite the path so the archive is self-contained.
 
     **kwargs : dict
         Additional keyword arguments passed to the backend's read_parquet method.
 
-     Returns
-     -------
-     Expr
-         An expression representing the deferred read operation.
+    Returns
+    -------
+    Expr
+        An expression representing the deferred read operation.
     """
 
     method_name = "read_parquet"
@@ -281,6 +261,9 @@ def deferred_read_parquet(
     if con.name in _ADBC_BACKENDS:
         kwargs.setdefault("mode", "replace")
     read_kwargs = make_read_kwargs(method, path, table_name=table_name, **kwargs)
+    if relocatable:
+        read_kwargs = read_kwargs + (("relocatable", True),)
+        normalize_method = normalize_read_path_md5sum
     return Read(
         method_name=method_name,
         name=table_name,
@@ -292,6 +275,8 @@ def deferred_read_parquet(
 
 
 def rbr_wrapper(reader, clean_up):
+    import pyarrow as pa  # noqa: PLC0415
+
     def gen():
         yield from reader
         clean_up()

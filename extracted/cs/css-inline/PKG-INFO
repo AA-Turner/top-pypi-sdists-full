@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: css-inline
-Version: 0.20.2
+Version: 0.21.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -8,7 +8,6 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,7 +20,7 @@ License-File: LICENSE
 Summary: High-performance library for inlining CSS into HTML 'style' attributes
 Keywords: css,html,email,stylesheet,inlining
 Author-email: Dmitry Dygalo <dmitry@dygalo.dev>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: homepage, https://github.com/Stranger6667/css-inline/tree/master/bindings/python
 Project-URL: repository, https://github.com/Stranger6667/css-inline
@@ -72,7 +71,7 @@ into:
 - Can process multiple documents in parallel
 - Works on Linux, Windows, macOS and in the browser via PyOdide
 - Supports HTML5 & CSS3
-- Tested on CPython 3.9, 3.10, 3.11, 3.12, 3.13, 3.14 and PyPy 3.11.
+- Tested on CPython 3.10, 3.11, 3.12, 3.13, 3.14 and PyPy 3.11.
 
 ## Playground
 

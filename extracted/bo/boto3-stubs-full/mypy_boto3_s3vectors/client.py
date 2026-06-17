@@ -26,7 +26,12 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListIndexesPaginator, ListVectorBucketsPaginator, ListVectorsPaginator
+from .paginator import (
+    ListIndexesPaginator,
+    ListVectorBucketsPaginator,
+    ListVectorsPaginator,
+    QueryVectorsPaginator,
+)
 from .type_defs import (
     CreateIndexInputTypeDef,
     CreateIndexOutputTypeDef,
@@ -321,6 +326,17 @@ class S3VectorsClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_vectors"]
     ) -> ListVectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["query_vectors"]
+    ) -> QueryVectorsPaginator:
         """
         Create a paginator for an operation.
 

@@ -188,6 +188,7 @@ class OCSVM(BaseDetector):
             The anomaly score of the input samples.
         """
         check_is_fitted(self, ['decision_scores_', 'threshold_', 'labels_'])
+        X = check_array(X)
         # Invert outlier scores. Outliers comes with higher outlier scores
         return invert_order(self.detector_.decision_function(X))
 

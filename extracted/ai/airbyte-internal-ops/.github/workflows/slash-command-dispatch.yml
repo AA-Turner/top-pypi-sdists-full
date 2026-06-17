@@ -33,6 +33,7 @@ jobs:
           issue-type: pull-request
           commands: |
             autofix
+            deploy-mcp
             deploy-ops-webapp
             lock
             poe

@@ -384,7 +384,7 @@ def _render_video(
             *extra_args,
             str(path),
         ]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
         if r.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {r.stderr[:300]}")
     return path
@@ -542,7 +542,7 @@ def _encode_audio_via_ffmpeg(
             *extra_args,
             str(output),
         ]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
         if r.returncode != 0:
             raise RuntimeError(f"ffmpeg failed: {(r.stderr or '')[:300]}")
     return output

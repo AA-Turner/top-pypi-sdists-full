@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canvas
-Version: 0.167.0
+Version: 0.169.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
@@ -30,7 +30,7 @@ Requires-Dist: python-logstash-async>=4.0.2
 Requires-Dist: rapidfuzz<4,>=3.10.1
 Requires-Dist: redis<6,>=5.0.4
 Requires-Dist: requests
-Requires-Dist: restrictedpython>=8.0
+Requires-Dist: restrictedpython<8.3,>=8.0
 Requires-Dist: sentry-sdk>=2.33.2
 Requires-Dist: statsd<5,>=4.0.1
 Requires-Dist: stripe>=14.1.0

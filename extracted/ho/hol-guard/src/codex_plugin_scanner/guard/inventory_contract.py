@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import ipaddress
 import json
 import re
@@ -67,6 +68,7 @@ AgentInventoryType = Literal[
     "opencode",
     "kimi",
     "grok",
+    "zcode",
 ]
 _AGENT_INVENTORY_TYPES: tuple[AgentInventoryType, ...] = (
     "hermes",
@@ -79,6 +81,7 @@ _AGENT_INVENTORY_TYPES: tuple[AgentInventoryType, ...] = (
     "opencode",
     "kimi",
     "grok",
+    "zcode",
 )
 
 _SENSITIVE_KEY_RE = re.compile(
@@ -131,6 +134,24 @@ _MCP_SHELL_RE = re.compile(
     r"(?<![a-z0-9])(shell|command|commands|execute|exec|subprocess)(?![a-z0-9])",
     re.IGNORECASE,
 )
+
+
+def _aibom_detection_module():
+    return importlib.import_module(".aibom_detection", __package__)
+
+
+def _aibom_symlink_module():
+    return importlib.import_module(".aibom_symlink", __package__)
+
+
+def _aibom_trust_metadata_module():
+    return importlib.import_module(".aibom_trust_metadata", __package__)
+
+
+def _inventory_item_description_module():
+    return importlib.import_module(".inventory_item_description", __package__)
+
+
 _MCP_SECRET_RE = re.compile(
     r"(?<![a-z0-9])(secret|secrets|token|tokens|password|passwords|credential|credentials|api[_\-\s]?key|apiKey)(?![a-z0-9])",
     re.IGNORECASE,
@@ -371,13 +392,11 @@ def inventory_snapshot_from_detection(
     follow_unsafe_symlinks: bool = False,
     trust_attestation_context: Mapping[str, object] | None = None,
 ) -> GuardAgentInventorySnapshot:
-    from .aibom_detection import discover_shared_workspace_aibom_artifacts
-
     harness = str(getattr(detection, "harness", "unknown"))
     artifacts: list[object] = list(getattr(detection, "artifacts", ()))
     if workspace_dir is not None:
         existing_ids = {str(getattr(artifact, "artifact_id", "")) for artifact in artifacts}
-        for artifact in discover_shared_workspace_aibom_artifacts(
+        for artifact in _aibom_detection_module().discover_shared_workspace_aibom_artifacts(
             harness,
             home_dir=home_dir,
             workspace_dir=workspace_dir,
@@ -600,12 +619,49 @@ def _item_from_artifact(
 
     workspace_id = None
     device_id = None
+    analyzer_id = None
+    analyzer_spec_version = None
+    analyzer_version = None
+    policy_version = None
+    installation_id = None
+    upload_id = None
+    challenge_id = None
+    nonce = None
+    sequence = None
+    expires_at = None
     signing_config = None
     if isinstance(trust_attestation_context, Mapping):
         raw_workspace_id = trust_attestation_context.get("workspaceId")
         workspace_id = raw_workspace_id if isinstance(raw_workspace_id, str) and raw_workspace_id else None
         raw_device_id = trust_attestation_context.get("deviceId")
         device_id = raw_device_id if isinstance(raw_device_id, str) and raw_device_id else None
+        raw_analyzer_id = trust_attestation_context.get("analyzerId")
+        analyzer_id = raw_analyzer_id if isinstance(raw_analyzer_id, str) and raw_analyzer_id else None
+        raw_analyzer_spec_version = trust_attestation_context.get("analyzerSpecVersion")
+        analyzer_spec_version = (
+            raw_analyzer_spec_version
+            if isinstance(raw_analyzer_spec_version, str) and raw_analyzer_spec_version
+            else None
+        )
+        raw_analyzer_version = trust_attestation_context.get("analyzerVersion")
+        analyzer_version = (
+            raw_analyzer_version if isinstance(raw_analyzer_version, str) and raw_analyzer_version else None
+        )
+        raw_installation_id = trust_attestation_context.get("installationId")
+        installation_id = raw_installation_id if isinstance(raw_installation_id, str) and raw_installation_id else None
+        raw_upload_id = trust_attestation_context.get("uploadId")
+        upload_id = raw_upload_id if isinstance(raw_upload_id, str) and raw_upload_id else None
+        raw_challenge_id = trust_attestation_context.get("challengeId")
+        challenge_id = raw_challenge_id if isinstance(raw_challenge_id, str) and raw_challenge_id else None
+        raw_nonce = trust_attestation_context.get("nonce")
+        nonce = raw_nonce if isinstance(raw_nonce, str) and raw_nonce else None
+        raw_sequence = trust_attestation_context.get("sequence")
+        if isinstance(raw_sequence, int):
+            sequence = raw_sequence
+        raw_policy_version = trust_attestation_context.get("policyVersion")
+        policy_version = raw_policy_version if isinstance(raw_policy_version, str) and raw_policy_version else None
+        raw_expires_at = trust_attestation_context.get("expiresAt")
+        expires_at = raw_expires_at if isinstance(raw_expires_at, str) and raw_expires_at else None
         raw_signing_config = trust_attestation_context.get("signingConfig")
         if isinstance(raw_signing_config, GuardTrustAttestationSigningConfig):
             signing_config = raw_signing_config
@@ -613,18 +669,26 @@ def _item_from_artifact(
     safe_metadata = apply_trust_attestation_metadata(
         safe_metadata,
         agent_id=f"{harness}:local",
+        analyzer_id=analyzer_id,
+        analyzer_spec_version=analyzer_spec_version,
+        analyzer_version=analyzer_version,
         item_id=artifact_id,
         item_kind=item_kind,
         content_hash=content_hash,
+        challenge_id=challenge_id,
+        expires_at=expires_at,
+        installation_id=installation_id,
+        nonce=nonce,
+        policy_version=policy_version,
+        sequence=sequence,
+        upload_id=upload_id,
         workspace_id=workspace_id,
         device_id=device_id,
         signing_config=signing_config,
     )
     publisher = getattr(artifact, "publisher", None)
     publisher_text = publisher if isinstance(publisher, str) else None
-    from .inventory_item_description import resolve_inventory_item_description
-
-    description = resolve_inventory_item_description(
+    description = _inventory_item_description_module().resolve_inventory_item_description(
         harness=harness,
         item_kind=item_kind,
         display_name=name,
@@ -684,7 +748,7 @@ def _mcp_tool_items_from_artifact(
         output_schema = _first_present_value(raw_tool, "outputSchema", "output_schema")
         annotations = raw_tool.get("annotations")
         safe_annotations = annotations if isinstance(annotations, dict) else {}
-        metadata = {
+        metadata: dict[str, object] = {
             "serverItemId": server_item.item_id,
             "toolName": name,
             "title": display_name,
@@ -721,9 +785,7 @@ def _mcp_tool_items_from_artifact(
                 "annotations": safe_annotations,
             }
         )
-        from .inventory_item_description import resolve_inventory_item_description
-
-        tool_description = resolve_inventory_item_description(
+        tool_description = _inventory_item_description_module().resolve_inventory_item_description(
             harness=harness,
             item_kind="mcp_tool",
             display_name=display_name,
@@ -1072,15 +1134,13 @@ def _apply_source_of_truth_metadata(
     workspace_dir: Path | None,
     follow_unsafe_symlinks: bool = False,
 ) -> dict[str, object]:
-    from .aibom_symlink import inspect_aibom_source_path, source_of_truth_metadata_from_inspection
-
     config_path = getattr(artifact, "config_path", None)
     if not isinstance(config_path, str) or not config_path:
         return metadata
     path = Path(config_path)
     if not path.is_symlink():
         return metadata
-    inspection = inspect_aibom_source_path(
+    inspection = _aibom_symlink_module().inspect_aibom_source_path(
         path,
         safe_roots=_safe_roots_for_inspection(home_dir=home_dir, workspace_dir=workspace_dir),
         home_dir=home_dir,
@@ -1089,7 +1149,7 @@ def _apply_source_of_truth_metadata(
     )
     source_link_id = f"{harness}:{item_kind}:{inspection.source_fingerprint[:24]}"
     enriched = dict(metadata)
-    enriched["sourceOfTruth"] = source_of_truth_metadata_from_inspection(
+    enriched["sourceOfTruth"] = _aibom_symlink_module().source_of_truth_metadata_from_inspection(
         inspection,
         source_link_id=source_link_id,
     )
@@ -1140,17 +1200,14 @@ def _apply_aibom_metadata_enrichment(
     workspace_dir: Path | None,
     cisco_runs: tuple[object, ...] = (),
 ) -> dict[str, object]:
-    from .aibom_detection import instruction_role_for_path
-    from .aibom_trust_metadata import apply_local_trust_metadata
-
     enriched = dict(metadata)
     if item_kind == "overlay" and "instructionRole" not in enriched:
         config_path = getattr(artifact, "config_path", None)
         if isinstance(config_path, str):
-            role = instruction_role_for_path(Path(config_path))
+            role = _aibom_detection_module().instruction_role_for_path(Path(config_path))
             if role is not None:
                 enriched["instructionRole"] = role
-    return apply_local_trust_metadata(
+    return _aibom_trust_metadata_module().apply_local_trust_metadata(
         artifact,
         captured_at=captured_at,
         item_kind=item_kind,

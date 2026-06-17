@@ -132,6 +132,7 @@ from chalk.client.models import (
     OfflineQueryParquetUploadURLResponse,
     OfflineQueryProfileSummary,
     OfflineQueryReport,
+    OfflineStoreTable,
     OnlineQuery,
     OnlineQueryContext,
     OnlineQueryManyRequest,
@@ -3107,6 +3108,28 @@ https://docs.chalk.ai/cli/apply
         return self._grpc_client.get_offline_store_table_name(
             feature=feature,
             include_historical=include_historical,
+        )
+
+    def get_all_offline_store_table_names(
+        self,
+        branch_id: "str | None" = None,
+        deployment_id: "str | None" = None,
+    ) -> "list[OfflineStoreTable]":
+        return self._grpc_client.get_all_offline_store_table_names(
+            branch_id=branch_id,
+            deployment_id=deployment_id,
+        )
+
+    def get_feature_from_offline_store_table_name(
+        self,
+        table_name: str,
+        branch_id: "str | None" = None,
+        deployment_id: "str | None" = None,
+    ) -> "OfflineStoreTable | None":
+        return self._grpc_client.get_feature_from_offline_store_table_name(
+            table_name=table_name,
+            branch_id=branch_id,
+            deployment_id=deployment_id,
         )
 
     def cancel_offline_query(
@@ -6486,6 +6509,7 @@ https://docs.chalk.ai/cli/apply
         exact: bool = False,
         enable_profiling: bool = False,
         resource_group: str | None = None,
+        input_sql: str | None = None,
     ) -> list[Any]:
         return self._grpc_client.trigger_aggregate_backfill(
             features=features,
@@ -6498,6 +6522,7 @@ https://docs.chalk.ai/cli/apply
             exact=exact,
             enable_profiling=enable_profiling,
             resource_group=resource_group,
+            input_sql=input_sql,
         )
 
 

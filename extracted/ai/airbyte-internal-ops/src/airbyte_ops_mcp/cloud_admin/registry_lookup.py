@@ -126,6 +126,21 @@ def resolve_definition_id_to_canonical_info(
 
     Raises `PyAirbyteInputError` if the UUID is not present in the registry.
     """
+    info = resolve_definition_id_to_registry_info(actor_definition_id)
+    return info[0], info[1]
+
+
+def resolve_definition_id_to_registry_info(
+    actor_definition_id: str,
+) -> tuple[str, str, str, str]:
+    """Resolve a definition UUID to connector metadata from the registry.
+
+    Returns `(canonical_name, connector_type, latest_version, docker_repository)`
+    where `connector_type` is `"source"` or `"destination"` and `latest_version`
+    is the registry's `dockerImageTag` (the GA default version).
+
+    Raises `PyAirbyteInputError` if the UUID is not present in the registry.
+    """
     data = _fetch_cloud_registry()
     normalized_id = actor_definition_id.strip().lower()
 
@@ -135,7 +150,12 @@ def resolve_definition_id_to_canonical_info(
         docker_repository = source.get("dockerRepository")
         if not docker_repository:
             continue
-        return docker_repository.split("/")[-1], "source"
+        return (
+            docker_repository.split("/")[-1],
+            "source",
+            source.get("dockerImageTag", ""),
+            docker_repository,
+        )
 
     for destination in data.get("destinations", []):
         if destination.get("destinationDefinitionId", "").lower() != normalized_id:
@@ -143,7 +163,12 @@ def resolve_definition_id_to_canonical_info(
         docker_repository = destination.get("dockerRepository")
         if not docker_repository:
             continue
-        return docker_repository.split("/")[-1], "destination"
+        return (
+            docker_repository.split("/")[-1],
+            "destination",
+            destination.get("dockerImageTag", ""),
+            docker_repository,
+        )
 
     raise PyAirbyteInputError(
         message=(

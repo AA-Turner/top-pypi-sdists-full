@@ -29,9 +29,14 @@ fn find_char_boundary(s: &str, byte_idx: usize) -> usize {
     pos
 }
 
-/// Convert a byte index to a character count (1-indexed).
-/// This safely handles multi-byte UTF-8 characters by finding the nearest character boundary.
-fn byte_to_char_count(s: &str, byte_idx: usize) -> usize {
+/// Convert a byte index within a line into a 1-indexed character column.
+///
+/// rumdl reports diagnostic columns as character offsets, not byte offsets, so
+/// any position derived from a byte index (regex match, `str::find`, parser byte
+/// offset) must pass through this before being stored in a `LintWarning`.
+/// Multi-byte UTF-8 characters are handled by snapping to the nearest character
+/// boundary at or before `byte_idx`.
+pub(crate) fn byte_to_char_count(s: &str, byte_idx: usize) -> usize {
     let safe_byte_idx = find_char_boundary(s, byte_idx);
     s[..safe_byte_idx].chars().count() + 1 // 1-indexed
 }
@@ -422,10 +427,13 @@ pub fn calculate_single_line_range(line: usize, start_col: usize, length: usize)
     (line, start_col, line, start_col + length)
 }
 
-/// Calculate range for entire line
+/// Calculate range for entire line.
+///
+/// The end column is a character count (rumdl's diagnostic convention), not a
+/// byte length, so the range is correct on lines containing multi-byte UTF-8.
 pub fn calculate_line_range(line: usize, line_content: &str) -> (usize, usize, usize, usize) {
-    let trimmed_len = line_content.trim_end().len();
-    (line, 1, line, trimmed_len + 1)
+    let trimmed_char_len = line_content.trim_end().chars().count();
+    (line, 1, line, trimmed_char_len + 1)
 }
 
 /// Calculate range from regex match on a line
@@ -557,6 +565,17 @@ mod tests {
         assert_eq!(start_col, 1);
         assert_eq!(end_line, 1);
         assert_eq!(end_col, 20); // Trimmed length + 1
+    }
+
+    #[test]
+    fn test_line_range_non_ascii() {
+        // Issue #670: end column is a character count, not a byte length.
+        // "你好 heading" is 10 characters, so end_column is 11 (the byte length
+        // would be 16).
+        let content = "你好 heading  ";
+        let (_, start_col, _, end_col) = calculate_line_range(1, content);
+        assert_eq!(start_col, 1);
+        assert_eq!(end_col, 11);
     }
 
     #[test]

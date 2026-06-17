@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultimate-sitemap-parser
-Version: 1.8.0
+Version: 1.8.1
 Summary: A performant library for parsing and crawling sitemaps
 Keywords: sitemap,crawler,indexing,xml,rss,atom,google news
 Author: Linas Valiukas, Hal Roberts, Freddy Heppell

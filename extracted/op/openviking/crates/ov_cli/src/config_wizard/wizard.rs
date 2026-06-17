@@ -9,32 +9,34 @@ use crossterm::{
     ExecutableCommand,
     cursor::{Hide, MoveToColumn, MoveUp, Show},
     event::{self, Event, KeyCode, KeyModifiers},
-    terminal::{Clear, ClearType, disable_raw_mode, enable_raw_mode},
+    terminal::{self, Clear, ClearType, disable_raw_mode, enable_raw_mode},
 };
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
 use uuid::Uuid;
 
 use crate::{
     base_client::BaseClient,
-    config::{Config, DEFAULT_SELF_MANAGED_URL},
+    config::{Config, DEFAULT_CUSTOM_URL},
     error::{Error, Result},
     i18n::{self, Language, copy},
+    terminal_ui::{RenderedRegion, display_width, rendered_line_rows, rendered_row_count},
     theme::{self, Rgb},
 };
 use serde_json::Value;
 
 use super::store::{
     ApiKeyRole, ConfigDraft, ConfigEntry, ConfigKind, ConfigStore, IdentityField,
-    VOLCENGINE_CLOUD_URL, build_config, self_managed_allows_empty_api_key,
-    validate_candidate_config, validate_candidate_config_with_role, validate_config_name,
+    OPENVIKING_SERVICE_URL, build_config, custom_allows_empty_api_key, validate_candidate_config,
+    validate_candidate_config_with_role, validate_config, validate_config_name,
     validate_identity_value, validation_error_copy,
 };
 
-const VOLCENGINE_API_KEY_URL: &str =
+const OPENVIKING_SERVICE_API_KEY_URL: &str =
     "https://console.volcengine.com/vikingdb/openviking/region:openviking+cn-beijing";
 const HEADER_TAGLINE: &str = "Context Database for AI Agents";
 const HEADER_TAGLINE_ZH: &str = "AI Agent 上下文数据库";
 const STATUS_BOX_PROBE_TIMEOUT_SECS: f64 = 3.0;
+const TEXT_INPUT_PROMPT: &str = "  > ";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum IdentityMode {
@@ -43,14 +45,14 @@ enum IdentityMode {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum SelfManagedKeyMode {
+enum CustomKeyMode {
     NoKey,
     UserKey,
     RootKey,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum SelfManagedEditKeyAction {
+enum CustomEditKeyAction {
     Keep,
     SetUserKey,
     SetRootKey,
@@ -76,6 +78,10 @@ const OV_LOGO_LINES: [&str; 14] = [
     "            ⠈⠉⠉⠉⠁",
 ];
 
+// Full mode needs enough height for the standalone wordmark, logo art,
+// status box, and prompts without wrapping into each other.
+const FULL_STATUS_BOX_MIN_ROWS: u16 = 30;
+
 pub async fn run_config_wizard() -> Result<()> {
     let store = ConfigStore::new()?;
     run_config_wizard_with_store(store).await
@@ -86,7 +92,7 @@ async fn run_config_wizard_with_store(store: ConfigStore) -> Result<()> {
     if !ensure_language_selected(&mut ui)? {
         return Ok(());
     }
-    print_header();
+    print_full_header(live_status_box_frame().mode);
     print_status_box(&store).await?;
 
     loop {
@@ -109,11 +115,16 @@ async fn run_config_wizard_with_store(store: ConfigStore) -> Result<()> {
                 }
             }
             PromptResult::Value(1) => {
-                if run_edit_config(&store, &mut ui).await? {
+                if run_switch_config(&store, &mut ui).await? {
                     return Ok(());
                 }
             }
             PromptResult::Value(2) => {
+                if run_edit_config(&store, &mut ui).await? {
+                    return Ok(());
+                }
+            }
+            PromptResult::Value(3) => {
                 if run_delete_config(&store, &mut ui)? {
                     return Ok(());
                 }
@@ -159,12 +170,11 @@ fn ensure_language_selected(ui: &mut LiveRegion) -> Result<bool> {
 }
 
 pub(crate) fn wizard_header_lines() -> Vec<String> {
-    let mut lines: Vec<String> = wordmark_lines()
-        .iter()
-        .map(|line| (*line).to_string())
-        .collect();
-    lines.push(String::new());
-    lines
+    wordmark_lines()
+        .into_iter()
+        .map(str::to_string)
+        .chain(std::iter::once(String::new()))
+        .collect()
 }
 
 pub(crate) fn wordmark_width() -> usize {
@@ -191,7 +201,71 @@ fn header_version_text() -> String {
 }
 
 fn status_box_width() -> usize {
-    wordmark_width()
+    preferred_status_box_width()
+}
+
+const COMPACT_STATUS_DETAIL_WIDTH: usize = 52;
+
+fn preferred_status_box_width() -> usize {
+    let title_width = 4 + display_width(status_box_title(StatusBoxMode::Full));
+
+    wordmark_width().max(title_width)
+}
+
+fn compact_status_box_width() -> usize {
+    let content_width = 4 + COMPACT_STATUS_DETAIL_WIDTH;
+    let title_width = 4 + display_width(status_box_title(StatusBoxMode::Compact));
+
+    content_width.max(title_width)
+}
+
+fn status_box_title(mode: StatusBoxMode) -> &'static str {
+    match mode {
+        StatusBoxMode::Full => copy(Language::current(), HEADER_TAGLINE, HEADER_TAGLINE_ZH),
+        StatusBoxMode::Compact => copy(
+            Language::current(),
+            "OpenViking | Context Database for AI Agents",
+            "OpenViking | AI Agent 上下文数据库",
+        ),
+    }
+}
+
+fn live_status_box_frame() -> StatusBoxFrame {
+    match terminal::size() {
+        Ok((columns, rows)) if columns > 4 => status_box_frame_for_size(columns, rows),
+        _ => StatusBoxFrame {
+            width: preferred_status_box_width(),
+            mode: StatusBoxMode::Full,
+        },
+    }
+}
+
+fn status_box_frame_for_size(columns: u16, rows: u16) -> StatusBoxFrame {
+    let available = usize::from(columns).saturating_sub(1);
+    let preferred = preferred_status_box_width();
+    if rows >= FULL_STATUS_BOX_MIN_ROWS && available >= preferred {
+        return StatusBoxFrame {
+            width: preferred.min(available),
+            mode: StatusBoxMode::Full,
+        };
+    }
+
+    StatusBoxFrame {
+        width: compact_status_box_width().min(available),
+        mode: StatusBoxMode::Compact,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct StatusBoxFrame {
+    width: usize,
+    mode: StatusBoxMode,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StatusBoxMode {
+    Full,
+    Compact,
 }
 
 fn nav_hint() -> &'static str {
@@ -226,6 +300,14 @@ fn section_edit() -> &'static str {
     )
 }
 
+fn section_switch() -> &'static str {
+    copy(
+        Language::current(),
+        "Switch to a saved config.",
+        "切换到已保存的配置。",
+    )
+}
+
 fn section_delete() -> &'static str {
     copy(
         Language::current(),
@@ -234,20 +316,20 @@ fn section_delete() -> &'static str {
     )
 }
 
-fn kind_label(kind: ConfigKind) -> &'static str {
+fn compact_kind_label(kind: ConfigKind) -> &'static str {
     match Language::current() {
-        Language::En => kind.label(),
+        Language::En => kind.compact_label(),
         Language::ZhCn => match kind {
-            ConfigKind::VolcengineCloud => "火山引擎云",
-            ConfigKind::SelfManaged => "自托管",
+            ConfigKind::OpenVikingService => "OpenViking 服务",
+            ConfigKind::Custom => "自定义",
         },
     }
 }
 
 fn provider_labels(language: Language) -> [&'static str; 2] {
     match language {
-        Language::En => ["VolcEngine Cloud", "Self-Managed"],
-        Language::ZhCn => ["火山引擎云", "自托管"],
+        Language::En => [ConfigKind::OpenVikingService.label(), "Custom"],
+        Language::ZhCn => ["OpenViking 服务（火山引擎云）", "自定义"],
     }
 }
 
@@ -260,42 +342,39 @@ fn api_key_label(optional: bool) -> &'static str {
     }
 }
 
-fn self_managed_api_key_input_label(mode: SelfManagedKeyMode) -> &'static str {
+fn custom_api_key_input_label(mode: CustomKeyMode) -> &'static str {
     match (Language::current(), mode) {
-        (Language::En, SelfManagedKeyMode::RootKey) => "Root API key",
-        (Language::En, SelfManagedKeyMode::UserKey) => "User API key",
-        (Language::En, SelfManagedKeyMode::NoKey) => "API key",
-        (Language::ZhCn, SelfManagedKeyMode::RootKey) => "Root API Key",
-        (Language::ZhCn, SelfManagedKeyMode::UserKey) => "User API Key",
-        (Language::ZhCn, SelfManagedKeyMode::NoKey) => "API Key",
+        (Language::En, CustomKeyMode::RootKey) => "Root API key",
+        (Language::En, CustomKeyMode::UserKey) => "User API key",
+        (Language::En, CustomKeyMode::NoKey) => "API key",
+        (Language::ZhCn, CustomKeyMode::RootKey) => "Root API Key",
+        (Language::ZhCn, CustomKeyMode::UserKey) => "User API Key",
+        (Language::ZhCn, CustomKeyMode::NoKey) => "API Key",
     }
 }
 
-fn self_managed_api_key_input_helper_lines(mode: SelfManagedKeyMode) -> Vec<String> {
+fn custom_api_key_input_helper_lines(mode: CustomKeyMode) -> Vec<String> {
     let copy = match (Language::current(), mode) {
-        (Language::En, SelfManagedKeyMode::RootKey) => {
+        (Language::En, CustomKeyMode::RootKey) => {
             "For self-hosted admin setup and --sudo commands."
         }
-        (Language::En, SelfManagedKeyMode::UserKey) => "For normal OpenViking commands.",
-        (Language::En, SelfManagedKeyMode::NoKey) => {
+        (Language::En, CustomKeyMode::UserKey) => "For normal OpenViking commands.",
+        (Language::En, CustomKeyMode::NoKey) => {
             "Optional for local servers. Add one if auth is enabled."
         }
-        (Language::ZhCn, SelfManagedKeyMode::RootKey) => "用于自托管管理初始化和 --sudo 命令。",
-        (Language::ZhCn, SelfManagedKeyMode::UserKey) => "用于常规 OpenViking 命令。",
-        (Language::ZhCn, SelfManagedKeyMode::NoKey) => "本地服务可不填；如果启用了认证，请填写。",
+        (Language::ZhCn, CustomKeyMode::RootKey) => "用于自定义管理初始化和 --sudo 命令。",
+        (Language::ZhCn, CustomKeyMode::UserKey) => "用于常规 OpenViking 命令。",
+        (Language::ZhCn, CustomKeyMode::NoKey) => "本地服务可不填；如果启用了认证，请填写。",
     };
     vec![theme::muted(copy).to_string()]
 }
 
 #[cfg(test)]
-fn self_managed_key_mode_labels(allow_empty: bool) -> Vec<&'static str> {
-    self_managed_key_mode_labels_for_language(allow_empty, Language::En)
+fn custom_key_mode_labels(allow_empty: bool) -> Vec<&'static str> {
+    custom_key_mode_labels_for_language(allow_empty, Language::En)
 }
 
-fn self_managed_key_mode_labels_for_language(
-    allow_empty: bool,
-    language: Language,
-) -> Vec<&'static str> {
+fn custom_key_mode_labels_for_language(allow_empty: bool, language: Language) -> Vec<&'static str> {
     match (allow_empty, language) {
         (true, Language::En) => vec!["No key / local dev", "User API key", "Root API key"],
         (false, Language::En) => vec!["User API key", "Root API key"],
@@ -304,69 +383,65 @@ fn self_managed_key_mode_labels_for_language(
     }
 }
 
-fn self_managed_key_mode_for_selection(allow_empty: bool, index: usize) -> SelfManagedKeyMode {
+fn custom_key_mode_for_selection(allow_empty: bool, index: usize) -> CustomKeyMode {
     match (allow_empty, index) {
-        (true, 0) => SelfManagedKeyMode::NoKey,
-        (true, 1) | (false, 0) => SelfManagedKeyMode::UserKey,
-        _ => SelfManagedKeyMode::RootKey,
+        (true, 0) => CustomKeyMode::NoKey,
+        (true, 1) | (false, 0) => CustomKeyMode::UserKey,
+        _ => CustomKeyMode::RootKey,
     }
 }
 
-fn edit_self_managed_key_actions(
+fn edit_custom_key_actions(
     has_normal_user_key: bool,
     has_root_key: bool,
-) -> Vec<SelfManagedEditKeyAction> {
+) -> Vec<CustomEditKeyAction> {
     if !has_normal_user_key && !has_root_key {
         return vec![
-            SelfManagedEditKeyAction::SetUserKey,
-            SelfManagedEditKeyAction::SetRootKey,
+            CustomEditKeyAction::SetUserKey,
+            CustomEditKeyAction::SetRootKey,
         ];
     }
 
     let mut actions = vec![
-        SelfManagedEditKeyAction::Keep,
-        SelfManagedEditKeyAction::SetUserKey,
-        SelfManagedEditKeyAction::SetRootKey,
+        CustomEditKeyAction::Keep,
+        CustomEditKeyAction::SetUserKey,
+        CustomEditKeyAction::SetRootKey,
     ];
     if has_normal_user_key && has_root_key {
-        actions.push(SelfManagedEditKeyAction::UseRootForNormal);
+        actions.push(CustomEditKeyAction::UseRootForNormal);
     }
     if has_root_key {
-        actions.push(SelfManagedEditKeyAction::ClearRootKey);
+        actions.push(CustomEditKeyAction::ClearRootKey);
     }
-    actions.push(SelfManagedEditKeyAction::ClearAllKeys);
+    actions.push(CustomEditKeyAction::ClearAllKeys);
     actions
 }
 
 #[cfg(test)]
-fn edit_self_managed_key_action_labels(
+fn edit_custom_key_action_labels(
     has_normal_user_key: bool,
     has_root_key: bool,
 ) -> Vec<&'static str> {
-    edit_self_managed_key_actions(has_normal_user_key, has_root_key)
+    edit_custom_key_actions(has_normal_user_key, has_root_key)
         .into_iter()
-        .map(self_managed_edit_key_action_label)
+        .map(custom_edit_key_action_label)
         .collect()
 }
 
-fn self_managed_edit_key_action_label(action: SelfManagedEditKeyAction) -> &'static str {
+fn custom_edit_key_action_label(action: CustomEditKeyAction) -> &'static str {
     match (Language::current(), action) {
-        (Language::En, SelfManagedEditKeyAction::Keep) => "Keep existing API keys",
-        (Language::En, SelfManagedEditKeyAction::SetUserKey) => "Set normal user API key",
-        (Language::En, SelfManagedEditKeyAction::SetRootKey) => "Set root API key",
-        (Language::En, SelfManagedEditKeyAction::UseRootForNormal) => {
-            "Use root key for normal commands"
-        }
-        (Language::En, SelfManagedEditKeyAction::ClearRootKey) => "Clear root API key",
-        (Language::En, SelfManagedEditKeyAction::ClearAllKeys) => "Clear all API keys",
-        (Language::ZhCn, SelfManagedEditKeyAction::Keep) => "保留现有 API Key",
-        (Language::ZhCn, SelfManagedEditKeyAction::SetUserKey) => "设置普通用户 API Key",
-        (Language::ZhCn, SelfManagedEditKeyAction::SetRootKey) => "设置 Root API Key",
-        (Language::ZhCn, SelfManagedEditKeyAction::UseRootForNormal) => {
-            "使用 Root Key 执行常规命令"
-        }
-        (Language::ZhCn, SelfManagedEditKeyAction::ClearRootKey) => "清除 Root API Key",
-        (Language::ZhCn, SelfManagedEditKeyAction::ClearAllKeys) => "清除所有 API Key",
+        (Language::En, CustomEditKeyAction::Keep) => "Keep existing API keys",
+        (Language::En, CustomEditKeyAction::SetUserKey) => "Set normal user API key",
+        (Language::En, CustomEditKeyAction::SetRootKey) => "Set root API key",
+        (Language::En, CustomEditKeyAction::UseRootForNormal) => "Use root key for normal commands",
+        (Language::En, CustomEditKeyAction::ClearRootKey) => "Clear root API key",
+        (Language::En, CustomEditKeyAction::ClearAllKeys) => "Clear all API keys",
+        (Language::ZhCn, CustomEditKeyAction::Keep) => "保留现有 API Key",
+        (Language::ZhCn, CustomEditKeyAction::SetUserKey) => "设置普通用户 API Key",
+        (Language::ZhCn, CustomEditKeyAction::SetRootKey) => "设置 Root API Key",
+        (Language::ZhCn, CustomEditKeyAction::UseRootForNormal) => "使用 Root Key 执行常规命令",
+        (Language::ZhCn, CustomEditKeyAction::ClearRootKey) => "清除 Root API Key",
+        (Language::ZhCn, CustomEditKeyAction::ClearAllKeys) => "清除所有 API Key",
     }
 }
 
@@ -408,21 +483,21 @@ fn user_key_redirect_helper_lines() -> Vec<String> {
 
 fn should_confirm_detected_root_key(
     kind: ConfigKind,
-    key_mode: Option<SelfManagedKeyMode>,
+    key_mode: Option<CustomKeyMode>,
     api_key_role: Option<ApiKeyRole>,
 ) -> bool {
-    kind == ConfigKind::SelfManaged
-        && key_mode == Some(SelfManagedKeyMode::UserKey)
+    kind == ConfigKind::Custom
+        && key_mode == Some(CustomKeyMode::UserKey)
         && api_key_role == Some(ApiKeyRole::Root)
 }
 
 fn should_confirm_detected_user_key(
     kind: ConfigKind,
-    key_mode: Option<SelfManagedKeyMode>,
+    key_mode: Option<CustomKeyMode>,
     api_key_role: Option<ApiKeyRole>,
 ) -> bool {
-    kind == ConfigKind::SelfManaged
-        && key_mode == Some(SelfManagedKeyMode::RootKey)
+    kind == ConfigKind::Custom
+        && key_mode == Some(CustomKeyMode::RootKey)
         && api_key_role == Some(ApiKeyRole::Regular)
 }
 
@@ -439,35 +514,42 @@ fn has_normal_user_key(api_key: Option<&str>, root_api_key: Option<&str>) -> boo
         .is_none_or(|root_api_key| root_api_key != api_key)
 }
 
-pub(crate) fn main_action_labels() -> [&'static str; 3] {
-    ["Add config", "Edit config", "Delete config"]
+pub(crate) fn main_action_labels() -> [&'static str; 4] {
+    [
+        "Add Config",
+        "Switch Config",
+        "Edit Config",
+        "Delete Config",
+    ]
 }
 
-fn main_action_labels_for_language(language: Language) -> [&'static str; 3] {
+fn main_action_labels_for_language(language: Language) -> [&'static str; 4] {
     match language {
         Language::En => main_action_labels(),
-        Language::ZhCn => ["添加配置", "编辑配置", "删除配置"],
+        Language::ZhCn => ["添加配置", "切换配置", "编辑配置", "删除配置"],
     }
 }
 
-pub(crate) fn cloud_validation_failure_choices() -> [&'static str; 2] {
+pub(crate) fn openviking_service_validation_failure_choices() -> [&'static str; 2] {
     ["Retry API key", "Cancel"]
 }
 
-fn cloud_validation_failure_choices_for_language(language: Language) -> [&'static str; 2] {
+fn openviking_service_validation_failure_choices_for_language(
+    language: Language,
+) -> [&'static str; 2] {
     match language {
-        Language::En => cloud_validation_failure_choices(),
+        Language::En => openviking_service_validation_failure_choices(),
         Language::ZhCn => ["重新输入 API Key", "取消"],
     }
 }
 
-pub(crate) fn self_managed_validation_failure_choices() -> [&'static str; 3] {
+pub(crate) fn custom_validation_failure_choices() -> [&'static str; 3] {
     ["Edit server URL", "Edit API key", "Cancel"]
 }
 
-fn self_managed_validation_failure_choices_for_language(language: Language) -> [&'static str; 3] {
+fn custom_validation_failure_choices_for_language(language: Language) -> [&'static str; 3] {
     match language {
-        Language::En => self_managed_validation_failure_choices(),
+        Language::En => custom_validation_failure_choices(),
         Language::ZhCn => ["修改服务器 URL", "修改 API Key", "取消"],
     }
 }
@@ -481,8 +563,8 @@ pub(crate) fn edit_api_key_choice_labels(
     }
 
     match kind {
-        ConfigKind::VolcengineCloud => vec!["Keep existing API key", "Replace API key"],
-        ConfigKind::SelfManaged => {
+        ConfigKind::OpenVikingService => vec!["Keep existing API key", "Replace API key"],
+        ConfigKind::Custom => {
             vec!["Keep existing API key", "Replace API key", "Clear API key"]
         }
     }
@@ -502,8 +584,8 @@ fn edit_api_key_choice_labels_for_language(
     }
 
     match kind {
-        ConfigKind::VolcengineCloud => vec!["保留现有 API Key", "替换 API Key"],
-        ConfigKind::SelfManaged => vec!["保留现有 API Key", "替换 API Key", "清除 API Key"],
+        ConfigKind::OpenVikingService => vec!["保留现有 API Key", "替换 API Key"],
+        ConfigKind::Custom => vec!["保留现有 API Key", "替换 API Key", "清除 API Key"],
     }
 }
 
@@ -517,12 +599,17 @@ pub(crate) fn should_prompt_root_identity(
         && (api_key_was_entered || is_blank(account) || is_blank(user))
 }
 
-fn print_header() {
+fn print_full_header(mode: StatusBoxMode) {
+    if mode != StatusBoxMode::Full {
+        return;
+    }
+
     let lines = wizard_header_lines();
     println!();
     for (index, line) in lines.iter().take(wordmark_lines().len()).enumerate() {
         println!("{}", styled_wordmark_line(index, line));
     }
+    println!();
 }
 
 fn styled_wordmark_line(_index: usize, line: &str) -> String {
@@ -662,14 +749,14 @@ async fn print_status_box(store: &ConfigStore) -> Result<()> {
         return Ok(());
     };
 
-    let rendered_lines = print_status_box_with_runtime(
+    let rendered_region = print_status_box_with_runtime(
         active.as_ref(),
         &configs,
         &config_home,
         &StatusBoxRuntime::checking(),
     )?;
     let runtime = status_box_runtime(Some(active_config)).await;
-    clear_live_region(rendered_lines, false)?;
+    clear_rendered_region(&rendered_region, false)?;
     print_status_box_with_runtime(active.as_ref(), &configs, &config_home, &runtime)?;
 
     Ok(())
@@ -680,29 +767,23 @@ fn print_status_box_with_runtime(
     configs: &[ConfigEntry],
     config_home: &str,
     runtime: &StatusBoxRuntime,
-) -> Result<usize> {
-    let width = status_box_width();
+) -> Result<RenderedRegion> {
+    let frame = live_status_box_frame();
+    let lines = styled_status_box_lines_with_runtime(active, configs, config_home, runtime, frame);
+    let render_columns = live_region_columns();
 
-    println!();
-    println!(
-        "{}",
-        styled_box_title_line(
-            copy(Language::current(), HEADER_TAGLINE, HEADER_TAGLINE_ZH),
-            width
-        )
-    );
-    let details = status_box_details(active, configs, config_home, runtime);
-    let rows = OV_LOGO_LINES.len().max(details.len());
-    let details = center_status_box_details(details, rows);
-    for index in 0..rows {
-        let logo = OV_LOGO_LINES.get(index).copied().unwrap_or("");
-        let detail = details.get(index).unwrap_or(&StatusBoxDetail::Empty);
-        println!("{}", styled_box_content_line(logo, detail, width, index));
+    for line in &lines {
+        println!("{line}");
     }
-    println!("{}", styled_box_footer_line(&header_version_text(), width));
-    println!();
     io::stdout().flush()?;
-    Ok(rows + 4)
+    Ok(RenderedRegion::from_lines(&lines, render_columns))
+}
+
+fn clear_rendered_region(region: &RenderedRegion, cursor_on_last_line: bool) -> io::Result<()> {
+    clear_live_region(
+        region.rows_to_clear(live_region_columns()),
+        cursor_on_last_line,
+    )
 }
 
 #[cfg(test)]
@@ -721,26 +802,98 @@ fn status_box_lines_with_runtime(
     config_home: &str,
     runtime: &StatusBoxRuntime,
 ) -> Vec<String> {
-    let width = status_box_width();
+    status_box_lines_with_runtime_width(
+        active,
+        configs,
+        config_home,
+        runtime,
+        StatusBoxFrame {
+            width: status_box_width(),
+            mode: StatusBoxMode::Full,
+        },
+    )
+}
+
+#[cfg(test)]
+fn status_box_lines_with_runtime_width(
+    active: Option<&Config>,
+    configs: &[ConfigEntry],
+    config_home: &str,
+    runtime: &StatusBoxRuntime,
+    frame: StatusBoxFrame,
+) -> Vec<String> {
     let details = status_box_details(active, configs, config_home, runtime);
-    let rows = OV_LOGO_LINES.len().max(details.len());
-    let details = center_status_box_details(details, rows);
+    let right_rows = status_box_right_rows(details, frame.mode);
+    let rows = status_box_row_count(right_rows.len(), frame.mode);
     let mut lines = Vec::with_capacity(rows + 2);
 
-    lines.push(box_title_line(HEADER_TAGLINE, width));
+    lines.push(box_title_line(status_box_title(frame.mode), frame.width));
     for index in 0..rows {
         lines.push(box_content_line(
-            OV_LOGO_LINES.get(index).copied().unwrap_or(""),
-            details
+            status_box_logo_line(index, frame.mode),
+            right_rows
                 .get(index)
-                .map(StatusBoxDetail::plain)
+                .map(|row| row.plain(frame.width, frame.mode))
                 .unwrap_or_default()
                 .as_str(),
-            width,
+            frame.width,
+            frame.mode,
         ));
     }
-    lines.push(box_footer_line(&header_version_text(), width));
+    lines.push(box_footer_line(&header_version_text(), frame.width));
     lines
+}
+
+fn styled_status_box_lines_with_runtime(
+    active: Option<&Config>,
+    configs: &[ConfigEntry],
+    config_home: &str,
+    runtime: &StatusBoxRuntime,
+    frame: StatusBoxFrame,
+) -> Vec<String> {
+    let details = status_box_details(active, configs, config_home, runtime);
+    let right_rows = status_box_right_rows(details, frame.mode);
+    let rows = status_box_row_count(right_rows.len(), frame.mode);
+    let mut lines = Vec::with_capacity(rows + 4);
+
+    lines.push(String::new());
+    lines.push(styled_box_title_line(
+        status_box_title(frame.mode),
+        frame.width,
+    ));
+    for index in 0..rows {
+        lines.push(styled_box_content_line(
+            status_box_logo_line(index, frame.mode),
+            right_rows.get(index).unwrap_or(&StatusBoxRightRow::Empty),
+            frame.width,
+            index,
+            frame.mode,
+        ));
+    }
+    lines.push(styled_box_footer_line(&header_version_text(), frame.width));
+    lines.push(String::new());
+    lines
+}
+
+fn status_box_row_count(right_rows: usize, mode: StatusBoxMode) -> usize {
+    match mode {
+        StatusBoxMode::Full => OV_LOGO_LINES.len().max(right_rows),
+        StatusBoxMode::Compact => right_rows,
+    }
+}
+
+fn status_box_logo_line(index: usize, mode: StatusBoxMode) -> &'static str {
+    status_box_logo_lines(mode)
+        .get(index)
+        .copied()
+        .unwrap_or("")
+}
+
+fn status_box_logo_lines(mode: StatusBoxMode) -> &'static [&'static str] {
+    match mode {
+        StatusBoxMode::Full => &OV_LOGO_LINES,
+        StatusBoxMode::Compact => &[],
+    }
 }
 
 async fn status_box_runtime(active: Option<&Config>) -> StatusBoxRuntime {
@@ -752,9 +905,9 @@ async fn status_box_runtime(active: Option<&Config>) -> StatusBoxRuntime {
     let client = BaseClient::new(
         config.url.clone(),
         auth.api_key,
-        config.agent_id.clone(),
         auth.account,
         auth.user,
+        config.actor_peer_id.clone(),
         STATUS_BOX_PROBE_TIMEOUT_SECS,
         config.profile,
         config.extra_headers.clone(),
@@ -799,9 +952,7 @@ fn status_payload_health(value: &Value) -> Option<bool> {
         return Some(healthy);
     }
 
-    let Some(components) = value.get("components").and_then(Value::as_object) else {
-        return None;
-    };
+    let components = value.get("components").and_then(Value::as_object)?;
 
     if components.is_empty() {
         return None;
@@ -950,6 +1101,22 @@ impl StatusBoxRuntime {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum StatusBoxRightRow {
+    Detail(StatusBoxDetail),
+    Empty,
+}
+
+#[cfg(test)]
+impl StatusBoxRightRow {
+    fn plain(&self, _width: usize, _mode: StatusBoxMode) -> String {
+        match self {
+            Self::Detail(detail) => detail.plain(),
+            Self::Empty => String::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum RuntimeConnectionStatus {
     Checking,
@@ -1020,7 +1187,6 @@ enum StatusBoxDetail {
     Model { label: &'static str, value: String },
     Saved { count: String },
     Home { path: String },
-    Empty,
 }
 
 impl StatusBoxDetail {
@@ -1036,7 +1202,6 @@ impl StatusBoxDetail {
             Self::Model { label, value } => format!("{label}: {value}"),
             Self::Saved { count } => format!("{} {count}", status_label("Saved configs:")),
             Self::Home { path } => format!("{} {path}", status_label("Config home:")),
-            Self::Empty => String::new(),
         }
     }
 
@@ -1083,7 +1248,6 @@ impl StatusBoxDetail {
                     theme::sky_value(path).bold()
                 )
             }
-            Self::Empty => String::new(),
         }
     }
 }
@@ -1162,18 +1326,46 @@ fn unknown_copy() -> &'static str {
     copy(Language::current(), "Unknown", "未知")
 }
 
-fn center_status_box_details(details: Vec<StatusBoxDetail>, rows: usize) -> Vec<StatusBoxDetail> {
-    let top_padding = rows.saturating_sub(details.len()) / 2;
-    let mut centered = Vec::with_capacity(rows);
-    centered.extend(std::iter::repeat_n(StatusBoxDetail::Empty, top_padding));
-    centered.extend(details);
-    centered.resize(rows, StatusBoxDetail::Empty);
+fn status_box_right_rows(
+    details: Vec<StatusBoxDetail>,
+    mode: StatusBoxMode,
+) -> Vec<StatusBoxRightRow> {
+    let rows = details
+        .into_iter()
+        .map(StatusBoxRightRow::Detail)
+        .collect::<Vec<_>>();
+
+    match mode {
+        StatusBoxMode::Full => center_status_box_rows(rows, OV_LOGO_LINES.len()),
+        StatusBoxMode::Compact => rows,
+    }
+}
+
+fn center_status_box_rows(
+    rows: Vec<StatusBoxRightRow>,
+    target_rows: usize,
+) -> Vec<StatusBoxRightRow> {
+    if rows.len() >= target_rows {
+        return rows;
+    }
+
+    let empty_rows = target_rows - rows.len();
+    let top = empty_rows / 2;
+    let bottom = empty_rows - top;
+    let mut centered = Vec::with_capacity(target_rows);
+    centered.extend(std::iter::repeat_n(StatusBoxRightRow::Empty, top));
+    centered.extend(rows);
+    centered.extend(std::iter::repeat_n(StatusBoxRightRow::Empty, bottom));
     centered
 }
 
 #[cfg(test)]
 fn box_title_line(title: &str, width: usize) -> String {
     let inner_width = width.saturating_sub(2);
+    if title.trim().is_empty() {
+        return format!("╭{}╮", "─".repeat(inner_width));
+    }
+
     let title = format!(" {title} ");
     let visible_title = truncate_to_width(&title, inner_width);
     let title_width = display_width(&visible_title);
@@ -1206,26 +1398,34 @@ fn box_footer_line(title: &str, width: usize) -> String {
 }
 
 #[cfg(test)]
-fn box_content_line(left: &str, right: &str, width: usize) -> String {
-    let logo_width = ov_logo_width();
-    let gutter = 3usize;
-    let right_width = width.saturating_sub(4 + logo_width + gutter);
+fn box_content_line(left: &str, right: &str, width: usize, mode: StatusBoxMode) -> String {
+    let layout = status_box_content_layout(width, mode);
     format!(
         "│ {}{}{} │",
-        pad_to_width(left, logo_width),
-        " ".repeat(gutter),
-        pad_to_width(right, right_width)
+        pad_to_width(left, layout.logo_width),
+        " ".repeat(layout.gutter),
+        pad_to_width(right, layout.right_width)
     )
 }
 
 fn styled_box_title_line(title: &str, width: usize) -> String {
     let inner_width = width.saturating_sub(2);
+    let border = theme::active_theme().border.rgb_fallback();
+
+    if title.trim().is_empty() {
+        return format!(
+            "{}{}{}",
+            theme::style_rgb("╭", border, false),
+            theme::style_rgb("─".repeat(inner_width), border, false),
+            theme::style_rgb("╮", border, false)
+        );
+    }
+
     let title = format!(" {title} ");
     let visible_title = truncate_to_width(&title, inner_width);
     let title_width = display_width(&visible_title);
     let left = inner_width.saturating_sub(title_width) / 2;
     let right = inner_width.saturating_sub(title_width + left);
-    let border = theme::active_theme().border.rgb_fallback();
 
     format!(
         "{}{}{}{}{}",
@@ -1259,32 +1459,86 @@ fn styled_box_footer_line(title: &str, width: usize) -> String {
 
 fn styled_box_content_line(
     left: &str,
-    detail: &StatusBoxDetail,
+    right: &StatusBoxRightRow,
     width: usize,
     logo_row: usize,
+    mode: StatusBoxMode,
 ) -> String {
-    let logo_width = ov_logo_width();
-    let gutter = 3usize;
-    let right_width = width.saturating_sub(4 + logo_width + gutter);
+    let layout = status_box_content_layout(width, mode);
     let border = theme::active_theme().border.rgb_fallback();
+    let logo_height = status_box_logo_lines(mode).len();
     format!(
         "{} {}{}{} {}",
         theme::style_rgb("│", border, false),
-        styled_logo_to_width(left, logo_width, logo_row),
-        " ".repeat(gutter),
-        styled_detail_to_width(detail, right_width),
+        styled_logo_to_width(left, layout.logo_width, logo_row, logo_height),
+        " ".repeat(layout.gutter),
+        styled_status_right_row_to_width(right, layout.right_width),
         theme::style_rgb("│", border, false)
     )
 }
 
-fn styled_logo_to_width(line: &str, width: usize, row: usize) -> String {
-    styled_logo_to_width_for_color_level(line, width, row, theme::terminal_color_level())
+#[derive(Debug, Clone, Copy)]
+struct StatusBoxContentLayout {
+    logo_width: usize,
+    gutter: usize,
+    right_width: usize,
 }
 
+fn status_box_content_layout(width: usize, mode: StatusBoxMode) -> StatusBoxContentLayout {
+    let inner_width = width.saturating_sub(4);
+    if mode == StatusBoxMode::Compact {
+        return StatusBoxContentLayout {
+            logo_width: 0,
+            gutter: 0,
+            right_width: inner_width,
+        };
+    }
+
+    let preferred_logo_width = match mode {
+        StatusBoxMode::Full => ov_logo_width(),
+        StatusBoxMode::Compact => 0,
+    };
+    let preferred_gutter = 3usize;
+
+    if inner_width <= preferred_logo_width {
+        return StatusBoxContentLayout {
+            logo_width: inner_width,
+            gutter: 0,
+            right_width: 0,
+        };
+    }
+
+    let room_after_logo = inner_width.saturating_sub(preferred_logo_width);
+    let gutter = preferred_gutter.min(room_after_logo.saturating_sub(1));
+    let logo_width = preferred_logo_width.min(inner_width.saturating_sub(gutter));
+    let right_width = inner_width.saturating_sub(logo_width + gutter);
+
+    StatusBoxContentLayout {
+        logo_width,
+        gutter,
+        right_width,
+    }
+}
+
+fn styled_logo_to_width(line: &str, width: usize, row: usize, logo_height: usize) -> String {
+    styled_logo_to_width_with_height(line, width, row, logo_height, theme::terminal_color_level())
+}
+
+#[cfg(test)]
 fn styled_logo_to_width_for_color_level(
     line: &str,
     width: usize,
     row: usize,
+    color_level: theme::ColorLevel,
+) -> String {
+    styled_logo_to_width_with_height(line, width, row, OV_LOGO_LINES.len(), color_level)
+}
+
+fn styled_logo_to_width_with_height(
+    line: &str,
+    width: usize,
+    row: usize,
+    logo_height: usize,
     color_level: theme::ColorLevel,
 ) -> String {
     let mut rendered = String::new();
@@ -1294,8 +1548,10 @@ fn styled_logo_to_width_for_color_level(
         if ch.is_whitespace() {
             rendered.push(ch);
         } else {
-            let rgb =
-                header_display_rgb(logo_glass_color(ch, column, row, width.max(1)), color_level);
+            let rgb = header_display_rgb(
+                logo_glass_color(ch, column, row, width.max(1), logo_height),
+                color_level,
+            );
             rendered.push_str(&theme::style_rgb_for_level(
                 ch.to_string(),
                 rgb,
@@ -1316,22 +1572,33 @@ fn header_display_rgb(rgb: Rgb, color_level: theme::ColorLevel) -> Rgb {
     }
 }
 
-fn logo_glass_color(_ch: char, column: usize, row: usize, width: usize) -> Rgb {
-    logo_glass_color_for_theme(theme::active_theme(), column, row, width)
+fn logo_glass_color(_ch: char, column: usize, row: usize, width: usize, logo_height: usize) -> Rgb {
+    logo_glass_color_for_theme_with_height(theme::active_theme(), column, row, width, logo_height)
 }
 
+#[cfg(test)]
 fn logo_glass_color_for_theme(
     palette: theme::CliTheme,
     column: usize,
     row: usize,
     width: usize,
 ) -> Rgb {
+    logo_glass_color_for_theme_with_height(palette, column, row, width, OV_LOGO_LINES.len())
+}
+
+fn logo_glass_color_for_theme_with_height(
+    palette: theme::CliTheme,
+    column: usize,
+    row: usize,
+    width: usize,
+    logo_height: usize,
+) -> Rgb {
     if width <= 1 {
         return palette.wordmark_start;
     }
 
     let column_ratio = column as f32 / (width - 1) as f32;
-    let row_height = OV_LOGO_LINES.len().saturating_sub(1).max(1);
+    let row_height = logo_height.saturating_sub(1).max(1);
     let row_ratio = row as f32 / row_height as f32;
     let ratio = (column_ratio * 0.4 + row_ratio * 0.6).clamp(0.0, 1.0);
 
@@ -1358,6 +1625,13 @@ fn styled_detail_to_width(detail: &StatusBoxDetail, width: usize) -> String {
         styled,
         " ".repeat(width.saturating_sub(display_width(&plain)))
     )
+}
+
+fn styled_status_right_row_to_width(row: &StatusBoxRightRow, width: usize) -> String {
+    match row {
+        StatusBoxRightRow::Detail(detail) => styled_detail_to_width(detail, width),
+        StatusBoxRightRow::Empty => " ".repeat(width),
+    }
 }
 
 fn ov_logo_width() -> usize {
@@ -1403,10 +1677,6 @@ fn truncate_to_width(text: &str, width: usize) -> String {
     truncated
 }
 
-fn display_width(text: &str) -> usize {
-    UnicodeWidthStr::width(text)
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ActiveSummaryRenderParts {
     pub(crate) label: &'static str,
@@ -1450,11 +1720,15 @@ pub(crate) fn active_summary_lines(
     let active_line = match active {
         Some(config) => {
             if let Some(entry) = configs.iter().find(|entry| entry.is_active) {
-                format!("Active: {} ({})", entry.name, kind_label(entry.kind))
+                format!(
+                    "Active: {} ({})",
+                    entry.name,
+                    compact_kind_label(entry.kind)
+                )
             } else {
                 format!(
                     "Active: unnamed ({})",
-                    kind_label(ConfigKind::from_config(config))
+                    compact_kind_label(ConfigKind::from_config(config))
                 )
             }
         }
@@ -1477,15 +1751,15 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
     }
 
     let mut stage = Stage::Kind;
-    let mut kind = ConfigKind::SelfManaged;
+    let mut kind = ConfigKind::Custom;
     let mut name: Option<String> = None;
-    let mut url = DEFAULT_SELF_MANAGED_URL.to_string();
+    let mut url = DEFAULT_CUSTOM_URL.to_string();
     let mut api_key: Option<String> = None;
     let mut root_api_key: Option<String> = None;
     let mut account: Option<String> = None;
     let mut user: Option<String> = None;
     let mut identity_mode: Option<IdentityMode> = None;
-    let mut key_mode: Option<SelfManagedKeyMode> = None;
+    let mut key_mode: Option<CustomKeyMode> = None;
 
     loop {
         match stage {
@@ -1502,8 +1776,8 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                 &[],
             )? {
                 PromptResult::Value(0) => {
-                    kind = ConfigKind::VolcengineCloud;
-                    url = VOLCENGINE_CLOUD_URL.to_string();
+                    kind = ConfigKind::OpenVikingService;
+                    url = OPENVIKING_SERVICE_URL.to_string();
                     name = None;
                     api_key = None;
                     root_api_key = None;
@@ -1514,8 +1788,8 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                     stage = Stage::Name;
                 }
                 PromptResult::Value(1) => {
-                    kind = ConfigKind::SelfManaged;
-                    url = DEFAULT_SELF_MANAGED_URL.to_string();
+                    kind = ConfigKind::Custom;
+                    url = DEFAULT_CUSTOM_URL.to_string();
                     name = None;
                     api_key = None;
                     root_api_key = None;
@@ -1536,7 +1810,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                 match prompt_add_config_name(ui, section_add(), add_config_name_label())? {
                     PromptResult::Value(value) => {
                         name = value;
-                        stage = if kind == ConfigKind::VolcengineCloud {
+                        stage = if kind == ConfigKind::OpenVikingService {
                             Stage::ApiKey
                         } else {
                             Stage::Url
@@ -1550,7 +1824,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                         user = None;
                         identity_mode = None;
                         key_mode = None;
-                        url = DEFAULT_SELF_MANAGED_URL.to_string();
+                        url = DEFAULT_CUSTOM_URL.to_string();
                         stage = Stage::Kind;
                     }
                     PromptResult::Quit => {
@@ -1580,33 +1854,30 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                 }
             },
             Stage::KeyMode => {
-                let allow_empty_api_key = self_managed_allows_empty_api_key(&url);
-                let labels = self_managed_key_mode_labels_for_language(
-                    allow_empty_api_key,
-                    Language::current(),
-                );
+                let allow_empty_api_key = custom_allows_empty_api_key(&url);
+                let labels =
+                    custom_key_mode_labels_for_language(allow_empty_api_key, Language::current());
                 match prompt_select(
                     ui,
                     section_add(),
                     copy(Language::current(), "API key type", "API Key 类型"),
                     &labels,
                     0,
-                    &self_managed_api_key_helper_lines(allow_empty_api_key),
+                    &custom_api_key_helper_lines(allow_empty_api_key),
                 )? {
                     PromptResult::Value(index) => {
-                        let selected =
-                            self_managed_key_mode_for_selection(allow_empty_api_key, index);
+                        let selected = custom_key_mode_for_selection(allow_empty_api_key, index);
                         key_mode = Some(selected);
                         api_key = None;
                         root_api_key = None;
                         account = None;
                         user = None;
                         match selected {
-                            SelfManagedKeyMode::NoKey => {
+                            CustomKeyMode::NoKey => {
                                 identity_mode = Some(IdentityMode::LocalNoKey);
                                 stage = Stage::Account;
                             }
-                            SelfManagedKeyMode::UserKey | SelfManagedKeyMode::RootKey => {
+                            CustomKeyMode::UserKey | CustomKeyMode::RootKey => {
                                 identity_mode = None;
                                 stage = Stage::ApiKey;
                             }
@@ -1620,18 +1891,14 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                 }
             }
             Stage::ApiKey => {
-                let helper_lines = if kind == ConfigKind::VolcengineCloud {
-                    volcengine_api_key_helper_lines()
+                let helper_lines = if kind == ConfigKind::OpenVikingService {
+                    openviking_service_api_key_helper_lines()
                 } else {
-                    self_managed_api_key_input_helper_lines(
-                        key_mode.unwrap_or(SelfManagedKeyMode::UserKey),
-                    )
+                    custom_api_key_input_helper_lines(key_mode.unwrap_or(CustomKeyMode::UserKey))
                 };
 
-                let label = if kind == ConfigKind::SelfManaged {
-                    self_managed_api_key_input_label(
-                        key_mode.unwrap_or(SelfManagedKeyMode::UserKey),
-                    )
+                let label = if kind == ConfigKind::Custom {
+                    custom_api_key_input_label(key_mode.unwrap_or(CustomKeyMode::UserKey))
                 } else {
                     api_key_label(false)
                 };
@@ -1647,8 +1914,8 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                 )? {
                     PromptResult::Value(value) => {
                         api_key = empty_to_none(value);
-                        root_api_key = if kind == ConfigKind::SelfManaged
-                            && key_mode == Some(SelfManagedKeyMode::RootKey)
+                        root_api_key = if kind == ConfigKind::Custom
+                            && key_mode == Some(CustomKeyMode::RootKey)
                         {
                             api_key.clone()
                         } else {
@@ -1660,7 +1927,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                         stage = Stage::Validate;
                     }
                     PromptResult::Back => {
-                        stage = if kind == ConfigKind::VolcengineCloud {
+                        stage = if kind == ConfigKind::OpenVikingService {
                             Stage::Name
                         } else {
                             Stage::KeyMode
@@ -1756,7 +2023,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                                 &root_key_redirect_helper_lines(),
                             )? {
                                 PromptResult::Value(0) => {
-                                    key_mode = Some(SelfManagedKeyMode::RootKey);
+                                    key_mode = Some(CustomKeyMode::RootKey);
                                     root_api_key = api_key.clone();
                                     identity_mode = Some(IdentityMode::RootKey);
                                     account = None;
@@ -1765,7 +2032,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                                     continue;
                                 }
                                 PromptResult::Value(1) | PromptResult::Back => {
-                                    key_mode = Some(SelfManagedKeyMode::UserKey);
+                                    key_mode = Some(CustomKeyMode::UserKey);
                                     root_api_key = None;
                                     identity_mode = None;
                                     stage = Stage::ApiKey;
@@ -1793,7 +2060,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                                 &user_key_redirect_helper_lines(),
                             )? {
                                 PromptResult::Value(0) => {
-                                    key_mode = Some(SelfManagedKeyMode::UserKey);
+                                    key_mode = Some(CustomKeyMode::UserKey);
                                     root_api_key = None;
                                     identity_mode = None;
                                     account = None;
@@ -1802,7 +2069,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                                     continue;
                                 }
                                 PromptResult::Value(1) | PromptResult::Back => {
-                                    key_mode = Some(SelfManagedKeyMode::RootKey);
+                                    key_mode = Some(CustomKeyMode::RootKey);
                                     api_key = None;
                                     root_api_key = None;
                                     identity_mode = None;
@@ -1854,7 +2121,7 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                             PromptResult::Back => {
                                 stage = if identity_mode.is_some() {
                                     Stage::User
-                                } else if kind == ConfigKind::SelfManaged {
+                                } else if kind == ConfigKind::Custom {
                                     Stage::KeyMode
                                 } else {
                                     Stage::ApiKey
@@ -1870,11 +2137,14 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                         let helper_lines = vec![
                             theme::error(localized_validation_error(kind, &error)).to_string(),
                         ];
-                        let choices: Vec<&str> = if kind == ConfigKind::VolcengineCloud {
-                            cloud_validation_failure_choices_for_language(Language::current())
-                                .to_vec()
+                        let choices: Vec<&str> = if kind == ConfigKind::OpenVikingService {
+                            openviking_service_validation_failure_choices_for_language(
+                                Language::current(),
+                            )
+                            .to_vec()
                         } else {
-                            self_managed_validation_failure_choices_for_language(Language::current()).to_vec()
+                            custom_validation_failure_choices_for_language(Language::current())
+                                .to_vec()
                         };
                         match prompt_select(
                             ui,
@@ -1889,26 +2159,26 @@ async fn run_add_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool
                             &helper_lines,
                         )? {
                             PromptResult::Value(0) => {
-                                stage = if kind == ConfigKind::VolcengineCloud {
+                                stage = if kind == ConfigKind::OpenVikingService {
                                     Stage::ApiKey
                                 } else {
                                     Stage::Url
                                 };
                             }
                             PromptResult::Value(1) => {
-                                stage = if kind == ConfigKind::VolcengineCloud {
+                                stage = if kind == ConfigKind::OpenVikingService {
                                     print_cancelled(ui)?;
                                     return Ok(true);
                                 } else {
                                     Stage::KeyMode
                                 };
                             }
-                            PromptResult::Value(2) if kind == ConfigKind::SelfManaged => {
+                            PromptResult::Value(2) if kind == ConfigKind::Custom => {
                                 print_cancelled(ui)?;
                                 return Ok(true);
                             }
                             PromptResult::Back => {
-                                stage = if kind == ConfigKind::SelfManaged {
+                                stage = if kind == ConfigKind::Custom {
                                     Stage::KeyMode
                                 } else {
                                     Stage::ApiKey
@@ -1967,15 +2237,15 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
     let mut stage = Stage::Select;
     let mut selected = 0usize;
     let mut name = String::new();
-    let mut kind = ConfigKind::SelfManaged;
+    let mut kind = ConfigKind::Custom;
     let mut url = String::new();
     let mut api_key: Option<String> = None;
     let mut root_api_key: Option<String> = None;
     let mut account: Option<String> = None;
     let mut user: Option<String> = None;
     let mut identity_mode: Option<IdentityMode> = None;
-    let mut key_mode: Option<SelfManagedKeyMode> = None;
-    let mut key_edit_action: Option<SelfManagedEditKeyAction> = None;
+    let mut key_mode: Option<CustomKeyMode> = None;
+    let mut key_edit_action: Option<CustomEditKeyAction> = None;
     let mut api_key_was_entered = false;
 
     loop {
@@ -2001,9 +2271,9 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                     user = config.config.user.clone();
                     identity_mode = None;
                     key_mode = if root_api_key.is_some() {
-                        Some(SelfManagedKeyMode::RootKey)
+                        Some(CustomKeyMode::RootKey)
                     } else if api_key.is_some() {
-                        Some(SelfManagedKeyMode::UserKey)
+                        Some(CustomKeyMode::UserKey)
                     } else {
                         None
                     };
@@ -2026,7 +2296,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                 )? {
                     PromptResult::Value(value) => {
                         name = value;
-                        stage = if kind == ConfigKind::VolcengineCloud {
+                        stage = if kind == ConfigKind::OpenVikingService {
                             Stage::ApiKeyChoice
                         } else {
                             Stage::Url
@@ -2060,7 +2330,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                 }
             },
             Stage::ApiKeyChoice => {
-                if kind == ConfigKind::SelfManaged {
+                if kind == ConfigKind::Custom {
                     let has_root_key = has_non_empty(root_api_key.as_deref());
                     let has_normal_user_key =
                         has_normal_user_key(api_key.as_deref(), root_api_key.as_deref());
@@ -2070,11 +2340,11 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         continue;
                     }
 
-                    let actions = edit_self_managed_key_actions(has_normal_user_key, has_root_key);
+                    let actions = edit_custom_key_actions(has_normal_user_key, has_root_key);
                     let labels: Vec<&str> = actions
                         .iter()
                         .copied()
-                        .map(self_managed_edit_key_action_label)
+                        .map(custom_edit_key_action_label)
                         .collect();
                     match prompt_select(
                         ui,
@@ -2082,50 +2352,50 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         copy(Language::current(), "API keys", "API Key"),
                         &labels,
                         0,
-                        &self_managed_api_key_helper_lines(self_managed_allows_empty_api_key(&url)),
+                        &custom_api_key_helper_lines(custom_allows_empty_api_key(&url)),
                     )? {
                         PromptResult::Value(index) => {
                             let action = actions[index];
                             key_edit_action = Some(action);
                             api_key_was_entered = false;
                             match action {
-                                SelfManagedEditKeyAction::Keep => {
+                                CustomEditKeyAction::Keep => {
                                     stage = Stage::Validate;
                                 }
-                                SelfManagedEditKeyAction::SetUserKey => {
-                                    key_mode = Some(SelfManagedKeyMode::UserKey);
+                                CustomEditKeyAction::SetUserKey => {
+                                    key_mode = Some(CustomKeyMode::UserKey);
                                     identity_mode = None;
                                     stage = Stage::ApiKeyInput;
                                 }
-                                SelfManagedEditKeyAction::SetRootKey => {
-                                    key_mode = Some(SelfManagedKeyMode::RootKey);
+                                CustomEditKeyAction::SetRootKey => {
+                                    key_mode = Some(CustomKeyMode::RootKey);
                                     identity_mode = None;
                                     stage = Stage::ApiKeyInput;
                                 }
-                                SelfManagedEditKeyAction::UseRootForNormal => {
+                                CustomEditKeyAction::UseRootForNormal => {
                                     api_key = root_api_key.clone();
-                                    key_mode = Some(SelfManagedKeyMode::RootKey);
+                                    key_mode = Some(CustomKeyMode::RootKey);
                                     identity_mode = None;
                                     stage = Stage::Validate;
                                 }
-                                SelfManagedEditKeyAction::ClearRootKey => {
+                                CustomEditKeyAction::ClearRootKey => {
                                     if api_key.as_deref() == root_api_key.as_deref() {
                                         api_key = None;
                                     }
                                     root_api_key = None;
                                     key_mode = if api_key.is_some() {
-                                        Some(SelfManagedKeyMode::UserKey)
+                                        Some(CustomKeyMode::UserKey)
                                     } else {
                                         None
                                     };
                                     identity_mode = None;
                                     stage = Stage::Validate;
                                 }
-                                SelfManagedEditKeyAction::ClearAllKeys => {
+                                CustomEditKeyAction::ClearAllKeys => {
                                     api_key = None;
                                     root_api_key = None;
                                     key_mode = None;
-                                    if self_managed_allows_empty_api_key(&url) {
+                                    if custom_allows_empty_api_key(&url) {
                                         identity_mode = Some(IdentityMode::LocalNoKey);
                                         stage = Stage::Account;
                                     } else {
@@ -2144,10 +2414,10 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                     continue;
                 }
 
-                let helper_lines = if kind == ConfigKind::VolcengineCloud {
-                    volcengine_api_key_helper_lines()
+                let helper_lines = if kind == ConfigKind::OpenVikingService {
+                    openviking_service_api_key_helper_lines()
                 } else {
-                    self_managed_api_key_helper_lines(self_managed_allows_empty_api_key(&url))
+                    custom_api_key_helper_lines(custom_allows_empty_api_key(&url))
                 };
 
                 let has_existing = api_key.as_deref().is_some_and(|value| !value.is_empty())
@@ -2155,7 +2425,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         .as_deref()
                         .is_some_and(|value| !value.is_empty());
                 if !has_existing {
-                    stage = if kind == ConfigKind::SelfManaged {
+                    stage = if kind == ConfigKind::Custom {
                         Stage::KeyMode
                     } else {
                         Stage::ApiKeyInput
@@ -2180,7 +2450,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         stage = Stage::Validate;
                     }
                     PromptResult::Value(1) => {
-                        stage = if kind == ConfigKind::SelfManaged {
+                        stage = if kind == ConfigKind::Custom {
                             Stage::KeyMode
                         } else {
                             Stage::ApiKeyInput
@@ -2192,9 +2462,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         key_mode = None;
                         key_edit_action = None;
                         api_key_was_entered = false;
-                        if kind == ConfigKind::SelfManaged
-                            && self_managed_allows_empty_api_key(&url)
-                        {
+                        if kind == ConfigKind::Custom && custom_allows_empty_api_key(&url) {
                             identity_mode = Some(IdentityMode::LocalNoKey);
                             stage = Stage::Account;
                         } else {
@@ -2203,7 +2471,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         }
                     }
                     PromptResult::Back => {
-                        stage = if kind == ConfigKind::VolcengineCloud {
+                        stage = if kind == ConfigKind::OpenVikingService {
                             Stage::Name
                         } else {
                             Stage::Url
@@ -2216,33 +2484,30 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                 }
             }
             Stage::KeyMode => {
-                let allow_empty_api_key = self_managed_allows_empty_api_key(&url);
-                let labels = self_managed_key_mode_labels_for_language(
-                    allow_empty_api_key,
-                    Language::current(),
-                );
+                let allow_empty_api_key = custom_allows_empty_api_key(&url);
+                let labels =
+                    custom_key_mode_labels_for_language(allow_empty_api_key, Language::current());
                 match prompt_select(
                     ui,
                     section_edit(),
                     copy(Language::current(), "API key type", "API Key 类型"),
                     &labels,
                     0,
-                    &self_managed_api_key_helper_lines(allow_empty_api_key),
+                    &custom_api_key_helper_lines(allow_empty_api_key),
                 )? {
                     PromptResult::Value(index) => {
-                        let selected =
-                            self_managed_key_mode_for_selection(allow_empty_api_key, index);
+                        let selected = custom_key_mode_for_selection(allow_empty_api_key, index);
                         key_mode = Some(selected);
                         api_key = None;
                         root_api_key = None;
                         key_edit_action = None;
                         api_key_was_entered = false;
                         match selected {
-                            SelfManagedKeyMode::NoKey => {
+                            CustomKeyMode::NoKey => {
                                 identity_mode = Some(IdentityMode::LocalNoKey);
                                 stage = Stage::Account;
                             }
-                            SelfManagedKeyMode::UserKey | SelfManagedKeyMode::RootKey => {
+                            CustomKeyMode::UserKey | CustomKeyMode::RootKey => {
                                 identity_mode = None;
                                 stage = Stage::ApiKeyInput;
                             }
@@ -2260,19 +2525,15 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                     || root_api_key
                         .as_deref()
                         .is_some_and(|value| !value.is_empty());
-                let label = if kind == ConfigKind::SelfManaged {
-                    self_managed_api_key_input_label(
-                        key_mode.unwrap_or(SelfManagedKeyMode::UserKey),
-                    )
+                let label = if kind == ConfigKind::Custom {
+                    custom_api_key_input_label(key_mode.unwrap_or(CustomKeyMode::UserKey))
                 } else {
                     api_key_label(false)
                 };
-                let helper_lines = if kind == ConfigKind::VolcengineCloud {
-                    volcengine_api_key_helper_lines()
+                let helper_lines = if kind == ConfigKind::OpenVikingService {
+                    openviking_service_api_key_helper_lines()
                 } else {
-                    self_managed_api_key_input_helper_lines(
-                        key_mode.unwrap_or(SelfManagedKeyMode::UserKey),
-                    )
+                    custom_api_key_input_helper_lines(key_mode.unwrap_or(CustomKeyMode::UserKey))
                 };
                 match prompt_text(
                     ui,
@@ -2287,11 +2548,11 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                     PromptResult::Value(value) => {
                         let entered_key = empty_to_none(value);
                         match key_edit_action {
-                            Some(SelfManagedEditKeyAction::SetUserKey) => {
+                            Some(CustomEditKeyAction::SetUserKey) => {
                                 api_key = entered_key;
                                 api_key_was_entered = api_key.is_some();
                             }
-                            Some(SelfManagedEditKeyAction::SetRootKey) => {
+                            Some(CustomEditKeyAction::SetRootKey) => {
                                 let keep_normal_user_key = has_normal_user_key(
                                     api_key.as_deref(),
                                     root_api_key.as_deref(),
@@ -2304,8 +2565,8 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                             }
                             _ => {
                                 api_key = entered_key;
-                                root_api_key = if kind == ConfigKind::SelfManaged
-                                    && key_mode == Some(SelfManagedKeyMode::RootKey)
+                                root_api_key = if kind == ConfigKind::Custom
+                                    && key_mode == Some(CustomKeyMode::RootKey)
                                 {
                                     api_key.clone()
                                 } else {
@@ -2320,7 +2581,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                     PromptResult::Back => {
                         stage = if has_existing {
                             Stage::ApiKeyChoice
-                        } else if kind == ConfigKind::VolcengineCloud {
+                        } else if kind == ConfigKind::OpenVikingService {
                             Stage::Name
                         } else {
                             Stage::KeyMode
@@ -2415,8 +2676,8 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                                 &root_key_redirect_helper_lines(),
                             )? {
                                 PromptResult::Value(0) => {
-                                    key_mode = Some(SelfManagedKeyMode::RootKey);
-                                    key_edit_action = Some(SelfManagedEditKeyAction::SetRootKey);
+                                    key_mode = Some(CustomKeyMode::RootKey);
+                                    key_edit_action = Some(CustomEditKeyAction::SetRootKey);
                                     root_api_key = api_key.clone();
                                     identity_mode = Some(IdentityMode::RootKey);
                                     account = None;
@@ -2425,7 +2686,7 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                                     continue;
                                 }
                                 PromptResult::Value(1) | PromptResult::Back => {
-                                    key_mode = Some(SelfManagedKeyMode::UserKey);
+                                    key_mode = Some(CustomKeyMode::UserKey);
                                     api_key = None;
                                     identity_mode = None;
                                     stage = Stage::ApiKeyInput;
@@ -2463,8 +2724,8 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                                             api_key.as_deref() != Some(existing_root_key.as_str())
                                                 && !existing_root_key.trim().is_empty()
                                         });
-                                    key_mode = Some(SelfManagedKeyMode::UserKey);
-                                    key_edit_action = Some(SelfManagedEditKeyAction::SetUserKey);
+                                    key_mode = Some(CustomKeyMode::UserKey);
+                                    key_edit_action = Some(CustomEditKeyAction::SetUserKey);
                                     api_key_was_entered = api_key.is_some();
                                     identity_mode = None;
                                     account = None;
@@ -2473,8 +2734,8 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                                     continue;
                                 }
                                 PromptResult::Value(1) | PromptResult::Back => {
-                                    key_mode = Some(SelfManagedKeyMode::RootKey);
-                                    key_edit_action = Some(SelfManagedEditKeyAction::SetRootKey);
+                                    key_mode = Some(CustomKeyMode::RootKey);
+                                    key_edit_action = Some(CustomEditKeyAction::SetRootKey);
                                     if api_key.as_deref() == root_api_key.as_deref() {
                                         api_key = None;
                                     }
@@ -2564,11 +2825,14 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                         let helper_lines = vec![
                             theme::error(localized_validation_error(kind, &error)).to_string(),
                         ];
-                        let choices = if kind == ConfigKind::VolcengineCloud {
-                            cloud_validation_failure_choices_for_language(Language::current())
-                                .to_vec()
+                        let choices = if kind == ConfigKind::OpenVikingService {
+                            openviking_service_validation_failure_choices_for_language(
+                                Language::current(),
+                            )
+                            .to_vec()
                         } else {
-                            self_managed_validation_failure_choices_for_language(Language::current()).to_vec()
+                            custom_validation_failure_choices_for_language(Language::current())
+                                .to_vec()
                         };
                         match prompt_select(
                             ui,
@@ -2583,21 +2847,21 @@ async fn run_edit_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<boo
                             &helper_lines,
                         )? {
                             PromptResult::Value(0) => {
-                                stage = if kind == ConfigKind::VolcengineCloud {
+                                stage = if kind == ConfigKind::OpenVikingService {
                                     Stage::ApiKeyInput
                                 } else {
                                     Stage::Url
                                 };
                             }
                             PromptResult::Value(1) => {
-                                stage = if kind == ConfigKind::VolcengineCloud {
+                                stage = if kind == ConfigKind::OpenVikingService {
                                     print_cancelled(ui)?;
                                     return Ok(true);
                                 } else {
                                     Stage::ApiKeyChoice
                                 };
                             }
-                            PromptResult::Value(2) if kind == ConfigKind::SelfManaged => {
+                            PromptResult::Value(2) if kind == ConfigKind::Custom => {
                                 print_cancelled(ui)?;
                                 return Ok(true);
                             }
@@ -2725,6 +2989,131 @@ fn run_delete_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool> {
     }
 }
 
+async fn run_switch_config(store: &ConfigStore, ui: &mut LiveRegion) -> Result<bool> {
+    enum Stage {
+        Select,
+        Confirm,
+    }
+
+    let configs = store.list_configs()?;
+    if configs.is_empty() {
+        let helper_lines = vec![
+            theme::warning(copy(
+                Language::current(),
+                "No saved configs to switch.",
+                "没有可切换的配置。",
+            ))
+            .to_string(),
+        ];
+        let _ = prompt_select(
+            ui,
+            section_switch(),
+            copy(Language::current(), "Nothing to switch.", "没有可切换项。"),
+            &[copy(Language::current(), "Back", "返回")],
+            0,
+            &helper_lines,
+        )?;
+        return Ok(false);
+    }
+
+    let mut stage = Stage::Select;
+    let mut selected = 0usize;
+
+    loop {
+        match stage {
+            Stage::Select => match prompt_config_select(
+                ui,
+                section_switch(),
+                copy(Language::current(), "Config to switch to", "要切换到的配置"),
+                &configs,
+            )? {
+                PromptResult::Value(index) => {
+                    selected = index;
+                    if configs[index].is_active {
+                        let helper_lines = vec![
+                            theme::muted(config_already_active_message(&configs[index].name))
+                                .to_string(),
+                        ];
+                        let _ = prompt_select(
+                            ui,
+                            section_switch(),
+                            copy(
+                                Language::current(),
+                                "Config already active.",
+                                "配置已是当前配置。",
+                            ),
+                            &[copy(Language::current(), "Back", "返回")],
+                            0,
+                            &helper_lines,
+                        )?;
+                        return Ok(false);
+                    }
+                    stage = Stage::Confirm;
+                }
+                PromptResult::Back => return Ok(false),
+                PromptResult::Quit => {
+                    print_cancelled(ui)?;
+                    return Ok(true);
+                }
+            },
+            Stage::Confirm => {
+                let selected_config = &configs[selected];
+                match confirm(
+                    ui,
+                    section_switch(),
+                    &switch_confirm_prompt(&selected_config.name),
+                    true,
+                )? {
+                    PromptResult::Value(true) => {
+                        ui.render(&status_live_lines(
+                            section_switch(),
+                            copy(
+                                Language::current(),
+                                "Validating target config...",
+                                "正在验证目标配置...",
+                            ),
+                        ))?;
+                        if let Err(error) = validate_config(&selected_config.config).await {
+                            ui.clear()?;
+                            print_switch_validation_error(
+                                &selected_config.name,
+                                selected_config.kind,
+                                &error,
+                            );
+                            return Ok(true);
+                        }
+
+                        ui.clear()?;
+                        store.activate_config(&selected_config.name)?;
+                        println!();
+                        println!(
+                            "{} {}",
+                            theme::success("✓"),
+                            theme::success(switched_config_message(&selected_config.name))
+                        );
+                        println!(
+                            "{} {}",
+                            theme::muted(copy(Language::current(), "Next:", "下一步：")),
+                            theme::body(copy(
+                                Language::current(),
+                                "Run ov status to inspect it.",
+                                "运行 ov status 查看状态。",
+                            ))
+                        );
+                        return Ok(true);
+                    }
+                    PromptResult::Value(false) => stage = Stage::Select,
+                    PromptResult::Back => stage = Stage::Select,
+                    PromptResult::Quit => {
+                        print_cancelled(ui)?;
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct ValidatedConfig {
     config: Config,
     api_key_role: Option<ApiKeyRole>,
@@ -2737,9 +3126,8 @@ async fn validate_draft(
     draft: &ConfigDraft,
 ) -> Result<ValidatedConfig> {
     let mut config = build_config(draft)?;
-    let require_api_key = draft.kind == ConfigKind::VolcengineCloud
-        || (draft.kind == ConfigKind::SelfManaged
-            && !self_managed_allows_empty_api_key(&draft.url));
+    let require_api_key = draft.kind == ConfigKind::OpenVikingService
+        || (draft.kind == ConfigKind::Custom && !custom_allows_empty_api_key(&draft.url));
     ui.render(&status_live_lines(
         section,
         copy(
@@ -2945,7 +3333,7 @@ fn least_privilege_user_key_notice() -> String {
             theme::body(", run "),
             theme::command("ov config").bold(),
             theme::body(" -> "),
-            theme::strong("Edit config"),
+            theme::strong("Edit Config"),
             theme::body(" -> "),
             theme::strong("Set normal user API key"),
             theme::body("."),
@@ -2955,7 +3343,7 @@ fn least_privilege_user_key_notice() -> String {
             theme::body("为遵循最小权限原则，请运行 "),
             theme::command("ov config").bold(),
             theme::body(" -> "),
-            theme::strong("Edit config"),
+            theme::strong("Edit Config"),
             theme::body(" -> "),
             theme::strong("Set normal user API key"),
             theme::body("。"),
@@ -2964,7 +3352,7 @@ fn least_privilege_user_key_notice() -> String {
 }
 
 fn root_key_used_for_normal_commands(config: &Config) -> bool {
-    if ConfigKind::from_config(config) != ConfigKind::SelfManaged {
+    if ConfigKind::from_config(config) != ConfigKind::Custom {
         return false;
     }
 
@@ -3035,13 +3423,13 @@ fn add_config_name_helper_lines() -> Vec<String> {
     ]
 }
 
-pub(crate) fn volcengine_api_key_helper_lines() -> Vec<String> {
+pub(crate) fn openviking_service_api_key_helper_lines() -> Vec<String> {
     let language = Language::current();
     vec![
         format!(
             "{} {}",
             theme::muted(copy(language, "Get your API key:", "获取 API Key：")),
-            VOLCENGINE_API_KEY_URL
+            OPENVIKING_SERVICE_API_KEY_URL
         ),
         theme::muted(copy(
             language,
@@ -3052,7 +3440,7 @@ pub(crate) fn volcengine_api_key_helper_lines() -> Vec<String> {
     ]
 }
 
-pub(crate) fn self_managed_api_key_helper_lines(allow_empty: bool) -> Vec<String> {
+pub(crate) fn custom_api_key_helper_lines(allow_empty: bool) -> Vec<String> {
     let copy = if allow_empty {
         copy(
             Language::current(),
@@ -3062,8 +3450,8 @@ pub(crate) fn self_managed_api_key_helper_lines(allow_empty: bool) -> Vec<String
     } else {
         copy(
             Language::current(),
-            "Required for remote self-managed servers.",
-            "远程自托管服务需要 API Key。",
+            "Required for remote custom servers.",
+            "远程自定义服务需要 API Key。",
         )
     };
     vec![theme::muted(copy).to_string()]
@@ -3100,8 +3488,8 @@ fn prompt_add_config_name(
 
 pub(crate) fn allocate_config_name(store: &ConfigStore, kind: ConfigKind) -> Result<String> {
     let prefix = match kind {
-        ConfigKind::VolcengineCloud => "cloud",
-        ConfigKind::SelfManaged => "local",
+        ConfigKind::OpenVikingService => "ov-service",
+        ConfigKind::Custom => "custom",
     };
 
     for _ in 0..32 {
@@ -3225,7 +3613,7 @@ fn prompt_config_select(
 }
 
 fn config_select_label(entry: &ConfigEntry) -> String {
-    let label = format!("{} - {}", entry.name, kind_label(entry.kind));
+    let label = format!("{} - {}", entry.name, compact_kind_label(entry.kind));
     if entry.is_active {
         format!("{} {}", label, theme::error(active_badge()).bold())
     } else {
@@ -3267,14 +3655,19 @@ fn delete_confirm_prompt(name: &str) -> String {
     }
 }
 
+fn switch_confirm_prompt(name: &str) -> String {
+    match Language::current() {
+        Language::En => format!("Switch active config to '{name}'?"),
+        Language::ZhCn => format!("切换当前配置为 '{name}'？"),
+    }
+}
+
 fn localized_validation_error(kind: ConfigKind, error: &Error) -> String {
     match Language::current() {
         Language::En => validation_error_copy(kind, error),
         Language::ZhCn => match kind {
-            ConfigKind::VolcengineCloud => "验证失败。请检查 API Key 后重试。".to_string(),
-            ConfigKind::SelfManaged => {
-                "验证失败。请检查服务器 URL，以及是否需要 API Key。".to_string()
-            }
+            ConfigKind::OpenVikingService => "验证失败。请检查 API Key 后重试。".to_string(),
+            ConfigKind::Custom => "验证失败。请检查服务器 URL，以及是否需要 API Key。".to_string(),
         },
     }
 }
@@ -3283,6 +3676,53 @@ fn deleted_config_message(name: &str) -> String {
     match Language::current() {
         Language::En => format!("Deleted config '{name}'."),
         Language::ZhCn => format!("已删除配置 '{name}'。"),
+    }
+}
+
+fn switched_config_message(name: &str) -> String {
+    match Language::current() {
+        Language::En => format!("Switched active config to '{name}'."),
+        Language::ZhCn => format!("已切换当前配置为 '{name}'。"),
+    }
+}
+
+fn config_already_active_message(name: &str) -> String {
+    match Language::current() {
+        Language::En => format!("Config '{name}' is already active."),
+        Language::ZhCn => format!("配置 '{name}' 已是当前配置。"),
+    }
+}
+
+fn switch_validation_error_lines(name: &str, kind: ConfigKind, error: &Error) -> Vec<String> {
+    vec![
+        String::new(),
+        format!(
+            "{} {}",
+            theme::error("✗"),
+            theme::error(match Language::current() {
+                Language::En => format!("Target config '{name}' failed validation."),
+                Language::ZhCn => format!("目标配置 '{name}' 验证失败。"),
+            })
+        ),
+        format!(
+            "  {}",
+            theme::muted(localized_validation_error(kind, error))
+        ),
+        format!(
+            "{} {}",
+            theme::muted(copy(Language::current(), "Next:", "下一步：")),
+            theme::body(copy(
+                Language::current(),
+                "Run ov config and edit this config before switching.",
+                "请运行 ov config 编辑该配置后再切换。",
+            ))
+        ),
+    ]
+}
+
+fn print_switch_validation_error(name: &str, kind: ConfigKind, error: &Error) {
+    for line in switch_validation_error_lines(name, kind, error) {
+        println!("{line}");
     }
 }
 
@@ -3369,8 +3809,8 @@ fn prompt_select<T: ToString>(
             helper_lines,
         ))?;
 
-        if let Event::Key(key) = event::read()? {
-            match key.code {
+        match event::read()? {
+            Event::Key(key) => match key.code {
                 KeyCode::Up => {
                     selected = if selected == 0 {
                         items.len().saturating_sub(1)
@@ -3395,7 +3835,11 @@ fn prompt_select<T: ToString>(
                     return Ok(PromptResult::Quit);
                 }
                 _ => {}
+            },
+            Event::Resize(_, _) => {
+                // Redraw on the next loop using the new terminal width.
             }
+            _ => {}
         }
     }
 }
@@ -3414,23 +3858,24 @@ fn prompt_text(
     'attempt: loop {
         let mut value = String::new();
         let default_copy = default.unwrap_or_default();
-        ui.render_input(
-            &input_live_lines(
+        render_text_prompt(
+            ui,
+            TextPromptView {
                 section,
                 prompt,
                 default,
                 value_label,
                 secret,
                 helper_lines,
-                error.as_deref(),
-            ),
-            "  > ",
+                error: error.as_deref(),
+                value: &value,
+            },
         )?;
 
         let raw = RawPrompt::enter(false)?;
         loop {
-            if let Event::Key(key) = event::read()? {
-                match key.code {
+            match event::read()? {
+                Event::Key(key) => match key.code {
                     KeyCode::Enter => {
                         let chosen = if value.trim().is_empty() {
                             default_copy.trim().to_string()
@@ -3466,6 +3911,7 @@ fn prompt_text(
                     KeyCode::Backspace => {
                         if let Some(ch) = value.pop() {
                             raw_write(erase_sequence_for_char(ch, secret))?;
+                            ui.set_input_prompt(input_prompt_with_value(&value, secret));
                             io::stdout().flush()?;
                         }
                     }
@@ -3477,14 +3923,80 @@ fn prompt_text(
                             } else {
                                 raw_write(ch.to_string())?;
                             }
+                            ui.set_input_prompt(input_prompt_with_value(&value, secret));
                             io::stdout().flush()?;
                         }
                     }
                     _ => {}
+                },
+                Event::Resize(_, _) => {
+                    render_text_prompt(
+                        ui,
+                        TextPromptView {
+                            section,
+                            prompt,
+                            default,
+                            value_label,
+                            secret,
+                            helper_lines,
+                            error: error.as_deref(),
+                            value: &value,
+                        },
+                    )?;
                 }
+                _ => {}
             }
         }
     }
+}
+
+struct TextPromptView<'a> {
+    section: &'a str,
+    prompt: &'a str,
+    default: Option<&'a str>,
+    value_label: Option<InputValueLabel>,
+    secret: bool,
+    helper_lines: &'a [String],
+    error: Option<&'a str>,
+    value: &'a str,
+}
+
+fn render_text_prompt(ui: &mut LiveRegion, view: TextPromptView<'_>) -> Result<()> {
+    ui.render_input(
+        &input_live_lines(
+            view.section,
+            view.prompt,
+            view.default,
+            view.value_label,
+            view.secret,
+            view.helper_lines,
+            view.error,
+        ),
+        TEXT_INPUT_PROMPT,
+    )?;
+    let input_prompt = input_prompt_with_value(view.value, view.secret);
+    if input_prompt.len() > TEXT_INPUT_PROMPT.len() {
+        if view.secret {
+            raw_write("*".repeat(view.value.chars().count()))?;
+        } else {
+            raw_write(view.value)?;
+        }
+    }
+    ui.set_input_prompt(input_prompt);
+    io::stdout().flush()?;
+    Ok(())
+}
+
+fn input_prompt_with_value(value: &str, secret: bool) -> String {
+    if value.is_empty() {
+        return TEXT_INPUT_PROMPT.to_string();
+    }
+    let rendered_value = if secret {
+        "*".repeat(value.chars().count())
+    } else {
+        value.to_string()
+    };
+    format!("{TEXT_INPUT_PROMPT}{rendered_value}")
 }
 
 fn erase_sequence_for_char(ch: char, secret: bool) -> String {
@@ -3534,7 +4046,9 @@ fn confirm(
 
 #[derive(Default)]
 struct LiveRegion {
-    lines_drawn: usize,
+    lines: Vec<String>,
+    input_prompt: Option<String>,
+    rows_drawn: usize,
     cursor_on_last_line: bool,
 }
 
@@ -3545,7 +4059,13 @@ impl LiveRegion {
             raw_line(line)?;
         }
         io::stdout().flush()?;
-        self.lines_drawn = lines.len();
+        self.lines = lines.to_vec();
+        self.input_prompt = None;
+        self.rows_drawn = rendered_live_region_rows(
+            &self.lines,
+            self.input_prompt.as_deref(),
+            live_region_columns(),
+        );
         self.cursor_on_last_line = false;
         Ok(())
     }
@@ -3557,17 +4077,62 @@ impl LiveRegion {
         }
         raw_write(prompt)?;
         io::stdout().flush()?;
-        self.lines_drawn = lines.len() + 1;
+        self.lines = lines.to_vec();
+        self.input_prompt = Some(prompt.to_string());
+        self.rows_drawn = rendered_live_region_rows(
+            &self.lines,
+            self.input_prompt.as_deref(),
+            live_region_columns(),
+        );
         self.cursor_on_last_line = true;
         Ok(())
     }
 
     fn clear(&mut self) -> Result<()> {
-        clear_live_region(self.lines_drawn, self.cursor_on_last_line)?;
-        self.lines_drawn = 0;
+        clear_live_region(
+            self.rows_to_clear(live_region_columns()),
+            self.cursor_on_last_line,
+        )?;
+        self.lines.clear();
+        self.input_prompt = None;
+        self.rows_drawn = 0;
         self.cursor_on_last_line = false;
         Ok(())
     }
+
+    fn set_input_prompt(&mut self, prompt: String) {
+        self.input_prompt = Some(prompt);
+        self.rows_drawn = self.rows_drawn.max(rendered_live_region_rows(
+            &self.lines,
+            self.input_prompt.as_deref(),
+            live_region_columns(),
+        ));
+    }
+
+    fn rows_to_clear(&self, columns: usize) -> usize {
+        self.rows_drawn.max(rendered_live_region_rows(
+            &self.lines,
+            self.input_prompt.as_deref(),
+            columns,
+        ))
+    }
+}
+
+fn live_region_columns() -> usize {
+    terminal::size()
+        .map(|(columns, _)| usize::from(columns).saturating_sub(1).max(1))
+        .unwrap_or_else(|_| status_box_width())
+}
+
+fn rendered_live_region_rows(
+    lines: &[String],
+    input_prompt: Option<&str>,
+    columns: usize,
+) -> usize {
+    rendered_row_count(lines, columns)
+        + input_prompt
+            .map(|prompt| rendered_line_rows(prompt, columns))
+            .unwrap_or(0)
 }
 
 pub(crate) fn select_live_lines<T: ToString>(
@@ -3765,30 +4330,36 @@ impl Drop for RawPrompt {
 #[cfg(test)]
 mod tests {
     use super::{
-        IdentityMode, InputValueLabel, OV_LOGO_LINES, Rgb, SelfManagedKeyMode, StatusBoxRuntime,
-        active_delete_block_helper_lines, active_summary_lines, active_summary_render_parts,
-        add_config_name_label, add_save_action_labels, allocate_config_name, box_content_line,
-        box_footer_line, box_title_line, cloud_validation_failure_choices, config_select_label,
-        display_config_home, display_width, edit_api_key_choice_labels, edit_save_action_labels,
-        edit_self_managed_key_action_labels, erase_sequence_for_char,
-        extract_models_from_status_payload, identity_prompt_parts, input_live_lines,
-        logo_glass_color_for_theme, main_action_labels, next_step_copy, ov_logo_width,
-        root_key_normal_command_notice_lines, root_key_redirect_labels, saved_summary_render_parts,
-        select_live_lines, self_managed_api_key_helper_lines,
-        self_managed_api_key_input_helper_lines, self_managed_key_mode_labels,
-        self_managed_validation_failure_choices, should_confirm_detected_user_key,
-        should_prompt_root_identity, status_box_lines, status_box_lines_with_runtime,
+        COMPACT_STATUS_DETAIL_WIDTH, CustomKeyMode, FULL_STATUS_BOX_MIN_ROWS, IdentityMode,
+        InputValueLabel, LiveRegion, OV_LOGO_LINES, RenderedRegion, Rgb, StatusBoxFrame,
+        StatusBoxMode, StatusBoxRuntime, active_delete_block_helper_lines, active_summary_lines,
+        active_summary_render_parts, add_config_name_label, add_save_action_labels,
+        allocate_config_name, box_content_line, box_footer_line, box_title_line,
+        compact_status_box_width, config_select_label, custom_api_key_helper_lines,
+        custom_api_key_input_helper_lines, custom_key_mode_labels,
+        custom_validation_failure_choices, display_config_home, display_width,
+        edit_api_key_choice_labels, edit_custom_key_action_labels, edit_save_action_labels,
+        erase_sequence_for_char, extract_models_from_status_payload, identity_prompt_parts,
+        input_live_lines, input_prompt_with_value, logo_glass_color_for_theme, main_action_labels,
+        next_step_copy, openviking_service_api_key_helper_lines,
+        openviking_service_validation_failure_choices, ov_logo_width, provider_labels,
+        rendered_live_region_rows, rendered_row_count, root_key_normal_command_notice_lines,
+        root_key_redirect_labels, saved_summary_render_parts, select_live_lines,
+        should_confirm_detected_user_key, should_prompt_root_identity, status_box_frame_for_size,
+        status_box_lines, status_box_lines_with_runtime, status_box_lines_with_runtime_width,
         status_box_width, status_payload_is_healthy, styled_logo_to_width_for_color_level,
-        styled_wordmark_line_for_color_level, tagline_ice_color_for_theme,
-        user_key_redirect_labels, validate_config_name, validate_draft,
-        volcengine_api_key_helper_lines, wizard_header_lines, wordmark_gradient_color_for_theme,
-        wordmark_lines, wordmark_width,
+        styled_wordmark_line_for_color_level, switch_validation_error_lines,
+        tagline_ice_color_for_theme, user_key_redirect_labels, validate_config_name,
+        validate_draft, wizard_header_lines, wordmark_gradient_color_for_theme, wordmark_lines,
+        wordmark_width,
     };
     use crate::config::Config;
     use crate::config_wizard::store::{
-        ApiKeyRole, ConfigDraft, ConfigEntry, ConfigKind, ConfigStore, validate_account_id_value,
-        validate_user_id_value,
+        ApiKeyRole, ConfigDraft, ConfigEntry, ConfigKind, ConfigStore, OPENVIKING_SERVICE_URL,
+        validate_account_id_value, validate_user_id_value,
     };
+    use crate::error::Error;
+    use crate::i18n::Language;
     use crate::theme::{self, ThemeColor};
     use colored::Colorize;
     use serde_json::json;
@@ -3827,10 +4398,10 @@ mod tests {
     }
 
     #[test]
-    fn wizard_header_is_scrollback_branded() {
+    fn wizard_header_contains_standalone_wordmark() {
         let header = wizard_header_lines().join("\n");
 
-        assert!(header.contains("█████"));
+        assert!(header.contains("██████╗"));
         assert!(!header.contains("Context Database for AI Agents"));
         assert!(!header.contains(".openviking ~ ov config"));
         assert!(!header.contains("CLI config"));
@@ -3847,11 +4418,32 @@ mod tests {
     }
 
     #[test]
-    fn wizard_header_has_spaced_bands() {
+    fn input_prompt_tracks_visible_or_secret_value() {
+        assert_eq!(input_prompt_with_value("", false), "  > ");
+        assert_eq!(input_prompt_with_value("abc", false), "  > abc");
+        assert_eq!(input_prompt_with_value("secret", true), "  > ******");
+    }
+
+    #[test]
+    fn switch_validation_error_uses_selected_config_kind() {
+        let lines = switch_validation_error_lines(
+            "cloud",
+            ConfigKind::OpenVikingService,
+            &Error::Config("invalid".to_string()),
+        );
+        let plain = strip_ansi(&lines.join("\n"));
+
+        assert!(plain.contains("Target config 'cloud' failed validation."));
+        assert!(plain.contains("Check your API key"));
+        assert!(!plain.contains("server URL"));
+    }
+
+    #[test]
+    fn wizard_header_has_no_standalone_spaced_bands() {
         let lines = wizard_header_lines();
 
-        assert_eq!(lines[wordmark_lines().len()], "");
         assert_eq!(lines.len(), wordmark_lines().len() + 1);
+        assert_eq!(lines.last().map(String::as_str), Some(""));
     }
 
     #[test]
@@ -3864,7 +4456,7 @@ mod tests {
     }
 
     #[test]
-    fn status_box_lines_align_to_wordmark_width_with_tagline_title_and_version_footer() {
+    fn full_status_box_puts_motto_in_border_without_wordmark() {
         let config = Config {
             url: "http://127.0.0.1:1933".to_string(),
             ..Config::default()
@@ -3875,7 +4467,7 @@ mod tests {
                 name: "test".to_string(),
                 config: config.clone(),
                 is_active: true,
-                kind: ConfigKind::SelfManaged,
+                kind: ConfigKind::Custom,
             }],
             "~/.openviking",
         );
@@ -3883,6 +4475,8 @@ mod tests {
 
         assert!(lines.len() >= 6);
         assert!(lines[0].contains("Context Database for AI Agents"));
+        assert!(!lines.iter().any(|line| line.contains("██████╗")));
+        assert!(lines.iter().any(|line| line.contains('⣿')));
         assert!(!lines[0].contains(&version));
         assert!(
             lines
@@ -3911,15 +4505,139 @@ mod tests {
     }
 
     #[test]
+    fn status_box_empty_title_uses_continuous_top_border() {
+        let width = 48;
+        let title = box_title_line("", width);
+
+        assert_eq!(title, format!("╭{}╮", "─".repeat(width - 2)));
+        assert_eq!(display_width(&title), width);
+    }
+
+    #[test]
+    fn compact_status_box_omits_logo_art_and_fits_status_details() {
+        let config = Config {
+            url: "http://127.0.0.1:1933".to_string(),
+            ..Config::default()
+        };
+        let width = compact_status_box_width();
+        let lines = status_box_lines_with_runtime_width(
+            Some(&config),
+            &[ConfigEntry {
+                name: "compact".to_string(),
+                config: config.clone(),
+                is_active: true,
+                kind: ConfigKind::Custom,
+            }],
+            "~/.openviking",
+            &StatusBoxRuntime::unknown(),
+            StatusBoxFrame {
+                width,
+                mode: StatusBoxMode::Compact,
+            },
+        );
+        let text = lines.join("\n");
+
+        assert!(width >= COMPACT_STATUS_DETAIL_WIDTH + 4);
+        assert!(width <= status_box_width());
+        assert!(lines[0].contains("OpenViking | Context Database for AI Agents"));
+        assert!(text.contains("Active:"));
+        assert!(!text.contains('⣿'));
+        assert!(!text.contains('⣶'));
+        assert!(!text.contains("██████╗"));
+        assert!(!text.contains("╚═════╝"));
+        assert!(!text.contains("OPENVIKING"));
+        assert!(!text.contains("⠠⣶⣾⣿⣿⣿⣶⣤⣀ ⠾⠟⠛⠉⠉   ⣀⣤⣾⡿⠃"));
+        for line in &lines {
+            assert_eq!(display_width(line), width, "{line:?}");
+        }
+    }
+
+    #[test]
+    fn status_box_frame_uses_compact_mode_when_full_art_would_not_fit() {
+        let compact_width = compact_status_box_width();
+
+        assert_eq!(
+            status_box_frame_for_size(compact_width as u16 + 1, FULL_STATUS_BOX_MIN_ROWS - 1),
+            StatusBoxFrame {
+                width: compact_width,
+                mode: StatusBoxMode::Compact,
+            }
+        );
+        assert_eq!(
+            status_box_frame_for_size(status_box_width() as u16 - 1, FULL_STATUS_BOX_MIN_ROWS).mode,
+            StatusBoxMode::Compact
+        );
+        assert_eq!(
+            status_box_frame_for_size(status_box_width() as u16 + 1, FULL_STATUS_BOX_MIN_ROWS).mode,
+            StatusBoxMode::Full
+        );
+    }
+
+    #[test]
+    fn rendered_region_clears_render_time_rows_after_width_changes() {
+        let lines = vec!["x".repeat(90)];
+        let region = RenderedRegion::from_lines(&lines, 30);
+
+        assert_eq!(rendered_row_count(&lines, 30), 3);
+        assert_eq!(rendered_row_count(&lines, 90), 1);
+        assert_eq!(region.rows_to_clear(90), 3);
+    }
+
+    #[test]
+    fn live_region_recomputes_clear_rows_after_resize() {
+        let lines = vec!["x".repeat(90)];
+        let ui = LiveRegion {
+            lines: lines.clone(),
+            input_prompt: None,
+            rows_drawn: rendered_live_region_rows(&lines, None, 90),
+            cursor_on_last_line: false,
+        };
+
+        assert_eq!(ui.rows_to_clear(30), 3);
+    }
+
+    #[test]
+    fn live_region_keeps_largest_input_rows_until_clear() {
+        let mut ui = LiveRegion {
+            lines: vec!["Prompt".to_string()],
+            input_prompt: Some(format!("  > {}", "x".repeat(90))),
+            rows_drawn: 10,
+            cursor_on_last_line: true,
+        };
+
+        ui.set_input_prompt("  > x".to_string());
+
+        assert_eq!(ui.rows_to_clear(120), 10);
+    }
+
+    #[test]
     fn status_box_cjk_lines_align_to_display_width() {
         let width = status_box_width();
         let title = box_title_line("AI Agent 上下文数据库", width);
-        let content = box_content_line("", "当前配置： VPS_ROOT (自托管)", width);
+        let content = box_content_line(
+            "",
+            "当前配置： VPS_ROOT (自定义)",
+            width,
+            StatusBoxMode::Full,
+        );
         let footer = box_footer_line("v0.0.0", width);
 
         for line in [title, content, footer] {
             assert_eq!(display_width(&line), width, "{line:?}");
         }
+    }
+
+    #[test]
+    fn status_box_content_line_respects_narrow_terminal_width() {
+        let width = 40;
+        let content = box_content_line(
+            OV_LOGO_LINES[8],
+            "Context Database for AI Agents",
+            width,
+            StatusBoxMode::Full,
+        );
+
+        assert_eq!(display_width(&content), width, "{content:?}");
     }
 
     #[test]
@@ -3934,14 +4652,14 @@ mod tests {
                 name: "orange".to_string(),
                 config: config.clone(),
                 is_active: true,
-                kind: ConfigKind::SelfManaged,
+                kind: ConfigKind::Custom,
             }],
             "~/.openviking",
         );
         let text = lines.join("\n");
 
         assert!(text.contains("Active:"));
-        assert!(text.contains("orange (Self-Managed)"));
+        assert!(text.contains("orange (Custom)"));
         assert!(text.contains("Status:"));
         assert!(text.contains("VLM:"));
         assert!(text.contains("Embedding:"));
@@ -3989,7 +4707,7 @@ mod tests {
                 name: "vps".to_string(),
                 config: config.clone(),
                 is_active: true,
-                kind: ConfigKind::SelfManaged,
+                kind: ConfigKind::Custom,
             }],
             "~/.openviking",
             &runtime,
@@ -4047,7 +4765,7 @@ mod tests {
                 name: "orange".to_string(),
                 config: config.clone(),
                 is_active: true,
-                kind: ConfigKind::SelfManaged,
+                kind: ConfigKind::Custom,
             }],
             "~/.openviking",
         );
@@ -4062,7 +4780,7 @@ mod tests {
             active_index + 6 < lines.len() - 1,
             "details should not end at the bottom"
         );
-        assert!(lines[active_index].contains("Active: orange (Self-Managed)"));
+        assert!(lines[active_index].contains("Active: orange (Custom)"));
         assert!(lines[active_index + 1].contains("Status: Unknown"));
         assert!(lines[active_index + 2].contains("VLM: Unknown"));
         assert!(lines[active_index + 3].contains("Embedding: Unknown"));
@@ -4146,16 +4864,16 @@ mod tests {
     }
 
     #[test]
-    fn wordmark_is_subtly_wider_for_viking_readability() {
+    fn wordmark_preserves_original_standalone_block_art() {
         let width = wordmark_width();
 
-        assert!(
-            (79..=83).contains(&width),
-            "wordmark should widen only enough to make VIKING readable; got {width}"
+        assert_eq!(
+            width, 81,
+            "wordmark should preserve the original standalone width"
         );
         assert!(
-            wordmark_lines()[0].contains("██╗   ██╗ ██╗ ██╗  ██╗ ██╗"),
-            "VIKING should have subtle breathing room without obvious gaps"
+            wordmark_lines().iter().any(|line| line.contains("████")),
+            "wordmark should preserve block-art styling"
         );
     }
 
@@ -4182,8 +4900,7 @@ mod tests {
 
     #[test]
     fn wordmark_does_not_use_protruding_corner_glyphs() {
-        let lines = wizard_header_lines();
-        let wordmark = &lines[0..wordmark_lines().len()];
+        let wordmark = wordmark_lines();
 
         assert!(!wordmark[0].starts_with('◢'));
         assert!(!wordmark[0].ends_with('◣'));
@@ -4318,19 +5035,21 @@ mod tests {
 
     #[test]
     fn active_summary_hides_url_and_shows_kind() {
-        let mut config = Config::default();
-        config.url = "http://127.0.0.1:1933".to_string();
+        let config = Config {
+            url: "http://127.0.0.1:1933".to_string(),
+            ..Config::default()
+        };
         let lines = active_summary_lines(
             Some(&config),
             &[ConfigEntry {
                 name: "local".to_string(),
                 config: config.clone(),
                 is_active: true,
-                kind: ConfigKind::SelfManaged,
+                kind: ConfigKind::Custom,
             }],
         );
 
-        assert_eq!(lines[0], "Active: local (Self-Managed)");
+        assert_eq!(lines[0], "Active: local (Custom)");
         assert_eq!(lines[1], "Saved configs: 1");
         assert!(!lines[0].contains("127.0.0.1"));
         assert!(!lines[0].starts_with(' '));
@@ -4338,15 +5057,40 @@ mod tests {
     }
 
     #[test]
+    fn active_summary_uses_compact_openviking_service_kind() {
+        let config = Config {
+            url: OPENVIKING_SERVICE_URL.to_string(),
+            ..Config::default()
+        };
+        let lines = active_summary_lines(
+            Some(&config),
+            &[ConfigEntry {
+                name: "serverless".to_string(),
+                config: config.clone(),
+                is_active: true,
+                kind: ConfigKind::OpenVikingService,
+            }],
+        );
+
+        assert_eq!(lines[0], "Active: serverless (OpenViking Service)");
+        assert!(!lines[0].contains("VolcEngine Cloud"));
+
+        let active = active_summary_render_parts(&lines[0])
+            .expect("compact OpenViking Service summary should split");
+        assert_eq!(active.name, "serverless");
+        assert_eq!(active.kind.as_deref(), Some("(OpenViking Service)"));
+    }
+
+    #[test]
     fn summary_render_parts_split_config_name_type_and_count() {
-        let active = active_summary_render_parts("Active: test (Self-Managed)")
+        let active = active_summary_render_parts("Active: test (Custom)")
             .expect("active summary should split");
         let saved =
             saved_summary_render_parts("Saved configs: 2").expect("saved summary should split");
 
         assert_eq!(active.label, "Active:");
         assert_eq!(active.name, "test");
-        assert_eq!(active.kind.as_deref(), Some("(Self-Managed)"));
+        assert_eq!(active.kind.as_deref(), Some("(Custom)"));
         assert_eq!(saved.label, "Saved configs:");
         assert_eq!(saved.count, "2");
     }
@@ -4399,64 +5143,72 @@ mod tests {
         fs::create_dir_all(&dir).expect("dir should exist");
         let store = ConfigStore::for_config_dir(dir);
 
-        let name = allocate_config_name(&store, ConfigKind::SelfManaged)
+        let name = allocate_config_name(&store, ConfigKind::Custom)
             .expect("generated name should be available");
 
-        assert!(name.starts_with("local-"));
-        assert_eq!(name.len(), "local-".len() + 6);
+        assert!(name.starts_with("custom-"));
+        assert_eq!(name.len(), "custom-".len() + 6);
         validate_config_name(&name).expect("generated name should be valid");
     }
 
     #[test]
-    fn provider_helper_copy_is_minimal_and_self_managed_is_clear() {
-        let cloud = volcengine_api_key_helper_lines();
-        let local_self_managed = self_managed_api_key_helper_lines(true);
-        let remote_self_managed = self_managed_api_key_helper_lines(false);
+    fn provider_helper_copy_is_minimal_and_custom_is_clear() {
+        let cloud = openviking_service_api_key_helper_lines();
+        let local_custom = custom_api_key_helper_lines(true);
+        let remote_custom = custom_api_key_helper_lines(false);
+        let local_custom_plain: Vec<String> =
+            local_custom.iter().map(|line| strip_ansi(line)).collect();
+        let remote_custom_plain: Vec<String> =
+            remote_custom.iter().map(|line| strip_ansi(line)).collect();
 
+        assert_eq!(
+            provider_labels(Language::En)[0],
+            "OpenViking Service (VolcEngine Cloud)"
+        );
         assert!(cloud.iter().any(|line| line.contains("Get your API key:")));
         assert!(cloud.iter().any(|line| {
             line.contains("Go to User Management → API Key to view and copy your key.")
         }));
         assert!(!cloud.iter().any(|line| line.contains("Server URL")));
         assert!(
-            local_self_managed.iter().any(
+            local_custom.iter().any(
                 |line| line.contains("Optional for local servers. Add one if auth is enabled.")
             )
         );
         assert!(
-            remote_self_managed
+            remote_custom
                 .iter()
-                .any(|line| line.contains("Required for remote self-managed servers."))
+                .any(|line| line.contains("Required for remote custom servers."))
         );
         assert!(
-            !remote_self_managed
+            !remote_custom
                 .iter()
                 .any(|line| line.contains("Usually not needed locally"))
         );
         assert!(
-            !local_self_managed
+            !local_custom_plain
                 .iter()
-                .chain(remote_self_managed.iter())
+                .chain(remote_custom_plain.iter())
                 .any(|line| line.contains(';'))
         );
     }
 
     #[test]
-    fn self_managed_key_mode_choices_distinguish_no_key_user_key_and_root_key() {
+    fn custom_key_mode_choices_distinguish_no_key_user_key_and_root_key() {
         assert_eq!(
-            self_managed_key_mode_labels(true),
+            custom_key_mode_labels(true),
             ["No key / local dev", "User API key", "Root API key"]
         );
         assert_eq!(
-            self_managed_key_mode_labels(false),
+            custom_key_mode_labels(false),
             ["User API key", "Root API key"]
         );
     }
 
     #[test]
-    fn self_managed_key_input_copy_explains_storage_target() {
-        let user_key = self_managed_api_key_input_helper_lines(SelfManagedKeyMode::UserKey);
-        let root_key = self_managed_api_key_input_helper_lines(SelfManagedKeyMode::RootKey);
+    fn custom_key_input_copy_explains_storage_target() {
+        let user_key = custom_api_key_input_helper_lines(CustomKeyMode::UserKey);
+        let root_key = custom_api_key_input_helper_lines(CustomKeyMode::RootKey);
 
         assert!(user_key.iter().any(|line| line.contains("normal")));
         assert!(!user_key.iter().any(|line| line.contains("api_key")));
@@ -4467,14 +5219,14 @@ mod tests {
     }
 
     #[test]
-    fn add_self_managed_api_key_rendering_has_no_existing_value_placeholder() {
+    fn add_custom_api_key_rendering_has_no_existing_value_placeholder() {
         let lines = input_live_lines(
             "Create a new OpenViking config.",
             "API key (optional)",
             None,
             None,
             true,
-            &self_managed_api_key_helper_lines(true),
+            &custom_api_key_helper_lines(true),
             None,
         );
         let text = lines.join("\n");
@@ -4526,14 +5278,14 @@ mod tests {
     #[test]
     fn validation_failure_choices_are_kind_specific() {
         assert_eq!(
-            cloud_validation_failure_choices(),
+            openviking_service_validation_failure_choices(),
             ["Retry API key", "Cancel"]
         );
         assert_eq!(
-            self_managed_validation_failure_choices(),
+            custom_validation_failure_choices(),
             ["Edit server URL", "Edit API key", "Cancel"]
         );
-        assert!(!cloud_validation_failure_choices().contains(&"Edit config name"));
+        assert!(!openviking_service_validation_failure_choices().contains(&"Edit config name"));
     }
 
     #[test]
@@ -4546,22 +5298,22 @@ mod tests {
             name: "VPS".to_string(),
             config: config.clone(),
             is_active: true,
-            kind: ConfigKind::SelfManaged,
+            kind: ConfigKind::Custom,
         };
         let inactive = ConfigEntry {
             name: "local".to_string(),
             config,
             is_active: false,
-            kind: ConfigKind::SelfManaged,
+            kind: ConfigKind::Custom,
         };
 
         let active_label = config_select_label(&active);
-        assert!(active_label.contains("VPS - Self-Managed"));
+        assert!(active_label.contains("VPS - Custom"));
         assert!(active_label.contains("[Active]"));
         assert!(!active_label.contains("* "));
 
         let inactive_label = config_select_label(&inactive);
-        assert_eq!(inactive_label, "local - Self-Managed");
+        assert_eq!(inactive_label, "local - Custom");
         assert!(!inactive_label.contains("[Active]"));
     }
 
@@ -4605,7 +5357,7 @@ mod tests {
 
         assert!(text.contains("Root key configured."));
         assert!(text.contains("Normal commands will use this key"));
-        assert!(text.contains("ov config -> Edit config -> Set normal user API key"));
+        assert!(text.contains("ov config -> Edit Config -> Set normal user API key"));
     }
 
     #[test]
@@ -4636,7 +5388,7 @@ mod tests {
                 theme::body(", run "),
                 theme::command("ov config").bold(),
                 theme::body(" -> "),
-                theme::strong("Edit config"),
+                theme::strong("Edit Config"),
                 theme::body(" -> "),
                 theme::strong("Set normal user API key"),
                 theme::body(".")
@@ -4676,26 +5428,26 @@ mod tests {
 
     #[test]
     fn edit_api_key_choices_match_kind_and_existing_key_state() {
-        assert!(edit_api_key_choice_labels(ConfigKind::SelfManaged, false).is_empty());
-        assert!(edit_api_key_choice_labels(ConfigKind::VolcengineCloud, false).is_empty());
+        assert!(edit_api_key_choice_labels(ConfigKind::Custom, false).is_empty());
+        assert!(edit_api_key_choice_labels(ConfigKind::OpenVikingService, false).is_empty());
         assert_eq!(
-            edit_api_key_choice_labels(ConfigKind::SelfManaged, true),
+            edit_api_key_choice_labels(ConfigKind::Custom, true),
             ["Keep existing API key", "Replace API key", "Clear API key"]
         );
         assert_eq!(
-            edit_api_key_choice_labels(ConfigKind::VolcengineCloud, true),
+            edit_api_key_choice_labels(ConfigKind::OpenVikingService, true),
             ["Keep existing API key", "Replace API key"]
         );
     }
 
     #[test]
-    fn edit_self_managed_key_actions_preserve_separate_credential_roles() {
+    fn edit_custom_key_actions_preserve_separate_credential_roles() {
         assert_eq!(
-            edit_self_managed_key_action_labels(false, false),
+            edit_custom_key_action_labels(false, false),
             ["Set normal user API key", "Set root API key"]
         );
         assert_eq!(
-            edit_self_managed_key_action_labels(true, true),
+            edit_custom_key_action_labels(true, true),
             [
                 "Keep existing API keys",
                 "Set normal user API key",
@@ -4706,7 +5458,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            edit_self_managed_key_action_labels(true, false),
+            edit_custom_key_action_labels(true, false),
             [
                 "Keep existing API keys",
                 "Set normal user API key",
@@ -4735,23 +5487,23 @@ mod tests {
     #[test]
     fn root_key_route_detects_regular_user_key() {
         assert!(should_confirm_detected_user_key(
-            ConfigKind::SelfManaged,
-            Some(SelfManagedKeyMode::RootKey),
+            ConfigKind::Custom,
+            Some(CustomKeyMode::RootKey),
             Some(ApiKeyRole::Regular),
         ));
         assert!(!should_confirm_detected_user_key(
-            ConfigKind::SelfManaged,
-            Some(SelfManagedKeyMode::UserKey),
+            ConfigKind::Custom,
+            Some(CustomKeyMode::UserKey),
             Some(ApiKeyRole::Regular),
         ));
         assert!(!should_confirm_detected_user_key(
-            ConfigKind::SelfManaged,
-            Some(SelfManagedKeyMode::RootKey),
+            ConfigKind::Custom,
+            Some(CustomKeyMode::RootKey),
             Some(ApiKeyRole::Root),
         ));
         assert!(!should_confirm_detected_user_key(
-            ConfigKind::VolcengineCloud,
-            Some(SelfManagedKeyMode::RootKey),
+            ConfigKind::OpenVikingService,
+            Some(CustomKeyMode::RootKey),
             Some(ApiKeyRole::Regular),
         ));
     }
@@ -4801,7 +5553,7 @@ mod tests {
         let url = spawn_root_probe_server("root-key").await;
         let draft = ConfigDraft {
             name: "local".to_string(),
-            kind: ConfigKind::SelfManaged,
+            kind: ConfigKind::Custom,
             url,
             api_key: Some("root-key".to_string()),
             root_api_key: None,
@@ -4824,7 +5576,7 @@ mod tests {
         let url = spawn_dual_key_probe_server("user-key", "root-key").await;
         let draft = ConfigDraft {
             name: "local".to_string(),
-            kind: ConfigKind::SelfManaged,
+            kind: ConfigKind::Custom,
             url,
             api_key: Some("user-key".to_string()),
             root_api_key: Some("root-key".to_string()),
@@ -4849,7 +5601,7 @@ mod tests {
         let url = spawn_dual_key_probe_server("user-key", "root-key").await;
         let draft = ConfigDraft {
             name: "local".to_string(),
-            kind: ConfigKind::SelfManaged,
+            kind: ConfigKind::Custom,
             url,
             api_key: Some("user-key".to_string()),
             root_api_key: Some("user-key".to_string()),
@@ -4876,7 +5628,7 @@ mod tests {
                 .await;
         let draft = ConfigDraft {
             name: "local".to_string(),
-            kind: ConfigKind::SelfManaged,
+            kind: ConfigKind::Custom,
             url,
             api_key: Some("existing-user-key".to_string()),
             root_api_key: Some("entered-user-key".to_string()),
@@ -5070,23 +5822,34 @@ mod tests {
         let lines = select_live_lines(
             "What would you like to configure?",
             "Choose action",
-            &["Add config", "Edit config", "Delete config"],
+            &[
+                "Add Config",
+                "Switch Config",
+                "Edit Config",
+                "Delete Config",
+            ],
             1,
             &[],
         );
 
         assert!(lines[0].contains("What would you like to configure?"));
-        assert!(lines.iter().any(|line| line.contains("› Edit config")));
+        assert!(lines.iter().any(|line| line.contains("› Switch Config")));
         assert!(!lines.iter().any(|line| line.contains("✓ Choose action")));
         assert!(!lines.iter().any(|line| line.contains("Back")));
-        assert_eq!(lines.len(), 8);
+        assert_eq!(lines.len(), 9);
     }
 
     #[test]
-    fn wizard_main_actions_stay_focused() {
+    fn wizard_main_actions_include_switch_config() {
         assert_eq!(
-            main_action_labels(),
-            ["Add config", "Edit config", "Delete config"]
+            main_action_labels().as_slice(),
+            [
+                "Add Config",
+                "Switch Config",
+                "Edit Config",
+                "Delete Config"
+            ]
+            .as_slice()
         );
     }
 }

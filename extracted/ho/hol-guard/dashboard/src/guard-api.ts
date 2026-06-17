@@ -49,6 +49,7 @@ import type {
   GuardReceiptHarnessStat,
   GuardRuntimeSnapshot,
   GuardCloudConnectStatusResponse,
+  SupplyChainBundle,
   SupplyChainSnapshot,
   GuardSettingsPayload,
   GuardSettingsExport,
@@ -96,10 +97,14 @@ type ApprovalRequestListPayload = {
   status?: unknown;
 };
 
-type RuntimeSnapshotPayload = Omit<GuardRuntimeSnapshot, "items" | "supply_chain"> & {
+type RuntimeSnapshotPayload = Omit<
+  GuardRuntimeSnapshot,
+  "items" | "queue_summary" | "supply_chain" | "managed_installs"
+> & {
   items?: RawGuardApprovalRequest[] | null;
   queue_summary?: unknown;
   supply_chain?: unknown;
+  managed_installs?: unknown;
 };
 
 type QueueResolutionPayload = Omit<
@@ -308,12 +313,15 @@ export async function discoverGuardDaemonOrigin(preferredPort = preferredGuardDa
   return probeGuardDaemonCandidatePortsInBatches(ports, async (_port, origin) => probeGuardDaemonHealth(origin));
 }
 
-function updateReconnectSucceeded(
+export function updateReconnectSucceeded(
   status: GuardUpdateStatus,
   options: GuardUpdateReconnectOptions,
 ): boolean {
   if (!options.expectedPreviousVersion) {
     return true;
+  }
+  if (status.update_in_progress === true) {
+    return false;
   }
   if (status.update_available !== true) {
     return true;
@@ -324,7 +332,10 @@ function updateReconnectSucceeded(
   ) {
     return true;
   }
-  return status.current_version !== options.expectedPreviousVersion;
+  if (status.current_version !== options.expectedPreviousVersion) {
+    return true;
+  }
+  return options.sawUpdateInProgress === true;
 }
 
 async function initializeGuardDashboardSessionAtOrigin(
@@ -384,11 +395,12 @@ export function redirectToGuardDaemonOrigin(
 
 export async function reconnectGuardDaemonAfterUpdate(
   options?: GuardUpdateReconnectOptions,
-): Promise<string | null> {
+): Promise<{ origin: string | null; status: GuardUpdateStatus | null; sawUpdateInProgress: boolean } | null> {
   const guardToken = readGuardToken();
   const reconnectOptions = options ?? {};
   const awaitingVersionChange = Boolean(reconnectOptions.expectedPreviousVersion);
   const ports = buildGuardDaemonCandidatePorts(preferredGuardDaemonPort());
+  let sawUpdateInProgress = reconnectOptions.sawUpdateInProgress === true;
 
   for (let index = 0; index < ports.length; index += GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE) {
     const batch = ports.slice(index, index + GUARD_DAEMON_DISCOVERY_PROBE_BATCH_SIZE);
@@ -400,29 +412,38 @@ export async function reconnectGuardDaemonAfterUpdate(
         }
         try {
           const status = await fetchGuardUpdateStatusAtOrigin(origin, guardToken);
-          if (awaitingVersionChange && !updateReconnectSucceeded(status, reconnectOptions)) {
-            return null;
+          if (status.update_in_progress === true) {
+            return { origin: null, status: null, sawUpdateInProgress: true };
           }
-          return { origin, status };
+          if (awaitingVersionChange && !updateReconnectSucceeded(status, { ...reconnectOptions, sawUpdateInProgress })) {
+            return { origin: null, status: null, sawUpdateInProgress };
+          }
+          return { origin, status, sawUpdateInProgress };
         } catch {
           return null;
         }
       }),
     );
 
-    const active = results.find((result) => result !== null);
-    if (!active) {
-      continue;
+    const active = results.find((result) => result !== null && result.origin !== null && result.status !== null);
+    if (active?.origin && active.status) {
+      saveGuardDaemonOrigin(active.origin);
+      const refreshedToken = await initializeGuardDashboardSessionAtOrigin(active.origin, guardToken);
+      if (refreshedToken) {
+        saveGuardToken(refreshedToken);
+      }
+      return {
+        origin: active.origin,
+        status: active.status,
+        sawUpdateInProgress: active.sawUpdateInProgress,
+      };
     }
 
-    const { origin } = active;
-    saveGuardDaemonOrigin(origin);
-    const refreshedToken = await initializeGuardDashboardSessionAtOrigin(origin, guardToken);
-    if (refreshedToken) {
-      saveGuardToken(refreshedToken);
+    const partial = results.find((result) => result !== null);
+    if (partial) {
+      sawUpdateInProgress = partial.sawUpdateInProgress;
+      return { origin: null, status: null, sawUpdateInProgress };
     }
-
-    return origin;
   }
 
   return null;
@@ -2004,6 +2025,45 @@ export async function resolveRequestWithQueueResult(input: {
   return normalizeQueueResolution(payload);
 }
 
+export type BulkAllowReadOnceResult = {
+  resolved_count: number;
+  failed: Array<{ request_id: string; error: string }>;
+  resolution_summary: string;
+};
+
+export async function bulkAllowReadOnce(input: {
+  requestIds: string[];
+  approval_password?: string;
+  approval_totp_code?: string;
+  approval_gate_use_cooldown?: boolean;
+}): Promise<BulkAllowReadOnceResult> {
+  if (isGuardDemoMode()) {
+    return {
+      resolved_count: input.requestIds.length,
+      failed: [],
+      resolution_summary: `${input.requestIds.length} read-only file reads approved once.`,
+    };
+  }
+  const payload = await readJson<BulkAllowReadOnceResult>("/v1/requests/bulk-allow-once", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...guardAuthHeaders(),
+    },
+    body: JSON.stringify({
+      request_ids: input.requestIds,
+      ...(input.approval_password !== undefined ? { approval_password: input.approval_password } : {}),
+      ...(input.approval_totp_code !== undefined ? { approval_totp_code: input.approval_totp_code } : {}),
+      approval_gate_use_cooldown: input.approval_gate_use_cooldown ?? false,
+    }),
+  });
+  return {
+    resolved_count: payload.resolved_count ?? 0,
+    failed: Array.isArray(payload.failed) ? payload.failed : [],
+    resolution_summary: payload.resolution_summary ?? "",
+  };
+}
+
 export async function clearEvidence(): Promise<void> {
   if (isGuardDemoMode()) {
     return;
@@ -2069,6 +2129,10 @@ export function normalizeGuardUpdateStatus(raw: unknown): GuardUpdateStatus {
         : undefined,
     update_in_progress:
       typeof value.update_in_progress === "boolean" ? value.update_in_progress : undefined,
+    update_suppressed: value.update_suppressed === true ? true : undefined,
+    retry_command: typeof value.retry_command === "string" ? value.retry_command : undefined,
+    update_attempt_message:
+      typeof value.update_attempt_message === "string" ? value.update_attempt_message : undefined,
   };
 }
 
@@ -2664,7 +2728,7 @@ export type AuditRemediationInput = {
 export async function runAuditRemediation(input: AuditRemediationInput): Promise<PackageFirewallActionResponse> {
   if (isGuardDemoMode()) {
     return {
-      entitlement: { allowed: true, tier: "demo" },
+      entitlement: { allowed: true, reason: "demo", tier: "demo", upgrade_cta: null, upgrade_url: null },
       operation: input.action,
       receipt: null,
       result: `${input.action} completed for ${input.manager}.`,

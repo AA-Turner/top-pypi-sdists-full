@@ -26,6 +26,11 @@ class StaticAcceleratorServiceStub(object):
             request_serializer=chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetStaticConversionDiagnosticsRequest.SerializeToString,
             response_deserializer=chalk_dot_artifacts_dot_v1_dot_export__pb2.Export.FromString,
         )
+        self.GetSupportedPythonSurface = channel.unary_unary(
+            "/chalk.staticaccelerator.v1.StaticAcceleratorService/GetSupportedPythonSurface",
+            request_serializer=chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetSupportedPythonSurfaceRequest.SerializeToString,
+            response_deserializer=chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetSupportedPythonSurfaceResponse.FromString,
+        )
 
 
 class StaticAcceleratorServiceServicer(object):
@@ -43,6 +48,12 @@ class StaticAcceleratorServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetSupportedPythonSurface(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_StaticAcceleratorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -55,6 +66,11 @@ def add_StaticAcceleratorServiceServicer_to_server(servicer, server):
             servicer.GetStaticConversionDiagnostics,
             request_deserializer=chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetStaticConversionDiagnosticsRequest.FromString,
             response_serializer=chalk_dot_artifacts_dot_v1_dot_export__pb2.Export.SerializeToString,
+        ),
+        "GetSupportedPythonSurface": grpc.unary_unary_rpc_method_handler(
+            servicer.GetSupportedPythonSurface,
+            request_deserializer=chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetSupportedPythonSurfaceRequest.FromString,
+            response_serializer=chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetSupportedPythonSurfaceResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -115,6 +131,35 @@ class StaticAcceleratorService(object):
             "/chalk.staticaccelerator.v1.StaticAcceleratorService/GetStaticConversionDiagnostics",
             chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetStaticConversionDiagnosticsRequest.SerializeToString,
             chalk_dot_artifacts_dot_v1_dot_export__pb2.Export.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetSupportedPythonSurface(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.staticaccelerator.v1.StaticAcceleratorService/GetSupportedPythonSurface",
+            chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetSupportedPythonSurfaceRequest.SerializeToString,
+            chalk_dot_staticaccelerator_dot_v1_dot_service__pb2.GetSupportedPythonSurfaceResponse.FromString,
             options,
             channel_credentials,
             insecure,

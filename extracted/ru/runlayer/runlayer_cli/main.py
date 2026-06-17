@@ -27,6 +27,7 @@ from runlayer_cli.api import RunlayerClient, USER_AGENT
 from runlayer_cli.sync import sync_local_capabilities
 from runlayer_cli.commands.auth import login, logout
 from runlayer_cli.commands.cache import app as cache_app
+from runlayer_cli.commands.catalog import app as catalog_app
 from runlayer_cli.commands.credentials import app as credentials_app
 from runlayer_cli.commands.deploy import app as deploy_app
 from runlayer_cli.commands.hooks import app as hooks_app
@@ -277,6 +278,7 @@ app.command(name="login", help="Authenticate with Runlayer")(login)
 app.command(name="logout", help="Clear saved credentials")(logout)
 app.command(name="logs", help="Query audit logs")(logs)
 app.add_typer(cache_app, name="cache")
+app.add_typer(catalog_app, name="catalog")
 app.add_typer(credentials_app, name="credentials")
 app.add_typer(deploy_app, name="deploy")
 app.add_typer(hooks_app, name="hooks")

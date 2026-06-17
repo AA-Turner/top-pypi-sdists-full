@@ -801,6 +801,7 @@ impl MD013LineLength {
             abbreviations: config.abbreviations_for_reflow(),
             length_mode: self.reflow_length_mode(),
             attr_lists: ctx.flavor.supports_attr_lists(),
+            myst_roles: ctx.flavor.supports_myst_roles(),
             require_sentence_capital: config.require_sentence_capital,
             max_list_continuation_indent: if ctx.flavor.requires_strict_list_indent() {
                 Some(4)
@@ -876,7 +877,7 @@ impl MD013LineLength {
             line: warning_line,
             column: 1,
             end_line: warning_end_line,
-            end_column: lines[warning_end_line.saturating_sub(1)].len() + 1,
+            end_column: lines[warning_end_line.saturating_sub(1)].chars().count() + 1,
             severity: Severity::Warning,
             fix: Some(crate::rule::Fix::new(byte_range, replacement)),
         };
@@ -1259,6 +1260,7 @@ impl MD013LineLength {
                     abbreviations: config.abbreviations_for_reflow(),
                     length_mode: self.reflow_length_mode(),
                     attr_lists: ctx.flavor.supports_attr_lists(),
+                    myst_roles: ctx.flavor.supports_myst_roles(),
                     require_sentence_capital: config.require_sentence_capital,
                     max_list_continuation_indent: None,
                 };
@@ -1358,7 +1360,7 @@ impl MD013LineLength {
                         line: footnote_start + 1,
                         column: 1,
                         end_line: last_consumed + 1,
-                        end_column: lines[last_consumed].len() + 1,
+                        end_column: lines[last_consumed].chars().count() + 1,
                         severity: Severity::Warning,
                         fix: Some(crate::rule::Fix::new(byte_range, replacement)),
                     });
@@ -1488,6 +1490,7 @@ impl MD013LineLength {
                     abbreviations: config.abbreviations_for_reflow(),
                     length_mode: self.reflow_length_mode(),
                     attr_lists: ctx.flavor.supports_attr_lists(),
+                    myst_roles: ctx.flavor.supports_myst_roles(),
                     require_sentence_capital: config.require_sentence_capital,
                     max_list_continuation_indent: if ctx.flavor.requires_strict_list_indent() {
                         Some(4)
@@ -1522,7 +1525,7 @@ impl MD013LineLength {
                         line: container_start + 1,
                         column: 1,
                         end_line: end_line + 1,
-                        end_column: lines[end_line].len() + 1,
+                        end_column: lines[end_line].chars().count() + 1,
                         severity: Severity::Warning,
                         fix: Some(crate::rule::Fix::new(byte_range, replacement)),
                     });
@@ -2003,6 +2006,7 @@ impl MD013LineLength {
                         abbreviations: config.abbreviations_for_reflow(),
                         length_mode: self.reflow_length_mode(),
                         attr_lists: ctx.flavor.supports_attr_lists(),
+                        myst_roles: ctx.flavor.supports_myst_roles(),
                         require_sentence_capital: config.require_sentence_capital,
                         max_list_continuation_indent: if ctx.flavor.requires_strict_list_indent() {
                             Some(4)
@@ -2409,6 +2413,7 @@ impl MD013LineLength {
                                     abbreviations: config.abbreviations_for_reflow(),
                                     length_mode: self.reflow_length_mode(),
                                     attr_lists: ctx.flavor.supports_attr_lists(),
+                                    myst_roles: ctx.flavor.supports_myst_roles(),
                                     require_sentence_capital: config.require_sentence_capital,
                                     max_list_continuation_indent: if ctx.flavor.requires_strict_list_indent() {
                                         Some(4)
@@ -2612,7 +2617,7 @@ impl MD013LineLength {
                             line: list_start + 1,
                             column: 1,
                             end_line: end_line + 1,
-                            end_column: lines[end_line].len() + 1,
+                            end_column: lines[end_line].chars().count() + 1,
                             severity: Severity::Warning,
                             fix: Some(crate::rule::Fix::new(byte_range, replacement)),
                         });
@@ -2829,6 +2834,7 @@ impl MD013LineLength {
                     abbreviations: config.abbreviations_for_reflow(),
                     length_mode: self.reflow_length_mode(),
                     attr_lists: ctx.flavor.supports_attr_lists(),
+                    myst_roles: ctx.flavor.supports_myst_roles(),
                     require_sentence_capital: config.require_sentence_capital,
                     max_list_continuation_indent: if ctx.flavor.requires_strict_list_indent() {
                         Some(4)
@@ -2925,7 +2931,7 @@ impl MD013LineLength {
                         line: warning_line,
                         column: 1,
                         end_line: warning_end_line,
-                        end_column: lines[warning_end_line.saturating_sub(1)].len() + 1,
+                        end_column: lines[warning_end_line.saturating_sub(1)].chars().count() + 1,
                         severity: Severity::Warning,
                         fix: Some(crate::rule::Fix::new(byte_range, replacement)),
                     });

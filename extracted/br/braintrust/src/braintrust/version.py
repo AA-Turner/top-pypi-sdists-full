@@ -1,5 +1,5 @@
-VERSION = "0.24.0"
+VERSION = "0.25.0"
 RELEASE_CHANNEL = "stable"
 
 # this will be templated during the build
-GIT_COMMIT = "daecaa8dbbdeb03c8f5ad78c563aae95b43da081"
+GIT_COMMIT = "eb674a68ce166608436511b884aa0388440990a3"

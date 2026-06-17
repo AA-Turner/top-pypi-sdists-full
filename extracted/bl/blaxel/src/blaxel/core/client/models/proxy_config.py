@@ -19,16 +19,15 @@ class ProxyConfig:
 
         Attributes:
             allowed_domains (Union[Unset, list[str]]): List of allowed external domains (allowlist). When set, only these
-                domains are reachable through the proxy. Supports wildcards (e.g. *.s3.amazonaws.com). Example: ["api.stripe.com",
-                "*.s3.amazonaws.com"].
+                domains are reachable. Supports wildcards (e.g. *.s3.amazonaws.com). Example: ["api.stripe.com",
+                "api.openai.com", "*.s3.amazonaws.com"].
             bypass (Union[Unset, list[str]]): Domains that bypass the proxy entirely via the NO_PROXY directive. Traffic to
                 these destinations goes direct, not through the CONNECT tunnel. Supports wildcards. Note that localhost, private
                 ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), 169.254.169.254, .local and .internal are always bypassed by
                 default. Example: ["*.s3.amazonaws.com"].
             forbidden_domains (Union[Unset, list[str]]): List of forbidden external domains (denylist). When set, all
-                domains except these are reachable through the proxy. Supports wildcards (e.g. *.malware.com). If both
-                allowedDomains and forbiddenDomains are set, allowedDomains takes precedence. Example: ["*.malware.com",
-                "evil.example.org"].
+                domains except these are reachable. Supports wildcards (e.g. *.malware.com). If both allowedDomains and
+                forbiddenDomains are set, allowedDomains takes precedence. Example: ["*.malware.com", "evil.example.org"].
             routing (Union[Unset, list['ProxyTarget']]): Per-destination routing rules with header/body injection and
                 secrets. Use destinations ["*"] for global rules that apply to all destinations.
     """
@@ -40,6 +39,7 @@ class ProxyConfig:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+
         allowed_domains: Union[Unset, list[str]] = UNSET
         if not isinstance(self.allowed_domains, Unset):
             allowed_domains = self.allowed_domains

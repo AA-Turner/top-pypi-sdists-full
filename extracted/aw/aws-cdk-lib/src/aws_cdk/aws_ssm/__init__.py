@@ -257,6 +257,7 @@ from .. import (
     IResolvable as _IResolvable_da3f097b,
     IResource as _IResource_c80c4260,
     ITaggable as _ITaggable_36806126,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
     Resource as _Resource_45bc6135,
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
@@ -291,7 +292,7 @@ from ..interfaces.aws_ssm import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _IAssociationRef_a842a755)
+@jsii.implements(_IInspectable_c2943556, _IAssociationRef_a842a755, _ITaggableV2_4e6798f8)
 class CfnAssociation(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -307,6 +308,7 @@ class CfnAssociation(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_ssm as ssm
@@ -318,6 +320,7 @@ class CfnAssociation(
         
             # the properties below are optional
             apply_only_at_cron_interval=False,
+            association_dispatch_assume_role="associationDispatchAssumeRole",
             association_name="associationName",
             automation_target_parameter_name="automationTargetParameterName",
             calendar_names=["calendarNames"],
@@ -337,6 +340,10 @@ class CfnAssociation(
             schedule_expression="scheduleExpression",
             schedule_offset=123,
             sync_compliance="syncCompliance",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             targets=[ssm.CfnAssociation.TargetProperty(
                 key="key",
                 values=["values"]
@@ -352,6 +359,7 @@ class CfnAssociation(
         *,
         name: typing.Union[builtins.str, "_IDocumentRef_6c66ce42"],
         apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        association_dispatch_assume_role: typing.Optional[builtins.str] = None,
         association_name: typing.Optional[builtins.str] = None,
         automation_target_parameter_name: typing.Optional[builtins.str] = None,
         calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -365,6 +373,7 @@ class CfnAssociation(
         schedule_expression: typing.Optional[builtins.str] = None,
         schedule_offset: typing.Optional[jsii.Number] = None,
         sync_compliance: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -374,6 +383,7 @@ class CfnAssociation(
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the SSM document that contains the configuration information for the instance. You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format: ``arn:partition:ssm:region:account-id:document/document-name`` For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document`` For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
         :param apply_only_at_cron_interval: By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified. Specify this option if you don't want an association to run immediately after you create it. This parameter is not supported for rate expressions.
+        :param association_dispatch_assume_role: A role used by association to take actions on your behalf.
         :param association_name: Specify a descriptive name for the association.
         :param automation_target_parameter_name: Choose the parameter that will define how your automation will branch out. This target is required for associations that use an Automation runbook and target resources by using rate controls. Automation is a tool in AWS Systems Manager .
         :param calendar_names: The names or Amazon Resource Names (ARNs) of the Change Calendar type documents your associations are gated under. The associations only run when that Change Calendar is open. For more information, see `AWS Systems Manager Change Calendar <https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar>`_ in the *AWS Systems Manager User Guide* .
@@ -387,6 +397,7 @@ class CfnAssociation(
         :param schedule_expression: A cron expression that specifies a schedule when the association runs. The schedule runs in Coordinated Universal Time (UTC).
         :param schedule_offset: Number of days to wait after the scheduled day to run an association.
         :param sync_compliance: The mode for generating association compliance. You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` . In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action. By default, all associations use ``AUTO`` mode.
+        :param tags: A key-value pair to associate with a resource.
         :param targets: The targets for the association. You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` . Supported formats include the following. - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>`` - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>`` To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
         :param wait_for_success_timeout_seconds: The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution. If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails. .. epigraph:: When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
         '''
@@ -397,6 +408,7 @@ class CfnAssociation(
         props = CfnAssociationProps(
             name=name,
             apply_only_at_cron_interval=apply_only_at_cron_interval,
+            association_dispatch_assume_role=association_dispatch_assume_role,
             association_name=association_name,
             automation_target_parameter_name=automation_target_parameter_name,
             calendar_names=calendar_names,
@@ -410,6 +422,7 @@ class CfnAssociation(
             schedule_expression=schedule_expression,
             schedule_offset=schedule_offset,
             sync_compliance=sync_compliance,
+            tags=tags,
             targets=targets,
             wait_for_success_timeout_seconds=wait_for_success_timeout_seconds,
         )
@@ -506,6 +519,12 @@ class CfnAssociation(
         return typing.cast(builtins.str, jsii.get(self, "attrAssociationId"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -558,6 +577,22 @@ class CfnAssociation(
             type_hints = typing.get_type_hints(_typecheckingstub__b9023084f7868b14116f97ca76b80fe2c8428bca0dc340c9e250534372a8882b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "applyOnlyAtCronInterval", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="associationDispatchAssumeRole")
+    def association_dispatch_assume_role(self) -> typing.Optional[builtins.str]:
+        '''A role used by association to take actions on your behalf.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "associationDispatchAssumeRole"))
+
+    @association_dispatch_assume_role.setter
+    def association_dispatch_assume_role(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89e4a954a6724c9fda701047762206b77a6c98053644752f6d35b120b6eeb688)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "associationDispatchAssumeRole", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="associationName")
@@ -724,6 +759,19 @@ class CfnAssociation(
             type_hints = typing.get_type_hints(_typecheckingstub__2d7078ea082466fa5a28a7853d4916de9d395e0a7adf5ae826e9a2028bdb9a93)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "syncCompliance", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A key-value pair to associate with a resource.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ee340a19337ba95965a352a2c9878d47740b24ccf83c14776ec7eac30328e22)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="targets")
@@ -993,6 +1041,7 @@ class CfnAssociation(
     name_mapping={
         "name": "name",
         "apply_only_at_cron_interval": "applyOnlyAtCronInterval",
+        "association_dispatch_assume_role": "associationDispatchAssumeRole",
         "association_name": "associationName",
         "automation_target_parameter_name": "automationTargetParameterName",
         "calendar_names": "calendarNames",
@@ -1006,6 +1055,7 @@ class CfnAssociation(
         "schedule_expression": "scheduleExpression",
         "schedule_offset": "scheduleOffset",
         "sync_compliance": "syncCompliance",
+        "tags": "tags",
         "targets": "targets",
         "wait_for_success_timeout_seconds": "waitForSuccessTimeoutSeconds",
     },
@@ -1016,6 +1066,7 @@ class CfnAssociationProps:
         *,
         name: typing.Union[builtins.str, "_IDocumentRef_6c66ce42"],
         apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        association_dispatch_assume_role: typing.Optional[builtins.str] = None,
         association_name: typing.Optional[builtins.str] = None,
         automation_target_parameter_name: typing.Optional[builtins.str] = None,
         calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1029,6 +1080,7 @@ class CfnAssociationProps:
         schedule_expression: typing.Optional[builtins.str] = None,
         schedule_offset: typing.Optional[jsii.Number] = None,
         sync_compliance: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         targets: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnAssociation.TargetProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
     ) -> None:
@@ -1036,6 +1088,7 @@ class CfnAssociationProps:
 
         :param name: The name of the SSM document that contains the configuration information for the instance. You can specify ``Command`` or ``Automation`` documents. The documents can be AWS -predefined documents, documents you created, or a document that is shared with you from another account. For SSM documents that are shared with you from other AWS accounts , you must specify the complete SSM document ARN, in the following format: ``arn:partition:ssm:region:account-id:document/document-name`` For example: ``arn:aws:ssm:us-east-2:12345678912:document/My-Shared-Document`` For AWS -predefined documents and SSM documents you created in your account, you only need to specify the document name. For example, ``AWS -ApplyPatchBaseline`` or ``My-Document`` .
         :param apply_only_at_cron_interval: By default, when you create a new association, the system runs it immediately after it is created and then according to the schedule you specified. Specify this option if you don't want an association to run immediately after you create it. This parameter is not supported for rate expressions.
+        :param association_dispatch_assume_role: A role used by association to take actions on your behalf.
         :param association_name: Specify a descriptive name for the association.
         :param automation_target_parameter_name: Choose the parameter that will define how your automation will branch out. This target is required for associations that use an Automation runbook and target resources by using rate controls. Automation is a tool in AWS Systems Manager .
         :param calendar_names: The names or Amazon Resource Names (ARNs) of the Change Calendar type documents your associations are gated under. The associations only run when that Change Calendar is open. For more information, see `AWS Systems Manager Change Calendar <https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-change-calendar>`_ in the *AWS Systems Manager User Guide* .
@@ -1049,6 +1102,7 @@ class CfnAssociationProps:
         :param schedule_expression: A cron expression that specifies a schedule when the association runs. The schedule runs in Coordinated Universal Time (UTC).
         :param schedule_offset: Number of days to wait after the scheduled day to run an association.
         :param sync_compliance: The mode for generating association compliance. You can specify ``AUTO`` or ``MANUAL`` . In ``AUTO`` mode, the system uses the status of the association execution to determine the compliance status. If the association execution runs successfully, then the association is ``COMPLIANT`` . If the association execution doesn't run successfully, the association is ``NON-COMPLIANT`` . In ``MANUAL`` mode, you must specify the ``AssociationId`` as a parameter for the ``PutComplianceItems`` API action. In this case, compliance data is not managed by State Manager. It is managed by your direct call to the ``PutComplianceItems`` API action. By default, all associations use ``AUTO`` mode.
+        :param tags: A key-value pair to associate with a resource.
         :param targets: The targets for the association. You must specify the ``InstanceId`` or ``Targets`` property. You can target all instances in an AWS account by specifying t he ``InstanceIds`` key with a value of ``*`` . Supported formats include the following. - ``Key=InstanceIds,Values=<instance-id-1>,<instance-id-2>,<instance-id-3>`` - ``Key=tag-key,Values=<my-tag-key-1>,<my-tag-key-2>`` To view a JSON and a YAML example that targets all instances, see "Create an association for all managed instances in an AWS account " on the Examples page.
         :param wait_for_success_timeout_seconds: The number of seconds the service should wait for the association status to show "Success" before proceeding with the stack execution. If the association status doesn't show "Success" after the specified number of seconds, then stack creation fails. .. epigraph:: When you specify a value for the ``WaitForSuccessTimeoutSeconds`` , `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ for your CloudFormation stack’s configuration might yield inaccurate results. If drift detection is important in your scenario, we recommend that you don’t include ``WaitForSuccessTimeoutSeconds`` in your template.
 
@@ -1057,6 +1111,7 @@ class CfnAssociationProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_ssm as ssm
@@ -1068,6 +1123,7 @@ class CfnAssociationProps:
             
                 # the properties below are optional
                 apply_only_at_cron_interval=False,
+                association_dispatch_assume_role="associationDispatchAssumeRole",
                 association_name="associationName",
                 automation_target_parameter_name="automationTargetParameterName",
                 calendar_names=["calendarNames"],
@@ -1087,6 +1143,10 @@ class CfnAssociationProps:
                 schedule_expression="scheduleExpression",
                 schedule_offset=123,
                 sync_compliance="syncCompliance",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 targets=[ssm.CfnAssociation.TargetProperty(
                     key="key",
                     values=["values"]
@@ -1098,6 +1158,7 @@ class CfnAssociationProps:
             type_hints = typing.get_type_hints(_typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01cc7e0dac)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument apply_only_at_cron_interval", value=apply_only_at_cron_interval, expected_type=type_hints["apply_only_at_cron_interval"])
+            check_type(argname="argument association_dispatch_assume_role", value=association_dispatch_assume_role, expected_type=type_hints["association_dispatch_assume_role"])
             check_type(argname="argument association_name", value=association_name, expected_type=type_hints["association_name"])
             check_type(argname="argument automation_target_parameter_name", value=automation_target_parameter_name, expected_type=type_hints["automation_target_parameter_name"])
             check_type(argname="argument calendar_names", value=calendar_names, expected_type=type_hints["calendar_names"])
@@ -1111,6 +1172,7 @@ class CfnAssociationProps:
             check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
             check_type(argname="argument schedule_offset", value=schedule_offset, expected_type=type_hints["schedule_offset"])
             check_type(argname="argument sync_compliance", value=sync_compliance, expected_type=type_hints["sync_compliance"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
             check_type(argname="argument wait_for_success_timeout_seconds", value=wait_for_success_timeout_seconds, expected_type=type_hints["wait_for_success_timeout_seconds"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1118,6 +1180,8 @@ class CfnAssociationProps:
         }
         if apply_only_at_cron_interval is not None:
             self._values["apply_only_at_cron_interval"] = apply_only_at_cron_interval
+        if association_dispatch_assume_role is not None:
+            self._values["association_dispatch_assume_role"] = association_dispatch_assume_role
         if association_name is not None:
             self._values["association_name"] = association_name
         if automation_target_parameter_name is not None:
@@ -1144,6 +1208,8 @@ class CfnAssociationProps:
             self._values["schedule_offset"] = schedule_offset
         if sync_compliance is not None:
             self._values["sync_compliance"] = sync_compliance
+        if tags is not None:
+            self._values["tags"] = tags
         if targets is not None:
             self._values["targets"] = targets
         if wait_for_success_timeout_seconds is not None:
@@ -1179,6 +1245,15 @@ class CfnAssociationProps:
         '''
         result = self._values.get("apply_only_at_cron_interval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def association_dispatch_assume_role(self) -> typing.Optional[builtins.str]:
+        '''A role used by association to take actions on your behalf.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-associationdispatchassumerole
+        '''
+        result = self._values.get("association_dispatch_assume_role")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def association_name(self) -> typing.Optional[builtins.str]:
@@ -1334,6 +1409,15 @@ class CfnAssociationProps:
         '''
         result = self._values.get("sync_compliance")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A key-value pair to associate with a resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-association.html#cfn-ssm-association-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def targets(
@@ -10015,6 +10099,7 @@ def _typecheckingstub__92579425f735301e17a993e7df464a283a7d42ba685c2d4205cf945db
     *,
     name: typing.Union[builtins.str, _IDocumentRef_6c66ce42],
     apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    association_dispatch_assume_role: typing.Optional[builtins.str] = None,
     association_name: typing.Optional[builtins.str] = None,
     automation_target_parameter_name: typing.Optional[builtins.str] = None,
     calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -10028,6 +10113,7 @@ def _typecheckingstub__92579425f735301e17a993e7df464a283a7d42ba685c2d4205cf945db
     schedule_expression: typing.Optional[builtins.str] = None,
     schedule_offset: typing.Optional[jsii.Number] = None,
     sync_compliance: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:
@@ -10080,6 +10166,12 @@ def _typecheckingstub__a7bc72c1573e12dfc32dfc15c4125adfa3aee907e4c231fb1dc195260
 
 def _typecheckingstub__b9023084f7868b14116f97ca76b80fe2c8428bca0dc340c9e250534372a8882b(
     value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89e4a954a6724c9fda701047762206b77a6c98053644752f6d35b120b6eeb688(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10156,6 +10248,12 @@ def _typecheckingstub__2d7078ea082466fa5a28a7853d4916de9d395e0a7adf5ae826e9a2028
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__3ee340a19337ba95965a352a2c9878d47740b24ccf83c14776ec7eac30328e22(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3ce3b93eff1353677d4fb546ad1db9172eecc860870a57f1426f1ff63ce088d4(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnAssociation.TargetProperty]]]],
 ) -> None:
@@ -10196,6 +10294,7 @@ def _typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01c
     *,
     name: typing.Union[builtins.str, _IDocumentRef_6c66ce42],
     apply_only_at_cron_interval: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    association_dispatch_assume_role: typing.Optional[builtins.str] = None,
     association_name: typing.Optional[builtins.str] = None,
     automation_target_parameter_name: typing.Optional[builtins.str] = None,
     calendar_names: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -10209,6 +10308,7 @@ def _typecheckingstub__eb0c608fec68cefb540b911fce04c4316c075989d67e9aa888cb8f01c
     schedule_expression: typing.Optional[builtins.str] = None,
     schedule_offset: typing.Optional[jsii.Number] = None,
     sync_compliance: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     targets: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnAssociation.TargetProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     wait_for_success_timeout_seconds: typing.Optional[jsii.Number] = None,
 ) -> None:

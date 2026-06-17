@@ -699,6 +699,246 @@ class TestMCPLookup:
 
             assert result is None
 
+    def test_resolves_claude_plugin_server_not_in_installed_plugins_json(self):
+        """ENG-3439 repro: enforce fails closed for plugin-defined MCP servers.
+
+        Claude Code passes only the namespaced server name
+        (``mcp__plugin_<plugin>_<server>__<tool>``). When the plugin is active
+        on disk but absent from ``installed_plugins.json`` (the Cowork/managed
+        install case, e.g. the ``box`` / ``runlayer`` plugins), the hook can't
+        match the name back to the plugin's defined MCP server config, returns
+        None, and the call is hard-blocked ("Only Runlayer-managed MCP servers
+        are allowed").
+
+        Verified live: ``plugin_runlayer_onelayer`` / ``plugin_runlayer_runlayer``
+        resolve to None on this machine while ``plugin_activity-recap_*`` (which
+        IS in installed_plugins.json) resolve fine.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            project = Path(td) / "project"
+            project.mkdir(parents=True)
+
+            # Plugin is installed on disk (canonical top-level plugin dir, as a
+            # symlinked/marketplace plugin would be) and defines an MCP server
+            # pointing at the Runlayer proxy.
+            box_root = home / ".claude" / "plugins" / "box"
+            (box_root / ".claude-plugin").mkdir(parents=True)
+            (box_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://example.runlayer.com/api/v1/proxy/0a5f7d71-a62d-44b6-bd1b-4591b4deb8ac/mcp",
+                                "type": "http",
+                            }
+                        },
+                    }
+                )
+            )
+
+            # Registry knows about a *different* plugin only -- "box" was
+            # installed by a channel that never wrote installed_plugins.json.
+            installed_plugins = home / ".claude" / "plugins" / "installed_plugins.json"
+            installed_plugins.write_text(json.dumps({"version": 2, "plugins": {}}))
+            settings = home / ".claude" / "settings.json"
+            settings.write_text(json.dumps({"enabledPlugins": {"box@runlayer": True}}))
+
+            with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=home):
+                result = lookup_mcp_server("plugin_box_box", str(project))
+
+            assert result is not None, (
+                "enforce hook could not resolve a plugin-defined MCP server "
+                "(ENG-3439) -> would fail closed and block the call"
+            )
+            assert result["url"] == (
+                "https://example.runlayer.com/api/v1/proxy/0a5f7d71-a62d-44b6-bd1b-4591b4deb8ac/mcp"
+            )
+
+    def test_resolves_claude_plugin_server_from_install_cache(self):
+        """ENG-3439: a plugin cached on disk but missing from the registry
+        resolves via the install-cache scan."""
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            project = Path(td) / "project"
+            project.mkdir(parents=True)
+
+            cache_root = (
+                home
+                / ".claude"
+                / "plugins"
+                / "cache"
+                / "runlayer"
+                / "runlayer"
+                / "1.0.0"
+            )
+            (cache_root / ".claude-plugin").mkdir(parents=True)
+            (cache_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "runlayer",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "onelayer": {
+                                "url": "https://acme.runlayer.com/api/v1/proxy/abc/mcp",
+                                "type": "http",
+                            }
+                        },
+                    }
+                )
+            )
+            installed_plugins = home / ".claude" / "plugins" / "installed_plugins.json"
+            installed_plugins.write_text(json.dumps({"version": 2, "plugins": {}}))
+
+            with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=home):
+                result = lookup_mcp_server("plugin_runlayer_onelayer", str(project))
+
+            assert result is not None
+            assert result["url"] == "https://acme.runlayer.com/api/v1/proxy/abc/mcp"
+
+    def test_registry_disabled_plugin_not_resolved_via_filesystem_fallback(self):
+        """A plugin the registry lists as disabled must stay unresolved -- the
+        filesystem fallback must not silently re-enable it."""
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            project = Path(td) / "project"
+            project.mkdir(parents=True)
+
+            cache_root = (
+                home / ".claude" / "plugins" / "cache" / "runlayer" / "box" / "1.0.0"
+            )
+            (cache_root / ".claude-plugin").mkdir(parents=True)
+            (cache_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://acme.runlayer.com/api/v1/proxy/xyz/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+            installed_plugins = home / ".claude" / "plugins" / "installed_plugins.json"
+            installed_plugins.write_text(
+                json.dumps(
+                    {
+                        "version": 2,
+                        "plugins": {
+                            "box@runlayer": [
+                                {
+                                    "scope": "user",
+                                    "installPath": str(cache_root),
+                                    "version": "1.0.0",
+                                }
+                            ]
+                        },
+                    }
+                )
+            )
+            settings = home / ".claude" / "settings.json"
+            settings.write_text(json.dumps({"enabledPlugins": {"box@runlayer": False}}))
+
+            with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=home):
+                result = lookup_mcp_server("plugin_box_box", str(project))
+
+            assert result is None
+
+    def test_plugin_registered_for_other_project_resolves_via_filesystem(self):
+        """ENG-3439: a plugin registered only for a *different* project must
+        still resolve from disk in the current cwd. A same-named registry entry
+        for another project must not suppress the filesystem fallback (only an
+        explicit disable does)."""
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            other_project = Path(td) / "other-project"
+            this_project = Path(td) / "this-project"
+            other_project.mkdir(parents=True)
+            this_project.mkdir(parents=True)
+
+            # box is on disk (top-level / symlinked install)...
+            plugin_root = home / ".claude" / "plugins" / "box"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://acme.runlayer.com/api/v1/proxy/abc/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+            # ...but registered only for a *different* project.
+            installed_plugins = home / ".claude" / "plugins" / "installed_plugins.json"
+            installed_plugins.write_text(
+                json.dumps(
+                    {
+                        "version": 2,
+                        "plugins": {
+                            "box@runlayer": [
+                                {
+                                    "scope": "project",
+                                    "installPath": str(plugin_root),
+                                    "projectPath": str(other_project),
+                                    "version": "1.0.0",
+                                }
+                            ]
+                        },
+                    }
+                )
+            )
+
+            with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=home):
+                result = lookup_mcp_server("plugin_box_box", str(this_project))
+
+            assert result is not None
+            assert result["url"] == "https://acme.runlayer.com/api/v1/proxy/abc/mcp"
+
+    def test_project_reenable_overrides_global_disable_in_fallback(self):
+        """ENG-3439: a project-level re-enable overrides a global disable, so the
+        filesystem fallback still resolves the on-disk plugin (last-file-wins,
+        consistent with the bash hook)."""
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            project = Path(td) / "project"
+            (project / ".claude").mkdir(parents=True)
+
+            plugin_root = home / ".claude" / "plugins" / "box"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://acme.runlayer.com/api/v1/proxy/abc/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+            (home / ".claude" / "settings.json").write_text(
+                json.dumps({"enabledPlugins": {"box@runlayer": False}})
+            )
+            (project / ".claude" / "settings.json").write_text(
+                json.dumps({"enabledPlugins": {"box@runlayer": True}})
+            )
+
+            with patch("runlayer_cli.hook.mcp_lookup.Path.home", return_value=home):
+                result = lookup_mcp_server("plugin_box_box", str(project))
+
+            assert result is not None
+            assert result["url"] == "https://acme.runlayer.com/api/v1/proxy/abc/mcp"
+
 
 # =========================================================================
 # clients tests
@@ -1454,6 +1694,38 @@ class TestTranscriptStreamSpawn:
 
         assert called["hook_main_ran"] is False
         assert called["stream_args"] == ["/opt/aiwatch/aiwatch-hook"]
+
+
+class TestUnfrozenHookEntrypointRuntime:
+    """The unfrozen ``python -m runlayer_cli.hook`` path is the pip-installed
+    ``runlayer`` package, not the MDM-deployed aiwatch binary. It must NOT flag
+    the process as the aiwatch runtime, so ``config.load_config`` keeps reading
+    ``~/.runlayer/config.yaml`` for host + credential resolution on dev setups.
+    """
+
+    def test_hook_main_does_not_mark_aiwatch_runtime(self, monkeypatch):
+        from runlayer_cli import runtime
+
+        runtime.reset_aiwatch_runtime()
+        monkeypatch.setattr(hook_main, "run_hook", lambda: None)
+        monkeypatch.setattr(sys, "argv", ["runlayer-hook"])
+
+        hook_main.main()
+
+        assert runtime.is_aiwatch_runtime() is False
+
+    def test_transcript_worker_main_does_not_mark_aiwatch_runtime(self, monkeypatch):
+        import io
+
+        from runlayer_cli import runtime
+
+        runtime.reset_aiwatch_runtime()
+        monkeypatch.setattr(sys, "argv", ["worker"])
+        monkeypatch.setattr(sys, "stdin", io.StringIO("{}"))
+
+        _transcript_stream_worker.main()
+
+        assert runtime.is_aiwatch_runtime() is False
 
 
 class TestTranscriptStream:
@@ -2742,7 +3014,12 @@ class TestToolLifecycleRouting:
         out = json.loads(capsys.readouterr().out)
         assert out["updated_input"]["_runlayer_session_id"] == "transcript-1"
 
-    def test_cursor_mcp_pretooluse_uses_chat_id_as_session(self, monkeypatch, capsys):
+    def test_cursor_mcp_pretooluse_does_not_inject_session_id(
+        self, monkeypatch, capsys
+    ):
+        # Cursor MCP tools are session-linked via beforeMCPExecution; injecting
+        # _runlayer_session_id into the MCP args here breaks strict schemas
+        # (additionalProperties:false, e.g. Atlassian Jira). Must be bare allow.
         self._capture_detached(monkeypatch)
         resp = HookResponse(Client.CURSOR, "preToolUse")
         hook_dispatch._handle_pre_tool_use(
@@ -2759,7 +3036,33 @@ class TestToolLifecycleRouting:
         )
 
         out = json.loads(capsys.readouterr().out)
-        assert out["updated_input"]["_runlayer_session_id"] == "chat-1"
+        assert out == {"permission": "allow"}
+
+    def test_cursor_mcp_colon_prefix_does_not_inject_session_id(
+        self, monkeypatch, capsys
+    ):
+        # Cursor names MCP tools "MCP:<tool>", not mcp__*. These must be treated
+        # as MCP tools (no local-tool lifecycle, no _runlayer_session_id
+        # injection) — the Atlassian Jira bug reported in the field.
+        checks = self._capture_checks(monkeypatch)
+        self._capture_detached(monkeypatch)
+        resp = HookResponse(Client.CURSOR, "preToolUse")
+        hook_dispatch._handle_pre_tool_use(
+            client=Client.CURSOR,
+            resp=resp,
+            input_data={
+                "tool_name": "MCP:searchJiraIssuesUsingJql",
+                "chat_id": "chat-1",
+                "tool_input": {"jql": "project = RUN"},
+            },
+            original_hook_type="preToolUse",
+            enforcement=True,
+            debug=False,
+        )
+
+        assert checks == []
+        out = json.loads(capsys.readouterr().out)
+        assert out == {"permission": "allow"}
 
     def test_tool_post_block_outputs_block_shape(self, monkeypatch, capsys):
         captured = self._capture_detached(monkeypatch)
@@ -2778,14 +3081,69 @@ class TestToolLifecycleRouting:
             enforcement=True,
             debug=False,
         )
-        assert json.loads(capsys.readouterr().out) == {
-            "decision": "block",
-            "reason": "output blocked",
-        }
+        out = json.loads(capsys.readouterr().out)
+        # decision:block halts; updatedToolOutput redacts what the model sees.
+        assert out["decision"] == "block"
+        assert out["reason"] == "output blocked"
+        assert (
+            out["hookSpecificOutput"]["updatedToolOutput"]
+            == "[Runlayer blocked this tool output] output blocked"
+        )
         assert [target for target, _ in captured] == ["event"]
         wrapper = json.loads(captured[0][1])
         assert wrapper["event_name"] == "PostToolUse"
         assert wrapper["payload"]["tool_response"] == {"ok": True}
+
+    def test_tool_post_mask_outputs_updated_tool_output(self, monkeypatch, capsys):
+        """Frozen aiwatch path (MDM/enterprise): non-blocking masked output is
+        applied via updatedToolOutput, not dropped."""
+        self._capture_detached(monkeypatch)
+        self._capture_checks(
+            monkeypatch,
+            response='{"blocked":false,"modified_output":"SSN [REDACTED]"}',
+        )
+        resp = HookResponse(Client.CLAUDE_CODE, "PostToolUse")
+        hook_dispatch._dispatch(
+            hook_type="PostToolUse",
+            original_hook_type="PostToolUse",
+            client=Client.CLAUDE_CODE,
+            resp=resp,
+            input_data={"tool_name": "Bash", "tool_response": {"stdout": "SSN 1"}},
+            raw_input="{}",
+            enforcement=True,
+            debug=False,
+        )
+        out = json.loads(capsys.readouterr().out)
+        assert out["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+        assert out["hookSpecificOutput"]["updatedToolOutput"] == "SSN [REDACTED]"
+        assert "decision" not in out  # masked, not blocked — turn continues
+
+    def test_tool_post_failure_block_also_redacts(self, monkeypatch, capsys):
+        """PostToolUseFailure shares the post-tool handler, so a blocked failure
+        whose error output carries sensitive data gets updatedToolOutput
+        redaction too — not just decision:block."""
+        self._capture_detached(monkeypatch)
+        self._capture_checks(
+            monkeypatch,
+            response='{"blocked":true,"block_reason":"secret in error output"}',
+        )
+        resp = HookResponse(Client.CLAUDE_CODE, "PostToolUseFailure")
+        hook_dispatch._dispatch(
+            hook_type="PostToolUseFailure",
+            original_hook_type="PostToolUseFailure",
+            client=Client.CLAUDE_CODE,
+            resp=resp,
+            input_data={"tool_name": "Bash", "tool_response": {"stderr": "secret"}},
+            raw_input="{}",
+            enforcement=True,
+            debug=False,
+        )
+        out = json.loads(capsys.readouterr().out)
+        assert out["decision"] == "block"
+        assert out["hookSpecificOutput"]["hookEventName"] == "PostToolUseFailure"
+        assert (
+            "secret in error output" in out["hookSpecificOutput"]["updatedToolOutput"]
+        )
 
     def test_tool_post_relay_auth_failure_blocks_output_shape(
         self, monkeypatch, capsys
@@ -3109,6 +3467,39 @@ class TestCursorBeforeMCPResolution:
         assert captured[0]["command"] == "unknown-server"
         assert "url" not in captured[0]
 
+    def test_cursor_before_mcp_execution_omits_null_allow_messages(
+        self, monkeypatch, capsys
+    ) -> None:
+        def _fake_enforce(payload: str, *, debug: bool = False) -> str:
+            return json.dumps(
+                {
+                    "permission": "allow",
+                    "user_message": None,
+                    "agent_message": None,
+                }
+            )
+
+        monkeypatch.setattr(hook_dispatch, "enforce", _fake_enforce)
+        monkeypatch.setattr(hook_dispatch, "forward_event", lambda *a, **kw: None)
+
+        resp = HookResponse(Client.CURSOR, "beforeMCPExecution")
+        hook_dispatch._handle_before_mcp_execution(
+            client=Client.CURSOR,
+            resp=resp,
+            input_data={
+                "hook_event_name": "beforeMCPExecution",
+                "tool_name": "list_teams",
+                "tool_input": {},
+                "url": "https://mcp.example.com/sse",
+            },
+            raw_input="{}",
+            original_hook_type="beforeMCPExecution",
+            enforcement=True,
+            debug=False,
+        )
+
+        assert json.loads(capsys.readouterr().out) == {"permission": "allow"}
+
 
 class TestLoadCredentialsFailClosed:
     """Regression: `_load_credentials` must convert non-RelayError exceptions
@@ -3277,37 +3668,65 @@ class TestResolveEnforcement:
     the legacy sys.argv[0]-relative runlayer-config.json read (CLI / python -m).
     """
 
-    def test_frozen_reads_mdm_enforcement_false(self, monkeypatch):
+    def _mark_frozen_aiwatch(self, tmp_path, monkeypatch):
+        """Make is_frozen_aiwatch_bundle() return True (frozen + aiwatch exe stem)."""
         monkeypatch.setattr(sys, "frozen", True, raising=False)
+        aiwatch_exe = tmp_path / "aiwatch"
+        aiwatch_exe.write_text("")
+        monkeypatch.setattr(sys, "executable", str(aiwatch_exe), raising=False)
+
+    def test_frozen_reads_mdm_enforcement_false(self, tmp_path, monkeypatch):
+        self._mark_frozen_aiwatch(tmp_path, monkeypatch)
         monkeypatch.setattr(
             "runlayer_cli.mdm_config.read_managed_config",
             lambda: {"enforcement": False},
         )
         assert hook_dispatch._resolve_enforcement() is False
 
-    def test_frozen_reads_mdm_enforcement_true(self, monkeypatch):
-        monkeypatch.setattr(sys, "frozen", True, raising=False)
+    def test_frozen_reads_mdm_enforcement_true(self, tmp_path, monkeypatch):
+        self._mark_frozen_aiwatch(tmp_path, monkeypatch)
         monkeypatch.setattr(
             "runlayer_cli.mdm_config.read_managed_config",
             lambda: {"enforcement": True},
         )
         assert hook_dispatch._resolve_enforcement() is True
 
-    def test_frozen_defaults_false_when_key_absent(self, monkeypatch):
-        monkeypatch.setattr(sys, "frozen", True, raising=False)
+    def test_frozen_defaults_false_when_key_absent(self, tmp_path, monkeypatch):
+        self._mark_frozen_aiwatch(tmp_path, monkeypatch)
         monkeypatch.setattr(
             "runlayer_cli.mdm_config.read_managed_config",
             lambda: {"host": "https://t.example.com"},
         )
         assert hook_dispatch._resolve_enforcement() is False
 
-    def test_frozen_defaults_false_when_empty_managed_config(self, monkeypatch):
-        monkeypatch.setattr(sys, "frozen", True, raising=False)
+    def test_frozen_defaults_false_when_empty_managed_config(
+        self, tmp_path, monkeypatch
+    ):
+        self._mark_frozen_aiwatch(tmp_path, monkeypatch)
         monkeypatch.setattr(
             "runlayer_cli.mdm_config.read_managed_config",
             lambda: {},
         )
         assert hook_dispatch._resolve_enforcement() is False
+
+    def test_frozen_non_aiwatch_binary_uses_legacy_file_path(
+        self, tmp_path, monkeypatch
+    ):
+        """A frozen non-aiwatch binary (e.g. full runlayer CLI) must NOT route
+        through MDM enforcement — it keeps the legacy runlayer-config.json read."""
+        monkeypatch.setattr(sys, "frozen", True, raising=False)
+        runlayer_exe = tmp_path / "runlayer"
+        runlayer_exe.write_text("")
+        monkeypatch.setattr(sys, "executable", str(runlayer_exe), raising=False)
+        monkeypatch.setattr(
+            "runlayer_cli.mdm_config.read_managed_config",
+            lambda: {"enforcement": False},
+        )
+        wrapper = tmp_path / "runlayer-hook"
+        wrapper.write_text("")
+        monkeypatch.setattr(sys, "argv", [str(wrapper)])
+        # No runlayer-config.json next to argv[0] => legacy default (enforce).
+        assert hook_dispatch._resolve_enforcement() is True
 
     def test_unfrozen_reads_file_enforcement_false(self, tmp_path, monkeypatch):
         monkeypatch.setattr(sys, "frozen", False, raising=False)

@@ -1162,13 +1162,14 @@ class ImageBuilderReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appstream.StackFleetAssociationReference",
     jsii_struct_bases=[],
-    name_mapping={"stack_fleet_association_id": "stackFleetAssociationId"},
+    name_mapping={"fleet_name": "fleetName", "stack_name": "stackName"},
 )
 class StackFleetAssociationReference:
-    def __init__(self, *, stack_fleet_association_id: builtins.str) -> None:
+    def __init__(self, *, fleet_name: builtins.str, stack_name: builtins.str) -> None:
         '''A reference to a StackFleetAssociation resource.
 
-        :param stack_fleet_association_id: The Id of the StackFleetAssociation resource.
+        :param fleet_name: The FleetName of the StackFleetAssociation resource.
+        :param stack_name: The StackName of the StackFleetAssociation resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1179,21 +1180,31 @@ class StackFleetAssociationReference:
             from aws_cdk.interfaces import aws_appstream as interfaces_appstream
             
             stack_fleet_association_reference = interfaces_appstream.StackFleetAssociationReference(
-                stack_fleet_association_id="stackFleetAssociationId"
+                fleet_name="fleetName",
+                stack_name="stackName"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f024f528)
-            check_type(argname="argument stack_fleet_association_id", value=stack_fleet_association_id, expected_type=type_hints["stack_fleet_association_id"])
+            check_type(argname="argument fleet_name", value=fleet_name, expected_type=type_hints["fleet_name"])
+            check_type(argname="argument stack_name", value=stack_name, expected_type=type_hints["stack_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "stack_fleet_association_id": stack_fleet_association_id,
+            "fleet_name": fleet_name,
+            "stack_name": stack_name,
         }
 
     @builtins.property
-    def stack_fleet_association_id(self) -> builtins.str:
-        '''The Id of the StackFleetAssociation resource.'''
-        result = self._values.get("stack_fleet_association_id")
-        assert result is not None, "Required property 'stack_fleet_association_id' is missing"
+    def fleet_name(self) -> builtins.str:
+        '''The FleetName of the StackFleetAssociation resource.'''
+        result = self._values.get("fleet_name")
+        assert result is not None, "Required property 'fleet_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def stack_name(self) -> builtins.str:
+        '''The StackName of the StackFleetAssociation resource.'''
+        result = self._values.get("stack_name")
+        assert result is not None, "Required property 'stack_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1341,13 +1352,25 @@ class StackUserAssociationReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_appstream.UserReference",
     jsii_struct_bases=[],
-    name_mapping={"user_id": "userId"},
+    name_mapping={
+        "authentication_type": "authenticationType",
+        "user_arn": "userArn",
+        "user_name": "userName",
+    },
 )
 class UserReference:
-    def __init__(self, *, user_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        authentication_type: builtins.str,
+        user_arn: builtins.str,
+        user_name: builtins.str,
+    ) -> None:
         '''A reference to a User resource.
 
-        :param user_id: The Id of the User resource.
+        :param authentication_type: The AuthenticationType of the User resource.
+        :param user_arn: The ARN of the User resource.
+        :param user_name: The UserName of the User resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1358,21 +1381,41 @@ class UserReference:
             from aws_cdk.interfaces import aws_appstream as interfaces_appstream
             
             user_reference = interfaces_appstream.UserReference(
-                user_id="userId"
+                authentication_type="authenticationType",
+                user_arn="userArn",
+                user_name="userName"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ebf6320aef40f4a25ef1a995b2ab69386c3f385461a0216574eee343afd525e)
-            check_type(argname="argument user_id", value=user_id, expected_type=type_hints["user_id"])
+            check_type(argname="argument authentication_type", value=authentication_type, expected_type=type_hints["authentication_type"])
+            check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
+            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "user_id": user_id,
+            "authentication_type": authentication_type,
+            "user_arn": user_arn,
+            "user_name": user_name,
         }
 
     @builtins.property
-    def user_id(self) -> builtins.str:
-        '''The Id of the User resource.'''
-        result = self._values.get("user_id")
-        assert result is not None, "Required property 'user_id' is missing"
+    def authentication_type(self) -> builtins.str:
+        '''The AuthenticationType of the User resource.'''
+        result = self._values.get("authentication_type")
+        assert result is not None, "Required property 'authentication_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_arn(self) -> builtins.str:
+        '''The ARN of the User resource.'''
+        result = self._values.get("user_arn")
+        assert result is not None, "Required property 'user_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def user_name(self) -> builtins.str:
+        '''The UserName of the User resource.'''
+        result = self._values.get("user_name")
+        assert result is not None, "Required property 'user_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1488,7 +1531,8 @@ def _typecheckingstub__efd8c28dc257befffc80371dd057b43178b4a6070998fd325b2917af4
 
 def _typecheckingstub__75af852a1fd8c23c7edb9bd59224cb6cbb18155271a51d4cad9dbd81f024f528(
     *,
-    stack_fleet_association_id: builtins.str,
+    fleet_name: builtins.str,
+    stack_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1511,7 +1555,9 @@ def _typecheckingstub__b2130170f8c1e17f1e893b413b87fa336531a5bfd65795c1f55dd180b
 
 def _typecheckingstub__6ebf6320aef40f4a25ef1a995b2ab69386c3f385461a0216574eee343afd525e(
     *,
-    user_id: builtins.str,
+    authentication_type: builtins.str,
+    user_arn: builtins.str,
+    user_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

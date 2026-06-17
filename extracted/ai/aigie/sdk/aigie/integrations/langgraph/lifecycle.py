@@ -226,7 +226,6 @@ class LangGraphLifecycle(FrameworkLifecycleBridge, CallbackLifecycle):
     ) -> None:
         try:
             handler.close_workflow_span(error=error)
-            handler.finalize(error=error)
         finally:
             _dec_thread_counter()
 

@@ -2411,3 +2411,16 @@ class ManualTriggerScheduledQueryResponse:
         return ManualTriggerScheduledQueryResponse(
             scheduled_query_run=ScheduledQueryRun.from_proto(proto_response.scheduled_query_run),
         )
+
+
+class OfflineStoreTable(BaseModel, frozen=True):
+    """Describes a single offline store table for a feature at a given internal version."""
+
+    fqn: str
+    """The fully-qualified name of the feature this table stores (e.g. ``user.fico_score``)."""
+
+    internal_version: int
+    """The internal version of the feature this table corresponds to."""
+
+    table_name: str
+    """The offline store table name in the warehouse (e.g. ``feat_<58-hex-chars>``)."""

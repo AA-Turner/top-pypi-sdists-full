@@ -682,6 +682,102 @@ fn value_requires_long_or_short() {
 }
 
 #[test]
+fn value_may_be_an_expression() {
+  Test::new()
+    .justfile(
+      "
+        BAZ := 'baz'
+
+        [arg('bar', long='bar', value=bob + BAZ)]
+        @foo bob bar:
+          echo {{ bar }}
+      ",
+    )
+    .args(["foo", "hello", "--bar"])
+    .stdout("hellobaz\n")
+    .success();
+}
+
+#[test]
+fn value_expression_evaluation_may_fail() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long='bar', value=env('FOO'))]
+        @foo bar:
+          echo bar={{bar}}
+      ",
+    )
+    .args(["foo", "--bar"])
+    .stderr(
+      "
+        error: call to function `env` failed: environment variable `FOO` not present
+         ——▶ justfile:1:31
+          │
+        1 │ [arg('bar', long='bar', value=env('FOO'))]
+          │                               ^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn value_with_undefined_variable_is_an_error() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long='bar', value=BAZ)]
+        @foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: variable `BAZ` not defined
+         ——▶ justfile:1:31
+          │
+        1 │ [arg('bar', long='bar', value=BAZ)]
+          │                               ^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn value_expression_is_pattern_checked() {
+  Test::new()
+    .justfile(
+      "
+        BAZ := 'baz'
+
+        [arg('bar', long='bar', value=BAZ, pattern='[0-9]+')]
+        @foo bar:
+      ",
+    )
+    .args(["foo", "--bar"])
+    .stderr(
+      "error: argument `baz` passed to recipe `foo` parameter `bar` does not match pattern '[0-9]+'\n",
+    )
+    .failure();
+}
+
+#[test]
+fn value_omitted_uses_default() {
+  Test::new()
+    .justfile(
+      "
+        BAZ := 'baz'
+
+        [arg('bar', long='bar', value=BAZ)]
+        @foo bar='qux':
+          echo bar={{bar}}
+      ",
+    )
+    .args(["foo"])
+    .stdout("bar=qux\n")
+    .success();
+}
+
+#[test]
 fn options_arg_passed_as_positional_arguments() {
   Test::new()
     .justfile(
@@ -696,4 +792,163 @@ fn options_arg_passed_as_positional_arguments() {
     .args(["foo", "-b", "baz"])
     .stdout("args=baz\n")
     .success();
+}
+
+#[test]
+fn flag_passed_is_true() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, flag)]
+        @foo bar:
+          echo bar={{bar}}
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["foo", "--bar"])
+    .stdout("bar=true\n")
+    .success();
+}
+
+#[test]
+fn flag_omitted_is_empty() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, flag)]
+        @foo bar:
+          echo bar={{show(bar)}}
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["foo"])
+    .stdout("bar=[]\n")
+    .success();
+}
+
+#[test]
+fn flag_requires_set_lists() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, flag)]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: `flag` arguments require `set lists`
+         ——▶ justfile:1:19
+          │
+        1 │ [arg('bar', long, flag)]
+          │                   ^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn flag_conflicts_with_value() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, flag, value='baz')]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: argument `bar` may not have both `flag` and `value` attributes
+         ——▶ justfile:1:19
+          │
+        1 │ [arg('bar', long, flag, value='baz')]
+          │                   ^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn flag_requires_long_or_short() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', flag)]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: argument attribute `flag` only valid with `long` or `short`
+         ——▶ justfile:1:13
+          │
+        1 │ [arg('bar', flag)]
+          │             ^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn flag_takes_no_value() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, flag='baz')]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: `flag` attribute for argument `bar` takes no value
+         ——▶ justfile:1:19
+          │
+        1 │ [arg('bar', long, flag='baz')]
+          │                   ^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn flag_with_default_is_an_error() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, flag)]
+        foo bar='baz':
+      ",
+    )
+    .stderr(
+      "
+        error: flag parameter `bar` may not have a default
+         ——▶ justfile:2:5
+          │
+        2 │ foo bar='baz':
+          │     ^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn flags_passed_with_a_value_are_an_error() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, flag)]
+        @foo bar:
+          echo bar={{bar}}
+      ",
+    )
+    .env("JUST_UNSTABLE", "1")
+    .args(["foo", "--bar=baz"])
+    .stderr("error: recipe `foo` flag `--bar` does not take value\n")
+    .failure();
 }

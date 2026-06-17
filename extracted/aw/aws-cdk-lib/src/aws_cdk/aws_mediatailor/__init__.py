@@ -1874,6 +1874,9 @@ class CfnPlaybackConfiguration(
                 mpd_location="mpdLocation",
                 origin_manifest_type="originManifestType"
             ),
+            function_mapping={
+                "function_mapping_key": "functionMapping"
+            },
             hls_configuration=mediatailor.CfnPlaybackConfiguration.HlsConfigurationProperty(
                 manifest_endpoint_prefix="manifestEndpointPrefix"
             ),
@@ -1925,6 +1928,7 @@ class CfnPlaybackConfiguration(
         cdn_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]] = None,
         dash_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        function_mapping: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         hls_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         insertion_mode: typing.Optional[builtins.str] = None,
         live_pre_roll_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1949,6 +1953,7 @@ class CfnPlaybackConfiguration(
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
         :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
         :param dash_configuration: The configuration for a DASH source.
+        :param function_mapping: A map of event names to function identifiers for custom processing during session lifecycle events.
         :param hls_configuration: The configuration for HLS content.
         :param insertion_mode: The setting that controls whether players can use stitched or guided ad insertion. The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
         :param live_pre_roll_configuration: The configuration for pre-roll ad insertion.
@@ -1974,6 +1979,7 @@ class CfnPlaybackConfiguration(
             cdn_configuration=cdn_configuration,
             configuration_aliases=configuration_aliases,
             dash_configuration=dash_configuration,
+            function_mapping=function_mapping,
             hls_configuration=hls_configuration,
             insertion_mode=insertion_mode,
             live_pre_roll_configuration=live_pre_roll_configuration,
@@ -2280,6 +2286,24 @@ class CfnPlaybackConfiguration(
             type_hints = typing.get_type_hints(_typecheckingstub__e1528a1dd277ec2643ed08e71e4d817660b15a7515d36800d1a4c45be4bdd944)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "dashConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="functionMapping")
+    def function_mapping(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A map of event names to function identifiers for custom processing during session lifecycle events.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "functionMapping"))
+
+    @function_mapping.setter
+    def function_mapping(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ce9f9a164e16917763fbfce05ef66083a15fe183466a65359b9714cccd1b42c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "functionMapping", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="hlsConfiguration")
@@ -3524,6 +3548,7 @@ class CfnPlaybackConfiguration(
         "cdn_configuration": "cdnConfiguration",
         "configuration_aliases": "configurationAliases",
         "dash_configuration": "dashConfiguration",
+        "function_mapping": "functionMapping",
         "hls_configuration": "hlsConfiguration",
         "insertion_mode": "insertionMode",
         "live_pre_roll_configuration": "livePreRollConfiguration",
@@ -3549,6 +3574,7 @@ class CfnPlaybackConfigurationProps:
         cdn_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_IResolvable_da3f097b"]] = None,
         dash_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.DashConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        function_mapping: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         hls_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.HlsConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         insertion_mode: typing.Optional[builtins.str] = None,
         live_pre_roll_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnPlaybackConfiguration.LivePreRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3571,6 +3597,7 @@ class CfnPlaybackConfigurationProps:
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
         :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
         :param dash_configuration: The configuration for a DASH source.
+        :param function_mapping: A map of event names to function identifiers for custom processing during session lifecycle events.
         :param hls_configuration: The configuration for HLS content.
         :param insertion_mode: The setting that controls whether players can use stitched or guided ad insertion. The default, ``STITCHED_ONLY`` , forces all player sessions to use stitched (server-side) ad insertion. Choosing ``PLAYER_SELECT`` allows players to select either stitched or guided ad insertion at session-initialization time. The default for players that do not specify an insertion mode is stitched.
         :param live_pre_roll_configuration: The configuration for pre-roll ad insertion.
@@ -3633,6 +3660,9 @@ class CfnPlaybackConfigurationProps:
                     mpd_location="mpdLocation",
                     origin_manifest_type="originManifestType"
                 ),
+                function_mapping={
+                    "function_mapping_key": "functionMapping"
+                },
                 hls_configuration=mediatailor.CfnPlaybackConfiguration.HlsConfigurationProperty(
                     manifest_endpoint_prefix="manifestEndpointPrefix"
                 ),
@@ -3680,6 +3710,7 @@ class CfnPlaybackConfigurationProps:
             check_type(argname="argument cdn_configuration", value=cdn_configuration, expected_type=type_hints["cdn_configuration"])
             check_type(argname="argument configuration_aliases", value=configuration_aliases, expected_type=type_hints["configuration_aliases"])
             check_type(argname="argument dash_configuration", value=dash_configuration, expected_type=type_hints["dash_configuration"])
+            check_type(argname="argument function_mapping", value=function_mapping, expected_type=type_hints["function_mapping"])
             check_type(argname="argument hls_configuration", value=hls_configuration, expected_type=type_hints["hls_configuration"])
             check_type(argname="argument insertion_mode", value=insertion_mode, expected_type=type_hints["insertion_mode"])
             check_type(argname="argument live_pre_roll_configuration", value=live_pre_roll_configuration, expected_type=type_hints["live_pre_roll_configuration"])
@@ -3708,6 +3739,8 @@ class CfnPlaybackConfigurationProps:
             self._values["configuration_aliases"] = configuration_aliases
         if dash_configuration is not None:
             self._values["dash_configuration"] = dash_configuration
+        if function_mapping is not None:
+            self._values["function_mapping"] = function_mapping
         if hls_configuration is not None:
             self._values["hls_configuration"] = hls_configuration
         if insertion_mode is not None:
@@ -3843,6 +3876,17 @@ class CfnPlaybackConfigurationProps:
         '''
         result = self._values.get("dash_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnPlaybackConfiguration.DashConfigurationProperty"]], result)
+
+    @builtins.property
+    def function_mapping(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A map of event names to function identifiers for custom processing during session lifecycle events.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-functionmapping
+        '''
+        result = self._values.get("function_mapping")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def hls_configuration(
@@ -4058,6 +4102,48 @@ class CfnSourceLocation(
             type_hints = typing.get_type_hints(_typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSourceLocation", [resource]))
+
+    @jsii.member(jsii_name="fromSourceLocationArn")
+    @builtins.classmethod
+    def from_source_location_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_ISourceLocationRef_240f0e28":
+        '''Creates a new ISourceLocationRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_ISourceLocationRef_240f0e28", jsii.sinvoke(cls, "fromSourceLocationArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromSourceLocationName")
+    @builtins.classmethod
+    def from_source_location_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        source_location_name: builtins.str,
+    ) -> "_ISourceLocationRef_240f0e28":
+        '''Creates a new ISourceLocationRef from a sourceLocationName.
+
+        :param scope: -
+        :param id: -
+        :param source_location_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+        return typing.cast("_ISourceLocationRef_240f0e28", jsii.sinvoke(cls, "fromSourceLocationName", [scope, id, source_location_name]))
 
     @jsii.member(jsii_name="isCfnSourceLocation")
     @builtins.classmethod
@@ -5516,6 +5602,7 @@ def _typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad
     cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
     dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    function_mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     insertion_mode: typing.Optional[builtins.str] = None,
     live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5609,6 +5696,12 @@ def _typecheckingstub__5e98fdfcc661f8c91728f46bbafe4c5c1160d075338a4b6e66789b714
 
 def _typecheckingstub__e1528a1dd277ec2643ed08e71e4d817660b15a7515d36800d1a4c45be4bdd944(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnPlaybackConfiguration.DashConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ce9f9a164e16917763fbfce05ef66083a15fe183466a65359b9714cccd1b42c(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5791,6 +5884,7 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     cdn_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _IResolvable_da3f097b]] = None,
     dash_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.DashConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    function_mapping: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     hls_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.HlsConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     insertion_mode: typing.Optional[builtins.str] = None,
     live_pre_roll_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnPlaybackConfiguration.LivePreRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5820,6 +5914,22 @@ def _typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f
 
 def _typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616(
     resource: _ISourceLocationRef_240f0e28,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    source_location_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

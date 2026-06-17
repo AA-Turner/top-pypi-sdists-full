@@ -209,6 +209,17 @@ def pytest_addoption(parser):
         action='store_true',
         help='force mode for esptool',
     )
+    arduino_group = parser.getgroup('embedded-arduino')
+    arduino_group.addoption(
+        '--no-fast-flash',
+        help=(
+            'y/yes/true for True and n/no/false for False. '
+            'Set to True to disable fast reflashing (--diff-with) for Arduino. '
+            'Useful when flash state is unknown, e.g. after OTA updates. '
+            '(Default: False)'
+        ),
+    )
+
     idf_group = parser.getgroup('embedded-idf')
     idf_group.addoption(
         '--supported-targets', help='Comma-separated list of supported targets for the test case. (Default: None)'
@@ -297,6 +308,13 @@ def pytest_addoption(parser):
     wokwi_group.addoption(
         '--wokwi-diagram',
         help='Path to the wokwi diagram file (Default: None)',
+    )
+    wokwi_group.addoption(
+        '--wokwi-usb-serial-jtag',
+        help='y/yes/true for True and n/no/false for False. '
+        'Use USB Serial JTAG instead of UART for serial communication in the Wokwi diagram. '
+        'When enabled, the diagram will use the USB_SERIAL_JTAG interface and remove $serialMonitor connections. '
+        '(Default: False)',
     )
 
 
@@ -844,6 +862,13 @@ def esp_flash_force(request: FixtureRequest) -> str | None:
 
 @pytest.fixture
 @multi_dut_argument
+def no_fast_flash(request: FixtureRequest) -> bool | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'no_fast_flash', None)
+
+
+@pytest.fixture
+@multi_dut_argument
 def build_dir(request: FixtureRequest) -> str | None:
     """Enable parametrization for the same cli option"""
     return _request_param_or_config_option_or_default(request, 'build_dir', 'build')
@@ -1076,6 +1101,13 @@ def wokwi_diagram(request: FixtureRequest) -> str | None:
     return _request_param_or_config_option_or_default(request, 'wokwi_diagram', None)
 
 
+@pytest.fixture
+@multi_dut_argument
+def wokwi_usb_serial_jtag(request: FixtureRequest) -> bool | None:
+    """Enable parametrization for the same cli option"""
+    return _request_param_or_config_option_or_default(request, 'wokwi_usb_serial_jtag', None)
+
+
 ####################
 # Private Fixtures #
 ####################
@@ -1118,6 +1150,7 @@ def parametrize_fixtures(
     erase_all,
     esptool_baud,
     esp_flash_force,
+    no_fast_flash,
     part_tool,
     confirm_target_elf_sha256,
     erase_nvs,
@@ -1134,6 +1167,7 @@ def parametrize_fixtures(
     qemu_extra_args,
     qemu_efuse_path,
     wokwi_diagram,
+    wokwi_usb_serial_jtag,
     skip_regenerate_image,
     encrypt,
     keyfile,

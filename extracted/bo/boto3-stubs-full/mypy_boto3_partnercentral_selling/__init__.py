@@ -19,6 +19,7 @@ Usage::
         ListEngagementsPaginator,
         ListOpportunitiesPaginator,
         ListOpportunityFromEngagementTasksPaginator,
+        ListProspectingFromEngagementTasksPaginator,
         ListResourceSnapshotJobsPaginator,
         ListResourceSnapshotsPaginator,
         ListSolutionsPaginator,
@@ -36,6 +37,7 @@ Usage::
     list_engagements_paginator: ListEngagementsPaginator = client.get_paginator("list_engagements")
     list_opportunities_paginator: ListOpportunitiesPaginator = client.get_paginator("list_opportunities")
     list_opportunity_from_engagement_tasks_paginator: ListOpportunityFromEngagementTasksPaginator = client.get_paginator("list_opportunity_from_engagement_tasks")
+    list_prospecting_from_engagement_tasks_paginator: ListProspectingFromEngagementTasksPaginator = client.get_paginator("list_prospecting_from_engagement_tasks")
     list_resource_snapshot_jobs_paginator: ListResourceSnapshotJobsPaginator = client.get_paginator("list_resource_snapshot_jobs")
     list_resource_snapshots_paginator: ListResourceSnapshotsPaginator = client.get_paginator("list_resource_snapshots")
     list_solutions_paginator: ListSolutionsPaginator = client.get_paginator("list_solutions")
@@ -52,6 +54,7 @@ from .paginator import (
     ListEngagementsPaginator,
     ListOpportunitiesPaginator,
     ListOpportunityFromEngagementTasksPaginator,
+    ListProspectingFromEngagementTasksPaginator,
     ListResourceSnapshotJobsPaginator,
     ListResourceSnapshotsPaginator,
     ListSolutionsPaginator,
@@ -70,6 +73,7 @@ __all__ = (
     "ListEngagementsPaginator",
     "ListOpportunitiesPaginator",
     "ListOpportunityFromEngagementTasksPaginator",
+    "ListProspectingFromEngagementTasksPaginator",
     "ListResourceSnapshotJobsPaginator",
     "ListResourceSnapshotsPaginator",
     "ListSolutionsPaginator",

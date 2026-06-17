@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tzlocal
-Version: 5.4
+Version: 5.4.3
 Summary: tzinfo object for the local timezone
 Author-email: Lennart Regebro <regebro@gmail.com>
 License-Expression: MIT
@@ -8,7 +8,7 @@ Project-URL: Source code, https://github.com/regebro/tzlocal
 Project-URL: Changelog, https://github.com/regebro/tzlocal/blob/master/CHANGES.txt
 Project-URL: Issue tracker, https://github.com/regebro/tzlocal/issues
 Keywords: timezone
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 6 - Mature
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS :: MacOS X

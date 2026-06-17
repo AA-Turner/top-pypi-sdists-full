@@ -272,7 +272,7 @@ def find(
         api = RunlayerClient(hostname=credentials["host"], secret=credentials["secret"])
         with console.status("Loading skills..."):
             skills = sorted(
-                api.list_all_skills(mine_only=False),
+                api.list_skills(filter="all"),
                 key=lambda skill: (skill.name.lower(), (skill.namespace or "").lower()),
             )
         selected_skills = prompt_items(

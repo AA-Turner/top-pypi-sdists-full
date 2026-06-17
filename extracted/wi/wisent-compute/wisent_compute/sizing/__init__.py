@@ -144,6 +144,8 @@ def _build_observed_map() -> dict[str, int]:
         if len(failed_blobs) >= _COMPLETED_SAMPLE_CAP:
             break
     if failed_blobs:
+        live_vrams = _live_total_vrams()
+        max_live_vram = live_vrams[-1] if live_vrams else None
         with ThreadPoolExecutor(max_workers=32) as ex:
             texts = list(ex.map(_fetch, failed_blobs))
         floors: dict[str, int] = {}
@@ -155,6 +157,8 @@ def _build_observed_map() -> dict[str, int]:
             if not model:
                 continue
             floor = _oom_required_gb(doc.get("error") or "")
+            if max_live_vram is not None and floor > max_live_vram:
+                continue
             if floor > floors.get(model, 0):
                 floors[model] = floor
         for model, floor in floors.items():
@@ -270,6 +274,9 @@ def escalate_on_oom(store, job, error_text: str) -> bool:
     cur = int(getattr(job, "gpu_mem_gb", 0) or 0)
     measured_floor = _oom_required_gb(error_text)
     if measured_floor > cur:
+        live_vrams = _live_total_vrams()
+        if live_vrams and measured_floor > live_vrams[-1]:
+            return False
         nxt = measured_floor
     else:
         if observed_vram_gb(model) is not None:

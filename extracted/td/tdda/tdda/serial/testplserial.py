@@ -14,7 +14,13 @@ from tdda.serial.metadata import FieldType
 from tdda.serial.csvw import CSVWMetadata
 from tdda.serial.polarsio import (
     csv_to_polars,
+    polars_col_to_field_metadata,
+    polars_df_to_metadata,
+    polars_dtype_to_fieldtype,
+    polars_to_csv,
+    polars_write_to_read_params,
     serial_to_polars_read_csv_args,
+    serial_to_polars_write_csv_python,
     #    polars_df_to_csv,
     #    polars_df_to_metadata,
     #    polars_dtype_to_fieldtype,
@@ -1409,6 +1415,256 @@ class TestSerialPolarsAlternateBooleans(ReferenceTestCase):
     def test_alternate_booleans_polars(self):
         df = csv_to_polars(tdpath('bools.csv'), tdpath('bools.serial'))
         self.assertDataFrameCorrect(df, tdpath('bools.parquet'))
+
+
+class TestPolarsWritePython(ReferenceTestCase):
+    """
+    Tests for serial_to_polars_write_csv_python.
+
+    Each test:
+    1. Loads metadata from a .serial file
+    2. Generates Python write code and checks it against a reference .py
+    3. Executes the generated Python and writes a CSV to a temp path
+    4. Checks the written CSV against a reference file
+    """
+
+    def _run(self, serial_path, csv_path, ref_py, ref_csv,
+             expected_warnings=None):
+        md = load_metadata(serial_path)
+        warn, buf = testwarn()
+        py = serial_to_polars_write_csv_python(md, warner=warn)
+        if expected_warnings is not None:
+            self.assertEqual(buf, expected_warnings)
+        self.assertStringCorrect(py, ref_py)
+        df = csv_to_polars(csv_path, serial_path, warner=lambda *a, **k: None)
+        ns = {}
+        exec(py, ns)
+        out = tmppath(os.path.basename(ref_csv))
+        ns['write_data'](df, out)
+        self.assertFileCorrect(out, ref_csv)
+
+    def test_write_py_weird(self):
+        self._run(
+            tdpath('tiny1nd-weird.serial'),
+            tdpath('tiny1nd-weird.ssv'),
+            tdpath('tiny1nd-weird-write-pl.py'),
+            tdpath('tiny1nd-weird-write-pl.ssv'),
+            expected_warnings=[
+                'Boolean formats cannot be expressed in'
+                ' polars.DataFrame.write_csv;'
+                ' booleans will be written as true/false.',
+                "polars.DataFrame.write_csv does not support"
+                " encoding 'latin-1'; output will be UTF-8.",
+            ],
+        )
+
+    def test_write_py_date_with_dt_fmt(self):
+        md = load_metadata(tdpath('tiny-date-dt-fmt.serial'))
+        warn, buf = testwarn()
+        py = serial_to_polars_write_csv_python(md, warner=warn)
+        self.assertEqual(buf, [])
+        self.assertStringCorrect(py, tdpath('tiny-date-dt-fmt-write-pl.py'))
+        df = pl.DataFrame({
+            'd': [datetime.date(2021, 1, 15), datetime.date(2022, 6, 30)],
+            'v': [1, 2],
+        })
+        ns = {}
+        exec(py, ns)
+        out = tmppath('tiny-date-dt-fmt-write-pl.csv')
+        ns['write_data'](df, out)
+        self.assertFileCorrect(out, tdpath('tiny-date-dt-fmt-write-pl.csv'))
+
+    def test_write_py_a1k_mixed(self):
+        serial_path = tdpath('a10-mixed.csv.serial')
+        md = load_metadata(serial_path)
+        warn, buf = testwarn()
+        py = serial_to_polars_write_csv_python(md, warner=warn)
+        self.assertEqual(buf, [
+            'Boolean formats cannot be expressed in'
+            ' polars.DataFrame.write_csv;'
+            ' booleans will be written as true/false.',
+            'Multiple date formats for date fields; using ISO 8601.',
+        ])
+        self.assertStringCorrect(py, tdpath('a10-mixed-write-pl.py'))
+        df = csv_to_polars(
+            tdpath('a10-mixed.csv'), serial_path,
+            warner=lambda *a, **k: None,
+        )
+        df = df.with_columns(pl.col('close_date').cast(pl.Date))
+        ns = {}
+        exec(py, ns)
+        out = tmppath('a10-mixed-write-pl.psv')
+        ns['write_data'](df, out)
+        self.assertFileCorrect(out, tdpath('a10-mixed-write-pl.psv'))
+
+
+class TestPolarsToMetadata(ReferenceTestCase):
+
+    def test_dtype_fieldtype_mapping(self):
+        cases = [
+            (pl.Int8, FieldType.INT),
+            (pl.Int64, FieldType.INT),
+            (pl.UInt32, FieldType.INT),
+            (pl.Float32, FieldType.FLOAT),
+            (pl.Float64, FieldType.FLOAT),
+            (pl.Boolean, FieldType.BOOL),
+            (pl.String, FieldType.STRING),
+            (pl.Utf8, FieldType.STRING),
+            (pl.Series('c', ['a'], dtype=pl.Categorical).dtype,
+             FieldType.STRING),
+            (pl.Series('e', ['a'], dtype=pl.Enum(['a', 'b'])).dtype,
+             FieldType.STRING),
+            (pl.Date, FieldType.DATE),
+            (pl.Datetime, FieldType.DATETIME),
+            (pl.Datetime('us', 'UTC'), FieldType.DATETIME_WITH_TIMEZONE),
+            (pl.Time, FieldType.TIME),
+            (pl.Duration, None),
+        ]
+        for dtype, expected in cases:
+            self.assertEqual(
+                polars_dtype_to_fieldtype(dtype), expected,
+                msg=f'dtype={dtype}',
+            )
+
+    def test_col_to_field_metadata(self):
+        import datetime as dt
+        df = pl.DataFrame({
+            'b': [True, False],
+            'i': [1, 2],
+            'f': [1.5, 2.5],
+            's': ['a', 'b'],
+            'd': pl.Series(
+                [dt.date(2024, 1, 1), dt.date(2024, 6, 1)], dtype=pl.Date
+            ),
+            't': pl.Series(
+                [dt.datetime(2024, 1, 1), dt.datetime(2024, 6, 1)],
+                dtype=pl.Datetime,
+            ),
+        })
+        expected = {
+            'b': FieldType.BOOL,
+            'i': FieldType.INT,
+            'f': FieldType.FLOAT,
+            's': FieldType.STRING,
+            'd': FieldType.DATE,
+            't': FieldType.DATETIME,
+        }
+        for col in df.columns:
+            fm = polars_col_to_field_metadata(df[col])
+            self.assertEqual(fm.name, col)
+            self.assertEqual(fm.fieldtype, expected[col])
+            self.assertIsNone(fm.format)
+
+        # date_fmt applies to date/datetime columns only
+        fm_d = polars_col_to_field_metadata(df['d'], date_fmt='%d/%m/%Y')
+        self.assertEqual(fm_d.format, '%d/%m/%Y')
+        fm_s = polars_col_to_field_metadata(df['s'], date_fmt='%d/%m/%Y')
+        self.assertIsNone(fm_s.format)
+
+    def test_write_to_read_params(self):
+        df = pl.DataFrame({
+            'n': [1, 2],
+            'd': pl.Series(
+                [datetime.date(2024, 1, 1), datetime.date(2024, 6, 1)],
+                dtype=pl.Date,
+            ),
+            's': ['a', 'b'],
+        })
+        # no write kwargs — schema_overrides still reflects date column
+        self.assertEqual(
+            polars_write_to_read_params(df),
+            {'schema_overrides': {'d': pl.Date}},
+        )
+
+        # with options
+        result = polars_write_to_read_params(
+            df, separator='|', null_value='NULL',
+        )
+        self.assertEqual(result['separator'], '|')
+        self.assertEqual(result['null_values'], 'NULL')
+        self.assertEqual(result['schema_overrides'], {'d': pl.Date})
+        self.assertNotIn('n', result.get('schema_overrides', {}))
+        self.assertNotIn('s', result.get('schema_overrides', {}))
+
+    def test_df_to_metadata(self):
+        md = polars_df_to_metadata(tiny_polars_df())
+        self.assertStringCorrect(
+            str(md),
+            tdpath('tiny1cd-pl.serial'),
+            ignore_patterns=TDDASERIAL_PATTERNS,
+        )
+
+    def test_df_to_metadata_with_date_format(self):
+        import datetime as dt
+        df = pl.DataFrame({
+            'n': [1, 2],
+            'd': pl.Series(
+                [dt.date(2024, 1, 1), dt.date(2024, 6, 1)], dtype=pl.Date
+            ),
+        })
+        md = polars_df_to_metadata(df, date_format='%d/%m/%Y')
+        self.assertStringCorrect(
+            str(md),
+            tdpath('tiny-date-eurofmt-pl.serial'),
+            ignore_patterns=TDDASERIAL_PATTERNS,
+        )
+
+
+class TestPolarsToCSV(ReferenceTestCase):
+
+    def test_write_csv_no_metadata(self):
+        out = tmppath('tiny1cd-pl.csv')
+        polars_to_csv(tiny_polars_df(), out)
+        self.assertFileCorrect(out, tdpath('tiny1cd-pl.csv'))
+
+    def test_write_csv_with_md_out(self):
+        out = tmppath('tiny1cd-pl.csv')
+        md_out = tmppath('tiny1cd-pl.serial')
+        polars_to_csv(tiny_polars_df(), out, md_outpath=md_out)
+        self.assertFileCorrect(out, tdpath('tiny1cd-pl.csv'))
+        self.assertFileCorrect(
+            md_out,
+            tdpath('tiny1cd-pl.serial'),
+            ignore_patterns=TDDASERIAL_PATTERNS,
+        )
+
+    def test_write_csv_with_md_in(self):
+        out = tmppath('tiny1cd-pl-from-serial.csv')
+        polars_to_csv(
+            tiny_polars_df(), out, md_inpath=tdpath('tiny1cd.serial')
+        )
+        self.assertFileCorrect(out, tdpath('tiny1cd-pl-from-serial.csv'))
+
+    def test_round_trip(self):
+        out = tmppath('tiny1cd-pl-rt.csv')
+        md_out = tmppath('tiny1cd-pl-rt.serial')
+        polars_to_csv(
+            tiny_polars_df(), out, md_outpath=md_out, null_value='NULL'
+        )
+        df2 = csv_to_polars(out, md_out)
+        self.assertDataFramesEqual(
+            tiny_polars_df(), df2, type_matching='medium'
+        )
+
+    def test_round_trip_via_pl_serial(self):
+        df2 = csv_to_polars(
+            tdpath('tiny1cd-pl.csv'), tdpath('tiny1cd-pl.serial'),
+            missing_utf8_is_empty_string=True,
+        )
+        self.assertDataFramesEqual(tiny_polars_df(), df2)
+
+    def test_date_eurofmt_round_trip(self):
+        import datetime as dt
+        df = pl.DataFrame({
+            'n': [1, 2],
+            'd': pl.Series(
+                [dt.date(2024, 1, 1), dt.date(2024, 6, 1)], dtype=pl.Date
+            ),
+        })
+        out = tmppath('tiny-date-eurofmt-pl.csv')
+        polars_to_csv(df, out, md_inpath=tdpath('tiny-date-eurofmt-pl.serial'))
+        df2 = csv_to_polars(out, tdpath('tiny-date-eurofmt-pl.serial'))
+        self.assertDataFramesEqual(df, df2)
 
 
 if __name__ == '__main__':

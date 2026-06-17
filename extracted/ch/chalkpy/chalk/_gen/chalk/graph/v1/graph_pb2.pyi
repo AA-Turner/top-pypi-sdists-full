@@ -828,6 +828,7 @@ class WindowAggregation(_message.Message):
         "backfill_tag_sets",
         "aggregate_on_features",
         "cache_aggregated_values",
+        "aggregate_on_expressions",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -847,6 +848,7 @@ class WindowAggregation(_message.Message):
     BACKFILL_TAG_SETS_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_FEATURES_FIELD_NUMBER: _ClassVar[int]
     CACHE_AGGREGATED_VALUES_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_ON_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -865,6 +867,7 @@ class WindowAggregation(_message.Message):
     backfill_tag_sets: _containers.RepeatedCompositeFieldContainer[BackfillTagSet]
     aggregate_on_features: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     cache_aggregated_values: bool
+    aggregate_on_expressions: _containers.RepeatedCompositeFieldContainer[_expression_pb2.LogicalExprNode]
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -885,6 +888,7 @@ class WindowAggregation(_message.Message):
         backfill_tag_sets: _Optional[_Iterable[_Union[BackfillTagSet, _Mapping]]] = ...,
         aggregate_on_features: _Optional[_Iterable[_Union[FeatureReference, _Mapping]]] = ...,
         cache_aggregated_values: bool = ...,
+        aggregate_on_expressions: _Optional[_Iterable[_Union[_expression_pb2.LogicalExprNode, _Mapping]]] = ...,
     ) -> None: ...
 
 class BackfillTagSet(_message.Message):

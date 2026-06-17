@@ -137,6 +137,25 @@ class RecursionGate:
             )
         return decision
 
+    def is_aborted(self, session_prefix: str) -> bool:
+        """Whether ``session_prefix`` has reached the abort threshold.
+
+        A pure threshold predicate, independent of mode: ``True`` once the
+        accumulated weight reaches ``abort_weight``. Mode governs whether
+        ``record_hop`` *raises* at the threshold — it does not change whether a
+        prefix is over the limit, so this reports ``True`` under ``warn`` too.
+        Lets a caller turn a downstream failure into a terminal recursion stop.
+        Best-effort: a counter read failure returns ``False`` so a transient
+        cache outage never fabricates an abort.
+        """
+        if not session_prefix:
+            return False
+        try:
+            weight = self._counter.get(recursion_counter_key(session_prefix))
+        except Exception:
+            return False
+        return bool(weight >= self._abort_weight)
+
     def _classify(self, weight: int) -> RecursionDecision:
         if weight >= self._abort_weight:
             return RecursionDecision.ABORT

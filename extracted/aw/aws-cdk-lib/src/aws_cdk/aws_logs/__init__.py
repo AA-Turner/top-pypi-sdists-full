@@ -2340,6 +2340,9 @@ class CfnDeliverySource(
             name="name",
         
             # the properties below are optional
+            delivery_source_configuration={
+                "delivery_source_configuration_key": "deliverySourceConfiguration"
+            },
             log_type="logType",
             resource_arn="resourceArn",
             tags=[CfnTag(
@@ -2355,6 +2358,7 @@ class CfnDeliverySource(
         id: builtins.str,
         *,
         name: builtins.str,
+        delivery_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         log_type: typing.Optional[builtins.str] = None,
         resource_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2364,6 +2368,7 @@ class CfnDeliverySource(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The unique name of the delivery source.
+        :param delivery_source_configuration: A map of key-value pairs to configure the delivery source. Both keys and values must be between 1 and 255 characters in length.
         :param log_type: The type of log that the source is sending. For valid values for this parameter, see the documentation for the source service.
         :param resource_arn: The ARN of the AWS resource that is generating and sending logs. For example, ``arn:aws:workmail:us-east-1:123456789012:organization/m-1234EXAMPLEabcd1234abcd1234abcd1234``
         :param tags: An array of key-value pairs to apply to the delivery source. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -2373,7 +2378,11 @@ class CfnDeliverySource(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnDeliverySourceProps(
-            name=name, log_type=log_type, resource_arn=resource_arn, tags=tags
+            name=name,
+            delivery_source_configuration=delivery_source_configuration,
+            log_type=log_type,
+            resource_arn=resource_arn,
+            tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -2506,6 +2515,26 @@ class CfnDeliverySource(
         return typing.cast(builtins.str, jsii.get(self, "attrService"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of this delivery source.
+
+        The value can be ACTIVE or INACTIVE.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatusReason")
+    def attr_status_reason(self) -> builtins.str:
+        '''The reason for the status of this delivery source, such as RESOURCE_DELETED.
+
+        :cloudformationAttribute: StatusReason
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatusReason"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
     def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
@@ -2539,6 +2568,24 @@ class CfnDeliverySource(
             type_hints = typing.get_type_hints(_typecheckingstub__46ee2cc4bb6930c90c749220d8d5170a97f90cc490afa3d4564c90e7f6d9a79a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deliverySourceConfiguration")
+    def delivery_source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A map of key-value pairs to configure the delivery source.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], jsii.get(self, "deliverySourceConfiguration"))
+
+    @delivery_source_configuration.setter
+    def delivery_source_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__649e7f4f1c3515886d91edaa675b7fe8382963e578e5c421afa94a8e4340be87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deliverySourceConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="logType")
@@ -2585,6 +2632,7 @@ class CfnDeliverySource(
     jsii_struct_bases=[],
     name_mapping={
         "name": "name",
+        "delivery_source_configuration": "deliverySourceConfiguration",
         "log_type": "logType",
         "resource_arn": "resourceArn",
         "tags": "tags",
@@ -2595,6 +2643,7 @@ class CfnDeliverySourceProps:
         self,
         *,
         name: builtins.str,
+        delivery_source_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]] = None,
         log_type: typing.Optional[builtins.str] = None,
         resource_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2602,6 +2651,7 @@ class CfnDeliverySourceProps:
         '''Properties for defining a ``CfnDeliverySource``.
 
         :param name: The unique name of the delivery source.
+        :param delivery_source_configuration: A map of key-value pairs to configure the delivery source. Both keys and values must be between 1 and 255 characters in length.
         :param log_type: The type of log that the source is sending. For valid values for this parameter, see the documentation for the source service.
         :param resource_arn: The ARN of the AWS resource that is generating and sending logs. For example, ``arn:aws:workmail:us-east-1:123456789012:organization/m-1234EXAMPLEabcd1234abcd1234abcd1234``
         :param tags: An array of key-value pairs to apply to the delivery source. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
@@ -2620,6 +2670,9 @@ class CfnDeliverySourceProps:
                 name="name",
             
                 # the properties below are optional
+                delivery_source_configuration={
+                    "delivery_source_configuration_key": "deliverySourceConfiguration"
+                },
                 log_type="logType",
                 resource_arn="resourceArn",
                 tags=[CfnTag(
@@ -2631,12 +2684,15 @@ class CfnDeliverySourceProps:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0bd979785c6ee68de5cc10f2dec7ca694c3327ec47aa59e93668d849404cd7df)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument delivery_source_configuration", value=delivery_source_configuration, expected_type=type_hints["delivery_source_configuration"])
             check_type(argname="argument log_type", value=log_type, expected_type=type_hints["log_type"])
             check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
         }
+        if delivery_source_configuration is not None:
+            self._values["delivery_source_configuration"] = delivery_source_configuration
         if log_type is not None:
             self._values["log_type"] = log_type
         if resource_arn is not None:
@@ -2653,6 +2709,19 @@ class CfnDeliverySourceProps:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def delivery_source_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]]:
+        '''A map of key-value pairs to configure the delivery source.
+
+        Both keys and values must be between 1 and 255 characters in length.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-deliverysource.html#cfn-logs-deliverysource-deliverysourceconfiguration
+        '''
+        result = self._values.get("delivery_source_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
     def log_type(self) -> typing.Optional[builtins.str]:
@@ -20411,6 +20480,7 @@ def _typecheckingstub__5ab0297a02d5ec18fef514a89fa2743d7fb62f4e7b1fd892c1bd7ee90
     id: builtins.str,
     *,
     name: builtins.str,
+    delivery_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     log_type: typing.Optional[builtins.str] = None,
     resource_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -20464,6 +20534,12 @@ def _typecheckingstub__46ee2cc4bb6930c90c749220d8d5170a97f90cc490afa3d4564c90e7f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__649e7f4f1c3515886d91edaa675b7fe8382963e578e5c421afa94a8e4340be87(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7fafd9abe15a418ef0eafe4df0701cb0c5bd2181041f5fd30e006939ddedc10d(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -20485,6 +20561,7 @@ def _typecheckingstub__c56ccd3093218052492eee7c66b0cf9e8156a37606a1c8a35551c9774
 def _typecheckingstub__0bd979785c6ee68de5cc10f2dec7ca694c3327ec47aa59e93668d849404cd7df(
     *,
     name: builtins.str,
+    delivery_source_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, builtins.str]]] = None,
     log_type: typing.Optional[builtins.str] = None,
     resource_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,

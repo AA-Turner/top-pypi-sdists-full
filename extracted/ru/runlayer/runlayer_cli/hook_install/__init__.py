@@ -3,15 +3,19 @@
 from runlayer_cli.hook_install.check import (
     ClientStatus,
     InstalledClient,
+    check_absent_all,
+    check_absent_client,
     check_all,
     check_client,
 )
 from runlayer_cli.hook_install.clients import (
     Client,
     InstallResult,
+    UninstallResult,
     client_config_dir,
     install_client,
     iter_supported_clients,
+    uninstall_client,
 )
 from runlayer_cli.hook_install.console_user import (
     find_console_user_home,
@@ -29,6 +33,9 @@ __all__ = [
     "InstallResult",
     "InstallScope",
     "InstalledClient",
+    "UninstallResult",
+    "check_absent_all",
+    "check_absent_client",
     "check_all",
     "check_client",
     "client_config_dir",
@@ -38,4 +45,5 @@ __all__ = [
     "install_client",
     "iter_supported_clients",
     "resolve_hook_command",
+    "uninstall_client",
 ]

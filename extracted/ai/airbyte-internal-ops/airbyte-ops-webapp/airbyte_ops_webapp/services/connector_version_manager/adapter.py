@@ -5,33 +5,48 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import asdict
+from datetime import datetime
 
 from airbyte import constants
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.cloud_admin import api_client
+from airbyte_ops_mcp.cloud_admin.payment_config import (
+    PaymentConfigAPIError,
+    get_organization_info,
+)
 from airbyte_ops_mcp.cloud_admin.registry_lookup import (
     _fetch_cloud_registry,
     resolve_canonical_name_to_definition_id,
-    resolve_definition_id_to_canonical_info,
+    resolve_definition_id_to_registry_info,
 )
 from airbyte_ops_mcp.cloud_admin.version_overrides import (
     ResolvedCloudAuth,
     VersionOverrideTarget,
     set_version_override,
 )
-from airbyte_ops_mcp.prod_db_access.queries import query_connector_versions
+from airbyte_ops_mcp.prod_db_access.queries import (
+    query_actors_pinned_to_version,
+    query_connector_rollouts,
+    query_connector_rollouts_for_connector,
+    query_connector_versions,
+    query_new_connector_releases,
+)
 from airbyte_ops_mcp.tier_cache import resolve_workspace
 
 from airbyte_ops_webapp.models import (
     ConnectorOption,
+    ConnectorRelease,
+    ConnectorRollout,
     ConnectorType,
     ConnectorVersion,
+    ContextResolution,
     CurrentVersionState,
     OperationPreview,
     OperationResult,
     OverridePlan,
     ScopedConfiguration,
     ScopeType,
+    VersionPinRow,
     build_version_override_payload,
     version_override_tool_name,
 )
@@ -58,6 +73,29 @@ SAFE_PREVIEW_WARNINGS: tuple[str, ...] = (
     "Preview only: no connector version override has been executed.",
     "TIER_0 and TIER_1 customers require human escalation before action.",
 )
+CONTEXT_RESOLUTION_MISS_STATUS_CODES: frozenset[int] = frozenset({400, 404, 422})
+
+CLOUD_UI_BASE_URL = "https://cloud.airbyte.com"
+
+
+def _fmt_date(value: str) -> str:
+    """Format an ISO datetime string to `yyyy-mm-dd (ddd)`."""
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return value
+    return parsed.strftime("%Y-%m-%d (%a)")
+
+
+def _cloud_scope_url(scope_type: str, scope_id: str) -> str:
+    """Build an Airbyte Cloud URL for viewing the target scope."""
+    if scope_type == "workspace":
+        return f"{CLOUD_UI_BASE_URL}/workspaces/{scope_id}"
+    if scope_type == "organization":
+        return f"{CLOUD_UI_BASE_URL}/organizations/{scope_id}/settings"
+    return f"{CLOUD_UI_BASE_URL}/workspaces"
 
 
 class OpsMcpAdapter:
@@ -166,6 +204,77 @@ class OpsMcpAdapter:
             for row in query_connector_versions(connector_definition_id=connector_id)
         )
 
+    def list_recent_releases(
+        self,
+        *,
+        days: int = 30,
+        limit: int | None = None,
+    ) -> tuple[ConnectorRelease, ...]:
+        """List recent published releases across connectors."""
+        release_rows = query_new_connector_releases(days=days, limit=limit)
+        return tuple(self._release_from_row(row) for row in release_rows)
+
+    def list_active_rollouts(
+        self,
+        connector_id: str,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active progressive rollouts for a connector definition."""
+        rollout_rows = query_connector_rollouts_for_connector(
+            actor_definition_id=connector_id,
+            active_only=True,
+        )
+        return tuple(self._rollout_from_row(row) for row in rollout_rows)
+
+    def list_progressive_rollouts(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active progressive rollouts across connector definitions."""
+        rollout_rows = query_connector_rollouts(active_only=True, limit=limit)
+        return tuple(self._rollout_from_row(row) for row in rollout_rows)
+
+    def list_version_pins(
+        self,
+        version_id: str,
+        *,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> tuple[list[VersionPinRow], int]:
+        """Return pins for a specific connector version from prod DB.
+
+        Returns a tuple of (pin_rows, total_count).
+        """
+        raw_rows = query_actors_pinned_to_version(version_id)
+        total = len(raw_rows)
+        page = raw_rows[offset : offset + limit]
+        pins = [self._pin_row_from_db(row) for row in page]
+        return pins, total
+
+    @staticmethod
+    def _pin_row_from_db(row: dict[str, object]) -> VersionPinRow:
+        """Map a prod DB pin row to a `VersionPinRow`."""
+        scope_type = str(row.get("pin_scope_type", "actor"))
+        if scope_type == "actor":
+            scope_id = str(row.get("actor_id", ""))
+        elif scope_type == "organization":
+            scope_id = str(row.get("organization_id", ""))
+        else:
+            scope_id = str(row.get("workspace_id", ""))
+        return VersionPinRow(
+            scope_type=scope_type,
+            scope_id=scope_id,
+            scope_url=_cloud_scope_url(scope_type, scope_id),
+            origin_type=str(row.get("origin_type", "")),
+            origin_name=str(row.get("origin", "")),
+            description=str(row.get("description", "")),
+            created_at=str(row.get("created_at", "")),
+            created_at_display=_fmt_date(str(row.get("created_at", ""))),
+            expires_at=str(row.get("expires_at", "") or ""),
+            expires_at_display=_fmt_date(str(row.get("expires_at", "") or "")),
+            reference_url="",
+        )
+
     def get_current_context(
         self,
         *,
@@ -176,10 +285,7 @@ class OpsMcpAdapter:
     ) -> CurrentVersionState:
         """Return current version context for a selected scope."""
         connector = self.get_connector(connector_id)
-        versions = self.list_versions(connector_id)
-        latest_version = (
-            versions[0].docker_image_tag if versions else connector.latest_version
-        )
+        latest_version = connector.latest_version
         if scope_type in ("workspace", "organization"):
             scoped_configs = self._scope_context(connector, scope_type, scope_id)
             active_config = self._active_config(scoped_configs, scope_type, scope_id)
@@ -441,6 +547,31 @@ class OpsMcpAdapter:
             return ""
         return resolve_workspace(scope_id).organization_id or ""
 
+    def resolve_context_guid(
+        self,
+        *,
+        connector: ConnectorOption,
+        context_guid: str,
+    ) -> ContextResolution:
+        """Resolve a context GUID into organization, workspace, or actor scope."""
+        normalized = context_guid.strip()
+        if not normalized:
+            raise PyAirbyteInputError(message="Context GUID is required.")
+
+        actor_resolution = self._resolve_actor_context(connector, normalized)
+        if actor_resolution:
+            return actor_resolution
+
+        workspace_resolution = self._resolve_workspace_context(normalized)
+        if workspace_resolution:
+            return workspace_resolution
+
+        organization_resolution = self._resolve_organization_context(normalized)
+        if organization_resolution:
+            return organization_resolution
+
+        raise PyAirbyteInputError(message="Context GUID could not be resolved.")
+
     @staticmethod
     def _version_from_row(row: Mapping[str, object]) -> ConnectorVersion:
         return ConnectorVersion(
@@ -452,6 +583,69 @@ class OpsMcpAdapter:
             cdk_version=OpsMcpAdapter._string_field(row, "cdk_version"),
             language=OpsMcpAdapter._string_field(row, "language"),
             last_published=OpsMcpAdapter._string_field(row, "last_published"),
+        )
+
+    @staticmethod
+    def _connector_name_from_repository(docker_repository: str) -> str:
+        return docker_repository.rsplit("/", maxsplit=1)[-1]
+
+    @staticmethod
+    def _connector_type_from_repository(docker_repository: str) -> ConnectorType:
+        connector_name = OpsMcpAdapter._connector_name_from_repository(
+            docker_repository,
+        )
+        return "destination" if connector_name.startswith("destination-") else "source"
+
+    @staticmethod
+    def _release_from_row(row: Mapping[str, object]) -> ConnectorRelease:
+        docker_repository = OpsMcpAdapter._string_field(row, "docker_repository")
+        return ConnectorRelease(
+            version_id=OpsMcpAdapter._string_field(row, "version_id"),
+            connector_id=OpsMcpAdapter._string_field(row, "actor_definition_id"),
+            connector_name=OpsMcpAdapter._connector_name_from_repository(
+                docker_repository,
+            ),
+            connector_type=OpsMcpAdapter._connector_type_from_repository(
+                docker_repository,
+            ),
+            docker_image_tag=OpsMcpAdapter._string_field(row, "docker_image_tag"),
+            docker_repository=docker_repository,
+            release_stage=OpsMcpAdapter._string_field(row, "release_stage"),
+            last_published=OpsMcpAdapter._string_field(row, "last_published"),
+        )
+
+    @staticmethod
+    def _rollout_from_row(row: Mapping[str, object]) -> ConnectorRollout:
+        docker_repository = OpsMcpAdapter._string_field(row, "rc_docker_repository")
+        return ConnectorRollout(
+            rollout_id=OpsMcpAdapter._string_field(row, "rollout_id"),
+            connector_id=OpsMcpAdapter._string_field(row, "actor_definition_id"),
+            connector_name=OpsMcpAdapter._connector_name_from_repository(
+                docker_repository,
+            ),
+            connector_type=OpsMcpAdapter._connector_type_from_repository(
+                docker_repository,
+            ),
+            docker_repository=docker_repository,
+            state=OpsMcpAdapter._string_field(row, "state"),
+            rc_docker_image_tag=OpsMcpAdapter._string_field(
+                row,
+                "rc_docker_image_tag",
+            ),
+            initial_docker_image_tag=OpsMcpAdapter._string_field(
+                row,
+                "initial_docker_image_tag",
+            ),
+            current_target_rollout_pct=OpsMcpAdapter._string_field(
+                row,
+                "current_target_rollout_pct",
+            ),
+            final_target_rollout_pct=OpsMcpAdapter._string_field(
+                row,
+                "final_target_rollout_pct",
+            ),
+            created_at=OpsMcpAdapter._string_field(row, "created_at"),
+            updated_at=OpsMcpAdapter._string_field(row, "updated_at"),
         )
 
     @staticmethod
@@ -537,22 +731,132 @@ class OpsMcpAdapter:
             docker_repository=docker_repository,
         )
 
+    def _resolve_actor_context(
+        self,
+        connector: ConnectorOption,
+        context_guid: str,
+    ) -> ContextResolution | None:
+        access_token = api_client._get_access_token(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            bearer_token=self.bearer_token,
+            config_api_root=self.config_api_root,
+        )
+        response = api_client.requests.post(
+            f"{self.config_api_root}/{connector.connector_type}s/get",
+            json={f"{connector.connector_type}Id": context_guid},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": api_client.ops_constants.USER_AGENT,
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        if response.status_code in CONTEXT_RESOLUTION_MISS_STATUS_CODES:
+            return None
+        if response.status_code != 200:
+            raise PyAirbyteInputError(
+                message=f"Failed to resolve actor context: {response.status_code} {response.text}",
+            )
+        actor_info = response.json()
+        definition_id = self._string_field(
+            actor_info,
+            f"{connector.connector_type}DefinitionId",
+        )
+        if definition_id and definition_id != connector.id:
+            return None
+        workspace_id = self._string_field(actor_info, "workspaceId")
+        workspace_resolution = self._resolve_workspace_context(workspace_id)
+        if not workspace_resolution:
+            raise PyAirbyteInputError(message="Actor workspace could not be resolved.")
+        return ContextResolution(
+            scope_type="actor",
+            scope_id=context_guid,
+            organization_id=workspace_resolution.organization_id,
+            workspace_id=workspace_id,
+            actor_id=context_guid,
+        )
+
+    def _resolve_workspace_context(
+        self,
+        context_guid: str,
+    ) -> ContextResolution | None:
+        if not context_guid:
+            return None
+        access_token = api_client._get_access_token(
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            bearer_token=self.bearer_token,
+            config_api_root=self.config_api_root,
+        )
+        response = api_client.requests.post(
+            f"{self.config_api_root}/workspaces/get",
+            json={"workspaceId": context_guid},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": api_client.ops_constants.USER_AGENT,
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        if response.status_code in CONTEXT_RESOLUTION_MISS_STATUS_CODES:
+            return None
+        if response.status_code != 200:
+            raise PyAirbyteInputError(
+                message=f"Failed to resolve workspace context: {response.status_code} {response.text}",
+            )
+        organization_id = self._string_field(response.json(), "organizationId")
+        if not organization_id:
+            raise PyAirbyteInputError(
+                message="Workspace organization could not be resolved."
+            )
+        return ContextResolution(
+            scope_type="workspace",
+            scope_id=context_guid,
+            organization_id=organization_id,
+            workspace_id=context_guid,
+        )
+
+    def _resolve_organization_context(
+        self,
+        context_guid: str,
+    ) -> ContextResolution | None:
+        try:
+            organization = get_organization_info(
+                organization_id=context_guid,
+                config_api_root=self.config_api_root,
+                client_id=self.client_id,
+                client_secret=self.client_secret,
+                bearer_token=self.bearer_token,
+            )
+        except PaymentConfigAPIError as error:
+            raise PyAirbyteInputError(
+                message=f"Failed to resolve organization context: {error}",
+            ) from error
+        if not organization:
+            return None
+        return ContextResolution(
+            scope_type="organization",
+            scope_id=context_guid,
+            organization_id=context_guid,
+        )
+
     def _connector_from_definition_id(
         self,
         actor_definition_id: str,
     ) -> ConnectorOption | None:
         try:
-            connector_name, connector_type = resolve_definition_id_to_canonical_info(
-                actor_definition_id
-            )
+            (
+                connector_name,
+                connector_type,
+                latest_version,
+                docker_repository,
+            ) = resolve_definition_id_to_registry_info(actor_definition_id)
         except PyAirbyteInputError:
             return None
         typed_connector_type: ConnectorType = (
             "destination" if connector_type == "destination" else "source"
         )
-        versions = self.list_versions(actor_definition_id)
-        latest_version = versions[0].docker_image_tag if versions else ""
-        docker_repository = versions[0].docker_repository if versions else ""
         return ConnectorOption(
             id=actor_definition_id,
             name=connector_name,

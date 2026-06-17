@@ -34,31 +34,26 @@ class CreateBranchRequest(object):
     """
     swagger_types = {
         'branch_settings': 'BranchSettingsForCreateBranchInput',
-        'compute_settings': 'list[ComputeSettingForCreateBranchInput]',
         'workspace_id': 'str'
     }
 
     attribute_map = {
         'branch_settings': 'BranchSettings',
-        'compute_settings': 'ComputeSettings',
         'workspace_id': 'WorkspaceId'
     }
 
-    def __init__(self, branch_settings=None, compute_settings=None, workspace_id=None, _configuration=None):  # noqa: E501
+    def __init__(self, branch_settings=None, workspace_id=None, _configuration=None):  # noqa: E501
         """CreateBranchRequest - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
         self._configuration = _configuration
 
         self._branch_settings = None
-        self._compute_settings = None
         self._workspace_id = None
         self.discriminator = None
 
         if branch_settings is not None:
             self.branch_settings = branch_settings
-        if compute_settings is not None:
-            self.compute_settings = compute_settings
         self.workspace_id = workspace_id
 
     @property
@@ -81,27 +76,6 @@ class CreateBranchRequest(object):
         """
 
         self._branch_settings = branch_settings
-
-    @property
-    def compute_settings(self):
-        """Gets the compute_settings of this CreateBranchRequest.  # noqa: E501
-
-
-        :return: The compute_settings of this CreateBranchRequest.  # noqa: E501
-        :rtype: list[ComputeSettingForCreateBranchInput]
-        """
-        return self._compute_settings
-
-    @compute_settings.setter
-    def compute_settings(self, compute_settings):
-        """Sets the compute_settings of this CreateBranchRequest.
-
-
-        :param compute_settings: The compute_settings of this CreateBranchRequest.  # noqa: E501
-        :type: list[ComputeSettingForCreateBranchInput]
-        """
-
-        self._compute_settings = compute_settings
 
     @property
     def workspace_id(self):

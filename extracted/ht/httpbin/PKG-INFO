@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: httpbin
-Version: 0.10.2
+Version: 0.10.4
 Summary: HTTP Request and Response Service
 Author-email: Kenneth Reitz <me@kennethreitz.org>
 License: MIT or ISC
@@ -12,13 +12,14 @@ Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: ISC License (ISCL)
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.ISC
@@ -26,7 +27,6 @@ License-File: LICENSE.MIT
 License-File: AUTHORS
 Requires-Dist: brotlicffi
 Requires-Dist: decorator
-Requires-Dist: flasgger
 Requires-Dist: flask>=2.2.4
 Requires-Dist: greenlet<3.0; python_version < "3.12"
 Requires-Dist: greenlet>=3.0.0a1; python_version >= "3.12.0rc0"
@@ -37,8 +37,10 @@ Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: tox; extra == "test"
 Provides-Extra: mainapp
+Requires-Dist: flasgger; extra == "mainapp"
 Requires-Dist: gunicorn; extra == "mainapp"
 Requires-Dist: gevent; extra == "mainapp"
+Dynamic: license-file
 
 # httpbin(1): HTTP Request & Response Service
 
@@ -117,6 +119,15 @@ Releases are triggered on commits tagged with `release-` (for example
 
 
 ## Changelog
+* 0.10.4:
+  - Made flasgger an optional dependency (falls back to a static landing page when absent), thanks @AdamWill and @mgorny
+  - Fixed invalid escape sequence SyntaxWarnings on Python 3.12+, thanks @hseg
+  - Included tox.ini and the tests in the source distribution, thanks @Mirochill
+  - Added Python 3.13 and 3.14 to the test matrix and classifiers
+* 0.10.3:
+  - Fixed the /bytes endpoint to return bytes (not bytearray) for WSGI compliance with newer Werkzeug, thanks @swt2c
+  - Dropped support for Python 3.7
+  - Build and publish arm64 Docker images
 * 0.10.2:
   - Added support for Flask 3.0
 * 0.10.1:

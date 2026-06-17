@@ -21,7 +21,10 @@ from fastmcp import FastMCP
 from fastmcp_extensions import mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
-from airbyte_ops_mcp.human_in_the_loop import dispatch_escalation
+from airbyte_ops_mcp.human_in_the_loop import (
+    HITL_SLACK_CHANNEL_URL,
+    dispatch_escalation,
+)
 
 
 class RequestType(StrEnum):
@@ -51,6 +54,10 @@ class EscalateToHumanResponse(BaseModel):
 
     success: bool = Field(description="Whether the workflow was triggered successfully")
     message: str = Field(description="Human-readable status message")
+    slack_channel_url: str = Field(
+        default=HITL_SLACK_CHANNEL_URL,
+        description="Direct URL to the #human-in-the-loop Slack channel",
+    )
     workflow_url: str | None = Field(
         default=None,
         description="URL to view the GitHub Actions workflow file",
@@ -188,7 +195,8 @@ def escalate_to_human(
     return EscalateToHumanResponse(
         success=True,
         message=(
-            f"Escalation sent to '{target_person}' via #human-in-the-loop. "
+            f"Escalation sent to '{target_person}' via #human-in-the-loop "
+            f"({HITL_SLACK_CHANNEL_URL}). "
             f"View progress at: {view_url}"
         ),
         workflow_url=result.workflow_url,

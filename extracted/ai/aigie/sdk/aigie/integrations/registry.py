@@ -14,8 +14,8 @@ Usage:
     aigie.patch("langchain", "langgraph", "openai")
 
     # Check if an integration is available
-    if aigie.is_integration_available("strands"):
-        aigie.patch("strands")
+    if aigie.is_integration_available("langgraph"):
+        aigie.patch("langgraph")
 
     # List all available integrations
     print(aigie.list_integrations())
@@ -72,58 +72,7 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         patch_function="aigie.integrations.langgraph.lifecycle.install_langgraph_patches",
         handler_class="aigie.integrations.langgraph.native_callback.LangGraphNativeCallback",
     ),
-    # Browser Automation
-    "browser_use": IntegrationInfo(
-        name="browser_use",
-        display_name="Browser-Use",
-        description="Trace browser automation workflows",
-        package_name="browser-use",
-        patch_function="aigie.integrations.browser_use.auto_instrument.patch_browser_use",
-        handler_class="aigie.integrations.browser_use.handler.BrowserUseHandler",
-    ),
-    # Multi-Agent Frameworks
-    "crewai": IntegrationInfo(
-        name="crewai",
-        display_name="CrewAI",
-        description="Trace CrewAI multi-agent orchestration",
-        package_name="crewai",
-        patch_function="aigie.integrations.crewai.auto_instrument.patch_crewai",
-        handler_class="aigie.integrations.crewai.handler.CrewAIHandler",
-    ),
-    "autogen": IntegrationInfo(
-        name="autogen",
-        display_name="AutoGen/AG2",
-        description="Trace AutoGen multi-agent conversations",
-        package_name="pyautogen",
-        patch_function="aigie.integrations.autogen.auto_instrument.patch_autogen",
-        handler_class="aigie.integrations.autogen.handler.AutoGenHandler",
-    ),
-    # RAG & LLM Frameworks
-    "llamaindex": IntegrationInfo(
-        name="llamaindex",
-        display_name="LlamaIndex",
-        description="Trace LlamaIndex RAG workflows",
-        package_name="llama-index",
-        patch_function="aigie.integrations.llamaindex.auto_instrument.patch_llamaindex",
-        handler_class="aigie.integrations.llamaindex.handler.LlamaIndexHandler",
-    ),
-    "dspy": IntegrationInfo(
-        name="dspy",
-        display_name="DSPy",
-        description="Trace DSPy modules and predictions",
-        package_name="dspy-ai",
-        patch_function="aigie.integrations.dspy.auto_instrument.patch_dspy",
-        handler_class="aigie.integrations.dspy.handler.DSPyHandler",
-    ),
     # Agent SDKs
-    "openai_agents": IntegrationInfo(
-        name="openai_agents",
-        display_name="OpenAI Agents SDK",
-        description="Trace OpenAI Agents SDK workflows",
-        package_name="openai-agents",
-        patch_function="aigie.integrations.openai_agents.auto_instrument.patch_openai_agents",
-        handler_class="aigie.integrations.openai_agents.handler.OpenAIAgentsHandler",
-    ),
     "claude_agent_sdk": IntegrationInfo(
         name="claude_agent_sdk",
         display_name="Claude Agent SDK",
@@ -131,57 +80,6 @@ _INTEGRATION_REGISTRY: dict[str, IntegrationInfo] = {
         package_name="claude-agent-sdk",
         patch_function="aigie.integrations.claude_agent_sdk.lifecycle.install_claude_agent_sdk_patches",
         handler_class="aigie.integrations.claude_agent_sdk.native_callback.ClaudeAgentSDKNativeCallback",
-    ),
-    "strands": IntegrationInfo(
-        name="strands",
-        display_name="Strands Agents",
-        description="Trace AWS Strands agent workflows",
-        package_name="strands-agents",
-        patch_function="aigie.integrations.strands.auto_instrument.patch_strands",
-        handler_class="aigie.integrations.strands.handler.StrandsHandler",
-    ),
-    "agno": IntegrationInfo(
-        name="agno",
-        display_name="Agno",
-        description="Trace Agno agent and team workflows",
-        package_name="agno",
-        patch_function="aigie.integrations.agno.auto_instrument.patch_agno",
-        handler_class="aigie.integrations.agno.handler.AgnoHandler",
-    ),
-    "google_adk": IntegrationInfo(
-        name="google_adk",
-        display_name="Google ADK",
-        description="Trace Google Agent Development Kit workflows",
-        package_name="google-adk",
-        patch_function="aigie.integrations.google_adk.auto_instrument.patch_google_adk",
-        handler_class="aigie.integrations.google_adk.handler.GoogleADKHandler",
-    ),
-    # Real-time Voice
-    "pipecat": IntegrationInfo(
-        name="pipecat",
-        display_name="Pipecat",
-        description="Real-time voice and multimodal AI pipelines",
-        package_name="pipecat-ai",
-        patch_function="aigie.integrations.pipecat.auto_instrument.patch_pipecat",
-        handler_class="aigie.integrations.pipecat.handler.AigieObserver",
-    ),
-    # Structured Output
-    "instructor": IntegrationInfo(
-        name="instructor",
-        display_name="Instructor",
-        description="Trace Instructor structured output calls",
-        package_name="instructor",
-        patch_function="aigie.integrations.instructor.auto_instrument.patch_instructor",
-        handler_class="aigie.integrations.instructor.handler.InstructorHandler",
-    ),
-    # Microsoft
-    "semantic_kernel": IntegrationInfo(
-        name="semantic_kernel",
-        display_name="Semantic Kernel",
-        description="Trace Microsoft Semantic Kernel workflows",
-        package_name="semantic-kernel",
-        patch_function="aigie.integrations.semantic_kernel.auto_instrument.patch_semantic_kernel",
-        handler_class="aigie.integrations.semantic_kernel.handler.SemanticKernelHandler",
     ),
     # LLM Providers (direct patching)
     "openai": IntegrationInfo(
@@ -282,9 +180,9 @@ def patch(  # noqa: PLR0915 — orchestration dispatcher over the integration re
         aigie.patch("langchain", "langgraph", "openai")
 
         # Get results
-        results = aigie.patch("langchain", "strands")
-        if not results["strands"]:
-            print("Strands not installed")
+        results = aigie.patch("langchain", "langgraph")
+        if not results["langgraph"]:
+            print("LangGraph not installed")
     """
     results = {}
 

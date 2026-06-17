@@ -22,6 +22,9 @@ from importlib.metadata import PackageNotFoundError, version as _local_version
 
 _PACKAGES = ("wisent-compute", "wisent", "wisent-tools")
 _CACHE: dict[str, tuple[float, str]] = {}
+_IMPORT_CACHE: tuple[float, bool, str] | None = None
+_IMPORT_OK_TTL_SECONDS = 300
+_IMPORT_BAD_TTL_SECONDS = 30
 # Lower than the previous 300s so a freshly-published wheel reaches
 # running agents within a single agent-loop iteration's network round
 # trip rather than after a 5-minute cache miss. PyPI's CDN handles
@@ -86,14 +89,28 @@ def wisent_import_ok() -> tuple[bool, str]:
     did with ImageAdapter) triggers a self-repair upgrade rather than
     claiming jobs that will fail their first `python -m wisent...` line.
     """
+    global _IMPORT_CACHE
+    now = time.time()
+    if _IMPORT_CACHE is not None:
+        ts, ok, err = _IMPORT_CACHE
+        ttl = _IMPORT_OK_TTL_SECONDS if ok else _IMPORT_BAD_TTL_SECONDS
+        if now - ts < ttl:
+            return ok, err
     import subprocess, sys
-    res = subprocess.run(
-        [sys.executable, "-c", "import wisent; import wisent_compute"],
-        capture_output=True, text=True,
-    )
+    try:
+        res = subprocess.run(
+            [sys.executable, "-c", "import wisent; import wisent_compute"],
+            capture_output=True, text=True, timeout=20,
+        )
+    except subprocess.TimeoutExpired:
+        _IMPORT_CACHE = (now, False, "import smoke test timed out")
+        return False, _IMPORT_CACHE[2]
     if res.returncode == 0:
+        _IMPORT_CACHE = (now, True, "")
         return True, ""
-    return False, (res.stderr or res.stdout or "(no output)").strip()[:400]
+    err = (res.stderr or res.stdout or "(no output)").strip()[:400]
+    _IMPORT_CACHE = (now, False, err)
+    return False, err
 
 
 def maybe_drain_or_upgrade(slots: list, log_fn, kind: str = "local") -> bool:

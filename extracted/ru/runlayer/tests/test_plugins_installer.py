@@ -271,7 +271,13 @@ class _FakeClientSinglePlugin:
     def __init__(self) -> None:
         self.installation_events: list[InstallationAnalyticsEvent] = []
 
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [_plugin()]
 
     def get_plugin(self, plugin_id: str) -> PluginDetail:
@@ -320,7 +326,13 @@ class _FakeClientTrackingFails(_FakeClientSinglePlugin):
 
 
 class _FakeClientWithSkills(_FakeClientSinglePlugin):
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [
             _plugin(
                 skills=[
@@ -331,7 +343,13 @@ class _FakeClientWithSkills(_FakeClientSinglePlugin):
 
 
 class _FakeClientCodexNamesWithSpaces(_FakeClientSinglePlugin):
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [
             _plugin(
                 name="My Plugin Name",
@@ -374,7 +392,13 @@ class _FakeClientCodexNamesWithSpaces(_FakeClientSinglePlugin):
 
 
 class _FakeClientWithApiInstallName(_FakeClientSinglePlugin):
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [
             _plugin(
                 name="Display Plugin Name",
@@ -423,8 +447,14 @@ class _FakeClientWithApiInstallName(_FakeClientSinglePlugin):
 
 
 class _FakeClientAllAccessible:
-    def list_all_plugins(self, *, mine_only: bool):
-        assert mine_only is False
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
+        assert filter == "all"
         return [
             _plugin(id="p1", name="plugin-one", namespace="org/a"),
             _plugin(id="p2", name="plugin-two", namespace="org/b"),
@@ -448,7 +478,13 @@ class _FakeClientAllAccessible:
 
 
 class _FakeClientDuplicateNames:
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [
             _plugin(id="p1", name="dup-plugin", namespace="org/a"),
             _plugin(id="p2", name="dup-plugin", namespace="org/a"),
@@ -456,7 +492,13 @@ class _FakeClientDuplicateNames:
 
 
 class _FakeClientCodexSlugCollision(_FakeClientSinglePlugin):
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [
             _plugin(id="p1", name="My Plugin", namespace="org/a"),
             _plugin(id="p2", name="my_plugin", namespace="org/a"),
@@ -464,12 +506,24 @@ class _FakeClientCodexSlugCollision(_FakeClientSinglePlugin):
 
 
 class _FakeClientCodexSlugCollisionWithInstalled(_FakeClientSinglePlugin):
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [_plugin(id="p2", name="my_plugin", namespace="org/repo")]
 
 
 class _FakeClientApiInstallNameCollisionWithInstalled(_FakeClientSinglePlugin):
-    def list_plugins_by_namespace(self, namespace: str):
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: str = "created_by_me",
+        query: str | None = None,
+    ):
         return [
             _plugin(
                 id="p2",

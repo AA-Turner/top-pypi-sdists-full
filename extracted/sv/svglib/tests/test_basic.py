@@ -128,7 +128,7 @@ class TestPaths:
                 [
                     "M",
                     [10, 20],
-                    "L",
+                    "M",
                     [30, 40],
                     "L",
                     [40, 40],
@@ -144,7 +144,7 @@ class TestPaths:
             ),
             (
                 "  m 10 20, m 30 40, l 40 40, z",
-                ["m", [10, 20], "l", [30, 40], "l", [40, 40], "z", []],
+                ["m", [10, 20], "m", [30, 40], "l", [40, 40], "z", []],
             ),
             (
                 "  m 10,20 30,40, l 40 40, z ",
@@ -389,21 +389,55 @@ class TestLengthAttrConverter:
             ("-3.16", -3.16),
             ("-1e-2", -0.01),
             ("1e-5", 1e-5),
-            ("1e1cm", 10 * cm),
-            ("1e1in", 10 * inch),
-            ("-8e-2cm", (-8e-2) * cm),
-            ("20px", 20 * 0.75),
-            ("20pt", 20),
-            ("1.5em", 12 * 1.5),
-            ("10.5mm", 10.5 * (cm * 0.1)),
+            ("1e1cm", 10 * cm / 0.75),
+            ("1e1in", 10 * inch / 0.75),
+            ("-8e-2cm", (-8e-2) * cm / 0.75),
+            ("20px", 20),
+            ("20pt", 20 * (96 / 72)),
+            ("1.5em", 16 * 1.5),
+            ("10.5mm", 10.5 * (cm * 0.1) / 0.75),
             ("3, 5 -7", [3, 5, -7]),
-            ("2pt  12pt", [2, 12]),
+            ("2pt  12pt", [2 * (96 / 72), 12 * (96 / 72)]),
             ("10 20 30", [10.0, 20.0, 30.0]),
         )
         ac = svglib.Svg2RlgAttributeConverter()
         failed = _testit(ac.convertLength, mapping)
         assert len(failed) == 0
         assert ac.convertLength("1.5em", em_base=16.5) == 24.75
+
+    def test_bare_number_equals_px(self):
+        "Bare numbers and px units must produce identical lengths (issue #439)."
+        ac = svglib.Svg2RlgAttributeConverter()
+        # In user-unit space, "N" and "Npx" are the same (SVG spec §5.9.2).
+        assert ac.convertLength("13") == ac.convertLength("13px")
+        assert ac.convertLength("100") == ac.convertLength("100px")
+        assert ac.convertLength("0.5") == ac.convertLength("0.5px")
+        # convertLengthToPt must be consistent too (used for font-size).
+        assert ac.convertLengthToPt("13") == ac.convertLengthToPt("13px")
+
+    def test_font_size_bare_number_vs_px(self):
+        "font-size='N' and font-size='Npx' must produce the same fontSize (issue #439)."
+        svg_tmpl = """<svg xmlns="http://www.w3.org/2000/svg"
+                          width="200" height="50" viewBox="0 0 200 50">
+            <text font-size="{fs}">x</text>
+        </svg>"""
+        import io
+
+        from lxml import etree
+
+        def font_size_for(fs_attr):
+            root = etree.parse(
+                io.BytesIO(svg_tmpl.format(fs=fs_attr).encode())
+            ).getroot()
+            drawing = svglib.SvgRenderer("").render(root)
+            # Walk into the drawing to find the first String object.
+            group = drawing.contents[0]
+            while hasattr(group, "contents"):
+                group = group.contents[0]
+            return group.fontSize
+
+        assert font_size_for("13") == font_size_for("13px")
+        assert font_size_for("24") == font_size_for("24px")
 
     def test_percentage_conversion(self):
         "Test percentage length attribute conversion."
@@ -420,7 +454,7 @@ class TestLengthAttrConverter:
         "Test length list attribute conversion."
 
         mapping = (
-            (" 5cm 5in", [5 * cm, 5 * inch]),
+            (" 5cm 5in", [5 * cm / 0.75, 5 * inch / 0.75]),
             (" 5, 5", [5, 5]),
         )
         ac = svglib.Svg2RlgAttributeConverter()
@@ -543,7 +577,7 @@ class TestAttrConverter:
         node = minimal_svg_node('<polygon fill-rule="evenodd"/>')
         poly = Polygon()
         converter.applyStyleOnShape(poly, node)
-        assert poly._fillRule == FILL_EVEN_ODD
+        assert poly.fillMode == FILL_EVEN_ODD
 
     def test_stroke(self):
         converter = svglib.Svg2RlgShapeConverter(None)
@@ -1132,6 +1166,74 @@ class TestUseNode:
         assert use_group.contents[0].getProperties()["strokeColor"] is None
 
 
+class TestSwitchNode:
+    @staticmethod
+    def _find_rects(shape):
+        from reportlab.graphics.shapes import Rect
+
+        results = []
+        if isinstance(shape, Rect):
+            results.append(shape)
+        if hasattr(shape, "contents"):
+            for item in shape.contents:
+                results.extend(TestSwitchNode._find_rects(item))
+        return results
+
+    def test_switch_skips_unsupported_extension(self):
+        """<switch> skips children with requiredExtensions and renders the fallback."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <switch>
+                    <rect requiredExtensions="http://ns.adobe.com/AdobeIllustrator/10.0/"
+                          width="100" height="100" fill="red"/>
+                    <rect width="50" height="50" fill="blue"/>
+                </switch>
+            </svg>
+        """
+        )
+        rects = self._find_rects(drawing)
+        assert len(rects) == 1
+        assert rects[0].fillColor.hexval() == "0x0000ff"
+
+    def test_switch_skips_unsupported_feature(self):
+        """<switch> must skip children with unsupported requiredFeatures."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <switch>
+                    <rect requiredFeatures="http://www.w3.org/TR/SVG11/feature#Animation"
+                          width="100" height="100" fill="red"/>
+                    <rect width="50" height="50" fill="green"/>
+                </switch>
+            </svg>
+        """
+        )
+        rects = self._find_rects(drawing)
+        assert len(rects) == 1
+        assert rects[0].fillColor.hexval() == "0x008000"
+
+    def test_switch_renders_supported_feature(self):
+        """<switch> renders the first child whose requiredFeatures are all supported."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <switch>
+                    <rect requiredFeatures="http://www.w3.org/TR/SVG11/feature#Shape"
+                          width="100" height="100" fill="blue"/>
+                    <rect width="50" height="50" fill="red"/>
+                </switch>
+            </svg>
+        """
+        )
+        rects = self._find_rects(drawing)
+        assert len(rects) == 1
+        assert rects[0].fillColor.hexval() == "0x0000ff"
+
+
 class TestSymbolNode:
     def test_symbol_unused(self):
         """<symbol> by itself should not be rendered."""
@@ -1184,7 +1286,7 @@ class TestViewBox:
         """
         )
         # Main group coordinates are translated to match the viewBox origin
-        assert drawing.contents[0].transform == (10, 0, 0, -10, 600.0, 400.0)
+        assert drawing.contents[0].transform == (7.5, 0.0, 0.0, -7.5, 450.0, 300.0)
 
     def test_percent_width_height(self):
         drawing = drawing_from_svg(
@@ -1199,7 +1301,7 @@ class TestViewBox:
             </svg>
         """
         )
-        assert (drawing.width, drawing.height) == (480, 360)
+        assert (drawing.width, drawing.height) == (360.0, 270.0)
 
     def test_no_width_height(self):
         drawing = drawing_from_svg(
@@ -1213,7 +1315,76 @@ class TestViewBox:
             </svg>
         """
         )
-        assert (drawing.width, drawing.height) == (480, 360)
+        assert (drawing.width, drawing.height) == (360.0, 270.0)
+
+    def test_preserve_aspect_ratio_meet_default(self):
+        """Mismatched aspect ratios use uniform (min) scale by default."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="12cm" height="5.25cm" viewBox="0 0 1200 400">
+                <rect width="100" height="100"/>
+            </svg>
+        """
+        )
+        t = drawing.contents[0].transform
+        x_scale = t[0]
+        y_scale = abs(t[3])
+        assert pytest.approx(x_scale) == y_scale
+
+    def test_preserve_aspect_ratio_none(self):
+        """preserveAspectRatio="none" uses independent x/y scales."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="12cm" height="5.25cm" viewBox="0 0 1200 400"
+                 preserveAspectRatio="none">
+                <rect width="100" height="100"/>
+            </svg>
+        """
+        )
+        t = drawing.contents[0].transform
+        x_scale = t[0]
+        y_scale = abs(t[3])
+        assert x_scale != pytest.approx(y_scale)
+
+    def test_preserve_aspect_ratio_slice(self):
+        """preserveAspectRatio="xMidYMid slice" uses uniform (max) scale."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="12cm" height="5.25cm" viewBox="0 0 1200 400"
+                 preserveAspectRatio="xMidYMid slice">
+                <rect width="100" height="100"/>
+            </svg>
+        """
+        )
+        t = drawing.contents[0].transform
+        x_scale = t[0]
+        y_scale = abs(t[3])
+        # slice uses max scale, so the larger scale (y_scale ~0.372) should be used
+        assert pytest.approx(x_scale) == y_scale
+        # The uniform scale should be the larger one (max of the two raw scales, ~0.372)
+        assert x_scale > 0.284
+
+    def test_preserve_aspect_ratio_matched_aspect_ratio(self):
+        """When aspect ratios match exactly, scale is unchanged."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 width="1200" height="800" viewBox="-60 -40 120 80">
+                <rect width="10" height="10"/>
+            </svg>
+        """
+        )
+        t = drawing.contents[0].transform
+        x_scale = t[0]
+        y_scale = abs(t[3])
+        assert pytest.approx(x_scale) == y_scale
 
 
 class TestEmbedded:
@@ -1274,6 +1445,67 @@ class TestEmbedded:
         inner_rect = drawing.contents[0].contents[1].contents[0]
         assert inner_rect.width == 15
 
+    def test_nested_svg_without_width_height(self):
+        """A nested <svg viewBox="..."> with omitted width/height should
+        default to 100% of the parent viewport (SVG 1.1 §5.1.2). Without
+        the fallback, the viewBox-to-viewport scaling was skipped and
+        inner content rendered at viewBox-unit size instead of filling
+        the slot."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" version="1.1"
+                 width="200" height="200">
+              <svg viewBox="0 0 50 50">
+                <rect x="0" y="0" width="50" height="50"/>
+              </svg>
+            </svg>
+        """
+        )
+        nested_group = drawing.contents[0].contents[0]
+        xmin, ymin, xmax, ymax = nested_group.getBounds()
+        # Parent viewport is 200x200px = 150x150pt (px→pt at 0.75). The inner
+        # SVG inherits the parent slot, so the rect fills 150×150pt — not
+        # 50×50 (viewBox units without scaling), which is what happens without
+        # the fallback.
+        assert xmax - xmin == pytest.approx(150)
+        assert ymax - ymin == pytest.approx(150)
+
+    def test_old_inkscape_warning(self, caplog):
+        """SVGs from Inkscape <0.92 (90 dpi) should log a warning; newer should not."""
+        old_svg = """<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+                 inkscape:version="0.91 r13725"
+                 width="100" height="100">
+              <rect width="100" height="100"/>
+            </svg>"""
+        new_svg = """<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+                 inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+                 width="100" height="100">
+              <rect width="100" height="100"/>
+            </svg>"""
+        plain_svg = """<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+              <rect width="100" height="100"/>
+            </svg>"""
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="svglib.svglib"):
+            drawing_from_svg(old_svg)
+        assert any("pre-0.92" in r.message for r in caplog.records)
+
+        caplog.clear()
+        with caplog.at_level(logging.WARNING, logger="svglib.svglib"):
+            drawing_from_svg(new_svg)
+        assert not caplog.records
+
+        with caplog.at_level(logging.WARNING, logger="svglib.svglib"):
+            drawing_from_svg(plain_svg)
+        assert not caplog.records
+
     def test_png_in_svg_file_like(self):
         drawing = drawing_from_svg(
             """
@@ -1289,3 +1521,160 @@ class TestEmbedded:
         # FIXME: test the error log when we can require pytest >= 3.4
         # No image as relative path in file-like input cannot be determined.
         assert drawing.contents[0].contents == []
+
+
+class TestGradients:
+    """Tests for SVG linearGradient and radialGradient support."""
+
+    @staticmethod
+    def _find_groups(shape):
+        """Recursively collect all Group objects in a drawing."""
+        from reportlab.graphics.shapes import Group as RLGroup
+
+        result = []
+        if isinstance(shape, RLGroup):
+            result.append(shape)
+        if hasattr(shape, "contents"):
+            for item in shape.contents:
+                result.extend(TestGradients._find_groups(item))
+        return result
+
+    def test_linear_gradient_rect(self):
+        """A rect with a linearGradient fill must produce a Group (not a bare Rect)."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="grad1" x1="0" y1="0" x2="1" y2="0"
+                                    gradientUnits="objectBoundingBox">
+                        <stop offset="0" stop-color="red" stop-opacity="1"/>
+                        <stop offset="1" stop-color="blue" stop-opacity="1"/>
+                    </linearGradient>
+                </defs>
+                <rect x="10" y="10" width="80" height="80" fill="url(#grad1)"/>
+            </svg>
+        """
+        )
+        groups = self._find_groups(drawing)
+        # The rect's fill must have been replaced by a gradient group
+        assert len(groups) > 1
+
+    def test_radial_gradient_circle(self):
+        """A circle with a radialGradient fill must produce a Group."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <radialGradient id="rgrad" cx="0.5" cy="0.5" r="0.5"
+                                    gradientUnits="objectBoundingBox">
+                        <stop offset="0" stop-color="yellow" stop-opacity="1"/>
+                        <stop offset="1" stop-color="green" stop-opacity="1"/>
+                    </radialGradient>
+                </defs>
+                <circle cx="50" cy="50" r="40" fill="url(#rgrad)"/>
+            </svg>
+        """
+        )
+        groups = self._find_groups(drawing)
+        assert len(groups) > 1
+
+    def test_gradient_stops_parsed(self):
+        """Stop colors and offsets must be correctly stored in gradient_defs."""
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = b"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="g1">
+                        <stop offset="0" stop-color="#ff0000" stop-opacity="1"/>
+                        <stop offset="0.5" stop-color="#00ff00" stop-opacity="0.5"/>
+                        <stop offset="1" stop-color="#0000ff" stop-opacity="1"/>
+                    </linearGradient>
+                </defs>
+            </svg>"""
+        root = load_svg_file(BytesIO(svg_content))
+        renderer = SvgRenderer("")
+        renderer.render(root)
+        grad = renderer.gradient_defs.get("g1")
+        assert grad is not None
+        assert len(grad["stops"]) == 3
+        assert grad["stops"][0][0] == 0.0
+        assert grad["stops"][1][0] == 0.5
+        assert grad["stops"][2][0] == 1.0
+
+    def test_gradient_href_inheritance(self):
+        """A gradient that references another via href must inherit its stops."""
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = b"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 width="100" height="100">
+                <defs>
+                    <linearGradient id="base">
+                        <stop offset="0" stop-color="red"/>
+                        <stop offset="1" stop-color="blue"/>
+                    </linearGradient>
+                    <linearGradient id="derived" xlink:href="#base"
+                                    x1="0" y1="0" x2="0" y2="1"/>
+                </defs>
+            </svg>"""
+        root = load_svg_file(BytesIO(svg_content))
+        renderer = SvgRenderer("")
+        renderer.render(root)
+        resolved = renderer._resolve_gradient("derived")
+        assert resolved is not None
+        assert len(resolved["stops"]) == 2  # inherited from "base"
+        assert resolved["x2"] == 0.0  # from derived
+        assert resolved["y2"] == 1.0  # from derived
+
+    def test_gradient_userSpaceOnUse(self):
+        """A gradient with gradientUnits=userSpaceOnUse must also produce a Group."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+                <defs>
+                    <linearGradient id="usg" x1="0" y1="0" x2="200" y2="0"
+                                    gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stop-color="black"/>
+                        <stop offset="1" stop-color="white"/>
+                    </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="200" height="200" fill="url(#usg)"/>
+            </svg>
+        """
+        )
+        groups = self._find_groups(drawing)
+        assert len(groups) > 1
+
+    def test_gradient_stop_opacity_in_style(self):
+        """Stop opacity specified in a style attribute must be respected."""
+        from io import BytesIO
+
+        from svglib.svglib import SvgRenderer, load_svg_file
+
+        svg_content = b"""<?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="g2">
+                        <stop offset="0"
+                              style="stop-color:rgb(255,0,0);stop-opacity:0.5"/>
+                        <stop offset="1"
+                              style="stop-color:#0000ff;stop-opacity:1"/>
+                    </linearGradient>
+                </defs>
+            </svg>"""
+        root = load_svg_file(BytesIO(svg_content))
+        renderer = SvgRenderer("")
+        renderer.render(root)
+        grad = renderer.gradient_defs.get("g2")
+        assert grad is not None
+        stop0_color = grad["stops"][0][1]
+        assert stop0_color.alpha == pytest.approx(0.5)

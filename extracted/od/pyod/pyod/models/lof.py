@@ -211,6 +211,7 @@ class LOF(BaseDetector):
 
         check_is_fitted(self, ['decision_scores_', 'threshold_', 'labels_'])
 
+        X = check_array(X, accept_sparse=True)
         # Invert outlier scores. Outliers comes with higher outlier scores
         # noinspection PyProtectedMember
         try:

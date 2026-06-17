@@ -69,6 +69,7 @@ __all__ = (
     "PutVectorBucketPolicyInputTypeDef",
     "PutVectorsInputTypeDef",
     "QueryOutputVectorTypeDef",
+    "QueryVectorsInputPaginateTypeDef",
     "QueryVectorsInputTypeDef",
     "QueryVectorsOutputTypeDef",
     "ResponseMetadataTypeDef",
@@ -290,6 +291,7 @@ class QueryVectorsOutputTypeDef(TypedDict):
     vectors: list[QueryOutputVectorTypeDef]
     distanceMetric: DistanceMetricType
     ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 VectorDataUnionTypeDef = Union[VectorDataTypeDef, VectorDataOutputTypeDef]
 
@@ -326,6 +328,20 @@ class PutInputVectorTypeDef(TypedDict):
     data: VectorDataUnionTypeDef
     metadata: NotRequired[Mapping[str, Any]]
 
+QueryVectorsInputPaginateTypeDef = TypedDict(
+    "QueryVectorsInputPaginateTypeDef",
+    {
+        "topK": int,
+        "queryVector": VectorDataUnionTypeDef,
+        "vectorBucketName": NotRequired[str],
+        "indexName": NotRequired[str],
+        "indexArn": NotRequired[str],
+        "filter": NotRequired[Mapping[str, Any]],
+        "returnMetadata": NotRequired[bool],
+        "returnDistance": NotRequired[bool],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 QueryVectorsInputTypeDef = TypedDict(
     "QueryVectorsInputTypeDef",
     {
@@ -337,6 +353,7 @@ QueryVectorsInputTypeDef = TypedDict(
         "filter": NotRequired[Mapping[str, Any]],
         "returnMetadata": NotRequired[bool],
         "returnDistance": NotRequired[bool],
+        "nextToken": NotRequired[str],
     },
 )
 

@@ -14,9 +14,14 @@ from e2b.connection_config import (
     Username,
     default_username,
 )
-from e2b.envd.api import ENVD_API_FILES_ROUTE, ahandle_envd_api_exception
+from e2b.envd.api import (
+    ENVD_API_FILES_ROUTE,
+    acheck_sandbox_health,
+    ahandle_envd_api_exception,
+    ahandle_envd_api_transport_exception_with_health,
+)
 from e2b.envd.filesystem import filesystem_connect, filesystem_pb2
-from e2b.envd.rpc import authentication_header, handle_rpc_exception
+from e2b.envd.rpc import authentication_header, ahandle_rpc_exception_with_health
 from e2b.envd.versions import (
     ENVD_DEFAULT_USER,
     ENVD_FILE_METADATA,
@@ -56,8 +61,12 @@ _FILESYSTEM_HTTP_ERROR_MAP = {
 }
 
 
-def _handle_filesystem_rpc_exception(e: Exception) -> Exception:
-    return handle_rpc_exception(e, _FILESYSTEM_RPC_ERROR_MAP)
+async def _ahandle_filesystem_rpc_exception(
+    e: Exception, envd_api: httpx.AsyncClient
+) -> Exception:
+    return await ahandle_rpc_exception_with_health(
+        e, lambda: acheck_sandbox_health(envd_api), _FILESYSTEM_RPC_ERROR_MAP
+    )
 
 
 async def _ahandle_filesystem_envd_api_exception(r):
@@ -178,12 +187,17 @@ class Filesystem:
         if gzip:
             headers["Accept-Encoding"] = "gzip"
 
-        r = await self._envd_api.get(
-            ENVD_API_FILES_ROUTE,
-            params=params,
-            headers=headers,
-            timeout=self._connection_config.get_request_timeout(request_timeout),
-        )
+        try:
+            r = await self._envd_api.get(
+                ENVD_API_FILES_ROUTE,
+                params=params,
+                headers=headers,
+                timeout=self._connection_config.get_request_timeout(request_timeout),
+            )
+        except httpx.RemoteProtocolError as e:
+            raise await ahandle_envd_api_transport_exception_with_health(
+                e, self._envd_api
+            )
 
         err = await _ahandle_filesystem_envd_api_exception(r)
         if err:
@@ -216,7 +230,7 @@ class Filesystem:
         :param data: Data to write to the file, can be a `str`, `bytes`, or `IO`.
         :param user: Run the operation as this user
         :param request_timeout: Timeout for the request in **seconds**
-        :param gzip: Use gzip compression for the request
+        :param gzip: Use gzip compression for the upload. Implies the `application/octet-stream` upload. Requires envd 0.5.7 or later — when not supported, the upload falls back to uncompressed `multipart/form-data`.
         :param use_octet_stream: Upload using `application/octet-stream` instead of `multipart/form-data`. Defaults to `False`. Requires envd 0.5.7 or later — when not supported, the upload falls back to `multipart/form-data`.
         :param metadata: User-defined metadata to persist on the uploaded file as extended attributes. Keys are lowercased by the sandbox; invalid keys or values raise an `InvalidArgumentException`. Requires envd 0.6.2 or later.
 
@@ -256,7 +270,7 @@ class Filesystem:
         :param files: list of files to write as `WriteEntry` objects, each containing `path` and `data`
         :param user: Run the operation as this user
         :param request_timeout: Timeout for the request
-        :param gzip: Use gzip compression for the request
+        :param gzip: Use gzip compression for the upload. Implies the `application/octet-stream` upload. Requires envd 0.5.7 or later — when not supported, the upload falls back to uncompressed `multipart/form-data`.
         :param use_octet_stream: Upload using `application/octet-stream` instead of `multipart/form-data`. Defaults to `False`. Requires envd 0.5.7 or later — when not supported, the upload falls back to `multipart/form-data`.
         :param metadata: User-defined metadata to persist on each uploaded file as extended attributes; the same map is applied to every file. Keys are lowercased by the sandbox; invalid keys or values raise an `InvalidArgumentException`. Requires envd 0.6.2 or later.
         :return: Information about the written files
@@ -274,7 +288,10 @@ class Filesystem:
             raise TemplateException("File metadata requires envd 0.6.2 or later.")
 
         supports_octet_stream = self._envd_version >= ENVD_OCTET_STREAM_UPLOAD
-        use_octet_stream = use_octet_stream and supports_octet_stream
+        # Gzip compression only works with the octet-stream upload (the
+        # Content-Encoding header applies to the whole request body), so
+        # requesting gzip implies it when envd supports it.
+        use_octet_stream = (use_octet_stream or gzip) and supports_octet_stream
 
         # Metadata is sent as request-scoped X-Metadata-* headers, so the same
         # metadata is applied to every file in a multi-file upload.
@@ -295,15 +312,20 @@ class Filesystem:
                 if gzip:
                     headers["Content-Encoding"] = "gzip"
 
-                r = await self._envd_api.post(
-                    ENVD_API_FILES_ROUTE,
-                    content=to_upload_body(file_data, gzip),
-                    headers=headers,
-                    params=params,
-                    timeout=self._connection_config.get_request_timeout(
-                        request_timeout
-                    ),
-                )
+                try:
+                    r = await self._envd_api.post(
+                        ENVD_API_FILES_ROUTE,
+                        content=to_upload_body(file_data, gzip),
+                        headers=headers,
+                        params=params,
+                        timeout=self._connection_config.get_request_timeout(
+                            request_timeout
+                        ),
+                    )
+                except httpx.RemoteProtocolError as e:
+                    raise await ahandle_envd_api_transport_exception_with_health(
+                        e, self._envd_api
+                    )
 
                 err = await _ahandle_filesystem_envd_api_exception(r)
                 if err:
@@ -335,13 +357,20 @@ class Filesystem:
             if len(httpx_files) == 0:
                 return []
 
-            r = await self._envd_api.post(
-                ENVD_API_FILES_ROUTE,
-                files=httpx_files,
-                params=params,
-                headers=extra_headers,
-                timeout=self._connection_config.get_request_timeout(request_timeout),
-            )
+            try:
+                r = await self._envd_api.post(
+                    ENVD_API_FILES_ROUTE,
+                    files=httpx_files,
+                    params=params,
+                    headers=extra_headers,
+                    timeout=self._connection_config.get_request_timeout(
+                        request_timeout
+                    ),
+                )
+            except httpx.RemoteProtocolError as e:
+                raise await ahandle_envd_api_transport_exception_with_health(
+                    e, self._envd_api
+                )
 
             err = await _ahandle_filesystem_envd_api_exception(r)
             if err:
@@ -395,7 +424,7 @@ class Filesystem:
 
             return entries
         except Exception as e:
-            raise _handle_filesystem_rpc_exception(e)
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)
 
     async def exists(
         self,
@@ -427,7 +456,7 @@ class Filesystem:
             if isinstance(e, connect.ConnectException):
                 if e.status == connect.Code.not_found:
                     return False
-            raise _handle_filesystem_rpc_exception(e)
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)
 
     async def get_info(
         self,
@@ -455,7 +484,7 @@ class Filesystem:
 
             return map_entry_info(r.entry)
         except Exception as e:
-            raise _handle_filesystem_rpc_exception(e)
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)
 
     async def remove(
         self,
@@ -479,7 +508,7 @@ class Filesystem:
                 headers=authentication_header(self._envd_version, user),
             )
         except Exception as e:
-            raise _handle_filesystem_rpc_exception(e)
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)
 
     async def rename(
         self,
@@ -512,7 +541,7 @@ class Filesystem:
 
             return map_entry_info(r.entry)
         except Exception as e:
-            raise _handle_filesystem_rpc_exception(e)
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)
 
     async def make_dir(
         self,
@@ -543,7 +572,7 @@ class Filesystem:
             if isinstance(e, connect.ConnectException):
                 if e.status == connect.Code.already_exists:
                     return False
-            raise _handle_filesystem_rpc_exception(e)
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)
 
     async def watch_dir(
         self,
@@ -615,6 +644,15 @@ class Filesystem:
                     f"Failed to start watch: expected start event, got {start_event}",
                 )
 
-            return AsyncWatchHandle(events=events, on_event=on_event, on_exit=on_exit)
+            return AsyncWatchHandle(
+                events=events,
+                on_event=on_event,
+                on_exit=on_exit,
+                check_health=lambda: acheck_sandbox_health(self._envd_api),
+            )
         except Exception as e:
-            raise _handle_filesystem_rpc_exception(e)
+            try:
+                await events.aclose()
+            except Exception:
+                pass
+            raise await _ahandle_filesystem_rpc_exception(e, self._envd_api)

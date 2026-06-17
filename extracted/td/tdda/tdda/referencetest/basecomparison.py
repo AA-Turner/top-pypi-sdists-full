@@ -19,6 +19,7 @@ from collections import namedtuple
 
 from tdda.abstractdf import col_names
 from tdda.referencetest.diffutils import join_for_diff
+from tdda.referencetest.utils import apply_preprocess, copycmd, diffcmd
 from tdda.state import get_config
 from tdda.utils import nvl, error, debug
 
@@ -192,6 +193,7 @@ class BaseComparison:
                 ' Should be True, False or "object"'
             )
 
+        check_data = self.resolve_option_flag(check_data, ref_df)
         check_types = self.resolve_option_flag(check_types, ref_df)
         check_extra_cols = self.resolve_option_flag(check_extra_cols, df)
 
@@ -206,9 +208,11 @@ class BaseComparison:
         df = self._replace_cats(df)
         ref_df = self._replace_cats(ref_df)
 
-        # 2. Make initial set of missing columns
+        # 2. Make initial set of missing columns (only for fields being checked)
 
-        missing_cols = set(ref_names) - set(df_names)
+        missing_cols = (set(ref_names) - set(df_names)).intersection(
+            set(check_data)
+        )
 
         # 3. Check types of fields, where type checking is used.
         #    Also mark any fields not present in df that are
@@ -280,7 +284,6 @@ class BaseComparison:
 
         cols = state.common_cols
         if not quick or state.same_ignoring_types:
-            check_data = self.resolve_option_flag(check_data, ref_df)
             if check_data:
                 cols = [c for c in check_data if c in state.common_cols]
                 if idx:
@@ -537,6 +540,7 @@ class BaseComparison:
         precision=6,
         type_matching=None,
         fuzzy_nulls=False,
+        preprocess=None,
         msgs=None,
         **kwargs,
     ):
@@ -595,6 +599,8 @@ class BaseComparison:
         df = self.load_serialized_dataframe(
             actual_path, loader=loader, **kwargs
         )
+        df = apply_preprocess(df, preprocess)
+        ref_df = apply_preprocess(ref_df, preprocess)
         return self.check_dataframe(
             df,
             ref_df,
@@ -624,6 +630,7 @@ class BaseComparison:
         sortby=None,
         type_matching=None,
         fuzzy_nulls=False,
+        preprocess=None,
         msgs=None,
         **kwargs,
     ):
@@ -700,6 +707,7 @@ class BaseComparison:
                     sortby=sortby,
                     type_matching=type_matching,
                     fuzzy_nulls=fuzzy_nulls,
+                    preprocess=preprocess,
                     condition=condition,
                     msgs=msgs,
                     **kwargs,
@@ -1013,13 +1021,6 @@ class DataFrameDiffs:
 
         return '\n'.join(msgs)
 
-
-def diffcmd():
-    return 'fc' if os.name and os.name != 'posix' else 'diff'
-
-
-def copycmd():
-    return 'copy' if os.name and os.name != 'posix' else 'cp'
 
 
 def df_col_pos(c, df):

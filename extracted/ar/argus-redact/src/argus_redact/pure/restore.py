@@ -8,7 +8,6 @@ from typing import Mapping
 
 from argus_redact.pure.display_marker import PRESET_MARKER_CHARS, strip_display_markers
 from argus_redact.pure.grammar import SELF_REF_PRONOUNS, restore_grammar_en
-from argus_redact.pure.reserved_range_scanner import scan_for_pollution
 
 
 @functools.lru_cache(maxsize=128)
@@ -46,15 +45,6 @@ def _compile_decoration_pattern(keys_frozen: frozenset[str]) -> _re.Pattern | No
     keys_alt = "|".join(_re.escape(k) for k in sorted_keys)
     return _re.compile(f"({keys_alt})({_PRESET_MARKER_CLASS}+)")
 
-# Danger patterns: pseudonyms appearing near these suggest exfiltration attempts
-_DANGER_PATTERNS = _re.compile(
-    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}"  # email address
-    r"|https?://"  # URL
-    r"|(?:send|share|forward|发送|转发|分享|泄露|传给|发给)"  # exfil verbs
-)
-_DANGER_WINDOW = 100  # chars before/after pseudonym to scan
-
-
 def check_restore_safety(
     redacted: str,
     llm_output: str,
@@ -67,45 +57,11 @@ def check_restore_safety(
     1. Pseudonym frequency amplification (appears more than in original)
     2. Pseudonym near danger patterns (email, URL, exfiltration verbs)
     3. Reserved-range value amplification (realistic mode hallucinations)
+
+    Delegated to the Rust core (``_core.check_restore_safety``).
     """
-    warnings = []
-    for code in key:
-        count_original = redacted.count(code)
-        count_llm = llm_output.count(code)
-
-        # Check 1: frequency amplification
-        if count_llm > count_original:
-            warnings.append(
-                f"Pseudonym '{code}' appears {count_llm}x in LLM output "
-                f"but only {count_original}x in redacted input — possible injection"
-            )
-
-        # Check 2: pseudonym near danger patterns
-        if count_llm > 0:
-            for m in _re.finditer(_re.escape(code), llm_output):
-                start = max(0, m.start() - _DANGER_WINDOW)
-                end = min(len(llm_output), m.end() + _DANGER_WINDOW)
-                context = llm_output[start:end]
-                danger = _DANGER_PATTERNS.search(context)
-                if danger:
-                    warnings.append(
-                        f"Pseudonym '{code}' near danger pattern "
-                        f"'{danger.group()}' — possible exfiltration"
-                    )
-                    break  # one warning per pseudonym is enough
-
-    # Check 3: reserved-range amplification (realistic mode). Counts only —
-    # specific values are not enumerated to keep this O(n) over text length.
-    redacted_hits = scan_for_pollution(redacted)
-    output_hits = scan_for_pollution(llm_output)
-    if len(output_hits) > len(redacted_hits):
-        delta = len(output_hits) - len(redacted_hits)
-        warnings.append(
-            f"LLM output contains {delta} additional reserved-range value(s) not in input — "
-            f"possible hallucination or fabrication"
-        )
-
-    return warnings
+    from argus_redact._core import check_restore_safety as _rust_check
+    return _rust_check(redacted, llm_output, key)
 
 
 def wipe_key(key: dict) -> None:
@@ -141,9 +97,7 @@ def restore(
     pass-through. See `PRESET_MARKER_CHARS` in `pure/display_marker.py` for
     the canonical preset character set.
     """
-    if display_marker is not None:
-        text = strip_display_markers(text, marker=display_marker)
-
+    # JSON-key-from-path load stays in Python (I/O boundary; T8 is unaffected).
     if isinstance(key, str):
         import json
 
@@ -155,11 +109,33 @@ def restore(
         raise TypeError(f"key must be a Mapping or str (file path), got {type(key).__name__}")
 
     if not key:
+        # Even with an empty key, an explicit display_marker should be stripped.
+        if display_marker is not None:
+            return strip_display_markers(text, marker=display_marker)
         return text
 
-    # Merge aliases into the lookup if provided. Each alias points at the same
-    # original as its canonical fake — the alternation matches both forms and
-    # maps them back. Aliases for fakes not in `key` are ignored.
+    if not isinstance(key, dict):
+        key = dict(key)
+
+    # Delegate substitution + alias merge + decoration markers + grammar to Rust.
+    # check_restore_safety and wipe_key remain Python (T8 scope).
+    try:
+        from argus_redact._core import restore as _rust_restore
+
+        # Convert aliases values to lists (Rust expects Vec<String>, not tuples).
+        rust_aliases: dict[str, list[str]] | None = None
+        if aliases:
+            rust_aliases = {k: list(v) for k, v in aliases.items()}
+
+        return _rust_restore(text, key, aliases=rust_aliases, display_marker=display_marker)
+    except ImportError:
+        pass
+
+    # ── Python fallback (HAS_CORE False) ─────────────────────────────────
+    if display_marker is not None:
+        text = strip_display_markers(text, marker=display_marker)
+
+    # Merge aliases into the lookup if provided.
     if aliases:
         flat: dict[str, str] = dict(key)
         for fake, alias_tuple in aliases.items():
@@ -170,17 +146,8 @@ def restore(
                 flat[alias] = original
         key = flat
 
-    if not isinstance(key, dict):
-        key = dict(key)
-
     # Auto-detect known preset display markers when caller didn't pass
-    # display_marker=. For each occurrence of `key + preset_marker_chars+` in
-    # text, replace inline with `value + same_marker_chars` so the marker stays
-    # attached to the restored value. Custom markers (not in the preset set)
-    # are left alone — caller must pass `display_marker=` for those.
-    #
-    # This is conservative: stand-alone preset chars (e.g. `*` in regular
-    # prose) are NOT stripped because they are not adjacent to a key.
+    # display_marker=.
     if display_marker is None:
         decoration_pattern = _compile_decoration_pattern(frozenset(key))
         if decoration_pattern is not None:
@@ -191,13 +158,8 @@ def restore(
 
     has_self_ref = any(v in SELF_REF_PRONOUNS for v in key.values())
 
-    try:
-        from argus_redact._core import restore as _rust_restore
-
-        result = _rust_restore(text, key)
-    except ImportError:
-        regex = _compile_alternation(frozenset(key.keys()))
-        result = regex.sub(lambda m: key[m.group()], text)
+    regex = _compile_alternation(frozenset(key.keys()))
+    result = regex.sub(lambda m: key[m.group()], text)
 
     if has_self_ref:
         result = restore_grammar_en(result)

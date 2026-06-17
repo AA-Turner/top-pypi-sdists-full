@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: sentence-transformers
-Version: 5.5.1
+Version: 5.6.0
 Summary: Embeddings, Retrieval, and Reranking
 Author-email: Nils Reimers <info@nils-reimers.de>, Tom Aarsen <tom.aarsen@huggingface.co>
 Maintainer-email: Tom Aarsen <tom.aarsen@huggingface.co>
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://www.SBERT.net
 Project-URL: Repository, https://github.com/huggingface/sentence-transformers/
 Keywords: Transformer Networks,BERT,XLNet,sentence embedding,PyTorch,NLP,deep learning
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

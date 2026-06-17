@@ -20,9 +20,18 @@ import structlog
 
 from runlayer_cli.paths import get_runlayer_dir
 
+if sys.platform == "win32":
+    import winreg
+else:
+    winreg = None  # type: ignore[assignment]
+
 logger = structlog.get_logger(__name__)
 
 DEVICE_ID_FILE = "device_id"
+
+# Stable namespace for deriving a device UUID from a raw hardware identifier.
+# Keeps the wire format a 36-char UUID and avoids transmitting the raw serial.
+DEVICE_ID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_DNS, "device-id.aiwatch.runlayer.com")
 
 SYSTEM_USERNAMES = {"root", "_mbsetupuser", "loginwindow"}
 
@@ -32,19 +41,96 @@ def _get_device_id_path() -> Path:
     return get_runlayer_dir() / DEVICE_ID_FILE
 
 
+def _get_macos_hardware_id() -> str | None:
+    """Read the stable IOPlatformUUID on macOS via ioreg."""
+    try:
+        result = subprocess.run(
+            ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except Exception:
+        return None
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        if "IOPlatformUUID" in line:
+            # Line looks like:  "IOPlatformUUID" = "ABCDEF12-...-1234567890"
+            _, _, value = line.partition("=")
+            value = value.strip().strip('"').strip()
+            if value:
+                return value
+    return None
+
+
+def _get_windows_hardware_id() -> str | None:
+    """Read the stable MachineGuid from the Windows registry."""
+    if winreg is None:
+        return None
+    try:
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            R"SOFTWARE\Microsoft\Cryptography",
+            0,
+            winreg.KEY_READ | winreg.KEY_WOW64_64KEY,
+        ) as key:
+            value, _ = winreg.QueryValueEx(key, "MachineGuid")
+    except OSError:
+        return None
+    value = str(value).strip()
+    return value or None
+
+
+def _get_linux_hardware_id() -> str | None:
+    """Read the systemd / D-Bus machine-id on Linux."""
+    for path in (Path("/etc/machine-id"), Path("/var/lib/dbus/machine-id")):
+        try:
+            value = path.read_text().strip()
+        except OSError:
+            continue
+        if value:
+            return value
+    return None
+
+
+def _get_hardware_machine_id() -> str | None:
+    """Resolve a stable per-machine hardware identifier as a UUID string.
+
+    Derives a deterministic UUID from the platform's hardware machine id
+    (macOS IOPlatformUUID, Windows MachineGuid, Linux machine-id), or returns
+    None when none is available. The raw id is wrapped in a uuid5 so the wire
+    value is a stable 36-char UUID and the raw serial never leaves the device.
+    """
+    system = platform.system().lower()
+    if system == "darwin":
+        raw = _get_macos_hardware_id()
+    elif system == "windows":
+        raw = _get_windows_hardware_id()
+    elif system == "linux":
+        raw = _get_linux_hardware_id()
+    else:
+        raw = None
+
+    if not raw:
+        return None
+    return str(uuid.uuid5(DEVICE_ID_NAMESPACE, raw))
+
+
 def get_or_create_device_id() -> str:
     """
     Get or create a stable device identifier.
 
     Priority:
     1. Environment variable RUNLAYER_DEVICE_ID
-    2. Stored device ID in ~/.runlayer/device_id
-    3. Generate and store a new UUID
+    2. Hardware machine id (stable per physical device, shared across users)
+    3. Stored device ID in ~/.runlayer/device_id
+    4. Generate and store a new UUID
 
     Returns:
         Stable device identifier string
     """
-    # Check environment variable first
+    # 1. Explicit override (env var / --device-id flag).
     env_device_id = os.environ.get("RUNLAYER_DEVICE_ID")
     if env_device_id:
         logger.debug(
@@ -52,7 +138,16 @@ def get_or_create_device_id() -> str:
         )
         return env_device_id
 
-    # Check stored device ID
+    # 2. Hardware machine id. Preferred over the stored file so every user on a
+    # shared machine — and re-runs after a failed file write — map to one
+    # physical device instead of minting a new device_id each time (which
+    # inflated the per-config device count on the MDM cards).
+    hardware_id = _get_hardware_machine_id()
+    if hardware_id:
+        logger.debug("Using hardware device ID", device_id_prefix=hardware_id[:8])
+        return hardware_id
+
+    # 3. Stored device ID (fallback for hosts without a readable hardware id).
     device_id_path = _get_device_id_path()
     if device_id_path.exists():
         try:
@@ -63,11 +158,11 @@ def get_or_create_device_id() -> str:
         except IOError:
             pass
 
-    # Generate new device ID
+    # 4. Generate new device ID.
     device_id = str(uuid.uuid4())
     logger.info("Generated new device ID", device_id_prefix=device_id[:8])
 
-    # Store for future use
+    # Store for future use.
     try:
         device_id_path.parent.mkdir(parents=True, exist_ok=True)
         device_id_path.write_text(device_id)

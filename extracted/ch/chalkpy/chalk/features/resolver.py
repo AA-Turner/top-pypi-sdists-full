@@ -61,6 +61,7 @@ from typing import (
 )
 
 import google.protobuf.message
+import orjson
 import pyarrow
 import pyarrow as pa
 import requests
@@ -1534,6 +1535,7 @@ def parse_common_module(
         or mod is base64
         or mod is hashlib
         or mod is json
+        or mod is orjson
         or mod is random
         or mod is difflib
         or mod is requests

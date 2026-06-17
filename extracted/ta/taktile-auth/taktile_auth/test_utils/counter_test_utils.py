@@ -16,3 +16,7 @@ class MemorySharedCounter:
             new_value = self._counters.get(key, 0) + amount
             self._counters[key] = new_value
         return new_value
+
+    def get(self, key: str) -> int:
+        with self._lock:
+            return self._counters.get(key, 0)

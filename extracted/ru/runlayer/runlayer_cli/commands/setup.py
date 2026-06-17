@@ -212,6 +212,9 @@ _CLAUDE_CODE_ENFORCEMENT_HOOKS = [
     "PostToolUseFailure",
 ]
 
+# WorktreeCreate/WorktreeRemove must never be registered: Claude Code treats
+# them as *provider* hooks (the command must create/remove the worktree and
+# print its path), so a telemetry-only entry breaks worktree creation.
 _CLAUDE_CODE_PIPELINE_HOOKS = [
     "SessionStart",
     "SessionEnd",
@@ -226,8 +229,6 @@ _CLAUDE_CODE_PIPELINE_HOOKS = [
     "TaskCompleted",
     "InstructionsLoaded",
     "ConfigChange",
-    "WorktreeCreate",
-    "WorktreeRemove",
 ]
 
 _CLAUDE_CODE_ALL_HOOKS = _CLAUDE_CODE_ENFORCEMENT_HOOKS + _CLAUDE_CODE_PIPELINE_HOOKS

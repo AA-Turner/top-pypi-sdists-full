@@ -63,12 +63,6 @@ fn render_session_get_for_table(value: &Value) -> Option<String> {
     lines.push(String::new());
     lines.push(theme::heading("Identity").bold().to_string());
     push_optional_row(&mut lines, "created by", object.get("created_by_user_id"));
-    if let Some(users) = object.get("participant_user_ids") {
-        push_row(&mut lines, "participants", &format_list(users));
-    }
-    if let Some(agents) = object.get("participant_agent_ids") {
-        push_row(&mut lines, "agents", &format_list(agents));
-    }
     if let Some(user) = object.get("user").and_then(Value::as_object) {
         push_row(&mut lines, "active user", &format_identity(user));
     }
@@ -162,20 +156,8 @@ fn pad_label(label: &str, width: usize) -> String {
     }
 }
 
-fn format_list(value: &Value) -> String {
-    if let Some(items) = value.as_array() {
-        return items
-            .iter()
-            .map(format_json_value)
-            .filter(|value| !value.is_empty() && value != "null")
-            .collect::<Vec<_>>()
-            .join(", ");
-    }
-    format_json_value(value)
-}
-
 fn format_identity(object: &serde_json::Map<String, Value>) -> String {
-    ["account_id", "user_id", "agent_id"]
+    ["account_id", "user_id"]
         .into_iter()
         .filter_map(|key| object.get(key).map(|value| (key, format_json_value(value))))
         .filter(|(_, value)| !value.is_empty() && value != "null")
@@ -306,19 +288,45 @@ fn parse_messages(input: &str) -> Result<Vec<(String, String)>> {
     Ok(vec![("user".to_string(), input.to_string())])
 }
 
+fn message_body(client: &HttpClient, role: &str, content: &str) -> serde_json::Value {
+    let mut body = json!({
+        "role": role,
+        "content": content
+    });
+    if role == "assistant" {
+        if let Some(agent_id) = client.legacy_agent_id() {
+            body["agent_id"] = json!(agent_id);
+        }
+    }
+    body
+}
+
 pub async fn add_message(
     client: &HttpClient,
     session_id: &str,
     role: &str,
     content: &str,
+    peer_id: Option<&str>,
     output_format: OutputFormat,
     compact: bool,
 ) -> Result<()> {
     let path = format!("/api/v1/sessions/{}/messages", url_encode(session_id));
-    let body = json!({
+    let mut body = json!({
         "role": role,
         "content": content
     });
+    if let Some(peer_id) = peer_id {
+        if client.legacy_agent_id().is_some() {
+            return Err(Error::Client(
+                "peer_id cannot be used when client is configured with legacy agent_id".to_string(),
+            ));
+        }
+        body["peer_id"] = json!(peer_id);
+    } else if role == "assistant" {
+        if let Some(agent_id) = client.legacy_agent_id() {
+            body["agent_id"] = json!(agent_id);
+        }
+    }
 
     let response: serde_json::Value = client.post(&path, &body).await?;
     output_success(&response, output_format, compact);
@@ -336,7 +344,7 @@ pub async fn add_messages(
     let path = format!("/api/v1/sessions/{}/messages/batch", url_encode(session_id));
     let messages_json: Vec<serde_json::Value> = messages
         .iter()
-        .map(|(role, content)| json!({"role": role, "content": content}))
+        .map(|(role, content)| message_body(client, role, content))
         .collect();
     let body = json!({"messages": messages_json});
     let response: serde_json::Value = client.post(&path, &body).await?;
@@ -381,7 +389,7 @@ pub async fn add_memory(
     let path = format!("/api/v1/sessions/{}/messages/batch", url_encode(session_id));
     let messages_json: Vec<serde_json::Value> = messages
         .iter()
-        .map(|(role, content)| json!({"role": role, "content": content}))
+        .map(|(role, content)| message_body(client, role, content))
         .collect();
     let body = json!({"messages": messages_json});
     let response: serde_json::Value = client.post(&path, &body).await?;
@@ -476,8 +484,6 @@ mod tests {
             "created_at": "2026-05-26T09:53:03.661Z",
             "updated_at": "2026-05-26T10:00:07.603Z",
             "created_by_user_id": "haozhe",
-            "participant_user_ids": ["haozhe"],
-            "participant_agent_ids": ["deerflow"],
             "message_count": 0,
             "commit_count": 1,
             "memories_extracted": {
@@ -499,8 +505,7 @@ mod tests {
             "total_message_count": 2,
             "user": {
                 "account_id": "default",
-                "user_id": "haozhe",
-                "agent_id": "default"
+                "user_id": "haozhe"
             }
         });
 

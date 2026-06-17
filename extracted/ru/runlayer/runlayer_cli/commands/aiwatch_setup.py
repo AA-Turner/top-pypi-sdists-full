@@ -12,11 +12,13 @@ from runlayer_cli.hook_install import (
     Client,
     ClientStatus,
     InstallScope,
+    check_absent_all,
     check_all,
     credential_present,
     install_client,
     iter_supported_clients,
     resolve_hook_command,
+    uninstall_client,
 )
 from runlayer_cli.install_window import InstallWindowState, install_window_state
 from runlayer_cli.mdm_config import (
@@ -52,6 +54,81 @@ def _client_from_str(name: Optional[str]) -> Optional[Client]:
             f"unknown client {name!r}; expected one of "
             f"{', '.join(c.value for c in iter_supported_clients())}"
         ) from exc
+
+
+def _targets_from_client(name: Optional[str]) -> tuple[Client, ...]:
+    selected = _client_from_str(name)
+    return (selected,) if selected else iter_supported_clients()
+
+
+def _benign_uninstall_skip(reason: str | None) -> bool:
+    return (
+        reason is None or reason == "client not installed" or reason.startswith("no ")
+    )
+
+
+def _uninstall_targets(targets: tuple[Client, ...], *, scope: InstallScope) -> None:
+    any_failed = False
+    changed_any = False
+    for target in targets:
+        try:
+            result = uninstall_client(target, scope=scope)
+        except OSError as exc:
+            any_failed = True
+            typer.secho(
+                f"{FAIL} {target.value}: uninstall failed ({exc}).",
+                fg=typer.colors.RED,
+                err=True,
+            )
+            continue
+
+        if result.changed:
+            changed_any = True
+            typer.secho(
+                f"{OK} {target.value}: Runlayer hooks removed from {result.config_path}.",
+                fg=typer.colors.GREEN,
+                err=True,
+            )
+        elif not _benign_uninstall_skip(result.skipped_reason):
+            any_failed = True
+            typer.secho(
+                f"{FAIL} {target.value}: uninstall skipped ({result.skipped_reason}).",
+                fg=typer.colors.RED,
+                err=True,
+            )
+
+    if any_failed:
+        raise typer.Exit(EXIT_PARTIAL_FAILURE)
+    if not changed_any:
+        typer.secho(
+            f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+            "no Runlayer hooks present.",
+            fg=typer.colors.GREEN,
+            err=True,
+        )
+
+
+def _check_absent(scope: InstallScope) -> None:
+    results = check_absent_all(scope=scope)
+    drift = False
+    for result in results:
+        if result.status == ClientStatus.OK:
+            continue
+        drift = True
+        typer.secho(
+            f"{FAIL} {result.client.value}: {result.status.value} "
+            f"({result.detail or 'no detail'}).",
+            fg=typer.colors.RED,
+            err=True,
+        )
+    if drift:
+        raise typer.Exit(EXIT_DRIFT)
+    typer.secho(
+        f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
+        "no Runlayer hooks present.",
+        fg=typer.colors.GREEN,
+        err=True,
+    )
 
 
 @hooks_app.callback(invoke_without_command=True)
@@ -109,13 +186,15 @@ def install(
         raise typer.Exit(EXIT_MISCONFIG)
 
     managed = read_managed_config()
+    targets = _targets_from_client(client)
     if not all_events and not resolve_install_hooks(managed):
         typer.secho(
             f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
-            "no hooks installed.",
+            "removing Runlayer hooks.",
             fg=typer.colors.GREEN,
             err=True,
         )
+        _uninstall_targets(targets, scope=scope)
         raise typer.Exit(EXIT_OK)
 
     present, detail = credential_present(load_config(), effective_host, scope)
@@ -141,9 +220,6 @@ def install(
         raise typer.Exit(EXIT_MISCONFIG) from None
 
     include_pipeline = resolve_include_pipeline(all_events, managed)
-
-    selected = _client_from_str(client)
-    targets = (selected,) if selected else iter_supported_clients()
 
     any_failed = False
     wrote_any = False
@@ -213,12 +289,7 @@ def check(
 
     managed = read_managed_config()
     if not resolve_install_hooks(managed):
-        typer.secho(
-            f"{OK} scan-only deployment (Enforcement + Sessions disabled); "
-            "no hooks to verify.",
-            fg=typer.colors.GREEN,
-            err=True,
-        )
+        _check_absent(scope)
         raise typer.Exit(EXIT_OK)
 
     present, detail = credential_present(load_config(), effective_host, scope)

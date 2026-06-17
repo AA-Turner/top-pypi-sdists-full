@@ -12,6 +12,8 @@ from chalk._gen.chalk.artifacts.v1.export_pb2 import (
 )
 from chalk._gen.chalk.staticaccelerator.v1.service_pb2 import (
     GetStaticConversionDiagnosticsRequest,
+    GetSupportedPythonSurfaceRequest,
+    GetSupportedPythonSurfaceResponse,
     HealthCheckRequest,
     HealthCheckResponse,
 )
@@ -33,6 +35,10 @@ class StaticAcceleratorServiceStub:
         Export,
     ]
     """buf:lint:ignore RPC_RESPONSE_STANDARD_NAME"""
+    GetSupportedPythonSurface: UnaryUnaryMultiCallable[
+        GetSupportedPythonSurfaceRequest,
+        GetSupportedPythonSurfaceResponse,
+    ]
 
 class StaticAcceleratorServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -48,6 +54,12 @@ class StaticAcceleratorServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> Export:
         """buf:lint:ignore RPC_RESPONSE_STANDARD_NAME"""
+    @abstractmethod
+    def GetSupportedPythonSurface(
+        self,
+        request: GetSupportedPythonSurfaceRequest,
+        context: ServicerContext,
+    ) -> GetSupportedPythonSurfaceResponse: ...
 
 def add_StaticAcceleratorServiceServicer_to_server(
     servicer: StaticAcceleratorServiceServicer, server: Server

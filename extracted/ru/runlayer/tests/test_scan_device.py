@@ -1,12 +1,18 @@
 """Tests for device identification."""
 
 import os
+import uuid
 from pathlib import Path
 from unittest import mock
 
 
 from runlayer_cli.scan.device import (
+    DEVICE_ID_NAMESPACE,
+    _get_hardware_machine_id,
+    _get_linux_hardware_id,
     _get_macos_console_user,
+    _get_macos_hardware_id,
+    _get_windows_hardware_id,
     detect_wsl,
     get_device_metadata,
     get_or_create_device_id,
@@ -23,48 +29,261 @@ class TestGetOrCreateDeviceId:
         assert result == "env-device-id"
 
     def test_creates_new_id_if_not_exists(self, tmp_path):
-        """Creates new UUID if no existing ID."""
-        with mock.patch(
-            "runlayer_cli.scan.device._get_device_id_path",
-            return_value=tmp_path / "device_id",
+        """Creates new UUID if no existing ID and no hardware id."""
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value=None,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=tmp_path / "device_id",
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
         ):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                # Clear RUNLAYER_DEVICE_ID if it exists
-                os.environ.pop("RUNLAYER_DEVICE_ID", None)
-                result = get_or_create_device_id()
-                # Should be valid UUID format
-                assert len(result) == 36
-                assert result.count("-") == 4
+            # Clear RUNLAYER_DEVICE_ID if it exists
+            os.environ.pop("RUNLAYER_DEVICE_ID", None)
+            result = get_or_create_device_id()
+            # Should be valid UUID format
+            assert len(result) == 36
+            assert result.count("-") == 4
 
     def test_reuses_stored_id(self, tmp_path):
-        """Reuses stored device ID on subsequent calls."""
+        """Reuses stored device ID when no hardware id is available."""
         device_id_file = tmp_path / "device_id"
         device_id_file.write_text("stored-device-id")
 
-        with mock.patch(
-            "runlayer_cli.scan.device._get_device_id_path",
-            return_value=device_id_file,
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value=None,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=device_id_file,
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
         ):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                os.environ.pop("RUNLAYER_DEVICE_ID", None)
-                result = get_or_create_device_id()
-                assert result == "stored-device-id"
+            os.environ.pop("RUNLAYER_DEVICE_ID", None)
+            result = get_or_create_device_id()
+            assert result == "stored-device-id"
 
     def test_stores_new_id_to_file(self, tmp_path):
-        """Stores newly generated ID to file for future use."""
+        """Stores newly generated ID to file when no hardware id is available."""
         device_id_file = tmp_path / "runlayer" / "device_id"
 
-        with mock.patch(
-            "runlayer_cli.scan.device._get_device_id_path",
-            return_value=device_id_file,
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value=None,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=device_id_file,
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
         ):
-            with mock.patch.dict(os.environ, {}, clear=True):
-                os.environ.pop("RUNLAYER_DEVICE_ID", None)
-                result = get_or_create_device_id()
+            os.environ.pop("RUNLAYER_DEVICE_ID", None)
+            result = get_or_create_device_id()
 
-                # File should now exist with the ID
-                assert device_id_file.exists()
-                assert device_id_file.read_text() == result
+            # File should now exist with the ID
+            assert device_id_file.exists()
+            assert device_id_file.read_text() == result
+
+
+class TestGetOrCreateDeviceIdStability:
+    """device_id must be stable per physical machine, not per user/home.
+
+    These reproduce the over-counting bug: under MDM the scan runs per console
+    user, so a per-home random/stored UUID mints a new device_id per user and
+    inflates COUNT(DISTINCT device_id) on the MDM card.
+    """
+
+    def test_prefers_hardware_id_over_stored_file(self, tmp_path):
+        """A stable hardware id wins over a previously stored per-user UUID."""
+        stored = tmp_path / "device_id"
+        stored.write_text("stored-per-user-uuid")
+
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value="hardware-uuid",
+            ),
+            mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=stored,
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            os.environ.pop("RUNLAYER_DEVICE_ID", None)
+            result = get_or_create_device_id()
+
+        assert result == "hardware-uuid"
+
+    def test_hardware_id_independent_of_home(self):
+        """Same machine, different user homes -> same device id, no file write."""
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value="hardware-uuid",
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            os.environ.pop("RUNLAYER_DEVICE_ID", None)
+            with mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=Path("/home/alice/.runlayer/device_id"),
+            ):
+                result_alice = get_or_create_device_id()
+            with mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=Path("/home/bob/.runlayer/device_id"),
+            ):
+                result_bob = get_or_create_device_id()
+
+        assert result_alice == result_bob == "hardware-uuid"
+
+    def test_env_var_takes_precedence_over_hardware(self):
+        """Explicit override still wins over the hardware id."""
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value="hardware-uuid",
+            ),
+            mock.patch.dict(os.environ, {"RUNLAYER_DEVICE_ID": "env-id"}),
+        ):
+            result = get_or_create_device_id()
+
+        assert result == "env-id"
+
+    def test_falls_back_to_stored_file_when_no_hardware(self, tmp_path):
+        """Hosts without a readable hardware id keep the stored-file behavior."""
+        stored = tmp_path / "device_id"
+        stored.write_text("stored-device-id")
+
+        with (
+            mock.patch(
+                "runlayer_cli.scan.device._get_hardware_machine_id",
+                return_value=None,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.device._get_device_id_path",
+                return_value=stored,
+            ),
+            mock.patch.dict(os.environ, {}, clear=True),
+        ):
+            os.environ.pop("RUNLAYER_DEVICE_ID", None)
+            result = get_or_create_device_id()
+
+        assert result == "stored-device-id"
+
+
+class TestHardwareMachineId:
+    """Dispatch + uuid5 wrapping for _get_hardware_machine_id."""
+
+    @mock.patch("platform.system", return_value="Darwin")
+    @mock.patch(
+        "runlayer_cli.scan.device._get_macos_hardware_id", return_value="RAW-MAC"
+    )
+    def test_macos_dispatch_wrapped_in_uuid5(self, _mac, _system):
+        result = _get_hardware_machine_id()
+        assert result == str(uuid.uuid5(DEVICE_ID_NAMESPACE, "RAW-MAC"))
+
+    @mock.patch("platform.system", return_value="Windows")
+    @mock.patch(
+        "runlayer_cli.scan.device._get_windows_hardware_id", return_value="RAW-WIN"
+    )
+    def test_windows_dispatch_wrapped_in_uuid5(self, _win, _system):
+        result = _get_hardware_machine_id()
+        assert result == str(uuid.uuid5(DEVICE_ID_NAMESPACE, "RAW-WIN"))
+
+    @mock.patch("platform.system", return_value="Linux")
+    @mock.patch(
+        "runlayer_cli.scan.device._get_linux_hardware_id", return_value="RAW-LINUX"
+    )
+    def test_linux_dispatch_wrapped_in_uuid5(self, _lin, _system):
+        result = _get_hardware_machine_id()
+        assert result == str(uuid.uuid5(DEVICE_ID_NAMESPACE, "RAW-LINUX"))
+
+    def test_uuid5_is_deterministic_and_uuid_shaped(self):
+        first = str(uuid.uuid5(DEVICE_ID_NAMESPACE, "RAW-MAC"))
+        second = str(uuid.uuid5(DEVICE_ID_NAMESPACE, "RAW-MAC"))
+        assert first == second
+        assert len(first) == 36
+        assert first.count("-") == 4
+
+    @mock.patch("platform.system", return_value="Darwin")
+    @mock.patch("runlayer_cli.scan.device._get_macos_hardware_id", return_value=None)
+    def test_returns_none_when_no_hardware_id(self, _mac, _system):
+        assert _get_hardware_machine_id() is None
+
+    @mock.patch("platform.system", return_value="SunOS")
+    def test_returns_none_on_unknown_platform(self, _system):
+        assert _get_hardware_machine_id() is None
+
+
+class TestMacosHardwareId:
+    @mock.patch("subprocess.run")
+    def test_parses_ioplatform_uuid(self, mock_run):
+        mock_run.return_value = mock.Mock(
+            returncode=0,
+            stdout=(
+                "  +-o IOPlatformExpertDevice  <class IOPlatformExpertDevice>\n"
+                '      "IOPlatformUUID" = "ABCDEF12-3456-7890-ABCD-EF1234567890"\n'
+            ),
+        )
+        result = _get_macos_hardware_id()
+        assert result == "ABCDEF12-3456-7890-ABCD-EF1234567890"
+
+    @mock.patch("subprocess.run")
+    def test_returns_none_when_uuid_absent(self, mock_run):
+        mock_run.return_value = mock.Mock(returncode=0, stdout="no uuid here\n")
+        assert _get_macos_hardware_id() is None
+
+    @mock.patch("subprocess.run")
+    def test_returns_none_on_nonzero_exit(self, mock_run):
+        mock_run.return_value = mock.Mock(returncode=1, stdout="")
+        assert _get_macos_hardware_id() is None
+
+    @mock.patch("subprocess.run", side_effect=Exception("ioreg missing"))
+    def test_returns_none_on_error(self, _run):
+        assert _get_macos_hardware_id() is None
+
+
+class TestWindowsHardwareId:
+    def test_reads_machine_guid(self):
+        fake_winreg = mock.MagicMock()
+        fake_key = mock.MagicMock()
+        fake_winreg.OpenKey.return_value.__enter__.return_value = fake_key
+        fake_winreg.QueryValueEx.return_value = ("machine-guid-1234", 1)
+
+        with mock.patch("runlayer_cli.scan.device.winreg", fake_winreg):
+            result = _get_windows_hardware_id()
+
+        assert result == "machine-guid-1234"
+
+    def test_returns_none_on_registry_error(self):
+        fake_winreg = mock.MagicMock()
+        fake_winreg.OpenKey.side_effect = OSError("no such key")
+
+        with mock.patch("runlayer_cli.scan.device.winreg", fake_winreg):
+            result = _get_windows_hardware_id()
+
+        assert result is None
+
+    def test_returns_none_when_winreg_unavailable(self):
+        with mock.patch("runlayer_cli.scan.device.winreg", None):
+            assert _get_windows_hardware_id() is None
+
+
+class TestLinuxHardwareId:
+    @mock.patch("pathlib.Path.read_text", return_value="linux-machine-id-123\n")
+    def test_reads_machine_id(self, _read):
+        assert _get_linux_hardware_id() == "linux-machine-id-123"
+
+    @mock.patch("pathlib.Path.read_text", side_effect=OSError("not found"))
+    def test_returns_none_when_unreadable(self, _read):
+        assert _get_linux_hardware_id() is None
 
 
 class TestGetDeviceMetadata:

@@ -16,10 +16,7 @@ runner = CliRunner()
 def _disable_keyring_store():
     """Default tests to YAML-backed secrets by disabling keyring."""
     reset_credential_store()
-    with (
-        patch("runlayer_cli.config.get_keyring_store", return_value=None),
-        patch("runlayer_cli.commands.auth.get_keyring_store", return_value=None),
-    ):
+    with patch("runlayer_cli.config.get_keyring_store", return_value=None):
         yield
     reset_credential_store()
 
@@ -150,7 +147,7 @@ def test_login_success_saves_credentials():
     mock_store.set_secret.return_value = True
 
     with patch("runlayer_cli.commands.auth.load_config") as mock_load:
-        with patch("runlayer_cli.commands.auth.save_config") as mock_save:
+        with patch("runlayer_cli.config.save_config") as mock_save:
             with patch("runlayer_cli.commands.auth.httpx.Client") as mock_client_class:
                 with patch("runlayer_cli.commands.auth.webbrowser.open"):
                     with patch("runlayer_cli.commands.auth.time.sleep"):
@@ -181,6 +178,61 @@ def test_login_success_saves_credentials():
                             saved_config = mock_save.call_args[0][0]
                             assert saved_config.default_host == "https://example.com"
                             assert "secret" not in saved_config.hosts["example.com"]
+
+
+def test_login_unpersisted_credential_fails():
+    """Keychain write failed AND save_config no-op (aiwatch) → login fails loudly.
+
+    Regression: previously login claimed success ("saved to config file") even
+    when the in-memory secret was never persisted anywhere.
+    """
+    mock_authorize_response = MagicMock()
+    mock_authorize_response.status_code = 200
+    mock_authorize_response.json.return_value = {
+        "device_code": "test_device_code",
+        "user_code": "ABCD-1234",
+        "verification_uri": "https://example.com/device",
+        "verification_uri_complete": "https://example.com/device?user_code=ABCD-1234",
+        "expires_in": 300,
+        "interval": 5,
+    }
+
+    mock_token_response = MagicMock()
+    mock_token_response.status_code = 200
+    mock_token_response.json.return_value = {"api_key": "test_api_key_123"}
+
+    # Keyring write fails → set_host_credentials returns False.
+    mock_store = MagicMock(spec=KeyringCredentialStore)
+    mock_store.set_secret.return_value = False
+
+    with patch("runlayer_cli.commands.auth.load_config") as mock_load:
+        with patch("runlayer_cli.config.save_config", return_value=False) as mock_save:
+            with patch("runlayer_cli.commands.auth.httpx.Client") as mock_client_class:
+                with patch("runlayer_cli.commands.auth.webbrowser.open"):
+                    with patch("runlayer_cli.commands.auth.time.sleep"):
+                        with patch(
+                            "runlayer_cli.config.get_keyring_store",
+                            return_value=mock_store,
+                        ):
+                            mock_load.return_value = _create_mock_config(
+                                default_host="https://example.com"
+                            )
+
+                            mock_client = MagicMock()
+                            mock_client.__enter__ = MagicMock(return_value=mock_client)
+                            mock_client.__exit__ = MagicMock(return_value=False)
+                            mock_client.post.side_effect = [
+                                mock_authorize_response,
+                                mock_token_response,
+                            ]
+                            mock_client_class.return_value = mock_client
+
+                            result = runner.invoke(app, ["login"])
+
+                            assert result.exit_code == 1, result.output
+                            assert "could not be persisted" in result.output
+                            assert "Successfully authenticated" not in result.output
+                            mock_save.assert_called_once()
 
 
 def test_login_to_second_host_preserves_first_host_credentials():
@@ -215,7 +267,7 @@ def test_login_to_second_host_preserves_first_host_credentials():
     )
 
     with patch("runlayer_cli.commands.auth.load_config") as mock_load:
-        with patch("runlayer_cli.commands.auth.save_config") as mock_save:
+        with patch("runlayer_cli.config.save_config") as mock_save:
             with patch("runlayer_cli.commands.auth.httpx.Client") as mock_client_class:
                 with patch("runlayer_cli.commands.auth.webbrowser.open"):
                     with patch("runlayer_cli.commands.auth.time.sleep"):
@@ -377,13 +429,14 @@ class TestLogout:
     """Tests for logout command."""
 
     def test_logout_clears_all_credentials(self):
-        """Test that logout without --host clears credential store and config."""
+        """Test that logout without --host clears every host's credential durably."""
         mock_store = MagicMock(spec=KeyringCredentialStore)
+        mock_store.delete_secret.return_value = True
 
         with patch("runlayer_cli.commands.auth.load_config") as mock_load:
-            with patch("runlayer_cli.commands.auth.clear_config") as mock_clear:
+            with patch("runlayer_cli.config.save_config") as mock_save:
                 with patch(
-                    "runlayer_cli.commands.auth.get_keyring_store",
+                    "runlayer_cli.config.get_keyring_store",
                     return_value=mock_store,
                 ):
                     mock_load.return_value = _create_mock_config(
@@ -392,16 +445,55 @@ class TestLogout:
                             "example.com": {
                                 "url": "https://example.com",
                                 "secret": "secret1",
-                            }
+                            },
+                            "staging.example.com": {
+                                "url": "https://staging.example.com",
+                                "secret": "secret2",
+                            },
                         },
                     )
 
                     result = runner.invoke(app, ["logout"])
 
-                    assert result.exit_code == 0
+                    assert result.exit_code == 0, result.output
                     assert "All credentials cleared" in result.output
-                    mock_store.delete_all_secrets.assert_called_once()
-                    mock_clear.assert_called_once()
+                    # Every host's keychain entry is deleted.
+                    assert mock_store.delete_secret.call_count == 2
+                    saved_config = mock_save.call_args[0][0]
+                    assert saved_config.hosts == {}
+
+    def test_logout_all_unpersisted_clear_fails(self):
+        """aiwatch runtime: 'all' path with a keychain delete that fails AND a
+        save_config no-op must error, not falsely claim success.
+
+        Regression: the per-host path was hardened via
+        clear_host_credentials_or_exit, but the 'all' path used to
+        unconditionally print success even when a credential survived.
+        """
+        from runlayer_cli.runtime import mark_aiwatch_runtime, reset_aiwatch_runtime
+
+        mock_store = MagicMock(spec=KeyringCredentialStore)
+        mock_store.delete_secret.return_value = False
+
+        mark_aiwatch_runtime()
+        try:
+            with (
+                patch(
+                    "runlayer_cli.config.read_managed_config",
+                    return_value={"host": "https://example.com"},
+                ),
+                patch(
+                    "runlayer_cli.config.get_keyring_store",
+                    return_value=mock_store,
+                ),
+            ):
+                result = runner.invoke(app, ["logout"])
+        finally:
+            reset_aiwatch_runtime()
+
+        assert result.exit_code == 1, result.output
+        assert "could not be cleared" in result.output
+        assert "All credentials cleared" not in result.output
 
     def test_logout_with_host_clears_specific_host(self):
         """Test that logout --host clears only that host's credentials."""
@@ -420,7 +512,7 @@ class TestLogout:
         )
 
         with patch("runlayer_cli.commands.auth.load_config") as mock_load:
-            with patch("runlayer_cli.commands.auth.save_config") as mock_save:
+            with patch("runlayer_cli.config.save_config") as mock_save:
                 with patch(
                     "runlayer_cli.config.get_keyring_store",
                     return_value=MagicMock(spec=KeyringCredentialStore),
@@ -468,6 +560,109 @@ class TestLogout:
 
             assert "No credentials found for https://nonexistent.com" in result.output
 
+    def test_logout_unpersisted_clear_fails(self):
+        """aiwatch runtime: keychain delete fails AND save_config no-op → fail loudly.
+
+        Mirror of test_login_unpersisted_credential_fails for the delete
+        direction. Previously per-host logout mutated the in-memory Config,
+        called bare save_config (a no-op under aiwatch), ignored its bool, and
+        still printed a green "Credentials cleared" line — while the secret
+        survived in the keychain.
+        """
+        from runlayer_cli.runtime import mark_aiwatch_runtime, reset_aiwatch_runtime
+
+        # Keychain delete fails → secret stays; aiwatch save_config no-ops.
+        mock_store = MagicMock(spec=KeyringCredentialStore)
+        mock_store.delete_secret.return_value = False
+
+        mark_aiwatch_runtime()
+        try:
+            with (
+                patch(
+                    "runlayer_cli.config.read_managed_config",
+                    return_value={"host": "https://example.com"},
+                ),
+                patch(
+                    "runlayer_cli.config.get_keyring_store",
+                    return_value=mock_store,
+                ),
+            ):
+                result = runner.invoke(app, ["logout", "--host", "https://example.com"])
+        finally:
+            reset_aiwatch_runtime()
+
+        assert result.exit_code == 1, result.output
+        assert "could not be cleared" in result.output
+        assert "Credentials cleared" not in result.output
+
+    def test_logout_with_host_clears_enrollment_marker(self, tmp_path, monkeypatch):
+        """logout --host removes the per-host enrollment marker.
+
+        Regression: clearing the keychain entry + config host alone left
+        ~/.runlayer/.enrolled-<host_key> behind, which would still satisfy the
+        bootstrap credential gate even though the secret is gone.
+        """
+        from pathlib import Path
+
+        from runlayer_cli.enrollment import write_enrollment_marker
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        write_enrollment_marker("https://example.com")
+        marker = tmp_path / ".runlayer" / ".enrolled-example.com"
+        assert marker.is_file()
+
+        initial_config = _create_mock_config(
+            default_host="https://example.com",
+            hosts={
+                "example.com": {
+                    "url": "https://example.com",
+                    "secret": "secret1",
+                },
+            },
+        )
+
+        with patch("runlayer_cli.commands.auth.load_config") as mock_load:
+            with patch("runlayer_cli.config.save_config"):
+                with patch(
+                    "runlayer_cli.config.get_keyring_store",
+                    return_value=MagicMock(spec=KeyringCredentialStore),
+                ):
+                    mock_load.return_value = initial_config
+
+                    result = runner.invoke(
+                        app, ["logout", "--host", "https://example.com"]
+                    )
+
+                    assert result.exit_code == 0, result.output
+                    assert not marker.exists()
+
+    def test_logout_host_not_found_keeps_enrollment_marker(self, tmp_path, monkeypatch):
+        """logout --host for an unknown host must not touch another host's marker."""
+        from pathlib import Path
+
+        from runlayer_cli.enrollment import write_enrollment_marker
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        write_enrollment_marker("https://example.com")
+        marker = tmp_path / ".runlayer" / ".enrolled-example.com"
+        assert marker.is_file()
+
+        with patch("runlayer_cli.commands.auth.load_config") as mock_load:
+            mock_load.return_value = _create_mock_config(
+                default_host="https://example.com",
+                hosts={
+                    "example.com": {
+                        "url": "https://example.com",
+                        "secret": "secret1",
+                    }
+                },
+            )
+
+            result = runner.invoke(app, ["logout", "--host", "https://nonexistent.com"])
+
+            assert "No credentials found for https://nonexistent.com" in result.output
+            assert marker.is_file()
+
     def test_logout_wrong_scheme_does_not_delete_credentials(self):
         """Test that logout with wrong scheme doesn't delete credentials for correct scheme."""
         mock_store = MagicMock(spec=KeyringCredentialStore)
@@ -483,7 +678,7 @@ class TestLogout:
         )
 
         with patch("runlayer_cli.commands.auth.load_config") as mock_load:
-            with patch("runlayer_cli.commands.auth.save_config") as mock_save:
+            with patch("runlayer_cli.config.save_config") as mock_save:
                 with patch(
                     "runlayer_cli.config.get_keyring_store",
                     return_value=mock_store,
@@ -497,6 +692,7 @@ class TestLogout:
                     assert (
                         "No credentials found for http://example.com" in result.output
                     )
+                    # Scheme mismatch ⇒ nothing removed, so neither the YAML nor
+                    # the keychain is touched.
                     mock_save.assert_not_called()
-                    # Credential store should NOT have been touched
                     mock_store.delete_secret.assert_not_called()

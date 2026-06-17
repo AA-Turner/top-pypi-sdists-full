@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -97,6 +98,55 @@ class TestFreshInstallUserScope:
         assert (tmp_path / ".cursor" / "hooks.json").exists()
         # Successful enroll must drop the per-host gate witness.
         assert enrollment_marker_path("https://t.example.com", home=tmp_path).is_file()
+
+
+class TestEnrollPersistenceFailure:
+    def test_unpersisted_credential_fails_and_skips_marker(self, tmp_path, monkeypatch):
+        """Keychain write failed AND save_config no-op → enroll step fails.
+
+        Regression: the secret only lived in the in-memory Config and was lost,
+        but bootstrap dropped the enrollment marker (falsely satisfying the gate)
+        and proceeded to install hooks.
+        """
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        (tmp_path / ".cursor").mkdir()
+
+        with (
+            patch(
+                "runlayer_cli.commands.bootstrap.load_config",
+                return_value=_config_no_secret(),
+            ),
+            patch(
+                "runlayer_cli.enrollment.load_config",
+                return_value=_config_no_secret(),
+            ),
+            patch(
+                "runlayer_cli.enrollment.read_managed_config",
+                return_value={"enrollment_key": "rl_enroll_abc"},
+            ),
+            patch(
+                "runlayer_cli.commands.bootstrap.exchange_enrollment_key",
+                return_value=EnrollmentResult(
+                    api_key="rl_user_new", username="u@example.com", device_name="Mac-1"
+                ),
+            ),
+            patch("runlayer_cli.config.save_config", return_value=False),
+            patch.object(Config, "set_host_credentials", return_value=False),
+            patch(
+                "runlayer_cli.commands.bootstrap.resolve_hook_command",
+                return_value="/usr/local/bin/aiwatch-hook",
+            ),
+        ):
+            result = runner.invoke(aiwatch_app, ["bootstrap", "--user"])
+
+        assert result.exit_code == 1, result.output
+        assert "could not be persisted" in result.output
+        assert "credential stored" not in result.output
+        # No marker dropped, and hooks must not be installed.
+        assert not enrollment_marker_path(
+            "https://t.example.com", home=tmp_path
+        ).is_file()
+        assert not (tmp_path / ".cursor" / "hooks.json").exists()
 
 
 # ── already-bootstrapped short-circuit ──────────────────────────────────
@@ -499,9 +549,23 @@ class TestOrgKeyModeSkipsEnroll:
 
 
 class TestScanOnlyNoOp:
-    def test_bootstrap_scan_only_no_op(self, tmp_path, monkeypatch):
+    def test_bootstrap_scan_only_uninstalls_stale_hooks(self, tmp_path, monkeypatch):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        (tmp_path / ".cursor").mkdir()
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "beforeMCPExecution": [
+                            {"command": "/usr/local/bin/aiwatch hook --client cursor"},
+                            {"command": "/opt/other/hook"},
+                        ]
+                    },
+                }
+            )
+        )
         config = _config_with_secret()
 
         with (
@@ -524,10 +588,27 @@ class TestScanOnlyNoOp:
         assert "scan-only" in result.output
         mock_ex.assert_not_called()
         mock_install.assert_not_called()
-        assert not (tmp_path / ".cursor" / "hooks.json").exists()
+        data = json.loads((cursor_dir / "hooks.json").read_text())
+        assert data["hooks"] == {"beforeMCPExecution": [{"command": "/opt/other/hook"}]}
 
-    def test_bootstrap_check_scan_only_no_op(self, tmp_path, monkeypatch):
+    def test_bootstrap_check_scan_only_drifts_when_stale_hooks_remain(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "beforeMCPExecution": [
+                            {"command": "/usr/local/bin/aiwatch hook --client cursor"}
+                        ]
+                    },
+                }
+            )
+        )
         config = _config_no_secret()
 
         with (
@@ -544,5 +625,5 @@ class TestScanOnlyNoOp:
         ):
             result = runner.invoke(aiwatch_app, ["bootstrap", "--check", "--user"])
 
-        assert result.exit_code == 0, result.output
-        assert "scan-only" in result.output
+        assert result.exit_code == 1, result.output
+        assert "Runlayer hook entries present" in result.output

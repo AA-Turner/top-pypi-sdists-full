@@ -172,7 +172,11 @@ class SitemapFetcher:
 
         self._url = response_url
 
-        response_content = ungzipped_response_content(url=self._url, response=response)
+        response_content = ungzipped_response_content(
+            url=self._url,
+            response=response,
+            max_uncompressed_bytes=self.__MAX_SITEMAP_SIZE,
+        )
 
         # MIME types returned in Content-Type are unpredictable, so peek into the content instead
         if response_content[:20].strip().startswith("<"):
@@ -444,6 +448,18 @@ class XMLSitemapParser(AbstractSitemapParser):
         parser.StartElementHandler = self._xml_element_start
         parser.EndElementHandler = self._xml_element_end
         parser.CharacterDataHandler = self._xml_char_data
+
+        def _xml_hardening_handler(handler: str):
+            def _hardening_handler(*args, **kwargs):
+                raise SitemapXMLParsingException(
+                    f"Sitemap contained unexpected non-standard XML {handler}. Parsing not supported for security reasons."
+                )
+
+            return _hardening_handler
+
+        parser.StartDoctypeDeclHandler = _xml_hardening_handler("DOCTYPE")
+        parser.EntityDeclHandler = _xml_hardening_handler("ENTITY")
+        parser.SetParamEntityParsing(xml.parsers.expat.XML_PARAM_ENTITY_PARSING_NEVER)
 
         try:
             is_final = True

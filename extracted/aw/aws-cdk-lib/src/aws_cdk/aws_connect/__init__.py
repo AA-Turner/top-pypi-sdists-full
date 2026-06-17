@@ -1377,7 +1377,7 @@ class CfnContactFlowModule(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The external invocation configuration for the flow module.
 
@@ -1399,19 +1399,20 @@ class CfnContactFlowModule(
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__2f8efe241abc51b530409c9debc12d730a45ae666ff0ec6e19d2013f0d3d2302)
                 check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "enabled": enabled,
-            }
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Enable external invocation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-contactflowmodule-externalinvocationconfiguration.html#cfn-connect-contactflowmodule-externalinvocationconfiguration-enabled
             '''
             result = self._values.get("enabled")
-            assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27498,7 +27499,7 @@ def _typecheckingstub__47de1c508f0616d427a0546578e35f062250082b28649c89857700196
 
 def _typecheckingstub__2f8efe241abc51b530409c9debc12d730a45ae666ff0ec6e19d2013f0d3d2302(
     *,
-    enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

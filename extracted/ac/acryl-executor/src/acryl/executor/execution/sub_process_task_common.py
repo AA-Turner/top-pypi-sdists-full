@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import errno
 import json
 import logging
 import os
@@ -224,12 +225,17 @@ class SubProcessTaskUtil:
         try:
             shutil.rmtree(dir_path)
         except FileNotFoundError:
-            logger.error(
-                "Cleanup: expected directory %s to exist but it was missing. "
-                "This is non-fatal, but indicates that either the directory was "
-                "never created during task setup or it was removed by another "
-                "process before cleanup ran.",
+            # Directory was never created or was already removed. Non-fatal.
+            logger.warning("Cleanup: directory %s does not exist; skipping.", dir_path)
+        except OSError as e:
+            # e.g. ENOTEMPTY when a subprocess core dump is still being written,
+            # EACCES/EPERM on permission issues, EBUSY for an active mount.
+            errno_name = errno.errorcode.get(e.errno or 0, str(e.errno))
+            logger.exception(
+                "Cleanup: failed to remove directory %s (%s: %s). Non-fatal.",
                 dir_path,
+                errno_name,
+                e.strerror or str(e),
             )
 
 

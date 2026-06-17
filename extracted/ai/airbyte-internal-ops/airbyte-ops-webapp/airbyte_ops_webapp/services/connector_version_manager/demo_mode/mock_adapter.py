@@ -6,12 +6,16 @@ from dataclasses import asdict
 
 from airbyte_ops_webapp.models import (
     ConnectorOption,
+    ConnectorRelease,
+    ConnectorRollout,
     ConnectorVersion,
+    ContextResolution,
     CurrentVersionState,
     OperationResult,
     OverridePlan,
     ScopedConfiguration,
     ScopeType,
+    VersionPinRow,
     build_version_override_payload,
     version_override_tool_name,
 )
@@ -101,6 +105,46 @@ MOCK_VERSIONS: dict[str, tuple[ConnectorVersion, ...]] = {
             language="python",
             last_published="2026-02-18T20:15:00Z",
         ),
+        ConnectorVersion(
+            version_id="adv_github_183",
+            docker_image_tag="1.8.3",
+            docker_repository="airbyte/source-github",
+            release_stage="generally_available",
+            support_level="certified",
+            cdk_version="python:6.35.0",
+            language="python",
+            last_published="2026-01-29T16:42:00Z",
+        ),
+        ConnectorVersion(
+            version_id="adv_github_174",
+            docker_image_tag="1.7.4",
+            docker_repository="airbyte/source-github",
+            release_stage="generally_available",
+            support_level="certified",
+            cdk_version="python:6.29.1",
+            language="python",
+            last_published="2025-12-19T13:05:00Z",
+        ),
+        ConnectorVersion(
+            version_id="adv_github_169",
+            docker_image_tag="1.6.9",
+            docker_repository="airbyte/source-github",
+            release_stage="generally_available",
+            support_level="certified",
+            cdk_version="python:6.22.0",
+            language="python",
+            last_published="2025-11-07T18:33:00Z",
+        ),
+        ConnectorVersion(
+            version_id="adv_github_158",
+            docker_image_tag="1.5.8",
+            docker_repository="airbyte/source-github",
+            release_stage="generally_available",
+            support_level="certified",
+            cdk_version="python:6.18.2",
+            language="python",
+            last_published="2025-10-02T09:18:00Z",
+        ),
     ),
     "25c5221d-dce2-4163-ade9-739ef790f503": (
         ConnectorVersion(
@@ -164,6 +208,84 @@ MOCK_CONFIGURATIONS: tuple[ScopedConfiguration, ...] = (
     ),
 )
 
+MOCK_VERSION_PINS: dict[str, tuple[VersionPinRow, ...]] = {
+    "adv_postgres_371": (
+        VersionPinRow(
+            scope_type="workspace",
+            scope_id="ws_abc123-def456",
+            scope_url="https://cloud.airbyte.com/workspaces/ws_abc123-def456",
+            origin_type="user",
+            origin_name="admin@airbyte.io",
+            description="Workspace pinned during regression investigation",
+            created_at="2026-04-10T14:30:00Z",
+            created_at_display="2026-04-10 (Thu)",
+            expires_at="2026-05-15T00:00:00Z",
+            expires_at_display="2026-05-15 (Thu)",
+            reference_url="https://github.com/airbytehq/airbyte/issues/0000",
+        ),
+        VersionPinRow(
+            scope_type="organization",
+            scope_id="org_789012-abcdef",
+            scope_url="https://cloud.airbyte.com/organizations/org_789012-abcdef/settings",
+            origin_type="user",
+            origin_name="ops@airbyte.io",
+            description="Org-level temporary pin for customer regression",
+            created_at="2026-04-08T10:00:00Z",
+            created_at_display="2026-04-08 (Tue)",
+            expires_at="2026-05-20T00:00:00Z",
+            expires_at_display="2026-05-20 (Tue)",
+            reference_url="https://github.com/airbytehq/airbyte/issues/1111",
+        ),
+        VersionPinRow(
+            scope_type="actor",
+            scope_id="act_fedcba-987654",
+            scope_url="https://cloud.airbyte.com/workspaces",
+            origin_type="user",
+            origin_name="support@airbyte.io",
+            description="Actor canary pin",
+            created_at="2026-04-12T09:15:00Z",
+            created_at_display="2026-04-12 (Sat)",
+            expires_at="",
+            expires_at_display="",
+            reference_url="",
+        ),
+    ),
+    "adv_github_187": (
+        VersionPinRow(
+            scope_type="organization",
+            scope_id="org_example",
+            scope_url="https://cloud.airbyte.com/organizations/org_example/settings",
+            origin_type="user",
+            origin_name="ops@example.com",
+            description="Organization-level temporary pin",
+            created_at="2026-03-01T12:00:00Z",
+            created_at_display="2026-03-01 (Sat)",
+            expires_at="2026-05-30T00:00:00Z",
+            expires_at_display="2026-05-30 (Fri)",
+            reference_url="https://github.com/airbytehq/airbyte/issues/2222",
+        ),
+    ),
+}
+
+MOCK_ROLLOUTS: dict[str, tuple[ConnectorRollout, ...]] = {
+    "b5ea17b1-f170-46dc-bc31-cc744ca984c1": (
+        ConnectorRollout(
+            rollout_id="mock-postgres-rollout",
+            connector_id="b5ea17b1-f170-46dc-bc31-cc744ca984c1",
+            connector_name="source-postgres",
+            connector_type="source",
+            docker_repository="airbyte/source-postgres",
+            state="initialized",
+            rc_docker_image_tag="3.8.0-rc.12",
+            initial_docker_image_tag="3.7.2",
+            current_target_rollout_pct="50",
+            final_target_rollout_pct="50",
+            created_at="2026-04-28T11:00:00Z",
+            updated_at="2026-04-28T12:00:00Z",
+        ),
+    ),
+}
+
 
 class MockPinningAdapter(OpsMcpAdapter):
     """In-memory data source for demos and tests."""
@@ -177,6 +299,8 @@ class MockPinningAdapter(OpsMcpAdapter):
         self.connectors = MOCK_CONNECTORS
         self.versions = MOCK_VERSIONS
         self.configurations = MOCK_CONFIGURATIONS
+        self.rollouts = MOCK_ROLLOUTS
+        self.version_pins = MOCK_VERSION_PINS
 
     def search_connectors(self, query: str) -> tuple[ConnectorOption, ...]:
         """Search connectors by name, ID, or Docker repository."""
@@ -205,6 +329,59 @@ class MockPinningAdapter(OpsMcpAdapter):
     def list_versions(self, connector_id: str) -> tuple[ConnectorVersion, ...]:
         """List published versions for a connector."""
         return self.versions.get(connector_id, ())
+
+    def list_recent_releases(
+        self,
+        *,
+        days: int = 30,
+        limit: int | None = None,
+    ) -> tuple[ConnectorRelease, ...]:
+        """List recent mock releases across connectors."""
+        releases: list[ConnectorRelease] = []
+        for connector in self.connectors:
+            for version in self.versions.get(connector.id, ()):
+                releases.append(
+                    ConnectorRelease(
+                        version_id=version.version_id,
+                        connector_id=connector.id,
+                        connector_name=connector.name,
+                        connector_type=connector.connector_type,
+                        docker_image_tag=version.docker_image_tag,
+                        docker_repository=version.docker_repository,
+                        release_stage=version.release_stage,
+                        last_published=version.last_published,
+                    )
+                )
+        sorted_releases = sorted(
+            releases,
+            key=lambda release: release.last_published,
+            reverse=True,
+        )
+        return tuple(sorted_releases[:limit] if limit is not None else sorted_releases)
+
+    def list_active_rollouts(
+        self,
+        connector_id: str,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active mock rollouts for a connector."""
+        return self.rollouts.get(connector_id, ())
+
+    def list_progressive_rollouts(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active mock rollouts across connectors."""
+        rollouts = sorted(
+            (
+                rollout
+                for connector_rollouts in self.rollouts.values()
+                for rollout in connector_rollouts
+            ),
+            key=lambda rollout: rollout.updated_at,
+            reverse=True,
+        )
+        return tuple(rollouts[:limit] if limit is not None else rollouts)
 
     def get_current_context(
         self,
@@ -294,6 +471,46 @@ class MockPinningAdapter(OpsMcpAdapter):
         if scope_type == "organization":
             return scope_id
         return "org_example"
+
+    def resolve_context_guid(
+        self,
+        *,
+        connector: ConnectorOption,
+        context_guid: str,
+    ) -> ContextResolution:
+        """Resolve a mock context GUID."""
+        if context_guid == "actor_example":
+            return ContextResolution(
+                scope_type="actor",
+                scope_id=context_guid,
+                organization_id="org_example",
+                workspace_id="workspace_example",
+                actor_id=context_guid,
+            )
+        if context_guid == "workspace_example":
+            return ContextResolution(
+                scope_type="workspace",
+                scope_id=context_guid,
+                organization_id="org_example",
+                workspace_id=context_guid,
+            )
+        return ContextResolution(
+            scope_type="organization",
+            scope_id=context_guid,
+            organization_id=context_guid,
+        )
+
+    def list_version_pins(
+        self,
+        version_id: str,
+        *,
+        limit: int = 25,
+        offset: int = 0,
+    ) -> tuple[list[VersionPinRow], int]:
+        """Return mock pins for a connector version."""
+        all_pins = list(self.version_pins.get(version_id, ()))
+        total = len(all_pins)
+        return all_pins[offset : offset + limit], total
 
     def apply_override(self, plan: OverridePlan) -> OperationResult:
         """Apply the override flow without calling Airbyte Cloud."""

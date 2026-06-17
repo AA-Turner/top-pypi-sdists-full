@@ -25,7 +25,6 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from datetime import datetime, timezone
 from typing import Any
 
-from .buffer import EventType
 from .context_manager import (
     RunContext,
     get_current_span_context,
@@ -124,46 +123,8 @@ async def _queue_llm_span_event(run_ctx: RunContext, trace_id: str) -> None:
         output_cost = cost.get("output_cost", 0.0)
         total_cost = cost.get("total_cost", 0.0)
 
-        # Phase 1: SPAN_CREATE - basic structure (matches SpanCreateRequest)
-        create_payload = {
-            "id": run_ctx.id,
-            "name": run_ctx.name,
-            "trace_id": trace_id,
-            "parent_id": run_ctx.parent_id if run_ctx.parent_id != trace_id else None,
-            "type": "llm",
-            "start_time": run_ctx.start_time.isoformat()
-            if run_ctx.start_time
-            else end_time.isoformat(),
-            "metadata": meta,
-            "tags": run_ctx.tags,
-            "input": meta.get("input"),
-            "model": meta.get("model"),
-            "level": "ERROR" if meta.get("status") == "error" else "DEFAULT",
-        }
-
-        # Nested usage objects for SpanCreateRequest
-        if prompt_tokens > 0 or completion_tokens > 0:
-            create_payload["usage"] = {
-                "input": prompt_tokens,
-                "output": completion_tokens,
-                "total": total_tokens,
-                "unit": "TOKENS",
-            }
-            create_payload["token_usage"] = {
-                "prompt_tokens": prompt_tokens,
-                "completion_tokens": completion_tokens,
-                "total_tokens": total_tokens,
-            }
-        if total_cost > 0:
-            create_payload["cost_details"] = {
-                "input_cost": input_cost,
-                "output_cost": output_cost,
-                "total_cost": total_cost,
-            }
-
-        await aigie._buffer.add(EventType.SPAN_CREATE, create_payload)
-
-        # Phase 2: SPAN_UPDATE - output, tokens, cost (matches SpanUpdateRequest)
+        # Emit the span exactly once, finalized. (The prior SPAN_CREATE was
+        # dropped at transport; only this finalized SPAN_UPDATE shipped.)
         update_payload = {
             "id": run_ctx.id,
             "span_id": run_ctx.id,
@@ -184,7 +145,7 @@ async def _queue_llm_span_event(run_ctx: RunContext, trace_id: str) -> None:
         if run_ctx.parent_id and run_ctx.parent_id != trace_id:
             update_payload["parent_id"] = run_ctx.parent_id
 
-        # Direct fields for SpanUpdateRequest
+        # Direct token/cost fields on the finalized span
         if prompt_tokens > 0 or completion_tokens > 0:
             update_payload["prompt_tokens"] = prompt_tokens
             update_payload["completion_tokens"] = completion_tokens
@@ -225,7 +186,7 @@ async def _queue_llm_span_event(run_ctx: RunContext, trace_id: str) -> None:
         if "framework" in meta:
             update_payload["framework"] = meta["framework"]
 
-        await aigie._buffer.add(EventType.SPAN_UPDATE, update_payload)
+        await aigie._buffer.add(update_payload)
         logger.debug(
             f"[wrapper] Queued LLM span event: {run_ctx.name} ({run_ctx.id}) -> trace:{trace_id}"
         )
@@ -1334,11 +1295,11 @@ class AnthropicWrapper:
         span_usage: dict | None = None,
         span_cost: dict | None = None,
     ) -> None:
-        """Queue Anthropic LLM span using two-phase SPAN_CREATE + SPAN_UPDATE.
+        """Queue the finalized Anthropic LLM span (single emit).
 
-        Uses the same pattern as SpanContext: SPAN_CREATE for basic structure,
-        then SPAN_UPDATE with output, tokens, cost data. This matches the
-        backend's SpanCreateRequest / SpanUpdateRequest schemas.
+        Builds one finalized span payload with output, tokens, and cost data
+        and emits it exactly once — the same single-event shape every adapter
+        now produces.
         """
         try:
             from .client import get_aigie
@@ -1355,47 +1316,8 @@ class AnthropicWrapper:
             output_cost = span_cost.get("output_cost", 0.0) if span_cost else 0.0
             total_cost = span_cost.get("total_cost", 0.0) if span_cost else 0.0
 
-            # Phase 1: SPAN_CREATE - basic structure (matches SpanCreateRequest)
-            create_payload = {
-                "id": run_ctx.id,
-                "name": run_ctx.name,
-                "trace_id": trace_id,
-                "parent_id": run_ctx.parent_id if run_ctx.parent_id != trace_id else None,
-                "type": "llm",
-                "start_time": run_ctx.start_time.isoformat()
-                if run_ctx.start_time
-                else end_time.isoformat(),
-                "metadata": run_ctx.metadata,
-                "tags": run_ctx.tags,
-                "input": span_input,
-                "model": run_ctx.metadata.get("model"),
-                "level": "ERROR" if run_ctx.metadata.get("status") == "error" else "DEFAULT",
-            }
-
-            # SpanCreateRequest accepts usage/token_usage as nested objects
-            if prompt_tokens > 0 or completion_tokens > 0:
-                create_payload["usage"] = {
-                    "input": prompt_tokens,
-                    "output": completion_tokens,
-                    "total": total_tokens,
-                    "unit": "TOKENS",
-                }
-                create_payload["token_usage"] = {
-                    "prompt_tokens": prompt_tokens,
-                    "completion_tokens": completion_tokens,
-                    "total_tokens": total_tokens,
-                }
-            if input_cost > 0 or output_cost > 0 or total_cost > 0:
-                create_payload["cost_details"] = {
-                    "input_cost": input_cost,
-                    "output_cost": output_cost,
-                    "total_cost": total_cost,
-                }
-
-            await aigie._buffer.add(EventType.SPAN_CREATE, create_payload)
-
-            # Phase 2: SPAN_UPDATE - output, tokens, cost as direct fields
-            # (matches SpanUpdateRequest which accepts prompt_tokens etc. directly)
+            # Emit the span exactly once, finalized. (The prior SPAN_CREATE was
+            # dropped at transport; only this finalized SPAN_UPDATE shipped.)
             update_payload = {
                 "id": run_ctx.id,
                 "span_id": run_ctx.id,
@@ -1417,7 +1339,7 @@ class AnthropicWrapper:
             if run_ctx.parent_id and run_ctx.parent_id != trace_id:
                 update_payload["parent_id"] = run_ctx.parent_id
 
-            # Direct fields for SpanUpdateRequest
+            # Direct token/cost fields on the finalized span
             if prompt_tokens > 0 or completion_tokens > 0:
                 update_payload["prompt_tokens"] = prompt_tokens
                 update_payload["completion_tokens"] = completion_tokens
@@ -1474,7 +1396,7 @@ class AnthropicWrapper:
                 update_payload["latency_seconds"] = (end_time - run_ctx.start_time).total_seconds()
                 update_payload["duration_ns"] = duration_ns
 
-            await aigie._buffer.add(EventType.SPAN_UPDATE, update_payload)
+            await aigie._buffer.add(update_payload)
             logger.debug(
                 f"[wrapper] Queued Anthropic span: {run_ctx.name} ({run_ctx.id}) -> trace:{trace_id}"
             )

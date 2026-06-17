@@ -7,15 +7,13 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "airbyte>=0.45.0,<1.0.0",
     "airbyte-internal-ops",
+    "cryptography>=44.0.0,<45.0.0",
     "fastmcp[apps]>=3.2.4,<3.3.0",
     "prefab-ui>=0.19.2",
     "pydantic>=2.0.0",
     "starlette>=1.0.0",
     "uvicorn>=0.46.0",
 ]
-
-[tool.uv.sources]
-airbyte-internal-ops = { path = "..", editable = true }
 
 [dependency-groups]
 dev = [
@@ -48,6 +46,9 @@ exclude = [
 pep621_dev_dependency_groups = ["dev"]
 known_first_party = ["airbyte_ops_webapp"]
 ignore = ["DEP004", "DEP002"]
+
+[tool.uv.sources]
+airbyte-internal-ops = { path = ".." }
 
 [tool.deptry.package_module_name_map]
 airbyte-internal-ops = ["airbyte_ops_mcp"]

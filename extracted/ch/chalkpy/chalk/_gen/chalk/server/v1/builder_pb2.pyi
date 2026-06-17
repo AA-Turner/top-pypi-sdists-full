@@ -1997,6 +1997,41 @@ class ClickHouseSpec(_message.Message):
         serve_over_http: bool = ...,
     ) -> None: ...
 
+class VictoriaMetricsSpec(_message.Message):
+    __slots__ = (
+        "retention_period",
+        "storage_size",
+        "storage_class",
+        "request",
+        "cloud_secret_name",
+        "instance_type",
+        "nodepool",
+    )
+    RETENTION_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_CLASS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    retention_period: str
+    storage_size: str
+    storage_class: str
+    request: KubeResourceConfig
+    cloud_secret_name: str
+    instance_type: str
+    nodepool: str
+    def __init__(
+        self,
+        retention_period: _Optional[str] = ...,
+        storage_size: _Optional[str] = ...,
+        storage_class: _Optional[str] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        cloud_secret_name: _Optional[str] = ...,
+        instance_type: _Optional[str] = ...,
+        nodepool: _Optional[str] = ...,
+    ) -> None: ...
+
 class ZombieKillerSpec(_message.Message):
     __slots__ = ("interval",)
     INTERVAL_FIELD_NUMBER: _ClassVar[int]
@@ -2363,6 +2398,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "gpu_telemetry",
         "telemetry_runtime",
         "vector_cluster_metrics",
+        "victoria_metrics",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -2376,6 +2412,7 @@ class TelemetryDeploymentSpec(_message.Message):
     GPU_TELEMETRY_FIELD_NUMBER: _ClassVar[int]
     TELEMETRY_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     VECTOR_CLUSTER_METRICS_FIELD_NUMBER: _ClassVar[int]
+    VICTORIA_METRICS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -2388,6 +2425,7 @@ class TelemetryDeploymentSpec(_message.Message):
     gpu_telemetry: GpuTelemetrySpec
     telemetry_runtime: TelemetryRuntime
     vector_cluster_metrics: VectorClusterMetricsSpec
+    victoria_metrics: VictoriaMetricsSpec
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -2402,6 +2440,7 @@ class TelemetryDeploymentSpec(_message.Message):
         gpu_telemetry: _Optional[_Union[GpuTelemetrySpec, _Mapping]] = ...,
         telemetry_runtime: _Optional[_Union[TelemetryRuntime, str]] = ...,
         vector_cluster_metrics: _Optional[_Union[VectorClusterMetricsSpec, _Mapping]] = ...,
+        victoria_metrics: _Optional[_Union[VictoriaMetricsSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):

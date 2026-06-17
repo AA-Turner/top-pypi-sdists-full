@@ -819,6 +819,40 @@ models:
   - transformer-based real-time detection
   notes: Permissive RT-DETR-R50 detector wired in v3.12.0. Commercial-safe alternative
     to AGPL Ultralytics YOLO.
+- id: libreyolo-dfine-n
+  display_name: LibreYOLO D-FINE-N (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; D-FINE (Peterande) architecture + LibreYOLO-trained
+    weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreDFINEn
+  checkpoint_filename: LibreDFINEn.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_notes: Uses the `libreyolo` package. Weights auto-downloaded from the
+    LibreYOLO Hugging Face org on first load; never bundled.
+  implementation_status: wired
+  supported_devices:
+  - cpu
+  - cuda
+  recommended_device: cuda
+  supported_precisions:
+  - fp32
+  - fp16
+  difficulty: easy
+  status: beta
+  model_category: production_recommended
+  best_for:
+  - permissive-license COCO detection
+  - transformer-based real-time detection (D-FINE)
+  notes: Permissive D-FINE-N detector wired + trainable via LibreYOLO in v3.14.0.
+    Commercial-safe alternative to AGPL Ultralytics YOLO.
 - id: rfdetr-nano
   display_name: RF-DETR (Nano) [demo]
   task: detect
@@ -3523,3 +3557,514 @@ models:
   status: beta
   model_category: accuracy_grade
   notes: "Alias for grounding-dino-swin-b. Uses IDEA-Research/grounding-dino-base (SwinB backbone). Same weights."
+# ----- v3.15.0: classic torchvision classifiers (BSD-3-Clause, commercial-safe).
+# Pretrained ImageNet-1K inference + ImageFolder fine-tune + checkpoint reload +
+# ONNX export. Weights downloaded on demand by torchvision; never bundled.
+- id: torchvision-alexnet
+  display_name: AlexNet (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: Classic AlexNet classifier wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-resnet18
+  display_name: ResNet-18 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: ResNet-18 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX). Lightweight transfer backbone.
+- id: torchvision-resnet34
+  display_name: ResNet-34 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: ResNet-34 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-resnet50
+  display_name: ResNet-50 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: ResNet-50 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX). Most common transfer backbone.
+- id: torchvision-resnet101
+  display_name: ResNet-101 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: accuracy_grade
+  notes: ResNet-101 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-resnet152
+  display_name: ResNet-152 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: accuracy_grade
+  notes: ResNet-152 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-wide-resnet50-2
+  display_name: Wide ResNet-50-2 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: accuracy_grade
+  notes: Wide ResNet-50-2 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-resnext50-32x4d
+  display_name: ResNeXt-50 32x4d (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: accuracy_grade
+  notes: ResNeXt-50 32x4d wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-densenet121
+  display_name: DenseNet-121 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: DenseNet-121 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-mobilenet-v2
+  display_name: MobileNet-V2 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: MobileNet-V2 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX). Edge-friendly.
+- id: torchvision-mobilenet-v3-large
+  display_name: MobileNet-V3-Large (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: MobileNet-V3-Large wired in v3.15.0 (pretrained + fine-tune + reload + ONNX). Edge-friendly.
+- id: torchvision-efficientnet-b0
+  display_name: EfficientNet-B0 (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: EfficientNet-B0 wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+- id: torchvision-convnext-tiny
+  display_name: ConvNeXt-Tiny (torchvision, ImageNet-1K)
+  task: classify
+  family: torchvision-classify
+  backend: torchvision
+  engine: torchvision_classify
+  license: BSD-3-Clause
+  license_notes: torchvision code + ImageNet-1K weights BSD-3-Clause (PyTorch). Commercial-safe; no Ultralytics/AGPL.
+  upstream_url: https://github.com/pytorch/vision
+  download_type: package_managed
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: torchvision
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cpu
+  supported_precisions: [fp32]
+  difficulty: easy
+  status: stable
+  model_category: production_recommended
+  notes: ConvNeXt-Tiny wired in v3.15.0 (pretrained + fine-tune + reload + ONNX).
+# ----- v3.16.0: larger LibreYOLO variants (INFERENCE-READY). Same permissive
+# engine + HF weights as the validated base variants; their train→reload→predict
+# lifecycle is not individually validated this release (see model_capabilities:
+# VARIANT_NOT_LIFECYCLE_VALIDATED), and D-FINE training is blocked upstream
+# (UPSTREAM_DFINE_FDR_TOPK_CRASH). Validated train targets: yolox-s/yolov9-s/rtdetr-r50.
+- id: libreyolo-yolox-m
+  display_name: LibreYOLO YOLOX-M (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; YOLOX weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreYOLOXm
+  checkpoint_filename: LibreYOLOXm.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: YOLOX-M inference-ready (v3.16.0). Train via the validated yolox engine; not individually lifecycle-validated.
+- id: libreyolo-yolox-l
+  display_name: LibreYOLO YOLOX-L (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; YOLOX weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreYOLOXl
+  checkpoint_filename: LibreYOLOXl.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: YOLOX-L inference-ready (v3.16.0). Train via the validated yolox engine; not individually lifecycle-validated.
+- id: libreyolo-yolox-x
+  display_name: LibreYOLO YOLOX-X (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; YOLOX weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreYOLOXx
+  checkpoint_filename: LibreYOLOXx.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: YOLOX-X inference-ready (v3.16.0). Train via the validated yolox engine; not individually lifecycle-validated.
+- id: libreyolo-yolov9-m
+  display_name: LibreYOLO YOLOv9-M (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: MIT
+  license_notes: LibreYOLO code MIT; YOLOv9 weights MIT (MultimediaTechLab fork, not GPL WongKinYiu).
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreYOLO9m
+  checkpoint_filename: LibreYOLO9m.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: YOLOv9-M inference-ready (v3.16.0). MIT weights. Train via the validated yolov9 engine; not individually lifecycle-validated.
+- id: libreyolo-yolov9-c
+  display_name: LibreYOLO YOLOv9-C (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: MIT
+  license_notes: LibreYOLO code MIT; YOLOv9 weights MIT (MultimediaTechLab fork, not GPL WongKinYiu).
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreYOLO9c
+  checkpoint_filename: LibreYOLO9c.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: YOLOv9-C inference-ready (v3.16.0). MIT weights. Train via the validated yolov9 engine; not individually lifecycle-validated.
+- id: libreyolo-rtdetr-r101
+  display_name: LibreYOLO RT-DETR-R101 (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; RT-DETR (Baidu) weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreRTDETRr101
+  checkpoint_filename: LibreRTDETRr101.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: medium
+  status: beta
+  model_category: accuracy_grade
+  notes: RT-DETR-R101 inference-ready (v3.16.0). Train via the validated rtdetr engine; not individually lifecycle-validated.
+- id: libreyolo-dfine-s
+  display_name: LibreYOLO D-FINE-S (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; D-FINE weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreDFINEs
+  checkpoint_filename: LibreDFINEs.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: D-FINE-S inference-ready (v3.16.0). Training BLOCKED upstream (UPSTREAM_DFINE_FDR_TOPK_CRASH).
+- id: libreyolo-dfine-m
+  display_name: LibreYOLO D-FINE-M (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; D-FINE weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreDFINEm
+  checkpoint_filename: LibreDFINEm.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: easy
+  status: beta
+  model_category: accuracy_grade
+  notes: D-FINE-M inference-ready (v3.16.0). Training BLOCKED upstream (UPSTREAM_DFINE_FDR_TOPK_CRASH).
+- id: libreyolo-dfine-l
+  display_name: LibreYOLO D-FINE-L (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; D-FINE weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreDFINEl
+  checkpoint_filename: LibreDFINEl.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: medium
+  status: beta
+  model_category: accuracy_grade
+  notes: D-FINE-L inference-ready (v3.16.0). Training BLOCKED upstream (UPSTREAM_DFINE_FDR_TOPK_CRASH).
+- id: libreyolo-dfine-x
+  display_name: LibreYOLO D-FINE-X (permissive)
+  task: detect
+  family: libreyolo
+  backend: libreyolo_package
+  engine: libreyolo
+  license: Apache-2.0
+  license_notes: LibreYOLO code MIT; D-FINE weights Apache-2.0.
+  upstream_url: https://github.com/LibreYOLO/libreyolo
+  download_type: huggingface
+  hf_repo_id: LibreYOLO/LibreDFINEx
+  checkpoint_filename: LibreDFINEx.pt
+  auto_download: true
+  requires_optional_extra: true
+  install_extra: libreyolo
+  implementation_status: wired
+  supported_devices: [cpu, cuda]
+  recommended_device: cuda
+  supported_precisions: [fp32, fp16]
+  difficulty: medium
+  status: beta
+  model_category: accuracy_grade
+  notes: D-FINE-X inference-ready (v3.16.0). Training BLOCKED upstream (UPSTREAM_DFINE_FDR_TOPK_CRASH).

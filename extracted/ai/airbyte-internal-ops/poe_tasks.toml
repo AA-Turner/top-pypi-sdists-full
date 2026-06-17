@@ -76,3 +76,50 @@ cmd = "python -m fastmcp_extensions.utils.test_tool --http --app $MCP_SERVER_APP
 [tool.poe.tasks.mcp-server-describe]
 help = "Describe MCP server tool list (count, total characters, average)"
 cmd = "python -m fastmcp_extensions.utils.describe_server --app $MCP_SERVER_APP --name airbyte-ops-mcp"
+
+# ---------------------------------------------------------------------------
+# Ops Webapp (airbyte-ops-webapp/)
+#
+# `serve.py` does not read any .env file itself, so these tasks inject the
+# credentials at launch. Real mode loads two env files: the root .env supplies
+# the Cloud application creds (AIRBYTE_CLOUD_CLIENT_ID/SECRET) used for
+# server-side Config API reads, and airbyte-ops-webapp/.env supplies the OAuth
+# client creds (AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID/SECRET) used for browser
+# sign-in. envfile paths are resolved from the repo root; cwd runs the command
+# inside the webapp package. Override the port with `PORT=xxxx poe webapp-serve`.
+# ---------------------------------------------------------------------------
+
+[tool.poe.tasks.webapp-serve]
+help = "Serve the Ops Webapp locally in real mode (loads root .env + webapp .env)"
+cwd = "airbyte-ops-webapp"
+envfile = [".env", "airbyte-ops-webapp/.env"]
+env = { PYTHONPATH = ".", PORT = { default = "3000" } }
+cmd = "uv run python -m airbyte_ops_webapp.serve"
+
+[tool.poe.tasks.webapp-serve-mock]
+help = "Serve the Ops Webapp locally in mock mode (no creds, apply is a no-op)"
+cwd = "airbyte-ops-webapp"
+env = { PYTHONPATH = ".", PORT = { default = "3000" }, AIRBYTE_OPS_WEBAPP_MOCKONLY = "1" }
+cmd = "uv run python -m airbyte_ops_webapp.serve"
+
+[tool.poe.tasks.webapp-env-check]
+help = "Verify the webapp's local credentials load from .env files (prints set/unset, never values)"
+cwd = "airbyte-ops-webapp"
+envfile = [".env", "airbyte-ops-webapp/.env"]
+shell = """
+echo "AIRBYTE_CLOUD_CLIENT_ID:           ${AIRBYTE_CLOUD_CLIENT_ID:+set}${AIRBYTE_CLOUD_CLIENT_ID:-UNSET}" | sed 's/set.*/set/'
+echo "AIRBYTE_CLOUD_CLIENT_SECRET:       ${AIRBYTE_CLOUD_CLIENT_SECRET:+set}${AIRBYTE_CLOUD_CLIENT_SECRET:-UNSET}" | sed 's/set.*/set/'
+echo "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID:     ${AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID:+set}${AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID:-UNSET}" | sed 's/set.*/set/'
+echo "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET: ${AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET:+set}${AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET:-UNSET}" | sed 's/set.*/set/'
+"""
+
+[tool.poe.tasks.webapp-test]
+help = "Run the Ops Webapp test suite"
+cwd = "airbyte-ops-webapp"
+env = { PYTHONPATH = "." }
+cmd = "uv run pytest"
+
+[tool.poe.tasks.webapp-lint]
+help = "Lint the Ops Webapp"
+cwd = "airbyte-ops-webapp"
+cmd = "uv run ruff check ."

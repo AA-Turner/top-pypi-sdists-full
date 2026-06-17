@@ -5,6 +5,40 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .commands_support_claude_approval import _claude_native_pretooluse_terminal_notice
+    from .commands_support_hook_payload import (
+        _emit_native_hook_block_stderr,
+        _emit_native_hook_notification_stderr,
+        _emit_native_hook_response,
+    )
+    from .commands_support_interaction import (
+        _codex_browser_approval_decision,
+        _emit,
+        _record_harness_usage_for_hook,
+        _should_emit_claude_native_pretooluse_notice,
+        _should_emit_copilot_hook_response,
+        _should_emit_native_hook_exit_block,
+        _should_emit_native_hook_json_response,
+        _should_emit_native_hook_response,
+    )
+    from .commands_support_prompts import (
+        _claude_prompt_system_message,
+        _codex_prompt_block_system_message,
+        _copilot_hook_reason,
+        _emit_copilot_hook_response,
+        _runtime_artifact_native_reason,
+    )
+    from .commands_support_runtime_policy import (
+        _native_approval_center_context,
+        _native_hook_reason,
+        _native_hook_reason_for_harness,
+    )
+    from .commands_support_runtime_resolution import _canonical_harness_name
+
+
 from ._commands_shared import *
 from .commands_parser_helpers import *
 
@@ -95,6 +129,16 @@ def _finalize_runtime_artifact_hook(
                 reason=native_block_reason,
                 output_stream=output_stream,
             )
+        elif _canonical_harness_name(args.harness) == "zcode":
+            from ..adapters.zcode_hooks import emit_zcode_hook_response
+
+            emit_zcode_hook_response(
+                policy_action=policy_action,
+                reason=native_block_reason,
+                event_name=event_name,
+                payload=payload,
+                output_stream=output_stream,
+            )
         # Kimi surfaces stderr to the user as the blocking explanation.
         _emit_native_hook_block_stderr(native_block_reason)
         _record_harness_usage_for_hook(
@@ -123,7 +167,7 @@ def _finalize_runtime_artifact_hook(
         policy_action=policy_action,
     ):
         _emit_native_hook_notification_stderr(
-            _claude_native_pretooluse_terminal_notice(payload=payload, reason=runtime_reason)
+            _claude_native_pretooluse_terminal_notice(payload=dict(payload), reason=runtime_reason)
         )
     if _should_emit_native_hook_response(args) or _should_emit_native_hook_json_response(
         args,
@@ -150,6 +194,23 @@ def _finalize_runtime_artifact_hook(
             emit_grok_hook_response(
                 policy_action=policy_action,
                 reason=runtime_reason,
+                output_stream=output_stream,
+            )
+            _record_harness_usage_for_hook(
+                store=store,
+                action_envelope=action_envelope,
+                payload=payload,
+                policy_action=policy_action,
+            )
+            return 0 if policy_action not in {"block", "sandbox-required", "require-reapproval"} else 2
+        if canonical_harness == "zcode":
+            from ..adapters.zcode_hooks import emit_zcode_hook_response
+
+            emit_zcode_hook_response(
+                policy_action=policy_action,
+                reason=runtime_reason,
+                event_name=event_name,
+                payload=payload,
                 output_stream=output_stream,
             )
             _record_harness_usage_for_hook(

@@ -648,6 +648,207 @@ class TestRelayPayloadEnforce:
                 "https://example.runlayer.com/api/v1/proxy/slack/mcp"
             )
 
+    def test_claude_code_filesystem_plugin_not_in_registry_resolves(self):
+        """ENG-3439: a plugin present on disk but absent from
+        installed_plugins.json resolves via the on-disk plugin scan."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+            project = Path(td) / "project"
+            project.mkdir(parents=True)
+
+            plugin_root = Path(td) / ".claude" / "plugins" / "box"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "mcp__plugin_box_box__who_am_i",
+                    "tool_input": {},
+                    "cwd": str(project),
+                }
+            )
+
+            result, captured = _run_hook(hook, hook_input, td, capture_dir=capture)
+
+            assert result.returncode == 0
+            assert captured["enforce"][0]["url"] == (
+                "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+            )
+
+    def test_claude_code_filesystem_plugin_disabled_not_resolved(self):
+        """ENG-3439: an on-disk plugin explicitly disabled for the cwd must not
+        be re-enabled by the filesystem scan -> the call is blocked."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+            project = Path(td) / "project"
+            project.mkdir(parents=True)
+
+            plugin_root = Path(td) / ".claude" / "plugins" / "box"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+            settings = Path(td) / ".claude" / "settings.json"
+            settings.write_text(json.dumps({"enabledPlugins": {"box@runlayer": False}}))
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "mcp__plugin_box_box__who_am_i",
+                    "tool_input": {},
+                    "cwd": str(project),
+                }
+            )
+
+            result, captured = _run_hook(hook, hook_input, td, capture_dir=capture)
+
+            assert result.returncode == 0
+            assert "enforce" not in captured
+            out = json.loads(result.stdout)
+            assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_claude_code_filesystem_plugin_project_reenable_overrides_global_disable(
+        self,
+    ):
+        """ENG-3439: a project-level re-enable overrides a global disable
+        (last-file-wins), so the on-disk plugin still resolves."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+            project = Path(td) / "project"
+            (project / ".claude").mkdir(parents=True)
+
+            plugin_root = Path(td) / ".claude" / "plugins" / "box"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+            # Global disable...
+            (Path(td) / ".claude" / "settings.json").write_text(
+                json.dumps({"enabledPlugins": {"box@runlayer": False}})
+            )
+            # ...project-level re-enable wins.
+            (project / ".claude" / "settings.json").write_text(
+                json.dumps({"enabledPlugins": {"box@runlayer": True}})
+            )
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "mcp__plugin_box_box__who_am_i",
+                    "tool_input": {},
+                    "cwd": str(project),
+                }
+            )
+
+            result, captured = _run_hook(hook, hook_input, td, capture_dir=capture)
+
+            assert result.returncode == 0
+            assert captured["enforce"][0]["url"] == (
+                "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+            )
+
+    def test_claude_code_plugin_registered_for_other_project_resolves(self):
+        """ENG-3439: a plugin registered only for another project still resolves
+        from disk in the current cwd -- a registry entry for another project
+        must not suppress the filesystem fallback."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+            other_project = Path(td) / "other-project"
+            this_project = Path(td) / "this-project"
+            other_project.mkdir(parents=True)
+            this_project.mkdir(parents=True)
+
+            plugin_root = Path(td) / ".claude" / "plugins" / "box"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps(
+                    {
+                        "name": "box",
+                        "version": "1.0.0",
+                        "mcpServers": {
+                            "box": {
+                                "url": "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+                            }
+                        },
+                    }
+                )
+            )
+            installed = Path(td) / ".claude" / "plugins" / "installed_plugins.json"
+            installed.write_text(
+                json.dumps(
+                    {
+                        "version": 2,
+                        "plugins": {
+                            "box@runlayer": [
+                                {
+                                    "scope": "project",
+                                    "installPath": str(plugin_root),
+                                    "projectPath": str(other_project),
+                                    "version": "1.0.0",
+                                }
+                            ]
+                        },
+                    }
+                )
+            )
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PreToolUse",
+                    "tool_name": "mcp__plugin_box_box__who_am_i",
+                    "tool_input": {},
+                    "cwd": str(this_project),
+                }
+            )
+
+            result, captured = _run_hook(hook, hook_input, td, capture_dir=capture)
+
+            assert result.returncode == 0
+            assert captured["enforce"][0]["url"] == (
+                "https://example.runlayer.com/api/v1/proxy/abc/mcp"
+            )
+
     def test_claude_code_user_scope_plugin_reads_project_settings_from_subdir(self):
         """Claude Code: global plugins still honor project enabledPlugins."""
         with tempfile.TemporaryDirectory() as td:
@@ -1357,15 +1558,113 @@ class TestLocalToolLifecycle:
             )
 
             assert result.returncode == 0
-            assert json.loads(result.stdout) == {
-                "decision": "block",
-                "reason": "output blocked",
-            }
+            output = json.loads(result.stdout)
+            # decision:block halts the turn (every CC version) ...
+            assert output["decision"] == "block"
+            assert output["reason"] == "output blocked"
+            # ... but the model already received the result, so updatedToolOutput
+            # replaces what it sees — the actual redaction of blocked content.
+            assert output["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+            assert "output blocked" in output["hookSpecificOutput"]["updatedToolOutput"]
             payload = captured["tool-post"][0]
             assert payload["client"] == "claude_code"
             assert payload["event_name"] == "PostToolUse"
             assert payload["tool_name"] == "Write"
             assert captured["event"][0]["event_name"] == "PostToolUse"
+
+    def test_posttooluse_applies_masked_output_via_updated_tool_output(self):
+        """Non-blocking masking (PII, hidden-ASCII) must replace what the model
+        sees. The hook previously dropped ``modified_output`` entirely, so the
+        unmasked tool result still reached the model."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "cat secrets.txt"},
+                    "tool_response": {"stdout": "SSN 123-45-6789"},
+                }
+            )
+
+            result, _ = _run_hook(
+                hook,
+                hook_input,
+                td,
+                capture_dir=capture,
+                response='{"blocked":false,"modified_output":"SSN [REDACTED]"}',
+            )
+
+            assert result.returncode == 0
+            output = json.loads(result.stdout)
+            assert output["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
+            assert output["hookSpecificOutput"]["updatedToolOutput"] == "SSN [REDACTED]"
+            # Masked, not blocked: the turn continues (no decision halt).
+            assert "decision" not in output
+
+    def test_posttooluse_applies_empty_string_mask(self):
+        """A mask to the empty string is a real redaction (strip-all) and must
+        be applied, not treated as 'no mask' — otherwise the raw output leaks."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PostToolUse",
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "cat secrets.txt"},
+                    "tool_response": {"stdout": "all secret"},
+                }
+            )
+
+            result, _ = _run_hook(
+                hook,
+                hook_input,
+                td,
+                capture_dir=capture,
+                response='{"blocked":false,"modified_output":""}',
+            )
+
+            assert result.returncode == 0
+            output = json.loads(result.stdout)
+            assert output["hookSpecificOutput"]["updatedToolOutput"] == ""
+            assert "decision" not in output
+
+    def test_posttooluse_failure_block_redacts_via_updated_output(self):
+        """A blocked PostToolUseFailure also gets updatedToolOutput redaction —
+        a failed tool's error output can carry sensitive data too."""
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="claude_code", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "PostToolUseFailure",
+                    "tool_name": "Bash",
+                    "tool_input": {"command": "boom"},
+                    "tool_response": {"stderr": "secret"},
+                }
+            )
+
+            result, _ = _run_hook(
+                hook,
+                hook_input,
+                td,
+                capture_dir=capture,
+                response='{"blocked":true,"block_reason":"err blocked"}',
+            )
+
+            assert result.returncode == 0
+            output = json.loads(result.stdout)
+            assert output["decision"] == "block"
+            assert output["hookSpecificOutput"]["hookEventName"] == "PostToolUseFailure"
+            assert "err blocked" in output["hookSpecificOutput"]["updatedToolOutput"]
 
     def test_posttooluse_no_enforcement_still_sends_tool_post(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1479,10 +1778,13 @@ class TestLocalToolLifecycle:
                 )
 
                 assert result.returncode == 0
-                assert json.loads(result.stdout) == {
-                    "decision": "block",
-                    "reason": "Invalid response from Runlayer API",
-                }
+                output = json.loads(result.stdout)
+                assert output["decision"] == "block"
+                assert output["reason"] == "Invalid response from Runlayer API"
+                assert (
+                    "Invalid response from Runlayer API"
+                    in output["hookSpecificOutput"]["updatedToolOutput"]
+                )
 
     def test_cursor_mcp_pretooluse_skips_local_tool_lifecycle(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1510,10 +1812,41 @@ class TestLocalToolLifecycle:
             assert result.returncode == 0
             assert "tool-pre" not in captured
             assert captured["event"][0]["event_name"] == "preToolUse"
-            assert (
-                json.loads(result.stdout)["updated_input"]["_runlayer_session_id"]
-                == "sess-mcp"
+            # Cursor MCP tools are session-linked via beforeMCPExecution; do NOT
+            # inject _runlayer_session_id into the MCP args (strict schemas like
+            # Atlassian Jira reject the extra field). Must be a bare allow.
+            assert json.loads(result.stdout) == {"permission": "allow"}
+
+    def test_cursor_mcp_colon_prefix_skips_local_tool_lifecycle(self):
+        # Cursor names MCP tools "MCP:<tool>", not mcp__*. These must be treated
+        # as MCP tools (no local-tool lifecycle, no _runlayer_session_id
+        # injection) — the Atlassian Jira bug reported in the field.
+        with tempfile.TemporaryDirectory() as td:
+            hook = _setup_hook(td, client="cursor", enforcement=True)
+            capture = Path(td) / "cap"
+            capture.mkdir()
+
+            hook_input = json.dumps(
+                {
+                    "hook_event_name": "preToolUse",
+                    "tool_name": "MCP:searchJiraIssuesUsingJql",
+                    "tool_input": {"jql": "project = RUN"},
+                    "session_id": "sess-mcp",
+                }
             )
+
+            result, captured = _run_hook(
+                hook,
+                hook_input,
+                td,
+                capture_dir=capture,
+                extra_env={"CURSOR_VERSION": "1.0.0"},
+            )
+
+            assert result.returncode == 0
+            assert "tool-pre" not in captured
+            assert captured["event"][0]["event_name"] == "preToolUse"
+            assert json.loads(result.stdout) == {"permission": "allow"}
 
 
 # =========================================================================

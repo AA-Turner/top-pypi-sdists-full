@@ -44,6 +44,11 @@ def normalize_event_name(event: str) -> str:
     return EVENT_NORMALIZE.get(event, event)
 
 
+# Post-tool events that share the output-redaction path: a failed tool's error
+# output can carry sensitive data just like a successful tool's result.
+_POST_TOOL_EVENTS = frozenset({"PostToolUse", "PostToolUseFailure"})
+
+
 _CURSOR_DIR_PATTERNS = (
     "/.cursor/",
     "/application support/cursor/",
@@ -229,4 +234,36 @@ class HookResponse:
         """Return the cross-client output-blocking shape used by post hooks."""
         if self._client == Client.HERMES:
             return json.dumps(reason)
+        if self._client == Client.CLAUDE_CODE and self._event in _POST_TOOL_EVENTS:
+            # PostToolUse `decision: block` halts the turn but does NOT hide the
+            # tool result the model already received. `updatedToolOutput` replaces
+            # what the model sees, so blocked content never reaches it. Emit both:
+            # redact (newer Claude Code) + halt (every version — no regression).
+            # PostToolUseFailure shares this handler, so a failed tool whose error
+            # output carries sensitive data is redacted too.
+            return json.dumps(
+                {
+                    "decision": "block",
+                    "reason": reason,
+                    "hookSpecificOutput": {
+                        "hookEventName": self._event,
+                        "updatedToolOutput": f"[Runlayer blocked this tool output] {reason}",
+                    },
+                }
+            )
         return json.dumps({"decision": "block", "reason": reason})
+
+    def mask_output(self, masked: str) -> str | None:
+        """Non-blocking masked output: replace what the model sees with the
+        sanitized result (PII redaction, hidden-ASCII strip). Claude Code
+        PostToolUse(Failure) only; returns ``None`` for other clients."""
+        if self._client == Client.CLAUDE_CODE and self._event in _POST_TOOL_EVENTS:
+            return json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": self._event,
+                        "updatedToolOutput": masked,
+                    }
+                }
+            )
+        return None

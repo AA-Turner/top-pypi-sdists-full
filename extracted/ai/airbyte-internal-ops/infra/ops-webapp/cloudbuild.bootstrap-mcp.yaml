@@ -1,0 +1,15 @@
+substitutions:
+  _IMAGE: us-west3-docker.pkg.dev/internal-airbyte-ai-infra/ops-mcp/ops-mcp:latest
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.mcp
+      - -t
+      - ${_IMAGE}
+      - .
+
+images:
+  - ${_IMAGE}

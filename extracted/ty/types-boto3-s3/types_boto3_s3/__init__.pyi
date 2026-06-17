@@ -16,6 +16,7 @@ Usage::
         ListBucketsPaginator,
         ListDirectoryBucketsPaginator,
         ListMultipartUploadsPaginator,
+        ListObjectAnnotationsPaginator,
         ListObjectVersionsPaginator,
         ListObjectsPaginator,
         ListObjectsV2Paginator,
@@ -40,6 +41,7 @@ Usage::
     list_buckets_paginator: ListBucketsPaginator = client.get_paginator("list_buckets")
     list_directory_buckets_paginator: ListDirectoryBucketsPaginator = client.get_paginator("list_directory_buckets")
     list_multipart_uploads_paginator: ListMultipartUploadsPaginator = client.get_paginator("list_multipart_uploads")
+    list_object_annotations_paginator: ListObjectAnnotationsPaginator = client.get_paginator("list_object_annotations")
     list_object_versions_paginator: ListObjectVersionsPaginator = client.get_paginator("list_object_versions")
     list_objects_paginator: ListObjectsPaginator = client.get_paginator("list_objects")
     list_objects_v2_paginator: ListObjectsV2Paginator = client.get_paginator("list_objects_v2")
@@ -52,6 +54,7 @@ from .paginator import (
     ListBucketsPaginator,
     ListDirectoryBucketsPaginator,
     ListMultipartUploadsPaginator,
+    ListObjectAnnotationsPaginator,
     ListObjectsPaginator,
     ListObjectsV2Paginator,
     ListObjectVersionsPaginator,
@@ -80,6 +83,7 @@ __all__ = (
     "ListBucketsPaginator",
     "ListDirectoryBucketsPaginator",
     "ListMultipartUploadsPaginator",
+    "ListObjectAnnotationsPaginator",
     "ListObjectVersionsPaginator",
     "ListObjectsPaginator",
     "ListObjectsV2Paginator",

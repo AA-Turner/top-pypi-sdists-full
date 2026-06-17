@@ -357,6 +357,42 @@ fn may_reference_overrides() {
 }
 
 #[test]
+fn inherits_is_dependency() {
+  Test::new()
+    .justfile(
+      "
+        foo() := is_dependency()
+
+        bar: baz
+          @echo 'bar {{foo()}}'
+
+        baz:
+          @echo 'baz {{foo()}}'
+      ",
+    )
+    .arg("bar")
+    .stdout("baz true\nbar false\n")
+    .env("JUST_UNSTABLE", "1")
+    .success();
+}
+
+#[test]
+fn inherits_recipe_name() {
+  Test::new()
+    .justfile(
+      "
+        foo() := recipe_name()
+
+        bar:
+          @echo {{foo()}}
+      ",
+    )
+    .stdout("bar\n")
+    .env("JUST_UNSTABLE", "1")
+    .success();
+}
+
+#[test]
 fn may_reference_non_const_assignment() {
   Test::new()
     .justfile(
@@ -372,4 +408,21 @@ fn may_reference_non_const_assignment() {
     .stdout("baz")
     .env("JUST_UNSTABLE", "1")
     .success();
+}
+
+#[test]
+fn shadow_builtin() {
+  #[track_caller]
+  fn case(name: &str) {
+    Test::new()
+      .justfile(format!("{name}(x) := x\na := {name}('bar')"))
+      .args(["--evaluate", "a"])
+      .stdout("bar")
+      .env("JUST_UNSTABLE", "1")
+      .success();
+  }
+
+  case("bool");
+  case("show");
+  case("which");
 }

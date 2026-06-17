@@ -216,6 +216,7 @@ class OfflineQueryMeta(_message.Message):
         "evaluation_run_id",
         "query_name",
         "query_name_version",
+        "job_queue_stats",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
@@ -255,6 +256,7 @@ class OfflineQueryMeta(_message.Message):
     EVALUATION_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    JOB_QUEUE_STATS_FIELD_NUMBER: _ClassVar[int]
     id: int
     operation_id: str
     environment_id: str
@@ -293,6 +295,7 @@ class OfflineQueryMeta(_message.Message):
     evaluation_run_id: str
     query_name: str
     query_name_version: str
+    job_queue_stats: OfflineQueryJobQueueStats
     def __init__(
         self,
         id: _Optional[int] = ...,
@@ -333,6 +336,46 @@ class OfflineQueryMeta(_message.Message):
         evaluation_run_id: _Optional[str] = ...,
         query_name: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
+        job_queue_stats: _Optional[_Union[OfflineQueryJobQueueStats, _Mapping]] = ...,
+    ) -> None: ...
+
+class OfflineQueryJobQueueStats(_message.Message):
+    __slots__ = (
+        "pending_jobs",
+        "running_jobs",
+        "completed_jobs",
+        "failed_jobs",
+        "canceled_jobs",
+        "scheduled_jobs",
+        "waiting_jobs",
+        "not_ready_jobs",
+    )
+    PENDING_JOBS_FIELD_NUMBER: _ClassVar[int]
+    RUNNING_JOBS_FIELD_NUMBER: _ClassVar[int]
+    COMPLETED_JOBS_FIELD_NUMBER: _ClassVar[int]
+    FAILED_JOBS_FIELD_NUMBER: _ClassVar[int]
+    CANCELED_JOBS_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULED_JOBS_FIELD_NUMBER: _ClassVar[int]
+    WAITING_JOBS_FIELD_NUMBER: _ClassVar[int]
+    NOT_READY_JOBS_FIELD_NUMBER: _ClassVar[int]
+    pending_jobs: int
+    running_jobs: int
+    completed_jobs: int
+    failed_jobs: int
+    canceled_jobs: int
+    scheduled_jobs: int
+    waiting_jobs: int
+    not_ready_jobs: int
+    def __init__(
+        self,
+        pending_jobs: _Optional[int] = ...,
+        running_jobs: _Optional[int] = ...,
+        completed_jobs: _Optional[int] = ...,
+        failed_jobs: _Optional[int] = ...,
+        canceled_jobs: _Optional[int] = ...,
+        scheduled_jobs: _Optional[int] = ...,
+        waiting_jobs: _Optional[int] = ...,
+        not_ready_jobs: _Optional[int] = ...,
     ) -> None: ...
 
 class ListOfflineQueriesRequest(_message.Message):

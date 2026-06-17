@@ -69,11 +69,13 @@ if TYPE_CHECKING:
         billing,
         filters,
         logpush,
+        tenants,
         workers,
         accounts,
         aisearch,
         alerting,
         firewall,
+        flagship,
         rulesets,
         snippets,
         spectrum,
@@ -149,6 +151,7 @@ if TYPE_CHECKING:
         leaked_credential_checks,
         magic_network_monitoring,
         tenant_custom_nameservers,
+        origin_tls_compliance_modes,
         origin_post_quantum_encryption,
     )
     from .resources.ai.ai import AIResource, AsyncAIResource
@@ -182,11 +185,13 @@ if TYPE_CHECKING:
     from .resources.billing.billing import BillingResource, AsyncBillingResource
     from .resources.filters.filters import FiltersResource, AsyncFiltersResource
     from .resources.logpush.logpush import LogpushResource, AsyncLogpushResource
+    from .resources.tenants.tenants import TenantsResource, AsyncTenantsResource
     from .resources.workers.workers import WorkersResource, AsyncWorkersResource
     from .resources.accounts.accounts import AccountsResource, AsyncAccountsResource
     from .resources.aisearch.aisearch import AISearchResource, AsyncAISearchResource
     from .resources.alerting.alerting import AlertingResource, AsyncAlertingResource
     from .resources.firewall.firewall import FirewallResource, AsyncFirewallResource
+    from .resources.flagship.flagship import FlagshipResource, AsyncFlagshipResource
     from .resources.rulesets.rulesets import RulesetsResource, AsyncRulesetsResource
     from .resources.snippets.snippets import SnippetsResource, AsyncSnippetsResource
     from .resources.spectrum.spectrum import SpectrumResource, AsyncSpectrumResource
@@ -307,6 +312,10 @@ if TYPE_CHECKING:
         TenantCustomNameserversResource,
         AsyncTenantCustomNameserversResource,
     )
+    from .resources.origin_tls_compliance_modes.origin_tls_compliance_modes import (
+        OriginTLSComplianceModesResource,
+        AsyncOriginTLSComplianceModesResource,
+    )
     from .resources.origin_post_quantum_encryption.origin_post_quantum_encryption import (
         OriginPostQuantumEncryptionResource,
         AsyncOriginPostQuantumEncryptionResource,
@@ -421,6 +430,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.organizations import OrganizationsResource
 
         return OrganizationsResource(self)
+
+    @cached_property
+    def tenants(self) -> TenantsResource:
+        from .resources.tenants import TenantsResource
+
+        return TenantsResource(self)
 
     @cached_property
     def origin_ca_certificates(self) -> OriginCACertificatesResource:
@@ -897,6 +912,12 @@ class Cloudflare(SyncAPIClient):
         return OriginPostQuantumEncryptionResource(self)
 
     @cached_property
+    def origin_tls_compliance_modes(self) -> OriginTLSComplianceModesResource:
+        from .resources.origin_tls_compliance_modes import OriginTLSComplianceModesResource
+
+        return OriginTLSComplianceModesResource(self)
+
+    @cached_property
     def google_tag_gateway(self) -> GoogleTagGatewayResource:
         from .resources.google_tag_gateway import GoogleTagGatewayResource
 
@@ -955,6 +976,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.ai_gateway import AIGatewayResource
 
         return AIGatewayResource(self)
+
+    @cached_property
+    def flagship(self) -> FlagshipResource:
+        from .resources.flagship import FlagshipResource
+
+        return FlagshipResource(self)
 
     @cached_property
     def iam(self) -> IAMResource:
@@ -1355,6 +1382,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.organizations import AsyncOrganizationsResource
 
         return AsyncOrganizationsResource(self)
+
+    @cached_property
+    def tenants(self) -> AsyncTenantsResource:
+        from .resources.tenants import AsyncTenantsResource
+
+        return AsyncTenantsResource(self)
 
     @cached_property
     def origin_ca_certificates(self) -> AsyncOriginCACertificatesResource:
@@ -1831,6 +1864,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncOriginPostQuantumEncryptionResource(self)
 
     @cached_property
+    def origin_tls_compliance_modes(self) -> AsyncOriginTLSComplianceModesResource:
+        from .resources.origin_tls_compliance_modes import AsyncOriginTLSComplianceModesResource
+
+        return AsyncOriginTLSComplianceModesResource(self)
+
+    @cached_property
     def google_tag_gateway(self) -> AsyncGoogleTagGatewayResource:
         from .resources.google_tag_gateway import AsyncGoogleTagGatewayResource
 
@@ -1889,6 +1928,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.ai_gateway import AsyncAIGatewayResource
 
         return AsyncAIGatewayResource(self)
+
+    @cached_property
+    def flagship(self) -> AsyncFlagshipResource:
+        from .resources.flagship import AsyncFlagshipResource
+
+        return AsyncFlagshipResource(self)
 
     @cached_property
     def iam(self) -> AsyncIAMResource:
@@ -2209,6 +2254,12 @@ class CloudflareWithRawResponse:
         from .resources.organizations import OrganizationsResourceWithRawResponse
 
         return OrganizationsResourceWithRawResponse(self._client.organizations)
+
+    @cached_property
+    def tenants(self) -> tenants.TenantsResourceWithRawResponse:
+        from .resources.tenants import TenantsResourceWithRawResponse
+
+        return TenantsResourceWithRawResponse(self._client.tenants)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.OriginCACertificatesResourceWithRawResponse:
@@ -2687,6 +2738,14 @@ class CloudflareWithRawResponse:
         return OriginPostQuantumEncryptionResourceWithRawResponse(self._client.origin_post_quantum_encryption)
 
     @cached_property
+    def origin_tls_compliance_modes(
+        self,
+    ) -> origin_tls_compliance_modes.OriginTLSComplianceModesResourceWithRawResponse:
+        from .resources.origin_tls_compliance_modes import OriginTLSComplianceModesResourceWithRawResponse
+
+        return OriginTLSComplianceModesResourceWithRawResponse(self._client.origin_tls_compliance_modes)
+
+    @cached_property
     def google_tag_gateway(self) -> google_tag_gateway.GoogleTagGatewayResourceWithRawResponse:
         from .resources.google_tag_gateway import GoogleTagGatewayResourceWithRawResponse
 
@@ -2745,6 +2804,12 @@ class CloudflareWithRawResponse:
         from .resources.ai_gateway import AIGatewayResourceWithRawResponse
 
         return AIGatewayResourceWithRawResponse(self._client.ai_gateway)
+
+    @cached_property
+    def flagship(self) -> flagship.FlagshipResourceWithRawResponse:
+        from .resources.flagship import FlagshipResourceWithRawResponse
+
+        return FlagshipResourceWithRawResponse(self._client.flagship)
 
     @cached_property
     def iam(self) -> iam.IAMResourceWithRawResponse:
@@ -2890,6 +2955,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.organizations import AsyncOrganizationsResourceWithRawResponse
 
         return AsyncOrganizationsResourceWithRawResponse(self._client.organizations)
+
+    @cached_property
+    def tenants(self) -> tenants.AsyncTenantsResourceWithRawResponse:
+        from .resources.tenants import AsyncTenantsResourceWithRawResponse
+
+        return AsyncTenantsResourceWithRawResponse(self._client.tenants)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.AsyncOriginCACertificatesResourceWithRawResponse:
@@ -3370,6 +3441,14 @@ class AsyncCloudflareWithRawResponse:
         return AsyncOriginPostQuantumEncryptionResourceWithRawResponse(self._client.origin_post_quantum_encryption)
 
     @cached_property
+    def origin_tls_compliance_modes(
+        self,
+    ) -> origin_tls_compliance_modes.AsyncOriginTLSComplianceModesResourceWithRawResponse:
+        from .resources.origin_tls_compliance_modes import AsyncOriginTLSComplianceModesResourceWithRawResponse
+
+        return AsyncOriginTLSComplianceModesResourceWithRawResponse(self._client.origin_tls_compliance_modes)
+
+    @cached_property
     def google_tag_gateway(self) -> google_tag_gateway.AsyncGoogleTagGatewayResourceWithRawResponse:
         from .resources.google_tag_gateway import AsyncGoogleTagGatewayResourceWithRawResponse
 
@@ -3428,6 +3507,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.ai_gateway import AsyncAIGatewayResourceWithRawResponse
 
         return AsyncAIGatewayResourceWithRawResponse(self._client.ai_gateway)
+
+    @cached_property
+    def flagship(self) -> flagship.AsyncFlagshipResourceWithRawResponse:
+        from .resources.flagship import AsyncFlagshipResourceWithRawResponse
+
+        return AsyncFlagshipResourceWithRawResponse(self._client.flagship)
 
     @cached_property
     def iam(self) -> iam.AsyncIAMResourceWithRawResponse:
@@ -3573,6 +3658,12 @@ class CloudflareWithStreamedResponse:
         from .resources.organizations import OrganizationsResourceWithStreamingResponse
 
         return OrganizationsResourceWithStreamingResponse(self._client.organizations)
+
+    @cached_property
+    def tenants(self) -> tenants.TenantsResourceWithStreamingResponse:
+        from .resources.tenants import TenantsResourceWithStreamingResponse
+
+        return TenantsResourceWithStreamingResponse(self._client.tenants)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.OriginCACertificatesResourceWithStreamingResponse:
@@ -4053,6 +4144,14 @@ class CloudflareWithStreamedResponse:
         return OriginPostQuantumEncryptionResourceWithStreamingResponse(self._client.origin_post_quantum_encryption)
 
     @cached_property
+    def origin_tls_compliance_modes(
+        self,
+    ) -> origin_tls_compliance_modes.OriginTLSComplianceModesResourceWithStreamingResponse:
+        from .resources.origin_tls_compliance_modes import OriginTLSComplianceModesResourceWithStreamingResponse
+
+        return OriginTLSComplianceModesResourceWithStreamingResponse(self._client.origin_tls_compliance_modes)
+
+    @cached_property
     def google_tag_gateway(self) -> google_tag_gateway.GoogleTagGatewayResourceWithStreamingResponse:
         from .resources.google_tag_gateway import GoogleTagGatewayResourceWithStreamingResponse
 
@@ -4111,6 +4210,12 @@ class CloudflareWithStreamedResponse:
         from .resources.ai_gateway import AIGatewayResourceWithStreamingResponse
 
         return AIGatewayResourceWithStreamingResponse(self._client.ai_gateway)
+
+    @cached_property
+    def flagship(self) -> flagship.FlagshipResourceWithStreamingResponse:
+        from .resources.flagship import FlagshipResourceWithStreamingResponse
+
+        return FlagshipResourceWithStreamingResponse(self._client.flagship)
 
     @cached_property
     def iam(self) -> iam.IAMResourceWithStreamingResponse:
@@ -4256,6 +4361,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.organizations import AsyncOrganizationsResourceWithStreamingResponse
 
         return AsyncOrganizationsResourceWithStreamingResponse(self._client.organizations)
+
+    @cached_property
+    def tenants(self) -> tenants.AsyncTenantsResourceWithStreamingResponse:
+        from .resources.tenants import AsyncTenantsResourceWithStreamingResponse
+
+        return AsyncTenantsResourceWithStreamingResponse(self._client.tenants)
 
     @cached_property
     def origin_ca_certificates(self) -> origin_ca_certificates.AsyncOriginCACertificatesResourceWithStreamingResponse:
@@ -4744,6 +4855,14 @@ class AsyncCloudflareWithStreamedResponse:
         )
 
     @cached_property
+    def origin_tls_compliance_modes(
+        self,
+    ) -> origin_tls_compliance_modes.AsyncOriginTLSComplianceModesResourceWithStreamingResponse:
+        from .resources.origin_tls_compliance_modes import AsyncOriginTLSComplianceModesResourceWithStreamingResponse
+
+        return AsyncOriginTLSComplianceModesResourceWithStreamingResponse(self._client.origin_tls_compliance_modes)
+
+    @cached_property
     def google_tag_gateway(self) -> google_tag_gateway.AsyncGoogleTagGatewayResourceWithStreamingResponse:
         from .resources.google_tag_gateway import AsyncGoogleTagGatewayResourceWithStreamingResponse
 
@@ -4802,6 +4921,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.ai_gateway import AsyncAIGatewayResourceWithStreamingResponse
 
         return AsyncAIGatewayResourceWithStreamingResponse(self._client.ai_gateway)
+
+    @cached_property
+    def flagship(self) -> flagship.AsyncFlagshipResourceWithStreamingResponse:
+        from .resources.flagship import AsyncFlagshipResourceWithStreamingResponse
+
+        return AsyncFlagshipResourceWithStreamingResponse(self._client.flagship)
 
     @cached_property
     def iam(self) -> iam.AsyncIAMResourceWithStreamingResponse:

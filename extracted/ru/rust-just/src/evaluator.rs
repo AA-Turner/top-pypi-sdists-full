@@ -5,8 +5,10 @@ pub(crate) struct Evaluator<'src: 'run, 'run> {
   context: Option<ExecutionContext<'src, 'run>>,
   env: BTreeMap<String, String>,
   is_dependency: bool,
+  lists: bool,
   non_const_assignments: Table<'src, Name<'src>>,
   overrides: &'run HashMap<Number, String>,
+  recipe: Option<Name<'src>>,
   recursion_depth: usize,
   scope: Scope<'src, 'run>,
 }
@@ -25,14 +27,20 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     scope: &'run Scope<'src, 'run>,
     sets: Table<'src, Set<'src>>,
   ) -> RunResult<'src, Settings> {
+    let lists = sets
+      .values()
+      .any(|set| matches!(set.value, Setting::Lists(true)));
+
     let mut evaluator = Self {
       assignments: Some(assignments),
       recursion_depth: 0,
       context: None,
       env: BTreeMap::new(),
       is_dependency: false,
+      lists,
       non_const_assignments: Table::new(),
       overrides,
+      recipe: None,
       scope: scope.child(),
     };
 
@@ -80,13 +88,13 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           settings.default_script = value;
         }
         Setting::DotenvFilename(value) => {
-          settings.dotenv_filename = Some(self.evaluate_expression(&value)?);
+          settings.dotenv_filename = self.evaluate_value(&value)?;
         }
         Setting::DotenvLoad(value) => {
           settings.dotenv_load = value;
         }
         Setting::DotenvPath(value) => {
-          settings.dotenv_path = Some(self.evaluate_expression(&value)?.into());
+          settings.dotenv_path = self.evaluate_value(&value)?;
         }
         Setting::DotenvOverride(value) => {
           settings.dotenv_override = value;
@@ -109,6 +117,9 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         Setting::Lazy(value) => {
           settings.lazy = value;
         }
+        Setting::Lists(value) => {
+          settings.lists = value;
+        }
         Setting::NoCd(value) => {
           settings.no_cd = value;
         }
@@ -122,10 +133,10 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           settings.quiet = value;
         }
         Setting::ScriptInterpreter(value) => {
-          settings.script_interpreter = Some(self.evaluate_interpreter(&value)?);
+          settings.script_interpreter = Some(self.evaluate_interpreter(&value, set.name)?);
         }
         Setting::Shell(value) => {
-          settings.shell = Some(self.evaluate_interpreter(&value)?);
+          settings.shell = Some(self.evaluate_interpreter(&value, set.name)?);
         }
         Setting::Unstable(value) => {
           settings.unstable = value;
@@ -134,13 +145,17 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           settings.windows_powershell = value;
         }
         Setting::WindowsShell(value) => {
-          settings.windows_shell = Some(self.evaluate_interpreter(&value)?);
+          settings.windows_shell = Some(self.evaluate_interpreter(&value, set.name)?);
         }
         Setting::Tempdir(value) => {
-          settings.tempdir = Some(self.evaluate_expression(&value)?);
+          settings.tempdir = Some(self.evaluate_string(&value, StringContext::Setting(set.name))?);
         }
         Setting::WorkingDirectory(value) => {
-          settings.working_directory = Some(self.evaluate_expression(&value)?.into());
+          settings.working_directory = Some(
+            self
+              .evaluate_string(&value, StringContext::Setting(set.name))?
+              .into(),
+          );
         }
       }
     }
@@ -151,14 +166,22 @@ impl<'src, 'run> Evaluator<'src, 'run> {
   pub(crate) fn evaluate_interpreter(
     &mut self,
     interpreter: &Interpreter<Expression<'src>>,
+    setting: Name<'src>,
   ) -> RunResult<'src, Interpreter<String>> {
+    let mut elements = self.evaluate_value(&interpreter.command)?.into_elements();
+    for argument in &interpreter.arguments {
+      elements.extend(self.evaluate_value(argument)?.into_elements());
+    }
+
+    let mut elements = elements.into_iter();
+
+    let Some(command) = elements.next() else {
+      return Err(Error::EmptyInterpreter { setting });
+    };
+
     Ok(Interpreter {
-      command: self.evaluate_expression(&interpreter.command)?,
-      arguments: interpreter
-        .arguments
-        .iter()
-        .map(|argument| self.evaluate_expression(argument))
-        .collect::<RunResult<Vec<String>>>()?,
+      command,
+      arguments: elements.collect(),
     })
   }
 
@@ -188,8 +211,10 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       context: Some(context),
       env: BTreeMap::new(),
       is_dependency: false,
+      lists: module.settings.lists,
       non_const_assignments: Table::new(),
       overrides,
+      recipe: None,
       scope: parent.child(),
     };
 
@@ -207,14 +232,14 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     Ok(evaluator.scope)
   }
 
-  fn evaluate_assignment(&mut self, assignment: &Assignment<'src>) -> RunResult<'src, &str> {
+  fn evaluate_assignment(&mut self, assignment: &Assignment<'src>) -> RunResult<'src, &Value> {
     let name = assignment.name.lexeme();
 
     if !self.scope.bound(name) {
       let value = if let Some(value) = self.overrides.get(&assignment.number) {
-        value.clone()
+        value.into()
       } else {
-        self.evaluate_expression(&assignment.value)?
+        self.evaluate_value(&assignment.value)?
       };
 
       self.scope.bind(Binding {
@@ -240,6 +265,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       execution_context: self.context(ConstError::FunctionCall(name))?,
       is_dependency: self.is_dependency,
       name,
+      recipe: self.recipe,
       scope: &self.scope,
     })
   }
@@ -248,7 +274,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     &mut self,
     function: &FunctionDefinition<'src>,
     arguments: &[Expression<'src>],
-  ) -> RunResult<'src, String> {
+  ) -> RunResult<'src, Value> {
     let recursion_depth = self.recursion_depth + 1;
 
     if recursion_depth == RECURSION_LIMIT {
@@ -261,7 +287,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
 
     let mut scope = Scope::root();
     for ((name, number), argument) in function.parameters.iter().copied().zip(arguments) {
-      let value = self.evaluate_expression(argument)?;
+      let value = self.evaluate_value(argument)?;
       scope.bind(Binding {
         eager: false,
         export: false,
@@ -278,14 +304,16 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       assignments: Some(&context.module.assignments),
       context: Some(context),
       env: BTreeMap::new(),
-      is_dependency: false,
+      is_dependency: self.is_dependency,
+      lists: self.lists,
       non_const_assignments: Table::new(),
       overrides: self.overrides,
+      recipe: self.recipe,
       recursion_depth,
       scope,
     };
 
-    evaluator.evaluate_expression(&function.body)
+    evaluator.evaluate_value(&function.body)
   }
 
   fn evaluate_builtin_function(
@@ -293,49 +321,103 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     name: Name<'src>,
     function: Function,
     arguments: &[Expression<'src>],
-  ) -> RunResult<'src, String> {
+  ) -> RunResult<'src, Value> {
+    macro_rules! context {
+      () => {
+        self.function_context(name).unwrap()
+      };
+    }
     match function {
-      Function::Nullary(f) => f(self.function_context(name).unwrap()),
+      Function::Nullary(f) => f(context!()).map(Value::from),
       Function::Unary(f) => {
-        let a = self.evaluate_expression(&arguments[0])?;
-        f(self.function_context(name).unwrap(), &a)
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        f(context!(), &a).map(Value::from)
       }
-      Function::UnaryOpt(f) => {
-        let a = self.evaluate_expression(&arguments[0])?;
+      Function::UnaryToValue(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        f(context!(), &a)
+      }
+      Function::UnaryMap(f) => {
+        let a = self.evaluate_value(&arguments[0])?;
+        a.elements()
+          .iter()
+          .map(|element| f(context!(), element))
+          .collect()
+      }
+      Function::UnaryPlus(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let mut rest = Vec::new();
+        for arg in &arguments[1..] {
+          rest.push(self.evaluate_string(arg, StringContext::Function(name))?);
+        }
+        f(context!(), &a, &rest).map(Value::from)
+      }
+      Function::BinaryStrValue(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let b = self.evaluate_value(&arguments[1])?;
+        f(context!(), &a, &b)
+      }
+      Function::Binary(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let b = self.evaluate_string(&arguments[1], StringContext::Function(name))?;
+        f(context!(), &a, &b).map(Value::from)
+      }
+      Function::BinaryToValue(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let b = self.evaluate_string(&arguments[1], StringContext::Function(name))?;
+        f(context!(), &a, &b)
+      }
+      Function::BinaryPlus(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let b = self.evaluate_string(&arguments[1], StringContext::Function(name))?;
+        let mut rest = Vec::new();
+        for arg in &arguments[2..] {
+          rest.push(self.evaluate_string(arg, StringContext::Function(name))?);
+        }
+        f(context!(), &a, &b, &rest).map(Value::from)
+      }
+      Function::Ternary(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let b = self.evaluate_string(&arguments[1], StringContext::Function(name))?;
+        let c = self.evaluate_string(&arguments[2], StringContext::Function(name))?;
+        f(context!(), &a, &b, &c).map(Value::from)
+      }
+      Function::ValueNullary(f) => f(context!()),
+      Function::ValueUnary(f) => {
+        let a = self.evaluate_value(&arguments[0])?;
+        f(context!(), &a)
+      }
+      Function::ValueBinary(f) => {
+        let a = self.evaluate_value(&arguments[0])?;
+        let b = self.evaluate_value(&arguments[1])?;
+        f(context!(), &a, &b)
+      }
+      Function::ValueBinaryOpt(f) => {
+        let a = self.evaluate_value(&arguments[0])?;
         let b = if arguments.len() > 1 {
-          Some(self.evaluate_expression(&arguments[1])?)
+          Some(self.evaluate_value(&arguments[1])?)
         } else {
           None
         };
-        f(self.function_context(name).unwrap(), &a, b.as_deref())
+        f(context!(), &a, b.as_ref())
       }
-      Function::UnaryPlus(f) => {
-        let a = self.evaluate_expression(&arguments[0])?;
-        let mut rest = Vec::new();
-        for arg in &arguments[1..] {
-          rest.push(self.evaluate_expression(arg)?);
-        }
-        f(self.function_context(name).unwrap(), &a, &rest)
+      Function::BinaryOptToValue(f) => {
+        let a = self.evaluate_string(&arguments[0], StringContext::Function(name))?;
+        let b = if arguments.len() > 1 {
+          Some(self.evaluate_string(&arguments[1], StringContext::Function(name))?)
+        } else {
+          None
+        };
+        f(context!(), &a, b.as_deref())
       }
-      Function::Binary(f) => {
-        let a = self.evaluate_expression(&arguments[0])?;
-        let b = self.evaluate_expression(&arguments[1])?;
-        f(self.function_context(name).unwrap(), &a, &b)
-      }
-      Function::BinaryPlus(f) => {
-        let a = self.evaluate_expression(&arguments[0])?;
-        let b = self.evaluate_expression(&arguments[1])?;
-        let mut rest = Vec::new();
-        for arg in &arguments[2..] {
-          rest.push(self.evaluate_expression(arg)?);
-        }
-        f(self.function_context(name).unwrap(), &a, &b, &rest)
-      }
-      Function::Ternary(f) => {
-        let a = self.evaluate_expression(&arguments[0])?;
-        let b = self.evaluate_expression(&arguments[1])?;
-        let c = self.evaluate_expression(&arguments[2])?;
-        f(self.function_context(name).unwrap(), &a, &b, &c)
+      Function::BinaryOptValueStrToValue(f) => {
+        let a = self.evaluate_value(&arguments[0])?;
+        let b = if arguments.len() > 1 {
+          Some(self.evaluate_string(&arguments[1], StringContext::Function(name))?)
+        } else {
+          None
+        };
+        f(context!(), &a, b.as_deref())
       }
     }
     .map_err(|message| Error::FunctionCall {
@@ -344,28 +426,45 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     })
   }
 
-  pub(crate) fn evaluate_expression(
+  pub(crate) fn evaluate_string(
     &mut self,
     expression: &Expression<'src>,
+    context: StringContext<'src>,
   ) -> RunResult<'src, String> {
+    let value = self.evaluate_value(expression)?;
+
+    if value.elements().len() != 1 {
+      return Err(Error::ListInStringContext { context, value });
+    }
+
+    Ok(value.join())
+  }
+
+  pub(crate) fn evaluate_value(&mut self, expression: &Expression<'src>) -> RunResult<'src, Value> {
     match expression {
       Expression::And { lhs, rhs } => {
-        let lhs = self.evaluate_expression(lhs)?;
-        if lhs.is_empty() {
-          return Ok(String::new());
+        let lhs = self.evaluate_value(lhs)?;
+        if lhs.is_truthy() {
+          self.evaluate_value(rhs)
+        } else {
+          Ok(Value::new())
         }
-        self.evaluate_expression(rhs)
       }
       Expression::Assert {
         condition,
-        error,
+        message,
         name,
       } => {
-        if self.evaluate_condition(condition)? {
-          Ok(String::new())
+        let value = self.evaluate_value(condition)?;
+        if value.is_truthy() {
+          Ok(if self.lists { value } else { Value::from("") })
         } else {
           Err(Error::Assert {
-            message: self.evaluate_expression(error)?,
+            message: if let Some(message) = message {
+              self.evaluate_value(message)?.join()
+            } else {
+              format!("`{condition}`")
+            },
             name: *name,
           })
         }
@@ -374,15 +473,15 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         let context = self.context(ConstError::Backtick(*token))?;
 
         if context.config.dry_run {
-          return Ok(format!("`{contents}`"));
+          return Ok(Value::from(format!("`{contents}`")));
         }
 
-        Self::run_command(context, &self.env, &self.scope, contents, None).map_err(|output_error| {
-          Error::Backtick {
+        Self::run_command(context, &self.env, &self.scope, contents, None)
+          .map(Value::from)
+          .map_err(|output_error| Error::Backtick {
             token: *token,
             output_error,
-          }
-        })
+          })
       }
       Expression::Call { name, arguments } => {
         let module = self.context(ConstError::FunctionCall(*name))?.module;
@@ -394,65 +493,96 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           unreachable!();
         }
       }
-      Expression::Concatenation { lhs, rhs } => {
-        let lhs = self.evaluate_expression(lhs)?;
-        let rhs = self.evaluate_expression(rhs)?;
-        Ok(lhs + &rhs)
+      Expression::Comparison { .. } => Ok(self.evaluate_boolean(expression)?.into()),
+      Expression::Concatenation { lhs, operator, rhs } => {
+        let lhs = self.evaluate_value(lhs)?;
+        let rhs = self.evaluate_value(rhs)?;
+        lhs.apply(&rhs, ListOperator::Concatenate, *operator)
+      }
+      Expression::ListConcatenation { lhs, rhs, .. } => {
+        let lhs = self.evaluate_value(lhs)?;
+        let rhs = self.evaluate_value(rhs)?;
+        Ok(
+          lhs
+            .into_elements()
+            .into_iter()
+            .chain(rhs.into_elements())
+            .collect(),
+        )
       }
       Expression::Conditional {
         condition,
         then,
         otherwise,
       } => {
-        if self.evaluate_condition(condition)? {
-          self.evaluate_expression(then)
+        if self.evaluate_boolean(condition)? {
+          self.evaluate_value(then)
+        } else if let Some(otherwise) = otherwise {
+          self.evaluate_value(otherwise)
         } else {
-          self.evaluate_expression(otherwise)
+          Ok(Value::new())
         }
       }
       Expression::FormatString { start, expressions } => {
         let mut value = start.cooked.clone();
 
         for (expression, string) in expressions {
-          value.push_str(&self.evaluate_expression(expression)?);
+          value.push_str(&self.evaluate_value(expression)?.join());
           value.push_str(&string.cooked);
         }
 
         if start.kind.indented {
-          Ok(unindent(&value))
+          Ok(unindent(&value).into())
         } else {
-          Ok(value)
+          Ok(value.into())
         }
       }
-      Expression::Group { contents } => self.evaluate_expression(contents),
-      Expression::Join { lhs: None, rhs } => Ok("/".to_string() + &self.evaluate_expression(rhs)?),
+      Expression::Group { contents } => self.evaluate_value(contents),
       Expression::Join {
-        lhs: Some(lhs),
+        lhs: None,
+        operator,
         rhs,
       } => {
-        let lhs = self.evaluate_expression(lhs)?;
-        let rhs = self.evaluate_expression(rhs)?;
-        Ok(lhs + "/" + &rhs)
+        let rhs = self.evaluate_value(rhs)?;
+        Value::from("").apply(&rhs, ListOperator::Join, *operator)
       }
-      Expression::Or { lhs, rhs } => {
-        let lhs = self.evaluate_expression(lhs)?;
-        if !lhs.is_empty() {
-          return Ok(lhs);
+      Expression::Join {
+        lhs: Some(lhs),
+        operator,
+        rhs,
+      } => {
+        let lhs = self.evaluate_value(lhs)?;
+        let rhs = self.evaluate_value(rhs)?;
+        lhs.apply(&rhs, ListOperator::Join, *operator)
+      }
+      Expression::List { elements, .. } => {
+        let mut values = Vec::new();
+        for element in elements {
+          values.extend(self.evaluate_value(element)?.into_elements());
         }
-        self.evaluate_expression(rhs)
+        Ok(values.into())
       }
-      Expression::StringLiteral { string_literal } => Ok(string_literal.cooked.clone()),
+      Expression::Not { operand } => Ok((!self.evaluate_value(operand)?.is_truthy()).into()),
+      Expression::Or { lhs, rhs } => {
+        let lhs = self.evaluate_value(lhs)?;
+        if lhs.is_truthy() {
+          Ok(lhs)
+        } else {
+          self.evaluate_value(rhs)
+        }
+      }
+      Expression::StringLiteral { string_literal } => Ok(string_literal.cooked.deref().into()),
       Expression::Variable { name, .. } => {
         let variable = name.lexeme();
         if let Some(value) = self.scope.value(variable) {
-          Ok(value.to_owned())
+          Ok(value.clone())
         } else if self.non_const_assignments.contains_key(name.lexeme()) {
           Err(ConstError::Variable(*name).into())
         } else if let Some(assignment) = self
           .assignments
           .and_then(|assignments| assignments.get(variable))
         {
-          Ok(self.evaluate_assignment(assignment)?.to_owned())
+          Ok(self.evaluate_assignment(assignment)?.clone())
         } else {
           Err(Error::internal(format!(
             "attempted to evaluate undefined variable `{variable}`"
@@ -462,18 +592,35 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     }
   }
 
-  fn evaluate_condition(&mut self, condition: &Condition<'src>) -> RunResult<'src, bool> {
-    let lhs_value = self.evaluate_expression(&condition.lhs)?;
-    let rhs_value = self.evaluate_expression(&condition.rhs)?;
-    let condition = match condition.operator {
-      ConditionalOperator::Equality => lhs_value == rhs_value,
-      ConditionalOperator::Inequality => lhs_value != rhs_value,
-      ConditionalOperator::RegexMatch => Regex::new(&rhs_value)
-        .map_err(|source| Error::RegexCompile { source })?
-        .is_match(&lhs_value),
-      ConditionalOperator::RegexMismatch => !Regex::new(&rhs_value)
-        .map_err(|source| Error::RegexCompile { source })?
-        .is_match(&lhs_value),
+  fn evaluate_boolean(&mut self, condition: &Expression<'src>) -> RunResult<'src, bool> {
+    let Expression::Comparison { lhs, operator, rhs } = condition else {
+      return Ok(self.evaluate_value(condition)?.is_truthy());
+    };
+    let condition = match operator {
+      ConditionalOperator::Equality => self.evaluate_value(lhs)? == self.evaluate_value(rhs)?,
+      ConditionalOperator::Inequality => self.evaluate_value(lhs)? != self.evaluate_value(rhs)?,
+      ConditionalOperator::RegexMatch | ConditionalOperator::RegexMismatch => {
+        let lhs = self.evaluate_value(lhs)?;
+        let rhs = self.evaluate_value(rhs)?;
+
+        let regexes = rhs
+          .elements()
+          .iter()
+          .map(|regex| Regex::new(regex))
+          .collect::<Result<Vec<Regex>, regex::Error>>()
+          .map_err(|source| Error::RegexCompile { source })?;
+
+        let matched = lhs
+          .elements()
+          .iter()
+          .any(|element| regexes.iter().any(|regex| regex.is_match(element)));
+
+        match operator {
+          ConditionalOperator::RegexMatch => matched,
+          ConditionalOperator::RegexMismatch => !matched,
+          _ => unreachable!(),
+        }
+      }
     };
     Ok(condition)
   }
@@ -540,7 +687,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
           }
         }
         Fragment::Interpolation { expression } => {
-          evaluated += &self.evaluate_expression(expression)?;
+          evaluated += &self.evaluate_value(expression)?.join();
         }
       }
     }
@@ -548,20 +695,29 @@ impl<'src, 'run> Evaluator<'src, 'run> {
   }
 
   pub(crate) fn evaluate_parameters(
-    arguments: &[Vec<String>],
+    arguments: &[Value],
     context: &ExecutionContext<'src, 'run>,
     is_dependency: bool,
     parameters: &[Parameter<'src>],
     recipe: &Recipe<'src>,
     scope: &'run Scope<'src, 'run>,
   ) -> RunResult<'src, (Scope<'src, 'run>, Vec<String>, BTreeMap<String, String>)> {
-    let mut evaluator = Self::new(context, BTreeMap::new(), is_dependency, scope);
+    let mut evaluator = Self::new(
+      context,
+      BTreeMap::new(),
+      is_dependency,
+      Some(recipe.name),
+      scope,
+    );
 
     for attribute in &recipe.attributes {
       if let Attribute::Env(key, value) = attribute {
-        let key = evaluator.evaluate_expression(key)?;
-        let value = evaluator.evaluate_expression(value)?;
-        evaluator.env.insert(key, value);
+        let context = StringContext::EnvKey(recipe.attributes.name(attribute));
+        let key = evaluator.evaluate_string(key, context)?;
+        let value = evaluator.evaluate_value(value)?;
+        if !value.is_empty() {
+          evaluator.env.insert(key, value.join());
+        }
       }
     }
 
@@ -571,34 +727,39 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       return Err(Error::internal("arguments do not match parameter count"));
     }
 
-    for (parameter, group) in parameters.iter().zip(arguments) {
-      let values = if group.is_empty() {
+    for (parameter, argument) in parameters.iter().zip(arguments) {
+      let value = if argument.elements().is_empty() {
         if let Some(ref default) = parameter.default {
-          let value = evaluator.evaluate_expression(default)?;
-          positional.push(value.clone());
-          vec![value]
-        } else if parameter.kind == ParameterKind::Star {
-          Vec::new()
+          evaluator.evaluate_value(default)?
+        } else if parameter.kind == ParameterKind::Star || parameter.flag {
+          Value::new()
         } else {
-          return Err(Error::internal("missing parameter without default"));
+          return Err(Error::EmptyListArgument {
+            parameter: parameter.name.lexeme(),
+            recipe: recipe.name(),
+          });
         }
-      } else if parameter.kind.is_variadic() {
-        positional.extend_from_slice(group);
-        group.clone()
+      } else if let Some(ref value) = parameter.value {
+        evaluator.evaluate_value(value)?
       } else {
-        if group.len() != 1 {
-          return Err(Error::internal(
-            "multiple values for non-variadic parameter",
-          ));
-        }
-        let value = group[0].clone();
-        positional.push(value.clone());
-        vec![value]
+        argument.clone()
       };
 
-      for value in &values {
-        parameter.check_pattern_match(recipe, value)?;
+      for element in value.elements() {
+        parameter.check_pattern_match(recipe, element)?;
       }
+
+      if parameter.kind.is_variadic() {
+        positional.extend(value.elements().iter().cloned());
+      } else {
+        positional.push(value.join());
+      }
+
+      let value = if evaluator.lists {
+        value
+      } else {
+        value.join().into()
+      };
 
       evaluator.scope.bind(Binding {
         eager: false,
@@ -608,7 +769,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
         number: parameter.number,
         prelude: false,
         private: false,
-        value: values.join(" "),
+        value,
       });
     }
 
@@ -619,6 +780,7 @@ impl<'src, 'run> Evaluator<'src, 'run> {
     context: &ExecutionContext<'src, 'run>,
     env: BTreeMap<String, String>,
     is_dependency: bool,
+    recipe: Option<Name<'src>>,
     scope: &'run Scope<'src, 'run>,
   ) -> Self {
     Self {
@@ -626,8 +788,10 @@ impl<'src, 'run> Evaluator<'src, 'run> {
       context: Some(*context),
       env,
       is_dependency,
+      lists: context.module.settings.lists,
       non_const_assignments: Table::new(),
       overrides: context.overrides,
+      recipe,
       recursion_depth: 0,
       scope: scope.child(),
     }

@@ -1599,6 +1599,13 @@ def _run_autopolit_command(
         except Exception as exc:
             return {"iteration": state.iteration, "error": str(exc)}
 
+    import os
+    os.environ["SAGE_AUTOPOLIT_RUN"] = "1"
+    if message:
+        os.environ["SAGE_AUTOPOLIT_TASK"] = message
+    else:
+        os.environ.pop("SAGE_AUTOPOLIT_TASK", None)
+
     try:
         run_autopolit_loop(
             task=message,
@@ -1609,6 +1616,9 @@ def _run_autopolit_command(
         )
     except KeyboardInterrupt:
         renderer.console.print("\n[yellow]/autopolit cancelled. Sage is still running.[/yellow]")
+    finally:
+        os.environ.pop("SAGE_AUTOPOLIT_RUN", None)
+        os.environ.pop("SAGE_AUTOPOLIT_TASK", None)
 
 
 def _run_autofleet_command(

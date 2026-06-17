@@ -8,11 +8,7 @@ from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.data_source_results import QueryResult
 from soda_core.common.logging_constants import ExtraKeys, soda_logger
 from soda_core.common.sql_dialect import *
-from soda_core.contracts.contract_verification import (
-    CheckOutcome,
-    CheckResult,
-    Measurement,
-)
+from soda_core.contracts.contract_verification import CheckResult, Measurement
 from soda_core.contracts.impl.check_types.invalidity_check_yaml import InvalidCheckYaml
 from soda_core.contracts.impl.check_types.missing_check import MissingCountMetricImpl
 from soda_core.contracts.impl.check_types.row_count_check import RowCountMetricImpl
@@ -92,6 +88,7 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
                 InvalidReferenceCountMetricImpl(
                     contract_impl=contract_impl,
                     column_impl=column_impl,
+                    check_filter=self.check_yaml.filter,
                     missing_and_validity=self.missing_and_validity,
                     column_expression=self.column_expression,
                 )
@@ -127,27 +124,30 @@ class InvalidCheckImpl(MissingAndValidityCheckImpl):
             )
         )
 
-    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
-        outcome: CheckOutcome = CheckOutcome.NOT_EVALUATED
+    def get_required_metric_impls(self) -> list[MetricImpl]:
+        return [
+            self.invalid_count_metric_impl,
+            self.row_count_metric,
+            self.invalid_percent_metric,
+            self.missing_count_metric_impl,
+        ]
 
-        invalid_count: int = measurement_values.get_value(self.invalid_count_metric_impl)
-        row_count: int = measurement_values.get_value(self.row_count_metric)
-        invalid_percent: float = measurement_values.get_value(self.invalid_percent_metric)
+    def evaluate(self, measurement_values: MeasurementValues) -> CheckResult:
+        invalid_count = measurement_values.get_value(self.invalid_count_metric_impl)
+        row_count = measurement_values.get_value(self.row_count_metric)
+        invalid_percent = measurement_values.get_value(self.invalid_percent_metric)
+        missing_count = measurement_values.get_value(self.missing_count_metric_impl)
+
+        threshold_value: Number = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
+        outcome = self.evaluate_threshold(threshold_value)
 
         diagnostic_metric_values: dict[str, float] = {
             "invalid_count": invalid_count,
             "invalid_percent": invalid_percent,
             "check_rows_tested": row_count,
+            "missing_count": missing_count,
             "dataset_rows_tested": self.contract_impl.dataset_rows_tested,
         }
-
-        missing_count: int = measurement_values.get_value(self.missing_count_metric_impl)
-        if isinstance(missing_count, Number):
-            diagnostic_metric_values["missing_count"] = missing_count
-
-        threshold_value: Optional[Number] = invalid_percent if self.metric_name == "invalid_percent" else invalid_count
-
-        outcome = self.evaluate_threshold(threshold_value)
 
         return CheckResult(
             check=self._build_check_info(),
@@ -197,17 +197,25 @@ class InvalidCountMetricImpl(AggregationMetricImpl):
 
 
 class InvalidReferenceCountMetricImpl(MetricImpl):
+    """Count of values invalid by reference-data lookup. Distinct metric_type
+    from the aggregation sibling InvalidCountMetricImpl so the two never share
+    an id even if other properties match. Value is supplied by
+    InvalidReferenceCountQuery, not the dataset aggregation query.
+    """
+
     def __init__(
         self,
         contract_impl: ContractImpl,
         column_impl: ColumnImpl,
+        check_filter: Optional[str],
         missing_and_validity: MissingAndValidity,
         column_expression: Optional[COLUMN | SqlExpressionStr] = None,
     ):
         super().__init__(
             contract_impl=contract_impl,
-            metric_type="invalid_count",
+            metric_type="invalid_reference_count",
             column_impl=column_impl,
+            check_filter=check_filter,
             missing_and_validity=missing_and_validity,
             column_expression=column_expression,
         )

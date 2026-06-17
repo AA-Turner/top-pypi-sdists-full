@@ -1484,6 +1484,53 @@ SELECT_WORKSPACES_BY_EMAIL_DOMAIN = sqlalchemy.text(
 )
 
 # =============================================================================
+# Organization / Workspace Name Search
+# =============================================================================
+
+# Case-insensitive substring search on organization name and email.
+SEARCH_ORGANIZATIONS = sqlalchemy.text(
+    """
+    SELECT
+         organization.id AS organization_id,
+         organization.name AS organization_name,
+         organization.email
+    FROM organization
+    WHERE organization.tombstone = false
+      AND (
+          organization.name ILIKE '%' || :name_contains || '%'
+          OR organization.email ILIKE '%' || :name_contains || '%'
+      )
+    ORDER BY organization.name ASC
+    LIMIT :limit
+    """
+)
+
+# Case-insensitive substring search on workspace name and slug.
+SEARCH_WORKSPACES = sqlalchemy.text(
+    """
+    SELECT DISTINCT
+         workspace.organization_id,
+         workspace.id AS workspace_id,
+         workspace.name AS workspace_name,
+         workspace.slug,
+         workspace.email,
+         workspace.dataplane_group_id,
+         dataplane_group.name AS dataplane_name,
+         workspace.created_at
+    FROM workspace
+    LEFT JOIN dataplane_group
+      ON workspace.dataplane_group_id = dataplane_group.id
+    WHERE workspace.tombstone = false
+      AND (
+          workspace.name ILIKE '%' || :name_contains || '%'
+          OR workspace.slug ILIKE '%' || :name_contains || '%'
+      )
+    ORDER BY workspace.name ASC
+    LIMIT :limit
+    """
+)
+
+# =============================================================================
 # Connector Connection Stats Queries (Aggregate Counts)
 # =============================================================================
 

@@ -4,6 +4,7 @@ use super::*;
 pub(crate) struct Parameter<'src> {
   pub(crate) default: Option<Expression<'src>>,
   pub(crate) export: bool,
+  pub(crate) flag: bool,
   pub(crate) help: Option<String>,
   pub(crate) kind: ParameterKind,
   pub(crate) long: Option<String>,
@@ -12,7 +13,7 @@ pub(crate) struct Parameter<'src> {
   pub(crate) number: Number,
   pub(crate) pattern: Option<Pattern<'src>>,
   pub(crate) short: Option<char>,
-  pub(crate) value: Option<String>,
+  pub(crate) value: Option<Expression<'src>>,
 }
 
 impl<'src> Parameter<'src> {
@@ -21,7 +22,7 @@ impl<'src> Parameter<'src> {
   }
 
   pub(crate) fn is_required(&self) -> bool {
-    self.default.is_none() && self.kind != ParameterKind::Star
+    self.default.is_none() && self.kind != ParameterKind::Star && !self.flag
   }
 
   pub(crate) fn check_pattern_match(

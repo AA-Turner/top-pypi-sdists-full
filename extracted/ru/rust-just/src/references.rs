@@ -21,18 +21,12 @@ impl<'src> Iterator for References<'_, 'src> {
           self.stack.push(rhs);
         }
         Expression::Assert {
-          condition:
-            Condition {
-              lhs,
-              rhs,
-              operator: _,
-            },
-          error,
-          ..
+          condition, message, ..
         } => {
-          self.stack.push(error);
-          self.stack.push(rhs);
-          self.stack.push(lhs);
+          if let Some(message) = message {
+            self.stack.push(message);
+          }
+          self.stack.push(condition);
         }
         Expression::Backtick { .. } | Expression::StringLiteral { .. } => {}
         Expression::Call { name, arguments } => {
@@ -44,24 +38,22 @@ impl<'src> Iterator for References<'_, 'src> {
             arguments: arguments.len(),
           });
         }
-        Expression::Concatenation { lhs, rhs } => {
+        Expression::Comparison { lhs, rhs, .. }
+        | Expression::Concatenation { lhs, rhs, .. }
+        | Expression::ListConcatenation { lhs, rhs, .. } => {
           self.stack.push(rhs);
           self.stack.push(lhs);
         }
         Expression::Conditional {
-          condition:
-            Condition {
-              lhs,
-              rhs,
-              operator: _,
-            },
+          condition,
           then,
           otherwise,
         } => {
-          self.stack.push(otherwise);
           self.stack.push(then);
-          self.stack.push(rhs);
-          self.stack.push(lhs);
+          self.stack.push(condition);
+          if let Some(otherwise) = otherwise {
+            self.stack.push(otherwise);
+          }
         }
         Expression::FormatString { expressions, .. } => {
           for (expression, _string) in expressions {
@@ -71,11 +63,19 @@ impl<'src> Iterator for References<'_, 'src> {
         Expression::Group { contents } => {
           self.stack.push(contents);
         }
-        Expression::Join { lhs, rhs } => {
+        Expression::Join { lhs, rhs, .. } => {
           self.stack.push(rhs);
           if let Some(lhs) = lhs {
             self.stack.push(lhs);
           }
+        }
+        Expression::List { elements, .. } => {
+          for element in elements.iter().rev() {
+            self.stack.push(element);
+          }
+        }
+        Expression::Not { operand } => {
+          self.stack.push(operand);
         }
         Expression::Variable { name, .. } => return Some(Reference::Variable(*name)),
       }

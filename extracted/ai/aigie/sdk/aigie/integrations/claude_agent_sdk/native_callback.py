@@ -7,14 +7,15 @@ tool usage, and conversation sessions.
 Includes comprehensive error detection and drift monitoring.
 """
 
+import contextlib
 import logging
 import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 
-from ...buffer import EventType
 from ...context_manager import merge_metadata
 from ...tracing.retention import is_retention_suppressed
+from ...tracing.trace_state import deregister_open_span, register_open_span
 from .monitoring import (
     DetectedError,
     DriftDetector,
@@ -192,27 +193,95 @@ class ClaudeAgentSDKEvents(
             self._emitter = buf
         return buf
 
-    def _emit(self, event_type: EventType, payload: dict[str, Any]) -> None:
+    def _emit(self, payload: dict[str, Any]) -> None:
         if is_retention_suppressed():
             return
         buf = self._resolve_buffer()
         if buf is not None:
-            buf.add_sync(event_type, payload)
+            buf.add_sync(payload)
+
+    @staticmethod
+    def _finalize_open_payload(span_data: dict[str, Any]) -> dict[str, Any]:
+        """Build a finalized payload from an open-span record for the shutdown
+        drain. ``status`` is overwritten to ``interrupted`` by the registry."""
+        end = _utc_now()
+        start_iso = span_data.get("start_time")
+        duration_ns = 0
+        if start_iso:
+            with contextlib.suppress(Exception):
+                duration_ns = int(
+                    (end - datetime.fromisoformat(start_iso)).total_seconds() * 1_000_000_000
+                )
+        return {
+            "id": span_data.get("id"),
+            "trace_id": span_data.get("trace_id"),
+            "parent_id": span_data.get("parent_id"),
+            "name": span_data.get("name"),
+            "type": span_data.get("type"),
+            "input": span_data.get("input"),
+            "metadata": span_data.get("metadata"),
+            "status": "interrupted",
+            "start_time": start_iso,
+            "end_time": end.isoformat(),
+            "duration_ns": duration_ns,
+        }
 
     def open_trace(self, *, payload: dict[str, Any]) -> None:
-        self._emit(EventType.TRACE_CREATE, payload)
+        # Trace identity now rides the root span (root.id == trace_id); the
+        # root span is emitted once on close. No separate trace event is sent.
+        return
 
     def open_span(self, *, payload: dict[str, Any]) -> None:
-        self._emit(EventType.SPAN_CREATE, payload)
+        # A span is built mutably in memory and emitted exactly once (finalized)
+        # by close_span/fail_span. Stash the create-time payload so the close
+        # payload (a legacy partial) can be merged onto it, and register a
+        # finalize callable so an unclean shutdown still ships the span
+        # (interrupted) — notably the root.
+        if is_retention_suppressed():
+            return
+        span_id = payload.get("id")
+        if span_id:
+            self._open_payloads[span_id] = payload
+            register_open_span(span_id, lambda: self._finalize_open_payload(payload))
+
+    def _merge_with_open(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Merge the create-time payload (from open_span) under the finalized
+        close payload, so create-only fields (parent_id, tags, metadata) survive
+        on the single emitted event. ``metadata`` is deep-merged and ``tags``
+        unioned (order-preserving). Spans emitted whole (no open_span — e.g. LLM
+        Response) have no stashed entry and pass through unchanged."""
+        span_id = payload.get("id")
+        created = self._open_payloads.pop(span_id, None) if span_id else None
+        if not created:
+            return payload
+        merged = {**created, **payload}
+        cm, um = created.get("metadata"), payload.get("metadata")
+        if isinstance(cm, dict) or isinstance(um, dict):
+            merged["metadata"] = {**(cm or {}), **(um or {})}
+        ct, ut = created.get("tags"), payload.get("tags")
+        if ct or ut:
+            seen: list[Any] = []
+            for tag in [*(ct or []), *(ut or [])]:
+                if tag not in seen:
+                    seen.append(tag)
+            merged["tags"] = seen
+        return merged
 
     def close_span(self, *, payload: dict[str, Any]) -> None:
-        self._emit(EventType.SPAN_UPDATE, payload)
+        span_id = payload.get("id")
+        if span_id:
+            deregister_open_span(span_id)
+        self._emit(self._merge_with_open(payload))
 
     def fail_span(self, *, payload: dict[str, Any]) -> None:
-        self._emit(EventType.SPAN_UPDATE, payload)
+        span_id = payload.get("id")
+        if span_id:
+            deregister_open_span(span_id)
+        self._emit(self._merge_with_open(payload))
 
     def close_trace(self, *, payload: dict[str, Any]) -> None:
-        self._emit(EventType.TRACE_UPDATE, payload)
+        # Trace finalization folds into the root span's close_span. No-op.
+        return
 
 
     def __init__(
@@ -264,6 +333,11 @@ class ClaudeAgentSDKEvents(
         self.turn_map: dict[str, dict[str, Any]] = {}
         # subagent_map also tracks tokens for aggregation
         self.subagent_map: dict[str, dict[str, Any]] = {}
+        # span_id -> the full create-time payload from open_span. The finalized
+        # close payload (a legacy partial SPAN_UPDATE) is merged onto this so
+        # create-only fields (parent_id, tags, metadata) survive into the single
+        # emitted event. One-shot spans (LLM Response) skip open_span — no entry.
+        self._open_payloads: dict[str, dict[str, Any]] = {}
 
     def _init_parent_tracking(self) -> None:
         """Nested-subagent parent stack + depth tracking."""

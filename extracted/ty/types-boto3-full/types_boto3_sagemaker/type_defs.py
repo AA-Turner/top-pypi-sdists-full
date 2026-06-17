@@ -648,6 +648,9 @@ __all__ = (
     "ContainerDefinitionOutputTypeDef",
     "ContainerDefinitionTypeDef",
     "ContainerDefinitionUnionTypeDef",
+    "ContainerMetricsConfigOutputTypeDef",
+    "ContainerMetricsConfigTypeDef",
+    "ContainerMetricsConfigUnionTypeDef",
     "ContextSourceTypeDef",
     "ContextSummaryTypeDef",
     "ContinuousParameterRangeSpecificationTypeDef",
@@ -1624,6 +1627,7 @@ __all__ = (
     "MetricDefinitionTypeDef",
     "MetricSpecificationTypeDef",
     "MetricsConfigTypeDef",
+    "MetricsEndpointTypeDef",
     "MetricsSourceTypeDef",
     "MlflowAppSummaryTypeDef",
     "MlflowConfigTypeDef",
@@ -3186,6 +3190,11 @@ class MultiModelConfigTypeDef(TypedDict):
     ModelCacheSetting: NotRequired[ModelCacheSettingType]
 
 
+class MetricsEndpointTypeDef(TypedDict):
+    MetricsEndpointPath: str
+    MetricPublishFrequencyInSeconds: NotRequired[int]
+
+
 class ContextSourceTypeDef(TypedDict):
     SourceUri: str
     SourceType: NotRequired[str]
@@ -3251,6 +3260,7 @@ class EdgeDeploymentModelConfigTypeDef(TypedDict):
 
 class MetricsConfigTypeDef(TypedDict):
     EnableEnhancedMetrics: NotRequired[bool]
+    EnableDetailedObservability: NotRequired[bool]
     MetricPublishFrequencyInSeconds: NotRequired[int]
 
 
@@ -5074,12 +5084,6 @@ class InferenceComponentComputeResourceRequirementsTypeDef(TypedDict):
     NumberOfCpuCoresRequired: NotRequired[float]
     NumberOfAcceleratorDevicesRequired: NotRequired[float]
     MaxMemoryRequiredInMb: NotRequired[int]
-
-
-class InferenceComponentContainerSpecificationTypeDef(TypedDict):
-    Image: NotRequired[str]
-    ArtifactUrl: NotRequired[str]
-    Environment: NotRequired[Mapping[str, str]]
 
 
 class InferenceComponentDataCacheConfigSummaryTypeDef(TypedDict):
@@ -8113,6 +8117,14 @@ class ListCompilationJobsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ContainerMetricsConfigOutputTypeDef(TypedDict):
+    MetricsEndpoints: NotRequired[list[MetricsEndpointTypeDef]]
+
+
+class ContainerMetricsConfigTypeDef(TypedDict):
+    MetricsEndpoints: NotRequired[Sequence[MetricsEndpointTypeDef]]
+
+
 class ContextSummaryTypeDef(TypedDict):
     ContextArn: NotRequired[str]
     ContextName: NotRequired[str]
@@ -10203,12 +10215,6 @@ class DeleteDomainRequestTypeDef(TypedDict):
     RetentionPolicy: NotRequired[RetentionPolicyTypeDef]
 
 
-class InferenceComponentContainerSpecificationSummaryTypeDef(TypedDict):
-    DeployedImage: NotRequired[DeployedImageTypeDef]
-    ArtifactUrl: NotRequired[str]
-    Environment: NotRequired[dict[str, str]]
-
-
 class DeploymentRecommendationTypeDef(TypedDict):
     RecommendationStatus: RecommendationStatusType
     RealTimeInferenceRecommendations: NotRequired[list[RealTimeInferenceRecommendationTypeDef]]
@@ -12013,6 +12019,18 @@ class FeatureDefinitionTypeDef(TypedDict):
 DebugHookConfigUnionTypeDef = Union[DebugHookConfigTypeDef, DebugHookConfigOutputTypeDef]
 
 
+class InferenceComponentContainerSpecificationSummaryTypeDef(TypedDict):
+    DeployedImage: NotRequired[DeployedImageTypeDef]
+    ArtifactUrl: NotRequired[str]
+    Environment: NotRequired[dict[str, str]]
+    ContainerMetricsConfig: NotRequired[ContainerMetricsConfigOutputTypeDef]
+
+
+ContainerMetricsConfigUnionTypeDef = Union[
+    ContainerMetricsConfigTypeDef, ContainerMetricsConfigOutputTypeDef
+]
+
+
 class ListContextsResponseTypeDef(TypedDict):
     ContextSummaries: list[ContextSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -12518,38 +12536,6 @@ class TrialComponentSummaryTypeDef(TypedDict):
 
 class WorkerAccessConfigurationTypeDef(TypedDict):
     S3Presign: NotRequired[S3PresignTypeDef]
-
-
-InferenceComponentSpecificationSummaryTypeDef = TypedDict(
-    "InferenceComponentSpecificationSummaryTypeDef",
-    {
-        "InstanceType": NotRequired[ProductionVariantInstanceTypeType],
-        "ModelName": NotRequired[str],
-        "Container": NotRequired[InferenceComponentContainerSpecificationSummaryTypeDef],
-        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
-        "ComputeResourceRequirements": NotRequired[
-            InferenceComponentComputeResourceRequirementsTypeDef
-        ],
-        "BaseInferenceComponentName": NotRequired[str],
-        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigSummaryTypeDef],
-        "SchedulingConfig": NotRequired[InferenceComponentSchedulingConfigTypeDef],
-    },
-)
-InferenceComponentSpecificationTypeDef = TypedDict(
-    "InferenceComponentSpecificationTypeDef",
-    {
-        "InstanceType": NotRequired[ProductionVariantInstanceTypeType],
-        "ModelName": NotRequired[str],
-        "Container": NotRequired[InferenceComponentContainerSpecificationTypeDef],
-        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
-        "ComputeResourceRequirements": NotRequired[
-            InferenceComponentComputeResourceRequirementsTypeDef
-        ],
-        "BaseInferenceComponentName": NotRequired[str],
-        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigTypeDef],
-        "SchedulingConfig": NotRequired[InferenceComponentSchedulingConfigTypeDef],
-    },
-)
 
 
 class InferenceComponentDeploymentConfigOutputTypeDef(TypedDict):
@@ -13576,6 +13562,30 @@ class UpdateFeatureGroupRequestTypeDef(TypedDict):
     ThroughputConfig: NotRequired[ThroughputConfigUpdateTypeDef]
 
 
+InferenceComponentSpecificationSummaryTypeDef = TypedDict(
+    "InferenceComponentSpecificationSummaryTypeDef",
+    {
+        "InstanceType": NotRequired[ProductionVariantInstanceTypeType],
+        "ModelName": NotRequired[str],
+        "Container": NotRequired[InferenceComponentContainerSpecificationSummaryTypeDef],
+        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
+        "ComputeResourceRequirements": NotRequired[
+            InferenceComponentComputeResourceRequirementsTypeDef
+        ],
+        "BaseInferenceComponentName": NotRequired[str],
+        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigSummaryTypeDef],
+        "SchedulingConfig": NotRequired[InferenceComponentSchedulingConfigTypeDef],
+    },
+)
+
+
+class InferenceComponentContainerSpecificationTypeDef(TypedDict):
+    Image: NotRequired[str]
+    ArtifactUrl: NotRequired[str]
+    Environment: NotRequired[Mapping[str, str]]
+    ContainerMetricsConfig: NotRequired[ContainerMetricsConfigUnionTypeDef]
+
+
 class CreateEdgeDeploymentPlanRequestTypeDef(TypedDict):
     EdgeDeploymentPlanName: str
     ModelConfigs: Sequence[EdgeDeploymentModelConfigTypeDef]
@@ -13668,33 +13678,6 @@ class WorkteamTypeDef(TypedDict):
     LastUpdatedDate: NotRequired[datetime]
     NotificationConfiguration: NotRequired[NotificationConfigurationTypeDef]
     WorkerAccessConfiguration: NotRequired[WorkerAccessConfigurationTypeDef]
-
-
-class CreateInferenceComponentInputTypeDef(TypedDict):
-    InferenceComponentName: str
-    EndpointName: str
-    VariantName: NotRequired[str]
-    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
-    Specifications: NotRequired[Sequence[InferenceComponentSpecificationTypeDef]]
-    RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-
-
-class DescribeInferenceComponentOutputTypeDef(TypedDict):
-    InferenceComponentName: str
-    InferenceComponentArn: str
-    EndpointName: str
-    EndpointArn: str
-    VariantName: str
-    FailureReason: str
-    Specification: InferenceComponentSpecificationSummaryTypeDef
-    Specifications: list[InferenceComponentSpecificationSummaryTypeDef]
-    RuntimeConfig: InferenceComponentRuntimeConfigSummaryTypeDef
-    CreationTime: datetime
-    LastModifiedTime: datetime
-    InferenceComponentStatus: InferenceComponentStatusType
-    LastDeploymentConfig: InferenceComponentDeploymentConfigOutputTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 InferenceComponentDeploymentConfigUnionTypeDef = Union[
@@ -13816,6 +13799,7 @@ class ContainerDefinitionOutputTypeDef(TypedDict):
     ModelPackageName: NotRequired[str]
     InferenceSpecificationName: NotRequired[str]
     MultiModelConfig: NotRequired[MultiModelConfigTypeDef]
+    ContainerMetricsConfig: NotRequired[ContainerMetricsConfigOutputTypeDef]
 
 
 class ContainerDefinitionTypeDef(TypedDict):
@@ -13830,6 +13814,7 @@ class ContainerDefinitionTypeDef(TypedDict):
     ModelPackageName: NotRequired[str]
     InferenceSpecificationName: NotRequired[str]
     MultiModelConfig: NotRequired[MultiModelConfigTypeDef]
+    ContainerMetricsConfig: NotRequired[ContainerMetricsConfigUnionTypeDef]
 
 
 class ModelPackageContainerDefinitionOutputTypeDef(TypedDict):
@@ -14588,6 +14573,40 @@ class DescribeEndpointConfigOutputTypeDef(TypedDict):
 ExplainerConfigUnionTypeDef = Union[ExplainerConfigTypeDef, ExplainerConfigOutputTypeDef]
 
 
+class DescribeInferenceComponentOutputTypeDef(TypedDict):
+    InferenceComponentName: str
+    InferenceComponentArn: str
+    EndpointName: str
+    EndpointArn: str
+    VariantName: str
+    FailureReason: str
+    Specification: InferenceComponentSpecificationSummaryTypeDef
+    Specifications: list[InferenceComponentSpecificationSummaryTypeDef]
+    RuntimeConfig: InferenceComponentRuntimeConfigSummaryTypeDef
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    InferenceComponentStatus: InferenceComponentStatusType
+    LastDeploymentConfig: InferenceComponentDeploymentConfigOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+InferenceComponentSpecificationTypeDef = TypedDict(
+    "InferenceComponentSpecificationTypeDef",
+    {
+        "InstanceType": NotRequired[ProductionVariantInstanceTypeType],
+        "ModelName": NotRequired[str],
+        "Container": NotRequired[InferenceComponentContainerSpecificationTypeDef],
+        "StartupParameters": NotRequired[InferenceComponentStartupParametersTypeDef],
+        "ComputeResourceRequirements": NotRequired[
+            InferenceComponentComputeResourceRequirementsTypeDef
+        ],
+        "BaseInferenceComponentName": NotRequired[str],
+        "DataCacheConfig": NotRequired[InferenceComponentDataCacheConfigTypeDef],
+        "SchedulingConfig": NotRequired[InferenceComponentSchedulingConfigTypeDef],
+    },
+)
+
+
 class ListSpacesResponseTypeDef(TypedDict):
     Spaces: list[SpaceDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -14614,14 +14633,6 @@ class ListWorkteamsResponseTypeDef(TypedDict):
 class UpdateWorkteamResponseTypeDef(TypedDict):
     Workteam: WorkteamTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateInferenceComponentInputTypeDef(TypedDict):
-    InferenceComponentName: str
-    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
-    Specifications: NotRequired[Sequence[InferenceComponentSpecificationTypeDef]]
-    RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
-    DeploymentConfig: NotRequired[InferenceComponentDeploymentConfigUnionTypeDef]
 
 
 ResourceConfigUnionTypeDef = Union[ResourceConfigTypeDef, ResourceConfigOutputTypeDef]
@@ -15231,6 +15242,24 @@ class CreateEndpointConfigInputTypeDef(TypedDict):
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     EnableNetworkIsolation: NotRequired[bool]
     MetricsConfig: NotRequired[MetricsConfigTypeDef]
+
+
+class CreateInferenceComponentInputTypeDef(TypedDict):
+    InferenceComponentName: str
+    EndpointName: str
+    VariantName: NotRequired[str]
+    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
+    Specifications: NotRequired[Sequence[InferenceComponentSpecificationTypeDef]]
+    RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateInferenceComponentInputTypeDef(TypedDict):
+    InferenceComponentName: str
+    Specification: NotRequired[InferenceComponentSpecificationTypeDef]
+    Specifications: NotRequired[Sequence[InferenceComponentSpecificationTypeDef]]
+    RuntimeConfig: NotRequired[InferenceComponentRuntimeConfigTypeDef]
+    DeploymentConfig: NotRequired[InferenceComponentDeploymentConfigUnionTypeDef]
 
 
 class GetScalingConfigurationRecommendationResponseTypeDef(TypedDict):

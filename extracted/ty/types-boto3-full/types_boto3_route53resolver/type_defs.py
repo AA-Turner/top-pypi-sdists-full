@@ -215,6 +215,7 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "OutpostResolverTypeDef",
     "PaginatorConfigTypeDef",
+    "PartnerThreatProtectionConfigTypeDef",
     "PutFirewallRuleGroupPolicyRequestTypeDef",
     "PutFirewallRuleGroupPolicyResponseTypeDef",
     "PutResolverQueryLogConfigPolicyRequestTypeDef",
@@ -230,6 +231,7 @@ __all__ = (
     "ResolverRuleConfigTypeDef",
     "ResolverRuleTypeDef",
     "ResponseMetadataTypeDef",
+    "SubscriptionInfoTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TargetAddressTypeDef",
@@ -516,11 +518,13 @@ class FirewallRuleGroupMetadataTypeDef(TypedDict):
     ShareStatus: NotRequired[ShareStatusType]
 
 
-class FirewallRuleTypeDefinitionTypeDef(TypedDict):
-    RuleType: NotRequired[str]
-    Value: NotRequired[str]
-    DisplayName: NotRequired[str]
-    Description: NotRequired[str]
+class SubscriptionInfoTypeDef(TypedDict):
+    VendorName: NotRequired[str]
+    ProductId: NotRequired[str]
+
+
+class PartnerThreatProtectionConfigTypeDef(TypedDict):
+    Partner: str
 
 
 class GetFirewallConfigRequestTypeDef(TypedDict):
@@ -1147,12 +1151,6 @@ class ListResolverRulesRequestTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
 
-class FirewallRuleTypeTypeDef(TypedDict):
-    FirewallAdvancedContentCategory: NotRequired[FirewallAdvancedContentCategoryConfigTypeDef]
-    FirewallAdvancedThreatCategory: NotRequired[FirewallAdvancedThreatCategoryConfigTypeDef]
-    DnsThreatProtection: NotRequired[DnsThreatProtectionRuleTypeConfigTypeDef]
-
-
 class GetFirewallConfigResponseTypeDef(TypedDict):
     FirewallConfig: FirewallConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1181,10 +1179,19 @@ class ListFirewallRuleGroupsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class ListFirewallRuleTypesResponseTypeDef(TypedDict):
-    FirewallRuleTypes: list[FirewallRuleTypeDefinitionTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
+class FirewallRuleTypeDefinitionTypeDef(TypedDict):
+    RuleType: NotRequired[str]
+    Value: NotRequired[str]
+    DisplayName: NotRequired[str]
+    Description: NotRequired[str]
+    SubscriptionInfo: NotRequired[SubscriptionInfoTypeDef]
+
+
+class FirewallRuleTypeTypeDef(TypedDict):
+    PartnerThreatProtection: NotRequired[PartnerThreatProtectionConfigTypeDef]
+    FirewallAdvancedContentCategory: NotRequired[FirewallAdvancedContentCategoryConfigTypeDef]
+    FirewallAdvancedThreatCategory: NotRequired[FirewallAdvancedThreatCategoryConfigTypeDef]
+    DnsThreatProtection: NotRequired[DnsThreatProtectionRuleTypeConfigTypeDef]
 
 
 class GetResolverConfigResponseTypeDef(TypedDict):
@@ -1360,6 +1367,12 @@ class UpdateResolverRuleResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListFirewallRuleTypesResponseTypeDef(TypedDict):
+    FirewallRuleTypes: list[FirewallRuleTypeDefinitionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CreateFirewallRuleEntryTypeDef(TypedDict):
     CreatorRequestId: str
     FirewallRuleGroupId: str
@@ -1415,6 +1428,8 @@ class FirewallRuleTypeDef(TypedDict):
     DnsThreatProtection: NotRequired[DnsThreatProtectionType]
     ConfidenceThreshold: NotRequired[ConfidenceThresholdType]
     FirewallRuleType: NotRequired[FirewallRuleTypeTypeDef]
+    Status: NotRequired[str]
+    StatusMessage: NotRequired[str]
 
 
 class UpdateFirewallRuleEntryTypeDef(TypedDict):

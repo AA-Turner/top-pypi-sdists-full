@@ -1,18 +1,35 @@
 from __future__ import annotations
 
-import datetime
 import time
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import httpx
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel
 import typer
 
+from runlayer_cli.catalog_client import CatalogClientMixin
 from runlayer_cli.metrics import InstallationAnalyticsEvent
+from runlayer_cli.models import ServerDetails
+from runlayer_cli.models_api import (
+    AutoSyncItem,
+    DeploymentPublic,
+    DeploymentTriggerResponse,
+    ECRCredentials,
+    PluginDetail,
+    PluginListItem,
+    PluginServerRef,
+    PluginSkillRef,  # noqa: F401  re-exported for `from runlayer_cli.api import ...`
+    ResolvedServerTarget,
+    ServerListItem,
+    ServerToolItem,
+    SkillDetail,
+    SkillFileDetail,
+    SkillFileMetadata,  # noqa: F401  re-exported for `from runlayer_cli.api import ...`
+    SkillScanResponse,
+    ValidateYAMLResponse,
+)
 from runlayer_cli.symbols import FAIL
 from runlayer_cli.tls import http_client
-
-from runlayer_cli.models import ServerDetails
 
 if TYPE_CHECKING:
     # Kept under TYPE_CHECKING so `aiwatch` (which excludes `mcp` from its
@@ -29,117 +46,11 @@ _PLUGIN_READ_RETRY_SLEEP_SECONDS = 0.25
 _AUDIT_LOG_TIMEOUT = 30.0
 T = TypeVar("T", bound=BaseModel)
 
-
-class ServerListItem(BaseModel):
-    """Minimal server info for listing."""
-
-    id: str
-    name: str
-    description: str | None = None
-    status: str
-    icon_url: str | None = None
-    is_official: bool = False
-    deployment_mode: str | None = None
+# Mirrors backend SkillListFilter / PluginListFilter (app/api/routes/{skills,plugins}/schemas.py).
+ListFilter = Literal["all", "created_by_me", "shared_with_me"]
 
 
-class PluginListItem(BaseModel):
-    """Minimal plugin info for listing."""
-
-    id: str
-    name: str
-    install_name: str | None = None
-    path: str | None = None
-    description: str | None = None
-    is_public: bool = False
-    namespace: str | None = None
-    is_owned_by_me: bool = False
-    server_count: int = 0
-    tool_count: int = 0
-    skill_count: int = 0
-
-
-class AutoSyncItem(BaseModel):
-    """Minimal auto-sync item."""
-
-    entity_type: str
-    entity_id: str
-
-
-class PluginServerRef(BaseModel):
-    server_id: str
-    tool_names: list[str] = []
-
-
-class ServerToolItem(BaseModel):
-    name: str
-    description: str | None = None
-
-
-class ResolvedServerTarget(BaseModel):
-    server_id: str = Field(validation_alias=AliasChoices("server_id", "id"))
-
-
-class PluginSkillRef(BaseModel):
-    id: str
-    name: str
-    install_name: str | None = None
-    description: str | None = None
-    is_public: bool = False
-    file_count: int = 0
-
-
-class PluginDetail(PluginListItem):
-    use_dynamic_tools: bool = False
-    identifier: str | None = None
-    can_edit: bool = False
-    skills: list[PluginSkillRef] = []
-    servers: list[dict[str, Any]] = []
-    created_at: datetime.datetime | None = None
-    updated_at: datetime.datetime | None = None
-
-
-class DeploymentPublic(BaseModel):
-    """Public deployment model matching backend schema."""
-
-    id: str
-    name: str
-    configuration: dict[str, Any]
-    deployment_outputs: dict[str, Any] | None = None
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-    template_yaml: str | None = None  # Always present for new deployments
-    deletion_status: str | None = None  # "deleted", "deleting", or None (active)
-    connected_servers: list[dict[str, Any]] = []  # List of connected MCP servers
-
-
-class ValidateYAMLResponse(BaseModel):
-    """Response from YAML validation endpoint."""
-
-    valid: bool
-    error: str | None = None
-    parsed_config: dict[str, Any] | None = None
-
-
-class ECRCredentials(BaseModel):
-    """ECR credentials response."""
-
-    username: str
-    password: str
-    registry_url: str
-    repository_url: str
-    expires_at: datetime.datetime
-
-
-class DeploymentTriggerResponse(BaseModel):
-    """Deployment trigger response."""
-
-    deployment_id: str
-    request_id: str
-    status: str
-    history_id: str
-
-
-class RunlayerClient:
+class RunlayerClient(CatalogClientMixin):
     def __init__(self, hostname: str, secret: str):
         self.headers = {
             "User-Agent": USER_AGENT,
@@ -608,6 +519,50 @@ class RunlayerClient:
                 skip += len(page)
         return items
 
+    def _paginate_resources(
+        self,
+        path: str,
+        model: type[T],
+        *,
+        filter: ListFilter,
+        namespace: str | None,
+        query: str | None,
+        timeout: float,
+    ) -> list[T]:
+        """Paginate filterable skill/plugin records, optionally scoped server-side.
+
+        Shared loop behind :meth:`list_skills` and :meth:`list_plugins_detailed`.
+        `filter="all"` + `query` powers catalog browsing; the default
+        `created_by_me` matches the namespaced sync/install paths. Pages of 100
+        are drained with transient-timeout retries until a short page ends it.
+        """
+        items: list[T] = []
+        skip = 0
+        with self._client(timeout=timeout) as client:
+            while True:
+                params: dict[str, str | int] = {
+                    "filter": filter,
+                    "limit": 100,
+                    "skip": skip,
+                }
+                if namespace is not None:
+                    params["namespace"] = namespace
+                if query is not None:
+                    params["query"] = query
+                response = self._get_with_retries(
+                    client, f"{self.base_url}{path}", params=params
+                )
+                response.raise_for_status()
+                page = [
+                    model.model_validate(item)
+                    for item in response.json().get("data", [])
+                ]
+                items.extend(page)
+                if len(page) < 100:
+                    break
+                skip += len(page)
+        return items
+
     def list_plugins(self, limit: int = 100) -> list[PluginListItem]:
         """
         List plugins the user has access to.
@@ -643,41 +598,22 @@ class RunlayerClient:
             data = response.json()
             return [AutoSyncItem.model_validate(p) for p in data.get("data", [])]
 
-    def _list_plugins_paginated(
-        self, *, namespace: str | None, mine_only: bool
+    def list_plugins_detailed(
+        self,
+        namespace: str | None = None,
+        *,
+        filter: ListFilter = "created_by_me",
+        query: str | None = None,
     ) -> list["PluginDetail"]:
-        all_plugins: list[PluginDetail] = []
-        skip = 0
-        with self._client(timeout=_PLUGIN_API_TIMEOUT) as client:
-            while True:
-                params: dict[str, str | int | bool] = {
-                    "mine_only": mine_only,
-                    "limit": 100,
-                    "skip": skip,
-                }
-                if namespace is not None:
-                    params["namespace"] = namespace
-                response = self._get_with_retries(
-                    client,
-                    f"{self.base_url}/api/v1/plugins",
-                    params=params,
-                )
-                response.raise_for_status()
-                page = [
-                    PluginDetail.model_validate(p)
-                    for p in response.json().get("data", [])
-                ]
-                all_plugins.extend(page)
-                if len(page) < 100:
-                    break
-                skip += len(page)
-        return all_plugins
-
-    def list_all_plugins(self, *, mine_only: bool = False) -> list["PluginDetail"]:
-        return self._list_plugins_paginated(namespace=None, mine_only=mine_only)
-
-    def list_plugins_by_namespace(self, namespace: str) -> list["PluginDetail"]:
-        return self._list_plugins_paginated(namespace=namespace, mine_only=True)
+        """Paginate full PluginDetail records, optionally filtered server-side."""
+        return self._paginate_resources(
+            "/api/v1/plugins",
+            PluginDetail,
+            filter=filter,
+            namespace=namespace,
+            query=query,
+            timeout=_PLUGIN_API_TIMEOUT,
+        )
 
     def create_plugin(
         self,
@@ -799,44 +735,20 @@ class RunlayerClient:
 
     def list_skills(
         self,
-        namespace: str,
-        mine_only: bool = True,
+        namespace: str | None = None,
+        *,
+        filter: ListFilter = "created_by_me",
+        query: str | None = None,
     ) -> list["SkillDetail"]:
-        return self._list_skills_paginated(namespace=namespace, mine_only=mine_only)
-
-    def list_all_skills(
-        self,
-        mine_only: bool = False,
-    ) -> list["SkillDetail"]:
-        return self._list_skills_paginated(namespace=None, mine_only=mine_only)
-
-    def _list_skills_paginated(
-        self,
-        namespace: str | None,
-        mine_only: bool,
-    ) -> list["SkillDetail"]:
-        all_skills: list[SkillDetail] = []
-        skip = 0
-        with self._client(timeout=_SKILL_API_TIMEOUT) as client:
-            while True:
-                params: dict[str, str | int | bool] = {
-                    "mine_only": mine_only,
-                    "limit": 100,
-                    "skip": skip,
-                }
-                if namespace is not None:
-                    params["namespace"] = namespace
-                response = client.get(f"{self.base_url}/api/v1/skills", params=params)
-                response.raise_for_status()
-                page = [
-                    SkillDetail.model_validate(s)
-                    for s in response.json().get("data", [])
-                ]
-                all_skills.extend(page)
-                if len(page) < 100:
-                    break
-                skip += len(page)
-        return all_skills
+        """Paginate full SkillDetail records, optionally filtered server-side."""
+        return self._paginate_resources(
+            "/api/v1/skills",
+            SkillDetail,
+            filter=filter,
+            namespace=namespace,
+            query=query,
+            timeout=_SKILL_API_TIMEOUT,
+        )
 
     def create_skill(
         self,
@@ -1011,47 +923,3 @@ class RunlayerClient:
                 return {"unsupported": True}
             response.raise_for_status()
             return response.json()
-
-
-class SkillFileMetadata(BaseModel):
-    id: str
-    skill_id: str
-    title: str
-    description: str | None = None
-    updated_at: datetime.datetime
-
-
-class SkillDetail(BaseModel):
-    id: str
-    name: str
-    install_name: str | None = None
-    path: str | None = None
-    description: str | None = None
-    is_public: bool = False
-    namespace: str | None = None
-    identifier: str | None = None
-    file_count: int = 0
-    files: list[SkillFileMetadata] = []
-    updated_at: datetime.datetime | None = None
-
-
-class SkillFileDetail(BaseModel):
-    id: str
-    skill_id: str
-    title: str
-    description: str | None = None
-    content: str
-
-
-class SkillScanFileScore(BaseModel):
-    name: str
-    score: float
-    risk_level: str
-    reasons: list[str] = []
-
-
-class SkillScanResponse(BaseModel):
-    skill_score: float
-    skill_risk_level: str
-    classification: str
-    files: list[SkillScanFileScore]

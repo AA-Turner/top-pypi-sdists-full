@@ -435,6 +435,7 @@ def print_agent_help() -> None:
         "  [#8bb8ff]/sandbox[/#8bb8ff] [cmd]                    Run command/Python script in Docker sandbox\n"
         "  [#8bb8ff]/autoorg[/#8bb8ff] [task]                   Run multi-step AI orchestration\n"
         "  [#8bb8ff]/autofleet[/#8bb8ff] [task]                 Run fleet (multi-agent) orchestration\n"
+        "  [#8bb8ff]/autopolit[/#8bb8ff] [task]                 Run autonomous build loop (analysis & TDD)\n"
         "  [#8bb8ff]/update[/#8bb8ff]                            Update SAGE AI to the latest CLI version\n"
         "  [#8bb8ff]/version[/#8bb8ff]                           Show current version and check for updates\n"
         "  [#8bb8ff]/history[/#8bb8ff]                           Show conversation turn count\n"

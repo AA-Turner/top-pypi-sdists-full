@@ -1,3 +1,4 @@
+import csv
 import datetime
 import os
 import re
@@ -276,12 +277,13 @@ def serial_to_pandas_write_csv_args(
     if PANDAS.write_key in md.libs:
         return md.libs[PANDAS.write_key]
 
+    Warn = nvl(warner, warn)
     kw = to_common_pandas_rw_args(md)
     kw['date_format'] = to_pandas_date_format(
-        md.single_date_format(), for_write=True
+        md.single_date_format(warner=Warn), for_write=True
     )
 
-    null = md.single_null_indicator()
+    null = md.single_null_indicator(warner=Warn)
     if null is not None:
         kw['na_rep'] = null
 
@@ -291,19 +293,17 @@ def serial_to_pandas_write_csv_args(
     if md.stutter_quotes in (True, False):
         kw['doublequote'] = md.stutter_quotes
 
-    kw['na_rep'] = md.single_null_indicator()
-
     # Possibly map to csv names
     # Possibly check for nulls in string fields
     return kw
 
 
-def pandas_read_csv_to_serial(params, backend=None, warner=None, config=None):
-    """Convert a ``pandas.read_csv`` parameter dict to tdda.serial parameters.
+def pdr_params_to_serial(params, backend=None, warner=None, config=None):
+    """Convert a `pandas.read_csv` parameter dict to tdda.serial parameters.
 
-    Typically used with a ``'pandas.read_csv'`` block from a ``.serial``
+    Typically used with a `'pandas.read_csv'` block from a `.serial`
     file. Returns a dict of general SerialMetadata kwargs (including a
-    ``fields`` entry with FieldMetadata dicts where applicable).
+    `fields` entry with FieldMetadata dicts where applicable).
     """
     Warn = nvl(warner, warn)
     kw = {}
@@ -531,6 +531,7 @@ def pandas_df_to_metadata(df, outpath=None, flavour=None, **kw):
             delimiter=kw.get('sep', Defaults.DELIMITER),
             quote_char=kw.get('quotechar', Defaults.QUOTE_CHAR),
             escape_char=kw.get('escapechar', Defaults.ESCAPE_CHAR),
+            quoting=kw.get('quoting', csv.QUOTE_MINIMAL),
             null_indicator=kw.get(
                 'na_rep', delistify(Defaults.NULL_INDICATOR)
             ),
@@ -788,6 +789,30 @@ def serial_to_pandas_read_csv_python(
         if backend and backend != OG_BACKEND:
             kw['dtype_backend'] = backend
     return fill_template(PYTHON_TEMPLATES.PANDAS_READ, kw)
+
+
+def serial_to_pandas_write_csv_python(
+    md, backend=None, config=None, warner=None
+):
+    Warn = nvl(warner, warn)
+    bool_fields = [
+        f for f in md.fields
+        if f.fieldtype == 'bool'
+        and (f.format or f.true_values or f.false_values)
+    ]
+    if bool_fields or md.true_values or md.false_values:
+        Warn(
+            'Boolean formats cannot be expressed in'
+            ' pandas.DataFrame.to_csv;'
+            ' booleans will be written as True/False.'
+        )
+    kw = serial_to_pandas_write_csv_args(
+        md, backend=backend, config=config, warner=Warn
+    )
+    kw = {k: v for k, v in kw.items() if v is not None}
+    if 'index' not in kw:
+        kw['index'] = False
+    return fill_template(PYTHON_TEMPLATES.PANDAS_WRITE, kw)
 
 
 def pandas_to_csv(

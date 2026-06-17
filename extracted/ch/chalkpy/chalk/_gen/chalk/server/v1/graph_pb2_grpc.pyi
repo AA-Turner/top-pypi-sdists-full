@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.graph_pb2 import (
     DiffCandidateResponse,
     DiffDeploymentsRequest,
     DiffDeploymentsResponse,
+    GetAllOfflineStoreTablesRequest,
+    GetAllOfflineStoreTablesResponse,
     GetCodegenFeaturesFromGraphRequest,
     GetCodegenFeaturesFromGraphResponse,
     GetDataLineageIndexRequest,
@@ -87,6 +89,14 @@ class GraphServiceStub:
         GetOfflineStoreTableResponse,
     ]
     """GetOfflineStoreTable returns the offline store table names for a feature"""
+    GetAllOfflineStoreTables: UnaryUnaryMultiCallable[
+        GetAllOfflineStoreTablesRequest,
+        GetAllOfflineStoreTablesResponse,
+    ]
+    """GetAllOfflineStoreTables returns the offline store table name for every
+    feature and internal version in the deployment. Useful for reverse-mapping
+    a feat_<hash> table name back to its feature.
+    """
     DiffDeployments: UnaryUnaryMultiCallable[
         DiffDeploymentsRequest,
         DiffDeploymentsResponse,
@@ -169,6 +179,16 @@ class GraphServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetOfflineStoreTableResponse:
         """GetOfflineStoreTable returns the offline store table names for a feature"""
+    @abstractmethod
+    def GetAllOfflineStoreTables(
+        self,
+        request: GetAllOfflineStoreTablesRequest,
+        context: ServicerContext,
+    ) -> GetAllOfflineStoreTablesResponse:
+        """GetAllOfflineStoreTables returns the offline store table name for every
+        feature and internal version in the deployment. Useful for reverse-mapping
+        a feat_<hash> table name back to its feature.
+        """
     @abstractmethod
     def DiffDeployments(
         self,

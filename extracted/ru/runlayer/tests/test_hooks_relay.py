@@ -7,6 +7,7 @@ both the bash shim and the in-process ``aiwatch-hook`` paths.
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -100,6 +101,80 @@ def test_relay_event_success():
 
         call_args = mock_client.post.call_args
         assert "/api/v1/hooks/events" in call_args[0][0]
+
+
+def test_relay_event_stamps_client_timestamp_when_absent():
+    """Tool events get a host send-time so the backend scanner can order them
+    against transcript-derived reasoning events (which carry their own logical
+    timestamps) instead of the scrambled server-receipt arrival order."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        wrapper = (
+            '{"client":"claude_code","event_name":"PostToolUse",'
+            '"payload":{"tool_name":"Bash"}}'
+        )
+        result = runner.invoke(app, ["event"], input=wrapper)
+        assert result.exit_code == 0
+
+        body = json.loads(mock_client.post.call_args[1]["content"])
+        parsed = datetime.fromisoformat(body["payload"]["timestamp"])
+        assert parsed.tzinfo is not None
+
+
+def test_relay_event_preserves_existing_timestamp():
+    """A client-supplied timestamp is never overwritten by the send-time stamp."""
+    config, mock_store = _make_config()
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.text = "{}"
+    mock_response.is_success = True
+
+    with (
+        patch("runlayer_cli.hook.relay.load_config", return_value=config),
+        patch("runlayer_cli.config.get_keyring_store", return_value=mock_store),
+        patch("httpx.Client") as mock_client_cls,
+    ):
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value = mock_client
+
+        wrapper = (
+            '{"client":"claude_code","event_name":"PostToolUse",'
+            '"payload":{"tool_name":"Bash","timestamp":"2020-01-01T00:00:00+00:00"}}'
+        )
+        result = runner.invoke(app, ["event"], input=wrapper)
+        assert result.exit_code == 0
+
+        body = json.loads(mock_client.post.call_args[1]["content"])
+        assert body["payload"]["timestamp"] == "2020-01-01T00:00:00+00:00"
+
+
+def test_maybe_stamp_client_time_only_stamps_event_target():
+    """Enforcement targets (tool-pre/tool-post/enforce) are passed through
+    untouched; only ``event`` posts feed the ordering-sensitive scanner."""
+    from runlayer_cli.hook import relay
+
+    wrapper = '{"client":"c","event_name":"PreToolUse","payload":{"tool_name":"Bash"}}'
+    assert relay._maybe_stamp_client_time(wrapper, "tool-pre") == wrapper
+    stamped = relay._maybe_stamp_client_time(wrapper, "event")
+    assert "timestamp" in json.loads(stamped)["payload"]
 
 
 def test_relay_tool_lifecycle_targets():

@@ -8,8 +8,14 @@ import httpx
 import typer
 
 from runlayer_cli.api import USER_AGENT
-from runlayer_cli.config import clear_config, load_config, normalize_url, save_config
-from runlayer_cli.credential_store import get_keyring_store
+from runlayer_cli.cli_persistence import (
+    clear_host_credentials_or_exit,
+    persist_credentials_or_exit,
+)
+from runlayer_cli.config import (
+    load_config,
+    normalize_url,
+)
 from runlayer_cli.tls import http_client, set_ca_bundle_path
 
 
@@ -105,10 +111,9 @@ def login(
                         api_key = token_data["api_key"]
 
                         # Save credentials for this specific host
-                        keyring_used = config.set_host_credentials(
-                            effective_host, api_key
+                        keyring_used = persist_credentials_or_exit(
+                            config, effective_host, api_key, subject="credentials"
                         )
-                        save_config(config)
 
                         typer.echo("", err=True)
                         typer.secho(
@@ -199,19 +204,25 @@ def logout(
     if host:
         # Clear credentials for specific host only
         host = normalize_url(host)
-        if config.clear_host(host):
-            save_config(config)
+        if clear_host_credentials_or_exit(config, host):
             typer.secho(
                 f"Credentials cleared for {host}.", fg=typer.colors.GREEN, err=True
             )
         else:
             typer.echo(f"No credentials found for {host}.", err=True)
     else:
-        # Clear all credentials (credential store + config file)
-        keyring_store = get_keyring_store()
-        if keyring_store is not None:
-            keyring_store.delete_all_secrets(list(config.hosts.keys()))
-        clear_config()
+        # Clear all credentials, host by host, reusing the per-host hardening so
+        # an undurable clear (keychain delete failed AND config.yaml not written
+        # in this runtime, e.g. aiwatch) errors instead of falsely claiming
+        # success. Snapshot the URLs first: clear_host_credentials_or_exit mutates
+        # config.hosts as it goes.
+        host_urls = [
+            host_config["url"]
+            for host_config in config.hosts.values()
+            if host_config.get("url")
+        ]
+        for host_url in host_urls:
+            clear_host_credentials_or_exit(config, host_url)
         typer.secho(
             "All credentials cleared successfully.", fg=typer.colors.GREEN, err=True
         )

@@ -258,6 +258,13 @@ class TestListDriveSources:
         assert result["stale_count"] == 0
         assert result["drive_sources"][0]["stale"] is False
 
+    def test_skip_freshness_does_not_check_sources(self, mock_client):
+        result = list_drive_sources(mock_client, "nb-1", skip_freshness=True)
+        assert result["drive_count"] == 1
+        assert result["drive_sources"][0]["stale"] is None
+        assert result["stale_count"] == 0
+        mock_client.check_source_freshness.assert_not_called()
+
     def test_api_error(self, mock_client):
         mock_client.get_notebook_sources_with_types.side_effect = RuntimeError("fail")
         with pytest.raises(ServiceError, match="Failed to list"):

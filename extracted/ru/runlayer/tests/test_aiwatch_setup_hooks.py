@@ -62,6 +62,10 @@ class TestInstallGuardrailUserScope:
                 "runlayer_cli.enrollment.read_managed_config",
                 return_value={},
             ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.install_window_state",
+                return_value=InstallWindowState.NO_STAMP,
+            ),
         ):
             result = runner.invoke(aiwatch_app, ["setup", "hooks", "install", "--user"])
 
@@ -181,6 +185,10 @@ class TestInstallGuardrailMDMScope:
                 "runlayer_cli.hook_install.credential_gate.find_console_user_home",
                 return_value=None,
             ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.install_window_state",
+                return_value=InstallWindowState.NO_STAMP,
+            ),
         ):
             result = runner.invoke(aiwatch_app, ["setup", "hooks", "install"])
 
@@ -286,6 +294,48 @@ class TestInstallHappyPathUserScope:
         assert hooks["beforeMCPExecution"][0]["command"].endswith(
             "aiwatch-hook --client cursor"
         )
+
+    def test_install_user_proceeds_on_enrollment_marker_without_secret(
+        self, tmp_path, monkeypatch
+    ):
+        """USER scope: the current user's enrollment marker satisfies the gate.
+
+        The aiwatch binary ignores ``~/.runlayer/config.yaml`` so a seeded YAML
+        secret is unreachable; the credential proof is the marker ``aiwatch
+        enroll`` drops (mirrors the rootless frozen ``--user`` install). No
+        keychain secret, no managed org key.
+        """
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        (tmp_path / ".cursor").mkdir()
+        _write_console_user_enrolled(tmp_path)
+        config = _config_no_secret()
+
+        with (
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.load_config",
+                return_value=config,
+            ),
+            patch(
+                "runlayer_cli.enrollment.load_config",
+                return_value=config,
+            ),
+            patch(
+                "runlayer_cli.enrollment.read_managed_config",
+                return_value={},
+            ),
+            patch(
+                "runlayer_cli.hook_install.credential_gate.read_managed_config",
+                return_value={},
+            ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.resolve_hook_command",
+                return_value="/usr/local/bin/aiwatch-hook",
+            ),
+        ):
+            result = runner.invoke(aiwatch_app, ["setup", "hooks", "install", "--user"])
+
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / ".cursor" / "hooks.json").exists()
 
     def test_install_user_skips_missing_clients_without_failing(
         self, tmp_path, monkeypatch
@@ -605,10 +655,27 @@ class TestOrgKeyModeInstall:
 
 
 class TestScanOnlyNoOp:
-    def test_install_user_scan_only_no_op(self, tmp_path, monkeypatch):
+    def test_install_user_scan_only_uninstalls_stale_hooks_without_credential(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        (tmp_path / ".cursor").mkdir()
-        config = _config_with_secret()
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "beforeMCPExecution": [
+                            {"command": "/usr/local/bin/aiwatch hook --client cursor"},
+                            {"command": "/opt/other/hook"},
+                        ],
+                        "beforeReadFile": [{"command": "/usr/local/bin/aiwatch-hook"}],
+                    },
+                }
+            )
+        )
+        config = _config_no_secret()
 
         with (
             patch(
@@ -628,7 +695,8 @@ class TestScanOnlyNoOp:
         assert result.exit_code == 0, result.output
         assert "scan-only" in result.output
         mock_install.assert_not_called()
-        assert not (tmp_path / ".cursor" / "hooks.json").exists()
+        data = json.loads((cursor_dir / "hooks.json").read_text())
+        assert data["hooks"] == {"beforeMCPExecution": [{"command": "/opt/other/hook"}]}
 
     def test_install_all_events_overrides_scan_only(self, tmp_path, monkeypatch):
         """``--all-events`` forces install even when Enforcement+Sessions are off."""
@@ -659,11 +727,21 @@ class TestScanOnlyNoOp:
         assert result.exit_code == 0, result.output
         assert (tmp_path / ".cursor" / "hooks.json").exists()
 
-    def test_check_user_scan_only_no_op(self, tmp_path, monkeypatch):
+    def test_check_user_scan_only_drifts_until_reconciled(self, tmp_path, monkeypatch):
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
-        # A stale hooks.json would normally drift; scan-only short-circuits first.
         (tmp_path / ".cursor").mkdir()
-        (tmp_path / ".cursor" / "hooks.json").write_text("{}")
+        (tmp_path / ".cursor" / "hooks.json").write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "hooks": {
+                        "beforeMCPExecution": [
+                            {"command": "/usr/local/bin/aiwatch hook --client cursor"}
+                        ]
+                    },
+                }
+            )
+        )
         config = _config_with_secret()
 
         with (
@@ -678,7 +756,18 @@ class TestScanOnlyNoOp:
                 return_value={"enforcement": False, "sessions": False},
             ),
         ):
-            result = runner.invoke(aiwatch_app, ["setup", "hooks", "check", "--user"])
+            drift_result = runner.invoke(
+                aiwatch_app, ["setup", "hooks", "check", "--user"]
+            )
+            install_result = runner.invoke(
+                aiwatch_app, ["setup", "hooks", "install", "--user"]
+            )
+            ok_result = runner.invoke(
+                aiwatch_app, ["setup", "hooks", "check", "--user"]
+            )
 
-        assert result.exit_code == 0, result.output
-        assert "scan-only" in result.output
+        assert drift_result.exit_code == 1, drift_result.output
+        assert "Runlayer hook entries present" in drift_result.output
+        assert install_result.exit_code == 0, install_result.output
+        assert ok_result.exit_code == 0, ok_result.output
+        assert "scan-only" in ok_result.output
