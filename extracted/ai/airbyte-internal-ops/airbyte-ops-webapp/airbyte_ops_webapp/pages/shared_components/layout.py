@@ -5,7 +5,6 @@ from __future__ import annotations
 from prefab_ui.components import (
     H1,
     Badge,
-    CardContent,
     CardHeader,
     Column,
     Div,
@@ -21,12 +20,10 @@ from prefab_ui.rx import STATE
 from airbyte_ops_webapp.pages.shared_components.auth import render_auth_status
 from airbyte_ops_webapp.theme import (
     AIRBYTE_LOGO_CLASS,
-    AIRBYTE_SECONDARY,
     BREADCRUMB_NAV_CLASS,
+    ENV_BANNER_CLASS,
     HERO_CARD_CLASS,
-    MOCK_CARD_CLASS,
     _airbyte_logo_svg,
-    _card_style,
     _hero_style,
 )
 
@@ -87,16 +84,77 @@ def render_breadcrumb_nav(*, current_page: str) -> None:
             Span(current_page, css_class="breadcrumb-current")
 
 
-def render_mock_mode_banner() -> None:
+_MOCK_BANNER_GRADIENT = "linear-gradient(90deg, #a855f7 0%, #d763ec 100%)"
+_PREVIEW_BANNER_GRADIENT = "linear-gradient(90deg, #d97706 0%, #f59e0b 100%)"
+
+
+def _banner_style(gradient: str) -> dict[str, str]:
+    return {
+        "background": gradient,
+        "color": "#fff",
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.5rem",
+        "padding": "0.375rem 1rem",
+        "fontSize": "0.8125rem",
+        "fontWeight": "600",
+        "letterSpacing": "0.02em",
+        "textAlign": "center",
+        "width": "100%",
+    }
+
+
+def _dot_style() -> dict[str, str]:
+    return {
+        "width": "7px",
+        "height": "7px",
+        "borderRadius": "50%",
+        "background": "#fbbf24",
+        "display": "inline-block",
+    }
+
+
+def render_environment_banners() -> None:
+    """Render top-line banners for mock mode and/or preview deploys."""
     with (
         If(STATE.is_mock_only),
         Div(
-            css_class=MOCK_CARD_CLASS,
-            style=_card_style(accent=AIRBYTE_SECONDARY),
+            css_class=ENV_BANNER_CLASS,
+            style=_banner_style(_MOCK_BANNER_GRADIENT),
         ),
-        CardContent(),
     ):
+        Span("", style=_dot_style())
         Text(
-            "Mock mode is enabled. The app uses demo data, loads no "
-            "credentials, and apply completes without changing Airbyte Cloud."
+            "Mock Mode \u2014 Demo data only. "
+            "No credentials loaded. Apply actions are simulated."
         )
+    with (
+        If(STATE.is_preview_deploy),
+        Div(
+            css_class=ENV_BANNER_CLASS,
+            style=_banner_style(_PREVIEW_BANNER_GRADIENT),
+        ),
+    ):
+        Span("", style=_dot_style())
+        with If(STATE.preview_pr_url):
+            Text(
+                "\U0001f535 Build Preview \u2014 "
+                "This release candidate preview was built from "
+            )
+            Link(
+                "PR #" + STATE.preview_pr_number,
+                href=STATE.preview_pr_url,
+                target="_blank",
+                style={"color": "#fff", "textDecoration": "underline"},
+            )
+            Text(". Please provide any feedback on the GitHub PR ")
+            Link(
+                "here",
+                href=STATE.preview_pr_url,
+                target="_blank",
+                style={"color": "#fff", "textDecoration": "underline"},
+            )
+            Text(".")
+        with If(~STATE.preview_pr_url):
+            Text("\U0001f535 Build Preview \u2014 You are using a pre-release build.")

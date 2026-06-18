@@ -31,10 +31,16 @@ from airbyte_ops_webapp.pages.customer_billing.defaults import (
 from airbyte_ops_webapp.pages.shared_components.layout import (
     OPS_HOME_LABEL,
     render_breadcrumb_nav,
-    render_mock_mode_banner,
+    render_environment_banners,
     render_page_hero,
 )
-from airbyte_ops_webapp.state import OpsPageState, mock_only_enabled
+from airbyte_ops_webapp.state import (
+    OpsPageState,
+    mock_only_enabled,
+    preview_deploy_enabled,
+    preview_pr_number,
+    preview_pr_url,
+)
 from airbyte_ops_webapp.theme import (
     AIRBYTE_LAVENDER,
     AIRBYTE_PRIMARY,
@@ -176,6 +182,9 @@ def open_ops_home(
     state = OpsPageState(
         default_connector_from_args=explicit_default_connector,
         is_mock_only=mock_only_enabled(),
+        is_preview_deploy=preview_deploy_enabled(),
+        preview_pr_number=preview_pr_number(),
+        preview_pr_url=preview_pr_url(),
         oauth_config=current_oauth_config,
         oauth_enabled=bool(current_oauth_config["enabled"]),
     ).to_prefab_state()
@@ -189,6 +198,7 @@ def open_ops_home(
         Div(style=_page_style(), onMount=hydrate_oauth_action()),
         Column(gap=5, css_class=PAGE_CLASS),
     ):
+        render_environment_banners()
         render_breadcrumb_nav(current_page=OPS_HOME_LABEL)
         render_page_hero(
             title="Airbyte Ops",
@@ -198,7 +208,6 @@ def open_ops_home(
             ),
             show_auth_controls=True,
         )
-        render_mock_mode_banner()
 
         with Grid(columns=3, gap=4):
             _render_connector_version_manager_card(connector_query)

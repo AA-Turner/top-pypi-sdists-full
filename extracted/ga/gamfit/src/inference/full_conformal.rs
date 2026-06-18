@@ -1357,14 +1357,19 @@ const GLM_NEWTON_MAX_ITERS: usize = 200;
 /// Maximum Armijo backtracking halvings per cold Newton iteration.
 const GLM_NEWTON_MAX_BACKTRACKS: usize = 60;
 
-/// Tight relative tolerance on the Newton-step norm declaring convergence.
+/// Strict scale-invariant KKT tolerance declaring convergence, applied to the
+/// RAW penalized gradient via [`GlmHomotopyFullConformal::kkt_converged`]
+/// (dimension-scaled OR natural-scale relative — the same certificate the main
+/// P-IRLS solver uses). NOT a tolerance on the preconditioned Newton step.
 const GLM_CONVERGENCE_RTOL: f64 = 1e-12;
 
-/// Loose relative tolerance at which a stalled (floating-point-floor)
-/// corrector residual is still accepted; the COMPUTED error bound carried
-/// out of the step uses the actual residual, so accepting a stall is
-/// honest — the bound is simply larger and the downstream margin gate
-/// decides whether a cold refit is needed.
+/// Near-stationary acceptance tolerance: a stalled iterate sitting at the
+/// floating-point floor of the raw gradient is still accepted when it
+/// certifies KKT stationarity at this looser scale-invariant tolerance. The
+/// COMPUTED error bound carried out of the step uses the actual residual, so
+/// accepting a stall is honest — the bound is simply larger and the downstream
+/// margin gate decides whether a cold refit is needed. Mirrors the main
+/// solver's 10×-band `near_stationary_kkt`.
 const GLM_STALL_ACCEPT_RTOL: f64 = 1e-8;
 
 /// Certified contraction constant below which a predictor step is accepted:
@@ -1746,6 +1751,50 @@ impl<'a> GlmHomotopyFullConformal<'a> {
         g
     }
 
+    /// Natural magnitude of the augmented penalized gradient, mirroring the
+    /// main P-IRLS convergence certificate's `gradient_natural_scale`
+    /// (`src/solver/pirls/state.rs`): `‖Xᵀ(μ − y)‖₂ + ‖Sβ‖₂` plus the test
+    /// row's score contribution `‖x_*‖·|μ̂_* − z|`. The penalized score is a
+    /// difference of these O(√(n+1)) sums, so at the optimum the raw gradient
+    /// floor scales with this quantity, NOT with `(1 + ‖β‖)`. Dividing by
+    /// `1 + this` yields a stationarity residual that is invariant under
+    /// uniform rescaling of the objective and per-observation in meaning.
+    fn gradient_natural_scale(&self, beta: &Array1<f64>, z: f64) -> f64 {
+        let eta = fast_av(self.x, beta);
+        let mut resid = Array1::<f64>::zeros(self.n);
+        for i in 0..self.n {
+            resid[i] = self.family.mean(eta[i]) - self.y[i];
+        }
+        let score = self.x.t().dot(&resid);
+        let r_star = self.family.mean(self.x_star.dot(beta)) - z;
+        vec_norm(&score) + vec_norm(&self.s_lambda.dot(beta)) + self.star_norm * r_star.abs()
+    }
+
+    /// Dimension-based scale `√(n+1) · √p` for the structural KKT bound, with
+    /// `n+1` counting the appended test row. Matches `kkt_dimension_scale` in
+    /// the main P-IRLS state: under standardized columns the augmented score
+    /// `Xᵀ(μ − y)` has components of order O(√(n+1)), so an absolute
+    /// `‖g‖ < τ` test becomes systematically too tight as `n` grows. This
+    /// scaling restores the advertised per-observation meaning of `τ`.
+    fn kkt_dimension_scale(&self) -> f64 {
+        (((self.n + 1) as f64).sqrt()) * ((self.p as f64).max(1.0).sqrt())
+    }
+
+    /// Scale-invariant KKT acceptance on the RAW penalized gradient, exactly
+    /// the `WorkingState::certifies_kkt` certificate the engine's main solver
+    /// uses: the iterate certifies stationarity at tolerance `tol` under
+    /// EITHER the dimension-scaled absolute bound OR the data-driven
+    /// natural-scale relative bound. The earlier predicate compared the
+    /// PRECONDITIONED Newton step `‖H⁻¹g‖` against `tol·(1 + ‖β‖)`, whose
+    /// floating-point floor is `~ε·(n+1)/λ_min(H)` — n-dependent and not
+    /// compensated by `(1 + ‖β‖)`, so genuinely-converged fits (e.g. raw
+    /// gradient floor `3.6e-8` at moderate n) were rejected as non-converged.
+    fn kkt_converged(&self, beta: &Array1<f64>, z: f64, tol: f64) -> bool {
+        let g_norm = vec_norm(&self.penalized_score(beta, z));
+        g_norm < tol * self.kkt_dimension_scale()
+            || g_norm / (1.0 + self.gradient_natural_scale(beta, z)) < tol
+    }
+
     /// Augmented penalized NLL (line-search merit function).
     fn penalized_nll(&self, beta: &Array1<f64>, z: f64) -> f64 {
         let eta = fast_av(self.x, beta);
@@ -1857,7 +1906,7 @@ impl<'a> GlmHomotopyFullConformal<'a> {
                 .map_err(|e| format!("glm homotopy: augmented Hessian not SPD at z={z}: {e:?}"))?;
             let step = chol.solvevec(&g);
             let step_norm = vec_norm(&step);
-            if step_norm <= GLM_CONVERGENCE_RTOL * (1.0 + vec_norm(&beta)) {
+            if self.kkt_converged(&beta, z, GLM_CONVERGENCE_RTOL) {
                 converged = true;
                 break;
             }
@@ -1878,27 +1927,40 @@ impl<'a> GlmHomotopyFullConformal<'a> {
                 t *= 0.5;
             }
             if !accepted {
-                return Err(format!(
-                    "glm homotopy: cold-fit line search failed at z={z} (step norm {step_norm})"
-                ));
+                // The Armijo line search could not realize the predicted
+                // descent `½·gᵀH⁻¹g`. Near the optimum that decrease underflows
+                // the round-off of `penalized_nll` (`~ε·nll`), so a failed
+                // line search is the FLOOR of this Newton loop, not a true
+                // failure — the iterate is for-all-practical-purposes
+                // stationary. Stop iterating and let the certified error bound
+                // below decide acceptance (rather than rejecting on an
+                // un-improvable gradient floor).
+                let _ = step_norm;
+                break;
             }
         }
-        if !converged {
-            // The loop may exit by budget with the last step still above the
-            // tight tolerance; re-check once after the final accepted step.
-            let g = self.penalized_score(&beta, z);
-            let hess = self.penalized_hessian(&beta);
-            let chol = hess
-                .cholesky(Side::Lower)
-                .map_err(|e| format!("glm homotopy: augmented Hessian not SPD at z={z}: {e:?}"))?;
-            let step_norm = vec_norm(&chol.solvevec(&g));
-            if step_norm > GLM_STALL_ACCEPT_RTOL * (1.0 + vec_norm(&beta)) {
-                return Err(format!(
-                    "glm homotopy: cold fit did not converge at z={z} (residual {step_norm})"
-                ));
-            }
-        }
+        // Acceptance is decided by the COMPUTED coefficient-error bound, not by
+        // a gradient-magnitude band. `stationary_error_bound` runs the chord
+        // contraction certificate on a ball around the iterate: a finite value
+        // PROVES the true optimum `β̂(z)` lies within `‖β − β̂(z)‖ ≤ bound`.
+        // The Armijo/round-off floor of this Newton loop (`~√(ε·nll)`) can
+        // exceed both the strict and the near-stationary gradient bands while
+        // still being well inside a tight certified ball, so tying acceptance
+        // to the certificate — the exact quantity the downstream margin gate
+        // (`candidate_verdict`) consumes — is both honest (a larger bound only
+        // widens the undecided band) and immune to the n-/scale-dependent
+        // gradient floor that spuriously rejected reachable optima.
         let bound = self.stationary_error_bound(&beta, z);
+        if !converged && !bound.is_finite() {
+            // Neither the strict KKT band nor the contraction certificate could
+            // confirm proximity to a stationary point: a genuine non-convergence.
+            let g_norm = vec_norm(&self.penalized_score(&beta, z));
+            let residual = g_norm / (1.0 + self.gradient_natural_scale(&beta, z));
+            return Err(format!(
+                "glm homotopy: cold fit did not converge at z={z} \
+                 (uncertified; relative gradient residual {residual})"
+            ));
+        }
         Ok((beta, bound))
     }
 
@@ -1962,7 +2024,7 @@ impl<'a> GlmHomotopyFullConformal<'a> {
                     let mut step = s0;
                     let mut r = r0;
                     for _ in 0..GLM_CORRECTOR_MAX_ITERS {
-                        if r <= GLM_CONVERGENCE_RTOL * (1.0 + vec_norm(&bcur)) {
+                        if self.kkt_converged(&bcur, z_new, GLM_CONVERGENCE_RTOL) {
                             break;
                         }
                         let mut next = bcur.clone();
@@ -1978,7 +2040,7 @@ impl<'a> GlmHomotopyFullConformal<'a> {
                         step = next_step;
                         r = r_next;
                     }
-                    if r <= GLM_STALL_ACCEPT_RTOL * (1.0 + vec_norm(&bcur)) {
+                    if self.kkt_converged(&bcur, z_new, GLM_STALL_ACCEPT_RTOL) {
                         // Re-certify at the final iterate and carry the
                         // COMPUTED distance-to-root bound.
                         let mut diff = bcur.clone();
@@ -3438,6 +3500,116 @@ mod tests {
                 oracle_glm_membership(&x, &yb, &x_star, c.z, alpha, &beta_ref, &mean_b);
             assert_eq!(c.member, member_ref);
         }
+    }
+
+    /// (#1192) A benign UNPENALIZED Poisson fixture must produce a valid
+    /// conformal set: the cold fit drives the raw penalized gradient down to
+    /// its floating-point round-off floor (~1e-7 at moderate n), where the
+    /// Armijo line search can no longer make sufficient-decrease progress
+    /// because the convex NLL is flat to machine precision. That stalled
+    /// iterate IS stationary and must be ACCEPTED, not aborted with a spurious
+    /// "cold fit did not converge". With `S = 0` there is no penalty curvature
+    /// to suppress the gradient floor, so this is the regime that exposed the
+    /// abort.
+    #[test]
+    fn glm_homotopy_unpenalized_poisson_accepts_roundoff_floor_cold_fit() {
+        use std::f64::consts::PI;
+        let n = 24usize;
+        let p = 3usize;
+        let mut x = Array2::<f64>::zeros((n, p));
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let t = i as f64 / (n as f64 - 1.0);
+            for j in 0..p {
+                x[[i, j]] = (j as f64 * PI * t).cos();
+            }
+            y[i] = (1.0 + (2.0 * PI * t).sin()).exp().round();
+        }
+        // Unpenalized: no ridge to bound the gradient floor away from ε.
+        let s = Array2::<f64>::zeros((p, p));
+        let weights = Array1::<f64>::ones(n);
+        let x_star = cosine_row(p, 0.37);
+        let alpha = 0.2;
+
+        let eng = GlmHomotopyFullConformal::new(
+            CanonicalGlmFamily::PoissonLog,
+            &x,
+            &y,
+            &weights,
+            &s,
+            &x_star,
+        )
+        .expect("poisson engine");
+        let candidates: Vec<f64> = (0..=6).map(|k| k as f64).collect();
+        let set = eng
+            .prediction_set(&candidates, alpha)
+            .expect("unpenalized poisson cold fit must converge to the round-off floor");
+        assert_eq!(set.candidates.len(), candidates.len());
+
+        // Every accepted cold fit must be a GENUINE stationary point: agree
+        // with an independent oracle refit to within the certified bound.
+        let mean_p = |eta: f64| eta.exp();
+        let weight_p = |eta: f64| eta.exp();
+        let nll_p = |eta: f64, yv: f64| eta.exp() - yv * eta;
+        for c in &set.candidates {
+            let beta_ref = oracle_glm_refit(&x, &y, &s, &x_star, c.z, &mean_p, &weight_p, &nll_p);
+            let mut diff = c.beta.clone();
+            diff.scaled_add(-1.0, &beta_ref);
+            assert!(
+                vec_norm(&diff) <= c.beta_error_bound + 1e-6,
+                "accepted β̂({}) is off the oracle refit beyond the certified bound",
+                c.z
+            );
+            let member_ref = oracle_glm_membership(&x, &y, &x_star, c.z, alpha, &beta_ref, &mean_p);
+            assert_eq!(
+                c.member, member_ref,
+                "unpenalized membership disagrees with oracle at z={}",
+                c.z
+            );
+        }
+        assert_eq!(
+            set.members.len(),
+            set.candidates.iter().filter(|c| c.member).count()
+        );
+    }
+
+    /// (#1192) The round-off-floor acceptance must NOT silently swallow a
+    /// genuinely non-stationary iterate: a fit deliberately truncated far
+    /// from the optimum (gradient orders of magnitude above the round-off
+    /// floor) must still be REJECTED. Guards against turning the fix into a
+    /// blanket "accept anything that stalls".
+    #[test]
+    fn glm_homotopy_truncated_fit_still_rejected() {
+        use std::f64::consts::PI;
+        let n = 24usize;
+        let p = 3usize;
+        let mut x = Array2::<f64>::zeros((n, p));
+        let mut y = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let t = i as f64 / (n as f64 - 1.0);
+            for j in 0..p {
+                x[[i, j]] = (j as f64 * PI * t).cos();
+            }
+            y[i] = (1.0 + (2.0 * PI * t).sin()).exp().round();
+        }
+        let s = Array2::<f64>::zeros((p, p));
+        let weights = Array1::<f64>::ones(n);
+        let x_star = cosine_row(p, 0.37);
+        let eng = GlmHomotopyFullConformal::new(
+            CanonicalGlmFamily::PoissonLog,
+            &x,
+            &y,
+            &weights,
+            &s,
+            &x_star,
+        )
+        .expect("poisson engine");
+        // β = 0 is far from the optimum: a large raw gradient, not the floor.
+        let beta0 = Array1::<f64>::zeros(p);
+        assert!(
+            !eng.kkt_converged(&beta0, 3.0, GLM_STALL_ACCEPT_RTOL),
+            "a far-from-stationary iterate must NOT pass the near-stationary band"
+        );
     }
 
     /// (#942 Layer 2 test c) When the third-order bound explodes — a huge

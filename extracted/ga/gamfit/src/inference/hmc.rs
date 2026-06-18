@@ -23,7 +23,6 @@
 //! Large data (design matrix, response, etc.) is wrapped in `Arc` to allow
 //! sharing across chains without duplication when general-mcmc clones the target.
 
-use super::polya_gamma::PolyaGamma;
 use crate::construction::CanonicalPenalty;
 use crate::estimate::reml::FirthDenseOperator;
 use crate::estimate::reml::penalty_logdet::PenaltyPseudologdet;
@@ -32,6 +31,7 @@ use crate::estimate::{
 };
 use crate::faer_ndarray::{FaerCholesky, FaerEigh, fast_ata_into, fast_atv, fast_av_into};
 use crate::families::wiggle::monotone_wiggle_basis_with_derivative_order;
+use crate::gpu::kernels::polya_gamma::{PgSeed, PolyaGammaBatchInput};
 use crate::linalg::triangular::back_substitution_lower_transpose_guarded_into;
 use crate::matrix::DesignMatrix;
 use crate::solver::mixture_link::{
@@ -518,7 +518,7 @@ struct SharedData {
     /// even though `φ ≠ 1`, because Gamma's dispersion already lives inside the
     /// working weight (the `shape` factor in `gamma_log_logp_and_grad`). See
     /// `inference::dispersion_cov` for the ownership invariants.
-    dispersion: crate::solver::estimate::Dispersion,
+    dispersion: crate::model_types::Dispersion,
     /// Number of samples
     n_samples: usize,
     /// Number of coefficients
@@ -694,7 +694,7 @@ impl NutsPosterior {
         hessian: ArrayView2<f64>,
         nuts_family: NutsFamily,
         gamma_shape: f64,
-        dispersion: crate::solver::estimate::Dispersion,
+        dispersion: crate::model_types::Dispersion,
         firth_enabled: bool,
     ) -> Result<Self, String> {
         let n_samples = x.nrows();
@@ -1727,8 +1727,8 @@ mod tests {
         BlockRole, FitGeometry, FitInference, FittedBlock, FittedLinkState, UnifiedFitResult,
         UnifiedFitResultParts,
     };
+    use crate::families::survival::{PenaltyBlocks, SurvivalMonotonicityPenalty, SurvivalSpec};
     use crate::matrix::DesignMatrix;
-    use crate::survival::{MonotonicityPenalty, PenaltyBlocks, SurvivalSpec};
     use crate::types::{
         InverseLink, LikelihoodScaleMetadata, LikelihoodSpec, LogLikelihoodNormalization,
         ResponseFamily, RhoPrior, StandardLink,
@@ -1791,6 +1791,7 @@ mod tests {
             reml_score: 0.0,
             stable_penalty_term: 0.0,
             penalized_objective: 0.0,
+            used_device: false,
             outer_iterations: 1,
             outer_converged: true,
             outer_gradient_norm: None,
@@ -1822,6 +1823,7 @@ mod tests {
             }],
             Some(FitInference {
                 edf_by_block: vec![],
+                penalty_block_trace: vec![],
                 edf_total: 2.0,
                 smoothing_correction: None,
                 penalized_hessian: hessian.clone().into(),
@@ -1917,6 +1919,7 @@ mod tests {
             reml_score: 0.0,
             stable_penalty_term: 0.0,
             penalized_objective: 0.0,
+            used_device: false,
             outer_iterations: 1,
             outer_converged: true,
             outer_gradient_norm: None,
@@ -2404,7 +2407,7 @@ mod tests {
                 mode: mode.view(),
                 hessian: non_spd_hessian.view(),
                 gamma_shape: None,
-                dispersion: crate::solver::estimate::Dispersion::Known(1.0),
+                dispersion: crate::model_types::Dispersion::Known(1.0),
                 firth_bias_reduction: false,
                 offset: None,
             }),
@@ -3014,12 +3017,14 @@ mod tests {
             &h,
             &DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x)),
             &c,
+            true,
         )
         .expect("base diagnostic");
         let (rot_max, rot_vals) = laplace_directional_cubic_diagnostic(
             &h_rot,
             &DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x_rot)),
             &c,
+            true,
         )
         .expect("rotated diagnostic");
 
@@ -3247,6 +3252,7 @@ mod tests {
             &h,
             &DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(x)),
             &c,
+            true,
         )
         .expect("diagnostic");
 
@@ -3532,7 +3538,7 @@ mod tests {
         let x_exit = array![[1.0, 0.6]];
         let x_derivative = array![[0.0, 1.0]];
         let penalties = PenaltyBlocks::new(Vec::new());
-        let monotonicity = MonotonicityPenalty { tolerance: 3.0 };
+        let monotonicity = SurvivalMonotonicityPenalty { tolerance: 3.0 };
         let mode = array![0.0, 0.0];
         let hessian = Array2::<f64>::eye(2);
 
@@ -3575,7 +3581,7 @@ mod tests {
         let x_entry = array![[0.2, 0.1]];
         let x_exit = array![[0.6, 0.3]];
         let x_derivative = array![[1.0, 0.0]];
-        let monotonicity = MonotonicityPenalty { tolerance: 3.0 };
+        let monotonicity = SurvivalMonotonicityPenalty { tolerance: 3.0 };
         let mode = array![0.0, 0.0];
         let hessian = Array2::<f64>::eye(2);
         let z = array![std::f64::consts::LN_2, 0.0];
@@ -3648,7 +3654,7 @@ mod tests {
         // Zero derivative design so derivative_offset_exit drives d_eta/dt.
         let x_derivative = array![[0.0, 0.0]];
         let penalties = PenaltyBlocks::new(Vec::new());
-        let monotonicity = MonotonicityPenalty { tolerance: 3.0 };
+        let monotonicity = SurvivalMonotonicityPenalty { tolerance: 3.0 };
         let mode = array![0.0, 0.0];
         let hessian = Array2::<f64>::eye(2);
         let z = array![0.0, 0.0];
@@ -3720,7 +3726,7 @@ mod tests {
         let x_exit = array![[1.0, 0.0]];
         let x_derivative = array![[0.0, 0.0]];
         let penalties = PenaltyBlocks::new(Vec::new());
-        let monotonicity = MonotonicityPenalty { tolerance: 3.0 };
+        let monotonicity = SurvivalMonotonicityPenalty { tolerance: 3.0 };
         let mode = array![0.0, 0.0];
         let hessian = Array2::<f64>::eye(2);
         let z = array![0.0, 0.0];
@@ -3792,7 +3798,7 @@ mod tests {
         let x_exit = array![[0.4, 0.2, 0.3], [0.6, 0.1, 0.3]];
         // First row constrains only column 0, second row constrains columns 0 and 1.
         let x_derivative = array![[1.0, 0.0, 0.0], [0.5, 1.0, 0.0]];
-        let monotonicity = MonotonicityPenalty { tolerance: 3.0 };
+        let monotonicity = SurvivalMonotonicityPenalty { tolerance: 3.0 };
         let mode = array![4.0, 2.0, 0.0];
         let hessian = Array2::<f64>::eye(3);
         let z = array![0.05, -0.1, 0.15];
@@ -3938,6 +3944,37 @@ fn chain_stream_seed(seed: u64, chain: usize, stream: u64) -> u64 {
 #[inline]
 fn nuts_transition_seed(seed: u64, stream: u64) -> u64 {
     splitmix64(seed ^ stream ^ 0xA24B_AED4_963E_E407)
+}
+
+#[inline]
+fn gibbs_pg_seed(seed: u64, chain: usize, stream: u64, iter: usize) -> u64 {
+    chain_stream_seed(
+        seed,
+        chain,
+        stream ^ ((iter as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15)),
+    )
+}
+
+fn draw_logit_pg1_omega(
+    shapes: ArrayView1<'_, u32>,
+    tilts: ArrayView1<'_, f64>,
+    seed: u64,
+    out: &mut Array1<f64>,
+) -> Result<(), String> {
+    if out.len() != tilts.len() {
+        return Err(HmcError::DimensionMismatch {
+            reason: "draw_logit_pg1_omega: output length mismatch".to_string(),
+        }
+        .into());
+    }
+    let draws = crate::gpu::kernels::polya_gamma::draw_batch(PolyaGammaBatchInput {
+        shapes,
+        tilts,
+        seed: PgSeed(seed),
+    })?;
+    out.assign(&draws);
+    out.mapv_inplace(|v| v.max(1.0e-12));
+    Ok(())
 }
 
 /// Parameter dimension above which the posterior is treated as "high-dimensional"
@@ -4342,6 +4379,7 @@ pub fn run_logit_polya_gamma_gibbs(
     let mut samples_array = Array3::<f64>::zeros((config.n_chains, config.n_samples, p));
     let mut eta = Array1::<f64>::zeros(n);
     let mut omega = Array1::<f64>::ones(n);
+    let pg_shapes = Array1::<u32>::from_elem(n, 1);
     let mut xw = x.to_owned();
     let mut xt_omega_x = Array2::<f64>::zeros((p, p));
     let penalty = penalty_matrix.to_owned();
@@ -4358,13 +4396,10 @@ pub fn run_logit_polya_gamma_gibbs(
 
     for chain in 0..config.n_chains {
         progress.begin_chain(chain, "polya-gamma gibbs");
-        let mut pg_rng =
-            StdRng::seed_from_u64(chain_stream_seed(config.seed, chain, 0x4D94_DF4E_5D72_81AB));
         let mut init_rng =
             StdRng::seed_from_u64(chain_stream_seed(config.seed, chain, 0xB3C4_5A1F_8E9D_7632));
         let mut draw_rng =
             StdRng::seed_from_u64(chain_stream_seed(config.seed, chain, 0x17A9_26D5_4C1B_E083));
-        let pg = PolyaGamma::new();
         let mut beta = mode.to_owned();
         // Small jitter so chains are not perfectly coupled.
         for j in 0..p {
@@ -4373,9 +4408,12 @@ pub fn run_logit_polya_gamma_gibbs(
 
         for iter in 0..n_iter {
             eta.assign(&crate::faer_ndarray::fast_av(&x, &beta));
-            for i in 0..n {
-                omega[i] = pg.draw(&mut pg_rng, eta[i]).max(1e-12);
-            }
+            draw_logit_pg1_omega(
+                pg_shapes.view(),
+                eta.view(),
+                gibbs_pg_seed(config.seed, chain, 0x4D94_DF4E_5D72_81AB, iter),
+                &mut omega,
+            )?;
 
             // Build Xweighted = diag(sqrt(ω)) X and compute X^T Ω X via faer GEMM.
             // Per-row scaling is fully independent across rows.
@@ -4518,6 +4556,7 @@ pub fn estimate_logit_pg_rao_blackwell_terms(
     let penalty = penalty_matrix.to_owned();
     let mut eta = Array1::<f64>::zeros(n);
     let mut omega = Array1::<f64>::ones(n);
+    let pg_shapes = Array1::<u32>::from_elem(n, 1);
     let mut xw = x.to_owned();
     let mut xt_omega_x = Array2::<f64>::zeros((p, p));
     let mut q = Array2::<f64>::zeros((p, p));
@@ -4528,13 +4567,10 @@ pub fn estimate_logit_pg_rao_blackwell_terms(
 
     let mut kept = 0usize;
     for chain in 0..config.n_chains {
-        let mut pg_rng =
-            StdRng::seed_from_u64(chain_stream_seed(config.seed, chain, 0x83F1_56C9_A7E0_2D4B));
         let mut init_rng =
             StdRng::seed_from_u64(chain_stream_seed(config.seed, chain, 0x28F0_7B65_1A4D_C93E));
         let mut draw_rng =
             StdRng::seed_from_u64(chain_stream_seed(config.seed, chain, 0xC642_6E35_B5A9_1D80));
-        let pg = PolyaGamma::new();
         let mut beta = mode.to_owned();
         for j in 0..p {
             beta[j] += 0.05 * sample_standard_normal(&mut init_rng);
@@ -4542,9 +4578,12 @@ pub fn estimate_logit_pg_rao_blackwell_terms(
 
         for iter in 0..n_iter {
             eta.assign(&crate::faer_ndarray::fast_av(&x, &beta));
-            for i in 0..n {
-                omega[i] = pg.draw(&mut pg_rng, eta[i]).max(1e-12);
-            }
+            draw_logit_pg1_omega(
+                pg_shapes.view(),
+                eta.view(),
+                gibbs_pg_seed(config.seed, chain, 0x83F1_56C9_A7E0_2D4B, iter),
+                &mut omega,
+            )?;
 
             ndarray::Zip::from(xw.rows_mut())
                 .and(x.rows())
@@ -4644,7 +4683,7 @@ pub(crate) fn run_nuts_sampling(
     hessian: ArrayView2<f64>,
     nuts_family: NutsFamily,
     gamma_shape: f64,
-    dispersion: crate::solver::estimate::Dispersion,
+    dispersion: crate::model_types::Dispersion,
     firth_bias_reduction: bool,
     offset: Option<ArrayView1<f64>>,
     config: &NutsConfig,
@@ -5051,7 +5090,7 @@ pub struct GlmFlatInputs<'a> {
     /// for Gaussian / Gamma it carries the estimated `phi` so that the
     /// sampler targets the φ-scaled posterior covariance `Vb = φ·H⁻¹`.
     /// See `inference::dispersion_cov` for the ownership invariants.
-    pub dispersion: crate::solver::estimate::Dispersion,
+    pub dispersion: crate::model_types::Dispersion,
     pub firth_bias_reduction: bool,
     /// Fixed additive offset on the linear predictor (η = Xβ + offset), or
     /// `None` for an offset-free fit. Carried so posterior sampling targets the
@@ -5078,9 +5117,9 @@ pub struct SurvivalFlatInputs<'a> {
 /// Flattened numeric inputs for Royston-Parmar NUTS sampling.
 pub struct SurvivalNutsInputs<'a> {
     pub flat: SurvivalFlatInputs<'a>,
-    pub penalties: crate::survival::PenaltyBlocks,
-    pub monotonicity: crate::survival::MonotonicityPenalty,
-    pub spec: crate::survival::SurvivalSpec,
+    pub penalties: crate::families::survival::PenaltyBlocks,
+    pub monotonicity: crate::families::survival::SurvivalMonotonicityPenalty,
+    pub spec: crate::families::survival::SurvivalSpec,
     pub structurally_monotonic: bool,
     pub structural_time_columns: usize,
     pub mode: ArrayView1<'a, f64>,
@@ -5929,10 +5968,23 @@ pub fn run_link_wiggle_nuts_sampling(
 /// and reports `max_r |gamma_r|`. This is invariant to arbitrary coordinate
 /// relabeling and uses the full directional cubic contraction rather than only
 /// diagonal tensor entries.
+/// `refine_supremum` controls Phase 2, the cubic power-iteration that sharpens
+/// the returned scalar `max_abs` toward the true supremum of `|γ(u)|` over the
+/// H-unit sphere (which can exceed the per-eigenvector maximum). That scalar is
+/// the ONLY thing Phase 2 affects — the per-direction `directional` vector,
+/// which drives [`laplace_trustworthiness_from_skewness`]'s direction selection
+/// AND its own internally-recomputed `max_abs_skewness`, comes entirely from
+/// Phase 1. The #784 block-local REML correction
+/// (`block_local_sampled_correction`) consumes `directional` and uses `max_abs`
+/// only for a `> 0` finiteness guard that Phase 1 already satisfies, so it
+/// passes `false` and skips Phase 2's multi-probe O(probes·iters·np) refinement
+/// on every inner evaluation. Diagnostic callers that report the true supremum
+/// pass `true`.
 pub fn laplace_directional_cubic_diagnostic(
     hessian: &Array2<f64>,
     design: &DesignMatrix,
     c_weights: &Array1<f64>,
+    refine_supremum: bool,
 ) -> Result<(f64, Array1<f64>), String> {
     let p = hessian.nrows();
     if p == 0 || hessian.ncols() != p {
@@ -5977,7 +6029,7 @@ pub fn laplace_directional_cubic_diagnostic(
     //
     // We seed from the eigenvector with largest |gamma_r| and also from a
     // few random probe directions.
-    if p >= 2 {
+    if refine_supremum && p >= 2 {
         // Build H^{-1/2} columns for whitening: H^{-1/2} = V diag(1/sqrt(lam)) V^T
         // We need it to map whitened u -> original v = H^{-1/2} u, and
         // H^{1/2} to project back: H^{1/2} v = V diag(sqrt(lam)) V^T v.
@@ -6392,6 +6444,26 @@ pub trait BlockExcessTarget {
     fn displaced_neg_score(&self, t: &Array1<f64>) -> Array1<f64>;
     /// The same per-row score channel at the undisplaced mode `η̂`.
     fn base_neg_score(&self) -> Array1<f64>;
+
+    /// Fused `(excess(t), displaced_neg_score(t))` for a single `t`.
+    ///
+    /// The importance sampler needs BOTH the excess (for the weight) and the
+    /// displaced per-row score (for the (b)–(d) moment channels) at every
+    /// feasible draw. Both are functions of the SAME displacement `s = X_t·δ`
+    /// and the SAME per-row inverse-link jet at `η̂ + s`; computing them
+    /// separately repeats the O(n·p) design matvec and the O(n) jet sweep. The
+    /// returned score is `None` exactly when the excess is non-finite (an
+    /// infeasible draw the sampler discards before reading the score). The
+    /// default impl preserves the two-call behavior; implementors override to
+    /// share the displacement + jet across both channels.
+    fn excess_with_displaced_neg_score(&self, t: &Array1<f64>) -> (f64, Option<Array1<f64>>) {
+        let excess = self.excess(t);
+        if excess.is_finite() {
+            (excess, Some(self.displaced_neg_score(t)))
+        } else {
+            (excess, None)
+        }
+    }
 }
 
 /// Self-normalized importance-weighted moments of the per-draw gradient
@@ -6652,10 +6724,16 @@ pub fn block_sampled_marginal_correction<T: BlockExcessTarget>(
             let z = sample_standard_normal(&mut rng);
             t[r] = z * inv_sqrt_lambda[r];
         }
-        let excess = target.excess(&t);
+        // Fused: one design matvec + one inverse-link jet sweep yields both the
+        // excess (weight) and the displaced per-row score (moment channels).
+        let (excess, displaced_ngs) = target.excess_with_displaced_neg_score(&t);
         if !excess.is_finite() {
             continue;
         }
+        let Some(ngs) = displaced_ngs else {
+            // A finite excess always carries a score; absence means infeasible.
+            continue;
+        };
         let lw = -excess;
         if lw > max_lw {
             // exp(−∞ − lw) = 0 zeroes the (empty) accumulators on the first
@@ -6675,8 +6753,7 @@ pub fn block_sampled_marginal_correction<T: BlockExcessTarget>(
         sum_w2 += w * w;
         // Explicit channel: −∂ΔF/∂ρ.
         grad_acc.scaled_add(-w, &target.excess_rho_gradient(&t));
-        // Moment channels.
-        let ngs = target.displaced_neg_score(&t);
+        // Moment channels (score already computed in the fused call above).
         if ngs.len() != n_obs {
             return Err(format!(
                 "block_sampled_marginal_correction: displaced_neg_score len {} != {n_obs}",
@@ -6931,7 +7008,7 @@ impl JointBetaRhoPosterior {
             // dispersion enters via the per-family scale parameter, not
             // via the whitening transform here. `Known(1.0)` matches the
             // pre-refactor behaviour for this code path.
-            dispersion: crate::solver::estimate::Dispersion::Known(1.0),
+            dispersion: crate::model_types::Dispersion::Known(1.0),
             n_samples,
             dim: n_beta,
         };
@@ -7486,8 +7563,8 @@ pub fn run_joint_beta_rho_sampling(
 
 mod survival_hmc {
     use super::*;
-    use crate::survival::{
-        MonotonicityPenalty, PenaltyBlocks, SurvivalEngineInputs, SurvivalSpec,
+    use crate::families::survival::{
+        PenaltyBlocks, SurvivalEngineInputs, SurvivalMonotonicityPenalty, SurvivalSpec,
         WorkingModelSurvival,
     };
 
@@ -7526,7 +7603,7 @@ mod survival_hmc {
             offset_eta_exit: Option<ArrayView1<'_, f64>>,
             offset_derivative_exit: Option<ArrayView1<'_, f64>>,
             penalties: PenaltyBlocks,
-            monotonicity: MonotonicityPenalty,
+            monotonicity: SurvivalMonotonicityPenalty,
             spec: SurvivalSpec,
             structurally_monotonic: bool,
             structural_time_columns: usize,
@@ -7557,7 +7634,7 @@ mod survival_hmc {
                     monotonicity_constraint_rows: None,
                     monotonicity_constraint_offsets: None,
                 },
-                Some(crate::survival::SurvivalBaselineOffsets {
+                Some(crate::families::survival::SurvivalBaselineOffsets {
                     eta_entry: off_eta_entry.view(),
                     eta_exit: off_eta_exit.view(),
                     derivative_exit: off_deriv_exit.view(),
@@ -7650,7 +7727,7 @@ mod survival_hmc {
         eta_offset_exit: Option<ArrayView1<'_, f64>>,
         derivative_offset_exit: Option<ArrayView1<'_, f64>>,
         penalties: PenaltyBlocks,
-        monotonicity: MonotonicityPenalty,
+        monotonicity: SurvivalMonotonicityPenalty,
         spec: SurvivalSpec,
         structurally_monotonic: bool,
         structural_time_columns: usize,
@@ -7715,9 +7792,9 @@ mod survival_hmc {
 /// Engine-facing flattened survival NUTS entrypoint.
 pub fn run_survival_nuts_sampling_flattened<'a>(
     flat: SurvivalFlatInputs<'a>,
-    penalties: crate::survival::PenaltyBlocks,
-    monotonicity: crate::survival::MonotonicityPenalty,
-    spec: crate::survival::SurvivalSpec,
+    penalties: crate::families::survival::PenaltyBlocks,
+    monotonicity: crate::families::survival::SurvivalMonotonicityPenalty,
+    spec: crate::families::survival::SurvivalSpec,
     structurally_monotonic: bool,
     structural_time_columns: usize,
     mode: ArrayView1<'a, f64>,

@@ -31,6 +31,40 @@ except ImportError:
 from .. import NoSuchObjectError, XlwingsError, __version__, base_classes, utils
 from ..constants import MAX_COLUMNS, MAX_ROWS
 
+
+def _normalize_jsnull(obj):
+    """Recursively replace Pyodide's ``JsNull`` sentinel with Python ``None``.
+
+    Pyodide >= 0.28 converts JS ``null`` to ``pyodide.ffi.jsnull`` instead of
+    ``None``. Book data coming back from Office.js via ``.to_py()`` therefore
+    contains ``JsNull`` for empty/absent fields (e.g. ``scope_sheet_index`` on
+    book-scoped names, ``address`` for non-cell selections), which breaks the
+    ``is None`` checks throughout this module. Normalize everything back to
+    ``None`` at the JS boundary so downstream code stays Pyodide-version
+    agnostic.
+
+    The ``values`` arrays (cell data) are skipped: Office.js returns ``""`` for
+    empty cells, never ``null``, so they cannot contain ``JsNull`` — and walking
+    them would mean an extra full pass over every cell of an eagerly-loaded book
+    (e.g. ``xw.Book(json=...)`` in xlwings Lite's notebook runner).
+    """
+    try:
+        from pyodide.ffi import JsNull
+    except ImportError:
+        return obj
+
+    def walk(o):
+        if isinstance(o, JsNull):
+            return None
+        if isinstance(o, dict):
+            return {k: v if k == "values" else walk(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [walk(v) for v in o]
+        return o
+
+    return walk(obj)
+
+
 # Time types (doesn't contain dt.date)
 time_types = (dt.datetime,)
 if np:
@@ -216,7 +250,7 @@ class App(base_classes.App):
             )
         import js
 
-        result = (await js.xlwings.getSelection()).to_py()
+        result = _normalize_jsnull((await js.xlwings.getSelection()).to_py())
         sheet_index = int(result["sheetIndex"])
         address = result["address"]
         book = self.books.active
@@ -280,11 +314,15 @@ class Books(base_classes.Books):
         book_data_js = await js.xlwings.getBookData(
             to_js({"lazy": True}, dict_converter=js.Object.fromEntries)
         )
+        # open() normalizes JsNull -> None
         book_data = book_data_js.to_py()
         return self.open(book_data)
 
     def open(self, json):
-        book = Book(api=json, books=self)
+        # Normalize here (rather than only at the getBookData boundary) so that
+        # callers passing raw `.to_py()` data straight to `xw.Book(json=...)`
+        # (e.g. xlwings Lite's notebook runner) also get JsNull -> None.
+        book = Book(api=_normalize_jsnull(json), books=self)
         self.books.append(book)
         self._active = book
         return book
@@ -385,7 +423,7 @@ class Book(base_classes.Book):
             raise NotImplementedError("Book.load() is only supported in xlwings Lite")
         import js
 
-        data = (await js.xlwings.getBookData()).to_py()
+        data = _normalize_jsnull((await js.xlwings.getBookData()).to_py())
         _update_api_in_place(self._api, data)
         get_range_api.cache_clear()
 
@@ -599,7 +637,7 @@ class Sheet(base_classes.Sheet):
         book_data_js = await js.xlwings.getBookData(
             to_js({"include": self.name}, dict_converter=js.Object.fromEntries)
         )
-        book_data = book_data_js.to_py()
+        book_data = _normalize_jsnull(book_data_js.to_py())
         for sheet_data in book_data["sheets"]:
             if sheet_data["name"] == self.name:
                 self._api.update(sheet_data)

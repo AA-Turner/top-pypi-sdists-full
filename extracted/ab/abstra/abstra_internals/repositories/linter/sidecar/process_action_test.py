@@ -1,0 +1,134 @@
+"""Contract tests for process actions (PR1, TDD).
+
+Fixes with process-wide effects (today: the abstra upgrade restart) must not
+execute os._exit/os.execv inside the sidecar. The mechanism: a module-level
+hook — the default handler executes immediately (in-process behavior is
+byte-identical to today's), while the sidecar installs a collector that ships
+the action back to the main process via the apply_fix RPC response.
+"""
+
+import sys
+import unittest
+from unittest.mock import patch
+
+from abstra_internals.repositories.linter import process_actions
+
+
+class ProcessActionHookTest(unittest.TestCase):
+    def tearDown(self):
+        process_actions.set_process_action_handler(None)
+
+    def test_default_handler_executes_immediately(self):
+        with patch.object(process_actions, "execute_process_action") as execute:
+            process_actions.request_process_action("restart_editor")
+        execute.assert_called_once_with("restart_editor")
+
+    def test_registered_handler_intercepts_execution(self):
+        collected = []
+        process_actions.set_process_action_handler(collected.append)
+        with patch.object(process_actions, "execute_process_action") as execute:
+            process_actions.request_process_action("restart_editor")
+        self.assertEqual(collected, ["restart_editor"])
+        execute.assert_not_called()
+
+    def test_clearing_handler_restores_default(self):
+        process_actions.set_process_action_handler(lambda action: None)
+        process_actions.set_process_action_handler(None)
+        with patch.object(process_actions, "execute_process_action") as execute:
+            process_actions.request_process_action("restart_editor")
+        execute.assert_called_once_with("restart_editor")
+
+
+class ExecuteProcessActionTest(unittest.TestCase):
+    def test_local_mode_execs_editor_in_place(self):
+        with patch("os.execv") as execv, patch("os._exit") as exit_:
+            process_actions.execute_process_action("restart_editor", is_web=False)
+        execv.assert_called_once()
+        exit_.assert_not_called()
+        args = execv.call_args[0]
+        self.assertEqual(args[0], sys.executable)
+        self.assertEqual(args[1][0], sys.executable)
+
+    def test_web_mode_exits_for_kubelet_restart(self):
+        with patch("os.execv") as execv, patch("os._exit") as exit_:
+            process_actions.execute_process_action("restart_editor", is_web=True)
+        exit_.assert_called_once_with(0)
+        execv.assert_not_called()
+
+    def test_unknown_action_is_a_noop(self):
+        with patch("os.execv") as execv, patch("os._exit") as exit_:
+            process_actions.execute_process_action("dance_party", is_web=False)
+        execv.assert_not_called()
+        exit_.assert_not_called()
+
+
+class UpdateAbstraFixFlowTest(unittest.TestCase):
+    """The upgrade fix must route its restart through the hook in BOTH
+    editor modes — never calling os.execv/os._exit directly anymore."""
+
+    def tearDown(self):
+        process_actions.set_process_action_handler(None)
+
+    def test_local_mode_flow_routes_restart_through_hook(self):
+        from abstra_internals.repositories.linter.rules import (
+            new_version_of_abstra_available as mod,
+        )
+
+        collected = []
+        process_actions.set_process_action_handler(collected.append)
+        with (
+            patch("subprocess.check_call") as check_call,
+            patch("os.execv") as execv,
+            patch("os._exit") as exit_,
+            patch.object(mod, "EDITOR_MODE", "local"),
+        ):
+            mod._update_lib_version()
+
+        check_call.assert_called_once()
+        self.assertIn("abstra", check_call.call_args[0][0])
+        self.assertEqual(collected, ["restart_editor"])
+        execv.assert_not_called()
+        exit_.assert_not_called()
+
+    def test_web_mode_flow_routes_restart_through_hook(self):
+        from abstra_internals.repositories.linter.rules import (
+            new_version_of_abstra_available as mod,
+        )
+
+        collected = []
+        process_actions.set_process_action_handler(collected.append)
+        with (
+            patch("subprocess.check_call") as check_call,
+            patch("os.execv") as execv,
+            patch("os._exit") as exit_,
+            patch.object(mod, "EDITOR_MODE", "web"),
+            patch.object(mod, "RABBITMQ_CONNECTION_URI", None),
+        ):
+            mod._update_lib_version()
+
+        check_call.assert_called_once()
+        self.assertEqual(collected, ["restart_editor"])
+        execv.assert_not_called()
+        exit_.assert_not_called()
+
+    def test_pip_failure_requests_no_action(self):
+        from abstra_internals.repositories.linter.rules import (
+            new_version_of_abstra_available as mod,
+        )
+
+        collected = []
+        process_actions.set_process_action_handler(collected.append)
+        with (
+            patch("subprocess.check_call", side_effect=RuntimeError("pip exploded")),
+            patch("os.execv") as execv,
+            patch("os._exit") as exit_,
+        ):
+            mod._update_lib_version()  # must swallow, as today
+
+        self.assertEqual(collected, [])
+        execv.assert_not_called()
+        exit_.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

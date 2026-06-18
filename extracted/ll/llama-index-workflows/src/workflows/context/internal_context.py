@@ -22,6 +22,7 @@ from workflows.runtime.types.results import (
     StepWorkerStateContextVar,
     WaitingForEvent,
 )
+from workflows.runtime.types.step_id import StepId
 from workflows.runtime.types.ticks import TickAddEvent
 
 if TYPE_CHECKING:
@@ -159,9 +160,8 @@ class InternalContext(Generic[MODEL_T]):
 
         recovery_counts: dict[str, int] = {}
         try:
-            recovery_counts = dict(
-                StepWorkerStateContextVar.get().retry.recovery_counts
-            )
+            step_ctx = StepWorkerStateContextVar.get()
+            recovery_counts = dict(step_ctx.retry.recovery_counts)
         except LookupError:
             pass
 
@@ -169,7 +169,7 @@ class InternalContext(Generic[MODEL_T]):
             self._internal_adapter.send_event(
                 TickAddEvent(
                     event=message,
-                    step_name=step,
+                    step_id=StepId.root(step) if step is not None else None,
                     recovery_counts=recovery_counts,
                 )
             )

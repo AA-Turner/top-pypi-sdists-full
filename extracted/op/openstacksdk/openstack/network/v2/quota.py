@@ -48,7 +48,11 @@ class Quota(resource.Resource):
     #: The maximum amount of ports you can create. *Type: int*
     ports = resource.Body('port', type=int)
     #: The ID of the project these quota values are for.
-    project_id = resource.Body('tenant_id', alternate_id=True)
+    project_id = resource.Body(
+        'project_id', alias='tenant_id', alternate_id=True
+    )
+    #: Tenant_id (deprecated attribute).
+    tenant_id = resource.Body('tenant_id', deprecated=True)
     #: The maximum amount of RBAC policies you can create. *Type: int*
     rbac_policies = resource.Body('rbac_policy', type=int)
     #: The maximum amount of router routes you can create. *Type: int*
@@ -73,13 +77,17 @@ class Quota(resource.Resource):
         params: Any = None,
         **kwargs: Any,
     ) -> resource._Request:
-        _request = super()._prepare_request(requires_id, prepend_key)
-        _body = cast(dict[str, Any], _request.body)
-        if self.resource_key in _body:
-            _body = _body[self.resource_key]
-        if 'id' in _body:
-            del _body['id']
-        return _request
+        request = super()._prepare_request(
+            requires_id=requires_id,
+            prepend_key=prepend_key,
+            base_path=base_path,
+        )
+        body = cast(dict[str, Any], request.body)
+        if self.resource_key in body:
+            body = body[self.resource_key]
+        if 'id' in body:
+            del body['id']
+        return request
 
 
 class QuotaDefault(Quota):

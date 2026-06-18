@@ -4,6 +4,9 @@ import time
 import atexit
 import signal
 import boto3
+from botocore.config import Config
+from boto3.s3.transfer import TransferConfig
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (Any, Dict, Optional)
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -379,6 +382,7 @@ def download_table(dbname: str, tablename: str, output_path: str,
         service_name="s3",
         endpoint_url=_S3_ENDPOINT,
         region_name=_S3_REGION,
+        config=Config(retries={"max_attempts": 10, "mode": "adaptive"}),
     )
 
     if partitions is None:
@@ -409,18 +413,39 @@ def download_table(dbname: str, tablename: str, output_path: str,
 
     os.makedirs(output_path, exist_ok=True)
     paginator = s3.get_paginator("list_objects_v2")
+    objects = [
+        obj
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix)
+        for obj in page.get("Contents", [])
+        if obj["Key"] != prefix
+    ]
+
+    transfer_cfg = TransferConfig(
+        multipart_threshold=8 * 1024 * 1024,
+        multipart_chunksize=8 * 1024 * 1024,
+        max_concurrency=2,
+        use_threads=True,
+    )
+
+    def _dl(obj):
+        dest = f"{output_path}/{os.path.basename(obj['Key'])}"
+        s3.download_file(bucket, obj["Key"], dest, Config=transfer_cfg)
+        return obj["Size"]
+
+    n_total = len(objects)
     n_files, n_bytes = 0, 0
     t0 = time.time()
-    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
-        for obj in page.get("Contents", []):
-            if obj["Key"] == prefix:
-                continue
-            s3.download_file(
-                bucket, obj["Key"],
-                f"{output_path}/{os.path.basename(obj['Key'])}",
-            )
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_dl, obj): obj for obj in objects}
+        for fut in as_completed(futures):
+            n_bytes += fut.result()
             n_files += 1
-            n_bytes += obj["Size"]
+            print(
+                f"\rdownload_table: {n_files}/{n_total} "
+                f"({_fmt_bytes(n_bytes)})",
+                end="", flush=True,
+            )
+    print()
     elapsed = time.time() - t0
     print(
         f"download_table: downloaded {n_files} files "

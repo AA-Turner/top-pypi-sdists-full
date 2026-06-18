@@ -10,9 +10,11 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable, Iterable
 from typing import Any, cast
 
 from keystoneauth1 import adapter
+import requests
 
 from openstack import exceptions
 from openstack import resource
@@ -37,6 +39,70 @@ class Type(resource.Resource):
     extra_specs = resource.Body("extra_specs", type=dict)
     #: a private volume-type. *Type: bool*
     is_public = resource.Body('os-volume-type-access:is_public', type=bool)
+
+    def _extra_specs(
+        self,
+        method: Callable[..., requests.Response],
+        key: str | None = None,
+        delete: bool = False,
+        extra_specs: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        extra_specs = extra_specs or {}
+        for k, v in extra_specs.items():
+            if not isinstance(v, str):
+                raise ValueError(
+                    f"The value for {k} ({v}) must be a text string"
+                )
+
+        if key is not None:
+            url = utils.urljoin(self.base_path, self.id, "extra_specs", key)
+        else:
+            url = utils.urljoin(self.base_path, self.id, "extra_specs")
+
+        kwargs = {}
+        if extra_specs:
+            kwargs["json"] = {"extra_specs": extra_specs}
+
+        response = method(url, headers={}, **kwargs)
+
+        exceptions.raise_from_response(response)
+        return response.json() if not delete else None
+
+    def set_extra_specs(
+        self, session: adapter.Adapter, **extra_specs: str
+    ) -> dict[str, Any]:
+        """Update extra specs.
+
+        This call will replace only the extra_specs with the same keys
+        given here.  Other keys will not be modified.
+
+        :param session: The session to use for making this request.
+        :param extra_specs: Key/value extra_specs pairs to be update on
+            this volume type. All keys and values.
+        :returns: The updated extra specs.
+        """
+        if not extra_specs:
+            return dict()
+
+        result = self._extra_specs(session.post, extra_specs=extra_specs)
+        assert result is not None
+        return cast(dict[str, Any], result["extra_specs"])
+
+    def delete_extra_specs(
+        self, session: adapter.Adapter, keys: Iterable[str]
+    ) -> None:
+        """Delete extra specs.
+
+        .. note::
+
+            This method will do a HTTP DELETE request for every key in keys.
+
+        :param session: The session to use for this request.
+        :param keys: The keys to delete.
+        :returns: ``None``
+        """
+        for key in keys:
+            self._extra_specs(session.delete, key=key, delete=True)
 
     def get_private_access(
         self, session: adapter.Adapter
@@ -84,3 +150,38 @@ class Type(resource.Resource):
         resp = session.post(url, json=body)
 
         exceptions.raise_from_response(resp)
+
+
+class TypeEncryption(resource.Resource):
+    resource_key = "encryption"
+    resources_key = "encryption"
+    base_path = "/types/%(volume_type_id)s/encryption"
+
+    # capabilities
+    allow_fetch = True
+    allow_create = True
+    allow_delete = True
+    allow_list = False
+    allow_commit = True
+
+    # Properties
+    #: The encryption algorithm or mode.
+    cipher = resource.Body("cipher")
+    #: Notional service where encryption is performed.
+    control_location = resource.Body("control_location")
+    #: The date and time when the resource was created.
+    created_at = resource.Body("created_at")
+    #: The resource is deleted or not.
+    deleted = resource.Body("deleted")
+    #: The date and time when the resource was deleted.
+    deleted_at = resource.Body("deleted_at")
+    #: A ID representing this type.
+    encryption_id = resource.Body("encryption_id", alternate_id=True)
+    #: The Size of encryption key.
+    key_size = resource.Body("key_size")
+    #: The class that provides encryption support.
+    provider = resource.Body("provider")
+    #: The date and time when the resource was updated.
+    updated_at = resource.Body("updated_at")
+    #: The ID of the Volume Type.
+    volume_type_id = resource.URI("volume_type_id")

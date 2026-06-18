@@ -659,8 +659,9 @@ fn compute_gauss_hermite() -> GaussHermiteRule {
     let mut weights = [0.0f64; N_POINTS];
 
     // Weights: wᵢ = μ₀ * (first component of eigenvector)².
-    // `symmetric_tridiagonal_eigen` accumulates left rotations and returns Z = Q^T,
-    // so q_{0i} is stored at eigenvectors[i][0].
+    // `symmetric_tridiagonal_eigen` applies the QL rotations to rows of the
+    // accumulator and returns Q^T, so the first component of eigenvector i is
+    // stored at eigenvectors[i][0], not eigenvectors[0][i].
     // For physicist's Hermite: μ₀ = ∫exp(-x²)dx = sqrt(π)
     let mu0 = std::f64::consts::PI.sqrt();
     for i in 0..N_POINTS {
@@ -3649,6 +3650,65 @@ pub(crate) fn latent_cloglog_inverse_link_jet5_controlled(
     }
 }
 
+/// Fifth-order latent-cloglog inverse-link jet.
+///
+/// Relocated here from `families::survival::lognormal_kernel` (#1135): this is
+/// the public face of the latent-cloglog link jet, and its analytic backend
+/// (`latent_cloglog_inverse_link_jet5_controlled`) already lives in this
+/// quadrature module. Hosting the wrapper here lets the `solver` link layer
+/// (`mixture_link`, `pirls`) name it via `crate::quadrature::*` instead of
+/// importing *up* into `families::survival`. `lognormal_kernel` re-exports these
+/// names so the in-family callers keep working.
+#[derive(Clone, Copy, Debug)]
+pub struct LatentCLogLogJet5 {
+    pub mean: f64,
+    pub d1: f64,
+    pub d2: f64,
+    pub d3: f64,
+    pub d4: f64,
+    pub d5: f64,
+    pub mode: IntegratedExpectationMode,
+}
+
+pub fn latent_cloglog_jet5(
+    quadctx: &QuadratureContext,
+    eta: f64,
+    sigma: f64,
+) -> Result<LatentCLogLogJet5, EstimationError> {
+    validate_latent_cloglog_inputs(eta, sigma)?;
+    // Authoritative latent cloglog backend:
+    //
+    // - mean through d5 are all derived from the same lognormal-Laplace kernel
+    //   terms K_{k,1}(eta, sigma),
+    // - every derivative order uses the same routed analytic kernel backend.
+    let jet = latent_cloglog_inverse_link_jet5_controlled(quadctx, eta, sigma);
+    Ok(LatentCLogLogJet5 {
+        mean: jet.mean,
+        d1: jet.d1,
+        d2: jet.d2,
+        d3: jet.d3,
+        d4: jet.d4,
+        d5: jet.d5,
+        mode: jet.mode,
+    })
+}
+
+#[inline]
+pub fn latent_cloglog_inverse_link_jet(
+    quadctx: &QuadratureContext,
+    eta: f64,
+    sigma: f64,
+) -> Result<IntegratedInverseLinkJet, EstimationError> {
+    let jet = latent_cloglog_jet5(quadctx, eta, sigma)?;
+    Ok(IntegratedInverseLinkJet {
+        mean: jet.mean,
+        d1: jet.d1,
+        d2: jet.d2,
+        d3: jet.d3,
+        mode: jet.mode,
+    })
+}
+
 #[inline]
 fn integrated_cloglog_inverse_link_jet_controlled(
     ctx: &QuadratureContext,
@@ -4701,8 +4761,11 @@ mod tests {
     }
 
     #[test]
-    fn test_matches_known_7_point_constants() {
+    fn test_matches_abramowitz_stegun_7_point_gauss_hermite_constants() {
         assert!(file!().ends_with(".rs"));
+        // Abramowitz & Stegun 25.4, 7-point Gauss-Hermite rule for the
+        // physicist's weight exp(-x^2). This pins both the Jacobi matrix and
+        // the eigenvector orientation used for Golub-Welsch weights.
         let known_nodes = [
             -2.651_961_356_835_233_4,
             -1.673_551_628_767_471_4,
@@ -4728,6 +4791,48 @@ mod tests {
             assert_relative_eq!(gh.nodes[i], known_nodes[i], epsilon = 1e-12);
             assert_relative_eq!(gh.weights[i], knownweights[i], epsilon = 1e-12);
         }
+    }
+
+    #[test]
+    fn test_gauss_hermite_weight_assembly_uses_eigenvector_rows() {
+        let mut diag = [0.0_f64; N_POINTS];
+        let mut off_diag = [0.0_f64; N_POINTS - 1];
+        for (i, od) in off_diag.iter_mut().enumerate() {
+            *od = (((i + 1) as f64) / 2.0).sqrt();
+        }
+        let (nodes, eigenvectors) = symmetric_tridiagonal_eigen(&mut diag, &mut off_diag);
+        let mu0 = std::f64::consts::PI.sqrt();
+        let mut row_pairs: Vec<(f64, f64)> = (0..N_POINTS)
+            .map(|i| (nodes[i], mu0 * eigenvectors[i][0] * eigenvectors[i][0]))
+            .collect();
+        let mut column_pairs: Vec<(f64, f64)> = (0..N_POINTS)
+            .map(|i| (nodes[i], mu0 * eigenvectors[0][i] * eigenvectors[0][i]))
+            .collect();
+        row_pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
+        column_pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+        let knownweights = [
+            0.000_971_781_245_099_519_1,
+            0.054_515_582_819_127_03,
+            0.425_607_252_610_127_8,
+            0.810_264_617_556_807_3,
+            0.425_607_252_610_127_8,
+            0.054_515_582_819_127_03,
+            0.000_971_781_245_099_519_1,
+        ];
+
+        for i in 0..N_POINTS {
+            assert_relative_eq!(row_pairs[i].1, knownweights[i], epsilon = 1e-12);
+        }
+        let column_error: f64 = column_pairs
+            .iter()
+            .zip(knownweights.iter())
+            .map(|(actual, expected)| (actual.1 - expected).abs())
+            .sum();
+        assert!(
+            column_error > 1.0,
+            "column-oriented eigenvector indexing unexpectedly matched A&S weights"
+        );
     }
 
     #[test]

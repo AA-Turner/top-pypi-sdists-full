@@ -74,7 +74,7 @@ pub fn pirls_loop_curvature_for(family: PirlsLoopFamilyKind) -> PirlsLoopCurvatu
 /// underneath returns `None` on every non-Linux target, so the function works
 /// unconditionally.
 pub fn gpu_runtime_available() -> bool {
-    crate::gpu::runtime::GpuRuntime::is_available()
+    crate::gpu::device_runtime::GpuRuntime::is_available()
 }
 
 /// Strict admission shape for the Stage 3.3 PIRLS loop, computed from the
@@ -99,9 +99,9 @@ mod linux_impl {
 
     use crate::construction::ReparamResult;
     use crate::gpu::cuda_selected;
-    use crate::gpu::pirls_row::{CurvatureMode, PirlsRowFamily};
+    use crate::gpu::device_runtime::GpuRuntime;
+    use crate::gpu::kernels::pirls_row::{CurvatureMode, PirlsRowFamily};
     use crate::gpu::policy::{PirlsLoopAdmission, PirlsLoopCurvatureKind, PirlsLoopFamilyKind};
-    use crate::gpu::runtime::GpuRuntime;
     use crate::linalg::matrix::SymmetricMatrix;
     use crate::matrix::DesignMatrix;
     use crate::solver::active_set::{
@@ -388,8 +388,9 @@ mod linux_impl {
         // at the dispatch boundary rather than silently passing a corrupt
         // iterate to the outer REML loop.
         {
-            const FORBIDDEN_ROW: u32 = crate::gpu::pirls_row::status_flags::INVALID_RESPONSE
-                | crate::gpu::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
+            const FORBIDDEN_ROW: u32 =
+                crate::gpu::kernels::pirls_row::status_flags::INVALID_RESPONSE
+                    | crate::gpu::kernels::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
             if (per_row_status_or & FORBIDDEN_ROW) != 0 && !matches!(status, PirlsStatus::Unstable)
             {
                 return Err(format!(
@@ -675,6 +676,7 @@ mod linux_impl {
             reparam_result: input.reparam_result,
             x_transformed: input.x_transformed_design,
             coordinate_frame: input.coordinate_frame,
+            used_device: true,
             cache_compacted: false,
             min_penalized_deviance,
         };
@@ -739,7 +741,7 @@ mod linux_impl {
         if !crate::gpu::cuda_selected() {
             return false;
         }
-        if crate::gpu::runtime::GpuRuntime::global().is_none() {
+        if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
             return false;
         }
         likelihood.spec.is_gaussian_identity()
@@ -972,6 +974,7 @@ mod linux_impl {
             reparam_result: input.reparam_result,
             x_transformed: input.x_transformed_design,
             coordinate_frame: input.coordinate_frame,
+            used_device: true,
             cache_compacted: false,
             min_penalized_deviance: working_summary.min_penalized_deviance,
         };

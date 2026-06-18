@@ -1839,7 +1839,9 @@ class Memory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata = deepcopy(existing_memory.payload)
+        if metadata is not None:
+            new_metadata.update(metadata)
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -1847,17 +1849,9 @@ class Memory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # Preserve session identifiers from existing memory only if not provided in new metadata
-        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
-            new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
-            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
+        # actor_id is immutable after creation (issue #4490)
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" not in new_metadata and "role" in existing_memory.payload:
-            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3241,9 +3235,15 @@ class AsyncMemory(MemoryBase):
         for memory in memories[0]:
             delete_tasks.append(self._delete_memory(memory.id))
 
-        await asyncio.gather(*delete_tasks)
+        results = await asyncio.gather(*delete_tasks, return_exceptions=True)
 
-        logger.info(f"Deleted {len(memories[0])} memories")
+        errors = [r for r in results if isinstance(r, BaseException)]
+        if errors:
+            logger.warning("Failed to delete %d out of %d memories", len(errors), len(results))
+            for err in errors:
+                logger.warning("Delete error: %s", err)
+
+        logger.info(f"Deleted {len(results) - len(errors)} memories")
 
         decay_usage_notice = detect_decay_usage_from_delete_all(len(memories[0]))
         if decay_usage_notice:
@@ -3371,7 +3371,9 @@ class AsyncMemory(MemoryBase):
 
         prev_value = existing_memory.payload.get("data")
 
-        new_metadata = deepcopy(metadata) if metadata is not None else {}
+        new_metadata = deepcopy(existing_memory.payload)
+        if metadata is not None:
+            new_metadata.update(metadata)
 
         new_metadata["data"] = data
         new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
@@ -3379,18 +3381,9 @@ class AsyncMemory(MemoryBase):
         new_metadata["created_at"] = existing_memory.payload.get("created_at")
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-        # Preserve session identifiers from existing memory only if not provided in new metadata
-        if "user_id" not in new_metadata and "user_id" in existing_memory.payload:
-            new_metadata["user_id"] = existing_memory.payload["user_id"]
-        if "agent_id" not in new_metadata and "agent_id" in existing_memory.payload:
-            new_metadata["agent_id"] = existing_memory.payload["agent_id"]
-        if "run_id" not in new_metadata and "run_id" in existing_memory.payload:
-            new_metadata["run_id"] = existing_memory.payload["run_id"]
-
+        # actor_id is immutable after creation (issue #4490)
         if "actor_id" in existing_memory.payload:
             new_metadata["actor_id"] = existing_memory.payload["actor_id"]
-        if "role" not in new_metadata and "role" in existing_memory.payload:
-            new_metadata["role"] = existing_memory.payload["role"]
 
         if data in existing_embeddings:
             embeddings = existing_embeddings[data]
@@ -3481,6 +3474,13 @@ class AsyncMemory(MemoryBase):
         self.vector_store = VectorStoreFactory.create(
             self.config.vector_store.provider, self.config.vector_store.config
         )
+
+        if self._entity_store is not None:
+            try:
+                await asyncio.to_thread(self._entity_store.reset)
+            except Exception as e:
+                logger.warning(f"Failed to reset entity store: {e}")
+            self._entity_store = None
 
         capture_event("mem0.reset", self, {"sync_type": "async"})
         await display_first_run_notice_async(self, "async", "reset")

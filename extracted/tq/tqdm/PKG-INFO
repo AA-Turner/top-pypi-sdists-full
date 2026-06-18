@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tqdm
-Version: 4.68.2
+Version: 4.68.3
 Summary: Fast, Extensible Progress Meter
 Maintainer-email: tqdm developers <devs@tqdm.ml>
 License: MPL-2.0 AND MIT
@@ -35,13 +35,13 @@ Classifier: Operating System :: POSIX :: SunOS/Solaris
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Programming Language :: Python :: Implementation :: IronPython
@@ -63,17 +63,10 @@ Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Terminals
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENCE
 Requires-Dist: colorama; platform_system == "Windows"
-Requires-Dist: importlib_metadata; python_version < "3.8"
-Provides-Extra: dev
-Requires-Dist: pytest>=6; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-timeout; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.24; extra == "dev"
-Requires-Dist: nbval; extra == "dev"
 Provides-Extra: discord
 Requires-Dist: requests; extra == "discord"
 Requires-Dist: envwrap; extra == "discord"
@@ -765,7 +758,7 @@ Submodules
         """IPython/Jupyter Notebook widget."""
 
     class tqdm.auto.tqdm(tqdm.tqdm):
-        """Automatically chooses beween `tqdm.notebook` and `tqdm.tqdm`."""
+        """Automatically chooses between `tqdm.notebook` and `tqdm.tqdm`."""
 
     class tqdm.asyncio.tqdm(tqdm.tqdm):
       """Asynchronous version."""
@@ -1505,27 +1498,17 @@ See the
 `CONTRIBUTING <https://github.com/tqdm/tqdm/blob/master/CONTRIBUTING.md>`__
 file for more information.
 
-Developers who have made significant contributions, ranked by *SLoC*
-(surviving lines of code,
-`git fame <https://github.com/casperdcl/git-fame>`__ ``-wMC --excl '\.(png|gif|jpg)$'``),
-are:
+Developers who have contributed more that 5 *loc* (surviving lines of code):
 
-==================== ======================================================== ==== ================================
-Name                 ID                                                       SLoC Notes
-==================== ======================================================== ==== ================================
-Casper da Costa-Luis `casperdcl <https://github.com/casperdcl>`__             ~80% primary maintainer |Gift-Casper|
-Stephen Larroque     `lrq3000 <https://github.com/lrq3000>`__                 ~9%  team member
-Martin Zugnoni       `martinzugnoni <https://github.com/martinzugnoni>`__     ~3%
-Daniel Ecer          `de-code <https://github.com/de-code>`__                 ~2%
-Richard Sheridan     `richardsheridan <https://github.com/richardsheridan>`__ ~1%
-Guangshuo Chen       `chengs <https://github.com/chengs>`__                   ~1%
-Helio Machado        `0x2b3bfa0 <https://github.com/0x2b3bfa0>`__             ~1%
-Kyle Altendorf       `altendky <https://github.com/altendky>`__               <1%
-Noam Yorav-Raphael   `noamraph <https://github.com/noamraph>`__               <1%  original author
-Matthew Stevens      `mjstevens777 <https://github.com/mjstevens777>`__       <1%
-Hadrien Mary         `hadim <https://github.com/hadim>`__                     <1%  team member
-Mikhail Korobov      `kmike <https://github.com/kmike>`__                     <1%  team member
-==================== ======================================================== ==== ================================
+|git-fame|
+
+Honourable mentions:
+
+- Casper da Costa-Luis `casperdcl <https://github.com/casperdcl>`__ primary maintainer |Gift-Casper|
+- Stephen Larroque `lrq3000 <https://github.com/lrq3000>`__ maintainer
+- Hadrien Mary `hadim <https://github.com/hadim>`__ maintainer
+- Mikhail Korobov `kmike <https://github.com/kmike>`__ maintainer
+- Noam Yorav-Raphael `noamraph <https://github.com/noamraph>`__ original author
 
 Ports to Other Languages
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1577,7 +1560,10 @@ Citation information: |DOI|
    :target: https://github.com/tqdm/tqdm/graphs/contributors
 .. |GitHub-Updated| image:: https://img.shields.io/github/last-commit/tqdm/tqdm/master.svg?logo=github&logoColor=white&label=pushed
    :target: https://github.com/tqdm/tqdm/pulse
-.. |Gift-Casper| image:: https://img.shields.io/badge/dynamic/json.svg?color=ff69b4&label=gifts%20received&prefix=%C2%A3&query=%24..sum&url=https%3A%2F%2Fcdcl.ml%2Fgifts.json
+.. |git-fame| image:: https://git-fame.cdcl.ml/gh/tqdm/tqdm?min=5&w=1&M=1&C=1&excl=(png|gif|jpg)$&enum=1
+   :alt: git-fame.cdcl.ml/gh/tqdm/tqdm
+   :target: https://git-fame.cdcl.ml/gh/tqdm/tqdm?w=1&M=1&C=1&excl=(png|gif|jpg)$&enum=1
+.. |Gift-Casper| image:: https://img.shields.io/badge/sponsor-casper-ff69b4.svg
    :target: https://cdcl.ml/sponsor
 .. |Versions| image:: https://img.shields.io/pypi/v/tqdm.svg
    :target: https://tqdm.github.io/releases

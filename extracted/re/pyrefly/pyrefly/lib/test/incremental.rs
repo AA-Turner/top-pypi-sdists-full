@@ -20,6 +20,7 @@ use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::prelude::SliceExt;
+use pyrefly_util::thread_pool::TEST_THREAD_COUNT;
 use starlark_map::small_map::SmallMap;
 
 use crate::config::config::ConfigFile;
@@ -30,7 +31,6 @@ use crate::state::load::FileContents;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
-use crate::test::util::TEST_THREAD_COUNT;
 use crate::test::util::init_test;
 
 #[derive(Default, Clone, Dupe, Debug)]
@@ -1320,6 +1320,87 @@ fn test_mixed_import_failed_export_invalidated() {
         errors_after.ordinary.is_empty(),
         "Expected error after foo exports y"
     );
+}
+
+/// Test that disjoint-base changes propagate to downstream inheritance.
+///
+/// When a base class gains or loses disjoint-base status, modules that
+/// inherit through it alongside another disjoint base should gain or clear
+/// an `incompatible disjoint bases` diagnostic.
+#[test]
+fn test_disjoint_base_change_propagates_to_inheritance() {
+    let mut i = Incremental::new();
+
+    // foo.Left is NOT a disjoint base initially - no error for class Combined(Left, Right)
+    i.set("foo", "class Left: pass");
+    i.set(
+        "bar",
+        "from typing_extensions import disjoint_base\n@disjoint_base\nclass Right: pass",
+    );
+    i.set(
+        "main",
+        "from foo import Left\nfrom bar import Right\nclass Combined(Left, Right): pass",
+    );
+    i.check(&["main"], &["main", "foo", "bar"]);
+
+    // Make Left disjoint - main should be recomputed and gain incompatible-disjoint-bases error
+    i.set(
+        "foo",
+        "from typing_extensions import disjoint_base\n@disjoint_base\nclass Left: pass",
+    );
+    i.set(
+        "main",
+        "from foo import Left\nfrom bar import Right\nclass Combined(Left, Right): pass # E: incompatible disjoint bases",
+    );
+    i.check(&["main"], &["foo", "main"]);
+}
+
+/// Test that disjoint-base changes propagate to downstream narrowing.
+///
+/// When a base class gains disjoint-base status, modules narrowing against
+/// it via `isinstance` should be recomputed: an intersection that was
+/// previously inhabited should narrow to `Never`.
+#[test]
+fn test_disjoint_base_change_propagates_to_narrowing() {
+    let mut i = Incremental::new();
+
+    // foo.Base is NOT a disjoint base initially; the intersection with Other can be non-empty,
+    // so `assert_never` should error.
+    i.set("foo", "class Base: pass");
+    i.set(
+        "bar",
+        "from typing_extensions import disjoint_base, assert_never\n@disjoint_base\nclass Other: pass",
+    );
+    i.set(
+        "main",
+        r#"
+from typing_extensions import assert_never
+from foo import Base
+from bar import Other
+def f(x: Base) -> None:
+    if isinstance(x, Other):
+        assert_never(x) # E: not assignable to parameter `arg` with type `Never`
+"#,
+    );
+    i.check(&["main"], &["main", "foo", "bar"]);
+
+    // Make Base a disjoint base - the intersection is now Never, so assert_never should accept.
+    i.set(
+        "foo",
+        "from typing_extensions import disjoint_base\n@disjoint_base\nclass Base: pass",
+    );
+    i.set(
+        "main",
+        r#"
+from typing_extensions import assert_never
+from foo import Base
+from bar import Other
+def f(x: Base) -> None:
+    if isinstance(x, Other):
+        assert_never(x)
+"#,
+    );
+    i.check(&["main"], &["foo", "main"]);
 }
 
 /// Test that abstract class check changes propagate correctly (KeyAbstractClassCheck).

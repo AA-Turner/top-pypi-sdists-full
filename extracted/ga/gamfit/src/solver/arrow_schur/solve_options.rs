@@ -100,11 +100,23 @@ pub struct PcgDiagnostics {
     pub stopping_reason: PcgStopReason,
     /// Mixed-precision certificate outcome for this solve.
     pub mixed_precision_status: MixedPrecisionStatus,
-    /// True when this Direct-mode point solve was served by the fully
-    /// device-resident batched Arrow-Schur sequence (#1017). Lets harnesses and
-    /// parity tests observe that the production auto-selection routed to the
-    /// device rather than the CPU dense Cholesky, without changing the numbers.
+    /// True only when the reduced-Schur solve was **actually executed on the
+    /// device**: either the fully device-resident batched Arrow-Schur Direct
+    /// sequence (`try_device_arrow_direct` → `solve_arrow_newton_step`) or the
+    /// device-resident matrix-free SAE PCG (`solve_sae_matrix_free_pcg`, which
+    /// runs the matvec in CUDA kernels over device-resident frames). It is NOT
+    /// set merely because a GPU runtime exists and a dispatch gate fired (#1209).
     pub used_device_arrow: bool,
+    /// True when a reduced-Schur matvec backend was injected through
+    /// `maybe_inject_gpu_schur_matvec` but the matvec itself runs as a
+    /// **host** (CPU Rust/Rayon) procedural closure — both the matrix-free
+    /// `build_row_procedural_matvec` branch and the `cuda::build_schur_matvec_backend`
+    /// branch return host closures that evaluate `Σ_i Y_iᵀ(Y_i x)` on the CPU,
+    /// even when a CUDA context was opened to build the per-row factors. This
+    /// path must NOT report `used_device_arrow`: the arithmetic is host-side
+    /// (#1209). Distinct field so perf accounting never mistakes a host
+    /// procedural matvec for true device execution.
+    pub injected_host_procedural_matvec: bool,
 }
 
 /// Outcome of an opt-in mixed-precision arrow solve.
@@ -166,8 +178,8 @@ impl Default for ArrowTrustRegionOptions {
 
 /// Opt-in Carson--Higham mixed-precision refinement for dense arrow solves.
 ///
-/// Default is [`MixedPrecisionPolicy::Off`]: exact f64 solves remain the default.
-/// [`MixedPrecisionPolicy::Certified`] stores f32 copies of the per-row Cholesky
+/// Default is [`ArrowSolvePrecisionPolicy::F64Only`]: exact f64 solves remain the default.
+/// [`ArrowSolvePrecisionPolicy::CertifiedMixed`] stores f32 copies of the per-row Cholesky
 /// factors and dense Schur factor, solves corrections in f32, and recomputes the
 /// residual in f64 against the original arrow blocks. The standard refinement
 /// certificate is the normwise backward error
@@ -178,24 +190,24 @@ impl Default for ArrowTrustRegionOptions {
 /// when it fails, the solve reports [`MixedPrecisionStatus::F64Fallback`] and
 /// logs the reason before using the f64 path.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MixedPrecisionPolicy {
-    Off,
-    Certified {
+pub enum ArrowSolvePrecisionPolicy {
+    F64Only,
+    CertifiedMixed {
         max_refinement_steps: usize,
         residual_relative_tolerance: f64,
         kappa_unit_roundoff_margin: f64,
     },
 }
 
-impl Default for MixedPrecisionPolicy {
+impl Default for ArrowSolvePrecisionPolicy {
     fn default() -> Self {
-        Self::Off
+        Self::F64Only
     }
 }
 
-impl MixedPrecisionPolicy {
-    pub fn certified() -> Self {
-        Self::Certified {
+impl ArrowSolvePrecisionPolicy {
+    pub fn certified_mixed() -> Self {
+        Self::CertifiedMixed {
             max_refinement_steps: DEFAULT_MIXED_PRECISION_MAX_REFINEMENTS,
             residual_relative_tolerance: DEFAULT_MIXED_PRECISION_CERTIFICATE_TOLERANCE,
             kappa_unit_roundoff_margin: DEFAULT_MIXED_PRECISION_KAPPA_MARGIN,
@@ -203,7 +215,7 @@ impl MixedPrecisionPolicy {
     }
 
     pub(crate) fn is_enabled(self) -> bool {
-        matches!(self, MixedPrecisionPolicy::Certified { .. })
+        matches!(self, ArrowSolvePrecisionPolicy::CertifiedMixed { .. })
     }
 }
 
@@ -227,7 +239,7 @@ pub struct ArrowSolveOptions {
     ///
     /// When set, `run_pcg_with_preconditioner` delegates each `S·p` call to
     /// this closure instead of the CPU `schur_matvec`. Constructed by
-    /// `crate::gpu::arrow_schur::gpu_schur_matvec_backend` when `cuda_selected()`
+    /// `crate::gpu::kernels::arrow_schur::gpu_schur_matvec_backend` when `cuda_selected()`
     /// and the system has dense per-row H_tβ slabs. `None` means CPU-only PCG.
     pub gpu_matvec: Option<GpuSchurMatvec>,
     /// Skip the ill-conditioning *rejection* (the κ-based
@@ -247,8 +259,8 @@ pub struct ArrowSolveOptions {
     ///
     /// Default `false`: ordinary solves keep the full guard.
     pub tolerate_ill_conditioning: bool,
-    /// Opt-in certified mixed-precision direct solve. Default is off.
-    pub mixed_precision: MixedPrecisionPolicy,
+    /// Arrow solve precision policy. Default is f64-only.
+    pub solve_precision: ArrowSolvePrecisionPolicy,
 }
 
 impl std::fmt::Debug for ArrowSolveOptions {
@@ -261,7 +273,7 @@ impl std::fmt::Debug for ArrowSolveOptions {
             .field("riemannian_trust_region", &self.riemannian_trust_region)
             .field("gpu_matvec", &self.gpu_matvec.is_some())
             .field("tolerate_ill_conditioning", &self.tolerate_ill_conditioning)
-            .field("mixed_precision", &self.mixed_precision)
+            .field("solve_precision", &self.solve_precision)
             .finish()
     }
 }
@@ -336,7 +348,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
-            mixed_precision: MixedPrecisionPolicy::Off,
+            solve_precision: ArrowSolvePrecisionPolicy::F64Only,
         }
     }
 
@@ -351,7 +363,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
-            mixed_precision: MixedPrecisionPolicy::Off,
+            solve_precision: ArrowSolvePrecisionPolicy::F64Only,
         }
     }
 
@@ -365,7 +377,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
-            mixed_precision: MixedPrecisionPolicy::Off,
+            solve_precision: ArrowSolvePrecisionPolicy::F64Only,
         }
     }
 
@@ -379,7 +391,7 @@ impl ArrowSolveOptions {
             riemannian_trust_region: false,
             gpu_matvec: None,
             tolerate_ill_conditioning: false,
-            mixed_precision: MixedPrecisionPolicy::Off,
+            solve_precision: ArrowSolvePrecisionPolicy::F64Only,
         }
     }
 
@@ -400,23 +412,23 @@ impl ArrowSolveOptions {
         self
     }
 
-    pub fn with_mixed_precision_policy(mut self, policy: MixedPrecisionPolicy) -> Self {
-        self.mixed_precision = policy;
+    pub fn with_solve_precision_policy(mut self, policy: ArrowSolvePrecisionPolicy) -> Self {
+        self.solve_precision = policy;
         self
     }
 
     /// Turn certified mixed precision ON for the streaming/residency reduced
     /// solve unless the caller already pinned an explicit policy (#1014).
     ///
-    /// Only `Off` (the inherited default) is upgraded to `Certified`; a caller
-    /// that deliberately set a policy keeps it. The reduced-Schur f64 factor and
-    /// every evidence log-determinant are unaffected — see
+    /// Only `F64Only` (the inherited default) is upgraded to `CertifiedMixed`;
+    /// a caller that deliberately set a policy keeps it. The reduced-Schur f64
+    /// factor and every evidence log-determinant are unaffected — see
     /// [`mixed_precision_reduced_beta`].
     #[must_use]
-    pub fn with_streaming_mixed_precision_default(&self) -> Self {
+    pub fn with_streaming_solve_precision_default(&self) -> Self {
         let mut out = self.clone();
-        if matches!(out.mixed_precision, MixedPrecisionPolicy::Off) {
-            out.mixed_precision = MixedPrecisionPolicy::certified();
+        if matches!(out.solve_precision, ArrowSolvePrecisionPolicy::F64Only) {
+            out.solve_precision = ArrowSolvePrecisionPolicy::certified_mixed();
         }
         out
     }

@@ -29,9 +29,9 @@ from typing import Annotated
 
 import requests
 from cyclopts import Parameter
+from fastmcp_extensions.cli import exit_with_error, print_json, print_success
 
 from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import exit_with_error, print_json, print_success
 from airbyte_ops_mcp.devin_api import (
     extract_session_id,
     send_session_message,

@@ -1,3 +1,4 @@
+import os
 from random import shuffle
 
 import pytest
@@ -115,22 +116,85 @@ def test_char_missing_error():
 def test_minimal_exe():
     venv_exe_path = '/home/mahmoud/virtualenvs/face/bin/python'
     res = get_minimal_executable(venv_exe_path,
-                                 environ={'PATH': ('/home/mahmoud/virtualenvs/face/bin'
-                                                   ':/home/mahmoud/bin:/usr/local/sbin'
-                                                   ':/usr/local/bin:/usr/sbin'
-                                                   ':/usr/bin:/sbin:/bin:/snap/bin')})
+                                 environ={'PATH': os.pathsep.join([
+                                     '/home/mahmoud/virtualenvs/face/bin',
+                                     '/home/mahmoud/bin', '/usr/local/sbin',
+                                     '/usr/local/bin', '/usr/sbin',
+                                     '/usr/bin', '/sbin', '/bin', '/snap/bin'])})
     assert res == 'python'
 
     res = get_minimal_executable(venv_exe_path,
-                                 environ={'PATH': ('/home/mahmoud/bin:/usr/local/sbin'
-                                                   ':/usr/local/bin:/usr/sbin'
-                                                   ':/usr/bin:/sbin:/bin:/snap/bin')})
+                                 environ={'PATH': os.pathsep.join([
+                                     '/home/mahmoud/bin', '/usr/local/sbin',
+                                     '/usr/local/bin', '/usr/sbin',
+                                     '/usr/bin', '/sbin', '/bin', '/snap/bin'])})
     assert res == venv_exe_path
 
     # TODO: where is PATH not a string?
     res = get_minimal_executable(venv_exe_path, environ={'PATH': []})
     assert res == venv_exe_path
 
+
+def test_minimal_exe_path_list():
+    """Test get_minimal_executable with path passed as a list (no splitting needed)."""
+    venv_exe_path = '/home/mahmoud/virtualenvs/face/bin/python'
+    res = get_minimal_executable(venv_exe_path,
+                                 path=['/home/mahmoud/virtualenvs/face/bin',
+                                       '/usr/local/bin',
+                                       '/usr/bin'])
+    assert res == 'python'
+
+    res = get_minimal_executable(venv_exe_path,
+                                 path=['/usr/local/bin', '/usr/bin'])
+    assert res == venv_exe_path
+
+
+def test_minimal_exe_cross_drive(monkeypatch):
+    """On Windows, relpath raises ValueError across drives. Verify graceful handling."""
+    import os.path
+    original_relpath = os.path.relpath
+
+    def mock_relpath(path, start):
+        # Simulate Windows cross-drive error
+        if start == 'C:\\other':
+            raise ValueError("path is on mount 'D:', start on mount 'C:'")
+        return original_relpath(path, start)
+
+    monkeypatch.setattr('os.path.relpath', mock_relpath)
+
+    exe = '/home/mahmoud/venvs/face/bin/python'
+    res = get_minimal_executable(exe,
+                                 path=['/home/mahmoud/venvs/face/bin',
+                                       'C:\\other'])
+    assert res == 'python'
+
+    # When only cross-drive entries exist, fall back to full path
+    res = get_minimal_executable(exe, path=['C:\\other'])
+    assert res == exe
+
+
+def test_cmd_scope_shortens_script_entry_point(monkeypatch):
+    """When argv[0] is a full venv path like /home/user/.venv/bin/ff,
+    and that directory is on PATH, cmd_ should be just 'ff'."""
+    venv_bin = '/home/user/.cache/pypoetry/virtualenvs/proj-abc123-py3.11/bin'
+    full_path = venv_bin + '/ff'
+    monkeypatch.setenv('PATH', os.pathsep.join([venv_bin, '/usr/bin', '/bin']))
+
+    cmd = Command(lambda: None, name='mycli')
+    parse_result = cmd.parse([full_path, '--help'])
+    scope = parse_result.to_cmd_scope()
+    assert scope['cmd_'] == 'ff'
+
+
+def test_cmd_scope_keeps_full_path_when_not_on_path(monkeypatch):
+    """When argv[0] directory is NOT on PATH, cmd_ should remain the full path."""
+    full_path = '/opt/custom/bin/ff'
+    monkeypatch.setenv('PATH', os.pathsep.join(['/usr/bin', '/bin']))
+
+    cmd = Command(lambda: None, name='mycli')
+    parse_result = cmd.parse([full_path, '--help'])
+    scope = parse_result.to_cmd_scope()
+    assert scope['cmd_'] == full_path
 
 def test_posargspec_init():
     with pytest.raises(TypeError, match='expected callable or ERROR'):

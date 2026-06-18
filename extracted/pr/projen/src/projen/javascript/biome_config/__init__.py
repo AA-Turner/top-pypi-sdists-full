@@ -20,16 +20,22 @@ from ..._jsii import *
 @jsii.data_type(
     jsii_type="projen.javascript.biome_config.Actions",
     jsii_struct_bases=[],
-    name_mapping={"recommended": "recommended", "source": "source"},
+    name_mapping={
+        "preset": "preset",
+        "recommended": "recommended",
+        "source": "source",
+    },
 )
 class Actions:
     def __init__(
         self,
         *,
+        preset: typing.Optional["PresetConfig"] = None,
         recommended: typing.Optional[builtins.bool] = None,
         source: typing.Optional[typing.Union["Source", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
+        :param preset: (experimental) The actions preset to use.
         :param recommended: (experimental) It enables the assist actions recommended by Biome. ``true`` by default.
         :param source: 
 
@@ -40,13 +46,26 @@ class Actions:
             source = Source(**source)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6366c915d5edbe08a6c33dee8fe8422a0286f131b30d1697e72b9e5e37127dcc)
+            check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
             check_type(argname="argument recommended", value=recommended, expected_type=type_hints["recommended"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if preset is not None:
+            self._values["preset"] = preset
         if recommended is not None:
             self._values["recommended"] = recommended
         if source is not None:
             self._values["source"] = source
+
+    @builtins.property
+    def preset(self) -> typing.Optional["PresetConfig"]:
+        '''(experimental) The actions preset to use.
+
+        :stability: experimental
+        :schema: Actions#preset
+        '''
+        result = self._values.get("preset")
+        return typing.cast(typing.Optional["PresetConfig"], result)
 
     @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
@@ -238,7 +257,7 @@ class BiomeConfiguration:
         json: typing.Optional[typing.Union["JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["LinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         overrides: typing.Optional[typing.Sequence[typing.Union["OverridePattern", typing.Dict[builtins.str, typing.Any]]]] = None,
-        plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
+        plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
         root: typing.Optional[builtins.bool] = None,
         schema: typing.Optional[builtins.str] = None,
         vcs: typing.Optional[typing.Union["VcsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -259,7 +278,7 @@ class BiomeConfiguration:
         :param overrides: (experimental) A list of granular patterns that should be applied only to a sub set of files.
         :param plugins: (experimental) List of plugins to load.
         :param root: (experimental) Indicates whether this configuration file is at the root of a Biome project. By default, this is ``true``.
-        :param schema: (experimental) A field for the `JSON schema <https://json-schema.org/>`_ specification.
+        :param schema: (experimental) A field for the JSON schema specification: https://json-schema.org/.
         :param vcs: (experimental) The configuration of the VCS integration.
 
         :stability: experimental
@@ -460,14 +479,14 @@ class BiomeConfiguration:
         return typing.cast(typing.Optional[typing.List["OverridePattern"]], result)
 
     @builtins.property
-    def plugins(self) -> typing.Optional[typing.List[builtins.str]]:
+    def plugins(self) -> typing.Optional[typing.List[typing.Any]]:
         '''(experimental) List of plugins to load.
 
         :stability: experimental
         :schema: BiomeConfiguration#plugins
         '''
         result = self._values.get("plugins")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Any]], result)
 
     @builtins.property
     def root(self) -> typing.Optional[builtins.bool]:
@@ -483,7 +502,7 @@ class BiomeConfiguration:
 
     @builtins.property
     def schema(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A field for the `JSON schema <https://json-schema.org/>`_ specification.
+        '''(experimental) A field for the JSON schema specification: https://json-schema.org/.
 
         :stability: experimental
         :schema: BiomeConfiguration#$schema
@@ -681,6 +700,7 @@ class CssConfiguration:
     jsii_type="projen.javascript.biome_config.CssFormatterConfiguration",
     jsii_struct_bases=[],
     name_mapping={
+        "delimiter_spacing": "delimiterSpacing",
         "enabled": "enabled",
         "indent_style": "indentStyle",
         "indent_width": "indentWidth",
@@ -694,6 +714,7 @@ class CssFormatterConfiguration:
     def __init__(
         self,
         *,
+        delimiter_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         indent_style: typing.Optional["IndentStyle"] = None,
         indent_width: typing.Optional[jsii.Number] = None,
@@ -704,6 +725,7 @@ class CssFormatterConfiguration:
     ) -> None:
         '''(experimental) Options that changes how the CSS formatter behaves.
 
+        :param delimiter_spacing: (experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter). Only applies when the content fits on a single line, and empty delimiters are not affected. For CSS, affects parentheses (e.g., ``rgb( 0, 0, 0 )``) and square brackets (e.g., ``[ data-attr ]``). Defaults to false. Default: false.
         :param enabled: (experimental) Control the formatter for CSS (and its super languages) files.
         :param indent_style: (experimental) The indent style applied to CSS (and its super languages) files.
         :param indent_width: (experimental) The size of the indentation applied to CSS (and its super languages) files. Default to 2. Default: 2.
@@ -717,6 +739,7 @@ class CssFormatterConfiguration:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e1fb0cc7e8e9a8ff6796060277e93271c00edf3f8878cd107fe3a211c7aa58ca)
+            check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
             check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
@@ -725,6 +748,8 @@ class CssFormatterConfiguration:
             check_type(argname="argument quote_style", value=quote_style, expected_type=type_hints["quote_style"])
             check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if delimiter_spacing is not None:
+            self._values["delimiter_spacing"] = delimiter_spacing
         if enabled is not None:
             self._values["enabled"] = enabled
         if indent_style is not None:
@@ -739,6 +764,22 @@ class CssFormatterConfiguration:
             self._values["quote_style"] = quote_style
         if trailing_newline is not None:
             self._values["trailing_newline"] = trailing_newline
+
+    @builtins.property
+    def delimiter_spacing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter).
+
+        Only applies when the content fits on a single line, and empty
+        delimiters are not affected. For CSS, affects parentheses (e.g., ``rgb( 0, 0, 0 )``) and
+        square brackets (e.g., ``[ data-attr ]``). Defaults to false.
+
+        :default: false.
+
+        :stability: experimental
+        :schema: CssFormatterConfiguration#delimiterSpacing
+        '''
+        result = self._values.get("delimiter_spacing")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -1123,6 +1164,7 @@ class FilesConfiguration:
         "attribute_position": "attributePosition",
         "bracket_same_line": "bracketSameLine",
         "bracket_spacing": "bracketSpacing",
+        "delimiter_spacing": "delimiterSpacing",
         "enabled": "enabled",
         "expand": "expand",
         "format_with_errors": "formatWithErrors",
@@ -1142,6 +1184,7 @@ class FormatterConfiguration:
         attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
+        delimiter_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         expand: typing.Optional["Expand"] = None,
         format_with_errors: typing.Optional[builtins.bool] = None,
@@ -1158,6 +1201,7 @@ class FormatterConfiguration:
         :param attribute_position: (experimental) The attribute position style in HTML-ish languages. Defaults to auto. Default: auto.
         :param bracket_same_line: (experimental) Put the ``>`` of a multi-line HTML or JSX element at the end of the last line instead of being alone on the next line (does not apply to self closing elements).
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
+        :param delimiter_spacing: (experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter), such as parentheses, brackets, angle brackets, and template literal interpolations. Spaces are not added before the opening delimiter, and empty delimiters are not affected. Only applies when the content fits on a single line. The specific delimiters affected depend on the language. Defaults to false. Default: false.
         :param enabled: 
         :param expand: (experimental) Whether to expand arrays and objects on multiple lines. When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto". Default: auto".
         :param format_with_errors: (experimental) Whether formatting should be allowed to proceed if a given file has syntax errors.
@@ -1177,6 +1221,7 @@ class FormatterConfiguration:
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
+            check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expand", value=expand, expected_type=type_hints["expand"])
             check_type(argname="argument format_with_errors", value=format_with_errors, expected_type=type_hints["format_with_errors"])
@@ -1194,6 +1239,8 @@ class FormatterConfiguration:
             self._values["bracket_same_line"] = bracket_same_line
         if bracket_spacing is not None:
             self._values["bracket_spacing"] = bracket_spacing
+        if delimiter_spacing is not None:
+            self._values["delimiter_spacing"] = delimiter_spacing
         if enabled is not None:
             self._values["enabled"] = enabled
         if expand is not None:
@@ -1251,6 +1298,22 @@ class FormatterConfiguration:
         :schema: FormatterConfiguration#bracketSpacing
         '''
         result = self._values.get("bracket_spacing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def delimiter_spacing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter), such as parentheses, brackets, angle brackets, and template literal interpolations.
+
+        Spaces are not added before the opening delimiter, and empty delimiters
+        are not affected. Only applies when the content fits on a single line. The specific
+        delimiters affected depend on the language. Defaults to false.
+
+        :default: false.
+
+        :stability: experimental
+        :schema: FormatterConfiguration#delimiterSpacing
+        '''
+        result = self._values.get("delimiter_spacing")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -2527,13 +2590,19 @@ class HtmlLinterConfiguration:
 @jsii.data_type(
     jsii_type="projen.javascript.biome_config.HtmlParserConfiguration",
     jsii_struct_bases=[],
-    name_mapping={"interpolation": "interpolation"},
+    name_mapping={"interpolation": "interpolation", "vue": "vue"},
 )
 class HtmlParserConfiguration:
-    def __init__(self, *, interpolation: typing.Optional[builtins.bool] = None) -> None:
+    def __init__(
+        self,
+        *,
+        interpolation: typing.Optional[builtins.bool] = None,
+        vue: typing.Optional[builtins.bool] = None,
+    ) -> None:
         '''(experimental) Options that changes how the HTML parser behaves.
 
         :param interpolation: (experimental) Enables the parsing of double text expressions such as ``{{ expression }}`` inside ``.html`` files.
+        :param vue: (experimental) Enables parsing of Vue syntax (v-if, v-bind, etc.) in ``.html`` files. If this option is enabled, it also enables ``interpolation`` implicitly. Biome will already automatically enable Vue parsing in ``.vue`` files, so you probably don't need to enable this option. This only affects ``.html`` files, and does not change how ``.vue``, ``.svelte``, or ``.astro`` files are parsed.
 
         :stability: experimental
         :schema: HtmlParserConfiguration
@@ -2541,9 +2610,12 @@ class HtmlParserConfiguration:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b3cfca5c3ad8f608b86ade05d476530f16da0ba23410a7613236950da38ff37)
             check_type(argname="argument interpolation", value=interpolation, expected_type=type_hints["interpolation"])
+            check_type(argname="argument vue", value=vue, expected_type=type_hints["vue"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if interpolation is not None:
             self._values["interpolation"] = interpolation
+        if vue is not None:
+            self._values["vue"] = vue
 
     @builtins.property
     def interpolation(self) -> typing.Optional[builtins.bool]:
@@ -2553,6 +2625,20 @@ class HtmlParserConfiguration:
         :schema: HtmlParserConfiguration#interpolation
         '''
         result = self._values.get("interpolation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def vue(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables parsing of Vue syntax (v-if, v-bind, etc.) in ``.html`` files. If this option is enabled, it also enables ``interpolation`` implicitly.
+
+        Biome will already automatically enable Vue parsing in ``.vue`` files, so you probably don't need
+        to enable this option. This only affects ``.html`` files, and does not change how ``.vue``, ``.svelte``,
+        or ``.astro`` files are parsed.
+
+        :stability: experimental
+        :schema: HtmlParserConfiguration#vue
+        '''
+        result = self._values.get("vue")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -2640,6 +2726,7 @@ class JsAssistConfiguration:
         "jsx_runtime": "jsxRuntime",
         "linter": "linter",
         "parser": "parser",
+        "resolver": "resolver",
     },
 )
 class JsConfiguration:
@@ -2653,6 +2740,7 @@ class JsConfiguration:
         jsx_runtime: typing.Optional["JsxRuntime"] = None,
         linter: typing.Optional[typing.Union["JsLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         parser: typing.Optional[typing.Union["JsParserConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        resolver: typing.Optional[typing.Union["JsResolverConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) A set of options applied to the JavaScript files.
 
@@ -2663,6 +2751,7 @@ class JsConfiguration:
         :param jsx_runtime: (experimental) Indicates the type of runtime or transformation used for interpreting JSX.
         :param linter: (experimental) Linter options.
         :param parser: (experimental) Parsing options.
+        :param resolver: (experimental) Module/dependency resolver options.
 
         :stability: experimental
         :schema: JsConfiguration
@@ -2675,6 +2764,8 @@ class JsConfiguration:
             linter = JsLinterConfiguration(**linter)
         if isinstance(parser, dict):
             parser = JsParserConfiguration(**parser)
+        if isinstance(resolver, dict):
+            resolver = JsResolverConfiguration(**resolver)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57972f7094bf127a9fb1918efc38b7f9fd8b7e2a28387b1d59645ced7024c16b)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
@@ -2684,6 +2775,7 @@ class JsConfiguration:
             check_type(argname="argument jsx_runtime", value=jsx_runtime, expected_type=type_hints["jsx_runtime"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
             check_type(argname="argument parser", value=parser, expected_type=type_hints["parser"])
+            check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if assist is not None:
             self._values["assist"] = assist
@@ -2699,6 +2791,8 @@ class JsConfiguration:
             self._values["linter"] = linter
         if parser is not None:
             self._values["parser"] = parser
+        if resolver is not None:
+            self._values["resolver"] = resolver
 
     @builtins.property
     def assist(self) -> typing.Optional["JsAssistConfiguration"]:
@@ -2772,6 +2866,16 @@ class JsConfiguration:
         result = self._values.get("parser")
         return typing.cast(typing.Optional["JsParserConfiguration"], result)
 
+    @builtins.property
+    def resolver(self) -> typing.Optional["JsResolverConfiguration"]:
+        '''(experimental) Module/dependency resolver options.
+
+        :stability: experimental
+        :schema: JsConfiguration#resolver
+        '''
+        result = self._values.get("resolver")
+        return typing.cast(typing.Optional["JsResolverConfiguration"], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -2792,6 +2896,7 @@ class JsConfiguration:
         "attribute_position": "attributePosition",
         "bracket_same_line": "bracketSameLine",
         "bracket_spacing": "bracketSpacing",
+        "delimiter_spacing": "delimiterSpacing",
         "enabled": "enabled",
         "expand": "expand",
         "indent_style": "indentStyle",
@@ -2815,6 +2920,7 @@ class JsFormatterConfiguration:
         attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
+        delimiter_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         expand: typing.Optional["Expand"] = None,
         indent_style: typing.Optional["IndentStyle"] = None,
@@ -2835,6 +2941,7 @@ class JsFormatterConfiguration:
         :param attribute_position: (experimental) The attribute position style in JSX elements. Defaults to auto. Default: auto.
         :param bracket_same_line: (experimental) Whether to hug the closing bracket of multiline HTML/JSX tags to the end of the last line, rather than being alone on the following line. Defaults to false. Default: false.
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
+        :param delimiter_spacing: (experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter). Only applies when the content fits on a single line. Spaces are not added before the opening delimiter (e.g., ``function f()`` stays ``function f()``, not ``function f ()``), and empty delimiters are not affected (e.g., ``fn()`` stays ``fn()``). For JavaScript and TypeScript, affects parentheses (e.g., ``foo( a, b )``), square brackets (e.g., ``[ a, b ]``), template literal interpolations (e.g., ``${ expr }``), TypeScript angle brackets (e.g., ``foo< T >()``), JSX expression braces (e.g., ``{ value }``), and the logical NOT operator (e.g., ``! x``, but in chains only after the last one: ``!! x``). Defaults to false. Default: false.
         :param enabled: (experimental) Control the formatter for JavaScript (and its super languages) files.
         :param expand: (experimental) Whether to expand arrays and objects on multiple lines. When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto". Default: auto".
         :param indent_style: (experimental) The indent style applied to JavaScript (and its super languages) files.
@@ -2858,6 +2965,7 @@ class JsFormatterConfiguration:
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
+            check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expand", value=expand, expected_type=type_hints["expand"])
             check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
@@ -2880,6 +2988,8 @@ class JsFormatterConfiguration:
             self._values["bracket_same_line"] = bracket_same_line
         if bracket_spacing is not None:
             self._values["bracket_spacing"] = bracket_spacing
+        if delimiter_spacing is not None:
+            self._values["delimiter_spacing"] = delimiter_spacing
         if enabled is not None:
             self._values["enabled"] = enabled
         if expand is not None:
@@ -2961,6 +3071,27 @@ class JsFormatterConfiguration:
         :schema: JsFormatterConfiguration#bracketSpacing
         '''
         result = self._values.get("bracket_spacing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def delimiter_spacing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter).
+
+        Only applies when the content fits on a single line. Spaces are not
+        added before the opening delimiter (e.g., ``function f()`` stays ``function f()``, not
+        ``function f ()``), and empty delimiters are not affected (e.g., ``fn()`` stays ``fn()``).
+        For JavaScript and TypeScript, affects parentheses (e.g., ``foo( a, b )``), square brackets
+        (e.g., ``[ a, b ]``), template literal interpolations (e.g., ``${ expr }``), TypeScript angle
+        brackets (e.g., ``foo< T >()``), JSX expression braces (e.g., ``{ value }``), and the logical
+        NOT operator (e.g., ``! x``, but in chains only after the last one: ``!! x``). Defaults to
+        false.
+
+        :default: false.
+
+        :stability: experimental
+        :schema: JsFormatterConfiguration#delimiterSpacing
+        '''
+        result = self._values.get("delimiter_spacing")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -3289,6 +3420,79 @@ class JsParserConfiguration:
         )
 
 
+@jsii.data_type(
+    jsii_type="projen.javascript.biome_config.JsResolverConfiguration",
+    jsii_struct_bases=[],
+    name_mapping={"experimental_pnpm_catalogs": "experimentalPnpmCatalogs"},
+)
+class JsResolverConfiguration:
+    def __init__(
+        self,
+        *,
+        experimental_pnpm_catalogs: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''(experimental) Resolver options specific to JavaScript files.
+
+        :param experimental_pnpm_catalogs: (experimental) Enables pnpm workspace catalog resolution for JavaScript package manifests. Opt-in: - Set ``javascript.resolver.experimentalPnpmCatalogs`` to ``true``. Scope: - Resolves ``catalog:`` and ``catalog:<name>`` dependency versions from ``package.json``. - Applies to ``dependencies``, ``devDependencies``, and ``peerDependencies``. Fail-safe behavior: - If ``pnpm-workspace.yaml`` is missing, unreadable, or cannot be parsed, Biome silently falls back to the default behavior (as if this option were disabled). - Unknown keys and unsupported value shapes in ``pnpm-workspace.yaml`` are ignored. Limitations: - Only ``pnpm-workspace.yaml`` is read. - Biome only reads top-level ``catalog`` / ``catalogs`` mappings and scalar string entries. Default: ``false``.
+
+        :stability: experimental
+        :schema: JsResolverConfiguration
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e0ae3402dedb6e0fd3dbd8c7871dc3e24d95f19bd630a3675b446eeff16b76d)
+            check_type(argname="argument experimental_pnpm_catalogs", value=experimental_pnpm_catalogs, expected_type=type_hints["experimental_pnpm_catalogs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if experimental_pnpm_catalogs is not None:
+            self._values["experimental_pnpm_catalogs"] = experimental_pnpm_catalogs
+
+    @builtins.property
+    def experimental_pnpm_catalogs(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables pnpm workspace catalog resolution for JavaScript package manifests.
+
+        Opt-in:
+
+        - Set ``javascript.resolver.experimentalPnpmCatalogs`` to ``true``.
+
+        Scope:
+
+        - Resolves ``catalog:`` and ``catalog:<name>`` dependency versions from
+          ``package.json``.
+        - Applies to ``dependencies``, ``devDependencies``, and ``peerDependencies``.
+
+        Fail-safe behavior:
+
+        - If ``pnpm-workspace.yaml`` is missing, unreadable, or cannot be parsed,
+          Biome silently falls back to the default behavior (as if this option
+          were disabled).
+        - Unknown keys and unsupported value shapes in ``pnpm-workspace.yaml`` are
+          ignored.
+
+        Limitations:
+
+        - Only ``pnpm-workspace.yaml`` is read.
+        - Biome only reads top-level ``catalog`` / ``catalogs`` mappings and scalar
+          string entries.
+
+        Default: ``false``.
+
+        :stability: experimental
+        :schema: JsResolverConfiguration#experimentalPnpmCatalogs
+        '''
+        result = self._values.get("experimental_pnpm_catalogs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "JsResolverConfiguration(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="projen.javascript.biome_config.JsTrailingCommas")
 class JsTrailingCommas(enum.Enum):
     '''(experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures for JavaScript/TypeScript files.
@@ -3467,6 +3671,7 @@ class JsonConfiguration:
     jsii_struct_bases=[],
     name_mapping={
         "bracket_spacing": "bracketSpacing",
+        "delimiter_spacing": "delimiterSpacing",
         "enabled": "enabled",
         "expand": "expand",
         "indent_style": "indentStyle",
@@ -3482,6 +3687,7 @@ class JsonFormatterConfiguration:
         self,
         *,
         bracket_spacing: typing.Optional[builtins.bool] = None,
+        delimiter_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         expand: typing.Optional["Expand"] = None,
         indent_style: typing.Optional["IndentStyle"] = None,
@@ -3493,6 +3699,7 @@ class JsonFormatterConfiguration:
     ) -> None:
         '''
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
+        :param delimiter_spacing: (experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter). Only applies when the content fits on a single line, and empty brackets are not affected. For JSON, affects square brackets (e.g., ``[ 1, 2, 3 ]``). Defaults to false. Default: false.
         :param enabled: (experimental) Control the formatter for JSON (and its super languages) files.
         :param expand: (experimental) Whether to expand arrays and objects on multiple lines. When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto". Default: auto".
         :param indent_style: (experimental) The indent style applied to JSON (and its super languages) files.
@@ -3508,6 +3715,7 @@ class JsonFormatterConfiguration:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4a0473ff26e9f0e1a38d7055c4e466dc2b2b92f24abfce11672601c5a1f6f4a2)
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
+            check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expand", value=expand, expected_type=type_hints["expand"])
             check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
@@ -3519,6 +3727,8 @@ class JsonFormatterConfiguration:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if bracket_spacing is not None:
             self._values["bracket_spacing"] = bracket_spacing
+        if delimiter_spacing is not None:
+            self._values["delimiter_spacing"] = delimiter_spacing
         if enabled is not None:
             self._values["enabled"] = enabled
         if expand is not None:
@@ -3548,6 +3758,22 @@ class JsonFormatterConfiguration:
         :schema: JsonFormatterConfiguration#bracketSpacing
         '''
         result = self._values.get("bracket_spacing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def delimiter_spacing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter).
+
+        Only applies when the content fits on a single line, and empty
+        brackets are not affected. For JSON, affects square brackets (e.g., ``[ 1, 2, 3 ]``).
+        Defaults to false.
+
+        :default: false.
+
+        :stability: experimental
+        :schema: JsonFormatterConfiguration#delimiterSpacing
+        '''
+        result = self._values.get("delimiter_spacing")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -4101,6 +4327,7 @@ class OverrideFilesConfiguration:
         "attribute_position": "attributePosition",
         "bracket_same_line": "bracketSameLine",
         "bracket_spacing": "bracketSpacing",
+        "delimiter_spacing": "delimiterSpacing",
         "enabled": "enabled",
         "expand": "expand",
         "format_with_errors": "formatWithErrors",
@@ -4120,6 +4347,7 @@ class OverrideFormatterConfiguration:
         attribute_position: typing.Optional["AttributePosition"] = None,
         bracket_same_line: typing.Optional[builtins.bool] = None,
         bracket_spacing: typing.Optional[builtins.bool] = None,
+        delimiter_spacing: typing.Optional[builtins.bool] = None,
         enabled: typing.Optional[builtins.bool] = None,
         expand: typing.Optional["Expand"] = None,
         format_with_errors: typing.Optional[builtins.bool] = None,
@@ -4135,6 +4363,7 @@ class OverrideFormatterConfiguration:
         :param attribute_position: (experimental) The attribute position style.
         :param bracket_same_line: (experimental) Put the ``>`` of a multi-line HTML or JSX element at the end of the last line instead of being alone on the next line (does not apply to self closing elements).
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
+        :param delimiter_spacing: (experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter), such as parentheses, brackets, angle brackets, and template literal interpolations. Spaces are not added before the opening delimiter, and empty delimiters are not affected. Only applies when the content fits on a single line. The specific delimiters affected depend on the language. Defaults to false. Default: false.
         :param enabled: 
         :param expand: (experimental) Whether to expand arrays and objects on multiple lines. When set to ``auto``, object literals are formatted on multiple lines if the first property has a newline, and array literals are formatted on a single line if it fits in the line. When set to ``always``, these literals are formatted on multiple lines, regardless of length of the list. When set to ``never``, these literals are formatted on a single line if it fits in the line. When formatting ``package.json``, Biome will use ``always`` unless configured otherwise. Defaults to "auto". Default: auto".
         :param format_with_errors: (experimental) Stores whether formatting should be allowed to proceed if a given file has syntax errors.
@@ -4154,6 +4383,7 @@ class OverrideFormatterConfiguration:
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
+            check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument expand", value=expand, expected_type=type_hints["expand"])
             check_type(argname="argument format_with_errors", value=format_with_errors, expected_type=type_hints["format_with_errors"])
@@ -4171,6 +4401,8 @@ class OverrideFormatterConfiguration:
             self._values["bracket_same_line"] = bracket_same_line
         if bracket_spacing is not None:
             self._values["bracket_spacing"] = bracket_spacing
+        if delimiter_spacing is not None:
+            self._values["delimiter_spacing"] = delimiter_spacing
         if enabled is not None:
             self._values["enabled"] = enabled
         if expand is not None:
@@ -4224,6 +4456,22 @@ class OverrideFormatterConfiguration:
         :schema: OverrideFormatterConfiguration#bracketSpacing
         '''
         result = self._values.get("bracket_spacing")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def delimiter_spacing(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to insert spaces inside delimiters (after the opening delimiter and before the closing delimiter), such as parentheses, brackets, angle brackets, and template literal interpolations.
+
+        Spaces are not added before the opening delimiter, and empty delimiters
+        are not affected. Only applies when the content fits on a single line. The specific
+        delimiters affected depend on the language. Defaults to false.
+
+        :default: false.
+
+        :stability: experimental
+        :schema: OverrideFormatterConfiguration#delimiterSpacing
+        '''
+        result = self._values.get("delimiter_spacing")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
@@ -4476,7 +4724,7 @@ class OverridePattern:
         javascript: typing.Optional[typing.Union["JsConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         json: typing.Optional[typing.Union["JsonConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["OverrideLinterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
-        plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
+        plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
     ) -> None:
         '''
         :param assist: (experimental) Specific configuration for the Json language.
@@ -4669,14 +4917,14 @@ class OverridePattern:
         return typing.cast(typing.Optional["OverrideLinterConfiguration"], result)
 
     @builtins.property
-    def plugins(self) -> typing.Optional[typing.List[builtins.str]]:
+    def plugins(self) -> typing.Optional[typing.List[typing.Any]]:
         '''(experimental) Specific configuration for additional plugins.
 
         :stability: experimental
         :schema: OverridePattern#plugins
         '''
         result = self._values.get("plugins")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Any]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4688,6 +4936,31 @@ class OverridePattern:
         return "OverridePattern(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.enum(jsii_type="projen.javascript.biome_config.PresetConfig")
+class PresetConfig(enum.Enum):
+    '''(experimental) A preset configuration for enabling a set of rules.
+
+    :stability: experimental
+    :schema: PresetConfig
+    '''
+
+    RECOMMENDED = "RECOMMENDED"
+    '''(experimental) recommended.
+
+    :stability: experimental
+    '''
+    ALL = "ALL"
+    '''(experimental) all.
+
+    :stability: experimental
+    '''
+    NONE = "NONE"
+    '''(experimental) none.
+
+    :stability: experimental
+    '''
 
 
 @jsii.enum(jsii_type="projen.javascript.biome_config.QuoteProperties")
@@ -4761,6 +5034,7 @@ class RuleDomainValue(enum.Enum):
         "correctness": "correctness",
         "nursery": "nursery",
         "performance": "performance",
+        "preset": "preset",
         "recommended": "recommended",
         "security": "security",
         "style": "style",
@@ -4776,6 +5050,7 @@ class Rules:
         correctness: typing.Any = None,
         nursery: typing.Any = None,
         performance: typing.Any = None,
+        preset: typing.Optional["PresetConfig"] = None,
         recommended: typing.Optional[builtins.bool] = None,
         security: typing.Any = None,
         style: typing.Any = None,
@@ -4787,6 +5062,7 @@ class Rules:
         :param correctness: 
         :param nursery: 
         :param performance: 
+        :param preset: (experimental) The rule presets to use.
         :param recommended: (experimental) It enables the lint rules recommended by Biome. ``true`` by default.
         :param security: 
         :param style: 
@@ -4802,6 +5078,7 @@ class Rules:
             check_type(argname="argument correctness", value=correctness, expected_type=type_hints["correctness"])
             check_type(argname="argument nursery", value=nursery, expected_type=type_hints["nursery"])
             check_type(argname="argument performance", value=performance, expected_type=type_hints["performance"])
+            check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
             check_type(argname="argument recommended", value=recommended, expected_type=type_hints["recommended"])
             check_type(argname="argument security", value=security, expected_type=type_hints["security"])
             check_type(argname="argument style", value=style, expected_type=type_hints["style"])
@@ -4817,6 +5094,8 @@ class Rules:
             self._values["nursery"] = nursery
         if performance is not None:
             self._values["performance"] = performance
+        if preset is not None:
+            self._values["preset"] = preset
         if recommended is not None:
             self._values["recommended"] = recommended
         if security is not None:
@@ -4870,6 +5149,16 @@ class Rules:
         '''
         result = self._values.get("performance")
         return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def preset(self) -> typing.Optional["PresetConfig"]:
+        '''(experimental) The rule presets to use.
+
+        :stability: experimental
+        :schema: Rules#preset
+        '''
+        result = self._values.get("preset")
+        return typing.cast(typing.Optional["PresetConfig"], result)
 
     @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
@@ -4967,11 +5256,16 @@ class Semicolons(enum.Enum):
     name_mapping={
         "no_duplicate_classes": "noDuplicateClasses",
         "organize_imports": "organizeImports",
+        "preset": "preset",
         "recommended": "recommended",
         "use_sorted_attributes": "useSortedAttributes",
+        "use_sorted_enum_members": "useSortedEnumMembers",
         "use_sorted_interface_members": "useSortedInterfaceMembers",
         "use_sorted_keys": "useSortedKeys",
+        "use_sorted_package_json": "useSortedPackageJson",
         "use_sorted_properties": "useSortedProperties",
+        "use_sorted_selection_set": "useSortedSelectionSet",
+        "use_sorted_type_fields": "useSortedTypeFields",
     },
 )
 class Source:
@@ -4980,21 +5274,31 @@ class Source:
         *,
         no_duplicate_classes: typing.Any = None,
         organize_imports: typing.Any = None,
+        preset: typing.Optional["PresetConfig"] = None,
         recommended: typing.Optional[builtins.bool] = None,
         use_sorted_attributes: typing.Any = None,
+        use_sorted_enum_members: typing.Any = None,
         use_sorted_interface_members: typing.Any = None,
         use_sorted_keys: typing.Any = None,
+        use_sorted_package_json: typing.Any = None,
         use_sorted_properties: typing.Any = None,
+        use_sorted_selection_set: typing.Any = None,
+        use_sorted_type_fields: typing.Any = None,
     ) -> None:
         '''(experimental) A list of rules that belong to this group.
 
         :param no_duplicate_classes: (experimental) Remove duplicate CSS classes. See https://biomejs.dev/assist/actions/no-duplicate-classes
         :param organize_imports: (experimental) Sorts imports and exports in your JavaScript and TypeScript files. See https://biomejs.dev/assist/actions/organize-imports
+        :param preset: (experimental) Enables a particular rule preset.
         :param recommended: (experimental) Enables the recommended rules for this group.
-        :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements. See https://biomejs.dev/assist/actions/use-sorted-attributes
+        :param use_sorted_attributes: (experimental) Enforce attribute sorting in HTML elements. See https://biomejs.dev/assist/actions/use-sorted-attributes
+        :param use_sorted_enum_members: (experimental) Sort the members of an enum in natural order. See https://biomejs.dev/assist/actions/use-sorted-enum-members
         :param use_sorted_interface_members: (experimental) Sort interface members by key. See https://biomejs.dev/assist/actions/use-sorted-interface-members
         :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order. See https://biomejs.dev/assist/actions/use-sorted-keys
+        :param use_sorted_package_json: (experimental) Organize package.json fields according to established conventions. See https://biomejs.dev/assist/actions/use-sorted-package-json.
         :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules. See https://biomejs.dev/assist/actions/use-sorted-properties
+        :param use_sorted_selection_set: (experimental) Sort GraphQL selection sets. See https://biomejs.dev/assist/actions/use-sorted-selection-set
+        :param use_sorted_type_fields: (experimental) Sort fields in GraphQL type definitions alphabetically. See https://biomejs.dev/assist/actions/use-sorted-type-fields
 
         :stability: experimental
         :schema: Source
@@ -5003,26 +5307,41 @@ class Source:
             type_hints = typing.get_type_hints(_typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3c7237b7)
             check_type(argname="argument no_duplicate_classes", value=no_duplicate_classes, expected_type=type_hints["no_duplicate_classes"])
             check_type(argname="argument organize_imports", value=organize_imports, expected_type=type_hints["organize_imports"])
+            check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
             check_type(argname="argument recommended", value=recommended, expected_type=type_hints["recommended"])
             check_type(argname="argument use_sorted_attributes", value=use_sorted_attributes, expected_type=type_hints["use_sorted_attributes"])
+            check_type(argname="argument use_sorted_enum_members", value=use_sorted_enum_members, expected_type=type_hints["use_sorted_enum_members"])
             check_type(argname="argument use_sorted_interface_members", value=use_sorted_interface_members, expected_type=type_hints["use_sorted_interface_members"])
             check_type(argname="argument use_sorted_keys", value=use_sorted_keys, expected_type=type_hints["use_sorted_keys"])
+            check_type(argname="argument use_sorted_package_json", value=use_sorted_package_json, expected_type=type_hints["use_sorted_package_json"])
             check_type(argname="argument use_sorted_properties", value=use_sorted_properties, expected_type=type_hints["use_sorted_properties"])
+            check_type(argname="argument use_sorted_selection_set", value=use_sorted_selection_set, expected_type=type_hints["use_sorted_selection_set"])
+            check_type(argname="argument use_sorted_type_fields", value=use_sorted_type_fields, expected_type=type_hints["use_sorted_type_fields"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if no_duplicate_classes is not None:
             self._values["no_duplicate_classes"] = no_duplicate_classes
         if organize_imports is not None:
             self._values["organize_imports"] = organize_imports
+        if preset is not None:
+            self._values["preset"] = preset
         if recommended is not None:
             self._values["recommended"] = recommended
         if use_sorted_attributes is not None:
             self._values["use_sorted_attributes"] = use_sorted_attributes
+        if use_sorted_enum_members is not None:
+            self._values["use_sorted_enum_members"] = use_sorted_enum_members
         if use_sorted_interface_members is not None:
             self._values["use_sorted_interface_members"] = use_sorted_interface_members
         if use_sorted_keys is not None:
             self._values["use_sorted_keys"] = use_sorted_keys
+        if use_sorted_package_json is not None:
+            self._values["use_sorted_package_json"] = use_sorted_package_json
         if use_sorted_properties is not None:
             self._values["use_sorted_properties"] = use_sorted_properties
+        if use_sorted_selection_set is not None:
+            self._values["use_sorted_selection_set"] = use_sorted_selection_set
+        if use_sorted_type_fields is not None:
+            self._values["use_sorted_type_fields"] = use_sorted_type_fields
 
     @builtins.property
     def no_duplicate_classes(self) -> typing.Any:
@@ -5049,6 +5368,16 @@ class Source:
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def preset(self) -> typing.Optional["PresetConfig"]:
+        '''(experimental) Enables a particular rule preset.
+
+        :stability: experimental
+        :schema: Source#preset
+        '''
+        result = self._values.get("preset")
+        return typing.cast(typing.Optional["PresetConfig"], result)
+
+    @builtins.property
     def recommended(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Enables the recommended rules for this group.
 
@@ -5060,7 +5389,7 @@ class Source:
 
     @builtins.property
     def use_sorted_attributes(self) -> typing.Any:
-        '''(experimental) Enforce attribute sorting in JSX elements.
+        '''(experimental) Enforce attribute sorting in HTML elements.
 
         See https://biomejs.dev/assist/actions/use-sorted-attributes
 
@@ -5068,6 +5397,18 @@ class Source:
         :schema: Source#useSortedAttributes
         '''
         result = self._values.get("use_sorted_attributes")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def use_sorted_enum_members(self) -> typing.Any:
+        '''(experimental) Sort the members of an enum in natural order.
+
+        See https://biomejs.dev/assist/actions/use-sorted-enum-members
+
+        :stability: experimental
+        :schema: Source#useSortedEnumMembers
+        '''
+        result = self._values.get("use_sorted_enum_members")
         return typing.cast(typing.Any, result)
 
     @builtins.property
@@ -5095,6 +5436,16 @@ class Source:
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def use_sorted_package_json(self) -> typing.Any:
+        '''(experimental) Organize package.json fields according to established conventions. See https://biomejs.dev/assist/actions/use-sorted-package-json.
+
+        :stability: experimental
+        :schema: Source#useSortedPackageJson
+        '''
+        result = self._values.get("use_sorted_package_json")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
     def use_sorted_properties(self) -> typing.Any:
         '''(experimental) Enforce ordering of CSS properties and nested rules.
 
@@ -5104,6 +5455,30 @@ class Source:
         :schema: Source#useSortedProperties
         '''
         result = self._values.get("use_sorted_properties")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def use_sorted_selection_set(self) -> typing.Any:
+        '''(experimental) Sort GraphQL selection sets.
+
+        See https://biomejs.dev/assist/actions/use-sorted-selection-set
+
+        :stability: experimental
+        :schema: Source#useSortedSelectionSet
+        '''
+        result = self._values.get("use_sorted_selection_set")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def use_sorted_type_fields(self) -> typing.Any:
+        '''(experimental) Sort fields in GraphQL type definitions alphabetically.
+
+        See https://biomejs.dev/assist/actions/use-sorted-type-fields
+
+        :stability: experimental
+        :schema: Source#useSortedTypeFields
+        '''
+        result = self._values.get("use_sorted_type_fields")
         return typing.cast(typing.Any, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -5160,7 +5535,7 @@ class VcsConfiguration:
         :param default_branch: (experimental) The main branch of the project.
         :param enabled: (experimental) Whether Biome should integrate itself with the VCS client.
         :param root: (experimental) The folder where Biome should check for VCS files. By default, Biome will use the same folder where ``biome.json`` was found. If Biome can't find the configuration, it will attempt to use the current working directory. If no current working directory can't be found, Biome won't use the VCS integration, and a diagnostic will be emitted
-        :param use_ignore_file: (experimental) Whether Biome should use the VCS ignore file. When [true], Biome will ignore the files specified in the ignore file.
+        :param use_ignore_file: (experimental) Whether Biome should use VCS ignore files. When [true], Biome will ignore files specified in ``.gitignore``, ``.ignore``, and Git's local exclude file.
 
         :stability: experimental
         :schema: VcsConfiguration
@@ -5233,10 +5608,10 @@ class VcsConfiguration:
 
     @builtins.property
     def use_ignore_file(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether Biome should use the VCS ignore file.
+        '''(experimental) Whether Biome should use VCS ignore files.
 
-        When [true], Biome will ignore the files
-        specified in the ignore file.
+        When [true], Biome will ignore files
+        specified in ``.gitignore``, ``.ignore``, and Git's local exclude file.
 
         :stability: experimental
         :schema: VcsConfiguration#useIgnoreFile
@@ -5349,6 +5724,7 @@ __all__ = [
     "JsFormatterConfiguration",
     "JsLinterConfiguration",
     "JsParserConfiguration",
+    "JsResolverConfiguration",
     "JsTrailingCommas",
     "JsonAssistConfiguration",
     "JsonConfiguration",
@@ -5365,6 +5741,7 @@ __all__ = [
     "OverrideFormatterConfiguration",
     "OverrideLinterConfiguration",
     "OverridePattern",
+    "PresetConfig",
     "QuoteProperties",
     "QuoteStyle",
     "RuleDomainValue",
@@ -5381,6 +5758,7 @@ publication.publish()
 
 def _typecheckingstub__6366c915d5edbe08a6c33dee8fe8422a0286f131b30d1697e72b9e5e37127dcc(
     *,
+    preset: typing.Optional[PresetConfig] = None,
     recommended: typing.Optional[builtins.bool] = None,
     source: typing.Optional[typing.Union[Source, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
@@ -5410,7 +5788,7 @@ def _typecheckingstub__5d80cddd85ec22ae5e9ee130a7150db72ca1333e6e292553494d0e61d
     json: typing.Optional[typing.Union[JsonConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     linter: typing.Optional[typing.Union[LinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     overrides: typing.Optional[typing.Sequence[typing.Union[OverridePattern, typing.Dict[builtins.str, typing.Any]]]] = None,
-    plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
+    plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
     root: typing.Optional[builtins.bool] = None,
     schema: typing.Optional[builtins.str] = None,
     vcs: typing.Optional[typing.Union[VcsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5438,6 +5816,7 @@ def _typecheckingstub__546cd91eebef3c3c3a2ec7242b79be8e1e49bbd4e237eea9e2543e548
 
 def _typecheckingstub__e1fb0cc7e8e9a8ff6796060277e93271c00edf3f8878cd107fe3a211c7aa58ca(
     *,
+    delimiter_spacing: typing.Optional[builtins.bool] = None,
     enabled: typing.Optional[builtins.bool] = None,
     indent_style: typing.Optional[IndentStyle] = None,
     indent_width: typing.Optional[jsii.Number] = None,
@@ -5480,6 +5859,7 @@ def _typecheckingstub__d250053b03cd738e71599a16d0b903766c0befb7557dadc7ffee79923
     attribute_position: typing.Optional[AttributePosition] = None,
     bracket_same_line: typing.Optional[builtins.bool] = None,
     bracket_spacing: typing.Optional[builtins.bool] = None,
+    delimiter_spacing: typing.Optional[builtins.bool] = None,
     enabled: typing.Optional[builtins.bool] = None,
     expand: typing.Optional[Expand] = None,
     format_with_errors: typing.Optional[builtins.bool] = None,
@@ -5611,6 +5991,7 @@ def _typecheckingstub__271da6fb8e26ef7e9c2ec0ea9fc3487d2975824399c15a87994edbcfc
 def _typecheckingstub__1b3cfca5c3ad8f608b86ade05d476530f16da0ba23410a7613236950da38ff37(
     *,
     interpolation: typing.Optional[builtins.bool] = None,
+    vue: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5631,6 +6012,7 @@ def _typecheckingstub__57972f7094bf127a9fb1918efc38b7f9fd8b7e2a28387b1d59645ced7
     jsx_runtime: typing.Optional[JsxRuntime] = None,
     linter: typing.Optional[typing.Union[JsLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     parser: typing.Optional[typing.Union[JsParserConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    resolver: typing.Optional[typing.Union[JsResolverConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5641,6 +6023,7 @@ def _typecheckingstub__83d4960ad9dc84017b237fabc105d7837e8a3ec56d19b1de7e0118365
     attribute_position: typing.Optional[AttributePosition] = None,
     bracket_same_line: typing.Optional[builtins.bool] = None,
     bracket_spacing: typing.Optional[builtins.bool] = None,
+    delimiter_spacing: typing.Optional[builtins.bool] = None,
     enabled: typing.Optional[builtins.bool] = None,
     expand: typing.Optional[Expand] = None,
     indent_style: typing.Optional[IndentStyle] = None,
@@ -5674,6 +6057,13 @@ def _typecheckingstub__c08c2e4162829556526f51e35e2cd7194c2c8bab38e0d01775d808ad7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__1e0ae3402dedb6e0fd3dbd8c7871dc3e24d95f19bd630a3675b446eeff16b76d(
+    *,
+    experimental_pnpm_catalogs: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f1fb6aa8858788da93c40533dca490e5cba8b040cbde40fcc78bbd02d8efd181(
     *,
     enabled: typing.Optional[builtins.bool] = None,
@@ -5694,6 +6084,7 @@ def _typecheckingstub__67ca83a8b26135c2a9bc9fcca08d39f860187439c18546ca3bb66035d
 def _typecheckingstub__4a0473ff26e9f0e1a38d7055c4e466dc2b2b92f24abfce11672601c5a1f6f4a2(
     *,
     bracket_spacing: typing.Optional[builtins.bool] = None,
+    delimiter_spacing: typing.Optional[builtins.bool] = None,
     enabled: typing.Optional[builtins.bool] = None,
     expand: typing.Optional[Expand] = None,
     indent_style: typing.Optional[IndentStyle] = None,
@@ -5751,6 +6142,7 @@ def _typecheckingstub__3602eb22e2d33d64a65f4ebb15f534391f93d1e72546965c7be88c0c1
     attribute_position: typing.Optional[AttributePosition] = None,
     bracket_same_line: typing.Optional[builtins.bool] = None,
     bracket_spacing: typing.Optional[builtins.bool] = None,
+    delimiter_spacing: typing.Optional[builtins.bool] = None,
     enabled: typing.Optional[builtins.bool] = None,
     expand: typing.Optional[Expand] = None,
     format_with_errors: typing.Optional[builtins.bool] = None,
@@ -5787,7 +6179,7 @@ def _typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d
     javascript: typing.Optional[typing.Union[JsConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     json: typing.Optional[typing.Union[JsonConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     linter: typing.Optional[typing.Union[OverrideLinterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
-    plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
+    plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5799,6 +6191,7 @@ def _typecheckingstub__d509a5cc6f981426e8c0771a7bcfe4b66092b008a57a49a58a2d172ec
     correctness: typing.Any = None,
     nursery: typing.Any = None,
     performance: typing.Any = None,
+    preset: typing.Optional[PresetConfig] = None,
     recommended: typing.Optional[builtins.bool] = None,
     security: typing.Any = None,
     style: typing.Any = None,
@@ -5811,11 +6204,16 @@ def _typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3
     *,
     no_duplicate_classes: typing.Any = None,
     organize_imports: typing.Any = None,
+    preset: typing.Optional[PresetConfig] = None,
     recommended: typing.Optional[builtins.bool] = None,
     use_sorted_attributes: typing.Any = None,
+    use_sorted_enum_members: typing.Any = None,
     use_sorted_interface_members: typing.Any = None,
     use_sorted_keys: typing.Any = None,
+    use_sorted_package_json: typing.Any = None,
     use_sorted_properties: typing.Any = None,
+    use_sorted_selection_set: typing.Any = None,
+    use_sorted_type_fields: typing.Any = None,
 ) -> None:
     """Type checking stubs"""
     pass

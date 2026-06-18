@@ -1409,15 +1409,6 @@ class ConnectionPropertiesTypeDef(TypedDict):
     Endpoint: NotRequired[str]
     CrossClusterSearch: NotRequired[CrossClusterSearchConnectionPropertiesTypeDef]
 
-UpdateApplicationRequestTypeDef = TypedDict(
-    "UpdateApplicationRequestTypeDef",
-    {
-        "id": str,
-        "dataSources": NotRequired[Sequence[DataSourceTypeDef]],
-        "appConfigs": NotRequired[Sequence[AppConfigTypeDef]],
-    },
-)
-
 class CreateApplicationRequestTypeDef(TypedDict):
     name: str
     clientToken: NotRequired[str]
@@ -1427,6 +1418,15 @@ class CreateApplicationRequestTypeDef(TypedDict):
     tagList: NotRequired[Sequence[TagTypeDef]]
     kmsKeyArn: NotRequired[str]
 
+UpdateApplicationRequestTypeDef = TypedDict(
+    "UpdateApplicationRequestTypeDef",
+    {
+        "id": str,
+        "dataSources": NotRequired[Sequence[DataSourceTypeDef]],
+        "appConfigs": NotRequired[Sequence[AppConfigTypeDef]],
+        "iamIdentityCenterOptions": NotRequired[IamIdentityCenterOptionsInputTypeDef],
+    },
+)
 CreateApplicationResponseTypeDef = TypedDict(
     "CreateApplicationResponseTypeDef",
     {

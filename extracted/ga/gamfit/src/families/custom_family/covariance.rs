@@ -922,7 +922,7 @@ pub(crate) fn exact_newton_joint_projected_stationarity_vector_from_gradient(
 ///
 /// The active set passed via `block_active_sets` is consumed by the inner
 /// projection so the returned vector lies in `range(I − P_normal_cone)`. The
-/// [`crate::solver::estimate::reml::unified::ProjectedKktResidual`] return type makes
+/// [`crate::model_types::ProjectedKktResidual`] return type makes
 /// that invariant visible at every call site — callers cannot forget to
 /// project, and `reml/unified.rs` cannot accidentally accept an unprojected
 /// vector.
@@ -1211,7 +1211,7 @@ pub(crate) fn compute_joint_geometry<F: CustomFamily + Clone + Send + Sync + 'st
 
     let requires_explicit_joint_hessian = specs.iter().enumerate().any(|(idx, spec)| {
         custom_family_block_role(&spec.name, idx, specs.len())
-            == crate::solver::estimate::BlockRole::LinkWiggle
+            == crate::model_types::BlockRole::LinkWiggle
     });
     let total_p: usize = specs.iter().map(|spec| spec.design.ncols()).sum();
     let Some(mut h) = exact_newton_joint_hessian_symmetrized(

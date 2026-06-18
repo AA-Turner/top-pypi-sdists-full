@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021 - 2022 TU Wien.
-#
-# Invenio-Requests is free software; you can redistribute it and/or modify
-# it under the terms of the MIT License; see LICENSE file for more details.
+# SPDX-FileCopyrightText: 2021-2022 TU Wien.
+# SPDX-License-Identifier: MIT
 
 """Systemfield for calculating the ``is_open`` property of a request."""
 

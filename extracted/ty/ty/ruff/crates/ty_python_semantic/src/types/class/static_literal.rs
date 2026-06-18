@@ -362,6 +362,14 @@ impl<'db> StaticClassLiteral<'db> {
                 self.typevars.borrow_mut().insert(bound_typevar);
             }
 
+            fn visit_generic_alias_type(&self, db: &'db dyn Db, alias: GenericAlias<'db>) {
+                // The generic context contains the base class's formal type parameters, not type
+                // variables referenced by this class's base expression.
+                for ty in alias.specialization(db).types(db) {
+                    self.visit_type(db, *ty);
+                }
+            }
+
             fn visit_type(&self, db: &'db dyn Db, ty: Type<'db>) {
                 walk_type_with_recursion_guard(db, ty, self, &self.recursion_guard);
             }
@@ -389,8 +397,7 @@ impl<'db> StaticClassLiteral<'db> {
     /// Only call this function from queries in the same file or your
     /// query depends on the AST of another file (bad!).
     fn node<'ast>(self, db: &'db dyn Db, module: &'ast ParsedModuleRef) -> &'ast ast::StmtClassDef {
-        let scope = self.body_scope(db);
-        scope.node(db).expect_class().node(module)
+        self.body_scope(db).node(db).expect_class().node(module)
     }
 
     pub(crate) fn definition(self, db: &'db dyn Db) -> Definition<'db> {
@@ -1448,7 +1455,7 @@ impl<'db> StaticClassLiteral<'db> {
             }
             (
                 CodeGeneratorKind::NamedTuple,
-                "__new__" | "__init__" | "_replace" | "__replace__" | "_fields",
+                "__new__" | "__init__" | "__match_args__" | "_replace" | "__replace__" | "_fields",
             ) if self.namedtuple_base_has_unknown_fields(db) => {
                 // When the namedtuple base has unknown fields, fall back to NamedTupleFallback
                 // which has generic signatures that accept any arguments.
@@ -1470,7 +1477,7 @@ impl<'db> StaticClassLiteral<'db> {
             }
             (
                 CodeGeneratorKind::NamedTuple,
-                "__new__" | "_replace" | "__replace__" | "_fields" | "__slots__",
+                "__match_args__" | "__new__" | "_replace" | "__replace__" | "_fields" | "__slots__",
             ) => {
                 let fields = self.fields(db, specialization, field_policy);
                 let fields_iter = fields.iter().map(|(name, field)| {
@@ -2833,7 +2840,7 @@ impl<'db> StaticClassLiteral<'db> {
     pub(crate) fn header_range(self, db: &'db dyn Db) -> TextRange {
         let class_scope = self.body_scope(db);
         let module = parsed_module(db, class_scope.file(db)).load(db);
-        let class_node = class_scope.node(db).expect_class().node(&module);
+        let class_node = self.node(db, &module);
         let class_name = &class_node.name;
         TextRange::new(
             class_name.start(),
@@ -2843,6 +2850,14 @@ impl<'db> StaticClassLiteral<'db> {
                 .map(Ranged::end)
                 .unwrap_or_else(|| class_name.end()),
         )
+    }
+
+    /// Returns the range of the class's name
+    pub(crate) fn focus_range(self, db: &'db dyn Db) -> TextRange {
+        let class_scope = self.body_scope(db);
+        let module = parsed_module(db, class_scope.file(db)).load(db);
+        let class_node = self.node(db, &module);
+        class_node.name.range()
     }
 }
 

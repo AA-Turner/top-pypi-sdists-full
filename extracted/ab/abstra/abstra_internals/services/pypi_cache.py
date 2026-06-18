@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from pathlib import Path
 from typing import Dict, Optional
@@ -117,10 +118,14 @@ class PyPIVerificationCache:
             name: entry.to_dict() for name, entry in cls._cache.items()
         }
 
+        # Atomic write: the editor (markers path) and the linter sidecar child
+        # share this file on disk — a reader must never see a torn write.
+        tmp_path = cache_path.with_suffix(".json.tmp")
         try:
-            cache_path.write_text(
+            tmp_path.write_text(
                 json.dumps(serializable_cache, indent=2), encoding="utf-8"
             )
+            os.replace(tmp_path, cache_path)
         except IOError:
             pass
 

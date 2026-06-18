@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: runwayml
-Version: 5.1.0
+Version: 5.2.0
 Summary: The official Python library for the runwayml API
 Project-URL: Homepage, https://github.com/runwayml/sdk-python
 Project-URL: Repository, https://github.com/runwayml/sdk-python

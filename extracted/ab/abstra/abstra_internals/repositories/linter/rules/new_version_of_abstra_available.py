@@ -9,6 +9,10 @@ from abstra_internals.repositories.linter.models import (
     LinterIssue,
     LinterRule,
 )
+from abstra_internals.repositories.linter.process_actions import (
+    RESTART_EDITOR,
+    request_process_action,
+)
 from abstra_internals.repositories.producer import WebEditorControlProducerRepository
 from abstra_internals.utils.platform import is_windows
 from abstra_internals.version import PackageVersionManager, VersionStatus
@@ -17,7 +21,6 @@ RELEASE_NOTES_URL = "https://github.com/abstra-app/abstra-lib/releases"
 
 
 def _update_lib_version():
-    import os
     import subprocess
     import sys
 
@@ -42,14 +45,12 @@ def _update_lib_version():
                         f"[UpdateAbstra] Failed to send restart signal to workers: {e}"
                     )
 
-            # Force immediate process termination for Kubernetes to restart
-            # sys.exit(0) doesn't work because Flask runs in threaded mode
-            # os._exit() bypasses threads and terminates the process directly
-            AbstraLogger.warning("[UpdateAbstra] Restarting editor after update")
-            os._exit(0)
-        else:
-            # Local: restart process in place
-            os.execv(sys.executable, [sys.executable] + sys.argv)
+        # The restart must happen in the EDITOR process. Under the linter
+        # sidecar this fix runs in the child, where os._exit/os.execv would
+        # restart the wrong process — the process-action hook routes it to
+        # the editor (and executes immediately on the in-process path).
+        AbstraLogger.warning("[UpdateAbstra] Requesting editor restart after update")
+        request_process_action(RESTART_EDITOR)
     except Exception as e:
         AbstraLogger.error(f"[UpdateAbstra] Failed to update Abstra: {e}")
 

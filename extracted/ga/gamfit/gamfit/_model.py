@@ -452,7 +452,9 @@ class Model:
         ``statistic_lr`` (the raw :math:`W`), ``ref_df`` (the Wood truncation
         :math:`d`, the same reference the Wald row uses), ``bartlett_factor``
         :math:`c`, ``statistic_corrected`` :math:`W^*`, ``p_value_uncorrected``,
-        ``p_value_corrected`` (the magic-by-default value), and
+        ``p_value_corrected`` (the magic-by-default value), ``material`` (the
+        n-too-small-here diagnostic — ``True`` when the correction moves the
+        Bartlett factor or the p-value by more than 10%), and
         ``correction_provenance`` — ``"lawley_lr"`` when the family carries
         closed-form cumulant jets (gaussian / poisson / binomial / gamma) and the
         null refit converged, else ``"none"`` (the uncorrected
@@ -829,6 +831,12 @@ class Model:
     @property
     def family_name(self) -> str:
         return self.summary().family_name
+
+    @property
+    def used_device(self) -> bool:
+        return rust_module().required_saved_model_payload_string(
+            self._model_bytes, "used_device"
+        ) == "true"
 
     @property
     def model_class(self) -> str:

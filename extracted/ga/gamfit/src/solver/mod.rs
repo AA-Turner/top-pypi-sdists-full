@@ -9,8 +9,6 @@ pub mod gaussian_reml;
 pub mod glm_sufficient_lane;
 pub mod gpu;
 pub mod grid_spline_2d;
-pub mod identifiability_audit;
-pub mod identifiability_canonical;
 pub mod inner_status;
 pub(crate) mod latent_cache;
 pub mod latent_inner;
@@ -19,14 +17,25 @@ pub mod loop_guard;
 pub mod measure_jet_glm_sufficient;
 pub mod measure_jet_gram_cache;
 pub mod mixture_link;
+pub(crate) mod objective_base;
 pub mod orthogonal_reparam;
-pub mod outer_strategy;
+/// Back-compat re-export: the outer-loop row subsample + `RowSet` moved DOWN to
+/// the crate-root `crate::outer_subsample` lower layer (#1135). Existing
+/// `crate::solver::outer_subsample::*` paths keep resolving.
+pub use crate::outer_subsample;
+pub(crate) mod parallel_strategy;
 pub(crate) mod persistent_warm_start;
 pub mod pirls;
 pub(crate) mod priority_selection;
 pub mod protocol;
 pub mod psi_gram_tensor;
 pub mod residual_cascade;
+/// Back-compat re-export: resource-policy types moved to the crate-root
+/// `crate::resource` lower layer to break the `families → solver::resource`
+/// back-edge (#1135). Existing `crate::solver::resource::*` paths keep working.
+pub use crate::resource;
+pub mod fit_orchestration;
+pub mod rho_optimizer;
 pub(crate) mod riemannian_retraction;
 pub mod row_measure;
 pub mod seeding;
@@ -41,7 +50,6 @@ pub mod topology_selector;
 pub mod visualizer;
 pub(crate) mod warm_start_artifact;
 pub(crate) mod warm_start_transfer;
-pub mod workflow;
 
 pub use evidence::{
     EvidenceHvpLogDet, EvidenceIftGradientTerms, EvidenceLogDetSource, GaussianMixtureConfig,
@@ -54,8 +62,8 @@ pub use evidence::{
     union_responsibility_split,
 };
 pub use topology_selector::{
-    AutoTopologyKind, CrossClassCandidate, CrossClassRaceVerdict, Headline, HeldOutDensityProvider,
-    MIXTURE_K_LADDER, MixtureRungFit, MixtureRungResult, STACKING_CV_FOLDS,
+    AutoTopologyKind, CrossClassCandidate, CrossClassRaceVerdict, EvidenceCertification, Headline,
+    HeldOutDensityProvider, MIXTURE_K_LADDER, MixtureRungFit, MixtureRungResult, STACKING_CV_FOLDS,
     TopologyAutoFitEvidence, TopologyAutoRankedFit, TopologyAutoSelector,
     TopologyAutoSelectorResult, TopologyRaceParallelCandidate, UnionRungFit, UnionRungResult,
     adjudicate_cross_class_race, build_cv_log_density_table, deterministic_cv_folds,
@@ -74,14 +82,14 @@ pub use estimate::reml::eval::SMOOTHING_CORRECTION_CUBATURE_COUNT;
 /// Public re-export of the log-barrier configuration used by the REML/LAML
 /// evaluators for monotonicity-constrained coefficients. Exposed so callers
 /// (and integration tests) can construct and probe barrier objectives without
-/// reaching through the private `estimate::reml::unified` path.
-pub use estimate::reml::unified::BarrierConfig;
+/// reaching through the private `estimate::reml::reml_outer_engine` path.
+pub use estimate::reml::reml_outer_engine::BarrierConfig;
 /// Re-exported for the Python bindings (`gam-pyffi`), which must name the
 /// covariance-correction error type without reaching through the private
-/// `estimate::reml::unified` path.
-pub use estimate::reml::unified::CorrectedCovarianceError;
+/// `estimate::reml::reml_outer_engine` path.
+pub use estimate::reml::reml_outer_engine::CorrectedCovarianceError;
 /// Re-exported for the Python bindings (`gam-pyffi`), which build their
 /// analytic-penalty registry through the single shared descriptor parser that
 /// also serves the in-process workflow pipeline. Exposed here so PyFFI can name
 /// it without the (crate-private) `workflow` module being publicly reachable.
-pub use workflow::descriptors::build_analytic_penalty_registry_from_descriptors;
+pub use fit_orchestration::descriptors::build_analytic_penalty_registry_from_descriptors;

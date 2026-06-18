@@ -11,11 +11,11 @@
 // under the License.
 
 use crate::GraphNotBipartite;
-use crate::{digraph, graph, EdgeIndex, NodeIndex};
+use crate::{EdgeIndex, NodeIndex, digraph, graph};
 
+use pyo3::Python;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use pyo3::Python;
 
 use std::convert::Infallible;
 
@@ -42,7 +42,7 @@ pub use rustworkx_core::coloring::ColoringStrategy as ColoringStrategyCore;
 ///       - `GIS` strategy in [1] (section 1.2.2.9)
 ///
 /// [1] Adrian Kosowski, and Krzysztof Manuszewski, Classical Coloring of Graphs, Graph Colorings, 2-19, 2004. ISBN 0-8218-3458-4.
-#[pyclass(module = "rustworkx", eq, eq_int)]
+#[pyclass(module = "rustworkx", eq, eq_int, from_py_object)]
 #[derive(Clone, PartialEq)]
 pub enum ColoringStrategy {
     Degree,
@@ -104,9 +104,9 @@ pub enum ColoringStrategy {
 pub fn graph_greedy_color(
     py: Python,
     graph: &graph::PyGraph,
-    preset_color_fn: Option<PyObject>,
+    preset_color_fn: Option<Py<PyAny>>,
     strategy: ColoringStrategy,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let inner_strategy = match strategy {
         ColoringStrategy::Saturation => ColoringStrategyCore::Saturation,
         ColoringStrategy::Degree => ColoringStrategyCore::Degree,
@@ -179,9 +179,9 @@ pub fn graph_greedy_color(
 pub fn graph_greedy_edge_color(
     py: Python,
     graph: &graph::PyGraph,
-    preset_color_fn: Option<PyObject>,
+    preset_color_fn: Option<Py<PyAny>>,
     strategy: ColoringStrategy,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let inner_strategy = match strategy {
         ColoringStrategy::Saturation => ColoringStrategyCore::Saturation,
         ColoringStrategy::Degree => ColoringStrategyCore::Degree,
@@ -235,7 +235,7 @@ pub fn graph_greedy_edge_color(
 ///
 #[pyfunction]
 #[pyo3(text_signature = "(graph, /)")]
-pub fn graph_misra_gries_edge_color(py: Python, graph: &graph::PyGraph) -> PyResult<PyObject> {
+pub fn graph_misra_gries_edge_color(py: Python, graph: &graph::PyGraph) -> PyResult<Py<PyAny>> {
     let colors = misra_gries_edge_color(&graph.graph);
     let out_dict = PyDict::new(py);
     for (node, color) in colors {
@@ -255,7 +255,7 @@ pub fn graph_misra_gries_edge_color(py: Python, graph: &graph::PyGraph) -> PyRes
 /// integer (0 or 1)
 /// :rtype: dict
 #[pyfunction]
-pub fn graph_two_color(py: Python, graph: &graph::PyGraph) -> PyResult<Option<PyObject>> {
+pub fn graph_two_color(py: Python, graph: &graph::PyGraph) -> PyResult<Option<Py<PyAny>>> {
     match two_color(&graph.graph) {
         Some(colors) => {
             let out_dict = PyDict::new(py);
@@ -279,7 +279,7 @@ pub fn graph_two_color(py: Python, graph: &graph::PyGraph) -> PyResult<Option<Py
 /// integer (0 or 1)
 /// :rtype: dict
 #[pyfunction]
-pub fn digraph_two_color(py: Python, graph: &digraph::PyDiGraph) -> PyResult<Option<PyObject>> {
+pub fn digraph_two_color(py: Python, graph: &digraph::PyDiGraph) -> PyResult<Option<Py<PyAny>>> {
     match two_color(&graph.graph) {
         Some(colors) => {
             let out_dict = PyDict::new(py);
@@ -313,7 +313,7 @@ pub fn digraph_two_color(py: Python, graph: &digraph::PyDiGraph) -> PyResult<Opt
 /// :rtype: dict
 #[pyfunction]
 #[pyo3(text_signature = "(graph, /)")]
-pub fn graph_bipartite_edge_color(py: Python, graph: &graph::PyGraph) -> PyResult<PyObject> {
+pub fn graph_bipartite_edge_color(py: Python, graph: &graph::PyGraph) -> PyResult<Py<PyAny>> {
     let colors = match bipartite_edge_color(&graph.graph) {
         Ok(colors) => colors,
         Err(_) => return Err(GraphNotBipartite::new_err("Graph is not bipartite")),

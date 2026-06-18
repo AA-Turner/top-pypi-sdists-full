@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-records-permissions
-Version: 3.0.0
+Version: 4.0.0
 Summary: Permission policies for Invenio records.
 Home-page: https://github.com/inveniosoftware/invenio-records-permissions
 Author: CERN
@@ -12,16 +12,16 @@ Classifier: Development Status :: 3 - Alpha
 Requires-Python: >=3.7
 License-File: LICENSE
 License-File: AUTHORS.rst
-Requires-Dist: invenio-access<7.0.0,>=6.0.0
+Requires-Dist: invenio-access<8.0.0,>=7.0.0
 Provides-Extra: tests
 Requires-Dist: pytest-black>=0.6.0; extra == "tests"
 Requires-Dist: pytest-mock>=1.6.0; extra == "tests"
 Requires-Dist: pytest-invenio<5.0.0,>=4.0.0; extra == "tests"
-Requires-Dist: invenio-accounts<9.0.0,>=8.0.0; extra == "tests"
+Requires-Dist: invenio-accounts<10.0.0,>=9.0.0; extra == "tests"
 Requires-Dist: invenio-app<4.0.0,>=3.0.0; extra == "tests"
 Requires-Dist: Sphinx>=5.0.0; extra == "tests"
 Requires-Dist: invenio-db[mysql,postgresql,versioning]<3.0.0,>=2.2.0; extra == "tests"
-Requires-Dist: invenio-records<6.0.0,>=5.0.0; extra == "tests"
+Requires-Dist: invenio-records<7.0.0,>=6.0.0; extra == "tests"
 Provides-Extra: elasticsearch7
 Requires-Dist: invenio-search[elasticsearch7]<4.0.0,>=3.0.0; extra == "elasticsearch7"
 Provides-Extra: opensearch1
@@ -31,11 +31,8 @@ Requires-Dist: invenio-search[opensearch2]<4.0.0,>=3.0.0; extra == "opensearch2"
 Dynamic: license-file
 
 ..
-    Copyright (C) 2019 CERN.
-
-    Invenio-Records-Permissions is free software; you can redistribute it
-    and/or modify it under the terms of the MIT License; see LICENSE file for
-    more details.
+    SPDX-FileCopyrightText: 2019 CERN.
+    SPDX-License-Identifier: MIT
 
 =============================
  Invenio-Records-Permissions
@@ -62,17 +59,20 @@ Further documentation is available on
 https://invenio-records-permissions.readthedocs.io/
 
 ..
-    Copyright (C) 2019-2024 CERN.
-    Copyright (C) 2019-2024 Northwestern University.
-    Copyright (C) 2024-2026 Graz University of Technology.
-    Copyright (C) 2025 KTH Royal Institute of Technology.
-
-    Invenio-Records-Permissions is free software; you can redistribute it
-    and/or modify it under the terms of the MIT License; see LICENSE file for
-    more details.
+    SPDX-FileCopyrightText: 2019-2024 CERN.
+    SPDX-FileCopyrightText: 2019-2024 Northwestern University.
+    SPDX-FileCopyrightText: 2024-2026 Graz University of Technology.
+    SPDX-FileCopyrightText: 2025 KTH Royal Institute of Technology.
+    SPDX-License-Identifier: MIT
 
 Changes
 =======
+
+Version v4.0.0 (released 2026-06-16)
+
+- chore(setup): bump dependencies
+- chore(git-blame): ignore the SPDX license header commit
+- chore(licenses): update license headers to use SPDX
 
 Version v3.0.0 (released 2026-05-29)
 

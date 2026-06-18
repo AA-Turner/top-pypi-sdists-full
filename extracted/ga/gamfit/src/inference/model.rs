@@ -3,11 +3,11 @@ use crate::estimate::{BlockRole, FittedLinkState, UnifiedFitResult};
 use crate::families::bms::{
     LatentMeasureKind, LatentZConditionalCalibration, LatentZRankIntCalibration,
 };
-use crate::families::lognormal_kernel::FrailtySpec;
-use crate::families::survival_construction::{
+use crate::families::survival::construction::{
     SurvivalBaselineConfig, SurvivalTimeBasisConfig, parse_survival_baseline_config,
 };
-use crate::families::survival_location_scale::ResidualDistribution;
+use crate::families::survival::location_scale::ResidualDistribution;
+use crate::families::survival::lognormal_kernel::FrailtySpec;
 use crate::families::wiggle::{
     monotone_wiggle_basis_with_derivative_order, validate_monotone_wiggle_beta_nonnegative,
 };
@@ -22,11 +22,11 @@ use crate::inference::predict::{
 };
 use crate::mixture_link::{state_from_beta_logisticspec, state_from_sasspec};
 use crate::smooth::{AdaptiveRegularizationDiagnostics, TermCollectionSpec};
-use crate::span::span_index_for_breakpoints;
 use crate::types::{
     InverseLink, LatentCLogLogState, LikelihoodSpec, MixtureLinkState, ResponseFamily, SasLinkSpec,
     SasLinkState, StandardLink,
 };
+use crate::util::span::span_index_for_breakpoints;
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -128,23 +128,13 @@ pub enum FittedModelError {
     InvalidInput { reason: String },
 }
 
-impl std::fmt::Display for FittedModelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::SchemaMismatch { reason }
-            | Self::PayloadCorrupt { reason }
-            | Self::MissingField { reason }
-            | Self::IncompatibleConfig { reason }
-            | Self::InvalidInput { reason } => f.write_str(reason),
-        }
-    }
-}
-
-impl std::error::Error for FittedModelError {}
-
-impl From<FittedModelError> for String {
-    fn from(err: FittedModelError) -> String {
-        err.to_string()
+crate::impl_reason_error_boilerplate! {
+    FittedModelError {
+        SchemaMismatch,
+        PayloadCorrupt,
+        MissingField,
+        IncompatibleConfig,
+        InvalidInput,
     }
 }
 
@@ -152,15 +142,15 @@ impl From<FittedModelError> for String {
 // `Result<_, SurvivalPredictError>` call sites can propagate with `?`.
 // Survival prediction keeps the model-layer source so the chain identifies
 // the payload/schema failure that triggered the prediction error.
-impl From<FittedModelError> for crate::solver::estimate::EstimationError {
+impl From<FittedModelError> for crate::model_types::EstimationError {
     fn from(err: FittedModelError) -> Self {
-        crate::solver::estimate::EstimationError::InvalidInput(err.to_string())
+        crate::model_types::EstimationError::InvalidInput(err.to_string())
     }
 }
 
-impl From<FittedModelError> for crate::families::survival_predict::SurvivalPredictError {
+impl From<FittedModelError> for crate::families::survival::predict::SurvivalPredictError {
     fn from(err: FittedModelError) -> Self {
-        crate::families::survival_predict::SurvivalPredictError::ModelPayload {
+        crate::families::survival::predict::SurvivalPredictError::ModelPayload {
             context: "saved-model survival prediction payload",
             source: err,
         }
@@ -265,6 +255,8 @@ pub struct FittedModelPayload {
     pub model_kind: ModelKind,
     pub family_state: FittedFamily,
     pub family: String,
+    #[serde(default)]
+    pub used_device: bool,
     #[serde(default)]
     pub fit_result: Option<UnifiedFitResult>,
     /// Unified (family-agnostic) representation of the fit result.
@@ -682,6 +674,7 @@ impl FittedModelPayload {
             model_kind,
             family_state,
             family,
+            used_device: false,
             fit_result: None,
             unified: None,
             spline_scan: None,
@@ -781,6 +774,25 @@ impl FittedModelPayload {
         self.training_feature_ranges = Some(feature_ranges);
     }
 
+    fn synchronize_empty_feature_contract(&mut self) {
+        if self.fit_result.is_none() {
+            return;
+        }
+        let Some(schema) = self.data_schema.as_ref() else {
+            return;
+        };
+        if !schema.columns.is_empty() {
+            return;
+        }
+        self.training_headers.get_or_insert_with(Vec::new);
+        self.resolved_termspec
+            .get_or_insert_with(|| TermCollectionSpec {
+                linear_terms: Vec::new(),
+                smooth_terms: Vec::new(),
+                random_effect_terms: Vec::new(),
+            });
+    }
+
     /// Write the persistable time-basis snapshot for a survival model.
     ///
     /// This is the only path that should populate the `survival_time_*`
@@ -790,7 +802,7 @@ impl FittedModelPayload {
     /// missed `survival_time_basis`.
     pub fn apply_survival_time_basis(
         &mut self,
-        snapshot: &crate::families::survival_construction::SavedSurvivalTimeBasis,
+        snapshot: &crate::families::survival::construction::SavedSurvivalTimeBasis,
     ) {
         self.survival_time_basis = Some(snapshot.basisname.clone());
         self.survival_time_degree = snapshot.degree;
@@ -2527,6 +2539,12 @@ impl FittedModel {
 
     fn synchronize_stateful_link_metadata(&mut self) {
         let payload = self.payload_mut();
+        payload.used_device = payload
+            .fit_result
+            .as_ref()
+            .or(payload.unified.as_ref())
+            .is_some_and(|fit| fit.used_device);
+        payload.synchronize_empty_feature_contract();
         let Some(fit) = payload.fit_result.as_ref() else {
             return;
         };
@@ -2918,7 +2936,7 @@ impl FittedModel {
     /// exact and taken instead) only for the effectively-linear identity-link
     /// Gaussian. Any model carrying a link wiggle or baseline-time wiggle is
     /// curved regardless of family. This curvature partition mirrors
-    /// `families::strategy::posterior_mean`, the compute path that produces the
+    /// `families::family_runtime::posterior_mean`, the compute path that produces the
     /// corrected mean for each of these families.
     ///
     /// This is the single source of truth shared by the CLI (`gam predict`)
@@ -3479,7 +3497,7 @@ impl FittedModel {
                     fit_result payload; refit"
                     .to_string(),
             })?;
-        let spec = crate::families::survival_predict::resolve_termspec_for_prediction(
+        let spec = crate::families::survival::predict::resolve_termspec_for_prediction(
             &self.resolved_termspec,
             self.training_headers.as_ref(),
             col_map,
@@ -4650,7 +4668,7 @@ pub fn load_survival_time_basis_config_from_model(
 mod tests {
     use super::*;
     use crate::families::cubic_cell_kernel::ANCHORED_DEVIATION_KERNEL;
-    use crate::families::lognormal_kernel::FrailtySpec;
+    use crate::families::survival::lognormal_kernel::FrailtySpec;
     use crate::pirls::PirlsStatus;
     use crate::solver::estimate::{FitArtifacts, FittedBlock, FittedLinkState};
     use crate::types::{LikelihoodScaleMetadata, LogLikelihoodNormalization};
@@ -4805,6 +4823,7 @@ mod tests {
             reml_score: 0.0,
             stable_penalty_term: 0.0,
             penalized_objective: 0.0,
+            used_device: false,
             outer_iterations: 0,
             outer_converged: true,
             outer_gradient_norm: None,
@@ -4828,6 +4847,7 @@ mod tests {
                 criterion_certificate: None,
                 rho_posterior_certificate: None,
                 rho_posterior_escalation: None,
+                rho_covariance: None,
             },
             inner_cycles: 0,
         }
@@ -4865,6 +4885,31 @@ mod tests {
         payload.logslope_baseline = Some(0.0);
         payload.link = Some(InverseLink::Standard(StandardLink::Probit));
         payload
+    }
+
+    #[test]
+    fn from_payload_synchronizes_used_device_from_saved_fit() {
+        let mut fit = saved_fit(vec![
+            FittedBlock {
+                beta: Array1::from_vec(vec![0.25]),
+                role: BlockRole::Mean,
+                edf: 1.0,
+                lambdas: Array1::zeros(0),
+            },
+            FittedBlock {
+                beta: Array1::from_vec(vec![0.5]),
+                role: BlockRole::Scale,
+                edf: 1.0,
+                lambdas: Array1::zeros(0),
+            },
+        ]);
+        fit.used_device = true;
+        let mut payload = marginal_slope_payload(MODEL_PAYLOAD_VERSION, fit);
+        payload.used_device = false;
+
+        let model = FittedModel::from_payload(payload);
+
+        assert!(model.payload().used_device);
     }
 
     fn survival_marginal_slope_payload(version: u32, fit: UnifiedFitResult) -> FittedModelPayload {
@@ -5121,7 +5166,7 @@ mod tests {
 
     #[test]
     fn apply_survival_time_basis_writes_all_required_fields() {
-        use crate::families::survival_construction::SavedSurvivalTimeBasis;
+        use crate::families::survival::construction::SavedSurvivalTimeBasis;
 
         let fit = saved_fit(vec![
             FittedBlock {

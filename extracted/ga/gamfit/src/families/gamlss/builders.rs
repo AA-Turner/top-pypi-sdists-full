@@ -741,15 +741,15 @@ pub(crate) fn wiggle_block_penalty_matrices(
         .penalties
         .iter()
         .map(|spec| match spec {
-            crate::solver::estimate::PenaltySpec::Block {
+            crate::model_types::PenaltySpec::Block {
                 local, col_range, ..
             } => PenaltyMatrix::Blockwise {
                 local: local.clone(),
                 col_range: col_range.clone(),
                 total_dim: p_wiggle,
             },
-            crate::solver::estimate::PenaltySpec::Dense(m)
-            | crate::solver::estimate::PenaltySpec::DenseWithMean { matrix: m, .. } => {
+            crate::model_types::PenaltySpec::Dense(m)
+            | crate::model_types::PenaltySpec::DenseWithMean { matrix: m, .. } => {
                 PenaltyMatrix::Dense(m.clone())
             }
         })
@@ -1288,7 +1288,7 @@ pub(crate) fn fit_binomial_mean_wiggle(
         link_kind: spec.link_kind,
         wiggle_knots: spec.wiggle_knots,
         wiggle_degree: spec.wiggle_degree,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let blocks = vec![
         // The wiggle block is a DYNAMIC monotone I-spline basis that the
@@ -1641,7 +1641,7 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                  designs: &[TermCollectionDesign],
                  eval_mode,
                  row_set: &crate::families::row_kernel::RowSet| {
-                    use crate::solver::estimate::reml::unified::EvalMode;
+                    use crate::reml_contracts::EvalMode;
                     if !analytic_joint_derivatives_available {
                         return Err(
                             "analytic spatial psi derivatives are unavailable for this exact two-block path"
@@ -1689,7 +1689,7 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                             rows,
                             n_full,
                         } => {
-                            let subsample = crate::families::marginal_slope_shared::
+                            let subsample = crate::solver::outer_subsample::
                                 OuterScoreSubsample::from_weighted_rows(
                                     (**rows).clone(),
                                     *n_full,
@@ -1776,7 +1776,7 @@ pub(crate) fn fit_location_scale_terms<B: LocationScaleFamilyBuilder>(
                     }
                     Ok(eval.efs_eval)
                 },
-                |_beta: &Array1<f64>| Ok(crate::solver::outer_strategy::SeedOutcome::NoSlot),
+                |_beta: &Array1<f64>| Ok(crate::solver::rho_optimizer::SeedOutcome::NoSlot),
             )
         }};
     }
@@ -1890,7 +1890,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleTermBuilder {
             weights: self.weights.clone(),
             mu_design: Some(mean_design.design.clone()),
             log_sigma_design: Some(preparednoise_design),
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: crate::solver::resource::ResourcePolicy::default_library(),
             cached_row_scalars: std::sync::RwLock::new(None),
         }
     }
@@ -1991,7 +1991,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
             self.wiggle_block.penalties.len(),
         );
         layout.validate_theta_len(theta.len(), "gaussian location-scale wiggle")?;
-        let (meanspec, noisespec) = build_gaussian_mean_and_scale_blocks(
+        let (mut meanspec, mut noisespec) = build_gaussian_mean_and_scale_blocks(
             &self.y,
             &self.weights,
             mean_design,
@@ -2004,6 +2004,13 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
             noise_beta_hint,
             "GaussianLocationScaleWiggle::build_blocks",
         )?;
+        // Keep the dynamic full-width wiggle basis safe from a canonical-gauge
+        // column drop: route the shared level/intercept alias onto the
+        // column-reducible mean and log-sigma blocks by giving them a lower
+        // gauge priority than the wiggle block's fixed 100 (see the binomial
+        // wiggle path and `build_location_scale_wiggle_block`).
+        meanspec.gauge_priority = LINK_WIGGLE_GAUGE_PRIORITY;
+        noisespec.gauge_priority = LINK_WIGGLE_GAUGE_PRIORITY;
         let n_rows = meanspec.design.nrows();
         let wigglespec = build_location_scale_wiggle_block(
             "wiggle",
@@ -2034,7 +2041,7 @@ impl LocationScaleFamilyBuilder for GaussianLocationScaleWiggleTermBuilder {
             log_sigma_design: Some(preparednoise_design),
             wiggle_knots: self.wiggle_knots.clone(),
             wiggle_degree: self.wiggle_degree,
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: crate::solver::resource::ResourcePolicy::default_library(),
             cached_row_scalars: std::sync::RwLock::new(None),
         }
     }
@@ -2156,7 +2163,7 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleTermBuilder {
             link_kind: self.link_kind.clone(),
             threshold_design: Some(mean_design.design.clone()),
             log_sigma_design: Some(identifiednoise_design),
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: crate::solver::resource::ResourcePolicy::default_library(),
         }
     }
 
@@ -2251,7 +2258,7 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleWiggleTermBuilder {
             self.wiggle_block.penalties.len(),
         );
         layout.validate_theta_len(theta.len(), "wiggle location-scale")?;
-        let (thresholdspec, log_sigmaspec) = build_binomial_threshold_and_scale_blocks(
+        let (mut thresholdspec, mut log_sigmaspec) = build_binomial_threshold_and_scale_blocks(
             &self.y,
             &self.weights,
             &self.link_kind,
@@ -2265,6 +2272,19 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleWiggleTermBuilder {
             noise_beta_hint,
             "BinomialLocationScaleWiggle::build_blocks",
         )?;
+        // The dynamic monotone wiggle basis is regenerated at full raw width
+        // every inner iteration and asserts `x.ncols() == spec.design.ncols()`
+        // in `block_geometry`, so it cannot tolerate a canonical-gauge column
+        // drop. The level/intercept direction the I-spline shares with the
+        // threshold block must therefore be routed onto the threshold (and the
+        // log-sigma) block, whose static designs are column-reducible and
+        // lifted back via the canonical per-block transform `T`. Give both
+        // non-wiggle blocks a lower gauge priority than the wiggle block (which
+        // `build_location_scale_wiggle_block` fixes at 100) so the shared-level
+        // alias drop lands on them and leaves the dynamic wiggle basis full
+        // width — mirroring the binomial mean-wiggle path.
+        thresholdspec.gauge_priority = LINK_WIGGLE_GAUGE_PRIORITY;
+        log_sigmaspec.gauge_priority = LINK_WIGGLE_GAUGE_PRIORITY;
         let n_rows = thresholdspec.design.nrows();
         let wigglespec = build_location_scale_wiggle_block(
             "wiggle",
@@ -2295,7 +2315,7 @@ impl LocationScaleFamilyBuilder for BinomialLocationScaleWiggleTermBuilder {
             log_sigma_design: Some(identifiednoise_design),
             wiggle_knots: self.wiggle_knots.clone(),
             wiggle_degree: self.wiggle_degree,
-            policy: crate::resource::ResourcePolicy::default_library(),
+            policy: crate::solver::resource::ResourcePolicy::default_library(),
         }
     }
 
@@ -2621,7 +2641,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                     penalties: pilot_design
                         .penalties
                         .iter()
-                        .map(crate::solver::estimate::PenaltySpec::from_blockwise_ref)
+                        .map(crate::model_types::PenaltySpec::from_blockwise_ref)
                         .collect(),
                     nullspace_dims: vec![],
                     initial_log_lambdas: Some(
@@ -2686,7 +2706,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                 penalties: baseline_design
                     .penalties
                     .iter()
-                    .map(crate::solver::estimate::PenaltySpec::from_blockwise_ref)
+                    .map(crate::model_types::PenaltySpec::from_blockwise_ref)
                     .collect(),
                 nullspace_dims: vec![],
                 initial_log_lambdas: Some(
@@ -2760,7 +2780,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
         link_kind: link_kind_cloned.clone(),
         wiggle_knots: wiggle_knots_cloned.clone(),
         wiggle_degree,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let screening_cap = Arc::new(AtomicUsize::new(0));
     let mut outer_options = options.clone();
@@ -2771,7 +2791,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             Array1<f64>,
             f64,
             Array1<f64>,
-            crate::solver::outer_strategy::HessianResult,
+            crate::solver::rho_optimizer::HessianResult,
             crate::custom_family::CustomFamilyWarmStart,
         )>,
     }
@@ -2822,19 +2842,16 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                     wiggle_penalties
                         .iter()
                         .map(|spec| match spec {
-                            crate::solver::estimate::PenaltySpec::Block {
-                                local,
-                                col_range,
-                                ..
+                            crate::model_types::PenaltySpec::Block {
+                                local, col_range, ..
                             } => PenaltyMatrix::Blockwise {
                                 local: local.clone(),
                                 col_range: col_range.clone(),
                                 total_dim: p_wiggle,
                             },
-                            crate::solver::estimate::PenaltySpec::Dense(m)
-                            | crate::solver::estimate::PenaltySpec::DenseWithMean {
-                                matrix: m,
-                                ..
+                            crate::model_types::PenaltySpec::Dense(m)
+                            | crate::model_types::PenaltySpec::DenseWithMean {
+                                matrix: m, ..
                             } => PenaltyMatrix::Dense(m.clone()),
                         })
                         .collect()
@@ -2871,9 +2888,9 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             &[eta_derivs, Vec::new()],
             warm_cache,
             if need_hessian {
-                crate::solver::estimate::reml::unified::EvalMode::ValueGradientHessian
+                crate::reml_contracts::EvalMode::ValueGradientHessian
             } else {
-                crate::solver::estimate::reml::unified::EvalMode::ValueAndGradient
+                crate::reml_contracts::EvalMode::ValueAndGradient
             },
         )?;
         Ok((eval, resolvedspec, design))
@@ -2894,8 +2911,8 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
         .map_err(|e| e.to_string())
     };
 
-    use crate::estimate::EstimationError;
-    use crate::solver::outer_strategy::{
+    use crate::model_types::EstimationError;
+    use crate::solver::rho_optimizer::{
         DeclaredHessianForm, Derivative, OuterEval, OuterEvalOrder,
     };
 
@@ -2914,7 +2931,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
     for value in &mut seed_heuristic[..rho_dim] {
         *value = value.exp();
     }
-    let problem = crate::solver::outer_strategy::OuterProblem::new(theta_dim)
+    let problem = crate::solver::rho_optimizer::OuterProblem::new(theta_dim)
         .with_gradient(Derivative::Analytic)
         .with_hessian(if analytic_outer_hessian_available {
             DeclaredHessianForm::Either
@@ -2947,8 +2964,8 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
             && (!matches!(order, OuterEvalOrder::ValueGradientHessian)
                 || matches!(
                     cached_hess,
-                    crate::solver::outer_strategy::HessianResult::Analytic(_)
-                        | crate::solver::outer_strategy::HessianResult::Operator(_)
+                    crate::solver::rho_optimizer::HessianResult::Analytic(_)
+                        | crate::solver::rho_optimizer::HessianResult::Operator(_)
                 ))
         {
             state.warm_cache = Some(cached_warm.clone());
@@ -3098,7 +3115,7 @@ pub(crate) fn fit_binomial_mean_wiggle_terms_with_selected_basis(
                 penalties: design
                     .penalties
                     .iter()
-                    .map(crate::solver::estimate::PenaltySpec::from_blockwise_ref)
+                    .map(crate::model_types::PenaltySpec::from_blockwise_ref)
                     .collect(),
                 nullspace_dims: vec![],
                 initial_log_lambdas: Some(theta_star.slice(s![0..eta_penalty_count]).to_owned()),

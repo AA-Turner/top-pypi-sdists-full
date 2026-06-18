@@ -36,7 +36,7 @@
 
 use crate::estimate::EstimationError;
 use crate::inference::psis::pareto_smooth_weights;
-use crate::solver::outer_strategy::OuterObjective;
+use crate::solver::rho_optimizer::OuterObjective;
 use ndarray::{Array1, Array2};
 
 /// Reliability tier read off the Pareto tail-shape `k̂` of the `ρ`-importance
@@ -218,11 +218,7 @@ impl DetNormal {
         Self { state: seed }
     }
     fn uniform(&mut self) -> f64 {
-        self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
-        let mut z = self.state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^= z >> 31;
+        let z = crate::linalg::utils::splitmix64(&mut self.state);
         (((z >> 11) as f64) + 0.5) / ((1u64 << 53) as f64)
     }
     fn normal(&mut self) -> f64 {
@@ -305,17 +301,6 @@ fn whitening_factor_from_outer_hessian(outer_hessian: &Array2<f64>) -> Option<Ar
     Some(l_inv)
 }
 
-fn symmetrize_in_place(a: &mut Array2<f64>) {
-    let n = a.nrows();
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let v = 0.5 * (a[[i, j]] + a[[j, i]]);
-            a[[i, j]] = v;
-            a[[j, i]] = v;
-        }
-    }
-}
-
 /// Estimate the local outer Hessian by central differencing the profiled-exact
 /// `OuterObjective::eval` gradient.
 ///
@@ -351,7 +336,7 @@ pub fn rho_hessian_from_profiled_exact_gradient(
             hessian[[i, j]] = (gp[i] - gm[i]) / (2.0 * step);
         }
     }
-    symmetrize_in_place(&mut hessian);
+    crate::matrix::symmetrize_in_place(&mut hessian);
     Ok(hessian)
 }
 

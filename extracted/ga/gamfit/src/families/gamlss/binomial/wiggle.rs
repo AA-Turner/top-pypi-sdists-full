@@ -17,7 +17,7 @@ pub struct BinomialLocationScaleWiggleFamily {
     /// per-call materialization decision) made during exact-Newton joint psi
     /// derivative evaluation. Defaults to `ResourcePolicy::default_library()`
     /// when the family is built without an explicit policy.
-    pub policy: crate::resource::ResourcePolicy,
+    pub policy: crate::solver::resource::ResourcePolicy,
 }
 
 impl BinomialLocationScaleWiggleFamily {
@@ -296,7 +296,7 @@ impl BinomialLocationScaleWiggleFamily {
         psi_index: usize,
         x_t: &Array2<f64>,
         x_ls: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &crate::solver::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         let Some(parts) = locscale_joint_psi_direction_parts(
             block_states,
@@ -824,10 +824,14 @@ impl BinomialLocationScaleWiggleFamily {
         x_t: &Array2<f64>,
         x_ls: &Array2<f64>,
     ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiSecondOrderTerms>, String> {
-        if block_states.len() != 3 || derivative_blocks.len() != 3 {
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
+        if derivative_blocks.len() != 3 {
             return Err(GamlssError::DimensionMismatch { reason: format!(
-                "BinomialLocationScaleWiggleFamily joint psi second-order terms expect 3 blocks and 3 derivative block lists, got {} and {}",
-                block_states.len(),
+                "BinomialLocationScaleWiggleFamily joint psi second-order terms expect 3 derivative block lists, got {}",
                 derivative_blocks.len()
             ) }.into());
         }
@@ -2185,15 +2189,11 @@ impl BinomialLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<BinomialLocationScaleWiggleHessianRowPieces, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "BinomialLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let n = self.y.len();
         let eta_t = &block_states[Self::BLOCK_T].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -2290,15 +2290,11 @@ impl BinomialLocationScaleWiggleFamily {
         block_states: &'a [ParameterBlockState],
         specs: Option<&'a [ParameterBlockSpec]>,
     ) -> Result<Option<ExpectedWiggleGeometryInputs<'a>>, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "BinomialLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let Some((x_t, x_ls)) = self.exact_joint_dense_block_designs(specs)? else {
             return Ok(None);
         };
@@ -2857,7 +2853,7 @@ impl BinomialLocationScaleWiggleFamily {
         specs: &[ParameterBlockSpec],
         block_idx: usize,
     ) -> Result<Box<dyn BlockEffectiveJacobian>, String> {
-        crate::util::block_jacobian::AdditiveWiggleBlockLayout {
+        crate::families::block_layout::block_jacobian::AdditiveWiggleBlockLayout {
             family: "BinomialLocationScaleWiggleFamily",
             n_outputs: 2,
             additive_blocks: &[Self::BLOCK_T, Self::BLOCK_LOG_SIGMA],
@@ -2878,17 +2874,12 @@ impl BinomialLocationScaleWiggleFamily {
         x_t_arc: Arc<Array2<f64>>,
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "BinomialLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let n = self.y.len();
         let eta_t = &block_states[Self::BLOCK_T].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -3045,17 +3036,12 @@ impl BinomialLocationScaleWiggleFamily {
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "BinomialLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let n = self.y.len();
         let eta_t = &block_states[Self::BLOCK_T].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;

@@ -40,15 +40,15 @@ from typing import Annotated, Literal
 
 import yaml
 from cyclopts import Parameter
-
-from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import (
-    error_console,
+from fastmcp_extensions.cli import (
     exit_with_error,
     print_error,
     print_json,
     print_success,
 )
+from rich.console import Console
+
+from airbyte_ops_mcp.cli._base import App, app
 from airbyte_ops_mcp.github_api import (
     get_file_contents_at_ref,
     resolve_default_github_token,
@@ -76,6 +76,8 @@ from airbyte_ops_mcp.registry.registry_store_base import (
     Registry,
     get_registry,
 )
+
+error_console = Console(stderr=True)
 
 # Create the registry sub-app
 registry_app = App(

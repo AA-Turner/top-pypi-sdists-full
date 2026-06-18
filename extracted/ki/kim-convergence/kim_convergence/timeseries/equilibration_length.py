@@ -1,115 +1,307 @@
 r"""Time series equilibration length estimation module.
 
 This module uses a conceptually simple automated procedure developed by Chodera
-[11]_ that does not make strict assumptions about the distribution of the
+[chodera2016]_ that does not make strict assumptions about the distribution of the
 observable of interest. The equilibration is chosen to maximize the number of
 uncorrelated samples.
 
 """
 
-from joblib import Parallel, delayed
+from joblib import Parallel, delayed, parallel_backend
 from math import isclose
 import numpy as np
-from typing import Optional, Union, List
+from typing import Callable, Optional, Union
 
 from .statistical_inefficiency import si_methods
-from kim_convergence._default import \
-    _DEFAULT_ABS_TOL, \
-    _DEFAULT_SI, \
-    _DEFAULT_FFT, \
-    _DEFAULT_MINIMUM_CORRELATION_TIME, \
-    _DEFAULT_IGNORE_END, \
-    _DEFAULT_NSKIP, \
-    _DEFAULT_BATCH_SIZE, \
-    _DEFAULT_SCALE_METHOD, \
-    _DEFAULT_WITH_CENTERING, \
-    _DEFAULT_WITH_SCALING, \
-    _DEFAULT_NUMBER_OF_CORES
+from kim_convergence._default import (
+    _DEFAULT_ABS_TOL,
+    _DEFAULT_SI,
+    _DEFAULT_FFT,
+    _DEFAULT_MINIMUM_CORRELATION_TIME,
+    _DEFAULT_IGNORE_END,
+    _DEFAULT_NSKIP,
+    _DEFAULT_BATCH_SIZE,
+    _DEFAULT_SCALE_METHOD,
+    _DEFAULT_WITH_CENTERING,
+    _DEFAULT_WITH_SCALING,
+    _DEFAULT_NUMBER_OF_CORES,
+    _DEFAULT_EQUILIBRATION_SOLVER,
+    _DEFAULT_EQUILIBRATION_EXHAUSTIVE_MAX_EVALS,
+    _EQUILIBRATION_SOLVERS,
+)
 from kim_convergence.err import CRError, CRSampleSizeError
 
 
 __all__ = [
-    'estimate_equilibration_length',
+    "estimate_equilibration_length",
 ]
 
 
 def _estimate_equilibration_length(
-        time_series_data: np.ndarray,
-        t: int,
-        si_func: callable,
-        fft: bool,
-        minimum_correlation_time: Optional[int]) -> tuple[float, float, int]:
+    time_series_data: np.ndarray,
+    t: int,
+    si_func: Callable,
+    fft: bool,
+    minimum_correlation_time: Optional[int],
+) -> tuple[float, float, int]:
     # slice a numpy array, the memory is shared
     # between the slice and the original
     x = time_series_data[t:]
     x_size = float(x.size)
     try:
         si_value = si_func(
-            x, fft=fft, minimum_correlation_time=minimum_correlation_time)
+            x, fft=fft, minimum_correlation_time=minimum_correlation_time
+        )
     except CRError:
         si_value = x_size
     effective_samples_size = x_size / si_value
     return effective_samples_size, si_value, t
 
 
-def estimate_equilibration_length(
-        time_series_data: Union[np.ndarray, List[float]],
-        *,
-        si: Optional[str] = _DEFAULT_SI,
-        nskip: Optional[int] = _DEFAULT_NSKIP,
-        fft: bool = _DEFAULT_FFT,
-        minimum_correlation_time: Optional[int] = _DEFAULT_MINIMUM_CORRELATION_TIME,
-        ignore_end: Union[int, float, None] = _DEFAULT_IGNORE_END,
-        number_of_cores: int = _DEFAULT_NUMBER_OF_CORES,
-        # unused input parmeters in Time series module
-        # estimate_equilibration_length interface
-        batch_size: int = _DEFAULT_BATCH_SIZE,
-        scale: str = _DEFAULT_SCALE_METHOD,
-        with_centering: bool = _DEFAULT_WITH_CENTERING,
-        with_scaling: bool = _DEFAULT_WITH_SCALING) -> tuple[int, float]:
-    """Estimate the equilibration point in a time series data.
+def _unimodal_search_equilibration(
+    time_series_data: np.ndarray,
+    upper_bound: int,
+    nskip: int,
+    si_func: Callable,
+    fft: bool,
+    minimum_correlation_time: Optional[int],
+) -> tuple[int, float]:
+    r"""Locate the offset that maximizes the effective sample size.
 
-    Estimate the equilibration point in a time series data using the
-    statistical inefficiencies [11]_, [8]_, [9]_.
+    The effective sample size :math:`N_{eff}(t) = (N - t) / g(x[t:])` (where
+    :math:`g` is the statistical inefficiency) is, to a good approximation,
+    unimodal in the offset :math:`t`: it rises as the initial transient is
+    removed, reaches a maximum, then falls as the remaining series ``(N - t)``
+    shrinks. This is the same objective the exhaustive scan maximizes; here we
+    find its peak with a ternary search over the candidate grid
+    ``t in range(0, upper_bound, nskip)`` so that only ~O(log N) statistical
+    inefficiency evaluations are required instead of one per offset.
+
+    The result is the *same* peak the exhaustive scan would find whenever the
+    objective is unimodal, but obtained in logarithmically many evaluations.
 
     Args:
-        time_series_data (array_like, 1d): time series data.
-        si (str, optional): statistical inefficiency method. (default: None)
-        nskip (int, optional): the number of data points to skip.
+        time_series_data (1darray): Time-series data.
+        upper_bound (int): Exclusive upper bound on the offset (already adjusted
+            for ``ignore_end``).
+        nskip (int): Spacing between candidate offsets.
+        si_func (callable): Statistical-inefficiency estimator.
+        fft (bool): Use FFT convolution.
+        minimum_correlation_time (Optional[int]): Passed through to ``si_func``.
+
+    Returns:
+        tuple[int, float]
+            equilibration_index_estimate, statistical_inefficiency_estimate.
+    """
+    # Candidate offsets are t = i * nskip for i in [0, n_grid).
+    n_grid = (upper_bound + nskip - 1) // nskip
+
+    # Memoize evaluations: a ternary search revisits the same indices, and each
+    # evaluation is an expensive FFT.
+    cache: dict[int, tuple[float, float]] = {}
+
+    def evaluate(i: int) -> float:
+        r"""Return effective sample size at grid index ``i`` (memoized)."""
+        if i not in cache:
+            effective_samples_size, si_value, _ = _estimate_equilibration_length(
+                time_series_data, i * nskip, si_func, fft, minimum_correlation_time
+            )
+            cache[i] = (effective_samples_size, si_value)
+        return cache[i][0]
+
+    # Ternary search for the maximum over integer grid indices [lo, hi].
+    lo = 0
+    hi = n_grid - 1
+    while hi - lo > 2:
+        third = (hi - lo) // 3
+        m1 = lo + third
+        m2 = hi - third
+        if evaluate(m1) < evaluate(m2):
+            lo = m1 + 1
+        else:
+            hi = m2 - 1
+
+    # Resolve the small remaining bracket exactly. Iterate in ascending index
+    # order and keep the first strict maximum, matching the exhaustive scan's
+    # tie-breaking (which keeps the earliest offset achieving the maximum).
+    best_effective_samples_size = -1.0
+    best_index = 0
+    best_si = 1.0
+    for i in range(lo, hi + 1):
+        effective_samples_size = evaluate(i)
+        if effective_samples_size > best_effective_samples_size:
+            best_effective_samples_size = effective_samples_size
+            best_si = cache[i][1]
+            best_index = i * nskip
+
+    return best_index, best_si
+
+
+def _normalize_ignore_end(
+    ignore_end: Union[int, float, None],
+    data_size: int,
+    si: str,
+) -> int:
+    r"""
+    Validate *ignore_end* and return the positive number of data points to ignore.
+
+    *None* is converted to ``max(1, time_series_data_size // 4)``.
+    A *float* in ``(0, 1)`` is interpreted as a fraction of the series length.
+    An *int* must be ≥ 1.  Geyer methods impose additional lower bounds.
+
+    Returns:
+        int
+            Positive number of data points to ignore from the end.
+
+    Raises:
+        CRError
+            If *ignore_end* has wrong type, wrong range, or is < 1.
+        CRSampleSizeError
+            If *ignore_end* >= *time_series_data_size* or if the series is too
+            short for the chosen Geyer estimator.
+    """
+    if not isinstance(ignore_end, int):
+        if ignore_end is None:
+            ignore_end = max(1, data_size // 4)
+        elif isinstance(ignore_end, float):
+            if not 0.0 < ignore_end < 1.0:
+                raise CRError(
+                    f"invalid ignore_end = {ignore_end}. If ignore_end input "
+                    "is a `float`, it should be in a `(0, 1)` range."
+                )
+            ignore_end *= data_size
+            ignore_end = max(1, int(ignore_end))
+        else:
+            raise CRError(
+                f"invalid ignore_end = {ignore_end}. ignore_end is not an "
+                "`int`, `float`, or `None`."
+            )
+    elif ignore_end < 1:
+        raise CRError(
+            f"invalid ignore_end = {ignore_end}. ignore_end should be a "
+            "positive `int`."
+        )
+
+    # Upper bound check
+    if si == "geyer_r_statistical_inefficiency":
+        if data_size < 4:
+            raise CRSampleSizeError(
+                f"{data_size} input data points are not "
+                f'sufficient to be used by "{si}".'
+            )
+        ignore_end = max(3, ignore_end)
+    elif si == "geyer_split_r_statistical_inefficiency":
+        if data_size < 8:
+            raise CRSampleSizeError(
+                f"{data_size} input data points are not "
+                f'sufficient to be used by "{si}".'
+            )
+        ignore_end = max(7, ignore_end)
+    elif si == "geyer_split_statistical_inefficiency":
+        if data_size < 8:
+            raise CRSampleSizeError(
+                f"{data_size} input data points are not "
+                f'sufficient to be used by "{si}".'
+            )
+        ignore_end = max(7, ignore_end)
+
+    if data_size <= ignore_end:
+        raise CRSampleSizeError(
+            f"invalid ignore_end = {ignore_end}.\nWrong number of data points "
+            f"is requested to be ignored from {data_size} total points."
+        )
+
+    return ignore_end
+
+
+def estimate_equilibration_length(
+    time_series_data: Union[np.ndarray, list[float]],
+    *,
+    si: Optional[str] = _DEFAULT_SI,
+    nskip: Optional[int] = _DEFAULT_NSKIP,
+    fft: bool = _DEFAULT_FFT,
+    minimum_correlation_time: Optional[int] = _DEFAULT_MINIMUM_CORRELATION_TIME,
+    ignore_end: Union[int, float, None] = _DEFAULT_IGNORE_END,
+    number_of_cores: int = _DEFAULT_NUMBER_OF_CORES,
+    solver: str = _DEFAULT_EQUILIBRATION_SOLVER,
+    batch_size: int = _DEFAULT_BATCH_SIZE,  # unused (API compatibility)
+    scale: str = _DEFAULT_SCALE_METHOD,  # unused (API compatibility)
+    with_centering: bool = _DEFAULT_WITH_CENTERING,  # unused (API compatibility)
+    with_scaling: bool = _DEFAULT_WITH_SCALING,  # unused (API compatibility)
+) -> tuple[int, float]:
+    r"""Estimate the equilibration point in a time series data.
+
+    Estimate the equilibration point in a time series data using the
+    statistical inefficiencies [chodera2016]_, [geyer1992]_, [geyer2011]_.
+
+    The equilibration point is the offset ``t`` that maximizes the effective
+    sample size :math:`N_{eff}(t) = (N - t) / g(x[t:])`, where :math:`g` is the
+    statistical inefficiency. Two solvers find this maximum:
+
+    * ``"exhaustive"`` evaluates every candidate offset
+      ``t in range(0, upper_bound, nskip)``. This is exact but costs one
+      statistical-inefficiency computation per offset; because each computation
+      is itself an :math:`O(N \log N)` FFT, the total cost is
+      :math:`O(N^2 \log N)` and becomes intractable for long series (millions
+      of points).
+    * ``"unimodal"`` performs a ternary search, exploiting that
+      :math:`N_{eff}(t)` is (to a good approximation) unimodal in ``t``. It
+      evaluates only :math:`O(\log N)` offsets, for a total cost of
+      :math:`O(N \log^2 N)`.
+
+    .. note::
+        The ``"unimodal"`` solver is an *approximate* maximizer. Because
+        :math:`N_{eff}(t)` is locally jagged near its (typically flat) peak --
+        the statistical inefficiency fluctuates from offset to offset -- the
+        ternary search may return an equilibration index a few offsets away from
+        the exhaustive argmax. In practice the returned statistical inefficiency
+        and effective sample size are within a fraction of a percent of the
+        exhaustive optimum, and the difference in discarded samples is
+        statistically negligible. Use ``solver="exhaustive"`` if the exact
+        argmax is required and the series is short enough to afford the
+        :math:`O(N^2 \log N)` cost.
+
+    Args:
+        time_series_data (array_like, 1d): Time-series data.
+        si (Optional[str], optional): Statistical-inefficiency method.
+            (default: None)
+        nskip (Optional[int], optional): Number of data points to skip.
             (default: 1)
-        fft (bool, optional): if ``True``, use FFT convolution. FFT should be
-            preferred for long time series. (default: True)
-        minimum_correlation_time (int, optional): the minimum amount of
-            correlation function to compute. The algorithm terminates after
-            computing the correlation time out to minimum_correlation_time when
-            the correlation function first goes negative. (default: None)
-        ignore_end (int, or float, or None, optional): if ``int``, it is the
-            last few points that should be ignored. if ``float``, should be in
-            ``(0, 1)`` and it is the percent of number of points that should be
-            ignored. If ``None`` it would be set to the one fourth of the total
-            number of points. (default: None)
+        fft (bool, optional): Use FFT convolution for long series.
+            (default: True)
+        minimum_correlation_time (Optional[int], optional): Minimum
+            correlation-time window; algorithm stops when correlation first goes
+            negative. (default: None)
+        ignore_end (Optional[Union[int, float]], optional): If int, last points
+            to ignore; if float in (0, 1), fraction to ignore; if None, uses one
+            fourth of data. (default: None)
         number_of_cores (int, optional): The maximum number of concurrently
             running jobs, such as the number of Python worker processes or the
             size of the thread-pool. If -1 all CPUs are used. If 1 is given, no
             parallel computing code is used at all. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all CPUs but
             one are used. (default: 1)
+        solver (str, optional): Offset-search strategy, one of ``"auto"``,
+            ``"exhaustive"``, or ``"unimodal"``. ``"auto"`` uses the exhaustive
+            scan when the number of candidate offsets is small (cheap and exact)
+            and switches to the unimodal ternary search for large series, where
+            the exhaustive scan's :math:`O(N^2 \log N)` cost is prohibitive.
+            (default: "auto")
 
     Returns:
-        int, float: equilibration index, statistical inefficiency estimates
-            equilibration index, and statitical inefficiency estimates of a
+        tuple[int, float]
+            equilibration_index: index where equilibrated region starts.
+            statistical_inefficiency: statitical inefficiency estimates of a
             time series at the equilibration index estimate.
 
-    References:
-        .. [11] Chodera, J. D., (2016). "A Simple Method for Automated
-                Equilibration Detection in Molecular Simulations". J. Chem.
-                Theory and Comp., Simulation., 12(4), p. 1799--1805.
-
+    Note:
+        batch_size, scale, with_centering, and with_scaling
+        are accepted for API compatibility but are not used by this method.
     """
     time_series_data = np.asarray(time_series_data)
 
     if time_series_data.ndim != 1:
-        raise CRError('time_series_data is not an array of one-dimension.')
+        raise CRError("time_series_data is not an array of one-dimension.")
 
     # Get the length of the timeseries.
     time_series_data_size = time_series_data.size
@@ -117,84 +309,40 @@ def estimate_equilibration_length(
     if isinstance(si, str):
         if si not in si_methods:
             raise CRError(
-                f'method {si} not found. Valid statistical inefficiency (si) '
-                'methods are:\n\t- ' + "\n\t- ".join(si_methods)
+                f"method {si} not found. Valid statistical inefficiency (si) "
+                "methods are:\n\t- " + "\n\t- ".join(si_methods)
             )
     elif si is None:
-        si = 'statistical_inefficiency'
+        si = "statistical_inefficiency"
     else:
-        raise CRError('si is not a `str` or `None`.')
+        raise CRError("si is not a `str` or `None`.")
 
     si_func = si_methods[si]
 
     if not isinstance(nskip, int):
         if nskip is not None:
-            raise CRError('nskip must be an `int`.')
+            raise CRError("nskip must be an `int`.")
 
         nskip = 1
 
     elif nskip < 1:
-        raise CRError('nskip must be a positive `int`.')
+        raise CRError("nskip must be a positive `int`.")
 
-    if not isinstance(ignore_end, int):
-        if ignore_end is None:
-            ignore_end = max(1, time_series_data_size // 4)
-        elif isinstance(ignore_end, float):
-            if not 0.0 < ignore_end < 1.0:
-                raise CRError(
-                    f'invalid ignore_end = {ignore_end}. If ignore_end input '
-                    'is a `float`, it should be in a `(0, 1)` range.'
-                )
-            ignore_end *= time_series_data_size
-            ignore_end = max(1, int(ignore_end))
-        else:
-            raise CRError(
-                f'invalid ignore_end = {ignore_end}. ignore_end is not an '
-                '`int`, `float`, or `None`.'
-            )
-    elif ignore_end < 1:
+    if solver not in _EQUILIBRATION_SOLVERS:
         raise CRError(
-            f'invalid ignore_end = {ignore_end}. ignore_end should be a '
-            'positive `int`.'
+            f'invalid solver = "{solver}". solver must be one of:\n\t- '
+            + "\n\t- ".join(_EQUILIBRATION_SOLVERS)
         )
 
-    # Upper bound check
-    if si == 'geyer_r_statistical_inefficiency':
-        if time_series_data_size < 4:
-            raise CRSampleSizeError(
-                f'{time_series_data_size} input data points are not '
-                f'sufficient to be used by "{si}".'
-            )
-        ignore_end = max(3, ignore_end)
-    elif si == 'geyer_split_r_statistical_inefficiency':
-        if time_series_data_size < 8:
-            raise CRSampleSizeError(
-                f'{time_series_data_size} input data points are not '
-                f'sufficient to be used by "{si}".'
-            )
-        ignore_end = max(7, ignore_end)
-    elif si == 'geyer_split_statistical_inefficiency':
-        if time_series_data_size < 8:
-            raise CRSampleSizeError(
-                f'{time_series_data_size} input data points are not '
-                f'sufficient to be used by "{si}".'
-            )
-        ignore_end = max(7, ignore_end)
-
-    if time_series_data_size <= ignore_end:
-        raise CRSampleSizeError(
-            f'invalid ignore_end = {ignore_end}.\nWrong number of data '
-            f'points is requested to be ignored from {time_series_data_size} '
-            'total points.'
-        )
+    ignore_end = _normalize_ignore_end(ignore_end, time_series_data_size, si)
 
     # Special case if timeseries is constant.
     _std = time_series_data.std()
 
     if not np.isfinite(_std):
         raise CRError(
-            'there is at least one value in the input array which is '
-            'non-finite or not-number.'
+            "there is at least one value in the input array which is "
+            "non-finite or not-number."
         )
 
     if isclose(_std, 0, abs_tol=_DEFAULT_ABS_TOL):
@@ -208,16 +356,40 @@ def estimate_equilibration_length(
 
     nskip = min(nskip, upper_bound)
 
+    # Number of candidate offsets t = 0, nskip, 2*nskip, ... < upper_bound.
+    number_of_candidate_offsets = (upper_bound + nskip - 1) // nskip
+
+    # Resolve the "auto" solver: the exhaustive scan is exact and cheap when the
+    # number of candidate offsets is small, but its total cost grows as
+    # O(N^2 log N). For long series we fall back to the unimodal ternary search.
+    resolved_solver = solver
+    if resolved_solver == "auto":
+        if number_of_candidate_offsets > _DEFAULT_EQUILIBRATION_EXHAUSTIVE_MAX_EVALS:
+            resolved_solver = "unimodal"
+        else:
+            resolved_solver = "exhaustive"
+
+    if resolved_solver == "unimodal":
+        # The ternary search is inherently serial (each step depends on the
+        # previous evaluations), so it ignores number_of_cores.
+        return _unimodal_search_equilibration(
+            time_series_data,
+            upper_bound,
+            nskip,
+            si_func,
+            fft,
+            minimum_correlation_time,
+        )
+
     if number_of_cores != 1:
-        # Compute the statitical inefficiency of a time series
-        results = Parallel(n_jobs=number_of_cores)(
-            delayed(_estimate_equilibration_length)(
-                time_series_data,
-                t,
-                si_func,
-                fft,
-                minimum_correlation_time)
-            for t in range(0, upper_bound, nskip))
+        with parallel_backend("loky", n_jobs=number_of_cores):
+            # Compute the statitical inefficiency of a time series
+            results = Parallel()(
+                delayed(_estimate_equilibration_length)(
+                    time_series_data, t, si_func, fft, minimum_correlation_time
+                )
+                for t in range(0, upper_bound, nskip)
+            )
 
         results_array = np.asarray(results)
 
@@ -248,8 +420,8 @@ def estimate_equilibration_length(
 
         try:
             si_value = si_func(
-                x, fft=fft,
-                minimum_correlation_time=minimum_correlation_time)
+                x, fft=fft, minimum_correlation_time=minimum_correlation_time
+            )
         except CRError:
             si_value = x_size
 

@@ -19,11 +19,14 @@ class GetOAuthConnectResponse200:
         extra_params (Union[Unset, GetOAuthConnectResponse200ExtraParams]):
         scopes (Union[Unset, List[str]]):
         grant_types (Union[Unset, List[str]]):
+        client_credentials_configured (Union[Unset, bool]): The instance OAuth entry carries shared client-credentials,
+            so the connect dialog can skip the bring-your-own form and run the exchange server-side
     """
 
     extra_params: Union[Unset, "GetOAuthConnectResponse200ExtraParams"] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
     grant_types: Union[Unset, List[str]] = UNSET
+    client_credentials_configured: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -39,6 +42,8 @@ class GetOAuthConnectResponse200:
         if not isinstance(self.grant_types, Unset):
             grant_types = self.grant_types
 
+        client_credentials_configured = self.client_credentials_configured
+
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({})
@@ -48,6 +53,8 @@ class GetOAuthConnectResponse200:
             field_dict["scopes"] = scopes
         if grant_types is not UNSET:
             field_dict["grant_types"] = grant_types
+        if client_credentials_configured is not UNSET:
+            field_dict["client_credentials_configured"] = client_credentials_configured
 
         return field_dict
 
@@ -67,10 +74,13 @@ class GetOAuthConnectResponse200:
 
         grant_types = cast(List[str], d.pop("grant_types", UNSET))
 
+        client_credentials_configured = d.pop("client_credentials_configured", UNSET)
+
         get_o_auth_connect_response_200 = cls(
             extra_params=extra_params,
             scopes=scopes,
             grant_types=grant_types,
+            client_credentials_configured=client_credentials_configured,
         )
 
         get_o_auth_connect_response_200.additional_properties = d

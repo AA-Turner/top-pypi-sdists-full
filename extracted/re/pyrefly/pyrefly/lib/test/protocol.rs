@@ -974,6 +974,23 @@ def to_foo() -> Foo[MySeries]:
 "#,
 );
 
+// Regression test for https://github.com/facebook/pyrefly/issues/1202
+testcase!(
+    test_assert_type_structurally_identical_protocols,
+    r#"
+from typing import Protocol, assert_type
+
+class F1(Protocol):
+    a: int
+
+class F2(Protocol):
+    a: int
+
+def f(f2: F2):
+    assert_type(f2, F1)
+"#,
+);
+
 // https://github.com/facebook/pyrefly/issues/2925
 testcase!(
     test_protocol_ambiguous_member,
@@ -987,5 +1004,34 @@ class Ambiguous(Protocol):
 class Ok(Protocol):
     x: int
     y: str = "default"
+"#,
+);
+
+testcase!(
+    test_protocol_overloaded_method_filtered_by_self,
+    r#"
+from __future__ import annotations
+from datetime import timedelta
+from typing import Generic, TypeVar, Protocol, overload, assert_type
+
+T_contra = TypeVar("T_contra", contravariant=True)
+S1_co = TypeVar("S1_co", bound=timedelta | int | float, covariant=True)
+S2_co = TypeVar("S2_co", bound=timedelta | int | float, covariant=True)
+
+class SupportsProtoTrueDiv(Protocol[T_contra, S2_co]):
+    def _proto_truediv(self, other: T_contra, /) -> ElementOpsMixin[S2_co]: ...
+
+class ElementOpsMixin(Protocol, Generic[S2_co]):
+    @overload
+    def _proto_truediv(self: ElementOpsMixin[int], other: int, /) -> ElementOpsMixin[float]: ...
+    @overload
+    def _proto_truediv(self: ElementOpsMixin[timedelta], other: timedelta, /) -> ElementOpsMixin[float]: ...
+
+class Series(ElementOpsMixin[S2_co], Protocol):
+    def __truediv__(self: SupportsProtoTrueDiv[T_contra, S1_co], other: T_contra) -> Series[S1_co]: ...
+
+def main2(s: Series[timedelta]) -> None:
+    td = timedelta(1)
+    assert_type(s / td, Series[float])
 "#,
 );

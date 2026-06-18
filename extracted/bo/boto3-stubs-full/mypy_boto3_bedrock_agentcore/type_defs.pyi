@@ -266,6 +266,7 @@ __all__ = (
     "HarnessReasoningContentBlockTypeDef",
     "HarnessReasoningTextBlockTypeDef",
     "HarnessRemoteMcpConfigTypeDef",
+    "HarnessSkillAwsSkillsSourceTypeDef",
     "HarnessSkillGitAuthTypeDef",
     "HarnessSkillGitSourceTypeDef",
     "HarnessSkillS3SourceTypeDef",
@@ -1094,6 +1095,9 @@ class HarnessRemoteMcpConfigTypeDef(TypedDict):
     url: str
     headers: NotRequired[Mapping[str, str]]
 
+class HarnessSkillAwsSkillsSourceTypeDef(TypedDict):
+    paths: NotRequired[Sequence[str]]
+
 class HarnessSkillGitAuthTypeDef(TypedDict):
     credentialArn: str
     username: NotRequired[str]
@@ -1581,7 +1585,7 @@ class CloudWatchFilterConfigOutputTypeDef(TypedDict):
 
 class OnlineEvaluationConfigSourceOutputTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
-    sessionFilterConfig: NotRequired[SessionFilterConfigOutputTypeDef]
+    timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
 
 CloudWatchLogsFilterTypeDef = TypedDict(
     "CloudWatchLogsFilterTypeDef",
@@ -2036,7 +2040,7 @@ class CloudWatchFilterConfigTypeDef(TypedDict):
 
 class OnlineEvaluationConfigSourceTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
-    sessionFilterConfig: NotRequired[SessionFilterConfigTypeDef]
+    timeRange: NotRequired[SessionFilterConfigTypeDef]
 
 class StartBatchEvaluationResponseTypeDef(TypedDict):
     batchEvaluationId: str
@@ -2168,6 +2172,7 @@ class HarnessSkillTypeDef(TypedDict):
     path: NotRequired[str]
     s3: NotRequired[HarnessSkillS3SourceTypeDef]
     git: NotRequired[HarnessSkillGitSourceTypeDef]
+    awsSkills: NotRequired[HarnessSkillAwsSkillsSourceTypeDef]
 
 class HarnessContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
@@ -2723,6 +2728,7 @@ class InvokeHarnessRequestTypeDef(TypedDict):
     harnessArn: str
     runtimeSessionId: str
     messages: Sequence[HarnessMessageTypeDef]
+    qualifier: NotRequired[str]
     runtimeUserId: NotRequired[str]
     model: NotRequired[HarnessModelConfigurationTypeDef]
     systemPrompt: NotRequired[Sequence[HarnessSystemContentBlockTypeDef]]

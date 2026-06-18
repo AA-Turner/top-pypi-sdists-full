@@ -6,10 +6,12 @@ from dataclasses import asdict
 from typing import Any
 
 from airbyte.exceptions import PyAirbyteInputError
+from airbyte_ops_mcp.cloud_admin import api_client as cloud_api
 from fastmcp import FastMCPApp
 
 from airbyte_ops_webapp.models import OverridePlan, ScopeType
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
+    DEFAULT_ADMIN_USER_ID,
     auth_available,
     connector_context_placeholder,
     context_error_message,
@@ -354,6 +356,130 @@ def apply_override(
         "apply_message": result.message,
         "apply_success": result.success,
     }
+
+
+@connector_version_manager_app.tool()
+def advance_rollout(
+    rollout_id: str,
+    connector_id: str,
+    docker_repository: str,
+    docker_image_tag: str,
+    target_percentage: str = "",
+    auth_bearer_token: str = "",
+    user_email: str = "",
+) -> dict[str, Any]:
+    """Advance a connector rollout to the next stage."""
+    adapter = get_adapter(auth_bearer_token or None)
+    config_api_root = adapter.config_api_root
+
+    updated_by = _resolve_updated_by(
+        user_email=user_email,
+        bearer_token=auth_bearer_token or None,
+        config_api_root=config_api_root,
+    )
+
+    parsed_pct = int(target_percentage) if target_percentage.strip() else None
+
+    try:
+        cloud_api.progress_connector_rollout(
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+            actor_definition_id=connector_id,
+            rollout_id=rollout_id,
+            updated_by=updated_by,
+            config_api_root=config_api_root,
+            target_percentage=parsed_pct,
+            bearer_token=auth_bearer_token or None,
+        )
+    except PyAirbyteInputError as exc:
+        return {
+            "rollout_action_result": f"Failed to advance rollout: {exc}",
+            "rollout_action_success": False,
+        }
+
+    pct_msg = f" to {parsed_pct}%" if parsed_pct else ""
+    return {
+        "rollout_action_result": (
+            f"Successfully advanced rollout{pct_msg} for "
+            f"{docker_repository}:{docker_image_tag}."
+        ),
+        "rollout_action_success": True,
+    }
+
+
+@connector_version_manager_app.tool()
+def finalize_rollout(
+    rollout_id: str,
+    connector_id: str,
+    docker_repository: str,
+    docker_image_tag: str,
+    state: str,
+    auth_bearer_token: str = "",
+    user_email: str = "",
+) -> dict[str, Any]:
+    """Finalize a connector rollout (promote, cancel, or rollback).
+
+    `state` must be one of: `succeeded`, `canceled`, `failed_rolled_back`.
+    """
+    adapter = get_adapter(auth_bearer_token or None)
+    config_api_root = adapter.config_api_root
+
+    updated_by = _resolve_updated_by(
+        user_email=user_email,
+        bearer_token=auth_bearer_token or None,
+        config_api_root=config_api_root,
+    )
+
+    try:
+        cloud_api.finalize_connector_rollout(
+            docker_repository=docker_repository,
+            docker_image_tag=docker_image_tag,
+            actor_definition_id=connector_id,
+            rollout_id=rollout_id,
+            updated_by=updated_by,
+            state=state,
+            config_api_root=config_api_root,
+            bearer_token=auth_bearer_token or None,
+        )
+    except PyAirbyteInputError as exc:
+        return {
+            "rollout_action_result": f"Failed to finalize rollout: {exc}",
+            "rollout_action_success": False,
+        }
+
+    action_label = {
+        "succeeded": "promoted",
+        "canceled": "canceled",
+        "failed_rolled_back": "rolled back",
+    }.get(state, state)
+
+    return {
+        "rollout_action_result": (
+            f"Successfully {action_label} rollout for "
+            f"{docker_repository}:{docker_image_tag}."
+        ),
+        "rollout_action_success": True,
+    }
+
+
+def _resolve_updated_by(
+    *,
+    user_email: str,
+    bearer_token: str | None,
+    config_api_root: str,
+) -> str:
+    """Resolve a user UUID from email, falling back to a default admin ID."""
+    if not user_email:
+        return DEFAULT_ADMIN_USER_ID
+
+    try:
+        return cloud_api.get_user_id_by_email(
+            email=user_email,
+            config_api_root=config_api_root,
+            bearer_token=bearer_token,
+        )
+    except PyAirbyteInputError:
+        return DEFAULT_ADMIN_USER_ID
 
 
 @connector_version_manager_app.tool()

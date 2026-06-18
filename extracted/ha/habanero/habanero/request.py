@@ -1,8 +1,10 @@
 import warnings
 
-import httpx
+import httpx2
 
 from .exceptions import RequestError
+from .facets import validate_facets
+from .field_queries import validate_field_queries
 from .filterhandler import filter_handler
 from .habanero_utils import (
     check_json,
@@ -14,6 +16,8 @@ from .habanero_utils import (
     rename_query_filters,
 )
 from .request_class import Request
+from .select import validate_select
+from .sort import validate_sort
 
 
 def request(
@@ -21,7 +25,7 @@ def request(
     path,
     ids=None,
     query=None,
-    filter=None,
+    filter=None, # noqa: A002 (Crossref API uses filter)
     offset=None,
     limit=None,
     sample=None,
@@ -31,7 +35,7 @@ def request(
     select=None,
     works=None,
     cursor=None,
-    cursor_max=None,
+    cursor_max=5000,
     agency=False,
     progress_bar=False,
     should_warn=False,
@@ -41,13 +45,20 @@ def request(
     warning_thrown = False
     url = cr.base_url + path
 
-    if cursor_max.__class__.__name__ != "NoneType":
-        if not isinstance(cursor_max, int):
-            raise ValueError("cursor_max must be of class int")
+    if cursor_max and not isinstance(cursor_max, int):
+        raise ValueError("cursor_max must be of class int")
 
     filt = filter_handler(filter)
-    if select.__class__ is list:
+    if isinstance(select, list):
         select = ",".join(select)
+
+    validate_facets(facet)
+    validate_sort(sort)
+    validate_select(select)
+    fq_keys = [
+        k.replace("query_", "query.", 1).replace("_", "-") for k in filter_dict(kwargs)
+    ]
+    validate_field_queries(fq_keys if fq_keys else None)
 
     payload = {
         "query": query,
@@ -66,29 +77,29 @@ def request(
     payload["offset"] = ifelsestr(payload["offset"])
     payload["rows"] = ifelsestr(payload["rows"])
     # remove params with value None
-    payload = dict((k, v) for k, v in payload.items() if v)
-    # add query filters
+    payload = {k: v for k, v in payload.items() if v}
+    # add field queries
     payload.update(filter_dict(kwargs))
-    # rename query filters
+    # rename field queries
     payload = rename_query_filters(payload)
 
-    if ids.__class__.__name__ == "NoneType":
+    if ids is None:
         url = url.strip("/")
         try:
-            r = httpx.get(
+            r = httpx2.get(
                 url,
                 params=payload,
                 headers=make_ua(cr.mailto, cr.ua_string),
                 timeout=cr.timeout,
             )
             r.raise_for_status()
-        except httpx.HTTPStatusError:
+        except httpx2.HTTPStatusError as e:
             if is_json(r):
-                raise RequestError(r.status_code, parse_json_err(r))
+                raise RequestError(r.status_code, parse_json_err(r)) from e
             else:
                 r.raise_for_status()
-        except httpx.HTTPError as e:
-            raise RuntimeError(f"HTTP Exception for {e.request.url} - {e}")
+        except httpx2.HTTPError as e:
+            raise RuntimeError(f"HTTP Exception for {e.request.url} - {e}") from e
             # raise RuntimeError(e)
         else:
             if not r:
@@ -97,11 +108,11 @@ def request(
             check_json(r)
             coll = r.json()
     else:
-        if ids.__class__.__name__ == "str":
+        if isinstance(ids, str):
             ids = ids.split()
-        if ids.__class__.__name__ == "int":
+        if isinstance(ids, int):
             ids = [ids]
-        # should_warn = len(ids) > 1
+
         coll = []
         for i in range(len(ids)):
             if works:
@@ -128,14 +139,9 @@ def request(
                 ).do_request(should_warn=should_warn)
                 coll.append(res)
             else:
-                if agency:
-                    endpt = url + str(ids[i]) + "/agency"
-                else:
-                    endpt = url + str(ids[i])
-
+                endpt = url + str(ids[i]) + "/agency" if agency else url + str(ids[i])
                 endpt = endpt.strip("/")
-
-                r = httpx.get(
+                r = httpx2.get(
                     endpt,
                     params=payload,
                     headers=make_ua(cr.mailto, cr.ua_string),
@@ -144,7 +150,7 @@ def request(
                 if r.status_code > 201 and should_warn:
                     warning_thrown = True
                     mssg = "%s on %s: %s" % (r.status_code, ids[i], r.reason_phrase)
-                    warnings.warn(mssg)
+                    warnings.warn(mssg, stacklevel=2)
                 else:
                     r.raise_for_status()
 

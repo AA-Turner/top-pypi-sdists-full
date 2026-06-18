@@ -1,3 +1,4 @@
+from __future__ import annotations  # keep heavy-proxy type hints lazy (PEP 563)
 # file_reader.py
 from .imports import *
 # -------- Public API drop-ins that mirror your originals --------

@@ -77,7 +77,7 @@ pub(super) struct Declarations {
 }
 
 /// One of the live declarations for a single place at some point in control flow.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
 pub(super) struct LiveDeclaration {
     pub(super) declaration: ScopedDefinitionId,
     pub(super) reachability_constraint: ScopedReachabilityConstraintId,
@@ -199,13 +199,6 @@ impl Declarations {
                     self.live_declarations.push(declaration);
                 }
             }
-        }
-    }
-
-    pub(super) fn finish(&mut self, reachability_constraints: &mut ReachabilityConstraintsBuilder) {
-        self.live_declarations.shrink_to_fit();
-        for declaration in &self.live_declarations {
-            reachability_constraints.mark_used(declaration.reachability_constraint);
         }
     }
 }
@@ -515,6 +508,24 @@ impl PlaceState {
     ) {
         self.bindings
             .record_narrowing_constraint(narrowing_constraints, constraint);
+    }
+
+    /// Add the given constraint to live bindings that were also present at an earlier use.
+    pub(super) fn record_narrowing_constraint_for_bindings_at_use(
+        &mut self,
+        narrowing_constraints: &mut NarrowingConstraintsBuilder,
+        constraint: ScopedNarrowingConstraint,
+        bindings_at_use: &Bindings,
+    ) {
+        for binding in &mut self.bindings.live_bindings {
+            if bindings_at_use
+                .iter()
+                .any(|binding_at_use| binding_at_use.binding() == binding.binding())
+            {
+                binding.narrowing_constraint = narrowing_constraints
+                    .add_and_constraint(binding.narrowing_constraint, constraint);
+            }
+        }
     }
 
     /// Add given reachability constraint to all live bindings.

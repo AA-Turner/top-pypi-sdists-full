@@ -5,8 +5,8 @@
 //! reproducing the flat namespace the module historically shared, without any
 //! line-cut `include!` fragments.
 
-mod imports;
-pub use imports::*;
+mod prelude;
+pub use prelude::*;
 
 // ── Concern modules ──────────────────────────────────────────────────────────
 mod convergence;
@@ -18,9 +18,8 @@ mod edf;
 mod family_state;
 mod gam_working_model;
 mod glm_update;
-mod gpu_dispatch;
 mod log_link_working_state;
-mod loop_driver;
+pub(crate) mod loop_driver;
 mod low_rank;
 mod newton_solve;
 mod penalty;
@@ -68,19 +67,15 @@ use edf::{
 
 use log_link_working_state::ETA_CLAMP;
 
-/// The canonical PIRLS numeric floors live in [`log_link_working_state`]; this
-/// re-export gives every family in the crate one shared `MIN_WEIGHT` so the
-/// weighted normal equations stay well posed with a single retunable value.
-pub(crate) use log_link_working_state::MIN_WEIGHT;
-
+pub(crate) use penalty::PirlsPenalty;
 use penalty::{
-    KroneckerQsTransform, PirlsPenalty, WorkingCoordinateDesign, WorkingReparamTransform,
-    attach_penalty_shift,
+    KroneckerQsTransform, WorkingCoordinateDesign, WorkingReparamTransform, attach_penalty_shift,
 };
 
 use pls_solver::solve_penalized_least_squares_implicit;
 
 pub use pls_solver::{GaussianFixedCache, SparseXtwxPrecomputed};
+pub use sparse_system::{SparsePenalizedSystem, assemble_and_factor_sparse_penalized_system};
 
 pub use reweight::runworking_model_pirls;
 

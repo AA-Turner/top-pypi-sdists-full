@@ -37,10 +37,7 @@ from airbyte_ops_mcp.cloud_admin.payment_config import (
     update_organization_payment_config as _update_payment_config,
 )
 from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
-from airbyte_ops_mcp.tier_cache import (
-    get_org_tier,
-    resolve_workspace,
-)
+from airbyte_ops_mcp.tier_cache import get_org_tier, resolve_workspace
 from fastmcp import FastMCPApp
 
 from airbyte_ops_webapp.pages.customer_billing._helpers import (
@@ -354,9 +351,6 @@ def lookup_organization(
     google_access_token: str = "",
 ) -> dict[str, Any]:
     """Look up an organization's payment configuration by ID or workspace ID."""
-    if mock_only_enabled():
-        return _mock_lookup_result(query)
-
     if not auth_available(auth_bearer_token or None):
         return {
             "org_info": None,
@@ -365,6 +359,9 @@ def lookup_organization(
             "org_loaded": False,
             "lookup_error": "Sign in with Airbyte to look up organizations.",
         }
+
+    if mock_only_enabled():
+        return _mock_lookup_result(query)
 
     bearer = resolved_bearer_token(auth_bearer_token or None)
     api_root = resolved_config_api_root()
@@ -466,6 +463,11 @@ def apply_grace_period(
     google_access_token: str = "",
 ) -> dict[str, Any]:
     """Set, extend, or cancel a grace period for an organization."""
+    if not auth_available(auth_bearer_token or None):
+        return _error_result(
+            organization_id, "Sign in with Airbyte to apply grace periods."
+        )
+
     if mock_only_enabled():
         return _mock_apply_result(
             organization_id, f"Grace period ({grace_period_value})"
@@ -604,6 +606,11 @@ def apply_permanent_waiver(
     google_access_token: str = "",
 ) -> dict[str, Any]:
     """Set or remove a permanent billing waiver for an organization."""
+    if not auth_available(auth_bearer_token or None):
+        return _error_result(
+            organization_id, "Sign in with Airbyte to apply permanent waivers."
+        )
+
     if mock_only_enabled():
         return _mock_apply_result(organization_id, f"Permanent waiver ({waiver_type})")
 

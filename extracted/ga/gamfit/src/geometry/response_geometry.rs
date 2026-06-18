@@ -518,27 +518,63 @@ pub fn response_frechet_mean(
         Ok(acc)
     };
 
-    // Initialise at the projected ambient mean: a single log/exp round trip from
-    // the first sample lands on the manifold for any geometry (the raw ambient
-    // average is generally off-manifold for SPD/Grassmann/Stiefel/Poincaré).
-    let mut p = manifold
-        .exp_point(samples[0].view(), Array1::<f64>::zeros(ambient).view())
-        .map_err(|e| format!("response geometry Fréchet mean init: {e}"))?;
-    {
-        // Average the log-tangents of all samples at the seed and step there:
-        // one Riemannian averaging step gives an order-independent interior
-        // start without assuming the ambient mean is on-manifold.
+    // Seed the Karcher iteration at a sample whose tangent star is fully
+    // defined, then take one Riemannian averaging step for an interior start.
+    //
+    // A fixed seed at `samples[0]` is fragile: if any *other* sample lies at
+    // that seed's cut locus the seeding log is undefined and the whole mean
+    // aborts, even though the Fréchet mean itself is well defined. On
+    // `Gr(1,n) = ℝP^{n-1}` two orthogonal lines (principal angle π/2) are
+    // exactly such a cut-locus pair, so a design whose first response happens
+    // to be orthogonal to another could never be averaged. Instead, try each
+    // sample as the seed and keep the first whose log-tangents to *every*
+    // sample land: the safeguarded descent below converges to the same mean
+    // from any admissible seed, so this only changes which interior point the
+    // iteration starts from — and the very first sample is chosen whenever it
+    // is admissible (so SPD/Stiefel/Poincaré data with no cut-locus pair seed
+    // exactly as before). A design where every sample sits at another's cut
+    // locus has a genuinely ambiguous mean and is reported as such.
+    let mut seeded: Option<Array1<f64>> = None;
+    let mut last_seed_err = String::new();
+    for seed in &samples {
+        let base = match manifold.exp_point(seed.view(), Array1::<f64>::zeros(ambient).view()) {
+            Ok(base) => base,
+            Err(e) => {
+                last_seed_err = e.to_string();
+                continue;
+            }
+        };
         let mut xi = Array1::<f64>::zeros(ambient);
+        let mut admissible = true;
         for (i, x) in samples.iter().enumerate() {
-            let lg = manifold
-                .log_point(p.view(), x.view())
-                .map_err(|e| format!("response geometry Fréchet mean init log: {e}"))?;
-            xi.scaled_add(w[i], &lg);
+            match manifold.log_point(base.view(), x.view()) {
+                Ok(lg) => xi.scaled_add(w[i], &lg),
+                Err(e) => {
+                    last_seed_err = e.to_string();
+                    admissible = false;
+                    break;
+                }
+            }
         }
-        p = manifold
-            .exp_point(p.view(), xi.view())
-            .map_err(|e| format!("response geometry Fréchet mean init step: {e}"))?;
+        if !admissible {
+            continue;
+        }
+        match manifold.exp_point(base.view(), xi.view()) {
+            Ok(stepped) => {
+                seeded = Some(stepped);
+                break;
+            }
+            Err(e) => {
+                last_seed_err = e.to_string();
+            }
+        }
     }
+    let mut p = seeded.ok_or_else(|| {
+        format!(
+            "response geometry Fréchet mean init: no admissible seed among samples \
+             (every sample lies at another's cut locus; last error: {last_seed_err})"
+        )
+    })?;
 
     let mut f_cur = dispersion(p.view())?;
     let mut best_p = p.clone();
@@ -722,6 +758,33 @@ pub struct ResponseCurvatureFit {
     /// hyperbolic side cannot rail this way (κ < 0 has no conjugate radius), so a
     /// rail here always means strongly spherical relative to the spread.
     pub railed_at_resolution_limit: bool,
+    /// `true` only when the SIGN of κ̂ is statistically resolved — i.e. the
+    /// profile-likelihood CI excludes 0 (`profile_ci.verdict ≠ Flat`).
+    ///
+    /// ## Why a point estimate alone is not enough (the #944/#1059 flat-floor)
+    ///
+    /// Curvature is resolvable only through the dimensionless product `κ·r²`
+    /// (see [`kappa_r2`](Self::kappa_r2)); the per-point Fisher information for κ
+    /// scales like `σ⁴`. When the cloud is nearly flat at its own scale
+    /// (`|κ·r²| ≪ 1`), the profiled criterion is so shallow that its single-cloud
+    /// argmin κ̂ can land on the WRONG SIDE OF ZERO purely by Monte-Carlo
+    /// fluctuation — empirically a coin-flip below `|κ·r²| ≈ 0.03`, reliable above
+    /// `≈ 0.09` (the #944 power curve). The estimand itself is UNBIASED (the
+    /// criterion averaged over clouds minimises exactly at κ⋆), so this is a
+    /// resolution limit, not a bias.
+    ///
+    /// The CI, in contrast, is honest in this regime: at an under-resolved
+    /// operating point it reports `Flat` (straddles 0) rather than a confident
+    /// wrong sign — it essentially never claims the wrong-signed geometry. So the
+    /// SIGN-bearing summary the caller may quote is the CI verdict, not the bare
+    /// κ̂. This flag exposes that contract on the point-estimate surface: when it
+    /// is `false`, κ̂'s sign is noise — the caller must report "curvature not
+    /// resolved at this scale (|κ·r²| too small)" and quote the CI / `kappa_r2`,
+    /// never a sign-confident κ̂. It is the flat-floor twin of
+    /// [`railed_at_resolution_limit`](Self::railed_at_resolution_limit) (the
+    /// spherical-cap rail); together they bracket the two ends of the resolvable
+    /// `κ·r²` band where κ̂ is a genuine interior point estimate.
+    pub sign_resolved: bool,
     /// Profile-likelihood CI for κ and the geometry verdict from its sign.
     pub profile_ci: crate::geometry::curvature_estimand::KappaProfileCi,
     /// Interior-point χ²₁ likelihood-ratio test of flatness (κ = 0).
@@ -1027,12 +1090,23 @@ pub fn fit_response_curvature(
     )?;
     let flatness = crate::geometry::curvature_estimand::flatness_lr_test(&mut v_p, kappa_hat)?;
 
+    // The sign of κ̂ is statistically resolved iff the profile CI excludes 0 — the
+    // CI is the honest sign-bearing summary (it reports Flat under-resolution rather
+    // than a confident wrong sign), so we mirror its verdict onto the point-estimate
+    // surface. Below the resolvable `κ·r²` floor (`|κ·r²| ≪ 1`) the bare κ̂ argmin can
+    // flip sign on Monte-Carlo noise, so `false` here means "do not quote κ̂'s sign".
+    let sign_resolved = !matches!(
+        profile_ci.verdict,
+        crate::geometry::curvature_estimand::CurvatureVerdict::Flat
+    );
+
     Ok(ResponseCurvatureFit {
         dim,
         kappa_hat,
         kappa_r2,
         characteristic_radius: rho_max,
         railed_at_resolution_limit,
+        sign_resolved,
         base,
         v_p_hat,
         profile_ci,

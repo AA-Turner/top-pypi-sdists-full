@@ -6,6 +6,8 @@ from picsellia_annotations.coco import COCOFile
 from picsellia_annotations.coco import Image as COCOImage
 
 from picsellia.sdk.asset import MultiAsset
+from picsellia.services.export_key import ExportKeyService
+from picsellia.types.enums import AnnotationExportKey
 
 
 class COCOFileBuilder:
@@ -52,17 +54,17 @@ class COCOFileBuilder:
 
         return list(self.assets.keys())
 
-    def load_coco_images(self, loaded_assets: MultiAsset, use_id: bool = False):
+    def load_coco_images(
+        self, loaded_assets: MultiAsset, export_key: AnnotationExportKey
+    ):
         for asset in loaded_assets:
             asset_id = str(asset.id)
             if asset_id in self.assets:
-                if use_id:
-                    file_name = asset.id_with_extension
-                else:
-                    file_name = asset.filename
                 coco_image = COCOImage(
                     id=self.assets[asset_id],
-                    file_name=file_name,
+                    file_name=ExportKeyService.get_coco_filename_from_asset(
+                        export_key, asset
+                    ),
                     width=asset.width,
                     height=asset.height,
                     attributes=self.annotation_attributes.get(asset_id, None),

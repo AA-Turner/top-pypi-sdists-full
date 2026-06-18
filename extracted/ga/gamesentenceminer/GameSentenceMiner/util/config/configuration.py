@@ -165,7 +165,7 @@ KNOWN_ASPECT_RATIOS = [
     # --- Vertical / Mobile ---
     {"name": "9:16 (Portrait Mode)", "ratio": 9 / 16},
     {"name": "3:4 (Portrait 4:3)", "ratio": 3 / 4},
-    {"name": "1:1 (Square / UI Capture)", "ratio": 1 / 1},
+    {"name": "1:1 (Square / UI Capture)", "ratio": 1.0},
 ]
 
 KNOWN_ASPECT_RATIOS_DICT = {item["name"]: item["ratio"] for item in KNOWN_ASPECT_RATIOS}
@@ -574,7 +574,7 @@ DEFAULT_WEBSOCKET_SOURCES: List[Dict[str, Any]] = [
 @dataclass
 class General:
     use_websocket: bool = True
-    use_clipboard: bool = True
+    use_clipboard: bool = False
     use_both_clipboard_and_websocket: bool = False
     merge_matching_sequential_text: bool = False
     websocket_uri: str = "localhost:6677,localhost:9001,localhost:2333"
@@ -1409,6 +1409,13 @@ class OverlayEngine(str, Enum):
     SCREENAI = "screenai"
 
 
+class OverlayManualBackgroundMode(str, Enum):
+    # Paint a captured desktop snapshot behind the overlay during manual mode,
+    # for exclusive-fullscreen games whose frame is dropped when focus is lost.
+    OFF = "off"
+    ON_DEMAND = "on_demand"  # grab a fresh full-monitor frame via mss on activation
+
+
 @dataclass_json
 @dataclass
 class Overlay:
@@ -1432,8 +1439,16 @@ class Overlay:
     check_previous_lines_for_recycled_indicator: bool = False
     ocr_full_screen_instead_of_obs: bool = False
     use_text_filtering: bool = True
+    manual_mode_desktop_background: str = OverlayManualBackgroundMode.OFF.value
 
     def __post_init__(self):
+        # Migrate the legacy "ocr_payload" strategy to the single on-demand capture.
+        if self.manual_mode_desktop_background not in (
+            OverlayManualBackgroundMode.OFF.value,
+            OverlayManualBackgroundMode.ON_DEMAND.value,
+        ):
+            self.manual_mode_desktop_background = OverlayManualBackgroundMode.ON_DEMAND.value
+
         if self.monitor_to_capture == -1:
             self.monitor_to_capture = 0  # Default to the first monitor if not set
 
@@ -1579,8 +1594,7 @@ class ProfileConfig:
 
         return self
 
-    def restart_required(self, previous):
-        previous: ProfileConfig
+    def restart_required(self, previous: "ProfileConfig"):
         if any(
             [
                 previous.paths.folder_to_watch != self.paths.folder_to_watch,

@@ -56,9 +56,21 @@ from datadog_api_client.v2.model.gcp_usage_cost_config_post_request import GCPUs
 from datadog_api_client.v2.model.gcp_uc_config_response import GcpUcConfigResponse
 from datadog_api_client.v2.model.gcp_usage_cost_config_patch_request import GCPUsageCostConfigPatchRequest
 from datadog_api_client.v2.model.oci_configs_response import OCIConfigsResponse
+from datadog_api_client.v2.model.cost_recommendation_array import CostRecommendationArray
+from datadog_api_client.v2.model.recommendations_filter_request import RecommendationsFilterRequest
 from datadog_api_client.v2.model.cost_tag_descriptions_response import CostTagDescriptionsResponse
+from datadog_api_client.v2.model.cost_tag_description_response import CostTagDescriptionResponse
+from datadog_api_client.v2.model.cost_tag_description_upsert_request import CostTagDescriptionUpsertRequest
+from datadog_api_client.v2.model.generate_cost_tag_description_response import GenerateCostTagDescriptionResponse
 from datadog_api_client.v2.model.cost_tag_keys_response import CostTagKeysResponse
 from datadog_api_client.v2.model.cost_tag_key_response import CostTagKeyResponse
+from datadog_api_client.v2.model.cost_tag_key_metadata_response import CostTagKeyMetadataResponse
+from datadog_api_client.v2.model.cost_tag_metadata_daily_filter import CostTagMetadataDailyFilter
+from datadog_api_client.v2.model.cost_currency_response import CostCurrencyResponse
+from datadog_api_client.v2.model.cost_metrics_response import CostMetricsResponse
+from datadog_api_client.v2.model.cost_tag_metadata_months_response import CostTagMetadataMonthsResponse
+from datadog_api_client.v2.model.cost_orchestrators_response import CostOrchestratorsResponse
+from datadog_api_client.v2.model.cost_tag_key_sources_response import CostTagKeySourcesResponse
 from datadog_api_client.v2.model.cost_tags_response import CostTagsResponse
 from datadog_api_client.v2.model.ruleset_resp_array import RulesetRespArray
 from datadog_api_client.v2.model.ruleset_resp import RulesetResp
@@ -272,6 +284,34 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._delete_cost_tag_description_by_key_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_descriptions/{tag_key}",
+                "operation_id": "delete_cost_tag_description_by_key",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "tag_key": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "tag_key",
+                    "location": "path",
+                },
+                "cloud": {
+                    "openapi_types": (str,),
+                    "attribute": "cloud",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
         self._delete_custom_allocation_rule_endpoint = _Endpoint(
             settings={
                 "response_type": None,
@@ -337,6 +377,29 @@ class CloudCostManagementApi:
             },
             headers_map={
                 "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._generate_cost_tag_description_by_key_endpoint = _Endpoint(
+            settings={
+                "response_type": (GenerateCostTagDescriptionResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_descriptions/{tag_key}/generate",
+                "operation_id": "generate_cost_tag_description_by_key",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "tag_key": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "tag_key",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
             },
             api_client=api_client,
         )
@@ -839,6 +902,34 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._get_cost_tag_description_by_key_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagDescriptionResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_descriptions/{tag_key}",
+                "operation_id": "get_cost_tag_description_by_key",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "tag_key": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "tag_key",
+                    "location": "path",
+                },
+                "filter_cloud": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[cloud]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._get_cost_tag_key_endpoint = _Endpoint(
             settings={
                 "response_type": (CostTagKeyResponse,),
@@ -866,6 +957,34 @@ class CloudCostManagementApi:
                     },
                     "openapi_types": (int,),
                     "attribute": "page[size]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_cost_tag_metadata_currency_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostCurrencyResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_metadata/currency",
+                "operation_id": "get_cost_tag_metadata_currency",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_month": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "filter[month]",
+                    "location": "query",
+                },
+                "filter_provider": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[provider]",
                     "location": "query",
                 },
             },
@@ -1147,6 +1266,161 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._list_cost_tag_key_sources_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagKeySourcesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_metadata/tag_sources",
+                "operation_id": "list_cost_tag_key_sources",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_month": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "filter[month]",
+                    "location": "query",
+                },
+                "filter_provider": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[provider]",
+                    "location": "query",
+                },
+                "filter_metric": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[metric]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tag_metadata_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagKeyMetadataResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_metadata",
+                "operation_id": "list_cost_tag_metadata",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_month": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "filter[month]",
+                    "location": "query",
+                },
+                "filter_provider": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[provider]",
+                    "location": "query",
+                },
+                "filter_metric": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[metric]",
+                    "location": "query",
+                },
+                "filter_tag_key": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[tag_key]",
+                    "location": "query",
+                },
+                "filter_daily": {
+                    "openapi_types": (CostTagMetadataDailyFilter,),
+                    "attribute": "filter[daily]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tag_metadata_metrics_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostMetricsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_metadata/metrics",
+                "operation_id": "list_cost_tag_metadata_metrics",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_month": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "filter[month]",
+                    "location": "query",
+                },
+                "filter_provider": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[provider]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tag_metadata_months_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostTagMetadataMonthsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_metadata/months",
+                "operation_id": "list_cost_tag_metadata_months",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_provider": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "filter[provider]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_cost_tag_metadata_orchestrators_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostOrchestratorsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_metadata/orchestrators",
+                "operation_id": "list_cost_tag_metadata_orchestrators",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "filter_month": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "filter[month]",
+                    "location": "query",
+                },
+                "filter_provider": {
+                    "openapi_types": (str,),
+                    "attribute": "filter[provider]",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._list_cost_tags_endpoint = _Endpoint(
             settings={
                 "response_type": (CostTagsResponse,),
@@ -1346,6 +1620,36 @@ class CloudCostManagementApi:
             api_client=api_client,
         )
 
+        self._search_cost_recommendations_endpoint = _Endpoint(
+            settings={
+                "response_type": (CostRecommendationArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/recommendations",
+                "operation_id": "search_cost_recommendations",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "page_size": {
+                    "openapi_types": (str,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_token": {
+                    "openapi_types": (str,),
+                    "attribute": "page[token]",
+                    "location": "query",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (RecommendationsFilterRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._update_cost_awscur_config_endpoint = _Endpoint(
             settings={
                 "response_type": (AwsCURConfigsResponse,),
@@ -1514,6 +1818,32 @@ class CloudCostManagementApi:
                 },
             },
             headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._upsert_cost_tag_description_by_key_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cost/tag_descriptions/{tag_key}",
+                "operation_id": "upsert_cost_tag_description_by_key",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "tag_key": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "tag_key",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (CostTagDescriptionUpsertRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
             api_client=api_client,
         )
 
@@ -1735,6 +2065,30 @@ class CloudCostManagementApi:
 
         return self._delete_cost_gcp_usage_cost_config_endpoint.call_with_http_info(**kwargs)
 
+    def delete_cost_tag_description_by_key(
+        self,
+        tag_key: str,
+        *,
+        cloud: Union[str, UnsetType] = unset,
+    ) -> None:
+        """Delete a Cloud Cost Management tag description.
+
+        Delete a Cloud Cost Management tag key description. When ``cloud`` is omitted, deletes every description for the tag key, falling back to Datadog's global default when available. When ``cloud`` is provided, deletes only the description scoped to that cloud provider.
+
+        :param tag_key: The tag key whose description is being deleted.
+        :type tag_key: str
+        :param cloud: Cloud provider to scope the deletion to (for example, ``aws`` ). Omit to delete every description for the tag key.
+        :type cloud: str, optional
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["tag_key"] = tag_key
+
+        if cloud is not unset:
+            kwargs["cloud"] = cloud
+
+        return self._delete_cost_tag_description_by_key_endpoint.call_with_http_info(**kwargs)
+
     def delete_custom_allocation_rule(
         self,
         rule_id: int,
@@ -1785,6 +2139,23 @@ class CloudCostManagementApi:
         kwargs["ruleset_id"] = ruleset_id
 
         return self._delete_tag_pipelines_ruleset_endpoint.call_with_http_info(**kwargs)
+
+    def generate_cost_tag_description_by_key(
+        self,
+        tag_key: str,
+    ) -> GenerateCostTagDescriptionResponse:
+        """Generate a Cloud Cost Management tag description.
+
+        Use AI to draft a Cloud Cost Management tag key description based on associated cost data. The generated description is returned in the response and is not persisted by this endpoint; follow up with ``UpsertCostTagDescriptionByKey`` to save it.
+
+        :param tag_key: The tag key to generate an AI description for.
+        :type tag_key: str
+        :rtype: GenerateCostTagDescriptionResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["tag_key"] = tag_key
+
+        return self._generate_cost_tag_description_by_key_endpoint.call_with_http_info(**kwargs)
 
     def get_budget(
         self,
@@ -2201,6 +2572,30 @@ class CloudCostManagementApi:
 
         return self._get_cost_gcp_usage_cost_config_endpoint.call_with_http_info(**kwargs)
 
+    def get_cost_tag_description_by_key(
+        self,
+        tag_key: str,
+        *,
+        filter_cloud: Union[str, UnsetType] = unset,
+    ) -> CostTagDescriptionResponse:
+        """Get a Cloud Cost Management tag description.
+
+        Get the Cloud Cost Management description for a single tag key. Use ``filter[cloud]`` to scope the lookup to a specific cloud provider; when omitted, the response resolves the description in fallback order (cloud-specific organization override, then cloudless organization default, then Datadog's global default).
+
+        :param tag_key: The tag key whose description is being fetched.
+        :type tag_key: str
+        :param filter_cloud: Cloud provider to scope the lookup to (for example, ``aws`` ). Omit to use the resolved fallback.
+        :type filter_cloud: str, optional
+        :rtype: CostTagDescriptionResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["tag_key"] = tag_key
+
+        if filter_cloud is not unset:
+            kwargs["filter_cloud"] = filter_cloud
+
+        return self._get_cost_tag_description_by_key_endpoint.call_with_http_info(**kwargs)
+
     def get_cost_tag_key(
         self,
         tag_key: str,
@@ -2230,6 +2625,30 @@ class CloudCostManagementApi:
             kwargs["page_size"] = page_size
 
         return self._get_cost_tag_key_endpoint.call_with_http_info(**kwargs)
+
+    def get_cost_tag_metadata_currency(
+        self,
+        filter_month: str,
+        *,
+        filter_provider: Union[str, UnsetType] = unset,
+    ) -> CostCurrencyResponse:
+        """Get the Cloud Cost Management billing currency.
+
+        Get the dominant billing currency observed in Cloud Cost Management data for the requested period. The response wraps the currency in a JSON:API ``data`` array containing at most one entry; the array is empty when no currency data is available.
+
+        :param filter_month: The month to scope the query to, in ``YYYY-MM`` format.
+        :type filter_month: str
+        :param filter_provider: Filter results to a specific provider. Common cloud values are ``aws`` , ``azure`` , ``gcp`` , ``Oracle`` (OCI), and ``custom``. SaaS billing integrations (for example, ``Snowflake`` , ``MongoDB`` , ``Databricks`` ) are also accepted using their display-name string. Values are case-sensitive.
+        :type filter_provider: str, optional
+        :rtype: CostCurrencyResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["filter_month"] = filter_month
+
+        if filter_provider is not unset:
+            kwargs["filter_provider"] = filter_provider
+
+        return self._get_cost_tag_metadata_currency_endpoint.call_with_http_info(**kwargs)
 
     def get_custom_allocation_rule(
         self,
@@ -2465,6 +2884,147 @@ class CloudCostManagementApi:
 
         return self._list_cost_tag_keys_endpoint.call_with_http_info(**kwargs)
 
+    def list_cost_tag_key_sources(
+        self,
+        filter_month: str,
+        *,
+        filter_provider: Union[str, UnsetType] = unset,
+        filter_metric: Union[str, UnsetType] = unset,
+    ) -> CostTagKeySourcesResponse:
+        """List Cloud Cost Management tag sources.
+
+        List Cloud Cost Management tag keys observed for the requested period, along with the origin sources that produced them (for example, ``aws-user-defined`` , ``custom`` ).
+
+        :param filter_month: The month to scope the query to, in ``YYYY-MM`` format.
+        :type filter_month: str
+        :param filter_provider: Filter results to a specific provider. Common cloud values are ``aws`` , ``azure`` , ``gcp`` , ``Oracle`` (OCI), and ``custom``. SaaS billing integrations (for example, ``Snowflake`` , ``MongoDB`` , ``Databricks`` ) are also accepted using their display-name string. Values are case-sensitive.
+        :type filter_provider: str, optional
+        :param filter_metric: Filter results to tag keys that have data for a specific Cloud Cost Management metric (for example, ``aws.cost.net.amortized`` ). When omitted, all tag keys for the requested period are returned.
+        :type filter_metric: str, optional
+        :rtype: CostTagKeySourcesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["filter_month"] = filter_month
+
+        if filter_provider is not unset:
+            kwargs["filter_provider"] = filter_provider
+
+        if filter_metric is not unset:
+            kwargs["filter_metric"] = filter_metric
+
+        return self._list_cost_tag_key_sources_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tag_metadata(
+        self,
+        filter_month: str,
+        *,
+        filter_provider: Union[str, UnsetType] = unset,
+        filter_metric: Union[str, UnsetType] = unset,
+        filter_tag_key: Union[str, UnsetType] = unset,
+        filter_daily: Union[CostTagMetadataDailyFilter, UnsetType] = unset,
+    ) -> CostTagKeyMetadataResponse:
+        """List Cloud Cost Management tag key metadata.
+
+        List Cloud Cost Management tag key metadata, including row counts, cost covered, cardinality, and a sample of top tag values per cloud account. Use ``filter[daily]=true`` to return daily rows instead of the default monthly roll-up.
+
+        :param filter_month: The month to scope the query to, in ``YYYY-MM`` format.
+        :type filter_month: str
+        :param filter_provider: Filter results to a specific provider. Common cloud values are ``aws`` , ``azure`` , ``gcp`` , ``Oracle`` (OCI), and ``custom``. SaaS billing integrations (for example, ``Snowflake`` , ``MongoDB`` , ``Databricks`` ) are also accepted using their display-name string. Values are case-sensitive.
+        :type filter_provider: str, optional
+        :param filter_metric: Filter results to a specific Cloud Cost Management metric (for example, ``aws.cost.net.amortized`` ). When omitted, every available metric for the requested period is returned.
+        :type filter_metric: str, optional
+        :param filter_tag_key: Restrict results to a single tag key.
+        :type filter_tag_key: str, optional
+        :param filter_daily: When ``true`` , return one row per day with the day in the ``date`` attribute. Defaults to the monthly roll-up when omitted.
+        :type filter_daily: CostTagMetadataDailyFilter, optional
+        :rtype: CostTagKeyMetadataResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["filter_month"] = filter_month
+
+        if filter_provider is not unset:
+            kwargs["filter_provider"] = filter_provider
+
+        if filter_metric is not unset:
+            kwargs["filter_metric"] = filter_metric
+
+        if filter_tag_key is not unset:
+            kwargs["filter_tag_key"] = filter_tag_key
+
+        if filter_daily is not unset:
+            kwargs["filter_daily"] = filter_daily
+
+        return self._list_cost_tag_metadata_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tag_metadata_metrics(
+        self,
+        filter_month: str,
+        *,
+        filter_provider: Union[str, UnsetType] = unset,
+    ) -> CostMetricsResponse:
+        """List available Cloud Cost Management metrics.
+
+        List Cloud Cost Management metrics that have data for the requested period.
+
+        :param filter_month: The month to scope the query to, in ``YYYY-MM`` format.
+        :type filter_month: str
+        :param filter_provider: Filter results to a specific provider. Common cloud values are ``aws`` , ``azure`` , ``gcp`` , ``Oracle`` (OCI), and ``custom``. SaaS billing integrations (for example, ``Snowflake`` , ``MongoDB`` , ``Databricks`` ) are also accepted using their display-name string. Values are case-sensitive.
+        :type filter_provider: str, optional
+        :rtype: CostMetricsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["filter_month"] = filter_month
+
+        if filter_provider is not unset:
+            kwargs["filter_provider"] = filter_provider
+
+        return self._list_cost_tag_metadata_metrics_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tag_metadata_months(
+        self,
+        filter_provider: str,
+    ) -> CostTagMetadataMonthsResponse:
+        """List Cloud Cost Management tag metadata months.
+
+        List months that have Cloud Cost Management tag metadata for a given provider,
+        ordered most-recent first. The response is capped at 36 months.
+
+        :param filter_provider: Provider to scope the query to. Use the value of the ``providername`` tag in CCM
+            (for example, ``aws`` , ``azure`` , ``gcp`` , ``Oracle`` , ``Confluent Cloud`` , ``Snowflake`` ).
+            For costs uploaded through the Custom Costs API, use ``custom``.
+            Values are case-sensitive.
+        :type filter_provider: str
+        :rtype: CostTagMetadataMonthsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["filter_provider"] = filter_provider
+
+        return self._list_cost_tag_metadata_months_endpoint.call_with_http_info(**kwargs)
+
+    def list_cost_tag_metadata_orchestrators(
+        self,
+        filter_month: str,
+        *,
+        filter_provider: Union[str, UnsetType] = unset,
+    ) -> CostOrchestratorsResponse:
+        """List Cloud Cost Management orchestrators.
+
+        List container orchestrators (for example, ``kubernetes`` , ``ecs`` ) detected in Cloud Cost Management data for the requested period.
+
+        :param filter_month: The month to scope the query to, in ``YYYY-MM`` format.
+        :type filter_month: str
+        :param filter_provider: Filter results to a specific provider. Common cloud values are ``aws`` , ``azure`` , ``gcp`` , ``Oracle`` (OCI), and ``custom``. SaaS billing integrations (for example, ``Snowflake`` , ``MongoDB`` , ``Databricks`` ) are also accepted using their display-name string. Values are case-sensitive.
+        :type filter_provider: str, optional
+        :rtype: CostOrchestratorsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["filter_month"] = filter_month
+
+        if filter_provider is not unset:
+            kwargs["filter_provider"] = filter_provider
+
+        return self._list_cost_tag_metadata_orchestrators_endpoint.call_with_http_info(**kwargs)
+
     def list_cost_tags(
         self,
         *,
@@ -2643,6 +3203,35 @@ class CloudCostManagementApi:
 
         return self._reorder_tag_pipelines_rulesets_endpoint.call_with_http_info(**kwargs)
 
+    def search_cost_recommendations(
+        self,
+        body: RecommendationsFilterRequest,
+        *,
+        page_size: Union[str, UnsetType] = unset,
+        page_token: Union[str, UnsetType] = unset,
+    ) -> CostRecommendationArray:
+        """Search cost recommendations.
+
+        List cost recommendations matching a filter, with pagination and sorting.
+
+        :type body: RecommendationsFilterRequest
+        :param page_size: Number of results per page (1–10000).
+        :type page_size: str, optional
+        :param page_token: Pagination token from a previous response.
+        :type page_token: str, optional
+        :rtype: CostRecommendationArray
+        """
+        kwargs: Dict[str, Any] = {}
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_token is not unset:
+            kwargs["page_token"] = page_token
+
+        kwargs["body"] = body
+
+        return self._search_cost_recommendations_endpoint.call_with_http_info(**kwargs)
+
     def update_cost_awscur_config(
         self,
         cloud_account_id: int,
@@ -2794,6 +3383,27 @@ class CloudCostManagementApi:
         kwargs["body"] = body
 
         return self._upsert_budget_endpoint.call_with_http_info(**kwargs)
+
+    def upsert_cost_tag_description_by_key(
+        self,
+        tag_key: str,
+        body: CostTagDescriptionUpsertRequest,
+    ) -> None:
+        """Upsert a Cloud Cost Management tag description.
+
+        Create or update a Cloud Cost Management tag key description. The new description and optional cloud scoping are supplied in the request body. Omit ``cloud`` to set a cross-cloud default for the tag key.
+
+        :param tag_key: The tag key whose description is being upserted.
+        :type tag_key: str
+        :type body: CostTagDescriptionUpsertRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["tag_key"] = tag_key
+
+        kwargs["body"] = body
+
+        return self._upsert_cost_tag_description_by_key_endpoint.call_with_http_info(**kwargs)
 
     def validate_budget(
         self,

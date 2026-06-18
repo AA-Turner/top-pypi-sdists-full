@@ -5,9 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-#![feature(box_patterns)]
-#![feature(closure_lifetime_binder)]
-
 mod init;
 
 mod basic;
@@ -27,6 +24,7 @@ mod hover;
 mod implementation;
 mod inlay_hint;
 mod io;
+mod move_symbol_new_file;
 mod no_config_warnings;
 mod notebook_code_action;
 mod notebook_completion;
@@ -46,6 +44,7 @@ mod notebook_tokens;
 mod notebook_type_definition;
 mod notebook_type_error_display_status;
 mod object_model;
+mod open_file_benchmark;
 mod progress;
 mod provide_type;
 mod pytorch_benchmark;

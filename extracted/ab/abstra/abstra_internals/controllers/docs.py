@@ -39,8 +39,6 @@ class DocsController:
 
         Args:
             path (str): The path to the documentation file. Defaults to "/llms.txt" which is the main menu. Example: "/docs/md/workflow/forms/examples/external-data.md
-        Returns:
-            str: The content of the documentation file.
         Copywritings:
             Read the abstra documentation
             Reading the abstra documentation...
@@ -64,9 +62,6 @@ class DocsController:
 
         It should be followed by listing objects in a specific module.
 
-        Returns:
-            list: A list of module names.
-
         Copywritings:
             List all modules in the abstra package
             Listing all modules in the abstra package...
@@ -81,9 +76,6 @@ class DocsController:
 
         Args:
             module_name (str): The name of the module.
-
-        Returns:
-            list: A list of function names in the module.
 
         Copywritings:
             List all objects in a specific module
@@ -112,9 +104,6 @@ class DocsController:
             topic: Which topic to get docs for. One of 'page', 'form', or 'agent'.
             kind: Either 'guide' (best-practices guide) or 'examples' (annotated
                 real-world code examples). Defaults to 'guide'.
-
-        Returns:
-            str: Markdown content of the requested guide or examples.
 
         Copywritings:
             Get the stage guide
@@ -152,9 +141,6 @@ class DocsController:
             class_name: Name of the class to describe.
             include: Which projections to return. Any subset of
                 'params', 'properties', 'parents', 'examples'. Defaults to all.
-
-        Returns:
-            dict: Mapping from projection name to its value.
 
         Copywritings:
             Describe a class from the abstra SDK
@@ -194,9 +180,6 @@ class DocsController:
             function_name: Name of the function to describe.
             include: Which projections to return. Any subset of
                 'params', 'examples', 'return_type'. Defaults to all.
-
-        Returns:
-            dict: Mapping from projection name to its value.
 
         Copywritings:
             Describe a function from the abstra SDK

@@ -28,6 +28,8 @@ Usage::
         ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
         ListGatewaysPaginator,
+        ListHarnessEndpointsPaginator,
+        ListHarnessVersionsPaginator,
         ListHarnessesPaginator,
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
@@ -66,6 +68,8 @@ Usage::
     list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
     list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
     list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
+    list_harness_endpoints_paginator: ListHarnessEndpointsPaginator = client.get_paginator("list_harness_endpoints")
+    list_harness_versions_paginator: ListHarnessVersionsPaginator = client.get_paginator("list_harness_versions")
     list_harnesses_paginator: ListHarnessesPaginator = client.get_paginator("list_harnesses")
     list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
     list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
@@ -126,8 +130,12 @@ from .type_defs import (
     ListGatewaysResponseTypeDef,
     ListGatewayTargetsRequestPaginateTypeDef,
     ListGatewayTargetsResponseTypeDef,
+    ListHarnessEndpointsRequestPaginateTypeDef,
+    ListHarnessEndpointsResponseTypeDef,
     ListHarnessesRequestPaginateTypeDef,
     ListHarnessesResponseTypeDef,
+    ListHarnessVersionsRequestPaginateTypeDef,
+    ListHarnessVersionsResponseTypeDef,
     ListMemoriesInputPaginateTypeDef,
     ListMemoriesOutputTypeDef,
     ListOauth2CredentialProvidersRequestPaginateTypeDef,
@@ -184,6 +192,8 @@ __all__ = (
     "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",
     "ListGatewaysPaginator",
+    "ListHarnessEndpointsPaginator",
+    "ListHarnessVersionsPaginator",
     "ListHarnessesPaginator",
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",
@@ -493,6 +503,42 @@ class ListGatewaysPaginator(_ListGatewaysPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListGateways.html#BedrockAgentCoreControl.Paginator.ListGateways.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listgatewayspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListHarnessEndpointsPaginatorBase = Paginator[ListHarnessEndpointsResponseTypeDef]
+else:
+    _ListHarnessEndpointsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListHarnessEndpointsPaginator(_ListHarnessEndpointsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListHarnessEndpoints.html#BedrockAgentCoreControl.Paginator.ListHarnessEndpoints)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listharnessendpointspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListHarnessEndpointsRequestPaginateTypeDef]
+    ) -> PageIterator[ListHarnessEndpointsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListHarnessEndpoints.html#BedrockAgentCoreControl.Paginator.ListHarnessEndpoints.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listharnessendpointspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListHarnessVersionsPaginatorBase = Paginator[ListHarnessVersionsResponseTypeDef]
+else:
+    _ListHarnessVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListHarnessVersionsPaginator(_ListHarnessVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListHarnessVersions.html#BedrockAgentCoreControl.Paginator.ListHarnessVersions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listharnessversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListHarnessVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListHarnessVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListHarnessVersions.html#BedrockAgentCoreControl.Paginator.ListHarnessVersions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listharnessversionspaginator)
         """
 
 if TYPE_CHECKING:

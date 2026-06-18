@@ -1,3 +1,9 @@
+use super::external_options::resolve_external_family;
+use super::optimizer::external_reml_seed_config;
+use super::prefit::{
+    PrefitRegularityDiagnostic, detect_prefit_binomial_single_column_separation_in_design,
+    detect_prefit_unpenalized_rank_deficiency_in_design,
+};
 use super::reml::hyper::link_binomial_aux;
 use super::*;
 use crate::linalg::utils::{StableSolver, max_abs_diag};
@@ -590,6 +596,7 @@ fn decode_invariant_test_fit() -> UnifiedFitResult {
         reml_score: 0.7,
         stable_penalty_term: 0.3,
         penalized_objective: 2.2,
+        used_device: false,
         outer_iterations: 3,
         outer_converged: true,
         outer_gradient_norm: Some(0.05),
@@ -598,6 +605,7 @@ fn decode_invariant_test_fit() -> UnifiedFitResult {
         covariance_corrected: Some(array![[1.2, 0.1], [0.1, 2.2]]),
         inference: Some(FitInference {
             edf_by_block: vec![0.6, 0.9],
+            penalty_block_trace: vec![],
             edf_total: 1.5,
             smoothing_correction: Some(array![[0.2, 0.0], [0.0, 0.2]]),
             penalized_hessian: array![[2.0, 0.1], [0.1, 3.0]].into(),

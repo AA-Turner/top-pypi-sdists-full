@@ -1169,7 +1169,7 @@ def sync_receipts(
     """Push local receipts to the configured sync endpoint."""
 
     resolved_auth_context = auth_context if auth_context is not None else _resolve_guard_sync_auth_context(store)
-    sync_url = _normalized_receipts_sync_url(_auth_context_sync_url(resolved_auth_context))
+    sync_url = _normalized_receipts_sync_url(_validate_guard_sync_url(_auth_context_sync_url(resolved_auth_context)))
     prior_receipt_cursor = _receipt_sync_cursor_rowid(store)
     receipts = _receipt_sync_rows_for_upload(store, cursor_rowid=prior_receipt_cursor)
     inventory = store.list_inventory()
@@ -1777,7 +1777,7 @@ def sync_guard_events(
     """Push pending GuardEventV1 envelopes to Guard Cloud."""
 
     resolved_auth_context = auth_context if auth_context is not None else _resolve_guard_sync_auth_context(store)
-    sync_url = _guard_events_sync_url(_auth_context_sync_url(resolved_auth_context))
+    sync_url = _guard_events_sync_url(_validate_guard_sync_url(_auth_context_sync_url(resolved_auth_context)))
     previous_summary = store.get_sync_payload("guard_events_v1_summary")
     total_events = 0
     total_accepted = 0
@@ -1931,7 +1931,9 @@ def sync_runtime_session(
     """Publish the active Guard runtime session so the dashboard can show the machine immediately."""
 
     resolved_auth_context = auth_context or _resolve_guard_sync_auth_context(store)
-    sync_url = _normalized_runtime_sessions_sync_url(_auth_context_sync_url(resolved_auth_context))
+    sync_url = _normalized_runtime_sessions_sync_url(
+        _validate_guard_sync_url(_auth_context_sync_url(resolved_auth_context))
+    )
     session_payload = _cloud_runtime_session_payload(store, session)
     body = json.dumps({"session": session_payload}).encode("utf-8")
     request = _guard_sync_request(
@@ -2067,7 +2069,9 @@ def sync_pain_signals(
         raise
     except GuardSyncNotConfiguredError:
         return 0
-    normalized_sync_url = _normalized_receipts_sync_url(_auth_context_sync_url(resolved_auth_context))
+    normalized_sync_url = _normalized_receipts_sync_url(
+        _validate_guard_sync_url(_auth_context_sync_url(resolved_auth_context))
+    )
     cursor_payload = store.get_sync_payload("pain_signal_cursor")
     last_event_id = _last_uploaded_event_id(cursor_payload)
     uploaded_count = 0
@@ -2695,11 +2699,49 @@ def _resolve_guard_sync_auth_context_from_oauth_credentials(
     }
 
 
+# Test-only override: when set, _resolve_guard_sync_auth_context returns this dict
+# directly instead of resolving OAuth credentials (which would refresh tokens over
+# the network). Tests seed OAuth credentials for status/connect-state checks and set
+# this override to keep sync-path exercises hermetic.
+_test_sync_auth_context_override: dict[str, object] | None = None
+
+
+def _test_sync_auth_context_from_env() -> dict[str, object] | None:
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        return None
+    raw = os.environ.get("HOL_GUARD_TEST_SYNC_AUTH_CONTEXT_JSON")
+    if raw is None:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    sync_url = payload.get("sync_url")
+    access_token = payload.get("access_token")
+    if not isinstance(sync_url, str) or not isinstance(access_token, str):
+        return None
+    sync_url = _validate_guard_sync_url(sync_url)
+    return {
+        "sync_url": sync_url,
+        "access_token": access_token,
+        "dpop_key_material": None,
+    }
+
+
 def _resolve_guard_sync_auth_context(
     store: GuardStore,
     *,
     allow_primary_repair: bool = True,
 ) -> dict[str, object]:
+    if _test_sync_auth_context_override is not None:
+        override = dict(_test_sync_auth_context_override)
+        override["sync_url"] = _validate_guard_sync_url(_auth_context_sync_url(override))
+        return override
+    env_override = _test_sync_auth_context_from_env()
+    if env_override is not None:
+        return env_override
     with _guard_sync_auth_lock(store):
         oauth_health = store.get_oauth_local_credential_health()
         oauth_credentials = store.get_oauth_local_credentials(allow_primary=allow_primary_repair)
@@ -2714,14 +2756,7 @@ def _resolve_guard_sync_auth_context(
                     persist_recovered_secret=allow_primary_repair,
                 )
             raise GuardSyncAuthorizationExpiredError(_guard_oauth_reauthorization_message())
-        credentials = store.get_sync_credentials()
-        if credentials is None:
-            raise GuardSyncNotConfiguredError("Guard is not logged in.")
-        return {
-            "sync_url": _validate_guard_sync_url(str(credentials["sync_url"])),
-            "access_token": str(credentials["token"]),
-            "dpop_key_material": None,
-        }
+        raise GuardSyncNotConfiguredError("Guard is not logged in.")
 
 
 def _guard_sync_headers(

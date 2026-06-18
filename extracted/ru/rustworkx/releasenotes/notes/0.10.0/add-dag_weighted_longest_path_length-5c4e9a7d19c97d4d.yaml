@@ -1,0 +1,21 @@
+---
+features:
+  - |
+    Added two new algorithm functions,
+    :func:`~rustworkx.dag_weighted_longest_path_length` and
+    :func:`~rustworkx.dag_weighted_longest_path`, to find the longest path
+    and the length of the longest path in a :class:`~rustworkx.PyDiGraph` object
+    without any cycles. These new functions are basically equivalent to
+    :func:`~rustworkx.dag_longest_path` and
+    :func:`~rustworkx.dag_longest_path_length` except for two key differences.
+    First the ``weight_fn`` parameter is required for
+    :func:`~rustworkx.dag_weighted_longest_path_length` and
+    :func:`~rustworkx.dag_weighted_longest_path_length` while it is optional
+    in :func:`~rustworkx.dag_longest_path` and
+    :func:`~rustworkx.dag_longest_path_length`. Secondly,
+    :func:`~rustworkx.dag_weighted_longest_path` and
+    :func:`~rustworkx.dag_weighted_longest_path_length` work with ``float``
+    weights (:func:`~rustworkx.dag_weighted_longest_path_length` returns a float
+    and the ``weight_fn`` callback for both is expected to return a ``float``)
+    while :func:`~rustworkx.dag_longest_path` and
+    :func:`~rustworkx.dag_longest_path_length` works with an unsigned ``int``.

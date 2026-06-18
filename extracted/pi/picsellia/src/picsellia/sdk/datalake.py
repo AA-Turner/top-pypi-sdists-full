@@ -805,6 +805,71 @@ class Datalake(Dao):
 
     @exception_handler
     @beartype
+    def update_multiple_data(self, objects: dict[UUID, dict | CloudObject]) -> None:
+        """Update metadata, custom_metadata, tags and source of multiple data.
+
+        This method is limited to 100 elements.
+        If you have more elements to import, consider batching and calling this method multiple times.
+
+        The keys are the ids of the data you want to import, the values are CloudObjects that represents all the additional information that needs to be stored against your Data.
+        CloudObject is defined in picsellia.types.schemas, it's a pydantic model, but you can also give a dict, SDK will try to parse it.
+
+        CloudObject allows: \n
+        - metadata (dict, optional): metadata to attach to the data that will be created on the platform. It must match requirements from https://documentation.picsellia.com/update/docs/datalake-metadata#/
+        - custom_metadata (dict): a dict of metadata to attach to the created Data
+        - tags (list[str]): a list of tag names, the SDK will get or create each name
+        - data_source (str): a str, the SDK will get or create source
+
+        Examples:
+            ```python
+                from picsellia.types.schemas import CloudObject, CloudProjectionObject
+                datalake = client.get_datalake()
+                data = datalake.list_data(limit=2)
+                datalake.update_multiple_data(
+                    objects={
+                        data[0].id: {
+                            "metadata": {
+                                "reference": "XYZ1"
+                            },
+                            "tags": ["tag-1", "tag-2"],
+                            "data_source": "cloud",
+                            "custom_metadata": {"value": 10},
+                        },
+                        data[1].id: CloudObject(
+                            "metadata"={
+                                "reference": "XYZ1"
+                            },
+                            tags=["tag-1"],
+                            data_source="cloud",
+                            custom_metadata={"value": 25},
+                        ),
+                    }
+                )
+            ```
+        Args:
+            objects (dict): dict with data ids as keys and CloudObject as values
+        Returns:
+            A (Job) that you can wait for done.
+        """
+        if len(objects) < 1 or len(objects) > 100:
+            raise ValueError(
+                "Parameter 'objects' must have at least 1 and less than 100 elements."
+            )
+
+        payload = {"datalake_id": self.id, "objects": {}}
+        for id, obj in objects.items():
+            payload["objects"][str(id)] = (
+                CloudObject(**obj).model_dump()
+                if isinstance(obj, dict)
+                else obj.model_dump()
+            )
+
+        self.connection.patch(
+            path=f"/api/datalake/{self.id}/data/bulk", data=orjson.dumps(payload)
+        )
+
+    @exception_handler
+    @beartype
     def launch_processing(
         self,
         processing: Processing,

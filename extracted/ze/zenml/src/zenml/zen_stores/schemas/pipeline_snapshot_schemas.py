@@ -82,6 +82,14 @@ class PipelineSnapshotSchema(BaseSchema, table=True):
             table_name=__tablename__,
             column_names=["source_snapshot_id"],
         ),
+        build_index(
+            table_name=__tablename__,
+            column_names=["project_id", "created", "id"],
+        ),
+        build_index(
+            table_name=__tablename__,
+            column_names=["project_id", "name"],
+        ),
     )
 
     # Fields
@@ -528,6 +536,7 @@ class PipelineSnapshotSchema(BaseSchema, table=True):
                 step_configurations[step_configuration.name] = Step.from_dict(
                     json.loads(step_configuration.config),
                     pipeline_configuration,
+                    exclude_hook_sources=self.is_dynamic,
                 )
 
             client_environment = json.loads(self.client_environment)
@@ -548,6 +557,7 @@ class PipelineSnapshotSchema(BaseSchema, table=True):
                         step_configuration.name: Step.from_dict(
                             json.loads(step_configuration.config),
                             pipeline_configuration,
+                            exclude_hook_sources=self.is_dynamic,
                         )
                         for step_configuration in self.get_step_configurations()
                     }
@@ -638,6 +648,19 @@ class StepConfigurationSchema(BaseSchema, table=True):
             "step_run_id",
             "name",
             name="unique_step_configuration_for_snapshot_or_step_run",
+        ),
+        build_index(
+            table_name=__tablename__,
+            column_names=[
+                "snapshot_id",
+                "name",
+            ],
+        ),
+        build_index(
+            table_name=__tablename__,
+            column_names=[
+                "step_run_id",
+            ],
         ),
         CheckConstraint(
             "(snapshot_id IS NULL AND step_run_id IS NOT NULL) OR "

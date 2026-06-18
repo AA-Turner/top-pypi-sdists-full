@@ -2,7 +2,7 @@
 //! hyperparameter (`ψ`) derivative machinery that the smooth terms build on.
 //!
 //! The module is decomposed into single-concern submodules. Shared crate
-//! imports live in [`imports.rs`](imports.rs) and are pulled into this module's
+//! imports live in [`prelude.rs`](prelude.rs) and are pulled into this module's
 //! namespace; every submodule re-imports them (together with the sibling
 //! re-exports below) through `use super::*`. The `pub use <module>::*`
 //! re-exports flatten each concern back onto the `basis::` path so external
@@ -10,7 +10,7 @@
 //! submodule now owns the item.
 
 // Crate-wide imports, shared by every submodule via `use super::*`.
-include!("imports.rs");
+include!("prelude.rs");
 
 // ---- Manifold / geometric smooth specifications and kernels ----
 mod constant_curvature_smooth;
@@ -31,15 +31,19 @@ mod polylog;
 mod bspline_build;
 mod bspline_eval;
 mod center_selection;
+pub mod closed_form_operator;
 mod duchon_kernel_math;
 mod duchon_psi_derivatives;
 mod duchon_thinplate;
 mod implicit_psi_derivative;
+pub mod input_loc_derivatives;
 mod internal;
+pub mod matern_gradient;
 mod matern_kernel;
 mod periodic_duchon;
 mod radial_jets_nd;
 mod sphere_basis;
+pub mod sphere_gpu;
 mod spline_eval_scalar;
 mod streaming_design;
 mod types;
@@ -101,6 +105,7 @@ pub(crate) use cyclic::{
 pub use bspline_build::*;
 pub use bspline_eval::*;
 pub use center_selection::*;
+pub use closed_form_operator::ClosedFormPenaltyOperator;
 pub use duchon_kernel_math::*;
 pub use duchon_psi_derivatives::*;
 pub use duchon_thinplate::*;

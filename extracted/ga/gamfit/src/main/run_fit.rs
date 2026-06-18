@@ -23,7 +23,7 @@ pub(crate) fn compact_fit_result_for_batch(fit: &mut UnifiedFitResult) {
 }
 
 pub(crate) fn fit_config_from_fit_args(args: &FitArgs) -> Result<FitConfig, String> {
-    gam::config_resolve::resolve_cli_fit_config(gam::config_resolve::CliFitConfigInput {
+    crate::config_resolve::resolve_cli_fit_config(crate::config_resolve::CliFitConfigInput {
         family: family_arg_canonical_name(args.family).map(str::to_string),
         negative_binomial_theta: args.negative_binomial_theta,
         link: None,
@@ -63,7 +63,7 @@ pub(crate) fn fit_config_from_fit_args(args: &FitArgs) -> Result<FitConfig, Stri
 }
 
 pub(crate) fn fit_config_from_survival_args(args: &SurvivalArgs) -> Result<FitConfig, String> {
-    gam::config_resolve::resolve_cli_fit_config(gam::config_resolve::CliFitConfigInput {
+    crate::config_resolve::resolve_cli_fit_config(crate::config_resolve::CliFitConfigInput {
         family: None,
         negative_binomial_theta: None,
         link: args.link.clone(),
@@ -259,7 +259,7 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
         if let Some(components) = choice.mixture_components.as_ref() {
             let expected = components.len().saturating_sub(1);
             let initial_rho = if let Some(raw) = effective_mixture_rho.as_deref() {
-                let vals = gam::config_resolve::parse_comma_f64(raw, "link(rho=...)")?;
+                let vals = crate::config_resolve::parse_comma_f64(raw, "link(rho=...)")?;
                 if vals.len() != expected {
                     return Err(format!(
                         "link(rho=...) length mismatch: expected {expected}, got {}",
@@ -296,7 +296,7 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
                 );
             }
             if let Some(raw) = effective_sas_init.as_deref() {
-                let vals = gam::config_resolve::parse_comma_f64(raw, "link(sas_init=...)")?;
+                let vals = crate::config_resolve::parse_comma_f64(raw, "link(sas_init=...)")?;
                 if vals.len() != 2 {
                     return Err(format!(
                         "link(sas_init=...) expects two values: epsilon,log_delta (got {})",
@@ -319,7 +319,7 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
             }
             if let Some(raw) = effective_beta_logistic_init.as_deref() {
                 let vals =
-                    gam::config_resolve::parse_comma_f64(raw, "link(beta_logistic_init=...)")?;
+                    crate::config_resolve::parse_comma_f64(raw, "link(beta_logistic_init=...)")?;
                 if vals.len() != 2 {
                     return Err(format!(
                         "link(beta_logistic_init=...) expects two values: epsilon,delta (got {})",
@@ -449,11 +449,8 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
     // Shape-derived resource policy: at large-scale n we auto-select strict
     // (analytic-operator-required) so any silent dense fallback in the
     // term-construction layer fails fast.
-    let bare_fit_policy = gam::resource::ResourcePolicy::for_problem(
-        ds.values.nrows(),
-        0,
-        gam::resource::ProblemHints::default(),
-    );
+    let bare_fit_policy =
+        gam::ResourcePolicy::for_problem(ds.values.nrows(), 0, gam::ProblemHints::default());
     let mut spec = build_termspec(
         &parsed.terms,
         &ds,
@@ -554,7 +551,10 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
             "latent-cloglog-binomial",
         )?)
     } else {
-        if !matches!(frailty, gam::families::lognormal_kernel::FrailtySpec::None) {
+        if !matches!(
+            frailty,
+            gam::families::survival::lognormal_kernel::FrailtySpec::None
+        ) {
             return Err(
                 "frailty is only supported here for --family latent-cloglog-binomial; use the frailty-aware marginal-slope or survival paths instead"
                     .to_string(),
@@ -562,37 +562,35 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
         }
         None
     };
-    let base_fit_options = FitOptions {
-        latent_cloglog: latent_cloglog_state,
-        mixture_link: mixture_linkspec.clone(),
-        optimize_mixture: true,
-        sas_link: sas_linkspec,
-        optimize_sas: sas_linkspec.is_some()
-            && matches!(
-                effective_link,
-                LinkFunction::Sas | LinkFunction::BetaLogistic
-            ),
-        // Posterior covariance is needed by `predict --uncertainty` for ALL
-        // families, not just non-Gaussian. Previously Gaussian skipped it as
-        // a perf optimization, which made `gam predict --uncertainty` error
-        // with "fit result does not contain conditional covariance or a
-        // usable penalized Hessian" on any standard Gaussian fit. The
-        // existing `COV_MAX_P=5000` diagonal-fallback guard in
-        // `solver/estimate.rs::3252` already caps the cost on huge models.
-        compute_inference: true,
-        skip_rho_posterior_inference: false,
-        max_iter: fit_max_iter,
-        tol: fit_tol,
-        nullspace_dims: vec![],
-        linear_constraints: None,
-        firth_bias_reduction: false,
-        adaptive_regularization: adaptive_opts,
-        penalty_shrinkage_floor: Some(1e-6),
-        rho_prior: Default::default(),
-        kronecker_penalty_system: None,
-        kronecker_factored: None,
-        persist_warm_start_disk: false,
-    };
+    // Standard-fit `FitOptions` are built through the single shared policy
+    // source (#1196). The CLI passes only the request-specific link/Firth/
+    // adaptive inputs; the outer-REML optimization policy
+    // (`compute_inference`, `skip_rho_posterior_inference`, `tol`, the
+    // `max_iter` default, the penalty shrinkage floor) is filled in by
+    // `canonical_standard_fit_options`, identical to the formula/Python path,
+    // so the same model can no longer fit differently across entry points.
+    // (Previously this hand-built block used `tol: 1e-6` /
+    // `skip_rho_posterior_inference: false`, diverging from the formula path's
+    // `1e-10`/`true` — the structural defect behind #1191/#1196.)
+    // `fit_max_iter`/`fit_tol` remain the inputs to the separate forced-Firth
+    // external-design branch below.
+    let base_fit_options = gam::solver::fit_orchestration::canonical_standard_fit_options(
+        &fit_config,
+        gam::solver::fit_orchestration::StandardFitOptionsInputs {
+            latent_cloglog: latent_cloglog_state,
+            mixture_link: mixture_linkspec.clone(),
+            optimize_mixture: true,
+            sas_link: sas_linkspec,
+            optimize_sas: sas_linkspec.is_some()
+                && matches!(
+                    effective_link,
+                    LinkFunction::Sas | LinkFunction::BetaLogistic
+                ),
+            firth_bias_reduction: false,
+            adaptive_regularization: adaptive_opts,
+            ..Default::default()
+        },
+    );
     let standard_wiggle = if learn_linkwiggle
         && fit_config.noise_formula.is_none()
         && (!mean_only_flexible_linkwiggle || route_flexible_through_standard)
@@ -699,12 +697,22 @@ pub(crate) fn run_fit(args: FitArgs) -> Result<(), String> {
             options: base_fit_options,
             kappa_options: kappa_options.clone(),
             wiggle: standard_wiggle,
-            coefficient_groups: Vec::new(),
-            // Gamma precision hyperpriors on penalty blocks are only reachable via the
-            // Python FFI fit config. The CLI exposes no flag,
-            // config file, or formula-DSL syntax for them, and the magic-by-default
-            // policy forbids inventing one here, so an empty prior list is correct.
-            penalty_block_gamma_priors: Vec::new(),
+            // Request fields that are derived from the resolved `FitConfig` are
+            // sourced from `fit_config` here exactly as `materialize_standard`
+            // sources them (#1196), instead of being hardcoded to empty. The CLI
+            // arg→config resolver (`resolve_cli_fit_config`) currently leaves
+            // `coefficient_groups` / `penalty_block_gamma_priors` at their empty
+            // defaults because no CLI flag sets them, so this is value-identical
+            // today; routing them through `fit_config` makes the CLI request a
+            // function of the same resolved config the Python/PyO3 path consumes,
+            // so a future config knob can never be silently dropped on the CLI
+            // side while the FFI honors it — the divergence class behind #1191.
+            coefficient_groups: fit_config.coefficient_groups.clone(),
+            penalty_block_gamma_priors: fit_config.penalty_block_gamma_priors.clone(),
+            // `latent_coord` is resolved (its `term_index` bound to a smooth in
+            // the spec) only inside `materialize_standard` from a formula latent
+            // term; the CLI standard-fit path parses no latent coordinate, so
+            // `None` is the materialized value, not a dropped config field.
             latent_coord: None,
             _marker: std::marker::PhantomData,
         };
@@ -1100,14 +1108,14 @@ pub(crate) fn run_fit_bernoulli_marginal_slope(
         ds,
         col_map_for_termspec,
         inference_notes,
-        &gam::resource::ResourcePolicy::default_library(),
+        &gam::ResourcePolicy::default_library(),
     )?;
     let mut logslopespec = build_termspec(
         &parsed_logslope.terms,
         ds,
         col_map_for_termspec,
         inference_notes,
-        &gam::resource::ResourcePolicy::default_library(),
+        &gam::ResourcePolicy::default_library(),
     )?;
     if args.scale_dimensions {
         enable_scale_dimensions(&mut marginalspec);
@@ -1211,7 +1219,7 @@ pub(crate) fn run_fit_bernoulli_marginal_slope(
             },
             options,
             kappa_options: kappa_options.clone(),
-            policy: gam::resource::ResourcePolicy::default_library(),
+            policy: gam::ResourcePolicy::default_library(),
         },
     )) {
         Ok(FitResult::BernoulliMarginalSlope(result)) => {
@@ -1264,9 +1272,11 @@ pub(crate) fn run_fit_bernoulli_marginal_slope(
         progress.set_stage("fit", "writing bernoulli marginal-slope model");
         let save_frailty = match (&frailty, solved.gaussian_frailty_sd) {
             (
-                gam::families::lognormal_kernel::FrailtySpec::GaussianShift { sigma_fixed: None },
+                gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
+                    sigma_fixed: None,
+                },
                 Some(learned),
-            ) => gam::families::lognormal_kernel::FrailtySpec::GaussianShift {
+            ) => gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
                 sigma_fixed: Some(learned),
             },
             _ => frailty,
@@ -1342,7 +1352,7 @@ pub(crate) fn run_fit_transformation_normal(
         ds,
         col_map,
         inference_notes,
-        &gam::resource::ResourcePolicy::default_library(),
+        &gam::ResourcePolicy::default_library(),
     )?;
     if args.scale_dimensions {
         enable_scale_dimensions(&mut covariate_spec);
@@ -1463,14 +1473,14 @@ pub(crate) fn run_fitwith_predict_noise(
         ds,
         col_map,
         inference_notes,
-        &gam::resource::ResourcePolicy::default_library(),
+        &gam::ResourcePolicy::default_library(),
     )?;
     let mut meanspec = build_termspec(
         &parsed.terms,
         ds,
         col_map,
         inference_notes,
-        &gam::resource::ResourcePolicy::default_library(),
+        &gam::ResourcePolicy::default_library(),
     )?;
     if args.scale_dimensions {
         enable_scale_dimensions(&mut meanspec);
@@ -1606,7 +1616,7 @@ pub(crate) fn run_fitwith_predict_noise(
             );
             let resolved_base_link = link_choice
                 .map(|choice| {
-                    gam::config_resolve::effective_link_to_standard(
+                    crate::config_resolve::effective_link_to_standard(
                         choice.link,
                         "gaussian location-scale base link",
                     )
@@ -1959,7 +1969,7 @@ pub(crate) fn run_fitwith_predict_noise(
 
 /// Map a [`ResponseFamily`] to the dispersion-GAM kind whose log-precision
 /// channel can carry a `noise_formula` in the CLI `--predict-noise` path
-/// (#913). Mirrors `workflow::dispersion_location_scale_kind`.
+/// (#913). Mirrors `fit_orchestration::dispersion_location_scale_kind`.
 pub(crate) fn dispersion_location_scale_kind_for_cli(
     response: &ResponseFamily,
 ) -> Option<gam::gamlss::DispersionFamilyKind> {
@@ -2114,7 +2124,7 @@ pub(crate) fn validate_fit_args_preflight(
             return Err("--noise-offset-column requires --predict-noise".to_string());
         }
     }
-    gam::config_resolve::validate_survival_baseline_args(
+    crate::config_resolve::validate_survival_baseline_args(
         survival_likelihood,
         &baseline_target_raw,
         fit_config.baseline_scale,

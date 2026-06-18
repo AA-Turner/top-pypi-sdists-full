@@ -7,13 +7,14 @@
 //! All families and runtime paths provide ingredients and call
 //! [`InnerAssembly::evaluate`] or [`InnerAssembly::build`].
 
-use super::unified::{
+use super::reml_outer_engine::{
     BarrierConfig, ContractedPsiSecondOrderFn, DispersionHandling, EvalMode, FixedDriftDerivFn,
     HessianDerivativeProvider, HessianOperator, HyperCoord, HyperCoordPair, InnerSolution,
     InnerSolutionBuilder, PenaltyCoordinate, PenaltyLogdetDerivs, PenaltySubspaceTrace,
-    ProjectedKktResidual, RemlLamlResult, penalty_matrix_root, reml_laml_evaluate,
+    RemlLamlResult, penalty_matrix_root, reml_laml_evaluate,
 };
 use crate::faer_ndarray::fast_xt_diag_y;
+use crate::model_types::ProjectedKktResidual;
 use ndarray::{Array1, Array2};
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
@@ -222,7 +223,7 @@ pub(crate) fn weighted_cross_dense(
         return fast_xt_diag_y(left, weights, right);
     }
 
-    let chunk_rows = crate::parallel_strategy::row_reduction_chunk_rows(
+    let chunk_rows = crate::solver::parallel_strategy::row_reduction_chunk_rows(
         n,
         p.saturating_mul(q),
         p.saturating_mul(q),
@@ -271,7 +272,7 @@ pub(crate) fn xt_diag_x_dense_into(
         return crate::faer_ndarray::fast_atb(x, weighted);
     }
 
-    let chunk_rows = crate::parallel_strategy::row_reduction_chunk_rows(
+    let chunk_rows = crate::solver::parallel_strategy::row_reduction_chunk_rows(
         n,
         p.saturating_mul(p),
         p.saturating_mul(p),
@@ -331,14 +332,12 @@ pub struct InnerAssembly<'dp> {
 
     // === Optional decorations (sensible defaults when None/zero) ===
     pub deriv_provider: Option<Box<dyn HessianDerivativeProvider + 'dp>>,
-    pub tk_correction: f64,
-    pub tk_gradient: Option<Array1<f64>>,
     /// Jeffreys/Firth scalar contribution to the LAML cost. Tier-A GLM callers
     /// construct it from the dense operator (`ExactJeffreysTerm::new`); the
     /// Tier-B coupled joint path installs the value-only carrier
     /// (`ExactJeffreysTerm::value_only`) so the cost subtracts the same gated
     /// `Φ(β̂)` its inner Newton optimized (gam#979).
-    pub firth: Option<crate::estimate::reml::unified::ExactJeffreysTerm>,
+    pub firth: Option<crate::estimate::reml::reml_outer_engine::ExactJeffreysTerm>,
     pub nullspace_dim: Option<f64>,
     pub barrier_config: Option<BarrierConfig>,
     pub kkt_residual: Option<ProjectedKktResidual>,
@@ -346,8 +345,7 @@ pub struct InnerAssembly<'dp> {
     /// iterate. When `Some`, the unified evaluator builds the
     /// constraint-aware kernel `K_T = K_S − K_S Aᵀ (A K_S Aᵀ)⁻¹ A K_S`
     /// for per-coordinate mode responses `v_k = ∂β/∂ρ_k`.
-    pub active_constraints:
-        Option<Arc<crate::estimate::reml::unified::ActiveLinearConstraintBlock>>,
+    pub active_constraints: Option<Arc<crate::model_types::ActiveLinearConstraintBlock>>,
 
     // === Extended hyperparameter coordinates ===
     pub ext_coords: Vec<HyperCoord>,
@@ -381,7 +379,6 @@ impl<'dp> InnerAssembly<'dp> {
         if let Some(dp) = self.deriv_provider {
             builder = builder.deriv_provider(dp);
         }
-        builder = builder.tk(self.tk_correction, self.tk_gradient);
         builder = builder.firth_term(self.firth);
         if let Some(nd) = self.nullspace_dim {
             builder = builder.nullspace_dim_override(nd);
@@ -464,50 +461,6 @@ pub fn penalty_coords_from_blocks(
             ))
         })
         .collect()
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  Soft prior helper
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Compute the soft rho prior tuple for a given evaluation mode.
-///
-/// Extracts the repeated prior-assembly pattern that was copy-pasted 4×
-/// in `runtime.rs`. The caller provides cost/gradient/hessian via closures
-/// (typically `self.compute_soft_priorcost/grad/hess`).
-pub fn soft_prior_for_mode<F, G, H>(
-    rho: &Array1<f64>,
-    mode: EvalMode,
-    cost_fn: F,
-    grad_fn: G,
-    hess_fn: H,
-) -> Option<(f64, Array1<f64>, Option<Array2<f64>>)>
-where
-    F: Fn(&Array1<f64>) -> f64,
-    G: Fn(&Array1<f64>) -> Array1<f64>,
-    H: Fn(&Array1<f64>) -> Option<Array2<f64>>,
-{
-    if mode == EvalMode::ValueOnly {
-        let pc = cost_fn(rho);
-        if pc.abs() > 0.0 {
-            Some((pc, Array1::zeros(rho.len()), None))
-        } else {
-            None
-        }
-    } else {
-        let pc = cost_fn(rho);
-        let pg = grad_fn(rho);
-        let ph = if mode == EvalMode::ValueGradientHessian {
-            hess_fn(rho)
-        } else {
-            None
-        };
-        if pc.abs() > 0.0 || pg.iter().any(|&v| v != 0.0) {
-            Some((pc, pg, ph))
-        } else {
-            None
-        }
-    }
 }
 
 #[cfg(test)]

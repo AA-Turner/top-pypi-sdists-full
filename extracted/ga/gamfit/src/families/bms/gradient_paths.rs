@@ -656,7 +656,13 @@ pub(crate) fn signed_probit_neglog_unary_stack(signed_margin: f64, weight: f64) 
             + (7.0 * m * m - 4.0) * lambda
             + 12.0 * m * lambda * lambda
             + 6.0 * lambda * lambda * lambda);
-    [-weight * logcdf, weight * k1, weight * k2, weight * k3, weight * k4]
+    [
+        -weight * logcdf,
+        weight * k1,
+        weight * k2,
+        weight * k3,
+        weight * k4,
+    ]
 }
 
 #[inline]
@@ -1504,7 +1510,8 @@ pub(super) fn rigid_standard_normal_towers_batch<T>(
     let mut signed: Vec<Tower4<2>> = Vec::with_capacity(chunk);
     let mut margins: Vec<f64> = Vec::with_capacity(chunk);
     for i in 0..chunk {
-        let jet = rigid_standard_normal_signed_jet(marginals[i], slopes[i], zs[i], ys[i], probit_scale);
+        let jet =
+            rigid_standard_normal_signed_jet(marginals[i], slopes[i], zs[i], ys[i], probit_scale);
         margins.push(jet.v);
         signed.push(jet);
     }
@@ -1590,24 +1597,40 @@ pub(super) fn rigid_standard_normal_row_kernel(
 }
 
 /// Mixed `(primary, z)` second derivative of the rigid standard-normal row
-/// negative log-likelihood: the per-row 2-vector
-/// `[∂²ℓ/∂q∂z, ∂²ℓ/∂g∂z]` in the primary coordinates `(q = marginal η,
+/// LOG-LIKELIHOOD score: the per-row 2-vector
+/// `[∂²(log L)/∂q∂z, ∂²(log L)/∂g∂z]` in the primary coordinates `(q = marginal η,
 /// g = slope)`, evaluated at this row's converged `(q, g)` and calibrated
 /// latent score `z = ζ`.
 ///
+/// SIGN CONVENTION (#1131). This returns the mixed partial of the
+/// LOG-LIKELIHOOD score `score_β,i = ∂(log L_i)/∂β`, NOT of the negative
+/// log-likelihood `ℓ = −log L`. Concretely the row jet evaluates the NLL
+/// `ℓ = −w·log Φ(sign·η)` and we NEGATE its mixed `(primary, z)` Hessian entries,
+/// so the returned 2-vector is `+∂²(log L_i)/∂(q,g)∂ζ_i = −∂²ℓ_i/∂(q,g)∂ζ_i`.
+/// This is the convention under which the Murphy–Topel chain
+/// `G = Σ_i s_i·(∂ζ_i/∂θ₁)` with `s_i = ∂score_β,i/∂ζ_i` and `Vb = H_β⁻¹`
+/// (the NLL-Hessian inverse) gives the SIGNED sensitivity with the right sign:
+/// the implicit-function theorem on the stationarity `∂(log L)/∂β = 0` yields
+/// `∂β̂/∂θ₁ = −(∂²log L/∂β²)⁻¹·∂²(log L)/∂β∂θ₁ = +H_β⁻¹·G = +Vb·G`. (Had we
+/// returned the NLL mixed partial instead, `Vb·G` would equal `−∂β̂/∂θ₁` — a
+/// benign sign flip for the PSD quadratic SE `(Vb·G)V₁(Vb·G)ᵀ`, but wrong for
+/// any signed consumer of the sensitivity.)
+///
 /// This is the #1028 Murphy–Topel generated-regressor channel: `score_β,i =
-/// ∂ℓ_i/∂β = J_iᵀ·(∂ℓ_i/∂(q,g))`, so the per-row slope-score sensitivity to the
-/// calibrated score is `s_i = ∂score_β,i/∂ζ_i = J_iᵀ·(∂²ℓ_i/∂(q,g)∂ζ_i)`, and the
-/// primary 2-vector returned here is exactly `∂²ℓ_i/∂(q,g)∂ζ_i`. The block-level
+/// ∂(log L_i)/∂β = J_iᵀ·(∂(log L_i)/∂(q,g))`, so the per-row slope-score
+/// sensitivity to the calibrated score is
+/// `s_i = ∂score_β,i/∂ζ_i = J_iᵀ·(∂²(log L_i)/∂(q,g)∂ζ_i)`, and the primary
+/// 2-vector returned here is exactly `∂²(log L_i)/∂(q,g)∂ζ_i`. The block-level
 /// contraction `J_iᵀ` (marginal+logslope design rows) is applied by the caller.
 ///
 /// It is computed by seeding `z` as a THIRD jet variable (index 2) in the SAME
 /// `Tower4` the value/gradient/Hessian path uses (#932 row-jet machinery): the
 /// rigid standard-normal observed index is `η = q·c(g) + g·(s·z)` with
 /// `c(g) = √(1 + (s·g)²)`, `s = probit_scale`, and `ℓ = −w·log Φ(sign·η)`. The
-/// converged-frame mixed partials are then the off-diagonal Hessian entries
-/// `tower.h[q][z]` and `tower.h[g][z]`, read off in one composition — the only
-/// extra cost over the production `Tower4<2>` evaluation is the third jet axis.
+/// converged-frame mixed partials of the NLL are the off-diagonal Hessian
+/// entries `tower.h[q][z]` and `tower.h[g][z]`, read off in one composition and
+/// NEGATED to the log-likelihood-score convention — the only extra cost over the
+/// production `Tower4<2>` evaluation is the third jet axis.
 #[inline]
 pub(super) fn rigid_standard_normal_mixed_z_sensitivity(
     marginal: BernoulliMarginalLinkMap,
@@ -1647,11 +1670,17 @@ pub(super) fn rigid_standard_normal_mixed_z_sensitivity(
         ));
     }
     let tower = signed.compose_unary(stack);
-    let s_q = tower.h[0][2];
-    let s_g = tower.h[1][2];
+    // #1131: `tower` is the NLL `ℓ = −w·log Φ`, so `tower.h[·][z]` is the mixed
+    // partial of the NLL. Negate to the LOG-LIKELIHOOD-score convention
+    // `s = ∂²(log L)/∂(primary)∂z = −∂²ℓ/∂(primary)∂z`, under which the
+    // downstream Murphy–Topel chain `Vb·G = +∂β̂/∂θ₁` carries the correct sign
+    // (see the function doc). The SE is the PSD quadratic `(Vb·G)V₁(Vb·G)ᵀ` and
+    // is invariant to this sign, so the reported standard errors are unchanged.
+    let s_q = -tower.h[0][2];
+    let s_g = -tower.h[1][2];
     if !(s_q.is_finite() && s_g.is_finite()) {
         return Err(format!(
-            "rigid probit mixed-z sensitivity: non-finite ∂²ℓ/∂(q,g)∂z = [{s_q}, {s_g}] at q={}, g={g}, z={z}",
+            "rigid probit mixed-z sensitivity: non-finite ∂²(log L)/∂(q,g)∂z = [{s_q}, {s_g}] at q={}, g={g}, z={z}",
             marginal.q
         ));
     }
@@ -1663,7 +1692,9 @@ pub(super) fn rigid_standard_normal_mixed_z_sensitivity(
 /// the rigid standard-normal BMS kernel — the kernel the conditional
 /// location-scale gate ALWAYS selects (`LatentMeasureKind::StandardNormal`).
 ///
-/// For each row `i` the primary 2-vector `∂²ℓ_i/∂(q,g)∂ζ_i` is read off the
+/// where `s_i = ∂score_β,i/∂ζ_i` is the LOG-LIKELIHOOD-score sensitivity (see
+/// the sign convention in [`rigid_standard_normal_mixed_z_sensitivity`], #1131).
+/// For each row `i` the primary 2-vector `∂²(log L_i)/∂(q,g)∂ζ_i` is read off the
 /// z-augmented row jet ([`rigid_standard_normal_mixed_z_sensitivity`]) at the
 /// converged marginal index `q_i` (`marginal_eta[i]`) and slope `g_i`
 /// (`slope_eta[i]`) and calibrated score `ζ_i` (`z[i]`), then contracted through
@@ -1671,8 +1702,8 @@ pub(super) fn rigid_standard_normal_mixed_z_sensitivity(
 /// row kernel exposes via `jacobian_transpose_action`):
 ///
 /// ```text
-///   s_i[marginal_range]  = (∂²ℓ_i/∂q∂ζ_i) · marginal_design.row(i)
-///   s_i[logslope_range]  = (∂²ℓ_i/∂g∂ζ_i) · logslope_design.row(i)
+///   s_i[marginal_range]  = (∂²(log L_i)/∂q∂ζ_i) · marginal_design.row(i)
+///   s_i[logslope_range]  = (∂²(log L_i)/∂g∂ζ_i) · logslope_design.row(i)
 /// ```
 ///
 /// `logslope_design` MUST be the reduced-basis design `G·T` actually fitted
@@ -1940,4 +1971,231 @@ pub(crate) fn unary_derivatives_log(x: f64) -> [f64; 5] {
 pub(crate) fn unary_derivatives_log_normal_pdf(x: f64) -> [f64; 5] {
     let c = 0.5 * (2.0 * std::f64::consts::PI).ln();
     [-0.5 * x * x - c, -x, -1.0, 0.0, 0.0]
+}
+
+#[cfg(test)]
+mod jet_tower_oracle_tests {
+    //! #932 deployment step 2 for the BMS rigid Bernoulli `RowKernel<2>`.
+    //!
+    //! The production rigid standard-normal row kernel
+    //! ([`rigid_standard_normal_row_kernel`] / `_third_full` / `_fourth_full`)
+    //! reads value/grad/Hessian/third/fourth straight off ONE
+    //! [`rigid_standard_normal_tower`] `Tower4<2>` — the strongest #932 form,
+    //! where the production kernel literally *is* the single-expression jet.
+    //! What was missing (unlike the two survival `RowKernel` families, which
+    //! already carry `verify_kernel_channels` oracles) is an INDEPENDENT
+    //! cross-check that this production tower is correct. This module adds it:
+    //!
+    //! * an independent [`RowNllProgram<2>`] that writes the row NLL
+    //!   `ℓ = −w·logΦ((2y−1)·η)`, `η = q·√(1+(s·g)²) + s·g·z` ONCE over generic
+    //!   `Tower4` arithmetic (a different composition order than the fused
+    //!   production `signed` jet → exercises the Leibniz/Faà-di-Bruno layer
+    //!   where the #736 cross-block sign-flip bug genus lives), and
+    //! * a special-function-independent central-FD witness of the value channel
+    //!   that re-derives `logΦ` from `libm::erfc`, pinning the probit derivative
+    //!   stack itself (so the oracle does not merely re-use the production
+    //!   transcendental).
+
+    use super::*;
+    use crate::families::jet_tower::{
+        KernelChannels, RowNllProgram, evaluate_program, verify_kernel_channels,
+    };
+
+    /// Independent single-expression row NLL for the rigid standard-normal
+    /// Bernoulli kernel, primaries `(q_eta = marginal η, g = slope)`.
+    struct BernoulliRigidStandardNormalNllProgram {
+        /// `(marginal η, slope g)` per row.
+        primaries: Vec<[f64; 2]>,
+        /// Per-row `(z latent score, y in {0,1}, w weight)`.
+        z: Vec<f64>,
+        y: Vec<f64>,
+        w: Vec<f64>,
+        probit_scale: f64,
+    }
+
+    impl RowNllProgram<2> for BernoulliRigidStandardNormalNllProgram {
+        fn n_rows(&self) -> usize {
+            self.primaries.len()
+        }
+
+        fn primaries(&self, row: usize) -> Result<[f64; 2], String> {
+            self.primaries
+                .get(row)
+                .copied()
+                .ok_or_else(|| format!("bernoulli rigid nll program: row {row} out of range"))
+        }
+
+        fn row_nll(&self, row: usize, p: &[Tower4<2>; 2]) -> Result<Tower4<2>, String> {
+            let z = self.z[row];
+            let y = self.y[row];
+            let w = self.w[row];
+            let s = self.probit_scale;
+            // q(η) via the family's own marginal link-map derivative stack,
+            // composed through generic Leibniz on the η primary (independent of
+            // the production signed-jet, which seeds the q tensor slots directly).
+            let eta_marginal = p[0];
+            let link = bernoulli_marginal_link_map(
+                &InverseLink::Standard(crate::types::StandardLink::Probit),
+                eta_marginal.v,
+            )?;
+            let q = eta_marginal.compose_unary([link.q, link.q1, link.q2, link.q3, link.q4]);
+            let g = p[1];
+            // observed slope b = s·g, scale c = √(1 + b²).
+            let observed_slope = g * s;
+            let c = (observed_slope * observed_slope + 1.0).compose_unary(unary_derivatives_sqrt(
+                observed_slope.v * observed_slope.v + 1.0,
+            ));
+            // η = q·c + b·z, signed margin m = (2y−1)·η.
+            let eta = q * c + observed_slope * z;
+            let signed = eta * (2.0 * y - 1.0);
+            // NLL = −w·logΦ(m) via the documented probit neglog stack.
+            Ok(signed.compose_unary(unary_derivatives_neglog_phi(signed.v, w)))
+        }
+    }
+
+    /// Special-function-independent scalar row NLL `ℓ(q_eta, g)` using
+    /// `libm::erfc`, for the central-FD value-channel witness.
+    fn scalar_nll(eta_marginal: f64, g: f64, z: f64, y: f64, w: f64, s: f64) -> f64 {
+        let link = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            eta_marginal,
+        )
+        .unwrap();
+        let observed_slope = g * s;
+        let c = (observed_slope * observed_slope + 1.0).sqrt();
+        let eta = link.q * c + observed_slope * z;
+        let signed = (2.0 * y - 1.0) * eta;
+        let cdf = 0.5 * libm::erfc(-signed / std::f64::consts::SQRT_2);
+        -w * cdf.max(1e-300).ln()
+    }
+
+    #[test]
+    fn rigid_bernoulli_row_kernel_agrees_with_jet_tower_program_all_channels() {
+        // Mixed responses, weights, latent scores, and slope regimes; the last
+        // rows push the marginal index toward the normal tails while staying
+        // finite. Probit marginal link, standard-normal latent measure.
+        let eta = [0.3_f64, -0.7, 0.05, 0.9, -1.2, 2.1, -2.4];
+        let g = [0.2_f64, -0.5, 0.35, -0.15, 0.6, 0.45, -0.55];
+        let z = [0.4_f64, -1.1, 0.0, 0.7, -0.3, 1.6, -1.4];
+        let y = [1.0_f64, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0];
+        let w = [1.0_f64, 0.8, 1.3, 0.9, 1.1, 0.7, 1.4];
+        let n = eta.len();
+
+        // Deterministic direction vectors (no RNG dependency).
+        let dirs: [[f64; 2]; 3] = [[0.7, -1.3], [-0.4, 0.6], [1.2, 0.2]];
+
+        for &probit_scale in &[1.0_f64, 0.8] {
+            let program = BernoulliRigidStandardNormalNllProgram {
+                primaries: (0..n).map(|r| [eta[r], g[r]]).collect(),
+                z: z.to_vec(),
+                y: y.to_vec(),
+                w: w.to_vec(),
+                probit_scale,
+            };
+
+            for row in 0..n {
+                let tower = evaluate_program(&program, row).expect("tower evaluation");
+
+                // Production scalar kernel channels (the hand path under audit).
+                let marginal = bernoulli_marginal_link_map(
+                    &InverseLink::Standard(crate::types::StandardLink::Probit),
+                    eta[row],
+                )
+                .expect("link map");
+                let (value, gradient, hessian) = rigid_standard_normal_row_kernel(
+                    marginal,
+                    g[row],
+                    z[row],
+                    y[row],
+                    w[row],
+                    probit_scale,
+                )
+                .expect("production row kernel");
+
+                let third_full = rigid_standard_normal_third_full(
+                    marginal,
+                    g[row],
+                    z[row],
+                    y[row],
+                    w[row],
+                    probit_scale,
+                )
+                .expect("production third");
+                let third: Vec<([f64; 2], [[f64; 2]; 2])> = dirs
+                    .iter()
+                    .map(|d| (*d, contract_third_full(&third_full, d[0], d[1])))
+                    .collect();
+
+                let fourth_full = rigid_standard_normal_fourth_full(
+                    marginal,
+                    g[row],
+                    z[row],
+                    y[row],
+                    w[row],
+                    probit_scale,
+                )
+                .expect("production fourth");
+                let fourth: Vec<([f64; 2], [f64; 2], [[f64; 2]; 2])> = dirs
+                    .iter()
+                    .enumerate()
+                    .map(|(i, u)| {
+                        let v = dirs[(i + 1) % dirs.len()];
+                        (
+                            *u,
+                            v,
+                            contract_fourth_full(&fourth_full, u[0], u[1], v[0], v[1]),
+                        )
+                    })
+                    .collect();
+
+                let claims = KernelChannels {
+                    value,
+                    gradient,
+                    hessian,
+                    third,
+                    fourth,
+                };
+
+                verify_kernel_channels(&tower, &claims, 1e-9).unwrap_or_else(|e| {
+                    panic!(
+                        "probit_scale {probit_scale} row {row}: production rigid Bernoulli \
+                         RowKernel disagrees with #932 jet-tower truth: {e}"
+                    )
+                });
+
+                // Special-function-independent FD witness of the value channel:
+                // re-derives logΦ from `libm::erfc`, pinning the probit derivative
+                // stack rather than re-using the production one.
+                let h = 1e-3;
+                let f = |de: f64, dg: f64| {
+                    scalar_nll(
+                        eta[row] + de,
+                        g[row] + dg,
+                        z[row],
+                        y[row],
+                        w[row],
+                        probit_scale,
+                    )
+                };
+                let f0 = f(0.0, 0.0);
+                assert!(
+                    (f0 - tower.v).abs() <= 1e-9 * f0.abs().max(1.0),
+                    "row {row}: independent scalar NLL {f0:+.12e} != tower value {:+.12e}",
+                    tower.v
+                );
+                // 5-point first-derivative stencils.
+                let g_eta = (f(-2.0 * h, 0.0) - 8.0 * f(-h, 0.0) + 8.0 * f(h, 0.0)
+                    - f(2.0 * h, 0.0))
+                    / (12.0 * h);
+                let g_g = (f(0.0, -2.0 * h) - 8.0 * f(0.0, -h) + 8.0 * f(0.0, h) - f(0.0, 2.0 * h))
+                    / (12.0 * h);
+                for (label, fd, ad) in [("∂η", g_eta, tower.g[0]), ("∂g", g_g, tower.g[1])] {
+                    assert!(
+                        (fd - ad).abs() <= 1e-5 * ad.abs().max(1.0),
+                        "row {row} {label}: FD witness {fd:+.6e} != tower grad {ad:+.6e}"
+                    );
+                }
+            }
+        }
+    }
 }

@@ -4,10 +4,11 @@ use crate::faer_ndarray::{
     FaerArrayView, FaerLinalgError, array2_to_matmut, factorize_symmetricwith_fallback,
 };
 use crate::faer_ndarray::{FaerCholesky, FaerEigh};
+use crate::linalg::pcg::{PcgCoreResult, PcgDiagnostics, PcgStop, pcg_core};
 use crate::matrix::symmetrize_in_place;
 use faer::Side;
 use ndarray::{
-    Array1, Array2, Array3, ArrayBase, ArrayView1, ArrayView2, ArrayView3, Data, Dimension, Zip, s,
+    Array1, Array2, Array3, ArrayBase, ArrayView1, ArrayView2, ArrayView3, Data, Dimension, s,
 };
 
 /// SplitMix64: deterministic 64-bit hash / streaming RNG step.
@@ -114,7 +115,7 @@ pub(crate) fn stable_softplus(x: f64) -> f64 {
 ///
 /// Canonical home for the routine previously duplicated as `logistic` in
 /// `terms/analytic_penalties.rs`, `sigmoid_stable` in `inference/hmc.rs`, and
-/// `sigmoid_scalar` in `terms/sae_manifold.rs` — all three were bit-identical.
+/// `sigmoid_scalar` in `terms/sae/manifold/mod.rs` — all three were bit-identical.
 #[inline]
 pub(crate) fn stable_logistic(x: f64) -> f64 {
     if x >= 0.0 {
@@ -147,16 +148,6 @@ pub(crate) fn inf_norm<I: IntoIterator<Item = f64>>(values: I) -> f64 {
 const HESSIAN_CONDITION_TARGET: f64 = 1e10;
 const MAX_FACTORIZATION_ATTEMPTS: usize = 4;
 const MAX_SOLVE_RETRIES: usize = 8;
-
-/// Floor on the requested PCG relative tolerance. Asking for convergence tighter
-/// than this is below the achievable accuracy of the SPD energy minimization in
-/// `f64`, so we clamp the target to avoid iterating on numerical noise.
-const PCG_REL_TOL_FLOOR: f64 = 1e-12;
-
-/// Floor applied to each (already non-negative) preconditioner diagonal entry
-/// before reciprocation. Exactly-zero entries are treated as numerical noise and
-/// floored to this value rather than producing an infinite `1/m`.
-const PCG_PRECONDITIONER_FLOOR: f64 = 1e-12;
 
 #[derive(Default, Clone, Copy)]
 pub(crate) struct KahanSum {
@@ -559,27 +550,6 @@ pub(crate) fn symmetric_extremes(matrix: &Array2<f64>) -> Option<(f64, f64)> {
     }
 }
 
-/// Enforce exact symmetry on a square matrix by averaging off-diagonal pairs.
-/// Canonical in-place symmetrizer for a dense square `ndarray` matrix.
-///
-/// Replaces each off-diagonal pair `(i, j)`/`(j, i)` with their arithmetic
-/// mean, leaving the diagonal untouched. This is the single source of truth
-/// for the ndarray symmetrize operation; the `gam-pyffi` crate routes its
-/// former local `symmetrize_in_place` through this function. The faer-typed
-/// equivalent (`symmetrize_faer_matrix_in_place` in `terms/construction.rs`)
-/// is kept separate because it operates on `faer::Mat`.
-pub fn enforce_symmetry(matrix: &mut Array2<f64>) {
-    let n = matrix.nrows();
-    assert_eq!(n, matrix.ncols());
-    for i in 0..n {
-        for j in i + 1..n {
-            let avg = 0.5 * (matrix[[i, j]] + matrix[[j, i]]);
-            matrix[[i, j]] = avg;
-            matrix[[j, i]] = avg;
-        }
-    }
-}
-
 pub(crate) fn addridge(matrix: &Array2<f64>, ridge: f64) -> Array2<f64> {
     if ridge <= 0.0 {
         return matrix.clone();
@@ -633,114 +603,103 @@ pub struct PcgSolveInfo {
     pub condition_estimate: Option<f64>,
 }
 
-#[derive(Debug, Clone)]
-struct PcgDiagnostics {
-    residuals: Vec<f64>,
-    alpha: Vec<f64>,
-    beta: Vec<f64>,
-}
-
-impl PcgDiagnostics {
-    fn new(initial_residual_norm: f64) -> Self {
-        Self {
-            residuals: vec![initial_residual_norm],
-            alpha: Vec::new(),
-            beta: Vec::new(),
-        }
+/// Ritz-based condition-number estimate from a PCG run's per-iteration trace.
+///
+/// Builds the CG Lanczos tridiagonal for the preconditioned operator. For SPD
+/// CG, T has diagonal `1/a_i + b_{i-1}/a_{i-1}` and off-diagonal
+/// `sqrt(b_i)/a_i`. Its eigenvalues are the Ritz estimates of the
+/// preconditioned operator's spectrum; `cond ≈ λ_max(T) / λ_min(T)`.
+///
+/// (Gershgorin disc bounds were tried previously: they are guaranteed
+/// *enclosures*, not estimates — systematically pessimistic, frequently
+/// producing a negative lower bound even for SPD T and collapsing the estimate
+/// to `None`. With `k ≤ 256` a direct symmetric eigensolve is microseconds and
+/// yields the genuine Ritz values.)
+fn pcg_condition_estimate(diagnostics: &PcgDiagnostics) -> Option<f64> {
+    let alpha = &diagnostics.alpha;
+    let beta = &diagnostics.beta;
+    let k = alpha.len();
+    if k == 0 || k > 256 {
+        return None;
     }
-
-    fn push_iteration(&mut self, alpha: f64, beta: Option<f64>, residual_norm: f64) {
-        self.alpha.push(alpha);
-        if let Some(beta) = beta {
-            self.beta.push(beta);
-        }
-        self.residuals.push(residual_norm);
-    }
-
-    fn condition_estimate(&self) -> Option<f64> {
-        // Build the CG Lanczos tridiagonal for the preconditioned operator.
-        // For SPD CG, T has diagonal 1/a_i + b_{i-1}/a_{i-1} and off-diagonal
-        // sqrt(b_i)/a_i. Its eigenvalues are the Ritz estimates of the
-        // preconditioned operator's spectrum; cond ≈ λ_max(T) / λ_min(T).
-        //
-        // Previous code substituted Gershgorin disc bounds for the Ritz
-        // values. Those bounds are guaranteed *enclosures*, not estimates:
-        // they are systematically pessimistic and frequently produce a
-        // negative lower bound even for SPD T, which then collapsed the
-        // condition estimate to `None` and lost the diagnostic. With k ≤ 256
-        // a direct symmetric eigensolve is microseconds and yields the
-        // genuine Ritz values.
-        let k = self.alpha.len();
-        if k == 0 || k > 256 {
+    let mut t = ndarray::Array2::<f64>::zeros((k, k));
+    for i in 0..k {
+        let alpha_i = alpha[i];
+        if !alpha_i.is_finite() || alpha_i <= 0.0 {
             return None;
         }
-        let mut t = ndarray::Array2::<f64>::zeros((k, k));
-        for i in 0..k {
-            let alpha_i = self.alpha[i];
-            if !alpha_i.is_finite() || alpha_i <= 0.0 {
+        let mut diag = 1.0 / alpha_i;
+        if i > 0 {
+            let beta_prev = beta.get(i - 1).copied()?;
+            if !beta_prev.is_finite() || beta_prev < 0.0 {
                 return None;
             }
-            let mut diag = 1.0 / alpha_i;
-            if i > 0 {
-                let beta_prev = self.beta.get(i - 1).copied()?;
-                if !beta_prev.is_finite() || beta_prev < 0.0 {
-                    return None;
-                }
-                diag += beta_prev / self.alpha[i - 1];
-            }
-            t[[i, i]] = diag;
-            if i + 1 < k {
-                let beta_i = self.beta.get(i).copied().unwrap_or(0.0);
-                if !beta_i.is_finite() || beta_i < 0.0 {
-                    return None;
-                }
-                let off = beta_i.sqrt() / alpha_i;
-                t[[i, i + 1]] = off;
-                t[[i + 1, i]] = off;
-            }
+            diag += beta_prev / alpha[i - 1];
         }
-        let (evals, _) = t.eigh(Side::Lower).ok()?;
-        let mut lower = f64::INFINITY;
-        let mut upper = f64::NEG_INFINITY;
-        for &v in evals.iter() {
-            if !v.is_finite() {
+        t[[i, i]] = diag;
+        if i + 1 < k {
+            let beta_i = beta.get(i).copied().unwrap_or(0.0);
+            if !beta_i.is_finite() || beta_i < 0.0 {
                 return None;
             }
-            if v < lower {
-                lower = v;
-            }
-            if v > upper {
-                upper = v;
-            }
-        }
-        if lower > 0.0 && upper > 0.0 {
-            Some(upper / lower)
-        } else {
-            None
+            let off = beta_i.sqrt() / alpha_i;
+            t[[i, i + 1]] = off;
+            t[[i + 1, i]] = off;
         }
     }
-
-    fn info(
-        &self,
-        iterations: usize,
-        converged: bool,
-        rhs_norm: f64,
-        final_residual_norm: f64,
-    ) -> PcgSolveInfo {
-        let initial = self.residuals.first().copied().unwrap_or(rhs_norm);
-        PcgSolveInfo {
-            iterations,
-            converged,
-            relative_residual_norm: final_residual_norm / rhs_norm.max(1.0),
-            initial_residual_norm: initial,
-            final_residual_norm,
-            residual_reduction: if initial > 0.0 {
-                final_residual_norm / initial
-            } else {
-                0.0
-            },
-            condition_estimate: self.condition_estimate(),
+    let (evals, _) = t.eigh(Side::Lower).ok()?;
+    let mut lower = f64::INFINITY;
+    let mut upper = f64::NEG_INFINITY;
+    for &v in evals.iter() {
+        if !v.is_finite() {
+            return None;
         }
+        if v < lower {
+            lower = v;
+        }
+        if v > upper {
+            upper = v;
+        }
+    }
+    if lower > 0.0 && upper > 0.0 {
+        Some(upper / lower)
+    } else {
+        None
+    }
+}
+
+/// Assemble the public [`PcgSolveInfo`] from a finished [`pcg_core`] run.
+fn pcg_solve_info(result: &PcgCoreResult) -> PcgSolveInfo {
+    let rhs_norm = result.rhs_norm;
+    let final_residual_norm = result.final_residual_norm;
+    let initial = result
+        .diagnostics
+        .as_ref()
+        .and_then(|d| d.residuals.first().copied())
+        .unwrap_or(rhs_norm);
+    // Report `‖r‖ / ‖rhs‖` — the textbook relative residual the
+    // Eisenstat–Walker forcing term and the PCG stop condition both target.
+    // When `‖rhs‖` is sub-unit, dividing by `max(‖rhs‖, 1)` understates the
+    // true relative residual: e.g. `final = 5.3e-2`, `‖rhs‖ = 6.2e-2` is
+    // reported as `5.3e-2` when the actual ratio is ~0.86 (one PCG iter
+    // away from convergence, not 5% of the way). Match the stop criterion.
+    let relative_residual_norm = if rhs_norm > 0.0 {
+        final_residual_norm / rhs_norm
+    } else {
+        0.0
+    };
+    PcgSolveInfo {
+        iterations: result.iterations,
+        converged: result.stop == PcgStop::Converged,
+        relative_residual_norm,
+        initial_residual_norm: initial,
+        final_residual_norm,
+        residual_reduction: if initial > 0.0 {
+            final_residual_norm / initial
+        } else {
+            0.0
+        },
+        condition_estimate: result.diagnostics.as_ref().and_then(pcg_condition_estimate),
     }
 }
 
@@ -754,138 +713,20 @@ pub fn solve_spd_pcg_with_info<F>(
 where
     F: Fn(&Array1<f64>) -> Array1<f64>,
 {
-    let p = rhs.len();
-    if p == 0 || preconditioner_diag.len() != p || max_iter == 0 {
-        return None;
-    }
-    let rhs_norm = rhs.dot(rhs).sqrt();
-    if !rhs_norm.is_finite() {
-        return None;
-    }
-    if rhs_norm == 0.0 {
-        return Some((
-            Array1::<f64>::zeros(p),
-            PcgSolveInfo {
-                iterations: 0,
-                converged: true,
-                relative_residual_norm: 0.0,
-                initial_residual_norm: 0.0,
-                final_residual_norm: 0.0,
-                residual_reduction: 0.0,
-                condition_estimate: None,
-            },
-        ));
-    }
-
-    let tol = rel_tol.max(PCG_REL_TOL_FLOOR) * rhs_norm.max(1.0);
-    let mut x = Array1::<f64>::zeros(p);
-    let mut r = rhs.clone();
-    let mut diagnostics = PcgDiagnostics::new(rhs_norm);
-
-    // Precompute reciprocal preconditioner once. Each PCG iteration applies
-    // M^{-1} via a single elementwise multiply (z = inv_m * r).
-    //
-    // SPD-PCG requires a strictly positive preconditioner (M ≻ 0). A
-    // non-positive diagonal entry is a contract violation by the caller —
-    // either the matrix is not actually SPD, or it has a structural zero.
-    // Silently `abs()`-ing the value (the historical behavior) hides this
-    // and produces a "solution" that does not minimize the SPD energy.
-    // Instead, fall through to `None` so the caller routes to a
-    // direct-factorization or indefinite Krylov path. We still tolerate
-    // very small positive values via a 1e-12 floor for numerical noise.
-    let mut inv_m = Array1::<f64>::zeros(p);
-    let mut bad_diag = false;
-    for (slot, &m) in inv_m.iter_mut().zip(preconditioner_diag.iter()) {
-        if !m.is_finite() || m < 0.0 {
-            // Negative or non-finite preconditioner diagonal violates the
-            // SPD-PCG contract (M ≻ 0). Hard error rather than silent
-            // `abs()`: caller should route to a direct factorization or
-            // indefinite Krylov path. Exactly-zero entries are treated as
-            // numerical noise and floored to 1e-12.
-            bad_diag = true;
-            break;
-        }
-        *slot = 1.0 / m.max(PCG_PRECONDITIONER_FLOOR);
-    }
-    if bad_diag {
-        log::warn!(
-            "SPD PCG rejected: preconditioner diagonal contained a negative or \
-             non-finite entry; caller should route to a direct factorization \
-             or indefinite Krylov path."
-        );
-        return None;
-    }
-
-    let mut z = Array1::<f64>::zeros(p);
-    Zip::from(&mut z)
-        .and(&r)
-        .and(&inv_m)
-        .par_for_each(|zi, &ri, &im| {
-            *zi = ri * im;
-        });
-    let mut p_dir = z.clone();
-    let mut rz_old = r.dot(&z);
-    if !rz_old.is_finite() || rz_old <= 0.0 {
-        return None;
-    }
-
-    for iter in 0..max_iter {
-        let ap = apply(&p_dir);
-        if ap.len() != p {
-            return None;
-        }
-        let denom = p_dir.dot(&ap);
-        if !denom.is_finite() || denom <= 0.0 {
-            return None;
-        }
-        let alpha = rz_old / denom;
-        if !alpha.is_finite() {
-            return None;
-        }
-        x.scaled_add(alpha, &p_dir);
-        r.scaled_add(-alpha, &ap);
-        if (iter + 1) % 32 == 0 {
-            // Periodic residual refresh: r <- rhs - A x. Done in-place via
-            // assign + scaled_add to avoid the prior fresh-allocation pattern
-            // (`r = rhs - &ax;`) inside the hot loop.
-            let ax = apply(&x);
-            if ax.len() != p {
-                return None;
+    solve_spd_pcg_with_info_into(
+        |v, out| {
+            let applied = apply(v);
+            if applied.len() == out.len() {
+                out.assign(&applied);
+            } else {
+                out.fill(f64::NAN);
             }
-            r.assign(rhs);
-            r.scaled_add(-1.0, &ax);
-        }
-        let r_norm = r.dot(&r).sqrt();
-        if r_norm.is_finite() && r_norm <= tol {
-            diagnostics.push_iteration(alpha, None, r_norm);
-            return x
-                .iter()
-                .all(|v| v.is_finite())
-                .then_some((x, diagnostics.info(iter + 1, true, rhs_norm, r_norm)));
-        }
-        Zip::from(&mut z)
-            .and(&r)
-            .and(&inv_m)
-            .par_for_each(|zi, &ri, &im| {
-                *zi = ri * im;
-            });
-        let rz_new = r.dot(&z);
-        if !rz_new.is_finite() || rz_new <= 0.0 {
-            return None;
-        }
-        let beta = rz_new / rz_old;
-        if !beta.is_finite() {
-            return None;
-        }
-        diagnostics.push_iteration(alpha, Some(beta), r_norm);
-        // p <- z + beta * p (fused, SIMD-friendly via ndarray::Zip; parallel
-        // over coefficient dimension at large-scale p).
-        Zip::from(&mut p_dir).and(&z).par_for_each(|pi, &zi| {
-            *pi = zi + beta * *pi;
-        });
-        rz_old = rz_new;
-    }
-    None
+        },
+        rhs,
+        preconditioner_diag,
+        rel_tol,
+        max_iter,
+    )
 }
 
 pub fn solve_spd_pcg<F>(
@@ -921,113 +762,29 @@ where
     if p == 0 || preconditioner_diag.len() != p || max_iter == 0 {
         return None;
     }
-    let rhs_norm = rhs.dot(rhs).sqrt();
-    if !rhs_norm.is_finite() {
-        return None;
-    }
-    if rhs_norm == 0.0 {
-        return Some((
-            Array1::<f64>::zeros(p),
-            PcgSolveInfo {
-                iterations: 0,
-                converged: true,
-                relative_residual_norm: 0.0,
-                initial_residual_norm: 0.0,
-                final_residual_norm: 0.0,
-                residual_reduction: 0.0,
-                condition_estimate: None,
-            },
-        ));
-    }
-
-    let tol = rel_tol.max(PCG_REL_TOL_FLOOR) * rhs_norm.max(1.0);
     let mut x = Array1::<f64>::zeros(p);
-    let mut r = rhs.clone();
-    let mut diagnostics = PcgDiagnostics::new(rhs_norm);
-
-    if preconditioner_diag
-        .iter()
-        .any(|&m| !m.is_finite() || m <= 0.0)
-    {
-        return None;
+    let result = pcg_core(
+        apply,
+        &rhs.view(),
+        &preconditioner_diag.view(),
+        rel_tol,
+        max_iter,
+        32,
+        true,
+        &mut x.view_mut(),
+    );
+    if result.stop == PcgStop::Converged && x.iter().all(|v| v.is_finite()) {
+        Some((x, pcg_solve_info(&result)))
+    } else {
+        if result.stop == PcgStop::BadPreconditioner {
+            log::warn!(
+                "SPD PCG rejected: preconditioner diagonal contained a non-positive or \
+                 non-finite entry; caller should route to a direct factorization \
+                 or indefinite Krylov path."
+            );
+        }
+        None
     }
-    let mut inv_m = Array1::<f64>::zeros(p);
-    Zip::from(&mut inv_m)
-        .and(preconditioner_diag)
-        .par_for_each(|inv, &m| {
-            *inv = 1.0 / m.max(PCG_PRECONDITIONER_FLOOR);
-        });
-
-    let mut z = Array1::<f64>::zeros(p);
-    Zip::from(&mut z)
-        .and(&r)
-        .and(&inv_m)
-        .par_for_each(|zi, &ri, &im| {
-            *zi = ri * im;
-        });
-    let mut p_dir = z.clone();
-    let mut rz_old = r.dot(&z);
-    if !rz_old.is_finite() || rz_old <= 0.0 {
-        return None;
-    }
-
-    // Reusable matvec scratch (filled by `apply`).
-    let mut ap = Array1::<f64>::zeros(p);
-
-    for iter in 0..max_iter {
-        apply(&p_dir, &mut ap);
-        if ap.len() != p {
-            return None;
-        }
-        let denom = p_dir.dot(&ap);
-        if !denom.is_finite() || denom <= 0.0 {
-            return None;
-        }
-        let alpha = rz_old / denom;
-        if !alpha.is_finite() {
-            return None;
-        }
-        x.scaled_add(alpha, &p_dir);
-        r.scaled_add(-alpha, &ap);
-        if (iter + 1) % 32 == 0 {
-            // Periodic residual refresh: r <- rhs - A x. Reuse `ap` as scratch
-            // for A x to avoid an extra allocation.
-            apply(&x, &mut ap);
-            if ap.len() != p {
-                return None;
-            }
-            r.assign(rhs);
-            r.scaled_add(-1.0, &ap);
-        }
-        let r_norm = r.dot(&r).sqrt();
-        if r_norm.is_finite() && r_norm <= tol {
-            diagnostics.push_iteration(alpha, None, r_norm);
-            return x
-                .iter()
-                .all(|v| v.is_finite())
-                .then_some((x, diagnostics.info(iter + 1, true, rhs_norm, r_norm)));
-        }
-        Zip::from(&mut z)
-            .and(&r)
-            .and(&inv_m)
-            .par_for_each(|zi, &ri, &im| {
-                *zi = ri * im;
-            });
-        let rz_new = r.dot(&z);
-        if !rz_new.is_finite() || rz_new <= 0.0 {
-            return None;
-        }
-        let beta = rz_new / rz_old;
-        if !beta.is_finite() {
-            return None;
-        }
-        diagnostics.push_iteration(alpha, Some(beta), r_norm);
-        Zip::from(&mut p_dir).and(&z).par_for_each(|pi, &zi| {
-            *pi = zi + beta * *pi;
-        });
-        rz_old = rz_new;
-    }
-    None
 }
 
 #[derive(Clone)]
@@ -1531,9 +1288,47 @@ mod ridge_tests {
 mod tests {
     use super::{
         boundary_hit_step_fraction, solve_spd_pcg, solve_spd_pcg_with_info,
-        solve_spd_pcg_with_info_into,
+        solve_spd_pcg_with_info_into, splitmix64, splitmix64_hash,
     };
     use ndarray::{Array1, array};
+
+    /// Pin the canonical SplitMix64 stream to Vigna's reference sequence so the
+    /// unification of the ~12 former module-local copies cannot drift seeds.
+    #[test]
+    fn splitmix64_matches_reference_sequence() {
+        // Vigna's reference C `splitmix64` started from state 0.
+        let mut state = 0u64;
+        assert_eq!(splitmix64(&mut state), 0xE220A8397B1DCDAF);
+        assert_eq!(splitmix64(&mut state), 0x6E789E6AA1B965F4);
+        assert_eq!(splitmix64(&mut state), 0x06C45D188009454F);
+
+        // The pure-hash flavour equals one stateful step seeded from `x`.
+        for x in [0u64, 1, 42, 0x9E37_79B9_7F4A_7C15, u64::MAX] {
+            let mut s = x;
+            assert_eq!(splitmix64_hash(x), splitmix64(&mut s));
+        }
+    }
+
+    /// Re-derive the literal three-line finalizer that every former copy
+    /// inlined and confirm it is bit-identical to the canonical step. Guards
+    /// against any future constant typo creeping into the single source.
+    #[test]
+    fn splitmix64_step_equals_inlined_finalizer() {
+        for seed in [0u64, 7, 0xDEAD_BEEF, 0x0123_4567_89AB_CDEF, u64::MAX - 3] {
+            let mut state = seed;
+            let got = splitmix64(&mut state);
+
+            let advanced = seed.wrapping_add(0x9E37_79B9_7F4A_7C15);
+            let mut z = advanced;
+            z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+            let expect = z ^ (z >> 31);
+
+            assert_eq!(got, expect);
+            // The canonical step must have advanced state by exactly one G.
+            assert_eq!(state, advanced);
+        }
+    }
 
     #[test]
     fn boundary_hit_step_fraction_ignores_near_tangential_direction() {

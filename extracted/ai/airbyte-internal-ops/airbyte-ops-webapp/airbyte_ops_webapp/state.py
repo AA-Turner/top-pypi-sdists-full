@@ -7,6 +7,9 @@ import os
 from pydantic import BaseModel, ConfigDict
 
 MOCK_ONLY_ENV_VAR = "AIRBYTE_OPS_WEBAPP_MOCKONLY"
+PREVIEW_ENV_VAR = "AIRBYTE_OPS_WEBAPP_PREVIEW"
+PREVIEW_PR_ENV_VAR = "AIRBYTE_OPS_WEBAPP_PREVIEW_PR"
+GITHUB_REPO_URL = "https://github.com/airbytehq/airbyte-ops-mcp"
 AIRBYTE_BEARER_TOKEN_ENV_VAR = "AIRBYTE_CLOUD_BEARER_TOKEN"
 AIRBYTE_CLIENT_ID_ENV_VAR = "AIRBYTE_CLOUD_CLIENT_ID"
 AIRBYTE_CLIENT_SECRET_ENV_VAR = "AIRBYTE_CLOUD_CLIENT_SECRET"
@@ -43,6 +46,9 @@ class OpsPageState(BaseModel):
     admin_user_email: str = ""
     default_connector_from_args: bool = False
     is_mock_only: bool
+    is_preview_deploy: bool = False
+    preview_pr_number: str = ""
+    preview_pr_url: str = ""
     oauth_config: OAuthConfigState
     oauth_enabled: bool
     oauth_authenticated: bool = False
@@ -57,3 +63,21 @@ class OpsPageState(BaseModel):
 def mock_only_enabled() -> bool:
     """Return `True` when the app is explicitly running with mock data."""
     return os.getenv(MOCK_ONLY_ENV_VAR, "").strip().lower() in {"1", "true"}
+
+
+def preview_deploy_enabled() -> bool:
+    """Return `True` when the app is running as a preview deploy."""
+    return os.getenv(PREVIEW_ENV_VAR, "").strip().lower() in {"1", "true"}
+
+
+def preview_pr_number() -> str:
+    """Return the PR number for the current preview deploy, or empty string."""
+    return os.getenv(PREVIEW_PR_ENV_VAR, "").strip()
+
+
+def preview_pr_url() -> str:
+    """Return the full GitHub PR URL for the current preview deploy."""
+    pr = preview_pr_number()
+    if not pr:
+        return ""
+    return f"{GITHUB_REPO_URL}/pull/{pr}"

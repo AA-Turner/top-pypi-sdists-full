@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervision
-Version: 0.29.0
+Version: 0.29.0.post0
 Summary: A set of easy-to-use utils that will come in handy in any Computer Vision project
 Author-email: "Roboflow et al." <develop@roboflow.com>
 Maintainer-email: Piotr Skalski <piotr@roboflow.com>
@@ -264,7 +264,7 @@ for path, image, annotation in ds:
 
 ## 🎬 tutorials
 
-Want to learn how to use Supervision? Explore our [how-to guides](https://supervision.roboflow.com/develop/how_to/detect_and_annotate/), [end-to-end examples](https://github.com/roboflow/supervision/tree/0.29.0/examples), [cheatsheet](https://roboflow.github.io/cheatsheet-supervision/), and [cookbooks](https://supervision.roboflow.com/develop/cookbooks/)!
+Want to learn how to use Supervision? Explore our [how-to guides](https://supervision.roboflow.com/develop/how_to/detect_and_annotate/), [end-to-end examples](https://github.com/roboflow/supervision/tree/0.29.0.post0/examples), [cheatsheet](https://roboflow.github.io/cheatsheet-supervision/), and [cookbooks](https://supervision.roboflow.com/develop/cookbooks/)!
 
 <br/>
 
@@ -298,7 +298,7 @@ Visit our [documentation](https://roboflow.github.io/supervision) page to learn 
 
 ## 🏆 contribution
 
-We love your input! Please see our [contributing guide](https://github.com/roboflow/supervision/blob/0.29.0/.github/CONTRIBUTING.md) to get started. Thank you 🙏 to all our contributors!
+We love your input! Please see our [contributing guide](https://github.com/roboflow/supervision/blob/0.29.0.post0/.github/CONTRIBUTING.md) to get started. Thank you 🙏 to all our contributors!
 
 <p align="center">
     <a href="https://github.com/roboflow/supervision/graphs/contributors">

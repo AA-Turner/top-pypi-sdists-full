@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdf_oxide
-Version: 0.3.65
+Version: 0.3.66
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -341,7 +341,7 @@ cargo install pdf_oxide_mcp             # Cargo
   <dependency>
     <groupId>fyi.oxide</groupId>
     <artifactId>pdf-oxide</artifactId>
-    <version>0.3.65</version>
+    <version>0.3.66</version>
   </dependency>
   ```
 

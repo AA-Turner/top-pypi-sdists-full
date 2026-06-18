@@ -106,6 +106,13 @@ class AnnotationFileType(StrEnum):
     YOLO = "YOLO"
 
 
+class AnnotationExportKey(StrEnum):
+    ASSET_ID = "ASSET_ID"
+    DATA_ID = "DATA_ID"
+    FILENAME = "FILENAME"
+    OBJECT_NAME = "OBJECT_NAME"
+
+
 class JobRunStatus(StrEnum):
     PENDING = "PENDING"
     QUEUED = "QUEUED"
@@ -120,6 +127,13 @@ class JobStatus(StrEnum):
     SUCCESS = "SUCCESS"
     TERMINATED = "TERMINATED"
     FAILED = "FAILED"
+
+
+class GCPSupportedGPU(StrEnum):
+    A100 = "A100"
+    V100 = "V100"
+    T4 = "T4"
+    L4 = "L4"
 
 
 class Framework(StrEnum):

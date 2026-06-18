@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: numpy-stl
-Version: 3.2.0
+Version: 4.0.0
 Summary: Library to make reading, writing and modifying both binary and ascii STL files easy.
-Home-page: https://github.com/WoLpH/numpy-stl/
 Author: Rick van Hattem
-Author-email: Wolph@Wol.ph
-License: BSD
+Author-email: Rick van Hattem <Wolph@Wol.ph>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
@@ -13,520 +13,273 @@ Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >3.9.0
-License-File: LICENSE
-Requires-Dist: numpy
+Classifier: Typing :: Typed
+Requires-Dist: numpy>=1.24
 Requires-Dist: python-utils>=3.4.5
+Requires-Dist: typing-extensions>=4.1
+Requires-Dist: numpy-stl[tests] ; extra == 'dev'
+Requires-Dist: ruff>=0.15.0 ; extra == 'dev'
+Requires-Dist: mypy>=1.0 ; extra == 'dev'
+Requires-Dist: basedpyright>=1.0 ; extra == 'dev'
+Requires-Dist: pyrefly>=0.1 ; extra == 'dev'
+Requires-Dist: sphinx>=8.0 ; python_full_version < '3.11' and extra == 'docs'
+Requires-Dist: sphinx>=9.0 ; python_full_version >= '3.11' and extra == 'docs'
+Requires-Dist: furo>=2025.1 ; extra == 'docs'
+Requires-Dist: speedups>=2.0.0 ; extra == 'fast'
+Requires-Dist: pytest>=9.0 ; extra == 'tests'
+Requires-Dist: pytest-cov>=7.0 ; extra == 'tests'
+Requires-Dist: coverage>=7.0 ; extra == 'tests'
+Requires-Dist: tox>=4.0 ; extra == 'tox'
+Requires-Dist: tox-uv>=1.0 ; extra == 'tox'
+Requires-Dist: tox-gh-actions>=3.0 ; extra == 'tox'
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/WoLpH/numpy-stl/
+Provides-Extra: dev
 Provides-Extra: docs
-Requires-Dist: mock; extra == "docs"
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: python-utils; extra == "docs"
+Provides-Extra: fast
 Provides-Extra: tests
-Requires-Dist: cov-core; extra == "tests"
-Requires-Dist: coverage; extra == "tests"
-Requires-Dist: docutils; extra == "tests"
-Requires-Dist: execnet; extra == "tests"
-Requires-Dist: numpy; extra == "tests"
-Requires-Dist: cython; extra == "tests"
-Requires-Dist: pep8; extra == "tests"
-Requires-Dist: py; extra == "tests"
-Requires-Dist: pyflakes; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: pytest-cache; extra == "tests"
-Requires-Dist: pytest-cov; extra == "tests"
-Requires-Dist: python-utils; extra == "tests"
-Requires-Dist: Sphinx; extra == "tests"
-Requires-Dist: flake8; extra == "tests"
-Requires-Dist: wheel; extra == "tests"
+Provides-Extra: tox
+Description-Content-Type: text/markdown
 
-numpy-stl
-==============================================================================
-
-.. image:: https://github.com/WoLpH/numpy-stl/actions/workflows/main.yml/badge.svg?branch=master
-    :alt: numpy-stl test status 
-    :target: https://github.com/WoLpH/numpy-stl/actions/workflows/main.yml
-
-.. image:: https://ci.appveyor.com/api/projects/status/cbv7ak2i59wf3lpj?svg=true
-    :alt: numpy-stl test status 
-    :target: https://ci.appveyor.com/project/WoLpH/numpy-stl
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/WoLpH/numpy-stl/develop/docs/images/logo.png" alt="numpy-stl" width="280">
+</h1>
 
-.. image:: https://badge.fury.io/py/numpy-stl.svg
-    :alt: numpy-stl Pypi version 
-    :target: https://pypi.python.org/pypi/numpy-stl
+[![CI](https://github.com/WoLpH/numpy-stl/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/WoLpH/numpy-stl/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/numpy-stl)](https://pypi.org/project/numpy-stl/)
+[![Python](https://img.shields.io/pypi/pyversions/numpy-stl)](https://pypi.org/project/numpy-stl/)
+[![Downloads](https://img.shields.io/pypi/dm/numpy-stl)](https://pypi.org/project/numpy-stl/)
+[![Documentation](https://readthedocs.org/projects/numpy-stl/badge/?version=latest)](https://numpy-stl.readthedocs.io/)
+[![License](https://img.shields.io/pypi/l/numpy-stl)](https://github.com/WoLpH/numpy-stl/blob/develop/LICENSE)
 
-.. image:: https://coveralls.io/repos/WoLpH/numpy-stl/badge.svg?branch=master
-    :alt: numpy-stl code coverage 
-    :target: https://coveralls.io/r/WoLpH/numpy-stl?branch=master
+A fast library for reading, writing, and modifying STL files, powered
+by NumPy. Every mesh operation uses vectorized array math for speed.
 
-.. image:: https://img.shields.io/pypi/pyversions/numpy-stl.svg
+*[Stanford Dragon](http://graphics.stanford.edu/data/3Dscanrep/) — 871,414 triangles loaded in 0.63s, rendered with [matplotlib](https://matplotlib.org/)*
 
-Simple library to make working with STL files (and 3D objects in general) fast
-and easy.
+[![Stanford Dragon rendered with matplotlib](https://raw.githubusercontent.com/WoLpH/numpy-stl/develop/docs/images/dragon_render.png)](#plotting-with-matplotlib)
 
-Due to all operations heavily relying on `numpy` this is one of the fastest
-STL editing libraries for Python available.
+## Quick Start
 
-Security contact information
-------------------------------------------------------------------------------
+```bash
+pip install numpy-stl
+```
 
-To report a security vulnerability, please use the
-`Tidelift security contact <https://tidelift.com/security>`_.
-Tidelift will coordinate the fix and disclosure.
+```python
+from stl import mesh
 
-Issues
-------
+# Load an STL file (auto-detects binary/ASCII)
+your_mesh = mesh.Mesh.from_file('model.stl')
 
-If you encounter any issues, make sure you report them `here <https://github.com/WoLpH/numpy-stl/issues>`_. Be sure to search for existing issues however. Many issues have been covered before.
-While this project uses `numpy` as it's main dependency, it is not in any way affiliated to the `numpy` project or the NumFocus organisation.
+# Inspect
+print(f'{len(your_mesh)} triangles')
+print(f'Bounding box: {your_mesh.min_} to {your_mesh.max_}')
 
-Links
------
+# Save
+your_mesh.save('output.stl')
+```
 
- - The source: https://github.com/WoLpH/numpy-stl
- - Project page: https://pypi.python.org/pypi/numpy-stl
- - Reporting bugs: https://github.com/WoLpH/numpy-stl/issues
- - Documentation: http://numpy-stl.readthedocs.org/en/latest/
- - My blog: https://wol.ph/
+## Features
 
-Requirements for installing:
-------------------------------------------------------------------------------
+- **Read and write** binary and ASCII STL files
+- **Read** PLY and 3MF files (3MF is experimental, read-only)
+- **Mesh operations**: rotate, translate, transform (4x4 matrix)
+- **Properties**: surface area, volume, center of gravity, inertia
+  tensor, convexity
+- **Combine** multiple meshes by concatenating data arrays
+- **CLI tools**: `stl`, `stl2ascii`, `stl2bin` for format conversion
+- **Fast**: all operations backed by NumPy vectorized math
 
- - `numpy`_ any recent version
- - `python-utils`_ version 1.6 or greater
+## Supported Formats
 
-Installation:
-------------------------------------------------------------------------------
+| Format       | Read | Write | Notes                              |
+|--------------|:----:|:-----:|------------------------------------|
+| STL (binary) |  ✅  |  ✅   | Auto-detected on load              |
+| STL (ASCII)  |  ✅  |  ✅   | ~5x faster with optional speedups  |
+| PLY          |  ✅  |  ✅   | Binary and ASCII; `from_ply_file` / `save_ply` |
+| 3MF          |  ✅  |  —    | Experimental; `from_3mf_file`      |
 
-`pip install numpy-stl`
+## Requirements & Compatibility
 
-Initial usage:
-------------------------------------------------------------------------------
+- **Python**: 3.10+
+- **NumPy**: 1.24+ (installed automatically)
+- **Platforms**: Linux, macOS, Windows
+- **Optional**: `numpy-stl[fast]` for the Cython ASCII speedups (see below)
 
-After installing the package, you should be able to run the following commands
-similar to how you can run `pip`.
+## Performance / Optional Speedups
 
-.. code-block:: shell
- 
-   $ stl2bin your_ascii_stl_file.stl new_binary_stl_file.stl
-   $ stl2ascii your_binary_stl_file.stl new_ascii_stl_file.stl
-   $ stl your_ascii_stl_file.stl new_binary_stl_file.stl
+numpy-stl is fast out of the box. For even faster ASCII STL I/O,
+install the optional Cython speedups:
 
-Contributing:
-------------------------------------------------------------------------------
+```bash
+pip install numpy-stl[fast]
+```
 
-Contributions are always welcome. Please view the guidelines to get started:
-https://github.com/WoLpH/numpy-stl/blob/develop/CONTRIBUTING.rst
+This installs the [`speedups`](https://github.com/wolph/speedups/)
+package, a compiled C extension for ASCII parsing. The library works
+identically without it -- pure Python is the default.
 
-Quickstart
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    import numpy
-    from stl import mesh
-
-    # Using an existing stl file:
-    your_mesh = mesh.Mesh.from_file('some_file.stl')
-
-    # Or creating a new mesh (make sure not to overwrite the `mesh` import by
-    # naming it `mesh`):
-    VERTICE_COUNT = 100
-    data = numpy.zeros(VERTICE_COUNT, dtype=mesh.Mesh.dtype)
-    your_mesh = mesh.Mesh(data, remove_empty_areas=False)
-
-    # The mesh normals (calculated automatically)
-    your_mesh.normals
-    # The mesh vectors
-    your_mesh.v0, your_mesh.v1, your_mesh.v2
-    # Accessing individual points (concatenation of v0, v1 and v2 in triplets)
-    assert (your_mesh.points[0][0:3] == your_mesh.v0[0]).all()
-    assert (your_mesh.points[0][3:6] == your_mesh.v1[0]).all()
-    assert (your_mesh.points[0][6:9] == your_mesh.v2[0]).all()
-    assert (your_mesh.points[1][0:3] == your_mesh.v0[1]).all()
-
-    your_mesh.save('new_stl_file.stl')
-
-Plotting using `matplotlib`_ is equally easy:
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    from stl import mesh
-    from mpl_toolkits import mplot3d
-    from matplotlib import pyplot
-
-    # Create a new plot
-    figure = pyplot.figure()
-    axes = figure.add_subplot(projection='3d')
-
-    # Load the STL files and add the vectors to the plot
-    your_mesh = mesh.Mesh.from_file('tests/stl_binary/HalfDonut.stl')
-    axes.add_collection3d(mplot3d.art3d.Poly3DCollection(your_mesh.vectors))
-
-    # Auto scale to the mesh size
-    scale = your_mesh.points.flatten()
-    axes.auto_scale_xyz(scale, scale, scale)
-
-    # Show the plot to the screen
-    pyplot.show()
-
-.. _numpy: http://numpy.org/
-.. _matplotlib: http://matplotlib.org/
-.. _python-utils: https://github.com/WoLpH/python-utils
-
-Experimental support for reading 3MF files
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    import pathlib
-    import stl
-
-    path = pathlib.Path('tests/3mf/Moon.3mf')
-
-    # Load the 3MF file
-    for m in stl.Mesh.from_3mf_file(path):
-        # Do something with the mesh
-        print('mesh', m)
-
-Note that this is still experimental and may not work for all 3MF files.
-Additionally it only allows reading 3mf files, not writing them.
-
-Modifying Mesh objects
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    from stl import mesh
-    import math
-    import numpy
-
-    # Create 3 faces of a cube
-    data = numpy.zeros(6, dtype=mesh.Mesh.dtype)
-
-    # Top of the cube
-    data['vectors'][0] = numpy.array([[0, 1, 1],
-                                      [1, 0, 1],
-                                      [0, 0, 1]])
-    data['vectors'][1] = numpy.array([[1, 0, 1],
-                                      [0, 1, 1],
-                                      [1, 1, 1]])
-    # Front face
-    data['vectors'][2] = numpy.array([[1, 0, 0],
-                                      [1, 0, 1],
-                                      [1, 1, 0]])
-    data['vectors'][3] = numpy.array([[1, 1, 1],
-                                      [1, 0, 1],
-                                      [1, 1, 0]])
-    # Left face
-    data['vectors'][4] = numpy.array([[0, 0, 0],
-                                      [1, 0, 0],
-                                      [1, 0, 1]])
-    data['vectors'][5] = numpy.array([[0, 0, 0],
-                                      [0, 0, 1],
-                                      [1, 0, 1]])
-
-    # Since the cube faces are from 0 to 1 we can move it to the middle by
-    # substracting .5
-    data['vectors'] -= .5
-
-    # Generate 4 different meshes so we can rotate them later
-    meshes = [mesh.Mesh(data.copy()) for _ in range(4)]
-
-    # Rotate 90 degrees over the Y axis
-    meshes[0].rotate([0.0, 0.5, 0.0], math.radians(90))
-
-    # Translate 2 points over the X axis
-    meshes[1].x += 2
-
-    # Rotate 90 degrees over the X axis
-    meshes[2].rotate([0.5, 0.0, 0.0], math.radians(90))
-    # Translate 2 points over the X and Y points
-    meshes[2].x += 2
-    meshes[2].y += 2
-
-    # Rotate 90 degrees over the X and Y axis
-    meshes[3].rotate([0.5, 0.0, 0.0], math.radians(90))
-    meshes[3].rotate([0.0, 0.5, 0.0], math.radians(90))
-    # Translate 2 points over the Y axis
-    meshes[3].y += 2
-
-
-    # Optionally render the rotated cube faces
-    from matplotlib import pyplot
-    from mpl_toolkits import mplot3d
-
-    # Create a new plot
-    figure = pyplot.figure()
-    axes = figure.add_subplot(projection='3d')
-
-    # Render the cube faces
-    for m in meshes:
-        axes.add_collection3d(mplot3d.art3d.Poly3DCollection(m.vectors))
-
-    # Auto scale to the mesh size
-    scale = numpy.concatenate([m.points for m in meshes]).flatten()
-    axes.auto_scale_xyz(scale, scale, scale)
-
-    # Show the plot to the screen
-    pyplot.show()
-
-Extending Mesh objects
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    from stl import mesh
-    import math
-    import numpy
-
-    # Create 3 faces of a cube
-    data = numpy.zeros(6, dtype=mesh.Mesh.dtype)
-
-    # Top of the cube
-    data['vectors'][0] = numpy.array([[0, 1, 1],
-                                      [1, 0, 1],
-                                      [0, 0, 1]])
-    data['vectors'][1] = numpy.array([[1, 0, 1],
-                                      [0, 1, 1],
-                                      [1, 1, 1]])
-    # Front face
-    data['vectors'][2] = numpy.array([[1, 0, 0],
-                                      [1, 0, 1],
-                                      [1, 1, 0]])
-    data['vectors'][3] = numpy.array([[1, 1, 1],
-                                      [1, 0, 1],
-                                      [1, 1, 0]])
-    # Left face
-    data['vectors'][4] = numpy.array([[0, 0, 0],
-                                      [1, 0, 0],
-                                      [1, 0, 1]])
-    data['vectors'][5] = numpy.array([[0, 0, 0],
-                                      [0, 0, 1],
-                                      [1, 0, 1]])
-
-    # Since the cube faces are from 0 to 1 we can move it to the middle by
-    # substracting .5
-    data['vectors'] -= .5
-
-    cube_back = mesh.Mesh(data.copy())
-    cube_front = mesh.Mesh(data.copy())
-
-    # Rotate 90 degrees over the X axis followed by the Y axis followed by the
-    # X axis
-    cube_back.rotate([0.5, 0.0, 0.0], math.radians(90))
-    cube_back.rotate([0.0, 0.5, 0.0], math.radians(90))
-    cube_back.rotate([0.5, 0.0, 0.0], math.radians(90))
-
-    cube = mesh.Mesh(numpy.concatenate([
-        cube_back.data.copy(),
-        cube_front.data.copy(),
-    ]))
-
-    # Optionally render the rotated cube faces
-    from matplotlib import pyplot
-    from mpl_toolkits import mplot3d
-
-    # Create a new plot
-    figure = pyplot.figure()
-    axes = figure.add_subplot(projection='3d')
-
-    # Render the cube
-    axes.add_collection3d(mplot3d.art3d.Poly3DCollection(cube.vectors))
-
-    # Auto scale to the mesh size
-    scale = cube_back.points.flatten()
-    axes.auto_scale_xyz(scale, scale, scale)
-
-    # Show the plot to the screen
-    pyplot.show()
-
-Creating a single triangle
-----------------------------------
-
-.. code-block:: python
-
-    import numpy
-    from stl import mesh
-
-    # A unit triangle
-    tri_vectors = [[0,0,0],[0,1,0],[0,0,1]]
-
-    # Create the vector data. It’s a numpy structured array with N entries, where N is the number of triangles (here N=1), and each entry is in the format ('normals','vectors','attr')
-    data = numpy.array([(
-        0, # Set 'normals' to zero, and the mesh class will automatically calculate them at initialization
-        tri_vectors, # 'vectors'
-        0 # 'attr'
-    )], dtype = mesh.Mesh.dtype) # The structure defined by the mesh class (N x ('normals','vectors','attr'))
-
-    # Create the mesh object from the structured array
-    tri_mesh = mesh.Mesh(data)
-
-    # Optionally make a plot for fun
-    # Load the plot tools
-    from matplotlib import pyplot
-    from mpl_toolkits import mplot3d
-
-    # Create a new plot
-    figure = pyplot.figure()
-    axes = figure.add_subplot(projection='3d')
-
-    # Add mesh to plot
-    axes.add_collection3d(mplot3d.art3d.Poly3DCollection(tri_mesh.vectors)) # Just need the 'vectors' attribute for display
-
-Creating Mesh objects from a list of vertices and faces
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    import numpy as np
-    from stl import mesh
-
-    # Define the 8 vertices of the cube
-    vertices = np.array([\
-        [-1, -1, -1],
-        [+1, -1, -1],
-        [+1, +1, -1],
-        [-1, +1, -1],
-        [-1, -1, +1],
-        [+1, -1, +1],
-        [+1, +1, +1],
-        [-1, +1, +1]])
-    # Define the 12 triangles composing the cube
-    faces = np.array([\
-        [0,3,1],
-        [1,3,2],
-        [0,4,7],
-        [0,7,3],
-        [4,5,6],
-        [4,6,7],
-        [5,1,2],
-        [5,2,6],
-        [2,3,6],
-        [3,7,6],
-        [0,1,5],
-        [0,5,4]])
-
-    # Create the mesh
-    cube = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
-    for i, f in enumerate(faces):
-        for j in range(3):
-            cube.vectors[i][j] = vertices[f[j],:]
-
-    # Write the mesh to file "cube.stl"
-    cube.save('cube.stl')
-
-
-Evaluating Mesh properties (Volume, Center of gravity, Inertia)
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    import numpy as np
-    from stl import mesh
-
-    # Using an existing closed stl file:
-    your_mesh = mesh.Mesh.from_file('some_file.stl')
-
-    volume, cog, inertia = your_mesh.get_mass_properties()
-    print("Volume                                  = {0}".format(volume))
-    print("Position of the center of gravity (COG) = {0}".format(cog))
-    print("Inertia matrix at expressed at the COG  = {0}".format(inertia[0,:]))
-    print("                                          {0}".format(inertia[1,:]))
-    print("                                          {0}".format(inertia[2,:]))
-
-Combining multiple STL files
-------------------------------------------------------------------------------
-
-.. code-block:: python
-
-    import math
-    import stl
-    from stl import mesh
-    import numpy
-
-
-    # find the max dimensions, so we can know the bounding box, getting the height,
-    # width, length (because these are the step size)...
-    def find_mins_maxs(obj):
-        minx = obj.x.min()
-        maxx = obj.x.max()
-        miny = obj.y.min()
-        maxy = obj.y.max()
-        minz = obj.z.min()
-        maxz = obj.z.max()
-        return minx, maxx, miny, maxy, minz, maxz
-
-
-    def translate(_solid, step, padding, multiplier, axis):
-        if 'x' == axis:
-            items = 0, 3, 6
-        elif 'y' == axis:
-            items = 1, 4, 7
-        elif 'z' == axis:
-            items = 2, 5, 8
-        else:
-            raise RuntimeError('Unknown axis %r, expected x, y or z' % axis)
-
-        # _solid.points.shape == [:, ((x, y, z), (x, y, z), (x, y, z))]
-        _solid.points[:, items] += (step * multiplier) + (padding * multiplier)
-
-
-    def copy_obj(obj, dims, num_rows, num_cols, num_layers):
-        w, l, h = dims
-        copies = []
-        for layer in range(num_layers):
-            for row in range(num_rows):
-                for col in range(num_cols):
-                    # skip the position where original being copied is
-                    if row == 0 and col == 0 and layer == 0:
-                        continue
-                    _copy = mesh.Mesh(obj.data.copy())
-                    # pad the space between objects by 10% of the dimension being
-                    # translated
-                    if col != 0:
-                        translate(_copy, w, w / 10., col, 'x')
-                    if row != 0:
-                        translate(_copy, l, l / 10., row, 'y')
-                    if layer != 0:
-                        translate(_copy, h, h / 10., layer, 'z')
-                    copies.append(_copy)
-        return copies
-
-    # Using an existing stl file:
-    main_body = mesh.Mesh.from_file('ball_and_socket_simplified_-_main_body.stl')
-
-    # rotate along Y
-    main_body.rotate([0.0, 0.5, 0.0], math.radians(90))
-
-    minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(main_body)
-    w1 = maxx - minx
-    l1 = maxy - miny
-    h1 = maxz - minz
-    copies = copy_obj(main_body, (w1, l1, h1), 2, 2, 1)
-
-    # I wanted to add another related STL to the final STL
-    twist_lock = mesh.Mesh.from_file('ball_and_socket_simplified_-_twist_lock.stl')
-    minx, maxx, miny, maxy, minz, maxz = find_mins_maxs(twist_lock)
-    w2 = maxx - minx
-    l2 = maxy - miny
-    h2 = maxz - minz
-    translate(twist_lock, w1, w1 / 10., 3, 'x')
-    copies2 = copy_obj(twist_lock, (w2, l2, h2), 2, 2, 1)
-    combined = mesh.Mesh(numpy.concatenate([main_body.data, twist_lock.data] +
-                                        [copy.data for copy in copies] +
-                                        [copy.data for copy in copies2]))
-
-    combined.save('combined.stl', mode=stl.Mode.ASCII)  # save as ASCII
-
-Known limitations
-------------------------------------------------------------------------------
-
- - When speedups are enabled the STL name is automatically converted to
-   lowercase.
+### Benchmark
+
+ASCII STL read performance — ~5x faster with the
+[speedups](https://github.com/wolph/speedups/) C extension,
+consistent across data sizes (median of 5 runs):
+
+![ASCII STL Read Performance](https://raw.githubusercontent.com/WoLpH/numpy-stl/develop/docs/images/benchmark_chart.png)
+
+| Facets    |  Pure Python |   Speedups | Factor |
+|----------:|-------------:|-----------:|-------:|
+|    10,000 |        36 ms |       7 ms |   5.1x |
+|   100,000 |       0.36 s |     73 ms  |   4.9x |
+|   871,414 |       3.10 s |     0.59 s |   5.2x |
+| 1,000,000 |       3.60 s |     0.73 s |   4.9x |
+
+> **Note:** Results will vary by hardware. Run the benchmark yourself:
+> `python benchmarks/benchmark_ascii_read.py`
+
+## Usage Examples
+
+### Creating a Mesh from Scratch
+
+```python
+import numpy as np
+from stl import mesh
+
+# Define vertices and faces of a cube
+vertices = np.array([
+    [-1, -1, -1], [+1, -1, -1], [+1, +1, -1], [-1, +1, -1],
+    [-1, -1, +1], [+1, -1, +1], [+1, +1, +1], [-1, +1, +1],
+])
+faces = np.array([
+    [0, 3, 1], [1, 3, 2], [0, 4, 7], [0, 7, 3],
+    [4, 5, 6], [4, 6, 7], [5, 1, 2], [5, 2, 6],
+    [2, 3, 6], [3, 7, 6], [0, 1, 5], [0, 5, 4],
+])
+
+cube = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
+for i, f in enumerate(faces):
+    for j in range(3):
+        cube.vectors[i][j] = vertices[f[j], :]
+
+cube.save('cube.stl')
+```
+
+### Rotating and Translating
+
+```python
+import math
+from stl import mesh
+
+m = mesh.Mesh.from_file('model.stl')
+m.rotate([0, 0, 1], math.radians(90))
+m.translate([10, 0, 0])
+m.save('transformed.stl')
+```
+
+### Mass Properties
+
+```python
+from stl import mesh
+
+m = mesh.Mesh.from_file('closed_model.stl')
+volume, cog, inertia = m.get_mass_properties()
+print(f'Volume: {volume:.4f}')
+print(f'Center of gravity: {cog}')
+```
+
+### Combining Meshes
+
+```python
+import numpy as np
+from stl import mesh
+
+m1 = mesh.Mesh.from_file('part1.stl')
+m2 = mesh.Mesh.from_file('part2.stl')
+combined = mesh.Mesh(np.concatenate([m1.data, m2.data]))
+combined.save('combined.stl')
+```
+
+### Plotting with Matplotlib
+
+```python
+import math
+from stl import mesh
+from mpl_toolkits import mplot3d
+from matplotlib import pyplot
+
+figure = pyplot.figure(figsize=(8, 6))
+axes = figure.add_subplot(projection='3d')
+
+dragon = mesh.Mesh.from_ply_file('dragon_vrip.ply')
+dragon.rotate([1, 0, 0], math.radians(-90))
+
+axes.add_collection3d(
+    mplot3d.art3d.Poly3DCollection(dragon.vectors)
+)
+
+scale = dragon.points.flatten()
+axes.auto_scale_xyz(scale, scale, scale)
+pyplot.show()
+```
+
+## API Cheatsheet
+
+Assumes `import math`, `import numpy as np`, `from stl import mesh`, and
+`from stl import Mode` (for the ASCII save).
+
+| Task                     | Call                                                    |
+|--------------------------|---------------------------------------------------------|
+| Load (auto-detect)       | `mesh.Mesh.from_file('m.stl')`                           |
+| Load PLY                 | `mesh.Mesh.from_ply_file('m.ply')`                      |
+| Load 3MF (experimental)  | `list(mesh.Mesh.from_3mf_file('m.3mf'))`               |
+| Save (auto/format)       | `m.save('out.stl')`                                     |
+| Save as ASCII            | `m.save('out.stl', mode=Mode.ASCII)`                   |
+| Save PLY                 | `m.save_ply('out.ply')`                                |
+| Rotate (axis, radians)   | `m.rotate([0, 0, 1], math.radians(90))`                |
+| Translate                | `m.translate([x, y, z])`                                |
+| Transform (4x4 matrix)   | `m.transform(matrix)`                                   |
+| Bounding box             | `m.min_`, `m.max_`                                      |
+| Mass properties          | `volume, cog, inertia = m.get_mass_properties()`        |
+| With density             | `vol, mass, cog, inertia = m.get_mass_properties_with_density(d)` |
+| Combine meshes           | `mesh.Mesh(np.concatenate([a.data, b.data]))`          |
+
+## CLI Tools
+
+```bash
+# Convert ASCII to binary
+stl2bin input.stl output.stl
+
+# Convert binary to ASCII
+stl2ascii input.stl output.stl
+
+# Auto-detect and convert
+stl input.stl output.stl
+```
+
+## Documentation
+
+Full documentation is available at
+[numpy-stl.readthedocs.io](https://numpy-stl.readthedocs.io/).
+
+## Contributing
+
+Contributions are welcome! See
+[CONTRIBUTING.md](https://github.com/WoLpH/numpy-stl/blob/develop/CONTRIBUTING.md)
+for the development setup guide.
+
+## Links
+
+- [Source code](https://github.com/WoLpH/numpy-stl)
+- [PyPI](https://pypi.org/project/numpy-stl/)
+- [Bug reports](https://github.com/WoLpH/numpy-stl/issues)
+- [Documentation](https://numpy-stl.readthedocs.io/)
+- [Changelog](https://github.com/WoLpH/numpy-stl/blob/develop/CHANGELOG.md)
+
+## License
+
+BSD-3-Clause

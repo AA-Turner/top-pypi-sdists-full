@@ -1,8 +1,7 @@
-// This file is part of InvenioRDM
-// Copyright (C) 2023-2024 CERN.
-//
-// Invenio App RDM is free software; you can redistribute it and/or modify it
-// under the terms of the MIT License; see LICENSE file for more details.
+/*
+ * SPDX-FileCopyrightText: 2023-2024 CERN.
+ * SPDX-License-Identifier: MIT
+ */
 
 import { i18next } from "@translations/invenio_requests/i18next";
 import { default as RequestTypeIcon } from "@js/invenio_requests/components/RequestTypeIcon";

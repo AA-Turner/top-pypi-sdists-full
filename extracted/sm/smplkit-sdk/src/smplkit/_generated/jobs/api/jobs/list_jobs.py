@@ -107,9 +107,11 @@ def sync_detailed(
 
     Default sort is `name` ascending. Sort by `name`, `created_at`,
     `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
-    and `filter[name]` (case-insensitive substring match on the name); filters
-    compose with AND.
+    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
+    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
+    substring match on the name); filters compose with AND. A scoped caller
+    sees each job's `environments` map narrowed to the environments it may
+    access.
 
     Args:
         filterenabled (bool | None | Unset):
@@ -173,9 +175,11 @@ def sync(
 
     Default sort is `name` ascending. Sort by `name`, `created_at`,
     `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
-    and `filter[name]` (case-insensitive substring match on the name); filters
-    compose with AND.
+    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
+    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
+    substring match on the name); filters compose with AND. A scoped caller
+    sees each job's `environments` map narrowed to the environments it may
+    access.
 
     Args:
         filterenabled (bool | None | Unset):
@@ -234,9 +238,11 @@ async def asyncio_detailed(
 
     Default sort is `name` ascending. Sort by `name`, `created_at`,
     `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
-    and `filter[name]` (case-insensitive substring match on the name); filters
-    compose with AND.
+    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
+    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
+    substring match on the name); filters compose with AND. A scoped caller
+    sees each job's `environments` map narrowed to the environments it may
+    access.
 
     Args:
         filterenabled (bool | None | Unset):
@@ -298,9 +304,11 @@ async def asyncio(
 
     Default sort is `name` ascending. Sort by `name`, `created_at`,
     `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]`, `filter[recurring]`,
-    and `filter[name]` (case-insensitive substring match on the name); filters
-    compose with AND.
+    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
+    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
+    substring match on the name); filters compose with AND. A scoped caller
+    sees each job's `environments` map narrowed to the environments it may
+    access.
 
     Args:
         filterenabled (bool | None | Unset):

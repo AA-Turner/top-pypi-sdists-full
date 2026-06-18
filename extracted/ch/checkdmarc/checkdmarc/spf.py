@@ -341,9 +341,13 @@ def _validate_spf_macros(
         if not body:
             _raise_macro_syntax_error(value, i, domain, syntax_error_marker)
 
-        # First char: macro-letter
+        # First char: macro-letter. The macro-letter grammar in RFC 7208 §7.1
+        # uses ABNF quoted strings, which match case-insensitively (RFC 5234
+        # §2.3), so uppercase letters (e.g. %{S}) are valid. Per RFC 7208 §7.3,
+        # an uppercase macro expands exactly as its lowercase equivalent and the
+        # result is then URL-encoded. Accept either case.
         letter = body[0]
-        if letter not in MACRO_LETTERS:
+        if letter.lower() not in MACRO_LETTERS:
             _raise_macro_syntax_error(value, i + 2, domain, syntax_error_marker)
 
         rest = body[1:]

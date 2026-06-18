@@ -18,6 +18,7 @@ from hcli.lib.ida.python import PipOptions
 
 from .bundle import bundle
 from .config import config
+from .explain_environment import explain_environment
 from .install import install_plugin
 from .lint import lint_plugin_directory
 from .repo import repo
@@ -85,7 +86,7 @@ def plugin(
     hcli.lib.console._sync_console_streams()
 
     # `schema` doesn't touch any plugin repository or IDA install, so skip the setup.
-    if ctx.invoked_subcommand == "schema":
+    if ctx.invoked_subcommand in ("schema", "explain-environment"):
         return
 
     plugin_repo: hcli.lib.ida.plugin.repo.BasePluginRepo
@@ -175,3 +176,4 @@ plugin.add_command(repo, name="repo")
 plugin.add_command(config, name="config")
 plugin.add_command(schema, name="schema")
 plugin.add_command(bundle, name="bundle")
+plugin.add_command(explain_environment, name="explain-environment")

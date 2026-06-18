@@ -16,6 +16,8 @@
 
 import dataclasses
 
+from meridian.analysis.review import constants as review_constants
+
 
 @dataclasses.dataclass(frozen=True)
 class BaseConfig:
@@ -45,7 +47,7 @@ class ConvergenceConfig(BaseConfig):
 class ROIConsistencyConfig(BaseConfig):
   """Configuration for the ROI Consistency Check.
 
-  This check verifies if the posterior median of the ROI falls within a
+  This check verifies if the posterior mean of the ROI falls within a
   reasonable range of the prior distribution.
 
   Attributes:
@@ -66,9 +68,9 @@ class BaselineConfig(BaseConfig):
   This check warns if there is a high probability of a negative baseline.
 
   Attributes:
-    negative_baseline_prob_review_threshold: Probability threshold for a
-      review. If the probability of a negative baseline is above this value, a
-      review is issued.
+    negative_baseline_prob_review_threshold: Probability threshold for a review.
+      If the probability of a negative baseline is above this value, a review is
+      issued.
     negative_baseline_prob_fail_threshold: Probability threshold for a failure.
       If the probability of a negative baseline is above this value, the check
       fails.
@@ -109,3 +111,49 @@ class PriorPosteriorShiftConfig(BaseConfig):
   n_bootstraps: int = 1000
   alpha: float = 0.05
   seed: int = 42
+
+
+@dataclasses.dataclass(frozen=True)
+class ImplausibleROIConfig(BaseConfig):
+  """Configuration for the Implausible ROI Check.
+
+  Attributes:
+    roi_upper_bound: The upper bound threshold for spend-weighted posterior mean
+      ROI.
+    roi_lower_bound: The lower bound threshold for reciprocal-spend-weighted
+      posterior mean ROI.
+  """
+
+  roi_upper_bound: float = 20.0
+  roi_lower_bound: float = 0.5
+
+
+@dataclasses.dataclass(frozen=True)
+class HighVarianceConfig(BaseConfig):
+  """Configuration for the High Variance Check.
+
+  Attributes:
+    high_variance_threshold: The threshold for spend-weighted relative width
+      ratio.
+    prior_relative_hdi_width: The relative width of the prior highest density
+      interval (HDI) benchmark.
+    hdi_prob: The probability for the highest density interval.
+  """
+
+  high_variance_threshold: float = 1.0
+  prior_relative_hdi_width: float = (
+      review_constants.PRIOR_RELATIVE_HDI_WIDTH_FOR_80_PERCENT
+  )
+  hdi_prob: float = 0.8
+
+
+@dataclasses.dataclass(frozen=True)
+class PotentialBiasConfig(BaseConfig):
+  """Configuration for the Potential Bias Check.
+
+  Attributes:
+    correlation_threshold: The threshold for maximum absolute Pearson
+      correlation.
+  """
+
+  correlation_threshold: float = 0.1

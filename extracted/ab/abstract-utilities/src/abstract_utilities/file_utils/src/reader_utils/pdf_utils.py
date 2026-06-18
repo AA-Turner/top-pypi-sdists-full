@@ -1,3 +1,4 @@
+from __future__ import annotations  # keep heavy-proxy type hints lazy (PEP 563)
 from .imports import *
 def if_none_return(obj: object, obj_2: object) -> object:
     """

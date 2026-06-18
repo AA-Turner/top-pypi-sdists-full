@@ -34,7 +34,7 @@ pub(crate) fn aggregate_labeled_hessian(
     Ok(out)
 }
 
-/// Adapter over the shared [`rho_prior_eval`](crate::solver::estimate::reml::rho_prior_eval)
+/// Adapter over the shared [`rho_prior_eval`](crate::rho_prior_eval)
 /// engine using the custom-family invalid-prior policy
 /// (`HardError`): the prior math is shared with the REML/LAML runtime, and a
 /// malformed prior surfaces as a structured [`CustomFamilyError`] rather than
@@ -43,12 +43,8 @@ pub(crate) fn rho_prior_cost_gradient_hessian(
     prior: &crate::types::RhoPrior,
     rho: &Array1<f64>,
 ) -> Result<(f64, Array1<f64>, Option<Array2<f64>>), String> {
-    use crate::solver::estimate::reml::rho_prior_eval::{InvalidPriorPolicy, RhoPriorError};
-    match crate::solver::estimate::reml::rho_prior_eval::evaluate(
-        prior,
-        rho,
-        InvalidPriorPolicy::HardError,
-    ) {
+    use crate::rho_prior_eval::{InvalidPriorPolicy, RhoPriorError};
+    match crate::rho_prior_eval::evaluate(prior, rho, InvalidPriorPolicy::HardError) {
         Ok(eval) => Ok((eval.cost, eval.gradient, eval.hessian)),
         Err(RhoPriorError::DimensionMismatch { reason }) => {
             Err(CustomFamilyError::DimensionMismatch { reason }.into())
@@ -132,18 +128,18 @@ pub(crate) fn pullback_labeled_outer_eval(
     }
     if eval_mode == EvalMode::ValueGradientHessian {
         result.outer_hessian = match result.outer_hessian {
-            crate::solver::outer_strategy::HessianResult::Analytic(hessian) => {
-                crate::solver::outer_strategy::HessianResult::Analytic(aggregate_labeled_hessian(
+            crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => {
+                crate::solver::rho_optimizer::HessianResult::Analytic(aggregate_labeled_hessian(
                     &hessian, layout,
                 )?)
             }
-            crate::solver::outer_strategy::HessianResult::Operator(operator) => {
-                crate::solver::outer_strategy::HessianResult::Operator(Arc::new(
+            crate::solver::rho_optimizer::HessianResult::Operator(operator) => {
+                crate::solver::rho_optimizer::HessianResult::Operator(Arc::new(
                     LabeledOuterHessianOperator::new(operator, layout),
                 ))
             }
-            crate::solver::outer_strategy::HessianResult::Unavailable => {
-                crate::solver::outer_strategy::HessianResult::Unavailable
+            crate::solver::rho_optimizer::HessianResult::Unavailable => {
+                crate::solver::rho_optimizer::HessianResult::Unavailable
             }
         };
     }
@@ -427,10 +423,56 @@ pub(crate) fn exact_newton_stabilizing_shift(
     lhs_dense: &Array2<f64>,
     ridge_floor: f64,
 ) -> Option<f64> {
+    stabilizing_shift_core(lhs_dense, lhs_dense, ridge_floor)
+}
+
+/// Stabilizing shift for a penalized joint Hessian `combined = H_data + S` whose
+/// penalty `S` is positive-semidefinite by construction.
+///
+/// Because `S ⪰ 0`, Weyl's inequality gives `λ_min(H_data + S) ≥ λ_min(H_data)`,
+/// so the lifting ridge needed to make `combined` PD is bounded by the curvature
+/// of the *data* Hessian alone. We therefore take the Gershgorin lower bound on
+/// `H_data` (the `gershgorin_src`) rather than on `combined`, while still using
+/// `combined` for the PD Cholesky certificate.
+///
+/// Why this is not a micro-optimization (gam#979 survival marginal-slope hang):
+/// Gershgorin's bound `min_i (H_ii − Σ_{j≠i}|H_ij|)` is only tight when the
+/// off-diagonals are small relative to the diagonal. A heavily over-smoothed
+/// penalty has large symmetric off-diagonals that are *balanced* by equally large
+/// diagonals — the matrix is exactly PSD, but the per-row `diag − radius` can be
+/// hugely negative. On the survival marginal-slope pilot the time-block penalty
+/// reaches `λ ≈ 6e7`, so Gershgorin on `combined` returned `≈ −1.2e7` even though
+/// the assembled penalty's true `λ_min` is `+1e-10`. The old `δ = floor − g`
+/// shift then added a `~1.2e7` ridge — `~550×` the data curvature (`~2e4`) — and
+/// every inner Newton step shrank to `g/(H+μ) ≈ 1e-4`, so the coupled solve
+/// crawled `30+` cycles without ever certifying KKT convergence and the fit hung.
+/// Bounding the shift by the data Hessian instead collapses the ridge to
+/// `O(data scale)`, restoring proper Newton steps and prompt convergence, while
+/// remaining a guaranteed PD certificate: `λ_min(combined + δI) ≥ λ_min(H_data)
+/// + δ ≥ g + (floor − g) = floor > 0`.
+pub(crate) fn exact_newton_stabilizing_shift_psd_penalized(
+    combined: &Array2<f64>,
+    gershgorin_src: &Array2<f64>,
+    ridge_floor: f64,
+) -> Option<f64> {
+    stabilizing_shift_core(combined, gershgorin_src, ridge_floor)
+}
+
+/// Shared engine for the stabilizing-shift helpers. `cholesky_test` is the matrix
+/// that must end up positive definite; `gershgorin_src` is the matrix whose
+/// Gershgorin disc lower-bounds `λ_min`. The two coincide for the plain
+/// [`exact_newton_stabilizing_shift`]; they differ when a PSD penalty lets us
+/// bound the shift by the data Hessian alone
+/// ([`exact_newton_stabilizing_shift_psd_penalized`]).
+fn stabilizing_shift_core(
+    cholesky_test: &Array2<f64>,
+    gershgorin_src: &Array2<f64>,
+    ridge_floor: f64,
+) -> Option<f64> {
     let floor = effective_solverridge(ridge_floor);
     // Fast path: already PD at zero shift ⇒ no stabilization needed. One Cholesky
     // (O(p³/3)), the common case on a well-conditioned cycle.
-    if lhs_dense.cholesky(Side::Lower).is_ok() {
+    if cholesky_test.cholesky(Side::Lower).is_ok() {
         return None;
     }
     // Near-singular / indefinite. We need a positive diagonal shift `δ` that makes
@@ -450,21 +492,21 @@ pub(crate) fn exact_newton_stabilizing_shift(
     // (handled by the Cholesky fast path above) and the downstream solve only
     // requires PD, not the tightest possible shift — and the trust region governs
     // step size regardless. `O(p²)` per cycle instead of `O(p³)`.
-    let p = lhs_dense.nrows();
+    let p = gershgorin_src.nrows();
     let mut gershgorin_min = f64::INFINITY;
     for i in 0..p {
-        let diag = lhs_dense[[i, i]];
+        let diag = gershgorin_src[[i, i]];
         let mut radius = 0.0_f64;
         for j in 0..p {
             if j != i {
-                radius += lhs_dense[[i, j]].abs();
+                radius += gershgorin_src[[i, j]].abs();
             }
         }
         gershgorin_min = gershgorin_min.min(diag - radius);
     }
     if !gershgorin_min.is_finite() {
-        let diag_max = (0..p)
-            .map(|d| lhs_dense[[d, d]].abs())
+        let diag_max = (0..cholesky_test.nrows())
+            .map(|d| cholesky_test[[d, d]].abs())
             .fold(0.0_f64, f64::max);
         return Some(floor.max(diag_max * 1e-6).max(1e-6));
     }
@@ -476,15 +518,34 @@ pub(crate) fn exact_newton_stabilizing_shift(
     Some(floor - gershgorin_min)
 }
 
-pub(crate) fn stabilize_exact_newton_lhs_in_place<F: CustomFamily + ?Sized>(
+/// Per-block exact-Newton analogue of [`stabilized_joint_solver_diagonal_ridge`]
+/// (gam#979). The block left-hand side is `lhs_dense = H_data + S`, where the
+/// penalty `S = s_lambda (⪰ 0)` is positive-semidefinite by construction. As in
+/// the coupled joint-Newton path, Weyl's inequality gives
+/// `λ_min(H_data + S) ≥ λ_min(H_data)`, so the stabilizing ridge is bounded by
+/// the *data* Hessian's curvature — never the penalty's. Passing the penalized
+/// `lhs_dense` as its own Gershgorin source (a plain, unpenalized-source
+/// stabilizer) reproduces the survival hang on any
+/// off-diagonals of `S` make `diag − radius` read a spuriously huge negative
+/// `λ_min`, so `δ = floor − g` adds a giant ridge and every per-block Newton
+/// step collapses to `g/(H+μ) ≈ 0`. Bounding the shift by `H_data` (the
+/// `gershgorin_src`) keeps it `O(data scale)`. This is the per-block twin of the
+/// coupled fix and covers the bernoulli marginal-slope (binary) arm, which runs
+/// the per-block exact-Newton updater rather than the coupled dense joint solve.
+pub(crate) fn stabilize_exact_newton_penalized_lhs_in_place<F: CustomFamily + ?Sized>(
     family: &F,
     lhs_dense: &mut Array2<f64>,
+    data_hessian_gershgorin_src: &Array2<f64>,
     ridge_floor: f64,
 ) {
     if use_exact_newton_strict_spd(family) {
         return;
     }
-    if let Some(shift) = exact_newton_stabilizing_shift(lhs_dense, ridge_floor) {
+    if let Some(shift) = exact_newton_stabilizing_shift_psd_penalized(
+        lhs_dense,
+        data_hessian_gershgorin_src,
+        ridge_floor,
+    ) {
         for d in 0..lhs_dense.nrows() {
             lhs_dense[[d, d]] += shift;
         }
@@ -706,7 +767,7 @@ pub(crate) fn assemble_active_constraint_block(
     block_active_sets: &[Option<Vec<usize>>],
     ranges: &[(usize, usize)],
     total_p: usize,
-) -> Option<crate::solver::estimate::reml::unified::ActiveLinearConstraintBlock> {
+) -> Option<ActiveLinearConstraintBlock> {
     if block_constraints.len() != ranges.len() || block_active_sets.len() != ranges.len() {
         return None;
     }
@@ -750,7 +811,7 @@ pub(crate) fn assemble_active_constraint_block(
             out_row += 1;
         }
     }
-    Some(crate::solver::estimate::reml::unified::ActiveLinearConstraintBlock { a })
+    Some(ActiveLinearConstraintBlock { a })
 }
 
 pub(crate) struct SimpleLowerBounds {
@@ -1085,7 +1146,20 @@ impl ParameterBlockUpdater for ExactNewtonBlockUpdater<'_> {
         // numerical ridge to stabilize an indefinite exact-Newton Hessian.
         let rhs_step = self.gradient - &ctx.s_lambda.dot(&ctx.states[ctx.block_idx].beta);
         let mut lhs_dense = lhs.to_dense();
-        stabilize_exact_newton_lhs_in_place(ctx.family, &mut lhs_dense, ctx.options.ridge_floor);
+        // `lhs_dense = H_data + S` is penalized by the PSD block penalty `S`.
+        // Bound the stabilizing ridge by the DATA Hessian's curvature, not the
+        // penalized matrix's Gershgorin disc (gam#979): an over-smoothed `S`
+        // has large balanced off-diagonals that make `diag − radius` read a
+        // spurious huge-negative `λ_min`, which would otherwise add a giant
+        // ridge and collapse every per-block Newton step. `self.hessian` is the
+        // data Hessian; use it as the Gershgorin source.
+        let data_hessian_dense = self.hessian.to_dense();
+        stabilize_exact_newton_penalized_lhs_in_place(
+            ctx.family,
+            &mut lhs_dense,
+            &data_hessian_dense,
+            ctx.options.ridge_floor,
+        );
 
         if let Some(constraints) = ctx.linear_constraints {
             check_linear_feasibility(&ctx.states[ctx.block_idx].beta, constraints, 1e-8).map_err(
@@ -1920,11 +1994,11 @@ pub(crate) const STRICT_SPD_LM_RIDGE_GROWTH: f64 = 10.0;
 /// exact zero. Used as the default `minweight` in `CustomFamilyOptions` and
 /// mirrored in tests that override it.
 ///
-/// Sourced from the canonical PIRLS positive-weight floor
-/// ([`crate::solver::pirls::MIN_WEIGHT`] = `1e-12`) so every floored family
-/// shares one definition; this alias keeps the descriptive local name at the
-/// `minweight` defaults.
-pub(crate) const CUSTOM_FAMILY_WEIGHT_FLOOR: f64 = crate::solver::pirls::MIN_WEIGHT;
+/// Sourced from the canonical positive-weight floor
+/// ([`crate::types::MIN_WEIGHT`] = `1e-12`) so every floored family shares one
+/// definition; this alias keeps the descriptive local name at the `minweight`
+/// defaults.
+pub(crate) const CUSTOM_FAMILY_WEIGHT_FLOOR: f64 = crate::types::MIN_WEIGHT;
 
 /// Default initial ridge δ for the explicit-stabilization Cholesky escalation
 /// schedule. Enters the quadratic term, the Laplace Hessian, and the penalty

@@ -8,11 +8,12 @@ from functools import cached_property
 from typing import Any, Self, cast
 
 from ..contexts import AST, Ctx
+from ..contexts.cst import cstmerge
 from ..exceptions import FailedParse, FailedRef
 from ..objectmodel import nodedataclass
 from ..util import indent, trim, typename
+from .base import PEP8_LLEN, Box, Model, Rule
 from .math import ffset, kdot, ref
-from .model import PEP8_LLEN, Box, Model, Rule
 
 
 @nodedataclass
@@ -96,7 +97,8 @@ class Optional(Box):
             ctx.states.merge()
             return value
         except FailedParse:
-            ctx.states.undo()
+            if ctx.states.undo().cutseen:
+                raise
             return None
 
     def _first(self, k, f) -> ffset:
@@ -137,7 +139,13 @@ class Sequence(Model):
 
     def _parse(self, ctx: Ctx) -> Any:
         self._add_defined(ctx)
-        return [r for r in (s._parse(ctx) for s in self.sequence) if r is not None]
+        out = None
+        for s in self.sequence:
+            r = s._parse(ctx)
+            if r is None:
+                continue
+            out = cstmerge(out, r)
+        return out
 
     @cached_property
     def defines_single(self) -> list[str]:
@@ -208,6 +216,10 @@ class Call(Model):
             self.ast = AST(name=self.ast)
         super().__post_init__()
         assert isinstance(self.name, str), self.name
+
+    @property
+    def rule(self) -> Rule | None:
+        return self._rule
 
     def follow_ref(self) -> Model:
         return self.grammar.rulemap.get(self.name, self)

@@ -1,5 +1,7 @@
+from typing import no_type_check
+
 import pytest
-from httpx import HTTPError
+from httpx2 import HTTPError
 
 from habanero import Crossref, exceptions
 
@@ -12,7 +14,7 @@ def test_funders():
     res = cr.funders(limit=2)
     assert isinstance(res, dict)
     assert isinstance(res["message"], dict)
-    assert 2 == res["message"]["items-per-page"]
+    assert res["message"]["items-per-page"] == 2
 
 
 @pytest.mark.vcr
@@ -21,7 +23,7 @@ def test_funders_query():
     res = cr.funders(query="NSF", limit=2)
     assert isinstance(res, dict)
     assert isinstance(res["message"], dict)
-    assert 2 == res["message"]["items-per-page"]
+    assert res["message"]["items-per-page"] == 2
 
 
 @pytest.mark.vcr
@@ -49,9 +51,10 @@ def test_funders_filter_works():
         ids="10.13039/100000001", works=True, filter={"has_assertion": True}
     )
     assert isinstance(res, dict)
-    assert 20 == res["message"]["items-per-page"]
+    assert res["message"]["items-per-page"] == 20
 
 
+@no_type_check
 @pytest.mark.vcr
 def test_funders_fail_limit():
     with pytest.raises(exceptions.RequestError):
@@ -60,7 +63,7 @@ def test_funders_fail_limit():
 
 @pytest.mark.vcr
 def test_funders_fail_sort():
-    with pytest.raises(exceptions.RequestError):
+    with pytest.raises(ValueError, match="Invalid sort name: things"):
         cr.funders(sort="things")
 
 
@@ -76,9 +79,9 @@ def test_funders_field_queries():
     )
     titles = [x.get("title") for x in res["message"]["items"]]
     assert isinstance(res, dict)
-    assert 5 == len(res["message"])
+    assert len(res["message"]) == 5
     assert isinstance(titles, list)
-    assert 100 == len(titles)
+    assert len(titles) == 100
 
 
 @pytest.mark.vcr

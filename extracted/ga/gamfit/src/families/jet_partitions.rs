@@ -1,56 +1,13 @@
-//! Shared, allocation-free lookup of bitmask set-partitions used by the
-//! multi-directional jet `compose_unary` (Faà di Bruno) routines in the
-//! marginal-slope and latent-survival families.
+//! Bitmask-coefficient multi-directional jets used by marginal-slope and
+//! latent-survival row kernels.
 //!
-//! Each entry `partitions(mask)` is the list of all set-partitions of the bits
-//! of `mask`, with each partition represented as a `Vec<usize>` of disjoint
-//! sub-masks whose bitwise OR equals `mask`. Total memory is bounded by the
-//! Bell numbers up to `B(MAX_DIRS) = 4140` for `MAX_DIRS=8`. The 8-direction
-//! cap covers the bernoulli marginal-slope rigid path's full uncontracted
-//! fourth-tensor jet (`[e_q, e_g, e_q, e_g, e_q, e_g, e_q, e_g]`); no caller
-//! currently needs more directions. Cache is computed lazily on first use.
-use std::sync::OnceLock;
+//! The layout stores one coefficient per direction mask. The calculus itself
+//! lives in [`super::jet_algebra`]: this module only maps slot lists to masks.
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub static COMPOSE_UNARY_CALLS: AtomicU64 = AtomicU64::new(0);
 pub static MUL_CALLS: AtomicU64 = AtomicU64::new(0);
 pub static ROW_NEGLOG_CALLS: AtomicU64 = AtomicU64::new(0);
-
-const MAX_DIRS: usize = 8;
-const TABLE_LEN: usize = 1usize << MAX_DIRS;
-
-static CACHE: OnceLock<Vec<Vec<Vec<usize>>>> = OnceLock::new();
-
-fn build_partitions(mask: usize) -> Vec<Vec<usize>> {
-    if mask == 0 {
-        return vec![Vec::new()];
-    }
-    let first = mask & mask.wrapping_neg();
-    let rest = mask ^ first;
-    let mut out = Vec::new();
-    let mut subset = rest;
-    loop {
-        let block = first | subset;
-        for mut remainder in build_partitions(rest ^ subset) {
-            remainder.push(block);
-            out.push(remainder);
-        }
-        if subset == 0 {
-            break;
-        }
-        subset = (subset - 1) & rest;
-    }
-    out
-}
-
-/// Returns the precomputed list of set-partitions for `mask`.
-///
-/// Supports masks in `0..=(1 << MAX_DIRS) - 1` (i.e. up to six-direction
-/// jet machinery). Panics if `mask` is out of range.
-pub fn partitions(mask: usize) -> &'static [Vec<usize>] {
-    let table = CACHE.get_or_init(|| (0..TABLE_LEN).map(build_partitions).collect());
-    &table[mask]
-}
 
 #[derive(Clone)]
 pub(crate) struct MultiDirJet {
@@ -123,41 +80,61 @@ impl MultiDirJet {
         MUL_CALLS.fetch_add(1, Ordering::Relaxed);
         let count = self.coeffs.len();
         let mut out = vec![0.0; count];
-        for mask in 0..count {
-            let mut total = 0.0;
-            let mut submask = mask;
-            loop {
-                total += self.coeffs[submask] * other.coeffs[mask ^ submask];
-                if submask == 0 {
-                    break;
-                }
-                submask = (submask - 1) & mask;
-            }
-            out[mask] = total;
+        for (mask, slot) in out.iter_mut().enumerate() {
+            // The differentiation slots of coefficient `mask` are its set bits;
+            // the shared Leibniz walker sums over subsets of those bits. A
+            // slot-group (list of bit positions) maps back to a sub-mask, the
+            // same submask enumeration the hand loop used — now one kernel
+            // shared with `Tower4::mul` (#1151).
+            let bits = bit_positions(mask);
+            *slot = super::jet_algebra::leibniz_product(
+                bits.as_slice(),
+                |t| self.coeffs[mask_of(t)],
+                |c| other.coeffs[mask_of(c)],
+            );
         }
         Self { coeffs: out }
     }
 
     pub(crate) fn compose_unary(&self, derivs: [f64; 5]) -> Self {
         COMPOSE_UNARY_CALLS.fetch_add(1, Ordering::Relaxed);
-        let count = self.coeffs.len();
-        let mut out = vec![0.0; count];
-        out[0] = derivs[0];
-        for (mask, value) in out.iter_mut().enumerate().skip(1) {
-            let mut total = 0.0;
-            for partition in partitions(mask) {
-                let order = partition.len();
-                if order == 0 || order >= derivs.len() {
-                    continue;
-                }
-                let mut prod = 1.0;
-                for &block in partition {
-                    prod *= self.coeffs[block];
-                }
-                total += derivs[order] * prod;
-            }
-            *value = total;
+        <Self as super::jet_algebra::JetAlgebra<5>>::compose_unary(self, derivs)
+    }
+}
+
+impl super::jet_algebra::JetAlgebra<5> for MultiDirJet {
+    #[inline]
+    fn derivative(&self, slots: &[usize]) -> f64 {
+        self.coeffs[mask_of(slots)]
+    }
+
+    fn map_derivatives<F>(&self, mut f: F) -> Self
+    where
+        F: FnMut(&[usize]) -> f64,
+    {
+        let mut out = vec![0.0; self.coeffs.len()];
+        for (mask, value) in out.iter_mut().enumerate() {
+            let bits = bit_positions(mask);
+            *value = f(bits.as_slice());
         }
         Self { coeffs: out }
     }
+}
+
+/// The set-bit positions of `mask`, low to high — the differentiation slots of
+/// that coefficient.
+fn bit_positions(mask: usize) -> super::jet_algebra::SlotBuf {
+    let mut out = super::jet_algebra::SlotBuf::new();
+    let mut m = mask;
+    while m != 0 {
+        let bit = m.trailing_zeros() as usize;
+        out.push_slot(bit);
+        m &= m - 1;
+    }
+    out
+}
+
+/// Combine a slot-group (list of bit positions) back into a sub-mask.
+fn mask_of(slots: &[usize]) -> usize {
+    slots.iter().fold(0usize, |acc, &b| acc | (1usize << b))
 }

@@ -1,10 +1,6 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2023 CERN.
-# Copyright (C) 2026 KTH Royal Institute of Technology.
-#
-# Invenio-Requests is free software; you can redistribute it and/or modify
-# it under the terms of the MIT License; see LICENSE file for more details.
+# SPDX-FileCopyrightText: 2023 CERN.
+# SPDX-FileCopyrightText: 2026 KTH Royal Institute of Technology.
+# SPDX-License-Identifier: MIT
 """User moderation service."""
 
 from flask import current_app

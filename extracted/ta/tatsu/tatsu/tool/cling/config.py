@@ -33,9 +33,14 @@ class CLIConfig:
 
     # format flags
     json: bool = False
+    json_lines: bool = False
     model: bool = False
     pretty: bool = False
+    pretty_lean: bool = False
     railroads: bool = False
+    object_model: bool = False
+    parser_model: bool = False
+    generage_parser: bool = False
 
     # run flags
     start: str | None = None

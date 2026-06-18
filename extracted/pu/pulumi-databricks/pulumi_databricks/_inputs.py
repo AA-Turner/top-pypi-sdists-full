@@ -25,6 +25,8 @@ __all__ = [
     'AccountNetworkPolicyEgressArgsDict',
     'AccountNetworkPolicyEgressNetworkAccessArgs',
     'AccountNetworkPolicyEgressNetworkAccessArgsDict',
+    'AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgs',
+    'AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgsDict',
     'AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs',
     'AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgsDict',
     'AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs',
@@ -437,6 +439,32 @@ __all__ = [
     'AccountSettingV2RestrictWorkspaceAdminsArgsDict',
     'AccountSettingV2StringValArgs',
     'AccountSettingV2StringValArgsDict',
+    'AiSearchEndpointCustomTagArgs',
+    'AiSearchEndpointCustomTagArgsDict',
+    'AiSearchEndpointEndpointStatusArgs',
+    'AiSearchEndpointEndpointStatusArgsDict',
+    'AiSearchEndpointProviderConfigArgs',
+    'AiSearchEndpointProviderConfigArgsDict',
+    'AiSearchEndpointScalingInfoArgs',
+    'AiSearchEndpointScalingInfoArgsDict',
+    'AiSearchEndpointThroughputInfoArgs',
+    'AiSearchEndpointThroughputInfoArgsDict',
+    'AiSearchIndexDeltaSyncIndexSpecArgs',
+    'AiSearchIndexDeltaSyncIndexSpecArgsDict',
+    'AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs',
+    'AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgsDict',
+    'AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs',
+    'AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgsDict',
+    'AiSearchIndexDirectAccessIndexSpecArgs',
+    'AiSearchIndexDirectAccessIndexSpecArgsDict',
+    'AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgs',
+    'AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgsDict',
+    'AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgs',
+    'AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgsDict',
+    'AiSearchIndexProviderConfigArgs',
+    'AiSearchIndexProviderConfigArgsDict',
+    'AiSearchIndexStatusArgs',
+    'AiSearchIndexStatusArgsDict',
     'AibiDashboardEmbeddingAccessPolicySettingAibiDashboardEmbeddingAccessPolicyArgs',
     'AibiDashboardEmbeddingAccessPolicySettingAibiDashboardEmbeddingAccessPolicyArgsDict',
     'AibiDashboardEmbeddingAccessPolicySettingProviderConfigArgs',
@@ -699,6 +727,8 @@ __all__ = [
     'ComplianceSecurityProfileWorkspaceSettingComplianceSecurityProfileWorkspaceArgsDict',
     'ComplianceSecurityProfileWorkspaceSettingProviderConfigArgs',
     'ComplianceSecurityProfileWorkspaceSettingProviderConfigArgsDict',
+    'ConnectionEnvironmentSettingsArgs',
+    'ConnectionEnvironmentSettingsArgsDict',
     'ConnectionProviderConfigArgs',
     'ConnectionProviderConfigArgsDict',
     'ConnectionProvisioningInfoArgs',
@@ -783,6 +813,8 @@ __all__ = [
     'DatabaseSyncedDatabaseTableSpecArgsDict',
     'DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgs',
     'DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgsDict',
+    'DatabaseSyncedDatabaseTableSpecTypeOverrideArgs',
+    'DatabaseSyncedDatabaseTableSpecTypeOverrideArgsDict',
     'DbfsFileProviderConfigArgs',
     'DbfsFileProviderConfigArgsDict',
     'DefaultNamespaceSettingNamespaceArgs',
@@ -931,6 +963,8 @@ __all__ = [
     'FeatureEngineeringFeatureSourceRequestSourceFlatSchemaArgsDict',
     'FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs',
     'FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgsDict',
+    'FeatureEngineeringFeatureSourceStreamSourceArgs',
+    'FeatureEngineeringFeatureSourceStreamSourceArgsDict',
     'FeatureEngineeringFeatureTimeWindowArgs',
     'FeatureEngineeringFeatureTimeWindowArgsDict',
     'FeatureEngineeringFeatureTimeWindowContinuousArgs',
@@ -957,6 +991,14 @@ __all__ = [
     'FeatureEngineeringKafkaConfigBackfillSourceArgsDict',
     'FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs',
     'FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgsDict',
+    'FeatureEngineeringKafkaConfigIngestionConfigArgs',
+    'FeatureEngineeringKafkaConfigIngestionConfigArgsDict',
+    'FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgs',
+    'FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgsDict',
+    'FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgs',
+    'FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgsDict',
+    'FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgs',
+    'FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgsDict',
     'FeatureEngineeringKafkaConfigKeySchemaArgs',
     'FeatureEngineeringKafkaConfigKeySchemaArgsDict',
     'FeatureEngineeringKafkaConfigProviderConfigArgs',
@@ -2141,6 +2183,8 @@ __all__ = [
     'PostgresSyncedTableSpecArgsDict',
     'PostgresSyncedTableSpecNewPipelineSpecArgs',
     'PostgresSyncedTableSpecNewPipelineSpecArgsDict',
+    'PostgresSyncedTableSpecTypeOverrideArgs',
+    'PostgresSyncedTableSpecTypeOverrideArgsDict',
     'PostgresSyncedTableStatusArgs',
     'PostgresSyncedTableStatusArgsDict',
     'PostgresSyncedTableStatusLastSyncArgs',
@@ -2483,6 +2527,14 @@ __all__ = [
     'WorkspaceSettingV2RestrictWorkspaceAdminsArgsDict',
     'WorkspaceSettingV2StringValArgs',
     'WorkspaceSettingV2StringValArgsDict',
+    'GetAiSearchEndpointProviderConfigArgs',
+    'GetAiSearchEndpointProviderConfigArgsDict',
+    'GetAiSearchEndpointsProviderConfigArgs',
+    'GetAiSearchEndpointsProviderConfigArgsDict',
+    'GetAiSearchIndexProviderConfigArgs',
+    'GetAiSearchIndexProviderConfigArgsDict',
+    'GetAiSearchIndexesProviderConfigArgs',
+    'GetAiSearchIndexesProviderConfigArgsDict',
     'GetAlertV2ProviderConfigArgs',
     'GetAlertV2ProviderConfigArgsDict',
     'GetAlertsV2ProviderConfigArgs',
@@ -3907,6 +3959,11 @@ class AccountNetworkPolicyEgressArgs:
 
 class AccountNetworkPolicyEgressNetworkAccessArgsDict(TypedDict):
     restriction_mode: pulumi.Input[_builtins.str]
+    allowed_databricks_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgsDict']]]]]
+    """
+    List of Databricks workspace destinations that serverless workloads are
+    allowed to access when in RESTRICTED_ACCESS mode
+    """
     allowed_internet_destinations: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgsDict']]]]]
     """
     List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
@@ -3930,11 +3987,14 @@ class AccountNetworkPolicyEgressNetworkAccessArgsDict(TypedDict):
 class AccountNetworkPolicyEgressNetworkAccessArgs:
     def __init__(__self__, *,
                  restriction_mode: pulumi.Input[_builtins.str],
+                 allowed_databricks_destinations: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgs']]]] = None,
                  allowed_internet_destinations: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs']]]] = None,
                  allowed_storage_destinations: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs']]]] = None,
                  blocked_internet_destinations: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationArgs']]]] = None,
                  policy_enforcement: pulumi.Input[Optional['AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs']] = None):
         """
+        :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgs']]] allowed_databricks_destinations: List of Databricks workspace destinations that serverless workloads are
+               allowed to access when in RESTRICTED_ACCESS mode
         :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgs']]] allowed_internet_destinations: List of internet destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedStorageDestinationArgs']]] allowed_storage_destinations: List of storage destinations that serverless workloads are allowed to access when in RESTRICTED_ACCESS mode
         :param pulumi.Input[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessBlockedInternetDestinationArgs']]] blocked_internet_destinations: List of internet destinations that serverless workloads are blocked from accessing.
@@ -3943,6 +4003,8 @@ class AccountNetworkPolicyEgressNetworkAccessArgs:
         :param pulumi.Input['AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs'] policy_enforcement: Optional. When policy_enforcement is not provided, we default to ENFORCE_MODE_ALL_SERVICES
         """
         pulumi.set(__self__, "restriction_mode", restriction_mode)
+        if allowed_databricks_destinations is not None:
+            pulumi.set(__self__, "allowed_databricks_destinations", allowed_databricks_destinations)
         if allowed_internet_destinations is not None:
             pulumi.set(__self__, "allowed_internet_destinations", allowed_internet_destinations)
         if allowed_storage_destinations is not None:
@@ -3960,6 +4022,19 @@ class AccountNetworkPolicyEgressNetworkAccessArgs:
     @restriction_mode.setter
     def restriction_mode(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "restriction_mode", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedDatabricksDestinations")
+    def allowed_databricks_destinations(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgs']]]]:
+        """
+        List of Databricks workspace destinations that serverless workloads are
+        allowed to access when in RESTRICTED_ACCESS mode
+        """
+        return pulumi.get(self, "allowed_databricks_destinations")
+
+    @allowed_databricks_destinations.setter
+    def allowed_databricks_destinations(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgs']]]]):
+        pulumi.set(self, "allowed_databricks_destinations", value)
 
     @_builtins.property
     @pulumi.getter(name="allowedInternetDestinations")
@@ -4010,6 +4085,26 @@ class AccountNetworkPolicyEgressNetworkAccessArgs:
     @policy_enforcement.setter
     def policy_enforcement(self, value: pulumi.Input[Optional['AccountNetworkPolicyEgressNetworkAccessPolicyEnforcementArgs']]):
         pulumi.set(self, "policy_enforcement", value)
+
+
+class AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgsDict(TypedDict):
+    workspace_ids: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]]
+
+@pulumi.input_type
+class AccountNetworkPolicyEgressNetworkAccessAllowedDatabricksDestinationArgs:
+    def __init__(__self__, *,
+                 workspace_ids: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]] = None):
+        if workspace_ids is not None:
+            pulumi.set(__self__, "workspace_ids", workspace_ids)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceIds")
+    def workspace_ids(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]:
+        return pulumi.get(self, "workspace_ids")
+
+    @workspace_ids.setter
+    def workspace_ids(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.int]]]]):
+        pulumi.set(self, "workspace_ids", value)
 
 
 class AccountNetworkPolicyEgressNetworkAccessAllowedInternetDestinationArgsDict(TypedDict):
@@ -12109,6 +12204,988 @@ class AccountSettingV2StringValArgs:
         pulumi.set(self, "value", value)
 
 
+class AiSearchEndpointCustomTagArgsDict(TypedDict):
+    key: pulumi.Input[_builtins.str]
+    """
+    Key field for an AI Search endpoint tag
+    """
+    value: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    [Optional] Value field for an AI Search endpoint tag
+    """
+
+@pulumi.input_type
+class AiSearchEndpointCustomTagArgs:
+    def __init__(__self__, *,
+                 key: pulumi.Input[_builtins.str],
+                 value: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] key: Key field for an AI Search endpoint tag
+        :param pulumi.Input[_builtins.str] value: [Optional] Value field for an AI Search endpoint tag
+        """
+        pulumi.set(__self__, "key", key)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> pulumi.Input[_builtins.str]:
+        """
+        Key field for an AI Search endpoint tag
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        [Optional] Value field for an AI Search endpoint tag
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+class AiSearchEndpointEndpointStatusArgsDict(TypedDict):
+    message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Human-readable detail about the endpoint's current state or the reason for a state transition
+    """
+    state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Current lifecycle state of the endpoint. See `State` for the meaning of each value. Possible values are: `DELETED`, `OFFLINE`, `ONLINE`, `PROVISIONING`, `RED_STATE`, `YELLOW_STATE`
+    """
+
+@pulumi.input_type
+class AiSearchEndpointEndpointStatusArgs:
+    def __init__(__self__, *,
+                 message: pulumi.Input[Optional[_builtins.str]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] message: (string) - Human-readable detail about the endpoint's current state or the reason for a state transition
+        :param pulumi.Input[_builtins.str] state: (string) - Current lifecycle state of the endpoint. See `State` for the meaning of each value. Possible values are: `DELETED`, `OFFLINE`, `ONLINE`, `PROVISIONING`, `RED_STATE`, `YELLOW_STATE`
+        """
+        if message is not None:
+            pulumi.set(__self__, "message", message)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Human-readable detail about the endpoint's current state or the reason for a state transition
+        """
+        return pulumi.get(self, "message")
+
+    @message.setter
+    def message(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "message", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Current lifecycle state of the endpoint. See `State` for the meaning of each value. Possible values are: `DELETED`, `OFFLINE`, `ONLINE`, `PROVISIONING`, `RED_STATE`, `YELLOW_STATE`
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "state", value)
+
+
+class AiSearchEndpointProviderConfigArgsDict(TypedDict):
+    workspace_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class AiSearchEndpointProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workspace_id", value)
+
+
+class AiSearchEndpointScalingInfoArgsDict(TypedDict):
+    requested_target_qps: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    The requested QPS target for the endpoint. Best-effort; the system does not
+    guarantee this QPS will be achieved
+    """
+    state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Current lifecycle state of the endpoint. See `State` for the meaning of each value. Possible values are: `DELETED`, `OFFLINE`, `ONLINE`, `PROVISIONING`, `RED_STATE`, `YELLOW_STATE`
+    """
+
+@pulumi.input_type
+class AiSearchEndpointScalingInfoArgs:
+    def __init__(__self__, *,
+                 requested_target_qps: pulumi.Input[Optional[_builtins.int]] = None,
+                 state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] requested_target_qps: The requested QPS target for the endpoint. Best-effort; the system does not
+               guarantee this QPS will be achieved
+        :param pulumi.Input[_builtins.str] state: (string) - Current lifecycle state of the endpoint. See `State` for the meaning of each value. Possible values are: `DELETED`, `OFFLINE`, `ONLINE`, `PROVISIONING`, `RED_STATE`, `YELLOW_STATE`
+        """
+        if requested_target_qps is not None:
+            pulumi.set(__self__, "requested_target_qps", requested_target_qps)
+        if state is not None:
+            pulumi.set(__self__, "state", state)
+
+    @_builtins.property
+    @pulumi.getter(name="requestedTargetQps")
+    def requested_target_qps(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        The requested QPS target for the endpoint. Best-effort; the system does not
+        guarantee this QPS will be achieved
+        """
+        return pulumi.get(self, "requested_target_qps")
+
+    @requested_target_qps.setter
+    def requested_target_qps(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "requested_target_qps", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Current lifecycle state of the endpoint. See `State` for the meaning of each value. Possible values are: `DELETED`, `OFFLINE`, `ONLINE`, `PROVISIONING`, `RED_STATE`, `YELLOW_STATE`
+        """
+        return pulumi.get(self, "state")
+
+    @state.setter
+    def state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "state", value)
+
+
+class AiSearchEndpointThroughputInfoArgsDict(TypedDict):
+    change_request_message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Additional information about the throughput change request
+    """
+    change_request_state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - The state of the most recent throughput change request. Possible values are: `CHANGE_ADJUSTED`, `CHANGE_FAILED`, `CHANGE_IN_PROGRESS`, `CHANGE_REACHED_MAXIMUM`, `CHANGE_REACHED_MINIMUM`, `CHANGE_SUCCESS`
+    """
+    current_concurrency: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+    """
+    (number) - The current concurrency (total CPU) allocated to the endpoint
+    """
+    current_concurrency_utilization_percentage: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+    """
+    (number) - The current utilization of concurrency as a percentage (0-100)
+    """
+    current_num_replicas: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    (integer) - The current number of replicas allocated to the endpoint
+    """
+    maximum_concurrency_allowed: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+    """
+    The maximum concurrency allowed for this endpoint
+    """
+    minimal_concurrency_allowed: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+    """
+    The minimum concurrency allowed for this endpoint
+    """
+    requested_concurrency: NotRequired[pulumi.Input[Optional[_builtins.float]]]
+    """
+    The requested concurrency (total CPU) for the endpoint
+    """
+    requested_num_replicas: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    The requested number of replicas for the endpoint
+    """
+
+@pulumi.input_type
+class AiSearchEndpointThroughputInfoArgs:
+    def __init__(__self__, *,
+                 change_request_message: pulumi.Input[Optional[_builtins.str]] = None,
+                 change_request_state: pulumi.Input[Optional[_builtins.str]] = None,
+                 current_concurrency: pulumi.Input[Optional[_builtins.float]] = None,
+                 current_concurrency_utilization_percentage: pulumi.Input[Optional[_builtins.float]] = None,
+                 current_num_replicas: pulumi.Input[Optional[_builtins.int]] = None,
+                 maximum_concurrency_allowed: pulumi.Input[Optional[_builtins.float]] = None,
+                 minimal_concurrency_allowed: pulumi.Input[Optional[_builtins.float]] = None,
+                 requested_concurrency: pulumi.Input[Optional[_builtins.float]] = None,
+                 requested_num_replicas: pulumi.Input[Optional[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] change_request_message: (string) - Additional information about the throughput change request
+        :param pulumi.Input[_builtins.str] change_request_state: (string) - The state of the most recent throughput change request. Possible values are: `CHANGE_ADJUSTED`, `CHANGE_FAILED`, `CHANGE_IN_PROGRESS`, `CHANGE_REACHED_MAXIMUM`, `CHANGE_REACHED_MINIMUM`, `CHANGE_SUCCESS`
+        :param pulumi.Input[_builtins.float] current_concurrency: (number) - The current concurrency (total CPU) allocated to the endpoint
+        :param pulumi.Input[_builtins.float] current_concurrency_utilization_percentage: (number) - The current utilization of concurrency as a percentage (0-100)
+        :param pulumi.Input[_builtins.int] current_num_replicas: (integer) - The current number of replicas allocated to the endpoint
+        :param pulumi.Input[_builtins.float] maximum_concurrency_allowed: The maximum concurrency allowed for this endpoint
+        :param pulumi.Input[_builtins.float] minimal_concurrency_allowed: The minimum concurrency allowed for this endpoint
+        :param pulumi.Input[_builtins.float] requested_concurrency: The requested concurrency (total CPU) for the endpoint
+        :param pulumi.Input[_builtins.int] requested_num_replicas: The requested number of replicas for the endpoint
+        """
+        if change_request_message is not None:
+            pulumi.set(__self__, "change_request_message", change_request_message)
+        if change_request_state is not None:
+            pulumi.set(__self__, "change_request_state", change_request_state)
+        if current_concurrency is not None:
+            pulumi.set(__self__, "current_concurrency", current_concurrency)
+        if current_concurrency_utilization_percentage is not None:
+            pulumi.set(__self__, "current_concurrency_utilization_percentage", current_concurrency_utilization_percentage)
+        if current_num_replicas is not None:
+            pulumi.set(__self__, "current_num_replicas", current_num_replicas)
+        if maximum_concurrency_allowed is not None:
+            pulumi.set(__self__, "maximum_concurrency_allowed", maximum_concurrency_allowed)
+        if minimal_concurrency_allowed is not None:
+            pulumi.set(__self__, "minimal_concurrency_allowed", minimal_concurrency_allowed)
+        if requested_concurrency is not None:
+            pulumi.set(__self__, "requested_concurrency", requested_concurrency)
+        if requested_num_replicas is not None:
+            pulumi.set(__self__, "requested_num_replicas", requested_num_replicas)
+
+    @_builtins.property
+    @pulumi.getter(name="changeRequestMessage")
+    def change_request_message(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Additional information about the throughput change request
+        """
+        return pulumi.get(self, "change_request_message")
+
+    @change_request_message.setter
+    def change_request_message(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "change_request_message", value)
+
+    @_builtins.property
+    @pulumi.getter(name="changeRequestState")
+    def change_request_state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - The state of the most recent throughput change request. Possible values are: `CHANGE_ADJUSTED`, `CHANGE_FAILED`, `CHANGE_IN_PROGRESS`, `CHANGE_REACHED_MAXIMUM`, `CHANGE_REACHED_MINIMUM`, `CHANGE_SUCCESS`
+        """
+        return pulumi.get(self, "change_request_state")
+
+    @change_request_state.setter
+    def change_request_state(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "change_request_state", value)
+
+    @_builtins.property
+    @pulumi.getter(name="currentConcurrency")
+    def current_concurrency(self) -> pulumi.Input[Optional[_builtins.float]]:
+        """
+        (number) - The current concurrency (total CPU) allocated to the endpoint
+        """
+        return pulumi.get(self, "current_concurrency")
+
+    @current_concurrency.setter
+    def current_concurrency(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "current_concurrency", value)
+
+    @_builtins.property
+    @pulumi.getter(name="currentConcurrencyUtilizationPercentage")
+    def current_concurrency_utilization_percentage(self) -> pulumi.Input[Optional[_builtins.float]]:
+        """
+        (number) - The current utilization of concurrency as a percentage (0-100)
+        """
+        return pulumi.get(self, "current_concurrency_utilization_percentage")
+
+    @current_concurrency_utilization_percentage.setter
+    def current_concurrency_utilization_percentage(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "current_concurrency_utilization_percentage", value)
+
+    @_builtins.property
+    @pulumi.getter(name="currentNumReplicas")
+    def current_num_replicas(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        (integer) - The current number of replicas allocated to the endpoint
+        """
+        return pulumi.get(self, "current_num_replicas")
+
+    @current_num_replicas.setter
+    def current_num_replicas(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "current_num_replicas", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maximumConcurrencyAllowed")
+    def maximum_concurrency_allowed(self) -> pulumi.Input[Optional[_builtins.float]]:
+        """
+        The maximum concurrency allowed for this endpoint
+        """
+        return pulumi.get(self, "maximum_concurrency_allowed")
+
+    @maximum_concurrency_allowed.setter
+    def maximum_concurrency_allowed(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "maximum_concurrency_allowed", value)
+
+    @_builtins.property
+    @pulumi.getter(name="minimalConcurrencyAllowed")
+    def minimal_concurrency_allowed(self) -> pulumi.Input[Optional[_builtins.float]]:
+        """
+        The minimum concurrency allowed for this endpoint
+        """
+        return pulumi.get(self, "minimal_concurrency_allowed")
+
+    @minimal_concurrency_allowed.setter
+    def minimal_concurrency_allowed(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "minimal_concurrency_allowed", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requestedConcurrency")
+    def requested_concurrency(self) -> pulumi.Input[Optional[_builtins.float]]:
+        """
+        The requested concurrency (total CPU) for the endpoint
+        """
+        return pulumi.get(self, "requested_concurrency")
+
+    @requested_concurrency.setter
+    def requested_concurrency(self, value: pulumi.Input[Optional[_builtins.float]]):
+        pulumi.set(self, "requested_concurrency", value)
+
+    @_builtins.property
+    @pulumi.getter(name="requestedNumReplicas")
+    def requested_num_replicas(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        The requested number of replicas for the endpoint
+        """
+        return pulumi.get(self, "requested_num_replicas")
+
+    @requested_num_replicas.setter
+    def requested_num_replicas(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "requested_num_replicas", value)
+
+
+class AiSearchIndexDeltaSyncIndexSpecArgsDict(TypedDict):
+    pipeline_type: pulumi.Input[_builtins.str]
+    """
+    Pipeline execution mode. Required on create — the backend rejects an unset value.
+    Storage Optimized endpoints accept only `TRIGGERED`; Standard endpoints accept both.
+    No explicit `stage` — a REQUIRED field staged below its service would be dropped from
+    combined specs while remaining in `required`, tripping the OpenAPI required-vs-properties
+    consistency check. The field inherits the service's launch stage. Possible values are: `CONTINUOUS`, `TRIGGERED`
+    """
+    columns_to_syncs: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    [Optional] Select the columns to sync with the index. If left blank, all columns
+    from the source table are synced. The primary key column and embedding source or
+    vector column are always synced
+    """
+    embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgsDict']]]]]
+    embedding_vector_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgsDict']]]]]
+    embedding_writeback_table: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    [Optional] Name of the Delta table to sync the index contents and computed embeddings to
+    """
+    pipeline_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - The ID of the pipeline that is used to sync the index
+    """
+    source_table: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The full name of the source Delta table
+    """
+
+@pulumi.input_type
+class AiSearchIndexDeltaSyncIndexSpecArgs:
+    def __init__(__self__, *,
+                 pipeline_type: pulumi.Input[_builtins.str],
+                 columns_to_syncs: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 embedding_source_columns: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs']]]] = None,
+                 embedding_vector_columns: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs']]]] = None,
+                 embedding_writeback_table: pulumi.Input[Optional[_builtins.str]] = None,
+                 pipeline_id: pulumi.Input[Optional[_builtins.str]] = None,
+                 source_table: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] pipeline_type: Pipeline execution mode. Required on create — the backend rejects an unset value.
+               Storage Optimized endpoints accept only `TRIGGERED`; Standard endpoints accept both.
+               No explicit `stage` — a REQUIRED field staged below its service would be dropped from
+               combined specs while remaining in `required`, tripping the OpenAPI required-vs-properties
+               consistency check. The field inherits the service's launch stage. Possible values are: `CONTINUOUS`, `TRIGGERED`
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] columns_to_syncs: [Optional] Select the columns to sync with the index. If left blank, all columns
+               from the source table are synced. The primary key column and embedding source or
+               vector column are always synced
+        :param pulumi.Input[_builtins.str] embedding_writeback_table: [Optional] Name of the Delta table to sync the index contents and computed embeddings to
+        :param pulumi.Input[_builtins.str] pipeline_id: (string) - The ID of the pipeline that is used to sync the index
+        :param pulumi.Input[_builtins.str] source_table: The full name of the source Delta table
+        """
+        pulumi.set(__self__, "pipeline_type", pipeline_type)
+        if columns_to_syncs is not None:
+            pulumi.set(__self__, "columns_to_syncs", columns_to_syncs)
+        if embedding_source_columns is not None:
+            pulumi.set(__self__, "embedding_source_columns", embedding_source_columns)
+        if embedding_vector_columns is not None:
+            pulumi.set(__self__, "embedding_vector_columns", embedding_vector_columns)
+        if embedding_writeback_table is not None:
+            pulumi.set(__self__, "embedding_writeback_table", embedding_writeback_table)
+        if pipeline_id is not None:
+            pulumi.set(__self__, "pipeline_id", pipeline_id)
+        if source_table is not None:
+            pulumi.set(__self__, "source_table", source_table)
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineType")
+    def pipeline_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        Pipeline execution mode. Required on create — the backend rejects an unset value.
+        Storage Optimized endpoints accept only `TRIGGERED`; Standard endpoints accept both.
+        No explicit `stage` — a REQUIRED field staged below its service would be dropped from
+        combined specs while remaining in `required`, tripping the OpenAPI required-vs-properties
+        consistency check. The field inherits the service's launch stage. Possible values are: `CONTINUOUS`, `TRIGGERED`
+        """
+        return pulumi.get(self, "pipeline_type")
+
+    @pipeline_type.setter
+    def pipeline_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "pipeline_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="columnsToSyncs")
+    def columns_to_syncs(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        [Optional] Select the columns to sync with the index. If left blank, all columns
+        from the source table are synced. The primary key column and embedding source or
+        vector column are always synced
+        """
+        return pulumi.get(self, "columns_to_syncs")
+
+    @columns_to_syncs.setter
+    def columns_to_syncs(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "columns_to_syncs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingSourceColumns")
+    def embedding_source_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs']]]]:
+        return pulumi.get(self, "embedding_source_columns")
+
+    @embedding_source_columns.setter
+    def embedding_source_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs']]]]):
+        pulumi.set(self, "embedding_source_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingVectorColumns")
+    def embedding_vector_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs']]]]:
+        return pulumi.get(self, "embedding_vector_columns")
+
+    @embedding_vector_columns.setter
+    def embedding_vector_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs']]]]):
+        pulumi.set(self, "embedding_vector_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingWritebackTable")
+    def embedding_writeback_table(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        [Optional] Name of the Delta table to sync the index contents and computed embeddings to
+        """
+        return pulumi.get(self, "embedding_writeback_table")
+
+    @embedding_writeback_table.setter
+    def embedding_writeback_table(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "embedding_writeback_table", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pipelineId")
+    def pipeline_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - The ID of the pipeline that is used to sync the index
+        """
+        return pulumi.get(self, "pipeline_id")
+
+    @pipeline_id.setter
+    def pipeline_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "pipeline_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceTable")
+    def source_table(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The full name of the source Delta table
+        """
+        return pulumi.get(self, "source_table")
+
+    @source_table.setter
+    def source_table(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "source_table", value)
+
+
+class AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgsDict(TypedDict):
+    embedding_model_endpoint: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Name of the embedding model endpoint, used by default for both ingestion and querying
+    """
+    model_endpoint_name_for_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Name of the embedding model endpoint which, if specified, is used for querying (not ingestion)
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Name of the AI Search index. Server-assigned full resource path
+    (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+    `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+    table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+    full `name` and returns it on the response
+    """
+
+@pulumi.input_type
+class AiSearchIndexDeltaSyncIndexSpecEmbeddingSourceColumnArgs:
+    def __init__(__self__, *,
+                 embedding_model_endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 model_endpoint_name_for_query: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] embedding_model_endpoint: Name of the embedding model endpoint, used by default for both ingestion and querying
+        :param pulumi.Input[_builtins.str] model_endpoint_name_for_query: Name of the embedding model endpoint which, if specified, is used for querying (not ingestion)
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the AI Search index. Server-assigned full resource path
+               (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+               `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+               table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+               full `name` and returns it on the response
+        """
+        if embedding_model_endpoint is not None:
+            pulumi.set(__self__, "embedding_model_endpoint", embedding_model_endpoint)
+        if model_endpoint_name_for_query is not None:
+            pulumi.set(__self__, "model_endpoint_name_for_query", model_endpoint_name_for_query)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingModelEndpoint")
+    def embedding_model_endpoint(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Name of the embedding model endpoint, used by default for both ingestion and querying
+        """
+        return pulumi.get(self, "embedding_model_endpoint")
+
+    @embedding_model_endpoint.setter
+    def embedding_model_endpoint(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "embedding_model_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelEndpointNameForQuery")
+    def model_endpoint_name_for_query(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Name of the embedding model endpoint which, if specified, is used for querying (not ingestion)
+        """
+        return pulumi.get(self, "model_endpoint_name_for_query")
+
+    @model_endpoint_name_for_query.setter
+    def model_endpoint_name_for_query(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "model_endpoint_name_for_query", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Name of the AI Search index. Server-assigned full resource path
+        (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+        `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+        table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+        full `name` and returns it on the response
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+class AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgsDict(TypedDict):
+    embedding_dimension: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    Dimension of the embedding vector
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Name of the AI Search index. Server-assigned full resource path
+    (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+    `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+    table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+    full `name` and returns it on the response
+    """
+
+@pulumi.input_type
+class AiSearchIndexDeltaSyncIndexSpecEmbeddingVectorColumnArgs:
+    def __init__(__self__, *,
+                 embedding_dimension: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] embedding_dimension: Dimension of the embedding vector
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the AI Search index. Server-assigned full resource path
+               (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+               `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+               table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+               full `name` and returns it on the response
+        """
+        if embedding_dimension is not None:
+            pulumi.set(__self__, "embedding_dimension", embedding_dimension)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingDimension")
+    def embedding_dimension(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        Dimension of the embedding vector
+        """
+        return pulumi.get(self, "embedding_dimension")
+
+    @embedding_dimension.setter
+    def embedding_dimension(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "embedding_dimension", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Name of the AI Search index. Server-assigned full resource path
+        (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+        `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+        table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+        full `name` and returns it on the response
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+class AiSearchIndexDirectAccessIndexSpecArgsDict(TypedDict):
+    embedding_source_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgsDict']]]]]
+    embedding_vector_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgsDict']]]]]
+    schema_json: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The schema of the index in JSON format. Supported types are `integer`, `long`,
+    `float`, `double`, `boolean`, `string`, `date`, `timestamp`. Supported types for
+    vector columns: `array<float>`, `array<double>`
+    """
+
+@pulumi.input_type
+class AiSearchIndexDirectAccessIndexSpecArgs:
+    def __init__(__self__, *,
+                 embedding_source_columns: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgs']]]] = None,
+                 embedding_vector_columns: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgs']]]] = None,
+                 schema_json: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] schema_json: The schema of the index in JSON format. Supported types are `integer`, `long`,
+               `float`, `double`, `boolean`, `string`, `date`, `timestamp`. Supported types for
+               vector columns: `array<float>`, `array<double>`
+        """
+        if embedding_source_columns is not None:
+            pulumi.set(__self__, "embedding_source_columns", embedding_source_columns)
+        if embedding_vector_columns is not None:
+            pulumi.set(__self__, "embedding_vector_columns", embedding_vector_columns)
+        if schema_json is not None:
+            pulumi.set(__self__, "schema_json", schema_json)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingSourceColumns")
+    def embedding_source_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgs']]]]:
+        return pulumi.get(self, "embedding_source_columns")
+
+    @embedding_source_columns.setter
+    def embedding_source_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgs']]]]):
+        pulumi.set(self, "embedding_source_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingVectorColumns")
+    def embedding_vector_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgs']]]]:
+        return pulumi.get(self, "embedding_vector_columns")
+
+    @embedding_vector_columns.setter
+    def embedding_vector_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgs']]]]):
+        pulumi.set(self, "embedding_vector_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="schemaJson")
+    def schema_json(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The schema of the index in JSON format. Supported types are `integer`, `long`,
+        `float`, `double`, `boolean`, `string`, `date`, `timestamp`. Supported types for
+        vector columns: `array<float>`, `array<double>`
+        """
+        return pulumi.get(self, "schema_json")
+
+    @schema_json.setter
+    def schema_json(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "schema_json", value)
+
+
+class AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgsDict(TypedDict):
+    embedding_model_endpoint: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Name of the embedding model endpoint, used by default for both ingestion and querying
+    """
+    model_endpoint_name_for_query: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Name of the embedding model endpoint which, if specified, is used for querying (not ingestion)
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Name of the AI Search index. Server-assigned full resource path
+    (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+    `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+    table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+    full `name` and returns it on the response
+    """
+
+@pulumi.input_type
+class AiSearchIndexDirectAccessIndexSpecEmbeddingSourceColumnArgs:
+    def __init__(__self__, *,
+                 embedding_model_endpoint: pulumi.Input[Optional[_builtins.str]] = None,
+                 model_endpoint_name_for_query: pulumi.Input[Optional[_builtins.str]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] embedding_model_endpoint: Name of the embedding model endpoint, used by default for both ingestion and querying
+        :param pulumi.Input[_builtins.str] model_endpoint_name_for_query: Name of the embedding model endpoint which, if specified, is used for querying (not ingestion)
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the AI Search index. Server-assigned full resource path
+               (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+               `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+               table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+               full `name` and returns it on the response
+        """
+        if embedding_model_endpoint is not None:
+            pulumi.set(__self__, "embedding_model_endpoint", embedding_model_endpoint)
+        if model_endpoint_name_for_query is not None:
+            pulumi.set(__self__, "model_endpoint_name_for_query", model_endpoint_name_for_query)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingModelEndpoint")
+    def embedding_model_endpoint(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Name of the embedding model endpoint, used by default for both ingestion and querying
+        """
+        return pulumi.get(self, "embedding_model_endpoint")
+
+    @embedding_model_endpoint.setter
+    def embedding_model_endpoint(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "embedding_model_endpoint", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelEndpointNameForQuery")
+    def model_endpoint_name_for_query(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Name of the embedding model endpoint which, if specified, is used for querying (not ingestion)
+        """
+        return pulumi.get(self, "model_endpoint_name_for_query")
+
+    @model_endpoint_name_for_query.setter
+    def model_endpoint_name_for_query(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "model_endpoint_name_for_query", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Name of the AI Search index. Server-assigned full resource path
+        (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+        `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+        table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+        full `name` and returns it on the response
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+class AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgsDict(TypedDict):
+    embedding_dimension: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    Dimension of the embedding vector
+    """
+    name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Name of the AI Search index. Server-assigned full resource path
+    (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+    `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+    table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+    full `name` and returns it on the response
+    """
+
+@pulumi.input_type
+class AiSearchIndexDirectAccessIndexSpecEmbeddingVectorColumnArgs:
+    def __init__(__self__, *,
+                 embedding_dimension: pulumi.Input[Optional[_builtins.int]] = None,
+                 name: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] embedding_dimension: Dimension of the embedding vector
+        :param pulumi.Input[_builtins.str] name: (string) - Name of the AI Search index. Server-assigned full resource path
+               (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+               `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+               table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+               full `name` and returns it on the response
+        """
+        if embedding_dimension is not None:
+            pulumi.set(__self__, "embedding_dimension", embedding_dimension)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="embeddingDimension")
+    def embedding_dimension(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        Dimension of the embedding vector
+        """
+        return pulumi.get(self, "embedding_dimension")
+
+    @embedding_dimension.setter
+    def embedding_dimension(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "embedding_dimension", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Name of the AI Search index. Server-assigned full resource path
+        (`workspaces/{workspace}/endpoints/{endpoint}/indexes/{index}`) on output, where
+        `{index}` is the index's Unity Catalog table name. On create, the user-supplied UC
+        table name is conveyed via `CreateIndexRequest.index_id`; the server composes the
+        full `name` and returns it on the response
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+class AiSearchIndexProviderConfigArgsDict(TypedDict):
+    workspace_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class AiSearchIndexProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        if workspace_id is not None:
+            pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "workspace_id", value)
+
+
+class AiSearchIndexStatusArgsDict(TypedDict):
+    index_url: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Index API URL used to perform operations on the index
+    """
+    indexed_row_count: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    (integer) - Number of rows indexed
+    """
+    message: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - Human-readable detail about the index's current state
+    """
+    ready: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (boolean) - Whether the index is ready for search
+    """
+
+@pulumi.input_type
+class AiSearchIndexStatusArgs:
+    def __init__(__self__, *,
+                 index_url: pulumi.Input[Optional[_builtins.str]] = None,
+                 indexed_row_count: pulumi.Input[Optional[_builtins.int]] = None,
+                 message: pulumi.Input[Optional[_builtins.str]] = None,
+                 ready: pulumi.Input[Optional[_builtins.bool]] = None):
+        """
+        :param pulumi.Input[_builtins.str] index_url: (string) - Index API URL used to perform operations on the index
+        :param pulumi.Input[_builtins.int] indexed_row_count: (integer) - Number of rows indexed
+        :param pulumi.Input[_builtins.str] message: (string) - Human-readable detail about the index's current state
+        :param pulumi.Input[_builtins.bool] ready: (boolean) - Whether the index is ready for search
+        """
+        if index_url is not None:
+            pulumi.set(__self__, "index_url", index_url)
+        if indexed_row_count is not None:
+            pulumi.set(__self__, "indexed_row_count", indexed_row_count)
+        if message is not None:
+            pulumi.set(__self__, "message", message)
+        if ready is not None:
+            pulumi.set(__self__, "ready", ready)
+
+    @_builtins.property
+    @pulumi.getter(name="indexUrl")
+    def index_url(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Index API URL used to perform operations on the index
+        """
+        return pulumi.get(self, "index_url")
+
+    @index_url.setter
+    def index_url(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "index_url", value)
+
+    @_builtins.property
+    @pulumi.getter(name="indexedRowCount")
+    def indexed_row_count(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        (integer) - Number of rows indexed
+        """
+        return pulumi.get(self, "indexed_row_count")
+
+    @indexed_row_count.setter
+    def indexed_row_count(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "indexed_row_count", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - Human-readable detail about the index's current state
+        """
+        return pulumi.get(self, "message")
+
+    @message.setter
+    def message(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "message", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def ready(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (boolean) - Whether the index is ready for search
+        """
+        return pulumi.get(self, "ready")
+
+    @ready.setter
+    def ready(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "ready", value)
+
+
 class AibiDashboardEmbeddingAccessPolicySettingAibiDashboardEmbeddingAccessPolicyArgsDict(TypedDict):
     access_policy_type: pulumi.Input[_builtins.str]
     """
@@ -13657,6 +14734,7 @@ class AppAppStatusArgsDict(TypedDict):
     """
     The status message of the deployment.
     """
+    running_instances: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The state of the deployment.
@@ -13666,6 +14744,7 @@ class AppAppStatusArgsDict(TypedDict):
 class AppAppStatusArgs:
     def __init__(__self__, *,
                  message: pulumi.Input[Optional[_builtins.str]] = None,
+                 running_instances: pulumi.Input[Optional[_builtins.int]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] message: The status message of the deployment.
@@ -13673,6 +14752,8 @@ class AppAppStatusArgs:
         """
         if message is not None:
             pulumi.set(__self__, "message", message)
+        if running_instances is not None:
+            pulumi.set(__self__, "running_instances", running_instances)
         if state is not None:
             pulumi.set(__self__, "state", state)
 
@@ -13687,6 +14768,15 @@ class AppAppStatusArgs:
     @message.setter
     def message(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "message", value)
+
+    @_builtins.property
+    @pulumi.getter(name="runningInstances")
+    def running_instances(self) -> pulumi.Input[Optional[_builtins.int]]:
+        return pulumi.get(self, "running_instances")
+
+    @running_instances.setter
+    def running_instances(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "running_instances", value)
 
     @_builtins.property
     @pulumi.getter
@@ -19713,6 +20803,55 @@ class ComplianceSecurityProfileWorkspaceSettingProviderConfigArgs:
         pulumi.set(self, "workspace_id", value)
 
 
+class ConnectionEnvironmentSettingsArgsDict(TypedDict):
+    environment_version: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Environment version.
+    """
+    java_dependencies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    List of Java dependencies.
+    """
+
+@pulumi.input_type
+class ConnectionEnvironmentSettingsArgs:
+    def __init__(__self__, *,
+                 environment_version: pulumi.Input[Optional[_builtins.str]] = None,
+                 java_dependencies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] environment_version: Environment version.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] java_dependencies: List of Java dependencies.
+        """
+        if environment_version is not None:
+            pulumi.set(__self__, "environment_version", environment_version)
+        if java_dependencies is not None:
+            pulumi.set(__self__, "java_dependencies", java_dependencies)
+
+    @_builtins.property
+    @pulumi.getter(name="environmentVersion")
+    def environment_version(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Environment version.
+        """
+        return pulumi.get(self, "environment_version")
+
+    @environment_version.setter
+    def environment_version(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "environment_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="javaDependencies")
+    def java_dependencies(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of Java dependencies.
+        """
+        return pulumi.get(self, "java_dependencies")
+
+    @java_dependencies.setter
+    def java_dependencies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "java_dependencies", value)
+
+
 class ConnectionProviderConfigArgsDict(TypedDict):
     workspace_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -19744,17 +20883,26 @@ class ConnectionProviderConfigArgs:
 
 class ConnectionProvisioningInfoArgsDict(TypedDict):
     state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    The provisioning state of the resource. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, or `UPDATING`.
+    """
 
 @pulumi.input_type
 class ConnectionProvisioningInfoArgs:
     def __init__(__self__, *,
                  state: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] state: The provisioning state of the resource. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, or `UPDATING`.
+        """
         if state is not None:
             pulumi.set(__self__, "state", state)
 
     @_builtins.property
     @pulumi.getter
     def state(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        The provisioning state of the resource. Possible values are: `ACTIVE`, `DEGRADED`, `DELETING`, `FAILED`, `PROVISIONING`, or `UPDATING`.
+        """
         return pulumi.get(self, "state")
 
     @state.setter
@@ -22501,6 +23649,12 @@ class DatabaseSyncedDatabaseTableProviderConfigArgs:
 
 
 class DatabaseSyncedDatabaseTableSpecArgsDict(TypedDict):
+    accelerated_sync: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    When true, enables accelerated sync mode for the initial data load.
+    This significantly improves performance for large tables.
+    Requires workspace-level enablement
+    """
     create_database_objects_if_missing: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     """
     If true, the synced table's logical database and schema resources in PG
@@ -22539,18 +23693,28 @@ class DatabaseSyncedDatabaseTableSpecArgsDict(TypedDict):
     """
     Time series key to deduplicate (tie-break) rows with the same primary key
     """
+    type_overrides: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['DatabaseSyncedDatabaseTableSpecTypeOverrideArgsDict']]]]]
+    """
+    Override the default Delta->PG type mapping for specific columns.
+    A TypeOverride with PG_SPECIFIC_TYPE_UNSPECIFIED is rejected; a valid pg_type must be set
+    """
 
 @pulumi.input_type
 class DatabaseSyncedDatabaseTableSpecArgs:
     def __init__(__self__, *,
+                 accelerated_sync: pulumi.Input[Optional[_builtins.bool]] = None,
                  create_database_objects_if_missing: pulumi.Input[Optional[_builtins.bool]] = None,
                  existing_pipeline_id: pulumi.Input[Optional[_builtins.str]] = None,
                  new_pipeline_spec: pulumi.Input[Optional['DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgs']] = None,
                  primary_key_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  scheduling_policy: pulumi.Input[Optional[_builtins.str]] = None,
                  source_table_full_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 timeseries_key: pulumi.Input[Optional[_builtins.str]] = None):
+                 timeseries_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 type_overrides: pulumi.Input[Optional[Sequence[pulumi.Input['DatabaseSyncedDatabaseTableSpecTypeOverrideArgs']]]] = None):
         """
+        :param pulumi.Input[_builtins.bool] accelerated_sync: When true, enables accelerated sync mode for the initial data load.
+               This significantly improves performance for large tables.
+               Requires workspace-level enablement
         :param pulumi.Input[_builtins.bool] create_database_objects_if_missing: If true, the synced table's logical database and schema resources in PG
                will be created if they do not already exist
         :param pulumi.Input[_builtins.str] existing_pipeline_id: At most one of existing_pipeline_id and new_pipeline_spec should be defined.
@@ -22568,7 +23732,11 @@ class DatabaseSyncedDatabaseTableSpecArgs:
         :param pulumi.Input[_builtins.str] scheduling_policy: Scheduling policy of the underlying pipeline. Possible values are: `CONTINUOUS`, `SNAPSHOT`, `TRIGGERED`
         :param pulumi.Input[_builtins.str] source_table_full_name: Three-part (catalog, schema, table) name of the source Delta table
         :param pulumi.Input[_builtins.str] timeseries_key: Time series key to deduplicate (tie-break) rows with the same primary key
+        :param pulumi.Input[Sequence[pulumi.Input['DatabaseSyncedDatabaseTableSpecTypeOverrideArgs']]] type_overrides: Override the default Delta->PG type mapping for specific columns.
+               A TypeOverride with PG_SPECIFIC_TYPE_UNSPECIFIED is rejected; a valid pg_type must be set
         """
+        if accelerated_sync is not None:
+            pulumi.set(__self__, "accelerated_sync", accelerated_sync)
         if create_database_objects_if_missing is not None:
             pulumi.set(__self__, "create_database_objects_if_missing", create_database_objects_if_missing)
         if existing_pipeline_id is not None:
@@ -22583,6 +23751,22 @@ class DatabaseSyncedDatabaseTableSpecArgs:
             pulumi.set(__self__, "source_table_full_name", source_table_full_name)
         if timeseries_key is not None:
             pulumi.set(__self__, "timeseries_key", timeseries_key)
+        if type_overrides is not None:
+            pulumi.set(__self__, "type_overrides", type_overrides)
+
+    @_builtins.property
+    @pulumi.getter(name="acceleratedSync")
+    def accelerated_sync(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        When true, enables accelerated sync mode for the initial data load.
+        This significantly improves performance for large tables.
+        Requires workspace-level enablement
+        """
+        return pulumi.get(self, "accelerated_sync")
+
+    @accelerated_sync.setter
+    def accelerated_sync(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "accelerated_sync", value)
 
     @_builtins.property
     @pulumi.getter(name="createDatabaseObjectsIfMissing")
@@ -22678,6 +23862,19 @@ class DatabaseSyncedDatabaseTableSpecArgs:
     def timeseries_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "timeseries_key", value)
 
+    @_builtins.property
+    @pulumi.getter(name="typeOverrides")
+    def type_overrides(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['DatabaseSyncedDatabaseTableSpecTypeOverrideArgs']]]]:
+        """
+        Override the default Delta->PG type mapping for specific columns.
+        A TypeOverride with PG_SPECIFIC_TYPE_UNSPECIFIED is rejected; a valid pg_type must be set
+        """
+        return pulumi.get(self, "type_overrides")
+
+    @type_overrides.setter
+    def type_overrides(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['DatabaseSyncedDatabaseTableSpecTypeOverrideArgs']]]]):
+        pulumi.set(self, "type_overrides", value)
+
 
 class DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgsDict(TypedDict):
     budget_policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -22764,6 +23961,76 @@ class DatabaseSyncedDatabaseTableSpecNewPipelineSpecArgs:
     @storage_schema.setter
     def storage_schema(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "storage_schema", value)
+
+
+class DatabaseSyncedDatabaseTableSpecTypeOverrideArgsDict(TypedDict):
+    column_name: pulumi.Input[_builtins.str]
+    """
+    Name of the source column whose target PostgreSQL type should be overridden
+    """
+    pg_type: pulumi.Input[_builtins.str]
+    """
+    PostgreSQL-specific target type to use for the column. Possible values are: `PG_SPECIFIC_TYPE_VECTOR`
+    """
+    size: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    Size parameter for the target type. Required when pg_type is PG_SPECIFIC_TYPE_VECTOR
+    (specifies the vector dimension, e.g., 1024)
+    """
+
+@pulumi.input_type
+class DatabaseSyncedDatabaseTableSpecTypeOverrideArgs:
+    def __init__(__self__, *,
+                 column_name: pulumi.Input[_builtins.str],
+                 pg_type: pulumi.Input[_builtins.str],
+                 size: pulumi.Input[Optional[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] column_name: Name of the source column whose target PostgreSQL type should be overridden
+        :param pulumi.Input[_builtins.str] pg_type: PostgreSQL-specific target type to use for the column. Possible values are: `PG_SPECIFIC_TYPE_VECTOR`
+        :param pulumi.Input[_builtins.int] size: Size parameter for the target type. Required when pg_type is PG_SPECIFIC_TYPE_VECTOR
+               (specifies the vector dimension, e.g., 1024)
+        """
+        pulumi.set(__self__, "column_name", column_name)
+        pulumi.set(__self__, "pg_type", pg_type)
+        if size is not None:
+            pulumi.set(__self__, "size", size)
+
+    @_builtins.property
+    @pulumi.getter(name="columnName")
+    def column_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Name of the source column whose target PostgreSQL type should be overridden
+        """
+        return pulumi.get(self, "column_name")
+
+    @column_name.setter
+    def column_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "column_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pgType")
+    def pg_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        PostgreSQL-specific target type to use for the column. Possible values are: `PG_SPECIFIC_TYPE_VECTOR`
+        """
+        return pulumi.get(self, "pg_type")
+
+    @pg_type.setter
+    def pg_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "pg_type", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def size(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        Size parameter for the target type. Required when pg_type is PG_SPECIFIC_TYPE_VECTOR
+        (specifies the vector dimension, e.g., 1024)
+        """
+        return pulumi.get(self, "size")
+
+    @size.setter
+    def size(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "size", value)
 
 
 class DbfsFileProviderConfigArgsDict(TypedDict):
@@ -23254,13 +24521,12 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgsDict(TypedDict):
     """
     replicate_workspace_assets: pulumi.Input[_builtins.bool]
     """
-    Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
-    Requires all workspaces in the set to be Mission Critical tier
+    Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set
     """
     workspace_ids: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]
     """
     Workspace IDs in this set. The system derives and validates regions.
-    EA: exactly 2 workspaces (one per region)
+    All workspaces must be in the Mission Critical tier
     """
     stable_url_names: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     """
@@ -23279,10 +24545,9 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgs:
         """
         :param pulumi.Input[_builtins.str] name: (string) - Fully qualified resource name in the format
                accounts/{account_id}/failover-groups/{failover_group_id}
-        :param pulumi.Input[_builtins.bool] replicate_workspace_assets: Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
-               Requires all workspaces in the set to be Mission Critical tier
+        :param pulumi.Input[_builtins.bool] replicate_workspace_assets: Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] workspace_ids: Workspace IDs in this set. The system derives and validates regions.
-               EA: exactly 2 workspaces (one per region)
+               All workspaces must be in the Mission Critical tier
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] stable_url_names: Resource names of stable URLs associated with this workspace set.
                Format: accounts/{account_id}/stable-urls/{stable_url_id}.
                The referenced stable URLs must already exist (via CreateStableUrl)
@@ -23310,8 +24575,7 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgs:
     @pulumi.getter(name="replicateWorkspaceAssets")
     def replicate_workspace_assets(self) -> pulumi.Input[_builtins.bool]:
         """
-        Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set.
-        Requires all workspaces in the set to be Mission Critical tier
+        Whether to enable control plane DR (notebooks, jobs, clusters, etc.) for this set
         """
         return pulumi.get(self, "replicate_workspace_assets")
 
@@ -23324,7 +24588,7 @@ class DisasterRecoveryFailoverGroupWorkspaceSetArgs:
     def workspace_ids(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
         """
         Workspace IDs in this set. The system derives and validates regions.
-        EA: exactly 2 workspaces (one per region)
+        All workspaces must be in the Mission Critical tier
         """
         return pulumi.get(self, "workspace_ids")
 
@@ -25672,17 +26936,23 @@ class FeatureEngineeringFeatureSourceArgsDict(TypedDict):
     """
     A request-time data source
     """
+    stream_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringFeatureSourceStreamSourceArgsDict']]]
+    """
+    A Stream data source
+    """
 
 @pulumi.input_type
 class FeatureEngineeringFeatureSourceArgs:
     def __init__(__self__, *,
                  delta_table_source: pulumi.Input[Optional['FeatureEngineeringFeatureSourceDeltaTableSourceArgs']] = None,
                  kafka_source: pulumi.Input[Optional['FeatureEngineeringFeatureSourceKafkaSourceArgs']] = None,
-                 request_source: pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceArgs']] = None):
+                 request_source: pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceArgs']] = None,
+                 stream_source: pulumi.Input[Optional['FeatureEngineeringFeatureSourceStreamSourceArgs']] = None):
         """
         :param pulumi.Input['FeatureEngineeringFeatureSourceDeltaTableSourceArgs'] delta_table_source: A Delta table data source
         :param pulumi.Input['FeatureEngineeringFeatureSourceKafkaSourceArgs'] kafka_source: A Kafka stream data source
         :param pulumi.Input['FeatureEngineeringFeatureSourceRequestSourceArgs'] request_source: A request-time data source
+        :param pulumi.Input['FeatureEngineeringFeatureSourceStreamSourceArgs'] stream_source: A Stream data source
         """
         if delta_table_source is not None:
             pulumi.set(__self__, "delta_table_source", delta_table_source)
@@ -25690,6 +26960,8 @@ class FeatureEngineeringFeatureSourceArgs:
             pulumi.set(__self__, "kafka_source", kafka_source)
         if request_source is not None:
             pulumi.set(__self__, "request_source", request_source)
+        if stream_source is not None:
+            pulumi.set(__self__, "stream_source", stream_source)
 
     @_builtins.property
     @pulumi.getter(name="deltaTableSource")
@@ -25726,6 +26998,18 @@ class FeatureEngineeringFeatureSourceArgs:
     @request_source.setter
     def request_source(self, value: pulumi.Input[Optional['FeatureEngineeringFeatureSourceRequestSourceArgs']]):
         pulumi.set(self, "request_source", value)
+
+    @_builtins.property
+    @pulumi.getter(name="streamSource")
+    def stream_source(self) -> pulumi.Input[Optional['FeatureEngineeringFeatureSourceStreamSourceArgs']]:
+        """
+        A Stream data source
+        """
+        return pulumi.get(self, "stream_source")
+
+    @stream_source.setter
+    def stream_source(self, value: pulumi.Input[Optional['FeatureEngineeringFeatureSourceStreamSourceArgs']]):
+        pulumi.set(self, "stream_source", value)
 
 
 class FeatureEngineeringFeatureSourceDeltaTableSourceArgsDict(TypedDict):
@@ -26141,6 +27425,63 @@ class FeatureEngineeringFeatureSourceRequestSourceFlatSchemaFieldArgs:
     @name.setter
     def name(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "name", value)
+
+
+class FeatureEngineeringFeatureSourceStreamSourceArgsDict(TypedDict):
+    full_name: pulumi.Input[_builtins.str]
+    """
+    The full three-part name (catalog, schema, name) of the feature. This is the
+    feature's resource identifier; the catalog_name, schema_name, and name fields
+    below are OUTPUT_ONLY decomposed views of this value
+    """
+    filter_condition: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Deprecated: Use DeltaTableSource.filter_condition or KafkaSource.filter_condition instead. Kept for backwards compatibility.
+    The filter condition applied to the source data before aggregation
+    """
+
+@pulumi.input_type
+class FeatureEngineeringFeatureSourceStreamSourceArgs:
+    def __init__(__self__, *,
+                 full_name: pulumi.Input[_builtins.str],
+                 filter_condition: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] full_name: The full three-part name (catalog, schema, name) of the feature. This is the
+               feature's resource identifier; the catalog_name, schema_name, and name fields
+               below are OUTPUT_ONLY decomposed views of this value
+        :param pulumi.Input[_builtins.str] filter_condition: Deprecated: Use DeltaTableSource.filter_condition or KafkaSource.filter_condition instead. Kept for backwards compatibility.
+               The filter condition applied to the source data before aggregation
+        """
+        pulumi.set(__self__, "full_name", full_name)
+        if filter_condition is not None:
+            pulumi.set(__self__, "filter_condition", filter_condition)
+
+    @_builtins.property
+    @pulumi.getter(name="fullName")
+    def full_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The full three-part name (catalog, schema, name) of the feature. This is the
+        feature's resource identifier; the catalog_name, schema_name, and name fields
+        below are OUTPUT_ONLY decomposed views of this value
+        """
+        return pulumi.get(self, "full_name")
+
+    @full_name.setter
+    def full_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "full_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="filterCondition")
+    def filter_condition(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Deprecated: Use DeltaTableSource.filter_condition or KafkaSource.filter_condition instead. Kept for backwards compatibility.
+        The filter condition applied to the source data before aggregation
+        """
+        return pulumi.get(self, "filter_condition")
+
+    @filter_condition.setter
+    def filter_condition(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "filter_condition", value)
 
 
 class FeatureEngineeringFeatureTimeWindowArgsDict(TypedDict):
@@ -26729,9 +28070,6 @@ class FeatureEngineeringKafkaConfigAuthConfigMtlsConfigTruststorePasswordRefArgs
 
 class FeatureEngineeringKafkaConfigBackfillSourceArgsDict(TypedDict):
     delta_table_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
-    """
-    The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
-    """
     delta_table_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgsDict']]]
     """
     Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
@@ -26745,7 +28083,6 @@ class FeatureEngineeringKafkaConfigBackfillSourceArgs:
                  delta_table_name: pulumi.Input[Optional[_builtins.str]] = None,
                  delta_table_source: pulumi.Input[Optional['FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs']] = None):
         """
-        :param pulumi.Input[_builtins.str] delta_table_name: The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
         :param pulumi.Input['FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs'] delta_table_source: Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
                The Delta table source containing the historical data to backfill.
                Only the delta table name is used for backfill, other fields are ignored
@@ -26758,9 +28095,6 @@ class FeatureEngineeringKafkaConfigBackfillSourceArgs:
     @_builtins.property
     @pulumi.getter(name="deltaTableName")
     def delta_table_name(self) -> pulumi.Input[Optional[_builtins.str]]:
-        """
-        The full three-part name (catalog, schema, name) of the Delta table containing the historical data to backfill
-        """
         return pulumi.get(self, "delta_table_name")
 
     @delta_table_name.setter
@@ -26926,6 +28260,369 @@ class FeatureEngineeringKafkaConfigBackfillSourceDeltaTableSourceArgs:
     @transformation_sql.setter
     def transformation_sql(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "transformation_sql", value)
+
+
+class FeatureEngineeringKafkaConfigIngestionConfigArgsDict(TypedDict):
+    ingestion_destination: pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgsDict']
+    """
+    Destination for the Databricks-managed Delta table that holds an offline copy of the streaming data for querying and training.
+    This table contains both 1) forward-filled data from the Stream and 2) backfilled data from the BackfillSource (if provided).
+    This table is created and managed by Databricks and is deleted when the Stream is deleted
+    """
+    backfill_job_id: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    (integer) - The ID of the Databricks Job that performs the historical backfill of the ingestion Delta table
+    """
+    backfill_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgsDict']]]
+    """
+    A user-provided and managed source for backfilling data. Historical data is used when creating a training set from streaming features linked to this Kafka config.
+    In the future, a separate table will be maintained by Databricks for forward filling data.
+    The schema for this source must match exactly that of the key and value schemas specified for this Kafka config
+    """
+    deduplication_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    Column paths used to identify duplicate rows during ingestion; only one row per
+    distinct combination of these values is kept. Use dot notation for nested fields
+    (e.g. `value.user_id`). Empty list means every column is compared
+    """
+    ingestion_job_id: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    (integer) - The ID of the Databricks Job that performs the forward-fill ingestion
+    """
+    ingestion_pipeline_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    (string) - The ID of the SDP pipeline that continuously copies new events from the streaming source
+    into the ingestion Delta table
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigIngestionConfigArgs:
+    def __init__(__self__, *,
+                 ingestion_destination: pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgs'],
+                 backfill_job_id: pulumi.Input[Optional[_builtins.int]] = None,
+                 backfill_source: pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgs']] = None,
+                 deduplication_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 ingestion_job_id: pulumi.Input[Optional[_builtins.int]] = None,
+                 ingestion_pipeline_id: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgs'] ingestion_destination: Destination for the Databricks-managed Delta table that holds an offline copy of the streaming data for querying and training.
+               This table contains both 1) forward-filled data from the Stream and 2) backfilled data from the BackfillSource (if provided).
+               This table is created and managed by Databricks and is deleted when the Stream is deleted
+        :param pulumi.Input[_builtins.int] backfill_job_id: (integer) - The ID of the Databricks Job that performs the historical backfill of the ingestion Delta table
+        :param pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgs'] backfill_source: A user-provided and managed source for backfilling data. Historical data is used when creating a training set from streaming features linked to this Kafka config.
+               In the future, a separate table will be maintained by Databricks for forward filling data.
+               The schema for this source must match exactly that of the key and value schemas specified for this Kafka config
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] deduplication_columns: Column paths used to identify duplicate rows during ingestion; only one row per
+               distinct combination of these values is kept. Use dot notation for nested fields
+               (e.g. `value.user_id`). Empty list means every column is compared
+        :param pulumi.Input[_builtins.int] ingestion_job_id: (integer) - The ID of the Databricks Job that performs the forward-fill ingestion
+        :param pulumi.Input[_builtins.str] ingestion_pipeline_id: (string) - The ID of the SDP pipeline that continuously copies new events from the streaming source
+               into the ingestion Delta table
+        """
+        pulumi.set(__self__, "ingestion_destination", ingestion_destination)
+        if backfill_job_id is not None:
+            pulumi.set(__self__, "backfill_job_id", backfill_job_id)
+        if backfill_source is not None:
+            pulumi.set(__self__, "backfill_source", backfill_source)
+        if deduplication_columns is not None:
+            pulumi.set(__self__, "deduplication_columns", deduplication_columns)
+        if ingestion_job_id is not None:
+            pulumi.set(__self__, "ingestion_job_id", ingestion_job_id)
+        if ingestion_pipeline_id is not None:
+            pulumi.set(__self__, "ingestion_pipeline_id", ingestion_pipeline_id)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestionDestination")
+    def ingestion_destination(self) -> pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgs']:
+        """
+        Destination for the Databricks-managed Delta table that holds an offline copy of the streaming data for querying and training.
+        This table contains both 1) forward-filled data from the Stream and 2) backfilled data from the BackfillSource (if provided).
+        This table is created and managed by Databricks and is deleted when the Stream is deleted
+        """
+        return pulumi.get(self, "ingestion_destination")
+
+    @ingestion_destination.setter
+    def ingestion_destination(self, value: pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgs']):
+        pulumi.set(self, "ingestion_destination", value)
+
+    @_builtins.property
+    @pulumi.getter(name="backfillJobId")
+    def backfill_job_id(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        (integer) - The ID of the Databricks Job that performs the historical backfill of the ingestion Delta table
+        """
+        return pulumi.get(self, "backfill_job_id")
+
+    @backfill_job_id.setter
+    def backfill_job_id(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "backfill_job_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="backfillSource")
+    def backfill_source(self) -> pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgs']]:
+        """
+        A user-provided and managed source for backfilling data. Historical data is used when creating a training set from streaming features linked to this Kafka config.
+        In the future, a separate table will be maintained by Databricks for forward filling data.
+        The schema for this source must match exactly that of the key and value schemas specified for this Kafka config
+        """
+        return pulumi.get(self, "backfill_source")
+
+    @backfill_source.setter
+    def backfill_source(self, value: pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgs']]):
+        pulumi.set(self, "backfill_source", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deduplicationColumns")
+    def deduplication_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Column paths used to identify duplicate rows during ingestion; only one row per
+        distinct combination of these values is kept. Use dot notation for nested fields
+        (e.g. `value.user_id`). Empty list means every column is compared
+        """
+        return pulumi.get(self, "deduplication_columns")
+
+    @deduplication_columns.setter
+    def deduplication_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "deduplication_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestionJobId")
+    def ingestion_job_id(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        (integer) - The ID of the Databricks Job that performs the forward-fill ingestion
+        """
+        return pulumi.get(self, "ingestion_job_id")
+
+    @ingestion_job_id.setter
+    def ingestion_job_id(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "ingestion_job_id", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ingestionPipelineId")
+    def ingestion_pipeline_id(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        (string) - The ID of the SDP pipeline that continuously copies new events from the streaming source
+        into the ingestion Delta table
+        """
+        return pulumi.get(self, "ingestion_pipeline_id")
+
+    @ingestion_pipeline_id.setter
+    def ingestion_pipeline_id(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "ingestion_pipeline_id", value)
+
+
+class FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgsDict(TypedDict):
+    delta_table_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    delta_table_source: NotRequired[pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgsDict']]]
+    """
+    Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+    The Delta table source containing the historical data to backfill.
+    Only the delta table name is used for backfill, other fields are ignored
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceArgs:
+    def __init__(__self__, *,
+                 delta_table_name: pulumi.Input[Optional[_builtins.str]] = None,
+                 delta_table_source: pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgs']] = None):
+        """
+        :param pulumi.Input['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgs'] delta_table_source: Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+               The Delta table source containing the historical data to backfill.
+               Only the delta table name is used for backfill, other fields are ignored
+        """
+        if delta_table_name is not None:
+            pulumi.set(__self__, "delta_table_name", delta_table_name)
+        if delta_table_source is not None:
+            pulumi.set(__self__, "delta_table_source", delta_table_source)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableName")
+    def delta_table_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "delta_table_name")
+
+    @delta_table_name.setter
+    def delta_table_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "delta_table_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableSource")
+    def delta_table_source(self) -> pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgs']]:
+        """
+        Deprecated: Use delta_table_name instead. Kept for backwards compatibility.
+        The Delta table source containing the historical data to backfill.
+        Only the delta table name is used for backfill, other fields are ignored
+        """
+        return pulumi.get(self, "delta_table_source")
+
+    @delta_table_source.setter
+    def delta_table_source(self, value: pulumi.Input[Optional['FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgs']]):
+        pulumi.set(self, "delta_table_source", value)
+
+
+class FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgsDict(TypedDict):
+    full_name: pulumi.Input[_builtins.str]
+    """
+    The full three-part (catalog, schema, table) name of the Delta table
+    """
+    dataframe_schema: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Schema of the resulting dataframe after transformations, in Spark StructType JSON format (from df.schema.json()).
+    Required if transformation_sql is specified.
+    Example: {"type":"struct","fields":[{"name":"col_a","type":"integer","nullable":true,"metadata":{}},{"name":"col_c","type":"integer","nullable":true,"metadata":{}}]}
+    """
+    entity_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    """
+    Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
+    The entity columns of the Delta table
+    """
+    filter_condition: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Single WHERE clause to filter delta table before applying transformations. Will be row-wise evaluated, so should only include conditionals and projections
+    """
+    timeseries_column: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    Deprecated: Use Feature.timeseries_column instead. Kept for backwards compatibility.
+    The timeseries column of the Delta table
+    """
+    transformation_sql: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+    """
+    A single SQL SELECT expression applied after filter_condition.
+    Should contains all the columns needed (eg. "SELECT *, col_a + col_b AS col_c FROM x.y.z WHERE col_a > 0" would have `transformation_sql` "*, col_a + col_b AS col_c")
+    If transformation_sql is not provided, all columns of the delta table are present in the DataSource dataframe
+    """
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigIngestionConfigBackfillSourceDeltaTableSourceArgs:
+    def __init__(__self__, *,
+                 full_name: pulumi.Input[_builtins.str],
+                 dataframe_schema: pulumi.Input[Optional[_builtins.str]] = None,
+                 entity_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 filter_condition: pulumi.Input[Optional[_builtins.str]] = None,
+                 timeseries_column: pulumi.Input[Optional[_builtins.str]] = None,
+                 transformation_sql: pulumi.Input[Optional[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] full_name: The full three-part (catalog, schema, table) name of the Delta table
+        :param pulumi.Input[_builtins.str] dataframe_schema: Schema of the resulting dataframe after transformations, in Spark StructType JSON format (from df.schema.json()).
+               Required if transformation_sql is specified.
+               Example: {"type":"struct","fields":[{"name":"col_a","type":"integer","nullable":true,"metadata":{}},{"name":"col_c","type":"integer","nullable":true,"metadata":{}}]}
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] entity_columns: Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
+               The entity columns of the Delta table
+        :param pulumi.Input[_builtins.str] filter_condition: Single WHERE clause to filter delta table before applying transformations. Will be row-wise evaluated, so should only include conditionals and projections
+        :param pulumi.Input[_builtins.str] timeseries_column: Deprecated: Use Feature.timeseries_column instead. Kept for backwards compatibility.
+               The timeseries column of the Delta table
+        :param pulumi.Input[_builtins.str] transformation_sql: A single SQL SELECT expression applied after filter_condition.
+               Should contains all the columns needed (eg. "SELECT *, col_a + col_b AS col_c FROM x.y.z WHERE col_a > 0" would have `transformation_sql` "*, col_a + col_b AS col_c")
+               If transformation_sql is not provided, all columns of the delta table are present in the DataSource dataframe
+        """
+        pulumi.set(__self__, "full_name", full_name)
+        if dataframe_schema is not None:
+            pulumi.set(__self__, "dataframe_schema", dataframe_schema)
+        if entity_columns is not None:
+            pulumi.set(__self__, "entity_columns", entity_columns)
+        if filter_condition is not None:
+            pulumi.set(__self__, "filter_condition", filter_condition)
+        if timeseries_column is not None:
+            pulumi.set(__self__, "timeseries_column", timeseries_column)
+        if transformation_sql is not None:
+            pulumi.set(__self__, "transformation_sql", transformation_sql)
+
+    @_builtins.property
+    @pulumi.getter(name="fullName")
+    def full_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        The full three-part (catalog, schema, table) name of the Delta table
+        """
+        return pulumi.get(self, "full_name")
+
+    @full_name.setter
+    def full_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "full_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dataframeSchema")
+    def dataframe_schema(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Schema of the resulting dataframe after transformations, in Spark StructType JSON format (from df.schema.json()).
+        Required if transformation_sql is specified.
+        Example: {"type":"struct","fields":[{"name":"col_a","type":"integer","nullable":true,"metadata":{}},{"name":"col_c","type":"integer","nullable":true,"metadata":{}}]}
+        """
+        return pulumi.get(self, "dataframe_schema")
+
+    @dataframe_schema.setter
+    def dataframe_schema(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "dataframe_schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="entityColumns")
+    def entity_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Deprecated: Use Feature.entity instead. Kept for backwards compatibility.
+        The entity columns of the Delta table
+        """
+        return pulumi.get(self, "entity_columns")
+
+    @entity_columns.setter
+    def entity_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "entity_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="filterCondition")
+    def filter_condition(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Single WHERE clause to filter delta table before applying transformations. Will be row-wise evaluated, so should only include conditionals and projections
+        """
+        return pulumi.get(self, "filter_condition")
+
+    @filter_condition.setter
+    def filter_condition(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "filter_condition", value)
+
+    @_builtins.property
+    @pulumi.getter(name="timeseriesColumn")
+    def timeseries_column(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        Deprecated: Use Feature.timeseries_column instead. Kept for backwards compatibility.
+        The timeseries column of the Delta table
+        """
+        return pulumi.get(self, "timeseries_column")
+
+    @timeseries_column.setter
+    def timeseries_column(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "timeseries_column", value)
+
+    @_builtins.property
+    @pulumi.getter(name="transformationSql")
+    def transformation_sql(self) -> pulumi.Input[Optional[_builtins.str]]:
+        """
+        A single SQL SELECT expression applied after filter_condition.
+        Should contains all the columns needed (eg. "SELECT *, col_a + col_b AS col_c FROM x.y.z WHERE col_a > 0" would have `transformation_sql` "*, col_a + col_b AS col_c")
+        If transformation_sql is not provided, all columns of the delta table are present in the DataSource dataframe
+        """
+        return pulumi.get(self, "transformation_sql")
+
+    @transformation_sql.setter
+    def transformation_sql(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "transformation_sql", value)
+
+
+class FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgsDict(TypedDict):
+    delta_table_name: NotRequired[pulumi.Input[Optional[_builtins.str]]]
+
+@pulumi.input_type
+class FeatureEngineeringKafkaConfigIngestionConfigIngestionDestinationArgs:
+    def __init__(__self__, *,
+                 delta_table_name: pulumi.Input[Optional[_builtins.str]] = None):
+        if delta_table_name is not None:
+            pulumi.set(__self__, "delta_table_name", delta_table_name)
+
+    @_builtins.property
+    @pulumi.getter(name="deltaTableName")
+    def delta_table_name(self) -> pulumi.Input[Optional[_builtins.str]]:
+        return pulumi.get(self, "delta_table_name")
+
+    @delta_table_name.setter
+    def delta_table_name(self, value: pulumi.Input[Optional[_builtins.str]]):
+        pulumi.set(self, "delta_table_name", value)
 
 
 class FeatureEngineeringKafkaConfigKeySchemaArgsDict(TypedDict):
@@ -34077,6 +35774,9 @@ class JobTaskArgsDict(TypedDict):
     A flag to disable auto optimization in serverless tasks.
     """
     disabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (Bool) An optional flag to disable the task. If set to `true`, the task will not run even if it is part of a job.
+    """
     email_notifications: NotRequired[pulumi.Input[Optional['JobTaskEmailNotificationsArgsDict']]]
     """
     An optional block to specify a set of email addresses notified when this task begins, completes or fails. The default behavior is to not send any emails. This block is documented below.
@@ -34197,6 +35897,7 @@ class JobTaskArgs:
         :param pulumi.Input[Sequence[pulumi.Input['JobTaskDependsOnArgs']]] depends_ons: block specifying dependency(-ies) for a given task.
         :param pulumi.Input[_builtins.str] description: description for this task.
         :param pulumi.Input[_builtins.bool] disable_auto_optimization: A flag to disable auto optimization in serverless tasks.
+        :param pulumi.Input[_builtins.bool] disabled: (Bool) An optional flag to disable the task. If set to `true`, the task will not run even if it is part of a job.
         :param pulumi.Input['JobTaskEmailNotificationsArgs'] email_notifications: An optional block to specify a set of email addresses notified when this task begins, completes or fails. The default behavior is to not send any emails. This block is documented below.
         :param pulumi.Input[_builtins.str] environment_key: identifier of an `environment` block that is used to specify libraries.  Required for some tasks (`spark_python_task`, `python_wheel_task`, ...) running on serverless compute.
         :param pulumi.Input[_builtins.str] existing_cluster_id: Identifier of the interactive cluster to run job on.  *Note: running tasks on interactive clusters may lead to increased costs!*
@@ -34419,6 +36120,9 @@ class JobTaskArgs:
     @_builtins.property
     @pulumi.getter
     def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (Bool) An optional flag to disable the task. If set to `true`, the task will not run even if it is part of a job.
+        """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
@@ -35745,6 +37449,9 @@ class JobTaskForEachTaskTaskArgsDict(TypedDict):
     A flag to disable auto optimization in serverless tasks.
     """
     disabled: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    (Bool) An optional flag to disable the task. If set to `true`, the task will not run even if it is part of a job.
+    """
     email_notifications: NotRequired[pulumi.Input[Optional['JobTaskForEachTaskTaskEmailNotificationsArgsDict']]]
     """
     An optional block to specify a set of email addresses notified when this task begins, completes or fails. The default behavior is to not send any emails. This block is documented below.
@@ -35863,6 +37570,7 @@ class JobTaskForEachTaskTaskArgs:
         :param pulumi.Input[Sequence[pulumi.Input['JobTaskForEachTaskTaskDependsOnArgs']]] depends_ons: block specifying dependency(-ies) for a given task.
         :param pulumi.Input[_builtins.str] description: description for this task.
         :param pulumi.Input[_builtins.bool] disable_auto_optimization: A flag to disable auto optimization in serverless tasks.
+        :param pulumi.Input[_builtins.bool] disabled: (Bool) An optional flag to disable the task. If set to `true`, the task will not run even if it is part of a job.
         :param pulumi.Input['JobTaskForEachTaskTaskEmailNotificationsArgs'] email_notifications: An optional block to specify a set of email addresses notified when this task begins, completes or fails. The default behavior is to not send any emails. This block is documented below.
         :param pulumi.Input[_builtins.str] environment_key: identifier of an `environment` block that is used to specify libraries.  Required for some tasks (`spark_python_task`, `python_wheel_task`, ...) running on serverless compute.
         :param pulumi.Input[_builtins.str] existing_cluster_id: Identifier of the interactive cluster to run job on.  *Note: running tasks on interactive clusters may lead to increased costs!*
@@ -36083,6 +37791,9 @@ class JobTaskForEachTaskTaskArgs:
     @_builtins.property
     @pulumi.getter
     def disabled(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        (Bool) An optional flag to disable the task. If set to `true`, the task will not run even if it is part of a job.
+        """
         return pulumi.get(self, "disabled")
 
     @disabled.setter
@@ -53493,13 +55204,13 @@ class MwsNetworksGcpNetworkInfoArgs:
         pulumi.set(__self__, "subnet_region", subnet_region)
         pulumi.set(__self__, "vpc_id", vpc_id)
         if pod_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""pod_ip_range_name is deprecated: gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if pod_ip_range_name is not None:
             pulumi.set(__self__, "pod_ip_range_name", pod_ip_range_name)
         if service_ip_range_name is not None:
-            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
-            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
+            warnings.warn("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-vpc""", DeprecationWarning)
+            pulumi.log.warn("""service_ip_range_name is deprecated: gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-vpc""")
         if service_ip_range_name is not None:
             pulumi.set(__self__, "service_ip_range_name", service_ip_range_name)
 
@@ -53553,7 +55264,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="podIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.pod_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def pod_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "pod_ip_range_name")
 
@@ -53563,7 +55274,7 @@ class MwsNetworksGcpNetworkInfoArgs:
 
     @_builtins.property
     @pulumi.getter(name="serviceIpRangeName")
-    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-vpc""")
+    @_utilities.deprecated("""gcp_network_info.service_ip_range_name is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-vpc""")
     def service_ip_range_name(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "service_ip_range_name")
 
@@ -53821,13 +55532,13 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
                  gke_cluster_service_ip_range: pulumi.Input[Optional[_builtins.str]] = None):
         pulumi.set(__self__, "subnet_cidr", subnet_cidr)
         if gke_cluster_pod_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_pod_ip_range is deprecated: gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_pod_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_pod_ip_range", gke_cluster_pod_ip_range)
         if gke_cluster_service_ip_range is not None:
-            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
-            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+            warnings.warn("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""", DeprecationWarning)
+            pulumi.log.warn("""gke_cluster_service_ip_range is deprecated: gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
         if gke_cluster_service_ip_range is not None:
             pulumi.set(__self__, "gke_cluster_service_ip_range", gke_cluster_service_ip_range)
 
@@ -53842,7 +55553,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterPodIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_pod_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_pod_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_pod_ip_range")
 
@@ -53852,7 +55563,7 @@ class MwsWorkspacesGcpManagedNetworkConfigArgs:
 
     @_builtins.property
     @pulumi.getter(name="gkeClusterServiceIpRange")
-    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.117.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
+    @_utilities.deprecated("""gcp_managed_network_config.gke_cluster_service_ip_range is deprecated and will be removed in a future release. For more information, review the documentation at https://registry.terraform.io/providers/databricks/databricks/1.118.0/docs/guides/gcp-workspace#creating-a-databricks-workspace""")
     def gke_cluster_service_ip_range(self) -> pulumi.Input[Optional[_builtins.str]]:
         return pulumi.get(self, "gke_cluster_service_ip_range")
 
@@ -57384,6 +59095,8 @@ class PipelineIngestionDefinitionObjectReportArgs:
 
 class PipelineIngestionDefinitionObjectReportTableConfigurationArgsDict(TypedDict):
     auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationAutoFullRefreshPolicyArgsDict']]]
+    clustering_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    enable_auto_clustering: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -57392,12 +59105,15 @@ class PipelineIngestionDefinitionObjectReportTableConfigurationArgsDict(TypedDic
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    table_properties: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectReportTableConfigurationArgs:
     def __init__(__self__, *,
                  auto_full_refresh_policy: pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationAutoFullRefreshPolicyArgs']] = None,
+                 clustering_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 enable_auto_clustering: pulumi.Input[Optional[_builtins.bool]] = None,
                  exclude_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  include_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  primary_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -57406,9 +59122,14 @@ class PipelineIngestionDefinitionObjectReportTableConfigurationArgs:
                  salesforce_include_formula_fields: pulumi.Input[Optional[_builtins.bool]] = None,
                  scd_type: pulumi.Input[Optional[_builtins.str]] = None,
                  sequence_bies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 table_properties: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  workday_report_parameters: pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationWorkdayReportParametersArgs']] = None):
         if auto_full_refresh_policy is not None:
             pulumi.set(__self__, "auto_full_refresh_policy", auto_full_refresh_policy)
+        if clustering_columns is not None:
+            pulumi.set(__self__, "clustering_columns", clustering_columns)
+        if enable_auto_clustering is not None:
+            pulumi.set(__self__, "enable_auto_clustering", enable_auto_clustering)
         if exclude_columns is not None:
             pulumi.set(__self__, "exclude_columns", exclude_columns)
         if include_columns is not None:
@@ -57425,6 +59146,8 @@ class PipelineIngestionDefinitionObjectReportTableConfigurationArgs:
             pulumi.set(__self__, "scd_type", scd_type)
         if sequence_bies is not None:
             pulumi.set(__self__, "sequence_bies", sequence_bies)
+        if table_properties is not None:
+            pulumi.set(__self__, "table_properties", table_properties)
         if workday_report_parameters is not None:
             pulumi.set(__self__, "workday_report_parameters", workday_report_parameters)
 
@@ -57436,6 +59159,24 @@ class PipelineIngestionDefinitionObjectReportTableConfigurationArgs:
     @auto_full_refresh_policy.setter
     def auto_full_refresh_policy(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectReportTableConfigurationAutoFullRefreshPolicyArgs']]):
         pulumi.set(self, "auto_full_refresh_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clusteringColumns")
+    def clustering_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "clustering_columns")
+
+    @clustering_columns.setter
+    def clustering_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "clustering_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableAutoClustering")
+    def enable_auto_clustering(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "enable_auto_clustering")
+
+    @enable_auto_clustering.setter
+    def enable_auto_clustering(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "enable_auto_clustering", value)
 
     @_builtins.property
     @pulumi.getter(name="excludeColumns")
@@ -57508,6 +59249,15 @@ class PipelineIngestionDefinitionObjectReportTableConfigurationArgs:
     @sequence_bies.setter
     def sequence_bies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sequence_bies", value)
+
+    @_builtins.property
+    @pulumi.getter(name="tableProperties")
+    def table_properties(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "table_properties")
+
+    @table_properties.setter
+    def table_properties(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "table_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="workdayReportParameters")
@@ -59209,6 +60959,8 @@ class PipelineIngestionDefinitionObjectSchemaConnectorOptionsZendeskSupportOptio
 
 class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgsDict(TypedDict):
     auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicyArgsDict']]]
+    clustering_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    enable_auto_clustering: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -59217,12 +60969,15 @@ class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgsDict(TypedDic
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    table_properties: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs:
     def __init__(__self__, *,
                  auto_full_refresh_policy: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicyArgs']] = None,
+                 clustering_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 enable_auto_clustering: pulumi.Input[Optional[_builtins.bool]] = None,
                  exclude_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  include_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  primary_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -59231,9 +60986,14 @@ class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs:
                  salesforce_include_formula_fields: pulumi.Input[Optional[_builtins.bool]] = None,
                  scd_type: pulumi.Input[Optional[_builtins.str]] = None,
                  sequence_bies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 table_properties: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  workday_report_parameters: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationWorkdayReportParametersArgs']] = None):
         if auto_full_refresh_policy is not None:
             pulumi.set(__self__, "auto_full_refresh_policy", auto_full_refresh_policy)
+        if clustering_columns is not None:
+            pulumi.set(__self__, "clustering_columns", clustering_columns)
+        if enable_auto_clustering is not None:
+            pulumi.set(__self__, "enable_auto_clustering", enable_auto_clustering)
         if exclude_columns is not None:
             pulumi.set(__self__, "exclude_columns", exclude_columns)
         if include_columns is not None:
@@ -59250,6 +61010,8 @@ class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs:
             pulumi.set(__self__, "scd_type", scd_type)
         if sequence_bies is not None:
             pulumi.set(__self__, "sequence_bies", sequence_bies)
+        if table_properties is not None:
+            pulumi.set(__self__, "table_properties", table_properties)
         if workday_report_parameters is not None:
             pulumi.set(__self__, "workday_report_parameters", workday_report_parameters)
 
@@ -59261,6 +61023,24 @@ class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs:
     @auto_full_refresh_policy.setter
     def auto_full_refresh_policy(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectSchemaTableConfigurationAutoFullRefreshPolicyArgs']]):
         pulumi.set(self, "auto_full_refresh_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clusteringColumns")
+    def clustering_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "clustering_columns")
+
+    @clustering_columns.setter
+    def clustering_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "clustering_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableAutoClustering")
+    def enable_auto_clustering(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "enable_auto_clustering")
+
+    @enable_auto_clustering.setter
+    def enable_auto_clustering(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "enable_auto_clustering", value)
 
     @_builtins.property
     @pulumi.getter(name="excludeColumns")
@@ -59333,6 +61113,15 @@ class PipelineIngestionDefinitionObjectSchemaTableConfigurationArgs:
     @sequence_bies.setter
     def sequence_bies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sequence_bies", value)
+
+    @_builtins.property
+    @pulumi.getter(name="tableProperties")
+    def table_properties(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "table_properties")
+
+    @table_properties.setter
+    def table_properties(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "table_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="workdayReportParameters")
@@ -61060,6 +62849,8 @@ class PipelineIngestionDefinitionObjectTableConnectorOptionsZendeskSupportOption
 
 class PipelineIngestionDefinitionObjectTableTableConfigurationArgsDict(TypedDict):
     auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicyArgsDict']]]
+    clustering_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    enable_auto_clustering: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -61068,12 +62859,15 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationArgsDict(TypedDict
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    table_properties: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionObjectTableTableConfigurationArgs:
     def __init__(__self__, *,
                  auto_full_refresh_policy: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicyArgs']] = None,
+                 clustering_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 enable_auto_clustering: pulumi.Input[Optional[_builtins.bool]] = None,
                  exclude_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  include_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  primary_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -61082,9 +62876,14 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationArgs:
                  salesforce_include_formula_fields: pulumi.Input[Optional[_builtins.bool]] = None,
                  scd_type: pulumi.Input[Optional[_builtins.str]] = None,
                  sequence_bies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 table_properties: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  workday_report_parameters: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationWorkdayReportParametersArgs']] = None):
         if auto_full_refresh_policy is not None:
             pulumi.set(__self__, "auto_full_refresh_policy", auto_full_refresh_policy)
+        if clustering_columns is not None:
+            pulumi.set(__self__, "clustering_columns", clustering_columns)
+        if enable_auto_clustering is not None:
+            pulumi.set(__self__, "enable_auto_clustering", enable_auto_clustering)
         if exclude_columns is not None:
             pulumi.set(__self__, "exclude_columns", exclude_columns)
         if include_columns is not None:
@@ -61101,6 +62900,8 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationArgs:
             pulumi.set(__self__, "scd_type", scd_type)
         if sequence_bies is not None:
             pulumi.set(__self__, "sequence_bies", sequence_bies)
+        if table_properties is not None:
+            pulumi.set(__self__, "table_properties", table_properties)
         if workday_report_parameters is not None:
             pulumi.set(__self__, "workday_report_parameters", workday_report_parameters)
 
@@ -61112,6 +62913,24 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationArgs:
     @auto_full_refresh_policy.setter
     def auto_full_refresh_policy(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionObjectTableTableConfigurationAutoFullRefreshPolicyArgs']]):
         pulumi.set(self, "auto_full_refresh_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clusteringColumns")
+    def clustering_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "clustering_columns")
+
+    @clustering_columns.setter
+    def clustering_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "clustering_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableAutoClustering")
+    def enable_auto_clustering(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "enable_auto_clustering")
+
+    @enable_auto_clustering.setter
+    def enable_auto_clustering(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "enable_auto_clustering", value)
 
     @_builtins.property
     @pulumi.getter(name="excludeColumns")
@@ -61184,6 +63003,15 @@ class PipelineIngestionDefinitionObjectTableTableConfigurationArgs:
     @sequence_bies.setter
     def sequence_bies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sequence_bies", value)
+
+    @_builtins.property
+    @pulumi.getter(name="tableProperties")
+    def table_properties(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "table_properties")
+
+    @table_properties.setter
+    def table_properties(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "table_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="workdayReportParameters")
@@ -61502,6 +63330,8 @@ class PipelineIngestionDefinitionSourceConfigurationGoogleAdsConfigArgs:
 
 class PipelineIngestionDefinitionTableConfigurationArgsDict(TypedDict):
     auto_full_refresh_policy: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationAutoFullRefreshPolicyArgsDict']]]
+    clustering_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    enable_auto_clustering: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     exclude_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     include_columns: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
     primary_keys: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
@@ -61510,12 +63340,15 @@ class PipelineIngestionDefinitionTableConfigurationArgsDict(TypedDict):
     salesforce_include_formula_fields: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
     scd_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     sequence_bies: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]]
+    table_properties: NotRequired[pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]]
     workday_report_parameters: NotRequired[pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersArgsDict']]]
 
 @pulumi.input_type
 class PipelineIngestionDefinitionTableConfigurationArgs:
     def __init__(__self__, *,
                  auto_full_refresh_policy: pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationAutoFullRefreshPolicyArgs']] = None,
+                 clustering_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 enable_auto_clustering: pulumi.Input[Optional[_builtins.bool]] = None,
                  exclude_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  include_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  primary_keys: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -61524,9 +63357,14 @@ class PipelineIngestionDefinitionTableConfigurationArgs:
                  salesforce_include_formula_fields: pulumi.Input[Optional[_builtins.bool]] = None,
                  scd_type: pulumi.Input[Optional[_builtins.str]] = None,
                  sequence_bies: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 table_properties: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  workday_report_parameters: pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationWorkdayReportParametersArgs']] = None):
         if auto_full_refresh_policy is not None:
             pulumi.set(__self__, "auto_full_refresh_policy", auto_full_refresh_policy)
+        if clustering_columns is not None:
+            pulumi.set(__self__, "clustering_columns", clustering_columns)
+        if enable_auto_clustering is not None:
+            pulumi.set(__self__, "enable_auto_clustering", enable_auto_clustering)
         if exclude_columns is not None:
             pulumi.set(__self__, "exclude_columns", exclude_columns)
         if include_columns is not None:
@@ -61543,6 +63381,8 @@ class PipelineIngestionDefinitionTableConfigurationArgs:
             pulumi.set(__self__, "scd_type", scd_type)
         if sequence_bies is not None:
             pulumi.set(__self__, "sequence_bies", sequence_bies)
+        if table_properties is not None:
+            pulumi.set(__self__, "table_properties", table_properties)
         if workday_report_parameters is not None:
             pulumi.set(__self__, "workday_report_parameters", workday_report_parameters)
 
@@ -61554,6 +63394,24 @@ class PipelineIngestionDefinitionTableConfigurationArgs:
     @auto_full_refresh_policy.setter
     def auto_full_refresh_policy(self, value: pulumi.Input[Optional['PipelineIngestionDefinitionTableConfigurationAutoFullRefreshPolicyArgs']]):
         pulumi.set(self, "auto_full_refresh_policy", value)
+
+    @_builtins.property
+    @pulumi.getter(name="clusteringColumns")
+    def clustering_columns(self) -> pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "clustering_columns")
+
+    @clustering_columns.setter
+    def clustering_columns(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "clustering_columns", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableAutoClustering")
+    def enable_auto_clustering(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        return pulumi.get(self, "enable_auto_clustering")
+
+    @enable_auto_clustering.setter
+    def enable_auto_clustering(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "enable_auto_clustering", value)
 
     @_builtins.property
     @pulumi.getter(name="excludeColumns")
@@ -61626,6 +63484,15 @@ class PipelineIngestionDefinitionTableConfigurationArgs:
     @sequence_bies.setter
     def sequence_bies(self, value: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "sequence_bies", value)
+
+    @_builtins.property
+    @pulumi.getter(name="tableProperties")
+    def table_properties(self) -> pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        return pulumi.get(self, "table_properties")
+
+    @table_properties.setter
+    def table_properties(self, value: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "table_properties", value)
 
     @_builtins.property
     @pulumi.getter(name="workdayReportParameters")
@@ -62785,9 +64652,7 @@ class PostgresBranchSpecArgs:
 class PostgresBranchStatusArgsDict(TypedDict):
     branch_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The ID to use for the Branch. This becomes the final component of the branch's resource name.
-    The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-    For example, `development` becomes `projects/my-app/branches/development`
+    The part of the name, chosen by the user when the resource was created
     """
     current_state: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -62858,9 +64723,7 @@ class PostgresBranchStatusArgs:
                  source_branch_time: pulumi.Input[Optional[_builtins.str]] = None,
                  state_change_time: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] branch_id: The ID to use for the Branch. This becomes the final component of the branch's resource name.
-               The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-               For example, `development` becomes `projects/my-app/branches/development`
+        :param pulumi.Input[_builtins.str] branch_id: The part of the name, chosen by the user when the resource was created
         :param pulumi.Input[_builtins.str] current_state: (string) - The branch's state, indicating if it is initializing, ready for use, or archived. Possible values are: `ARCHIVED`, `DELETED`, `IMPORTING`, `INIT`, `READY`, `RESETTING`
         :param pulumi.Input[_builtins.bool] default: (boolean) - Whether the branch is the project's default branch
         :param pulumi.Input[_builtins.str] delete_time: (string) - A timestamp indicating when the branch was deleted.
@@ -62908,9 +64771,7 @@ class PostgresBranchStatusArgs:
     @pulumi.getter(name="branchId")
     def branch_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID to use for the Branch. This becomes the final component of the branch's resource name.
-        The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-        For example, `development` becomes `projects/my-app/branches/development`
+        The part of the name, chosen by the user when the resource was created
         """
         return pulumi.get(self, "branch_id")
 
@@ -63309,14 +65170,7 @@ class PostgresDatabaseSpecArgs:
 class PostgresDatabaseStatusArgsDict(TypedDict):
     database_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The ID to use for the Database, which will become the final component of
-    the database's resource name.
-    This ID becomes the database name in postgres.
-
-    This value should be 4-63 characters, and only use characters available in DNS names,
-    as defined by RFC-1123
-
-    If database_id is not specified in the request, it is generated automatically
+    (string) - Part of the resource name
     """
     postgres_database: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     role: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -63328,14 +65182,7 @@ class PostgresDatabaseStatusArgs:
                  postgres_database: pulumi.Input[Optional[_builtins.str]] = None,
                  role: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] database_id: The ID to use for the Database, which will become the final component of
-               the database's resource name.
-               This ID becomes the database name in postgres.
-               
-               This value should be 4-63 characters, and only use characters available in DNS names,
-               as defined by RFC-1123
-               
-               If database_id is not specified in the request, it is generated automatically
+        :param pulumi.Input[_builtins.str] database_id: (string) - Part of the resource name
         """
         if database_id is not None:
             pulumi.set(__self__, "database_id", database_id)
@@ -63348,14 +65195,7 @@ class PostgresDatabaseStatusArgs:
     @pulumi.getter(name="databaseId")
     def database_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID to use for the Database, which will become the final component of
-        the database's resource name.
-        This ID becomes the database name in postgres.
-
-        This value should be 4-63 characters, and only use characters available in DNS names,
-        as defined by RFC-1123
-
-        If database_id is not specified in the request, it is generated automatically
+        (string) - Part of the resource name
         """
         return pulumi.get(self, "database_id")
 
@@ -63705,9 +65545,7 @@ class PostgresEndpointStatusArgsDict(TypedDict):
     """
     endpoint_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
-    The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-    For example, `primary` becomes `projects/my-app/branches/development/endpoints/primary`
+    The part of the name, chosen by the user when the resource was created
     """
     endpoint_type: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
@@ -63757,9 +65595,7 @@ class PostgresEndpointStatusArgs:
                Enabling this option schedules a suspend compute operation.
                A disabled compute endpoint cannot be enabled by a connection or
                console action
-        :param pulumi.Input[_builtins.str] endpoint_id: The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
-               The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-               For example, `primary` becomes `projects/my-app/branches/development/endpoints/primary`
+        :param pulumi.Input[_builtins.str] endpoint_id: The part of the name, chosen by the user when the resource was created
         :param pulumi.Input[_builtins.str] endpoint_type: (string) - The endpoint type. A branch can only have one READ_WRITE endpoint. Possible values are: `ENDPOINT_TYPE_READ_ONLY`, `ENDPOINT_TYPE_READ_WRITE`
         :param pulumi.Input['PostgresEndpointStatusGroupArgs'] group: (EndpointGroupStatus) - Details on the HA configuration of the endpoint
         :param pulumi.Input['PostgresEndpointStatusHostsArgs'] hosts: (EndpointHosts) - Contains host information for connecting to the endpoint
@@ -63846,9 +65682,7 @@ class PostgresEndpointStatusArgs:
     @pulumi.getter(name="endpointId")
     def endpoint_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID to use for the Endpoint. This becomes the final component of the endpoint's resource name.
-        The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-        For example, `primary` becomes `projects/my-app/branches/development/endpoints/primary`
+        The part of the name, chosen by the user when the resource was created
         """
         return pulumi.get(self, "endpoint_id")
 
@@ -64591,9 +66425,7 @@ class PostgresProjectStatusArgsDict(TypedDict):
     """
     project_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The ID to use for the Project. This becomes the final component of the project's resource name.
-    The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-    For example, `my-app` becomes `projects/my-app`
+    The part of the name, chosen by the user when the resource was created
     """
     synthetic_storage_size_bytes: NotRequired[pulumi.Input[Optional[_builtins.int]]]
     """
@@ -64626,9 +66458,7 @@ class PostgresProjectStatusArgs:
         :param pulumi.Input[_builtins.str] history_retention_duration: (string) - The effective number of seconds to retain the shared history for point in time recovery
         :param pulumi.Input[_builtins.str] owner: (string) - The email of the project owner
         :param pulumi.Input[_builtins.int] pg_version: (integer) - The effective major Postgres version number
-        :param pulumi.Input[_builtins.str] project_id: The ID to use for the Project. This becomes the final component of the project's resource name.
-               The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-               For example, `my-app` becomes `projects/my-app`
+        :param pulumi.Input[_builtins.str] project_id: The part of the name, chosen by the user when the resource was created
         :param pulumi.Input[_builtins.int] synthetic_storage_size_bytes: (integer) - The current space occupied by the project in storage
         """
         if branch_logical_size_limit_bytes is not None:
@@ -64780,9 +66610,7 @@ class PostgresProjectStatusArgs:
     @pulumi.getter(name="projectId")
     def project_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID to use for the Project. This becomes the final component of the project's resource name.
-        The ID is required and must be 1-63 characters long, start with a lowercase letter, and contain only lowercase letters, numbers, and hyphens.
-        For example, `my-app` becomes `projects/my-app`
+        The part of the name, chosen by the user when the resource was created
         """
         return pulumi.get(self, "project_id")
 
@@ -65128,14 +66956,7 @@ class PostgresRoleStatusArgsDict(TypedDict):
     postgres_role: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     role_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
-    The ID to use for the Role, which will become the final component of
-    the role's resource name.
-    This ID becomes the role in Postgres.
-
-    This value should be 4-63 characters, and valid characters
-    are lowercase letters, numbers, and hyphens, as defined by RFC 1123.
-
-    If role_id is not specified in the request, it is generated automatically
+    (string) - Part of the resource name
     """
 
 @pulumi.input_type
@@ -65148,14 +66969,7 @@ class PostgresRoleStatusArgs:
                  postgres_role: pulumi.Input[Optional[_builtins.str]] = None,
                  role_id: pulumi.Input[Optional[_builtins.str]] = None):
         """
-        :param pulumi.Input[_builtins.str] role_id: The ID to use for the Role, which will become the final component of
-               the role's resource name.
-               This ID becomes the role in Postgres.
-               
-               This value should be 4-63 characters, and valid characters
-               are lowercase letters, numbers, and hyphens, as defined by RFC 1123.
-               
-               If role_id is not specified in the request, it is generated automatically
+        :param pulumi.Input[_builtins.str] role_id: (string) - Part of the resource name
         """
         if attributes is not None:
             pulumi.set(__self__, "attributes", attributes)
@@ -65219,14 +67033,7 @@ class PostgresRoleStatusArgs:
     @pulumi.getter(name="roleId")
     def role_id(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
-        The ID to use for the Role, which will become the final component of
-        the role's resource name.
-        This ID becomes the role in Postgres.
-
-        This value should be 4-63 characters, and valid characters
-        are lowercase letters, numbers, and hyphens, as defined by RFC 1123.
-
-        If role_id is not specified in the request, it is generated automatically
+        (string) - Part of the resource name
         """
         return pulumi.get(self, "role_id")
 
@@ -65311,6 +67118,12 @@ class PostgresSyncedTableProviderConfigArgs:
 
 
 class PostgresSyncedTableSpecArgsDict(TypedDict):
+    accelerated_sync: NotRequired[pulumi.Input[Optional[_builtins.bool]]]
+    """
+    When true, enables accelerated sync mode for the initial data load.
+    This significantly improves performance for large tables.
+    Requires workspace-level enablement through Lakebase Accelerated Sync preview
+    """
     branch: NotRequired[pulumi.Input[Optional[_builtins.str]]]
     """
     The full resource name the branch associated with the table.
@@ -65369,10 +67182,16 @@ class PostgresSyncedTableSpecArgsDict(TypedDict):
     """
     Time series key to deduplicate (tie-break) rows with the same primary key
     """
+    type_overrides: NotRequired[pulumi.Input[Optional[Sequence[pulumi.Input['PostgresSyncedTableSpecTypeOverrideArgsDict']]]]]
+    """
+    Override the default Delta->PG type mapping for specific columns.
+    A TypeOverride with PG_SPECIFIC_TYPE_UNSPECIFIED is rejected; a valid pg_type must be set
+    """
 
 @pulumi.input_type
 class PostgresSyncedTableSpecArgs:
     def __init__(__self__, *,
+                 accelerated_sync: pulumi.Input[Optional[_builtins.bool]] = None,
                  branch: pulumi.Input[Optional[_builtins.str]] = None,
                  create_database_objects_if_missing: pulumi.Input[Optional[_builtins.bool]] = None,
                  existing_pipeline_id: pulumi.Input[Optional[_builtins.str]] = None,
@@ -65381,8 +67200,12 @@ class PostgresSyncedTableSpecArgs:
                  primary_key_columns: pulumi.Input[Optional[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  scheduling_policy: pulumi.Input[Optional[_builtins.str]] = None,
                  source_table_full_name: pulumi.Input[Optional[_builtins.str]] = None,
-                 timeseries_key: pulumi.Input[Optional[_builtins.str]] = None):
+                 timeseries_key: pulumi.Input[Optional[_builtins.str]] = None,
+                 type_overrides: pulumi.Input[Optional[Sequence[pulumi.Input['PostgresSyncedTableSpecTypeOverrideArgs']]]] = None):
         """
+        :param pulumi.Input[_builtins.bool] accelerated_sync: When true, enables accelerated sync mode for the initial data load.
+               This significantly improves performance for large tables.
+               Requires workspace-level enablement through Lakebase Accelerated Sync preview
         :param pulumi.Input[_builtins.str] branch: The full resource name the branch associated with the table.
                
                Format: "projects/{project_id}/branches/{branch_id}"
@@ -65414,7 +67237,11 @@ class PostgresSyncedTableSpecArgs:
                * synced_table_id used at the creation of the SyncedTable
                * "name" consisting of "synced_tables/" prefix and the full name of the destination table
         :param pulumi.Input[_builtins.str] timeseries_key: Time series key to deduplicate (tie-break) rows with the same primary key
+        :param pulumi.Input[Sequence[pulumi.Input['PostgresSyncedTableSpecTypeOverrideArgs']]] type_overrides: Override the default Delta->PG type mapping for specific columns.
+               A TypeOverride with PG_SPECIFIC_TYPE_UNSPECIFIED is rejected; a valid pg_type must be set
         """
+        if accelerated_sync is not None:
+            pulumi.set(__self__, "accelerated_sync", accelerated_sync)
         if branch is not None:
             pulumi.set(__self__, "branch", branch)
         if create_database_objects_if_missing is not None:
@@ -65433,6 +67260,22 @@ class PostgresSyncedTableSpecArgs:
             pulumi.set(__self__, "source_table_full_name", source_table_full_name)
         if timeseries_key is not None:
             pulumi.set(__self__, "timeseries_key", timeseries_key)
+        if type_overrides is not None:
+            pulumi.set(__self__, "type_overrides", type_overrides)
+
+    @_builtins.property
+    @pulumi.getter(name="acceleratedSync")
+    def accelerated_sync(self) -> pulumi.Input[Optional[_builtins.bool]]:
+        """
+        When true, enables accelerated sync mode for the initial data load.
+        This significantly improves performance for large tables.
+        Requires workspace-level enablement through Lakebase Accelerated Sync preview
+        """
+        return pulumi.get(self, "accelerated_sync")
+
+    @accelerated_sync.setter
+    def accelerated_sync(self, value: pulumi.Input[Optional[_builtins.bool]]):
+        pulumi.set(self, "accelerated_sync", value)
 
     @_builtins.property
     @pulumi.getter
@@ -65564,6 +67407,19 @@ class PostgresSyncedTableSpecArgs:
     def timeseries_key(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "timeseries_key", value)
 
+    @_builtins.property
+    @pulumi.getter(name="typeOverrides")
+    def type_overrides(self) -> pulumi.Input[Optional[Sequence[pulumi.Input['PostgresSyncedTableSpecTypeOverrideArgs']]]]:
+        """
+        Override the default Delta->PG type mapping for specific columns.
+        A TypeOverride with PG_SPECIFIC_TYPE_UNSPECIFIED is rejected; a valid pg_type must be set
+        """
+        return pulumi.get(self, "type_overrides")
+
+    @type_overrides.setter
+    def type_overrides(self, value: pulumi.Input[Optional[Sequence[pulumi.Input['PostgresSyncedTableSpecTypeOverrideArgs']]]]):
+        pulumi.set(self, "type_overrides", value)
+
 
 class PostgresSyncedTableSpecNewPipelineSpecArgsDict(TypedDict):
     budget_policy_id: NotRequired[pulumi.Input[Optional[_builtins.str]]]
@@ -65638,6 +67494,76 @@ class PostgresSyncedTableSpecNewPipelineSpecArgs:
     @storage_schema.setter
     def storage_schema(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "storage_schema", value)
+
+
+class PostgresSyncedTableSpecTypeOverrideArgsDict(TypedDict):
+    column_name: pulumi.Input[_builtins.str]
+    """
+    Name of the source column whose target PostgreSQL type should be overridden
+    """
+    pg_type: pulumi.Input[_builtins.str]
+    """
+    PostgreSQL-specific target type to use for the column. Possible values are: `PG_SPECIFIC_TYPE_VECTOR`
+    """
+    size: NotRequired[pulumi.Input[Optional[_builtins.int]]]
+    """
+    Size parameter for the target type. Required when pg_type is PG_SPECIFIC_TYPE_VECTOR
+    (specifies the vector dimension, e.g., 1024)
+    """
+
+@pulumi.input_type
+class PostgresSyncedTableSpecTypeOverrideArgs:
+    def __init__(__self__, *,
+                 column_name: pulumi.Input[_builtins.str],
+                 pg_type: pulumi.Input[_builtins.str],
+                 size: pulumi.Input[Optional[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.str] column_name: Name of the source column whose target PostgreSQL type should be overridden
+        :param pulumi.Input[_builtins.str] pg_type: PostgreSQL-specific target type to use for the column. Possible values are: `PG_SPECIFIC_TYPE_VECTOR`
+        :param pulumi.Input[_builtins.int] size: Size parameter for the target type. Required when pg_type is PG_SPECIFIC_TYPE_VECTOR
+               (specifies the vector dimension, e.g., 1024)
+        """
+        pulumi.set(__self__, "column_name", column_name)
+        pulumi.set(__self__, "pg_type", pg_type)
+        if size is not None:
+            pulumi.set(__self__, "size", size)
+
+    @_builtins.property
+    @pulumi.getter(name="columnName")
+    def column_name(self) -> pulumi.Input[_builtins.str]:
+        """
+        Name of the source column whose target PostgreSQL type should be overridden
+        """
+        return pulumi.get(self, "column_name")
+
+    @column_name.setter
+    def column_name(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "column_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pgType")
+    def pg_type(self) -> pulumi.Input[_builtins.str]:
+        """
+        PostgreSQL-specific target type to use for the column. Possible values are: `PG_SPECIFIC_TYPE_VECTOR`
+        """
+        return pulumi.get(self, "pg_type")
+
+    @pg_type.setter
+    def pg_type(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "pg_type", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def size(self) -> pulumi.Input[Optional[_builtins.int]]:
+        """
+        Size parameter for the target type. Required when pg_type is PG_SPECIFIC_TYPE_VECTOR
+        (specifies the vector dimension, e.g., 1024)
+        """
+        return pulumi.get(self, "size")
+
+    @size.setter
+    def size(self, value: pulumi.Input[Optional[_builtins.int]]):
+        pulumi.set(self, "size", value)
 
 
 class PostgresSyncedTableStatusArgsDict(TypedDict):
@@ -74196,6 +76122,118 @@ class WorkspaceSettingV2StringValArgs:
         pulumi.set(self, "value", value)
 
 
+class GetAiSearchEndpointProviderConfigArgsDict(TypedDict):
+    workspace_id: _builtins.str
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class GetAiSearchEndpointProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: _builtins.str):
+        pulumi.set(self, "workspace_id", value)
+
+
+class GetAiSearchEndpointsProviderConfigArgsDict(TypedDict):
+    workspace_id: _builtins.str
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class GetAiSearchEndpointsProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: _builtins.str):
+        pulumi.set(self, "workspace_id", value)
+
+
+class GetAiSearchIndexProviderConfigArgsDict(TypedDict):
+    workspace_id: _builtins.str
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class GetAiSearchIndexProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: _builtins.str):
+        pulumi.set(self, "workspace_id", value)
+
+
+class GetAiSearchIndexesProviderConfigArgsDict(TypedDict):
+    workspace_id: _builtins.str
+    """
+    Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+    """
+
+@pulumi.input_type
+class GetAiSearchIndexesProviderConfigArgs:
+    def __init__(__self__, *,
+                 workspace_id: _builtins.str):
+        """
+        :param _builtins.str workspace_id: Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        pulumi.set(__self__, "workspace_id", workspace_id)
+
+    @_builtins.property
+    @pulumi.getter(name="workspaceId")
+    def workspace_id(self) -> _builtins.str:
+        """
+        Workspace ID which the resource belongs to. This workspace must be part of the account which the provider is configured with.
+        """
+        return pulumi.get(self, "workspace_id")
+
+    @workspace_id.setter
+    def workspace_id(self, value: _builtins.str):
+        pulumi.set(self, "workspace_id", value)
+
+
 class GetAlertV2ProviderConfigArgsDict(TypedDict):
     workspace_id: _builtins.str
     """
@@ -74557,6 +76595,7 @@ class GetCatalogCatalogInfoArgsDict(TypedDict):
     """
     Username of catalog creator.
     """
+    custom_max_retention_hours: NotRequired[_builtins.int]
     effective_predictive_optimization_flag: NotRequired['GetCatalogCatalogInfoEffectivePredictiveOptimizationFlagArgsDict']
     """
     object describing applied predictive optimization flag.
@@ -74633,6 +76672,7 @@ class GetCatalogCatalogInfoArgs:
                  connection_name: Optional[_builtins.str] = None,
                  created_at: Optional[_builtins.int] = None,
                  created_by: Optional[_builtins.str] = None,
+                 custom_max_retention_hours: Optional[_builtins.int] = None,
                  effective_predictive_optimization_flag: Optional['GetCatalogCatalogInfoEffectivePredictiveOptimizationFlagArgs'] = None,
                  enable_predictive_optimization: Optional[_builtins.str] = None,
                  full_name: Optional[_builtins.str] = None,
@@ -74686,6 +76726,8 @@ class GetCatalogCatalogInfoArgs:
             pulumi.set(__self__, "created_at", created_at)
         if created_by is not None:
             pulumi.set(__self__, "created_by", created_by)
+        if custom_max_retention_hours is not None:
+            pulumi.set(__self__, "custom_max_retention_hours", custom_max_retention_hours)
         if effective_predictive_optimization_flag is not None:
             pulumi.set(__self__, "effective_predictive_optimization_flag", effective_predictive_optimization_flag)
         if enable_predictive_optimization is not None:
@@ -74791,6 +76833,15 @@ class GetCatalogCatalogInfoArgs:
     @created_by.setter
     def created_by(self, value: Optional[_builtins.str]):
         pulumi.set(self, "created_by", value)
+
+    @_builtins.property
+    @pulumi.getter(name="customMaxRetentionHours")
+    def custom_max_retention_hours(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "custom_max_retention_hours")
+
+    @custom_max_retention_hours.setter
+    def custom_max_retention_hours(self, value: Optional[_builtins.int]):
+        pulumi.set(self, "custom_max_retention_hours", value)
 
     @_builtins.property
     @pulumi.getter(name="effectivePredictiveOptimizationFlag")
@@ -99727,6 +101778,7 @@ class GetSchemaSchemaInfoArgsDict(TypedDict):
     """
     username of schema creator.
     """
+    custom_max_retention_hours: NotRequired[_builtins.int]
     effective_predictive_optimization_flag: NotRequired['GetSchemaSchemaInfoEffectivePredictiveOptimizationFlagArgsDict']
     """
     information about actual state of predictive optimization.
@@ -99785,6 +101837,7 @@ class GetSchemaSchemaInfoArgs:
                  comment: Optional[_builtins.str] = None,
                  created_at: Optional[_builtins.int] = None,
                  created_by: Optional[_builtins.str] = None,
+                 custom_max_retention_hours: Optional[_builtins.int] = None,
                  effective_predictive_optimization_flag: Optional['GetSchemaSchemaInfoEffectivePredictiveOptimizationFlagArgs'] = None,
                  enable_predictive_optimization: Optional[_builtins.str] = None,
                  full_name: Optional[_builtins.str] = None,
@@ -99829,6 +101882,8 @@ class GetSchemaSchemaInfoArgs:
             pulumi.set(__self__, "created_at", created_at)
         if created_by is not None:
             pulumi.set(__self__, "created_by", created_by)
+        if custom_max_retention_hours is not None:
+            pulumi.set(__self__, "custom_max_retention_hours", custom_max_retention_hours)
         if effective_predictive_optimization_flag is not None:
             pulumi.set(__self__, "effective_predictive_optimization_flag", effective_predictive_optimization_flag)
         if enable_predictive_optimization is not None:
@@ -99925,6 +101980,15 @@ class GetSchemaSchemaInfoArgs:
     @created_by.setter
     def created_by(self, value: Optional[_builtins.str]):
         pulumi.set(self, "created_by", value)
+
+    @_builtins.property
+    @pulumi.getter(name="customMaxRetentionHours")
+    def custom_max_retention_hours(self) -> Optional[_builtins.int]:
+        return pulumi.get(self, "custom_max_retention_hours")
+
+    @custom_max_retention_hours.setter
+    def custom_max_retention_hours(self, value: Optional[_builtins.int]):
+        pulumi.set(self, "custom_max_retention_hours", value)
 
     @_builtins.property
     @pulumi.getter(name="effectivePredictiveOptimizationFlag")

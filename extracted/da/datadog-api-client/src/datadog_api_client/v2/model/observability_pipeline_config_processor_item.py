@@ -149,6 +149,21 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
 
         :param window: The time window in seconds over which the threshold applies.
         :type window: float
+
+        :param tags: A list of static tags (key-value pairs) added to each metric processed by this component.
+        :type tags: [ObservabilityPipelineFieldValue]
+
+        :param interval_secs: The interval, in seconds, over which metrics are aggregated.
+        :type interval_secs: int
+
+        :param limit_exceeded_action: The action to take when the cardinality limit is exceeded.
+        :type limit_exceeded_action: ObservabilityPipelineTagCardinalityLimitProcessorAction
+
+        :param per_metric_limits: A list of per-metric cardinality overrides that take precedence over the default `value_limit`.
+        :type per_metric_limits: [ObservabilityPipelineTagCardinalityLimitProcessorPerMetricLimit], optional
+
+        :param value_limit: The default maximum number of distinct tag value combinations allowed per metric.
+        :type value_limit: int
         """
         super().__init__(kwargs)
 
@@ -188,6 +203,9 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
         from datadog_api_client.v2.model.observability_pipeline_generate_metrics_processor import (
             ObservabilityPipelineGenerateMetricsProcessor,
         )
+        from datadog_api_client.v2.model.observability_pipeline_generate_metrics_v2_processor import (
+            ObservabilityPipelineGenerateMetricsV2Processor,
+        )
         from datadog_api_client.v2.model.observability_pipeline_ocsf_mapper_processor import (
             ObservabilityPipelineOcsfMapperProcessor,
         )
@@ -224,8 +242,20 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
         from datadog_api_client.v2.model.observability_pipeline_throttle_processor import (
             ObservabilityPipelineThrottleProcessor,
         )
+        from datadog_api_client.v2.model.observability_pipeline_add_metric_tags_processor import (
+            ObservabilityPipelineAddMetricTagsProcessor,
+        )
+        from datadog_api_client.v2.model.observability_pipeline_aggregate_processor import (
+            ObservabilityPipelineAggregateProcessor,
+        )
         from datadog_api_client.v2.model.observability_pipeline_metric_tags_processor import (
             ObservabilityPipelineMetricTagsProcessor,
+        )
+        from datadog_api_client.v2.model.observability_pipeline_rename_metric_tags_processor import (
+            ObservabilityPipelineRenameMetricTagsProcessor,
+        )
+        from datadog_api_client.v2.model.observability_pipeline_tag_cardinality_limit_processor import (
+            ObservabilityPipelineTagCardinalityLimitProcessor,
         )
 
         return {
@@ -239,6 +269,7 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
                 ObservabilityPipelineDedupeProcessor,
                 ObservabilityPipelineEnrichmentTableProcessor,
                 ObservabilityPipelineGenerateMetricsProcessor,
+                ObservabilityPipelineGenerateMetricsV2Processor,
                 ObservabilityPipelineOcsfMapperProcessor,
                 ObservabilityPipelineParseGrokProcessor,
                 ObservabilityPipelineParseJSONProcessor,
@@ -251,6 +282,10 @@ class ObservabilityPipelineConfigProcessorItem(ModelComposed):
                 ObservabilityPipelineSensitiveDataScannerProcessor,
                 ObservabilityPipelineSplitArrayProcessor,
                 ObservabilityPipelineThrottleProcessor,
+                ObservabilityPipelineAddMetricTagsProcessor,
+                ObservabilityPipelineAggregateProcessor,
                 ObservabilityPipelineMetricTagsProcessor,
+                ObservabilityPipelineRenameMetricTagsProcessor,
+                ObservabilityPipelineTagCardinalityLimitProcessor,
             ],
         }

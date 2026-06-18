@@ -9,7 +9,7 @@ pub fn fit_custom_family<F: CustomFamily + Clone + Send + Sync + 'static>(
     family: &F,
     specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
-) -> Result<crate::solver::estimate::UnifiedFitResult, CustomFamilyError> {
+) -> Result<crate::model_types::UnifiedFitResult, CustomFamilyError> {
     fit_custom_family_with_rho_prior(family, specs, options, crate::types::RhoPrior::Flat)
 }
 
@@ -19,7 +19,7 @@ pub fn fit_custom_family<F: CustomFamily + Clone + Send + Sync + 'static>(
 /// `eta = design · beta` is invariant under the transform, so the
 /// reduced-space `eta` field carries through unchanged.
 pub(crate) fn lift_block_states_to_raw(
-    canonical: &crate::solver::identifiability_canonical::CanonicalSpecs,
+    canonical: &crate::identifiability::canonical::CanonicalSpecs,
     reduced: Vec<ParameterBlockState>,
 ) -> Vec<ParameterBlockState> {
     let theta_blocks: Vec<Array1<f64>> = reduced.iter().map(|s| s.beta.clone()).collect();
@@ -42,7 +42,7 @@ pub(crate) fn lift_block_states_to_raw(
 /// rank-deficient by construction along the dropped directions
 /// (matching the inner-solve geometry the canonical step produced).
 pub(crate) fn lift_fit_geometry_to_raw(
-    canonical: &crate::solver::identifiability_canonical::CanonicalSpecs,
+    canonical: &crate::identifiability::canonical::CanonicalSpecs,
     covariance_conditional: Option<Array2<f64>>,
     geometry: Option<FitGeometry>,
 ) -> (Option<Array2<f64>>, Option<FitGeometry>) {
@@ -59,16 +59,57 @@ pub(crate) fn lift_fit_geometry_to_raw(
     (lifted_cov, lifted_geom)
 }
 
+fn gauge_is_identity(gauge: &crate::solver::gauge::Gauge) -> bool {
+    if gauge.raw_total() != gauge.reduced_total() {
+        return false;
+    }
+    let (nrows, ncols) = gauge.t_full.dim();
+    if nrows != ncols {
+        return false;
+    }
+    for i in 0..nrows {
+        for j in 0..ncols {
+            let expected = if i == j { 1.0 } else { 0.0 };
+            if (gauge.t_full[[i, j]] - expected).abs() > 1e-12 {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn fixed_lambda_warm_start_for_reduced_specs<'a>(
+    warm_start: Option<&'a CustomFamilyWarmStart>,
+    canonical: &crate::identifiability::canonical::CanonicalSpecs,
+) -> Option<&'a ConstrainedWarmStart> {
+    let warm = warm_start?;
+    if !gauge_is_identity(&canonical.gauge) {
+        return None;
+    }
+    if warm.inner.block_beta.len() != canonical.reduced_specs.len()
+        || warm.inner.active_sets.len() != canonical.reduced_specs.len()
+    {
+        return None;
+    }
+    let widths_match = warm
+        .inner
+        .block_beta
+        .iter()
+        .zip(canonical.reduced_specs.iter())
+        .all(|(beta, spec)| beta.len() == spec.design.ncols());
+    widths_match.then_some(&warm.inner)
+}
+
 pub(crate) struct BlockwiseFitAssembly<'a> {
     pub(crate) rho_physical: Array1<f64>,
     pub(crate) covariance_conditional: Option<Array2<f64>>,
     pub(crate) geometry: Option<FitGeometry>,
-    pub(crate) canonical: Option<&'a crate::solver::identifiability_canonical::CanonicalSpecs>,
+    pub(crate) canonical: Option<&'a crate::identifiability::canonical::CanonicalSpecs>,
     pub(crate) result_specs: &'a [ParameterBlockSpec],
     pub(crate) penalized_objective: f64,
     pub(crate) outer_iterations: usize,
     pub(crate) outer_gradient_norm: Option<f64>,
-    pub(crate) criterion_certificate: Option<crate::solver::outer_strategy::CriterionCertificate>,
+    pub(crate) criterion_certificate: Option<crate::solver::rho_optimizer::CriterionCertificate>,
     pub(crate) outer_converged: bool,
     pub(crate) context: &'static str,
 }
@@ -76,7 +117,7 @@ pub(crate) struct BlockwiseFitAssembly<'a> {
 pub(crate) fn assemble_custom_family_fit_result(
     inner: BlockwiseInnerResult,
     assembly: BlockwiseFitAssembly<'_>,
-) -> Result<crate::solver::estimate::UnifiedFitResult, CustomFamilyError> {
+) -> Result<crate::model_types::UnifiedFitResult, CustomFamilyError> {
     let BlockwiseFitAssembly {
         rho_physical,
         covariance_conditional,
@@ -481,7 +522,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
     rho_prior: crate::types::RhoPrior,
-) -> Result<crate::solver::estimate::UnifiedFitResult, CustomFamilyError> {
+) -> Result<crate::model_types::UnifiedFitResult, CustomFamilyError> {
     // Multi-output families that omitted the per-block channel callback get it
     // installed here from their declared `output_channel_assignment`, so the
     // identifiability audit routes channel-aware (single source of truth for
@@ -495,7 +536,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     // location-scale, survival, BMS, transformation-normal, custom
     // families) reaches this entry point with a finalised
     // `ParameterBlockSpec` list, so wiring the canonicalisation here
-    // covers all four `solver::workflow.rs` entry points plus every
+    // covers all four `solver::fit_orchestration.rs` entry points plus every
     // direct caller of `fit_custom_family` without each family needing
     // its own canonicalisation hook.
     //
@@ -522,8 +563,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         canonical_n_rows,
         canonical_n_cols_raw,
     );
-    let canonical =
-        crate::solver::identifiability_canonical::canonicalize_for_identifiability(raw_specs)?;
+    let canonical = crate::identifiability::canonical::canonicalize_for_identifiability(raw_specs)?;
     let canonical_n_cols_red: usize = canonical
         .reduced_specs
         .iter()
@@ -767,8 +807,8 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         );
     }
 
-    use crate::estimate::EstimationError;
-    use crate::solver::outer_strategy::{FallbackPolicy, OuterEval, OuterEvalOrder, OuterProblem};
+    use crate::model_types::EstimationError;
+    use crate::solver::rho_optimizer::{FallbackPolicy, OuterEval, OuterEvalOrder, OuterProblem};
 
     let screening_cap = Arc::new(AtomicUsize::new(0));
     let outer_inner_cap = options
@@ -939,14 +979,11 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
     } else {
         problem
     };
-    // Attach the workflow-level warm-start session if one was threaded
-    // through. This makes the custom-family outer optimizer (BFGS / ARC
-    // depending on derivative capabilities) use the same persistent
-    // cache infrastructure as standard REML — every accepted outer step
-    // is checkpointed to disk, every fit starts by consulting the disk
-    // for a prior best iterate. Without this, every survival-marginal-
-    // slope / GAMLSS / latent fit starts cold even when a converged ρ
-    // from a near-identical prior fit is sitting in `~/.cache/gam/warm`.
+    // Attach an explicit warm-start session when the caller supplied one.
+    // This makes the custom-family outer optimizer (BFGS / ARC depending on
+    // derivative capabilities) use the same persistent cache infrastructure as
+    // standard REML. Ordinary workflow fits leave this empty so refit-heavy CI
+    // loops do not pay shared-store lookup/checkpoint/eviction I/O.
     let problem = if let Some(session) = options.cache_session.clone() {
         let key_hex = session.key().to_hex();
         log::info!(
@@ -1011,7 +1048,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                     Ok(OuterEval {
                         cost: eval.objective,
                         gradient: Array1::zeros(rho.len()),
-                        hessian: crate::solver::outer_strategy::HessianResult::Unavailable,
+                        hessian: crate::solver::rho_optimizer::HessianResult::Unavailable,
                         inner_beta_hint,
                     })
                 }
@@ -1059,13 +1096,13 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 if eval.objective.is_finite()
                     && eval.gradient.iter().all(|v| v.is_finite())
                     && match &eval.outer_hessian {
-                        crate::solver::outer_strategy::HessianResult::Analytic(hessian) => {
+                        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => {
                             hessian.iter().all(|v| v.is_finite())
                         }
-                        crate::solver::outer_strategy::HessianResult::Operator(op) => {
+                        crate::solver::rho_optimizer::HessianResult::Operator(op) => {
                             !request_hessian || op.dim() == rho.len()
                         }
-                        crate::solver::outer_strategy::HessianResult::Unavailable => {
+                        crate::solver::rho_optimizer::HessianResult::Unavailable => {
                             !request_hessian
                         }
                     } =>
@@ -1240,14 +1277,14 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                     // Intentionally LEFT as a hard Err even when escalation is armed.
                     // Unlike the BFGS/value-only paths above, an EFS error does NOT
                     // dead-end the run: it surfaces as a recoverable objective-eval
-                    // error at the fixed-point bridge (outer_strategy.rs:2409-2410
+                    // error at the fixed-point bridge (rho_optimizer.rs:2409-2410
                     // `into_objective_error` -> `ObjectiveEvalError::recoverable`),
                     // so the EFS seed is rejected / the FixedPoint run returns Err,
-                    // and `run_outer`'s fallback cascade (outer_strategy.rs:5297) routes
+                    // and `run_outer`'s fallback cascade (rho_optimizer.rs:5297) routes
                     // to the fixed-point-disabled analytic-gradient BFGS attempt. That
                     // attempt is always present here because custom-family declares an
                     // analytic outer gradient (custom_family.rs:11826), so
-                    // `automatic_fallback_attempts` (outer_strategy.rs:1502) adds it.
+                    // `automatic_fallback_attempts` (rho_optimizer.rs:1502) adds it.
                     // BFGS then evaluates via `eval_outer` / the value-only cost
                     // closure, both of which now retreat-when-armed, so the run reaches
                     // `Ok(converged == false)` and the post-run sampling rung. No
@@ -1327,10 +1364,12 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
         Err(_) => true,
     };
     if outer_needs_audit {
-        const OUTER_FD_AUDIT_MAX_N: usize = 4_000;
-        const OUTER_FD_AUDIT_MAX_RHO_DIM: usize = 32;
+        // FD-OK: FD-audit of the analytic custom-family outer gradient (small-problem gate, never feeds the optimizer)
+        const OUTER_FD_AUDIT_MAX_N: usize = 4_000; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        const OUTER_FD_AUDIT_MAX_RHO_DIM: usize = 32; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
         let audit_n = specs.iter().map(|s| s.design.nrows()).max().unwrap_or(0);
         if n_rho >= 1 && n_rho <= OUTER_FD_AUDIT_MAX_RHO_DIM && audit_n <= OUTER_FD_AUDIT_MAX_N {
+            // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
             log::warn!(
                 "[OUTER-FD-AUDIT/custom-family] outer did not certify convergence; running desync/identifiability audit n={audit_n} n_rho={n_rho} need_outer_hessian={need_outer_hessian}"
             );
@@ -1340,7 +1379,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 (
                     f64,
                     Array1<f64>,
-                    crate::solver::outer_strategy::HessianResult,
+                    crate::solver::rho_optimizer::HessianResult,
                 ),
                 String,
             > {
@@ -1359,7 +1398,8 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 }
                 Ok((e.objective, e.gradient, e.outer_hessian))
             };
-            match crate::solver::outer_strategy::outer_gradient_fd_audit(
+            match crate::solver::rho_optimizer::outer_gradient_fd_audit(
+                // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
                 &rho0,
                 1e-4,
                 |i| format!("rho[{i}]"),
@@ -1369,6 +1409,7 @@ pub fn fit_custom_family_with_rho_prior<F: CustomFamily + Clone + Send + Sync + 
                 Err(e) => log::warn!("[OUTER-FD-AUDIT/custom-family] skipped: {e}"),
             }
         }
+        // END-FD-OK
     }
 
     let last_error_detail = obj
@@ -1718,23 +1759,20 @@ pub(crate) fn fit_custom_family_fixed_log_lambdas<
     F: CustomFamily + Clone + Send + Sync + 'static,
 >(
     family: &F,
-    specs: &[ParameterBlockSpec],
+    raw_specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
     warm_start: Option<&CustomFamilyWarmStart>,
     outer_iterations: usize,
     outer_gradient_norm: Option<f64>,
     outer_converged: bool,
-) -> Result<crate::solver::estimate::UnifiedFitResult, CustomFamilyError> {
+) -> Result<crate::model_types::UnifiedFitResult, CustomFamilyError> {
+    let canonical = crate::identifiability::canonical::canonicalize_for_identifiability(raw_specs)?;
+    let specs: &[ParameterBlockSpec] = &canonical.reduced_specs;
     let penalty_counts = validate_blockspecs(specs)?;
     let rho = flatten_log_lambdas(specs);
     let per_block = split_log_lambdas(&rho, &penalty_counts)?;
-    let mut inner = inner_blockwise_fit(
-        family,
-        specs,
-        &per_block,
-        options,
-        warm_start.map(|warm| &warm.inner),
-    )?;
+    let reduced_warm_start = fixed_lambda_warm_start_for_reduced_specs(warm_start, &canonical);
+    let mut inner = inner_blockwise_fit(family, specs, &per_block, options, reduced_warm_start)?;
     if !inner.converged {
         return Err(CustomFamilyError::Optimization {
             context: "fit_custom_family_fixed_log_lambdas inner solve",
@@ -1769,8 +1807,8 @@ pub(crate) fn fit_custom_family_fixed_log_lambdas<
             rho_physical: rho,
             covariance_conditional,
             geometry,
-            canonical: None,
-            result_specs: specs,
+            canonical: Some(&canonical),
+            result_specs: raw_specs,
             penalized_objective,
             outer_iterations,
             outer_gradient_norm,
@@ -1785,58 +1823,21 @@ pub(crate) fn fit_custom_family_fixed_log_lambda_warm_start<
     F: CustomFamily + Clone + Send + Sync + 'static,
 >(
     family: &F,
-    specs: &[ParameterBlockSpec],
+    raw_specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
 ) -> Result<(Vec<Array1<f64>>, bool, usize), CustomFamilyError> {
-    // Pre-fit identifiability gate. Mirrors the outer-fit gate so
-    // warm-start callers (e.g. the survival marginal-slope rigid pilot
-    // at survival_marginal_slope.rs ~18078) fail in milliseconds on
-    // rank-deficient joint designs instead of spending minutes inside
-    // a singular penalised Newton inner system.
-    //
-    // We deliberately do NOT call `canonicalize_for_identifiability`
-    // here: blockwise families capture their per-block designs at
-    // construction time (e.g. SurvivalMarginalSlopeFamily holds
-    // `self.marginal_design` and `self.logslope_design` at raw width)
-    // and their `evaluate*` paths assert on those raw widths when
-    // assembling per-row Hessian contributions. Substituting a
-    // column-reduced spec under that family would produce a runtime
-    // shape mismatch in the family's syr_row_into / row_outer_into
-    // calls, masking the audit's diagnostic with a panic later in the
-    // pipeline.
-    //
-    // The principled construction-time orthogonalisation lives in
-    // `crate::families::identifiability_compiler` (and the per-family
-    // `*_identifiability.rs` modules). Once Phase 4b threads those
-    // compiled operators through the family construction sites, the
-    // raw joint design will already be rank-clean on entry and this
-    // gate becomes a defensive check.
-    let audit =
-        crate::solver::identifiability_audit::audit_identifiability(specs).map_err(|reason| {
-            CustomFamilyError::DimensionMismatch {
-                reason: format!(
-                    "fit_custom_family_fixed_log_lambda_warm_start identifiability audit failed: {reason}"
-                ),
-            }
-        })?;
-    if audit.fatal {
-        return Err(CustomFamilyError::Optimization {
-            context: "fit_custom_family_fixed_log_lambda_warm_start identifiability audit",
-            reason: format!(
-                "fatal pre-fit identifiability audit: {summary}",
-                summary = audit.summary
-            ),
-        });
-    }
+    let canonical = crate::identifiability::canonical::canonicalize_for_identifiability(raw_specs)?;
+    let specs: &[ParameterBlockSpec] = &canonical.reduced_specs;
     let penalty_counts = validate_blockspecs(specs)?;
     let rho = flatten_log_lambdas(specs);
     let per_block = split_log_lambdas(&rho, &penalty_counts)?;
     let inner = inner_blockwise_fit(family, specs, &per_block, options, None)?;
-    let block_beta: Vec<Array1<f64>> = inner
+    let theta_blocks: Vec<Array1<f64>> = inner
         .block_states
         .iter()
         .map(|state| state.beta.clone())
         .collect();
+    let block_beta = canonical.gauge.lift_block_betas(&theta_blocks);
     if !block_beta
         .iter()
         .flat_map(|beta| beta.iter())

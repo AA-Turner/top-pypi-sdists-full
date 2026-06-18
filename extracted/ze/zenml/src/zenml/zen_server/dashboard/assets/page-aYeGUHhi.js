@@ -1,0 +1,1 @@
+import{k as e}from"./chunk-JSBRDJBE-DD67o4Z0.js";import{bn as t}from"./index-C7eyRJ5x.js";import{n,t as r}from"./StackComponentList-Dp21rnIR.js";var i=e();function a(){let{connectorId:e}=t();return(0,i.jsx)(n,{children:(0,i.jsx)(r,{fixedQueryParams:{connector_id:e},displayCreateComponent:!1})})}export{a as default};

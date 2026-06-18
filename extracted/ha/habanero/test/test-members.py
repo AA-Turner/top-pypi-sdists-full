@@ -1,5 +1,7 @@
+from typing import no_type_check
+
 import pytest
-from httpx import HTTPError
+from httpx2 import HTTPError
 
 from habanero import Crossref, exceptions
 
@@ -32,7 +34,7 @@ def test_members_sample_err():
 
 @pytest.mark.vcr
 def test_members_filter():
-    with pytest.raises(Exception):
+    with pytest.raises(exceptions.RequestError):
         cr.members(filter={"has_full_text": True})
 
 
@@ -42,7 +44,7 @@ def test_members_field_queries():
     res = cr.members(ids=98, works=True, query_author="carl boettiger", limit=7)
     auths = [x["author"][0]["family"] for x in res["message"]["items"]]
     assert isinstance(res, dict)
-    assert 5 == len(res["message"])
+    assert len(res["message"]) == 5
     assert isinstance(auths, list)
     assert isinstance(auths[0], str)
 
@@ -62,6 +64,7 @@ def test_members_bad_id_warn():
     assert out is None
 
 
+@no_type_check
 @pytest.mark.vcr
 def test_members_mixed_ids_warn():
     """members - param: warn"""
@@ -80,6 +83,7 @@ def test_members_bad_id_works_warn():
     assert out is None
 
 
+@no_type_check
 @pytest.mark.vcr
 def test_members_mixed_ids_works_warn():
     """""members - param: warn""" ""

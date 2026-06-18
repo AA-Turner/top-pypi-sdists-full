@@ -1,11 +1,7 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2021-2026 CERN.
-# Copyright (C) 2021-2023 TU Wien.
-# Copyright (C) 2024-2026 Graz University of Technology.
-#
-# Invenio-Requests is free software; you can redistribute it and/or modify it
-# under the terms of the MIT License; see LICENSE file for more details.
+# SPDX-FileCopyrightText: 2021-2026 CERN.
+# SPDX-FileCopyrightText: 2021-2023 TU Wien.
+# SPDX-FileCopyrightText: 2024-2026 Graz University of Technology.
+# SPDX-License-Identifier: MIT
 
 """Invenio module for generic and customizable requests."""
 
@@ -21,7 +17,7 @@ from .proxies import (
     current_requests_service,
 )
 
-__version__ = "14.0.0"
+__version__ = "15.0.0"
 
 __all__ = (
     "__version__",

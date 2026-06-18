@@ -1734,7 +1734,7 @@ pub(crate) fn weighted_crossprod_psi_maps(
     // materialized at full n x p_right size. Chunk size is governed by the
     // resource policy's row_chunk_target_bytes.
     let policy = ResourcePolicy::default_library();
-    let rows_per_chunk = crate::resource::rows_for_target_bytes(
+    let rows_per_chunk = crate::solver::resource::rows_for_target_bytes(
         policy.row_chunk_target_bytes,
         p_left.saturating_add(p_right).max(1),
     );
@@ -2565,10 +2565,9 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
         &self,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Arc<dyn HyperOperator>>, String> {
-        Ok(self.directional_derivative(d_beta_flat)?.map(|matrix| {
-            Arc::new(crate::solver::estimate::reml::unified::DenseMatrixHyperOperator { matrix })
-                as Arc<dyn HyperOperator>
-        }))
+        Ok(self
+            .directional_derivative(d_beta_flat)?
+            .map(|matrix| Arc::new(DenseMatrixHyperOperator { matrix }) as Arc<dyn HyperOperator>))
     }
 
     fn directional_derivative_operators(
@@ -2598,11 +2597,7 @@ pub trait ExactNewtonJointHessianWorkspace: Send + Sync {
     ) -> Result<Option<Arc<dyn HyperOperator>>, String> {
         Ok(self
             .second_directional_derivative(d_beta_u, d_beta_v)?
-            .map(|matrix| {
-                Arc::new(
-                    crate::solver::estimate::reml::unified::DenseMatrixHyperOperator { matrix },
-                ) as Arc<dyn HyperOperator>
-            }))
+            .map(|matrix| Arc::new(DenseMatrixHyperOperator { matrix }) as Arc<dyn HyperOperator>))
     }
 
     fn second_directional_derivative_operators(

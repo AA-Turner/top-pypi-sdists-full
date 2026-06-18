@@ -44,7 +44,7 @@ pub struct ExactNewtonJointGradientEvaluation {
 pub struct BatchedOuterHessianTerms {
     /// Exact profiled outer Hessian over θ = (ρ, ψ), assembled or exposed in
     /// operator form by the family in one amortized evaluation.
-    pub outer_hessian: crate::solver::outer_strategy::HessianResult,
+    pub outer_hessian: crate::solver::rho_optimizer::HessianResult,
 }
 
 pub struct BatchedOuterGradientTerms {
@@ -777,7 +777,7 @@ pub trait CustomFamily {
         Ok(self
             .outer_hyper_hessian_operator(specs)
             .map(|operator| BatchedOuterHessianTerms {
-                outer_hessian: crate::solver::outer_strategy::HessianResult::Operator(operator),
+                outer_hessian: crate::solver::rho_optimizer::HessianResult::Operator(operator),
             }))
     }
 
@@ -856,7 +856,7 @@ pub trait CustomFamily {
     fn outer_hyper_hessian_operator(
         &self,
         specs: &[ParameterBlockSpec],
-    ) -> Option<Arc<dyn crate::solver::outer_strategy::OuterHessianOperator>> {
+    ) -> Option<Arc<dyn crate::solver::rho_optimizer::OuterHessianOperator>> {
         assert_valid_blockspecs(specs, "outer hyper-Hessian operator");
         None
     }
@@ -1077,6 +1077,68 @@ pub trait CustomFamily {
             specs,
             d_beta_flat,
         )
+    }
+
+    /// BATCHED all-axes FIRST beta-directional derivative of
+    /// [`Self::joint_jeffreys_information_with_specs`]: with the direction
+    /// sweeping every canonical axis `e_a`, return the `p` dense matrices
+    /// `{Hdot[e_a]}_{a=0..p}`.
+    ///
+    /// This is the per-cycle hotspot of the inner-Newton Jeffreys/Firth term
+    /// (`joint_jeffreys_term`'s `grad[k]/H_Φ` loop): the generic per-axis path
+    /// asks the family for `Hdot[e_a]` `p` separate times, and a coupled family
+    /// whose per-axis derivative reconstructs a fresh row kernel each call
+    /// (rigid Bernoulli marginal-slope) then rebuilds its `O(n)` per-row tensor
+    /// cache `p` times — the dominant cost of every cycle on which the
+    /// conditioning gate arms (gam#979). A family whose joint information is a
+    /// pure design-row Gram can build the per-row tensor ONCE and close all `p`
+    /// axes from it. `None` ⇒ the family does not expose the exact derivative on
+    /// some axis (zero drift), matching the per-axis hook's first-`None`
+    /// collapse.
+    ///
+    /// The default builds the object by calling the per-axis
+    /// [`Self::joint_jeffreys_information_directional_derivative_with_specs`]
+    /// for each unit axis `e_a` — bit-for-bit the prior per-axis path. Families
+    /// with a batched fast path override this.
+    fn joint_jeffreys_information_directional_derivative_all_axes_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        specs: &[ParameterBlockSpec],
+    ) -> Result<Option<Vec<Array2<f64>>>, String>
+    where
+        Self: Sync,
+    {
+        let p = specs.iter().map(|spec| spec.design.ncols()).sum::<usize>();
+        // PARALLEL canonical-axis sweep. Each axis `e_a` is an independent pure
+        // evaluation of `(family, β̂, e_a)`; fan them across the Rayon pool with the
+        // nested-BLAS guard pinning each pass's faer GEMM to `Par::Seq` so the axes
+        // fan across cores without rayon×BLAS oversubscription (the same scheme the
+        // value-path `joint_jeffreys_term` and the prior `JeffreysHphiDriftBase`
+        // closure used). First-anomaly semantics preserved: any `Err` propagates
+        // and the first `None` (in index order) collapses the whole batch to `None`.
+        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+        let results: Vec<Result<Option<Array2<f64>>, String>> = (0..p)
+            .into_par_iter()
+            .map(|a| {
+                let mut axis = Array1::<f64>::zeros(p);
+                axis[a] = 1.0;
+                crate::linalg::faer_ndarray::with_nested_parallel(|| {
+                    self.joint_jeffreys_information_directional_derivative_with_specs(
+                        block_states,
+                        specs,
+                        &axis,
+                    )
+                })
+            })
+            .collect();
+        let mut axes = Vec::with_capacity(p);
+        for result in results {
+            match result? {
+                Some(m) => axes.push(m),
+                None => return Ok(None),
+            }
+        }
+        Ok(Some(axes))
     }
 
     /// Second beta-directional derivative of

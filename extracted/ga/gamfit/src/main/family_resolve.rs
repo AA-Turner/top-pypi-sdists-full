@@ -46,7 +46,7 @@ pub(crate) fn resolve_family(
     if negative_binomial_theta.is_some() && !matches!(arg, FamilyArg::NegativeBinomial) {
         return Err("--negative-binomial-theta requires --family negative-binomial".to_string());
     }
-    gam::solver::workflow::resolve_family(
+    gam::solver::fit_orchestration::resolve_family(
         family_arg_canonical_name(arg),
         negative_binomial_theta,
         link_choice.as_ref(),
@@ -99,7 +99,7 @@ pub(crate) fn resolve_binomial_inverse_link_for_fit(
         | InverseLink::Standard(StandardLink::Log)
         | InverseLink::LatentCLogLog(_)
         | InverseLink::Mixture(_) => Ok(InverseLink::Standard(
-            gam::config_resolve::effective_link_to_standard(effective_link, context)?,
+            crate::config_resolve::effective_link_to_standard(effective_link, context)?,
         )),
     }
 }

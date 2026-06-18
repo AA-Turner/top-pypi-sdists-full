@@ -27,6 +27,7 @@ from meridian.analysis import summary_text
 from meridian.analysis.review import configs
 from meridian.analysis.review import constants
 from meridian.templates import formatter
+import xarray as xr
 
 
 # ==============================================================================
@@ -61,6 +62,7 @@ class ModelCheckCase(BaseCase):
       message_template: str,
       recommendation: str | None = None,
   ):
+    """Initializes the instance."""
     super().__init__(status)
     self.message_template = message_template
     self.recommendation = recommendation
@@ -75,7 +77,7 @@ class BaseResultData(abc.ABC):
   @property
   @abc.abstractmethod
   def details(self) -> Mapping[str, Any]:
-    """Returns the details for message formatting."""
+    """The details for message formatting."""
     raise NotImplementedError
 
 
@@ -94,7 +96,7 @@ class CheckResult(BaseResultData):
 
   @property
   def recommendation(self) -> str:
-    """Returns the check result message."""
+    """The check result message."""
     report_str = self.case.message_template.format(**self.details)
     if self.case.recommendation:
       return f"{report_str} {self.case.recommendation}"
@@ -104,6 +106,7 @@ class CheckResult(BaseResultData):
 # ==============================================================================
 # Check: Convergence
 # ==============================================================================
+# TODO: Move to constants.
 NOT_FULLY_CONVERGED_RECOMMENDATION = (
     "Manually inspect the parameters with high R-hat values to determine if the"
     " results are acceptable for your use case, and consider increasing MCMC"
@@ -151,6 +154,7 @@ class ConvergenceCases(ModelCheckCase, enum.Enum):
       message_template: str,
       recommendation: str | None,
   ):
+    """Initializes the instance."""
     super().__init__(status, message_template, recommendation)
 
 
@@ -231,6 +235,7 @@ class BaselineCases(ModelCheckCase, enum.Enum):
       message_template: str,
       recommendation: str | None,
   ):
+    """Initializes the instance."""
     super().__init__(status, message_template, recommendation)
 
 
@@ -292,6 +297,7 @@ class BayesianPPPCases(ModelCheckCase, enum.Enum):
       message_template: str,
       recommendation: str | None,
   ):
+    """Initializes the instance."""
     super().__init__(status, message_template, recommendation)
 
 
@@ -348,6 +354,7 @@ class GoodnessOfFitCases(ModelCheckCase, enum.Enum):
       message_template: str,
       recommendation: str | None,
   ):
+    """Initializes the instance."""
     super().__init__(status, message_template, recommendation)
 
 
@@ -452,6 +459,7 @@ class ROIConsistencyChannelCases(BaseCase, enum.Enum):
   QUANTILE_NOT_DEFINED = (Status.REVIEW, enum.auto())
 
   def __init__(self, status: Status, unique_id: Any):
+    """Initializes the instance."""
     super().__init__(status)
 
 
@@ -478,6 +486,7 @@ class ROIConsistencyAggregateCases(ModelCheckCase, enum.Enum):
       message_template: str,
       recommendation: str | None,
   ):
+    """Initializes the instance."""
     super().__init__(status, message_template, recommendation)
 
 
@@ -492,7 +501,7 @@ class ROIConsistencyChannelResult(ChannelResult):
 
   @property
   def details(self) -> Mapping[str, Any]:
-    """Returns the check result details."""
+    """The check result details."""
     return {
         constants.PRIOR_ROI_LO: self.prior_roi_lo,
         constants.PRIOR_ROI_HI: self.prior_roi_hi,
@@ -510,7 +519,7 @@ class ROIConsistencyCheckResult(CheckResult):
 
   @property
   def details(self) -> Mapping[str, Any]:
-    """Returns the check result details."""
+    """The check result details."""
     return self.aggregate_details
 
 
@@ -531,6 +540,7 @@ class PriorPosteriorShiftChannelCases(BaseCase, enum.Enum):
   NO_SHIFT = (Status.REVIEW, enum.auto())
 
   def __init__(self, status: Status, unique_id: Any):
+    """Initializes the instance."""
     super().__init__(status)
 
 
@@ -562,6 +572,7 @@ class PriorPosteriorShiftAggregateCases(ModelCheckCase, enum.Enum):
       message_template: str,
       recommendation: str | None,
   ):
+    """Initializes the instance."""
     super().__init__(status, message_template, recommendation)
 
 
@@ -573,7 +584,7 @@ class PriorPosteriorShiftChannelResult(ChannelResult):
 
   @property
   def details(self) -> Mapping[str, Any]:
-    """Returns the check result details."""
+    """The check result details."""
     return {}
 
 
@@ -587,11 +598,267 @@ class PriorPosteriorShiftCheckResult(CheckResult):
 
   @property
   def details(self) -> Mapping[str, Any]:
-    """Returns the check result details."""
+    """The check result details."""
     return {
-        "channels_str": ", ".join(
+        constants.CHANNELS_STR: ", ".join(
             f"`{channel}`" for channel in self.no_shift_channels
         )
+    }
+
+
+# ==============================================================================
+# Check: Implausible ROI
+# ==============================================================================
+@enum.unique
+class ImplausibleROIChannelCases(BaseCase, enum.Enum):
+  """Cases for Implausible ROI Check per channel."""
+
+  ROI_PASS = (Status.PASS, enum.auto())
+  ROI_HIGH = (Status.REVIEW, enum.auto())
+  ROI_LOW = (Status.REVIEW, enum.auto())
+
+  # TODO: Remove unused unique_id argument, here and elsewhere.
+  def __init__(self, status: Status, unique_id: Any):
+    """Initializes the instance."""
+    super().__init__(status)
+
+
+class ImplausibleROIAggregateCases(ModelCheckCase, enum.Enum):
+  """Cases for Implausible ROI Check aggregate result."""
+
+  PASS = (
+      Status.PASS,
+      "All channels have plausible ROI estimates.",
+      None,
+  )
+  REVIEW = (
+      Status.REVIEW,
+      "{implausible_roi_msg}",
+      constants.IMPLAUSIBLE_ROI_RECOMMENDATION,
+  )
+
+  def __init__(
+      self,
+      status: Status,
+      message_template: str,
+      recommendation: str | None,
+  ):
+    """Initializes the instance."""
+    super().__init__(status, message_template, recommendation)
+
+
+@dataclasses.dataclass(frozen=True)
+class ImplausibleROIChannelResult(ChannelResult):
+  """The immutable result of Implausible ROI Check for a single channel.
+
+  Attributes:
+    case: The specific case for this channel's implausible ROI check.
+    spend_share: The proportion of total spend for this channel.
+    roi_mean: The posterior mean of the ROI for this channel.
+    spend_weighted_roi: The spend-weighted ROI for this channel.
+  """
+
+  case: ImplausibleROIChannelCases
+  spend_share: float
+  roi_mean: float
+  spend_weighted_roi: float
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        constants.SPEND_SHARE: self.spend_share,
+        constants.ROI_MEAN: self.roi_mean,
+        constants.SPEND_WEIGHTED_ROI: self.spend_weighted_roi,
+    }
+
+
+@dataclasses.dataclass(frozen=True)
+class ImplausibleROICheckResult(CheckResult):
+  """The immutable result of model-level Implausible ROI Check."""
+
+  case: ImplausibleROIAggregateCases
+  channel_results: list[ImplausibleROIChannelResult]
+  high_roi_channels: list[str]
+  low_roi_channels: list[str]
+  aggregate_details: Mapping[str, Any]
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return self.aggregate_details
+
+
+# ==============================================================================
+# Check: High Variance
+# ==============================================================================
+@enum.unique
+class HighVarianceChannelCases(BaseCase, enum.Enum):
+  """Cases for High Variance Check per channel."""
+
+  ROI_PASS = (Status.PASS, enum.auto())
+  HIGH_VARIANCE = (Status.REVIEW, enum.auto())
+
+  # TODO: Remove unused unique_id argument, here and elsewhere.
+  def __init__(self, status: Status, unique_id: Any):
+    super().__init__(status)
+
+
+class HighVarianceAggregateCases(ModelCheckCase, enum.Enum):
+  """Cases for High Variance Check aggregate result."""
+
+  PASS = (
+      Status.PASS,
+      "All channels have acceptable ROI variance.",
+      None,
+  )
+  REVIEW = (
+      Status.REVIEW,
+      (
+          "We've detected channel(s) {high_variance_channels_str} with highly"
+          " uncertain ROI estimates (wide posterior intervals)."
+      ),
+      constants.HIGH_VARIANCE_ROI_RECOMMENDATION,
+  )
+
+  def __init__(
+      self,
+      status: Status,
+      message_template: str,
+      recommendation: str | None,
+  ):
+    super().__init__(status, message_template, recommendation)
+
+
+@dataclasses.dataclass(frozen=True)
+class HighVarianceChannelResult(ChannelResult):
+  """The immutable result of High Variance Check for a single channel.
+
+  Attributes:
+    case: The specific case for this channel's high variance check.
+    spend_share: The proportion of total spend for this channel.
+    relative_width_ratio: The ratio of the posterior ROI credible interval width
+      to the prior width.
+  """
+
+  case: HighVarianceChannelCases
+  spend_share: float
+  relative_width_ratio: float
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        "spend_share": self.spend_share,
+        "relative_width_ratio": self.relative_width_ratio,
+    }
+
+
+@dataclasses.dataclass(frozen=True)
+class HighVarianceCheckResult(CheckResult):
+  """The immutable result of model-level High Variance Check.
+
+  Attributes:
+    case: The aggregate case for the high variance check across all channels.
+    channel_results: A list of `HighVarianceChannelResult` for each channel.
+    high_variance_channels: A list of channel names flagged as having high ROI
+      variance.
+  """
+
+  case: HighVarianceAggregateCases
+  channel_results: list[HighVarianceChannelResult]
+  high_variance_channels: list[str]
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        "high_variance_channels_str": ", ".join(
+            f"`{c}`" for c in self.high_variance_channels
+        )
+    }
+
+
+# ==============================================================================
+# Check: Potential Bias
+# ==============================================================================
+@enum.unique
+class PotentialBiasChannelCases(BaseCase, enum.Enum):
+  """Cases for Potential Bias Check per channel."""
+
+  ROI_PASS = (Status.PASS, enum.auto())
+  LOW_CORRELATION = (Status.REVIEW, enum.auto())
+
+  def __init__(self, status: Status, unique_id: Any):
+    super().__init__(status)
+
+
+class PotentialBiasAggregateCases(ModelCheckCase, enum.Enum):
+  """Cases for Potential Bias Check aggregate result."""
+
+  PASS = (
+      Status.PASS,
+      "All channels have sufficient correlation with control variables.",
+      None,
+  )
+  REVIEW = (
+      Status.REVIEW,
+      (
+          "We've detected channel(s) {low_correlation_channels_str} with very"
+          " low correlation with all included control variables."
+      ),
+      constants.POTENTIAL_BIAS_RECOMMENDATION,
+  )
+  NO_CONTROLS = (
+      Status.REVIEW,
+      (
+          "No control variables are included in the model. Consider adding"
+          " control variables to control for potential confounding bias."
+      ),
+      constants.POTENTIAL_BIAS_RECOMMENDATION,
+  )
+
+  def __init__(
+      self,
+      status: Status,
+      message_template: str,
+      recommendation: str | None,
+  ):
+    super().__init__(status, message_template, recommendation)
+
+
+@dataclasses.dataclass(frozen=True)
+class PotentialBiasChannelResult(ChannelResult):
+  """The immutable result of Potential Bias Check for a single channel."""
+
+  case: PotentialBiasChannelCases
+  max_abs_correlation: float
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        "max_abs_correlation": self.max_abs_correlation,
+    }
+
+
+@dataclasses.dataclass(frozen=True)
+class PotentialBiasCheckResult(CheckResult):
+  """The immutable result of model-level Potential Bias Check."""
+
+  case: PotentialBiasAggregateCases
+  channel_results: list[PotentialBiasChannelResult]
+  low_correlation_channels: list[str]
+  correlation_matrix: xr.DataArray
+
+  @property
+  def details(self) -> Mapping[str, Any]:
+    """The check result details."""
+    return {
+        "low_correlation_channels_str": ", ".join(
+            f"`{c}`" for c in self.low_correlation_channels
+        ),
+        constants.CORRELATION_MATRIX: self.correlation_matrix,
     }
 
 
@@ -659,7 +926,7 @@ class ReviewSummary:
 
   @property
   def checks_status(self) -> Mapping[str, str]:
-    """Returns a dictionary of check names and statuses."""
+    """A dictionary of check names and statuses."""
     return {
         result.__class__.__name__: result.case.status.name
         for result in self.results

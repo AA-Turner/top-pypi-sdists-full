@@ -29,6 +29,36 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
     }
 }
 
+fn assert_sphinx_resolved_as_link(report: &str, role: &str, target: &str) {
+    let raw = format!(":{role}:`{target}`");
+    assert!(
+        !report.contains(&raw),
+        "Raw Sphinx syntax not processed: {raw}\n{report}"
+    );
+    let link = format!("[{target}](file://");
+    assert!(
+        report.contains(&link),
+        "Expected link for '{target}', got:\n{report}"
+    );
+}
+
+fn assert_sphinx_resolved_as_code(report: &str, role: &str, target: &str) {
+    let raw = format!(":{role}:`{target}`");
+    assert!(
+        !report.contains(&raw),
+        "Raw Sphinx syntax not processed: {raw}\n{report}"
+    );
+    let link = format!("[{target}](file://");
+    assert!(
+        !report.contains(&link),
+        "Expected inline code for '{target}', but found link:\n{report}"
+    );
+    assert!(
+        report.contains(&format!("`{target}`")),
+        "Expected inline code `{target}`, got:\n{report}"
+    );
+}
+
 #[test]
 fn bound_methods_test() {
     let code = r#"
@@ -654,7 +684,8 @@ del c [0]
 }
 
 #[test]
-fn hover_over_getitem_without_space_doesnt_show_signature() {
+fn hover_over_getitem_without_space_shows_signature() {
+    // Regression test for https://github.com/facebook/pyrefly/issues/1838
     let code = r#"
 class Container:
     def __getitem__(self, idx: int) -> int: ...
@@ -664,23 +695,17 @@ c[0]
 #^ ^
 "#;
     let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
-    assert_eq!(
-        r#"
-# main.py
-6 | c[0]
-     ^
-```python
-(variable) c: Container
-```
-
-6 | c[0]
-       ^
-```python
-(attribute) __getitem__: Literal[0]
-```
-"#
-        .trim(),
-        report.trim(),
+    // Hovering the base `c` still shows the variable.
+    assert!(
+        report.contains("(variable) c: Container"),
+        "Expected variable hover for base `c`, got: {report}"
+    );
+    // Hovering inside the brackets shows the dunder method, matching `c [0]`.
+    assert!(
+        report.contains(
+            "```python\n(method) __getitem__: def __getitem__(\n    self: Container,\n    idx: int\n) -> int: ...\n```"
+        ),
+        "Expected __getitem__ signature in hover, got: {report}"
     );
 }
 
@@ -1224,7 +1249,7 @@ Test()
 8 | Test()
      ^
 ```python
-(method) __init__: def __init__(
+(class) Test: def Test(
     _cls: type[Test],
     a: str,
     b: int
@@ -1342,6 +1367,64 @@ Box[str]("hello")
     assert!(
         report.contains("Box[str]"),
         "Expected generic constructor to show Box[str], got: {report}"
+    );
+}
+
+#[test]
+fn hover_on_class_type_parameter_shows_variance_covariant() {
+    let code = r#"
+class Foo[T]:
+#         ^
+    def foo(self) -> T: ...
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert!(
+        report.contains("(type parameter) T: T@Foo (covariant)"),
+        "Expected covariant hover, got: {report}"
+    );
+}
+
+#[test]
+fn hover_on_class_type_parameter_shows_variance_contravariant() {
+    let code = r#"
+class Sink[T]:
+#          ^
+    def consume(self, value: T) -> None: ...
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert!(
+        report.contains("(type parameter) T: T@Sink (contravariant)"),
+        "Expected contravariant hover, got: {report}"
+    );
+}
+
+#[test]
+fn hover_on_class_type_parameter_shows_variance_invariant() {
+    let code = r#"
+class Container[T]:
+#               ^
+    def get(self) -> T: ...
+    def set(self, value: T) -> None: ...
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert!(
+        report.contains("(type parameter) T: T@Container (invariant)"),
+        "Expected invariant hover, got: {report}"
+    );
+}
+
+#[test]
+fn hover_on_class_type_parameter_shows_bivariant_as_invariant() {
+    // T is unused in the class body — bivariant, but displayed as invariant
+    let code = r#"
+class Phantom[T]:
+#             ^
+    pass
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    assert!(
+        report.contains("(type parameter) T: T@Phantom (invariant)"),
+        "Expected bivariant displayed as invariant, got: {report}"
     );
 }
 
@@ -1471,4 +1554,122 @@ def unannotated():
         }
         _ => panic!("Expected hover result for variable inside unannotated function body"),
     }
+}
+
+#[test]
+fn hover_resolves_sphinx_cross_references() {
+    let code = r#"
+class MyClass:
+    def farewell(self, name: str) -> str:
+        """Return a farewell message."""
+        return f"Goodbye, {name}!"
+
+    def greet(self, name: str) -> str:
+        """Return a greeting message.
+
+        For the inverse operation see :meth:`farewell`.
+        """
+        return f"Hello, {name}!"
+
+MyClass().greet
+#         ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+
+    assert_sphinx_resolved_as_link(&report, "meth", "farewell");
+    assert!(report.contains("For the inverse operation see "));
+}
+
+#[test]
+fn hover_sphinx_multiple_references() {
+    let code = r#"
+class MyClass:
+    def method_a(self) -> None:
+        """Method A."""
+        pass
+
+    def method_b(self) -> None:
+        """Method B."""
+        pass
+
+    def combined(self) -> None:
+        """Calls :meth:`method_a` and :meth:`method_b`."""
+        pass
+
+MyClass().combined
+#         ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+
+    assert_sphinx_resolved_as_link(&report, "meth", "method_a");
+    assert_sphinx_resolved_as_link(&report, "meth", "method_b");
+}
+
+#[test]
+fn hover_sphinx_references_in_class_docstring() {
+    let code = r#"
+class MyClass:
+    """A class with a helper method.
+
+    See :meth:`helper` for details.
+    """
+
+    def helper(self) -> str:
+        """Helper method."""
+        return "help"
+
+MyClass
+#^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+
+    assert_sphinx_resolved_as_link(&report, "meth", "helper");
+}
+
+#[test]
+fn hover_sphinx_unknown_target() {
+    let code = r#"
+class MyClass:
+    def method(self) -> None:
+        """References :meth:`nonexistent_method` that doesn't exist."""
+        pass
+
+MyClass().method
+#         ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+
+    assert_sphinx_resolved_as_code(&report, "meth", "nonexistent_method");
+}
+
+#[test]
+fn hover_sphinx_malformed_references() {
+    let code = r#"
+def broken() -> None:
+    """Broken: :meth:`missing_backtick that never closes."""
+    pass
+
+broken
+#^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+    // Regex requires a closing backtick, so the malformed reference is left as-is
+    assert!(report.contains(":meth:`missing_backtick that never closes."));
+}
+
+#[test]
+fn hover_sphinx_non_class_context() {
+    let code = r#"
+def method() -> None:
+    """This has :py-meth:`test` and :c-func:`other` roles."""
+    pass
+
+method
+#^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], get_test_report);
+
+    // Free functions have no class context, so targets fall back to inline code
+    assert_sphinx_resolved_as_code(&report, "py-meth", "test");
+    assert_sphinx_resolved_as_code(&report, "c-func", "other");
 }

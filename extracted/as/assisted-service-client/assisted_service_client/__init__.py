@@ -128,6 +128,7 @@ from assisted_service_client.models.install_cmd_request import InstallCmdRequest
 from assisted_service_client.models.installer_args_params import InstallerArgsParams
 from assisted_service_client.models.interface import Interface
 from assisted_service_client.models.inventory import Inventory
+from assisted_service_client.models.inventory_truncation import InventoryTruncation
 from assisted_service_client.models.io_perf import IoPerf
 from assisted_service_client.models.ip import Ip
 from assisted_service_client.models.iscsi import Iscsi

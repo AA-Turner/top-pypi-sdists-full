@@ -26,7 +26,14 @@ Usage::
         ListPentestJobTasksPaginator,
         ListPentestJobsForPentestPaginator,
         ListPentestsPaginator,
+        ListPrivateConnectionsPaginator,
+        ListSecurityRequirementPacksPaginator,
+        ListSecurityRequirementsPaginator,
         ListTargetDomainsPaginator,
+        ListThreatModelJobTasksPaginator,
+        ListThreatModelJobsPaginator,
+        ListThreatModelsPaginator,
+        ListThreatsPaginator,
     )
 
     session = Session()
@@ -46,7 +53,14 @@ Usage::
     list_pentest_job_tasks_paginator: ListPentestJobTasksPaginator = client.get_paginator("list_pentest_job_tasks")
     list_pentest_jobs_for_pentest_paginator: ListPentestJobsForPentestPaginator = client.get_paginator("list_pentest_jobs_for_pentest")
     list_pentests_paginator: ListPentestsPaginator = client.get_paginator("list_pentests")
+    list_private_connections_paginator: ListPrivateConnectionsPaginator = client.get_paginator("list_private_connections")
+    list_security_requirement_packs_paginator: ListSecurityRequirementPacksPaginator = client.get_paginator("list_security_requirement_packs")
+    list_security_requirements_paginator: ListSecurityRequirementsPaginator = client.get_paginator("list_security_requirements")
     list_target_domains_paginator: ListTargetDomainsPaginator = client.get_paginator("list_target_domains")
+    list_threat_model_job_tasks_paginator: ListThreatModelJobTasksPaginator = client.get_paginator("list_threat_model_job_tasks")
+    list_threat_model_jobs_paginator: ListThreatModelJobsPaginator = client.get_paginator("list_threat_model_jobs")
+    list_threat_models_paginator: ListThreatModelsPaginator = client.get_paginator("list_threat_models")
+    list_threats_paginator: ListThreatsPaginator = client.get_paginator("list_threats")
     ```
 """
 
@@ -86,8 +100,22 @@ from .type_defs import (
     ListPentestJobTasksOutputTypeDef,
     ListPentestsInputPaginateTypeDef,
     ListPentestsOutputTypeDef,
+    ListPrivateConnectionsInputPaginateTypeDef,
+    ListPrivateConnectionsOutputTypeDef,
+    ListSecurityRequirementPacksInputPaginateTypeDef,
+    ListSecurityRequirementPacksOutputTypeDef,
+    ListSecurityRequirementsInputPaginateTypeDef,
+    ListSecurityRequirementsOutputTypeDef,
     ListTargetDomainsInputPaginateTypeDef,
     ListTargetDomainsOutputTypeDef,
+    ListThreatModelJobsInputPaginateTypeDef,
+    ListThreatModelJobsOutputTypeDef,
+    ListThreatModelJobTasksInputPaginateTypeDef,
+    ListThreatModelJobTasksOutputTypeDef,
+    ListThreatModelsInputPaginateTypeDef,
+    ListThreatModelsOutputTypeDef,
+    ListThreatsInputPaginateTypeDef,
+    ListThreatsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -111,7 +139,14 @@ __all__ = (
     "ListPentestJobTasksPaginator",
     "ListPentestJobsForPentestPaginator",
     "ListPentestsPaginator",
+    "ListPrivateConnectionsPaginator",
+    "ListSecurityRequirementPacksPaginator",
+    "ListSecurityRequirementsPaginator",
     "ListTargetDomainsPaginator",
+    "ListThreatModelJobTasksPaginator",
+    "ListThreatModelJobsPaginator",
+    "ListThreatModelsPaginator",
+    "ListThreatsPaginator",
 )
 
 
@@ -412,6 +447,71 @@ class ListPentestsPaginator(_ListPentestsPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListPrivateConnectionsPaginatorBase = Paginator[ListPrivateConnectionsOutputTypeDef]
+else:
+    _ListPrivateConnectionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListPrivateConnectionsPaginator(_ListPrivateConnectionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListPrivateConnections.html#SecurityAgent.Paginator.ListPrivateConnections)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listprivateconnectionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPrivateConnectionsInputPaginateTypeDef]
+    ) -> PageIterator[ListPrivateConnectionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListPrivateConnections.html#SecurityAgent.Paginator.ListPrivateConnections.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listprivateconnectionspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSecurityRequirementPacksPaginatorBase = Paginator[
+        ListSecurityRequirementPacksOutputTypeDef
+    ]
+else:
+    _ListSecurityRequirementPacksPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSecurityRequirementPacksPaginator(_ListSecurityRequirementPacksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListSecurityRequirementPacks.html#SecurityAgent.Paginator.ListSecurityRequirementPacks)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listsecurityrequirementpackspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSecurityRequirementPacksInputPaginateTypeDef]
+    ) -> PageIterator[ListSecurityRequirementPacksOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListSecurityRequirementPacks.html#SecurityAgent.Paginator.ListSecurityRequirementPacks.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listsecurityrequirementpackspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListSecurityRequirementsPaginatorBase = Paginator[ListSecurityRequirementsOutputTypeDef]
+else:
+    _ListSecurityRequirementsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListSecurityRequirementsPaginator(_ListSecurityRequirementsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListSecurityRequirements.html#SecurityAgent.Paginator.ListSecurityRequirements)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listsecurityrequirementspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSecurityRequirementsInputPaginateTypeDef]
+    ) -> PageIterator[ListSecurityRequirementsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListSecurityRequirements.html#SecurityAgent.Paginator.ListSecurityRequirements.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listsecurityrequirementspaginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListTargetDomainsPaginatorBase = Paginator[ListTargetDomainsOutputTypeDef]
 else:
     _ListTargetDomainsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -429,4 +529,88 @@ class ListTargetDomainsPaginator(_ListTargetDomainsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListTargetDomains.html#SecurityAgent.Paginator.ListTargetDomains.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listtargetdomainspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListThreatModelJobTasksPaginatorBase = Paginator[ListThreatModelJobTasksOutputTypeDef]
+else:
+    _ListThreatModelJobTasksPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListThreatModelJobTasksPaginator(_ListThreatModelJobTasksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreatModelJobTasks.html#SecurityAgent.Paginator.ListThreatModelJobTasks)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatmodeljobtaskspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListThreatModelJobTasksInputPaginateTypeDef]
+    ) -> PageIterator[ListThreatModelJobTasksOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreatModelJobTasks.html#SecurityAgent.Paginator.ListThreatModelJobTasks.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatmodeljobtaskspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListThreatModelJobsPaginatorBase = Paginator[ListThreatModelJobsOutputTypeDef]
+else:
+    _ListThreatModelJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListThreatModelJobsPaginator(_ListThreatModelJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreatModelJobs.html#SecurityAgent.Paginator.ListThreatModelJobs)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatmodeljobspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListThreatModelJobsInputPaginateTypeDef]
+    ) -> PageIterator[ListThreatModelJobsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreatModelJobs.html#SecurityAgent.Paginator.ListThreatModelJobs.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatmodeljobspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListThreatModelsPaginatorBase = Paginator[ListThreatModelsOutputTypeDef]
+else:
+    _ListThreatModelsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListThreatModelsPaginator(_ListThreatModelsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreatModels.html#SecurityAgent.Paginator.ListThreatModels)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatmodelspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListThreatModelsInputPaginateTypeDef]
+    ) -> PageIterator[ListThreatModelsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreatModels.html#SecurityAgent.Paginator.ListThreatModels.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatmodelspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListThreatsPaginatorBase = Paginator[ListThreatsOutputTypeDef]
+else:
+    _ListThreatsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListThreatsPaginator(_ListThreatsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreats.html#SecurityAgent.Paginator.ListThreats)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListThreatsInputPaginateTypeDef]
+    ) -> PageIterator[ListThreatsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/paginator/ListThreats.html#SecurityAgent.Paginator.ListThreats.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/paginators/#listthreatspaginator)
         """

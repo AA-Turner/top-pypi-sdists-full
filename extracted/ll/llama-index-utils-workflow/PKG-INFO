@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: llama-index-utils-workflow
-Version: 0.10.1
+Version: 0.11.0
 Summary: llama-index utils for workflows
 Author: Adrian Lyjak
 Author-email: Adrian Lyjak <adrianlyjak@gmail.com>
 Requires-Dist: llama-index-core>=0.14,<0.15.0
-Requires-Dist: llama-index-workflows>=2.13.0,<3.0.0
+Requires-Dist: llama-index-workflows>=2.22.0,<3.0.0
 Requires-Dist: pyvis>=0.3.2
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

@@ -352,6 +352,13 @@ class EtlRunEvent(DataClassJsonMixin):
     :param status: One of :data:`ETL_RUN_STATUS_VALUES`.
     :param event_time: ISO8601 string for when this event happened (required).
     :param job_run_id: Optional internal job-run identifier.
+    :param group: Optional :class:`EtlGroup` (by source ID) the run belongs to.
+        Set this to pin a run to a specific group-instance (placement) when the
+        same logical job is placed in multiple groups within one container. The
+        backend mints the internal ``group_global_id`` from
+        :attr:`EtlGroup.source_id` (consumers never receive a group id from the
+        wire); left ``None``, the backend resolves the placement automatically.
+        Backward-compatible — omitted from the wire payload when unset.
     :param task_source_id: Set on task-run events; the source-system task ID.
     :param start_time: When the run / task started.
     :param end_time: When the run / task finished.
@@ -378,6 +385,7 @@ class EtlRunEvent(DataClassJsonMixin):
     status: str
     event_time: str
     job_run_id: str | None = field(default=None, metadata=config(exclude=_is_none))
+    group: EtlGroup | None = field(default=None, metadata=config(exclude=_is_none))
     task_source_id: str | None = field(default=None, metadata=config(exclude=_is_none))
     start_time: str | None = field(default=None, metadata=config(exclude=_is_none))
     end_time: str | None = field(default=None, metadata=config(exclude=_is_none))

@@ -1408,10 +1408,31 @@ class Client:
         Returns:
             A (Processing) that belong to this organization
         """
+        return self._get_processing(
+            f"/api/organization/{self.id}/processings/find", name
+        )
+
+    @exception_handler
+    @beartype
+    def get_public_processing(self, name: str) -> Processing:
+        """Get a public processing by its name
+
+        Examples:
+            ```python
+            processing = client.get_public_processing(name="auto-tagging-dataset")
+            ```
+
+        Arguments:
+            name (str): Name of the processing you are looking for
+
+        Returns:
+            A public (Processing)
+        """
+        return self._get_processing("/api/processings/public/find", name)
+
+    def _get_processing(self, api: str, name: str):
         params = {"name": name}
-        r = self.connection.get(
-            f"/api/organization/{self.id}/processings/find", params=params
-        ).json()
+        r = self.connection.get(api, params=params).json()
         return Processing(self.connection, r)
 
     @exception_handler

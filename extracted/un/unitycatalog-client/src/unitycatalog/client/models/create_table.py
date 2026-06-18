@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from unitycatalog.client.models.column_info import ColumnInfo
 from unitycatalog.client.models.data_source_format import DataSourceFormat
+from unitycatalog.client.models.dependency_list import DependencyList
 from unitycatalog.client.models.table_type import TableType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -33,12 +34,14 @@ class CreateTable(BaseModel):
     catalog_name: StrictStr = Field(description="Name of parent catalog.")
     schema_name: StrictStr = Field(description="Name of parent schema relative to its parent catalog.")
     table_type: TableType
-    data_source_format: DataSourceFormat
+    data_source_format: Optional[DataSourceFormat] = None
     columns: List[ColumnInfo] = Field(description="The array of __ColumnInfo__ definitions of the table's columns.")
-    storage_location: StrictStr = Field(description="Storage root URL for external table")
+    storage_location: Optional[StrictStr] = Field(default=None, description="Storage root URL for external table")
     comment: Optional[StrictStr] = Field(default=None, description="User-provided free-form text description.")
     properties: Optional[Dict[str, StrictStr]] = Field(default=None, description="A map of key-value properties attached to the securable.")
-    __properties: ClassVar[List[str]] = ["name", "catalog_name", "schema_name", "table_type", "data_source_format", "columns", "storage_location", "comment", "properties"]
+    view_definition: Optional[StrictStr] = Field(default=None, description="Definition text for view-like table types such as VIEW, MATERIALIZED_VIEW, STREAMING_TABLE, and METRIC_VIEW. The format depends on the table type (SQL for views, YAML for metric views).")
+    view_dependencies: Optional[DependencyList] = None
+    __properties: ClassVar[List[str]] = ["name", "catalog_name", "schema_name", "table_type", "data_source_format", "columns", "storage_location", "comment", "properties", "view_definition", "view_dependencies"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,6 +89,9 @@ class CreateTable(BaseModel):
                 if _item_columns:
                     _items.append(_item_columns.to_dict())
             _dict['columns'] = _items
+        # override the default output from pydantic by calling `to_dict()` of view_dependencies
+        if self.view_dependencies:
+            _dict['view_dependencies'] = self.view_dependencies.to_dict()
         return _dict
 
     @classmethod
@@ -106,7 +112,9 @@ class CreateTable(BaseModel):
             "columns": [ColumnInfo.from_dict(_item) for _item in obj["columns"]] if obj.get("columns") is not None else None,
             "storage_location": obj.get("storage_location"),
             "comment": obj.get("comment"),
-            "properties": obj.get("properties")
+            "properties": obj.get("properties"),
+            "view_definition": obj.get("view_definition"),
+            "view_dependencies": DependencyList.from_dict(obj["view_dependencies"]) if obj.get("view_dependencies") is not None else None
         })
         return _obj
 

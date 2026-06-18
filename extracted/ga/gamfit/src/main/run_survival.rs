@@ -269,8 +269,8 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         );
     }
     parse_survival_distribution(&effective_config.survival_distribution)?;
-    let survival_inverse_link = gam::config_resolve::parse_survival_inverse_link(
-        gam::config_resolve::SurvivalInverseLinkInput {
+    let survival_inverse_link = crate::config_resolve::parse_survival_inverse_link(
+        crate::config_resolve::SurvivalInverseLinkInput {
             link: effective_config.link.as_deref(),
             mixture_rho: effective_args.mixture_rho.as_deref(),
             sas_init: effective_args.sas_init.as_deref(),
@@ -358,7 +358,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         &ds,
         col_map_for_termspec,
         &mut inference_notes,
-        &gam::resource::ResourcePolicy::default_library(),
+        &gam::ResourcePolicy::default_library(),
     )?;
     if effective_config.scale_dimensions {
         enable_scale_dimensions(&mut termspec);
@@ -369,7 +369,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             &ds,
             col_map_for_termspec,
             &mut inference_notes,
-            &gam::resource::ResourcePolicy::default_library(),
+            &gam::ResourcePolicy::default_library(),
         )?;
         if effective_config.scale_dimensions {
             enable_scale_dimensions(&mut spec);
@@ -419,8 +419,8 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         age_exit[i] = t1;
         event_target[i] = survival_event_code_from_value(ev, i)?;
     }
-    let cause_count =
-        gam::survival::cause_count_from_event_codes(event_target.view()).into_cli_result()?;
+    let cause_count = gam::families::survival::cause_count_from_event_codes(event_target.view())
+        .into_cli_result()?;
     if cause_count > 1
         && !matches!(
             likelihood_mode,
@@ -603,7 +603,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
                     offset_entry: prepared.eta_offset_entry.clone(),
                     offset_exit: prepared.eta_offset_exit.clone(),
                     derivative_offset_exit: prepared.derivative_offset_exit.clone(),
-                    time_monotonicity: gam::families::survival_location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
+                    time_monotonicity: gam::families::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
                     penalties: prepared.time_penalties.clone(),
                     nullspace_dims: prepared.time_nullspace_dims.clone(),
                     initial_log_lambdas: survival_time_initial_log_lambdas(
@@ -920,7 +920,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             &ds,
             col_map_for_termspec,
             &mut inference_notes,
-            &gam::resource::ResourcePolicy::default_library(),
+            &gam::ResourcePolicy::default_library(),
         )?;
         if effective_config.scale_dimensions {
             enable_scale_dimensions(&mut logslopespec);
@@ -993,7 +993,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
                 // tells the family to skip the row-wise `D β + o ≥ guard` constraint
                 // generator (vacuous on this basis) and rely on the γ-cone coordinate
                 // bound instead. See `src/families/ispline_base_time.rs` for the why.
-                time_monotonicity: gam::families::survival_location_scale::TimeBlockMonotonicity::StructuralISpline,
+                time_monotonicity: gam::families::survival::location_scale::TimeBlockMonotonicity::StructuralISpline,
                 penalties: prepared.time_penalties.clone(),
                 nullspace_dims: prepared.time_nullspace_dims.clone(),
                 initial_log_lambdas: survival_time_initial_log_lambdas(
@@ -1143,11 +1143,11 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             progress.set_stage("fit", "writing survival marginal-slope model");
             let save_frailty = match (&frailty, fit.gaussian_frailty_sd) {
                 (
-                    gam::families::lognormal_kernel::FrailtySpec::GaussianShift {
+                    gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
                         sigma_fixed: None,
                     },
                     Some(learned),
-                ) => gam::families::lognormal_kernel::FrailtySpec::GaussianShift {
+                ) => gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
                     sigma_fixed: Some(learned),
                 },
                 _ => frailty,
@@ -1239,7 +1239,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
                 offset_entry: prepared.eta_offset_entry.clone(),
                 offset_exit: prepared.eta_offset_exit.clone(),
                 derivative_offset_exit: prepared.derivative_offset_exit.clone(),
-                time_monotonicity: gam::families::survival_location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
+                time_monotonicity: gam::families::survival::location_scale::TimeBlockMonotonicity::EnforcedByCoordinateCone,
                 penalties: prepared.time_penalties.clone(),
                 nullspace_dims: prepared.time_nullspace_dims.clone(),
                 initial_log_lambdas: time_initial_log_lambdas,
@@ -1249,7 +1249,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
         let build_survival_request =
             |prepared: PreparedSurvivalTimeStack| LatentSurvivalFitRequest {
                 data: ds.values.view(),
-                spec: gam::families::latent_survival::LatentSurvivalTermSpec {
+                spec: gam::families::survival::latent::LatentSurvivalTermSpec {
                     age_entry: age_entry.clone(),
                     age_exit: age_exit.clone(),
                     event_target: event_target.clone(),
@@ -1270,7 +1270,7 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             };
         let build_binary_request = |prepared: PreparedSurvivalTimeStack| LatentBinaryFitRequest {
             data: ds.values.view(),
-            spec: gam::families::latent_survival::LatentBinaryTermSpec {
+            spec: gam::families::survival::latent::LatentBinaryTermSpec {
                 age_entry: age_entry.clone(),
                 age_exit: age_exit.clone(),
                 event_target: event_target.clone(),
@@ -1482,10 +1482,10 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             let family = match likelihood_mode {
                 SurvivalLikelihoodMode::Latent => FittedFamily::LatentSurvival {
                     frailty: match &frailty {
-                        gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+                        gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
                             sigma_fixed: None,
                             loading,
-                        } => gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+                        } => gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
                             sigma_fixed: learned_latent_sd,
                             loading: *loading,
                         },
@@ -1732,32 +1732,33 @@ pub(crate) fn run_survival(args: SurvivalArgs) -> Result<(), String> {
             });
         }
         let penalties = PenaltyBlocks::new(penalty_blocks.clone());
-        let monotonicity = MonotonicityPenalty { tolerance: 0.0 };
+        let monotonicity = SurvivalMonotonicityPenalty { tolerance: 0.0 };
         let dense_time_entry = prepared.time_design_entry.to_dense();
         let dense_time_exit = prepared.time_design_exit.to_dense();
         let dense_time_derivative = prepared.time_design_derivative_exit.to_dense();
-        let mut model = gam::families::royston_parmar::working_model_from_time_covariateshared(
-            penalties,
-            monotonicity,
-            survivalspec,
-            gam::families::royston_parmar::RoystonParmarSharedTimeCovariateInputs {
-                age_entry: age_entry.view(),
-                age_exit: age_exit.view(),
-                event_target: event_target.view(),
-                event_competing: event_competing.view(),
-                weights: weights.view(),
-                time_entry: dense_time_entry.view(),
-                time_exit: dense_time_exit.view(),
-                time_derivative: dense_time_derivative.view(),
-                covariates: dense_cov_design.view(),
-                monotonicity_constraint_rows: None,
-                monotonicity_constraint_offsets: None,
-                eta_offset_entry: Some(eta_offset_entry.view()),
-                eta_offset_exit: Some(eta_offset_exit.view()),
-                derivative_offset_exit: Some(prepared.derivative_offset_exit.view()),
-            },
-        )
-        .map_err(|e| format!("failed to construct survival model: {e}"))?;
+        let mut model =
+            gam::families::survival::royston_parmar::working_model_from_time_covariateshared(
+                penalties,
+                monotonicity,
+                survivalspec,
+                gam::families::survival::royston_parmar::RoystonParmarSharedTimeCovariateInputs {
+                    age_entry: age_entry.view(),
+                    age_exit: age_exit.view(),
+                    event_target: event_target.view(),
+                    event_competing: event_competing.view(),
+                    weights: weights.view(),
+                    time_entry: dense_time_entry.view(),
+                    time_exit: dense_time_exit.view(),
+                    time_derivative: dense_time_derivative.view(),
+                    covariates: dense_cov_design.view(),
+                    monotonicity_constraint_rows: None,
+                    monotonicity_constraint_offsets: None,
+                    eta_offset_entry: Some(eta_offset_entry.view()),
+                    eta_offset_exit: Some(eta_offset_exit.view()),
+                    derivative_offset_exit: Some(prepared.derivative_offset_exit.view()),
+                },
+            )
+            .map_err(|e| format!("failed to construct survival model: {e}"))?;
         if likelihood_mode != SurvivalLikelihoodMode::Weibull {
             model
                 .set_structural_monotonicity(true, p_time_total)

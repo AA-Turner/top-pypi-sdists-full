@@ -30,6 +30,7 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_connector_rollouts_for_connector,
     query_connector_versions,
     query_new_connector_releases,
+    query_versions_with_pins_or_rollouts,
 )
 from airbyte_ops_mcp.tier_cache import resolve_workspace
 
@@ -89,12 +90,24 @@ def _fmt_date(value: str) -> str:
     return parsed.strftime("%Y-%m-%d (%a)")
 
 
-def _cloud_scope_url(scope_type: str, scope_id: str) -> str:
+def _cloud_scope_url(
+    *,
+    scope_type: str,
+    scope_id: str,
+    workspace_id: str = "",
+    actor_type: str = "",
+) -> str:
     """Build an Airbyte Cloud URL for viewing the target scope."""
     if scope_type == "workspace":
         return f"{CLOUD_UI_BASE_URL}/workspaces/{scope_id}"
     if scope_type == "organization":
         return f"{CLOUD_UI_BASE_URL}/organizations/{scope_id}/settings"
+    if scope_type == "actor" and workspace_id:
+        if actor_type in ("source", "destination"):
+            return (
+                f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}/{actor_type}/{scope_id}"
+            )
+        return f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}"
     return f"{CLOUD_UI_BASE_URL}/workspaces"
 
 
@@ -251,28 +264,53 @@ class OpsMcpAdapter:
         pins = [self._pin_row_from_db(row) for row in page]
         return pins, total
 
+    def list_versions_with_pins_or_rollouts(
+        self,
+        connector_id: str | None = None,
+    ) -> list[dict[str, object]]:
+        """Return connector versions that have at least one pin or an active rollout.
+
+        Each row includes `version_id`, `connector_definition_id`, `connector_name`,
+        `docker_repository`, `docker_image_tag`, `last_published`, `pin_count`,
+        `rollout_state`, and `rollout_id`.
+        """
+        return query_versions_with_pins_or_rollouts(
+            actor_definition_id=connector_id,
+        )
+
     @staticmethod
     def _pin_row_from_db(row: dict[str, object]) -> VersionPinRow:
         """Map a prod DB pin row to a `VersionPinRow`."""
         scope_type = str(row.get("pin_scope_type", "actor"))
+        workspace_id = str(row.get("workspace_id", ""))
+        actor_type = str(row.get("actor_type", ""))
         if scope_type == "actor":
             scope_id = str(row.get("actor_id", ""))
         elif scope_type == "organization":
             scope_id = str(row.get("organization_id", ""))
         else:
-            scope_id = str(row.get("workspace_id", ""))
+            scope_id = workspace_id
+        origin_email = row.get("pinned_by_user_email") or row.get("pinned_by_user_name")
+        origin_name = (
+            str(origin_email) if origin_email else str(row.get("pinned_by_user_id", ""))
+        )
         return VersionPinRow(
             scope_type=scope_type,
             scope_id=scope_id,
-            scope_url=_cloud_scope_url(scope_type, scope_id),
+            scope_url=_cloud_scope_url(
+                scope_type=scope_type,
+                scope_id=scope_id,
+                workspace_id=workspace_id,
+                actor_type=actor_type,
+            ),
             origin_type=str(row.get("origin_type", "")),
-            origin_name=str(row.get("origin", "")),
+            origin_name=origin_name,
             description=str(row.get("description", "")),
             created_at=str(row.get("created_at", "")),
             created_at_display=_fmt_date(str(row.get("created_at", ""))),
             expires_at=str(row.get("expires_at", "") or ""),
             expires_at_display=_fmt_date(str(row.get("expires_at", "") or "")),
-            reference_url="",
+            reference_url=str(row.get("reference_url", "") or ""),
         )
 
     def get_current_context(

@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -740,11 +741,70 @@ def _agent_query(
         output = proc.stdout + proc.stderr
         if "error" in output.lower() and "HTTP 4" in output:
             return None, "Agent error: server issue"
+        # Harness self-refuses to initialize when the served model's
+        # advertised context window is below what the harness's tool-rich
+        # system prompt requires (issue #655 — Hermes hard-requires 64K;
+        # qwen3.5-4b/9b-4bit advertise 32K, so init always fails on those).
+        # The subprocess exits 0 and writes the refusal to stdout, so
+        # without this check downstream tests see "no expected substring"
+        # and report FAIL — which is dishonest, it's a harness-config
+        # mismatch, not a rapid-mlx regression. Propagate as SKIP via the
+        # ``SKIP:``-prefixed err sentinel that each ``_test_e2e_*`` already
+        # honors.
+        #
+        # IMPORTANT: collapse whitespace first. The hermes binary hard-
+        # wraps stderr at ~100 cols, so a literal ``"context window"``
+        # substring check misses when wrapping splits the phrase as
+        # ``"context\nwindow"`` — which is exactly what tripped the
+        # initial #655 fix in production (#659 round-1 verify-pass).
+        collapsed = re.sub(r"\s+", " ", output).strip()
+        if "Failed to initialize agent" in collapsed and "context window" in collapsed:
+            # Extract the actual refusal sentence (everything from
+            # "Failed to initialize agent" through the next period) so
+            # the resulting TestResult.message carries the actual model
+            # name + advertised vs minimum token counts (codex NIT #659).
+            # Without this, the user sees a generic "below the harness
+            # minimum" and has to dig in the server log to learn which
+            # model and what numbers — the very signal that makes this
+            # actionable.
+            # Non-greedy through to a period FOLLOWED BY whitespace or
+            # end-of-string. The plain ``[^.]*\.`` form stops at the
+            # first period — which on a model name like "Qwen3.5" is
+            # mid-sentence, truncating the model identifier and the
+            # advertised/minimum numbers.
+            m = re.search(r"Failed to initialize agent.*?\.(?=\s|$)", collapsed)
+            refusal_line = (m.group(0) if m else "")[:200]
+            detail = f": {refusal_line}" if refusal_line else ""
+            return None, (
+                f"SKIP: agent refused init — served model's context window "
+                f"is below the harness minimum{detail}"
+            )
         return output, None
     except subprocess.TimeoutExpired:
         return None, "TIMEOUT"
     except Exception as e:
         return None, str(e)
+
+
+def _err_to_status(err: str | None) -> TestStatus:
+    """Map an ``_agent_query`` err string to the right TestStatus.
+
+    Three buckets, in priority order:
+
+    - ``"not found"`` → SKIP. Harness binary isn't installed; we can't
+      run the e2e gate and shouldn't pretend to.
+    - ``"SKIP:"`` prefix → SKIP. ``_agent_query`` propagates this for
+      harness-side init refusals where rapid-mlx has nothing to fix —
+      currently the Hermes-on-32K-context case (#655).
+    - anything else → ERROR. Subprocess crashed / timed out / etc.
+    """
+    if not err:
+        return TestStatus.PASS  # caller shouldn't pass empty err but stay safe
+    if "not found" in err:
+        return TestStatus.SKIP
+    if err.startswith("SKIP:"):
+        return TestStatus.SKIP
+    return TestStatus.ERROR
 
 
 def _test_e2e_chat(binary: str, query_cmd: str, timeout: int) -> TestResult:
@@ -754,7 +814,7 @@ def _test_e2e_chat(binary: str, query_cmd: str, timeout: int) -> TestResult:
         binary, query_cmd, "What is 2+2? Reply with just the number.", timeout
     )
     if err:
-        status = TestStatus.SKIP if "not found" in (err or "") else TestStatus.ERROR
+        status = _err_to_status(err)
         return TestResult(
             "e2e_chat",
             status,
@@ -785,7 +845,7 @@ def _test_e2e_file_read(binary: str, query_cmd: str, timeout: int) -> TestResult
         binary, query_cmd, "Read the first line of pyproject.toml", timeout
     )
     if err:
-        status = TestStatus.SKIP if "not found" in (err or "") else TestStatus.ERROR
+        status = _err_to_status(err)
         return TestResult(
             "e2e_file_read",
             status,
@@ -819,7 +879,7 @@ def _test_e2e_terminal(
         binary, query_cmd, f"Run 'echo {marker}' and show me the output", timeout
     )
     if err:
-        status = TestStatus.SKIP if "not found" in (err or "") else TestStatus.ERROR
+        status = _err_to_status(err)
         return TestResult(
             "e2e_terminal",
             status,
@@ -959,6 +1019,31 @@ class AgentTestRunner:
                 )
             )
             return report
+
+        # Refresh the agent's on-disk config (e.g. ``~/.hermes/config.yaml``)
+        # so e2e tests run against the CURRENT model_id + base_url instead
+        # of whatever was left over from a prior bench / manual invocation.
+        # v0.7.26 dogfood found this: after qwen2.5-14b ran first, the
+        # hermes config retained ``Qwen2.5-14B-Instruct`` and every
+        # subsequent harness sweep's ``e2e_file_read`` failed with
+        # ``Failed to initialize agent: Model mlx-community/Qwen2.5-14B-Instruct``.
+        # ``setup_agent_config`` is a no-op for env-var-style profiles
+        # (codex, opencode, aider) since those carry config via env only.
+        try:
+            from .adapter import setup_agent_config
+
+            setup_agent_config(
+                self.profile,
+                base_url=self.base_url,
+                model_id=self.model_id,
+                agent_version=self.agent_version,
+            )
+        except Exception as exc:  # noqa: BLE001 — config refresh must never abort the sweep
+            logger.warning(
+                "could not refresh %s config before harness sweep: %s",
+                self.profile.name,
+                exc,
+            )
 
         t0 = time.time()
         streaming = self.profile.get_streaming_for_version(self.agent_version)
@@ -1152,12 +1237,35 @@ class AgentTestRunner:
 
             # If module failed to execute, report it as an error
             if exec_error is not None:
+                # ImportError / ModuleNotFoundError nearly always means
+                # the harness deps weren't installed in the rapid-mlx
+                # venv. The profile's ``install_cmd`` is exactly that
+                # hint; surface it in the message so users have a
+                # one-line copy-paste fix instead of "Module execution
+                # failed: No module named 'langchain_core'" with no
+                # path forward (v0.7.26 dogfood found this on every
+                # langchain harness run).
+                hint = ""
+                if isinstance(exec_error, (ImportError, ModuleNotFoundError)):
+                    try:
+                        testing = self.profile.get_testing_for_version(
+                            self.agent_version
+                        )
+                        if testing and testing.install_cmd:
+                            hint = (
+                                f" [hint: harness deps missing — run "
+                                f"`{testing.install_cmd}` in the rapid-mlx venv]"
+                            )
+                    except (AttributeError, KeyError):
+                        # Profile shape changed under us — fall back to
+                        # the bare error rather than crash the harness.
+                        pass
                 return [
                     TestResult(
                         f"specific:{test_module_name}",
                         TestStatus.ERROR,
                         duration_ms=(time.time() - t0) * 1000,
-                        message=f"Module execution failed: {exec_error!s:.120}",
+                        message=f"Module execution failed: {exec_error!s:.120}{hint}",
                         category="specific",
                     )
                 ]

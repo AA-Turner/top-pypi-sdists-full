@@ -22,6 +22,8 @@ from .contacts._contact import Contact
 from .contacts._contact_topic import ContactTopic, TopicSubscriptionUpdate
 from .contacts._contacts import Contacts
 from .contacts._topics import Topics as ContactsTopics
+from .contacts.imports._contact_import import ContactImport, ContactImportCounts
+from .contacts.imports._contact_imports import ContactImports
 from .contacts.segments._contact_segment import ContactSegment
 from .contacts.segments._contact_segments import ContactSegments
 from .domains._domain import Domain
@@ -31,8 +33,9 @@ from .emails._attachments import Attachments as EmailAttachments
 from .emails._batch import Batch, BatchValidationError
 from .emails._email import Email
 from .emails._emails import Emails, EmailTemplate
-from .emails._received_email import (EmailAttachment, EmailAttachmentDetails,
-                                     ListReceivedEmail, ReceivedEmail)
+from .emails._received_email import (AttachmentWithSignedUrl, EmailAttachment,
+                                     EmailAttachmentDetails, ListReceivedEmail,
+                                     ReceivedEmail)
 from .emails._receiving import Receiving as EmailsReceiving
 from .emails._tag import Tag
 from .events._event import (Event, EventListItem, EventSchema,
@@ -82,6 +85,7 @@ __all__ = [
     "Audiences",
     "Automations",
     "Contacts",
+    "ContactImports",
     "ContactProperties",
     "Broadcasts",
     "Events",
@@ -109,6 +113,8 @@ __all__ = [
     "EventSchema",
     "EventSchemaFieldType",
     "Contact",
+    "ContactImport",
+    "ContactImportCounts",
     "ContactSegment",
     "ContactSegments",
     "ContactProperty",
@@ -136,6 +142,7 @@ __all__ = [
     "BatchValidationError",
     "ReceivedEmail",
     "EmailAttachment",
+    "AttachmentWithSignedUrl",
     "EmailAttachmentDetails",
     "ListReceivedEmail",
     # Receiving types (for type hints)

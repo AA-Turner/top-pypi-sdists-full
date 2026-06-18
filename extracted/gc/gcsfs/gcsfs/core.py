@@ -10,6 +10,7 @@ import mimetypes
 import os
 import posixpath
 import re
+import sys
 import uuid
 import warnings
 import weakref
@@ -27,6 +28,7 @@ from fsspec.implementations.http import get_client
 from fsspec.utils import other_paths, setup_logging, stringify_path
 
 from . import __version__ as version
+from ._dircache import DirCacheUpdater
 from .checkers import get_consistency_checker
 from .concurrency import parallel_tasks_first_completed
 from .credentials import GoogleCredentials
@@ -179,7 +181,7 @@ def _is_directory_marker(entry):
     return entry["size"] == 0 and entry["name"].endswith("/")
 
 
-class GCSFileSystem(asyn.AsyncFileSystem):
+class GCSFileSystem(DirCacheUpdater, asyn.AsyncFileSystem):
     r"""
     Connect to Google Cloud Storage.
 
@@ -376,6 +378,12 @@ class GCSFileSystem(asyn.AsyncFileSystem):
     def project(self):
         return self.credentials.project
 
+    # This threshold applies to the standard bucket, whereas the zonal bucket
+    # uses a 5MB threshold. This difference exists because the standard bucket
+    # lacks the `DirectMemmoveBuffer` implementation used in the zonal bucket.
+    async def _get_threshold_for_disk_reads(self, bucket):
+        return 100 * 1024 * 1024
+
     # Clean up the aiohttp session
     #
     # This can run from the main thread if invoked via the weakref callback.
@@ -385,7 +393,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
     # cleanup (which can handle cross-thread calls).
     @staticmethod
     def close_session(loop, session: aiohttp.ClientSession, asynchronous=False):
-        if session.closed:
+        if session is None or session.closed:
             return
         force_close = False
         try:
@@ -1436,11 +1444,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                 json_out=True,
                 sourceGeneration=g1,
             )
-        self.invalidate_cache(self._parent(path2))
-
-    async def _mv_file_cache_update(self, path1, path2, response=None):
-        self.invalidate_cache(self._parent(path1))
-        self.invalidate_cache(self._parent(path2))
+        await self._write_file_cache_update(path2)
 
     async def _mv_file(self, path1, path2, **kwargs):
         src_bucket, src_key, generation1 = self.split_path(path1)
@@ -1484,9 +1488,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
         bucket, key, generation = self.split_path(path)
         if key:
             await self._call("DELETE", "b/{}/o/{}", bucket, key, generation=generation)
-            # TODO: This can be optimized for HNS buckets by not invalidating the entire parent
-            # directory structure from cache but to just remove the deleted file entry from immediate parent's cache.
-            self.invalidate_cache(posixpath.dirname(self._strip_protocol(path)))
+            await self._rm_file_cache_update(path)
         else:
             await self._rmdir(path)
 
@@ -1539,18 +1541,21 @@ class GCSFileSystem(asyn.AsyncFileSystem):
             )
 
             boundary = headers["Content-Type"].split("=", 1)[1]
-            parents = set(self._parent(p) for p in paths) | set(paths)
-            [self.invalidate_cache(parent) for parent in parents]
             txt = content.decode()
             responses = txt.split(boundary)[1:-1]
+            deleted = []
+            confirmed_absent = []
             for path, response in zip(paths, responses):
                 m = re.search("HTTP/[0-9.]+ ([0-9]+)", response)
                 code = int(m.groups()[0]) if m else None
                 if code in [200, 204]:
                     out.append(path)
+                    deleted.append(path)
                 elif code in errs and retry < 5:
                     remaining.append(path)
                 else:
+                    if code == 404:
+                        confirmed_absent.append(path)
                     msg = re.search("{(.*)}", response.replace("\n", ""))
                     if msg:
                         msg2 = re.search("({.*})", msg.groups()[0])
@@ -1560,6 +1565,14 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                         out.append(OSError(msg2.groups()[0]))
                     else:
                         out.append(OSError(f"{path}: {code}"))
+            # Only update the cache for objects we actually deleted, or that GCS
+            # confirms are already absent. Updating it for other failed paths
+            # would evict still-present objects from the cache (the HNS targeted
+            # update mutates the parent listing in place and does not self-correct
+            # on the next listing).
+            cache_updates = deleted + confirmed_absent
+            if cache_updates:
+                await self._rm_files_cache_update(cache_updates)
             if remaining:
                 paths = remaining
                 await asyncio.sleep(min(random.random() + 2 ** (retry - 1), 32))
@@ -1591,7 +1604,10 @@ class GCSFileSystem(asyn.AsyncFileSystem):
                 [self._rm_file(f) for f in files], return_exceptions=True, batch_size=5
             )
 
-    async def _rm(self, path, recursive=False, maxdepth=None, batchsize=20):
+    async def _rm(self, path, recursive=False, maxdepth=None, batchsize=100):
+        # 100 is the maximum number of operations allowed in a single GCS batch
+        # request (https://cloud.google.com/storage/docs/batch); using the full
+        # limit minimizes the number of round-trips when deleting many objects.
         paths = await self._expand_path(path, recursive=recursive, maxdepth=maxdepth)
         files = [p for p in paths if self.split_path(p)[1]]
         dirs = [p for p in paths if not self.split_path(p)[1]]
@@ -1679,7 +1695,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
             checker.update(data)
             checker.validate_json_response(out)
 
-        self.invalidate_cache(self._parent(path))
+        await self._write_file_cache_update(path)
         return location
 
     async def _put_file(
@@ -1758,7 +1774,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
 
                 checker.validate_json_response(out)
 
-            self.invalidate_cache(self._parent(rpath))
+            await self._write_file_cache_update(rpath)
 
     async def _isdir(self, path):
 
@@ -1905,6 +1921,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
     async def _get_file_request(
         self, rpath, lpath, *args, headers=None, callback=None, **kwargs
     ):
+        rpath = self.url(rpath)
         consistency = kwargs.pop("consistency", self.consistency)
         await self._set_session()
         async with self.session.get(
@@ -1936,12 +1953,217 @@ class GCSFileSystem(asyn.AsyncFileSystem):
             checker.validate_http_response(r)  # validate file consistency
             return r.status, r.headers, r.request_info, data
 
+    def _init_local_file(self, lpath, total_size):
+        """Creates the target directory and pre-allocates the file size."""
+        os.makedirs(os.path.dirname(lpath) or os.curdir, exist_ok=True)
+        if total_size == 0:
+            with open(lpath, "wb"):
+                pass
+        else:
+            with open(lpath, "wb") as f:
+                f.truncate(total_size)
+
+    @retry_request(retries=retries)
+    async def _get_file_concurrent(
+        self,
+        rpath,
+        lpath,
+        concurrency,
+        chunk_size,
+        max_prefetch_size,
+        headers=None,
+        callback=None,
+        fetcher_fn=None,
+        **kwargs,
+    ):
+        """Main orchestrator for concurrent file downloads utilizing BackgroundPrefetcher."""
+        details = await self._info(rpath, **kwargs)
+        total_size = details.get("size", 0)
+
+        # Concurrency typically improves performance for RAM downloads exceeding 5MB.
+        # However, for disk-backed reads in the standard bucket, _cat_file uses
+        # b"".join, which creates an additional data copy of chunks. Additionally,
+        # prefetching is ineffective for reads under 100MB because it only activates
+        # from the third read onward and scales linearly. These factors often make
+        # concurrent processing slower than writing data as it arrives.
+        #
+        #
+        # Note that the number is 5MB for zonal buckets, Thanks to our in-house, zero-copy
+        # DirectMemmoveBuffer, we didn't integrated it initially with standard bucket, because
+        # we first want to stabilise that in zonal bucket (lower traffic compared to standard)
+        #
+        # Promoting DirectMemmoveBuffer (currently used in the Zonal bucket)
+        # to the standard bucket will enable in-place assembly and lower this
+        # threshold. Until then, the concurrent path for standard is enabled only for disk
+        # reads of 100MB or more.
+        bucket, _, _ = self.split_path(rpath)
+        threshold = await self._get_threshold_for_disk_reads(bucket)
+        if total_size <= max(self.MIN_CHUNK_SIZE_FOR_CONCURRENCY, threshold):
+            concurrency = 1
+
+        if concurrency == 1:
+            return await self._get_file_request(
+                rpath, lpath, headers=headers, callback=callback, **kwargs
+            )
+
+        consistency = kwargs.pop("consistency", self.consistency)
+        check_consistency = consistency not in ("none", None)
+
+        # Prevent silent corruption by pinning the exact object generation
+        generation = details.get("generation")
+        if generation and "generation" not in kwargs:
+            kwargs["generation"] = generation
+
+        callback = callback or NoOpCallback()
+        callback.set_size(total_size)
+
+        # pre-allocate the file, it is required so multiple file descriptors can seek/write safely.
+        self._init_local_file(lpath, total_size)
+        checker = get_consistency_checker(consistency)
+
+        if fetcher_fn is None:
+
+            async def default_fetcher(start, size, split_factor=1):
+                return await self._cat_file(
+                    rpath,
+                    start=start,
+                    end=start + size,
+                    concurrency=split_factor,
+                    headers=headers,
+                    **kwargs,
+                )
+
+            fetcher_fn = default_fetcher
+
+        from .prefetcher import BackgroundPrefetcher
+
+        prefetcher = BackgroundPrefetcher(
+            fetcher=fetcher_fn,
+            size=total_size,
+            concurrency=concurrency,
+            max_prefetch_size=max_prefetch_size,
+            loop=self.loop,
+        )
+
+        fd = None
+
+        def write_chunk(offset, chunk):
+            if fd is not None:
+                written = 0
+                chunk_view = memoryview(chunk)
+                while written < len(chunk):
+                    written += os.pwrite(fd, chunk_view[written:], offset + written)
+            else:
+                # Thread-safe fallback for older Windows versions (Python < 3.12)
+                with open(lpath, "rb+") as f:
+                    f.seek(offset)
+                    f.write(chunk)
+
+        pending_writes = set()
+        try:
+            if hasattr(os, "pwrite"):
+                fd = os.open(lpath, os.O_WRONLY | getattr(os, "O_BINARY", 0))
+
+            async with prefetcher:
+                offset = 0
+                while offset < total_size:
+                    read_size = min(chunk_size, total_size - offset)
+
+                    data = await prefetcher.afetch(offset, offset + read_size)
+
+                    if not data:
+                        break
+
+                    if check_consistency:
+                        checker.update(data)
+
+                    callback.relative_update(len(data))
+
+                    task = asyncio.create_task(
+                        asyncio.to_thread(write_chunk, offset, data)
+                    )
+                    pending_writes.add(task)
+
+                    if len(pending_writes) >= concurrency:
+                        done, pending_writes = await asyncio.wait(
+                            pending_writes, return_when=asyncio.FIRST_COMPLETED
+                        )
+
+                        exceptions = []
+                        for t in done:
+                            exc = t.exception()
+                            if exc:
+                                exceptions.append(exc)
+
+                        if exceptions:
+                            raise exceptions[0]
+
+                    offset += len(data)
+
+                if offset != total_size:
+                    raise aiohttp.client_exceptions.ClientError(
+                        f"Expected {total_size} bytes, but only received {offset} bytes"
+                    )
+        finally:
+            all_done = set()
+            was_cancelled = False
+            if pending_writes:
+                while pending_writes:
+                    try:
+                        done_wait, pending_writes = await asyncio.wait(pending_writes)
+                        all_done.update(done_wait)
+                    except asyncio.CancelledError:
+                        was_cancelled = True
+                        pass
+
+            if fd is not None:
+                os.close(fd)
+
+            exceptions = []
+            for t in all_done:
+                exc = t.exception()
+                if exc:
+                    exceptions.append(exc)
+
+            if was_cancelled:
+                raise asyncio.CancelledError()
+
+            if exceptions and sys.exc_info()[1] is None:
+                raise exceptions[0]
+
+        if check_consistency:
+            checker.validate_json_response(details)
+
     async def _get_file(self, rpath, lpath, callback=None, **kwargs):
-        u2 = self.url(rpath)
         if os.path.isdir(lpath):
             return
+
         callback = callback or NoOpCallback()
-        await self._get_file_request(u2, lpath, callback=callback, **kwargs)
+
+        concurrency = kwargs.pop("concurrency", DEFAULT_CONCURRENCY)
+        chunk_size = kwargs.pop("chunk_size", 16 * 1024 * 1024)
+        max_prefetch_size = kwargs.pop(
+            "max_prefetch_size", 2 * concurrency * chunk_size
+        )
+
+        try:
+            # The concurrent path uses `_cat_file` to interact with gcsfs which doesn't take headers as argument.
+            if concurrency > 1 and "headers" not in kwargs:
+                await self._get_file_concurrent(
+                    rpath,
+                    lpath,
+                    concurrency,
+                    callback=callback,
+                    chunk_size=chunk_size,
+                    max_prefetch_size=max_prefetch_size,
+                    **kwargs,
+                )
+            else:
+                await self._get_file_request(rpath, lpath, callback=callback, **kwargs)
+        except BaseException:
+            if os.path.exists(lpath):
+                os.remove(lpath)
+            raise
 
     def _open(
         self,
@@ -1977,6 +2199,7 @@ class GCSFileSystem(asyn.AsyncFileSystem):
             acl=acl,
             autocommit=autocommit,
             fixed_key_metadata=fixed_key_metadata,
+            generation=generation,
             **kwargs,
         )
 
@@ -2179,6 +2402,7 @@ class GCSFile(fsspec.spec.AbstractBufferedFile):
                 self.size,
                 max_prefetch_size=max_prefetch_size,
                 concurrency=self.concurrency,
+                loop=self.gcsfs.loop,
             )
         else:
             self._prefetch_engine = None
@@ -2251,8 +2475,16 @@ class GCSFile(fsspec.spec.AbstractBufferedFile):
 
             # Select the biggest possible chunk of data to be uploaded
             chunk_length = min(l, GCS_MAX_BLOCK_SIZE)
+            # This chunk finalizes the upload when it is the final flush, we are
+            # autocommitting, and all remaining data fits in a single chunk.
+            finalizes_upload = final and self.autocommit and chunk_length == l
+            if not finalizes_upload:
+                # GCS requires non-final resumable-upload chunks to be
+                # multiples of 256 KiB:
+                # https://cloud.google.com/storage/docs/performing-resumable-uploads#multiple-chunk-upload
+                chunk_length = (chunk_length // GCS_MIN_BLOCK_SIZE) * GCS_MIN_BLOCK_SIZE
             chunk = data[:chunk_length]
-            if final and self.autocommit and chunk_length == l:
+            if finalizes_upload:
                 if l:
                     # last chunk
                     head["Content-Range"] = "bytes %i-%i/%i" % (
@@ -2366,7 +2598,7 @@ class GCSFile(fsspec.spec.AbstractBufferedFile):
         """
         try:
             if hasattr(self, "_prefetch_engine") and self._prefetch_engine:
-                return self._prefetch_engine._fetch(start=start, end=end)
+                return self._prefetch_engine.fetch(start=start, end=end)
             return self.fs.cat_file(
                 self.path, start=start, end=end, concurrency=self.concurrency
             )
@@ -2449,7 +2681,7 @@ async def upload_chunk(fs, location, data, offset, size, content_type):
         shortfall = (offset + l - 1) - end
         if shortfall:
             return await upload_chunk(
-                fs, location, data[-shortfall:], end, size, content_type
+                fs, location, data[-shortfall:], end + 1, size, content_type
             )
     return json.loads(txt) if txt else None
 

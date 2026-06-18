@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Qubx
-Version: 1.8.0
+Version: 1.9.0
 Summary: Qubx - Quantitative Trading Framework
 Project-URL: homepage, https://xlydian.com
 Project-URL: repository, https://github.com/xLydianSoftware/Qubx
@@ -14,6 +14,7 @@ Requires-Dist: croniter<3,>=2.0.5
 Requires-Dist: duckdb>=1.0.0
 Requires-Dist: fastapi<1,>=0.115.0
 Requires-Dist: gitpython<4,>=3.1.44
+Requires-Dist: httpx<1,>=0.27.0
 Requires-Dist: importlib-metadata
 Requires-Dist: ipykernel<7,>=6.29.0
 Requires-Dist: ipywidgets<9,>=8.1.5

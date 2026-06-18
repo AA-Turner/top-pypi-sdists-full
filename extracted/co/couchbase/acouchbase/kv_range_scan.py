@@ -1,17 +1,17 @@
-# Copyright 2021, Couchbase, Inc.
-# All Rights Reserved
+#  Copyright 2016-2026. Couchbase, Inc.
+#  All Rights Reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License")
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#  Licensed under the Apache License, Version 2.0 (the "License")
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
 
 from __future__ import annotations
 
@@ -32,11 +32,12 @@ if TYPE_CHECKING:
 
 class AsyncRangeScanRequest(RangeScanRequestLogic):
     def __init__(self, connection: pycbc_connection, loop: asyncio.AbstractEventLoop, **kwargs: Any) -> None:
-        num_workers = kwargs.pop('num_workers', 2)
+        num_workers = kwargs.pop('num_workers', None) or 1
         super().__init__(connection, **kwargs)
         self._loop = loop
         self._result_ftr = None
         self._tp_executor = ThreadPoolExecutor(num_workers)
+        self._executor_shutdown = False
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -54,23 +55,50 @@ class AsyncRangeScanRequest(RangeScanRequestLogic):
 
         return self
 
+    def _shutdown_executor(self):
+        """
+        **INTERNAL**
+
+        Release the per-request streaming executor.  Safe to call multiple times.
+        """
+        if not self._executor_shutdown:
+            self._executor_shutdown = True
+            self._tp_executor.shutdown(wait=False)
+
+    def _abort(self):
+        """
+        **INTERNAL**
+
+        Cancel the in-flight core scan so a worker still waiting on the C++ core unwinds promptly,
+        then release the executor.  Used on the error/cancellation paths only.
+        """
+        if self._scan_iterator is not None and self._scan_iterator.is_cancelled() is False:
+            self._scan_iterator.cancel_scan()
+        self._shutdown_executor()
+
     async def __anext__(self):
         try:
             return await self._loop.run_in_executor(self._tp_executor, self._get_next_row)
         # We can stop iterator when we receive RangeScanCompletedException
-        except asyncio.QueueEmpty:
-            exc_cls = PYCBC_ERROR_MAP.get(ExceptionMap.InternalSDKException.value, CouchbaseException)
-            excptn = exc_cls('Unexpected QueueEmpty exception caught when doing N1QL query.')
-            raise excptn
         except RangeScanCompletedException:
             self._done_streaming = True
+            self._shutdown_executor()
             raise StopAsyncIteration
         except StopAsyncIteration:
             self._done_streaming = True
+            self._shutdown_executor()
             raise
         except CouchbaseException as ex:
+            self._abort()
             raise ex
         except Exception as ex:
             exc_cls = PYCBC_ERROR_MAP.get(ExceptionMap.InternalSDKException.value, CouchbaseException)
             excptn = exc_cls(str(ex))
+            self._abort()
             raise excptn
+        except BaseException:
+            # asyncio.CancelledError (and KeyboardInterrupt/SystemExit) derive from BaseException,
+            # not Exception, so they fall through every handler above.  Cancel the in-flight scan
+            # and release the executor so the worker thread is not orphaned, then re-raise unchanged.
+            self._abort()
+            raise

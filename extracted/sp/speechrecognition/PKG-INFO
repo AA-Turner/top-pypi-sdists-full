@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: SpeechRecognition
-Version: 3.16.1
+Version: 3.17.0
 Summary: Library for performing speech recognition, with support for several engines and APIs, online and offline.
 Author-email: "Anthony Zhang (Uberi)" <azhang9@gmail.com>
 Maintainer-email: nikkie <takuyafjp+develop@gmail.com>
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/Uberi/speech_recognition#readme
-Keywords: speech,recognition,voice,sphinx,google,wit,bing,api,houndify,ibm,snowboy
+Keywords: speech,recognition,voice,sphinx,google,wit,api,houndify,ibm,snowboy
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -62,6 +62,9 @@ Provides-Extra: assemblyai
 Requires-Dist: requests; extra == "assemblyai"
 Provides-Extra: vosk
 Requires-Dist: vosk; extra == "vosk"
+Provides-Extra: audio-split
+Requires-Dist: librosa<1.0,>=0.10.2; extra == "audio-split"
+Requires-Dist: numpy>=1.26.0; extra == "audio-split"
 Dynamic: license-file
 
 SpeechRecognition
@@ -121,7 +124,6 @@ Speech recognition engine/API support:
 * `Google Cloud Speech API <https://cloud.google.com/speech/>`__
 * `Wit.ai <https://wit.ai/>`__
 * `Microsoft Azure Speech <https://azure.microsoft.com/en-us/services/cognitive-services/speech/>`__
-* `Microsoft Bing Voice Recognition (Deprecated) <https://www.microsoft.com/cognitive-services/en-us/speech-api>`__
 * `Houndify API <https://houndify.com/>`__
 * `IBM Speech to Text <http://www.ibm.com/smarterplanet/us/en/ibmwatson/developercloud/speech-to-text.html>`__
 * `Snowboy Hotword Detection <https://snowboy.kitt.ai/>`__ (works offline)
@@ -322,7 +324,7 @@ The solution is to decrease this threshold, or call ``recognizer_instance.adjust
 The recognizer doesn't understand my particular language/dialect.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Try setting the recognition language to your language/dialect. To do this, see the documentation for ``recognizer_instance.recognize_sphinx``, ``recognizer_instance.recognize_google``, ``recognizer_instance.recognize_wit``, ``recognizer_instance.recognize_bing``, ``recognizer_instance.recognize_api``, ``recognizer_instance.recognize_houndify``, and ``recognizer_instance.recognize_ibm``.
+Try setting the recognition language to your language/dialect. To do this, see the documentation for ``recognizer_instance.recognize_sphinx``, ``recognizer_instance.recognize_google``, ``recognizer_instance.recognize_wit``, ``recognizer_instance.recognize_api``, ``recognizer_instance.recognize_houndify``, and ``recognizer_instance.recognize_ibm``.
 
 For example, if your language/dialect is British English, it is better to use ``"en-GB"`` as the language rather than ``"en-US"``.
 

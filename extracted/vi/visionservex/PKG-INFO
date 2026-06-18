@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: visionservex
-Version: 3.16.0
+Version: 3.21.0
 Summary: A permissive-license-aware framework for serving modern computer vision models locally and over Cloudflare Tunnel.
 Project-URL: Homepage, https://github.com/example/visionservex
 Project-URL: Documentation, https://github.com/example/visionservex/tree/main/docs
@@ -231,6 +231,11 @@ Requires-Dist: rfdetr>=1.6; extra == 'rfdetr'
 Requires-Dist: supervision>=0.22; extra == 'rfdetr'
 Requires-Dist: torch>=2.1; extra == 'rfdetr'
 Requires-Dist: torchvision>=0.16; extra == 'rfdetr'
+Provides-Extra: rfdetr-train
+Requires-Dist: faster-coco-eval>=1.6; extra == 'rfdetr-train'
+Requires-Dist: pytorch-lightning>=2.0; extra == 'rfdetr-train'
+Requires-Dist: rfdetr[loggers,train]>=1.6; extra == 'rfdetr-train'
+Requires-Dist: supervision>=0.22; extra == 'rfdetr-train'
 Provides-Extra: sam2
 Requires-Dist: huggingface-hub>=0.24; extra == 'sam2'
 Requires-Dist: opencv-python-headless>=4.8; extra == 'sam2'
@@ -301,7 +306,7 @@ Description-Content-Type: text/markdown
   <a href="https://github.com/arashsajjadi/VisionServeX/actions/workflows/ci.yml">
     <img src="https://github.com/arashsajjadi/VisionServeX/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI">
   </a>
-  <img src="https://img.shields.io/badge/version-3.16.0-informational.svg" alt="v3.16.0">
+  <img src="https://img.shields.io/badge/version-3.21.0-informational.svg" alt="v3.21.0">
   <img src="https://img.shields.io/badge/code%20style-ruff-orange.svg" alt="ruff">
 </p>
 

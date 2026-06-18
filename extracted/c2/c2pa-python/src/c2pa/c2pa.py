@@ -18,6 +18,7 @@ import logging
 import sys
 import os
 import warnings
+import weakref
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Union, Callable, Any, overload
@@ -65,6 +66,8 @@ _REQUIRED_FUNCTIONS = [
     'c2pa_builder_add_ingredient_from_stream',
     'c2pa_builder_add_action',
     'c2pa_builder_to_archive',
+    'c2pa_builder_write_ingredient_archive',
+    'c2pa_builder_add_ingredient_from_archive',
     'c2pa_builder_sign',
     'c2pa_builder_sign_context',
     'c2pa_builder_from_context',
@@ -622,6 +625,15 @@ _setup_function(_lib.c2pa_builder_add_action,
                 ctypes.c_int)
 _setup_function(_lib.c2pa_builder_to_archive,
                 [ctypes.POINTER(C2paBuilder), ctypes.POINTER(C2paStream)],
+                ctypes.c_int)
+_setup_function(_lib.c2pa_builder_write_ingredient_archive,
+                [ctypes.POINTER(C2paBuilder),
+                 ctypes.c_char_p,
+                 ctypes.POINTER(C2paStream)],
+                ctypes.c_int)
+_setup_function(_lib.c2pa_builder_add_ingredient_from_archive,
+                [ctypes.POINTER(C2paBuilder),
+                 ctypes.POINTER(C2paStream)],
                 ctypes.c_int)
 _setup_function(_lib.c2pa_builder_sign,
                 [ctypes.POINTER(C2paBuilder),
@@ -1614,6 +1626,10 @@ class Stream:
 
         self._file_like_stream = file_like_stream
 
+        # Weakref breaks avoids references cycles:
+        # Stream -> ctypes_cb -> closure -> Stream.
+        _weak_self = weakref.ref(self)
+
         def read_callback(ctx, data, length):
             """Callback function for reading data from the Python stream.
 
@@ -1632,13 +1648,16 @@ class Stream:
             Returns:
                 Number of bytes read, or -1 on error
             """
-            if not self._initialized or self._closed:
+            s = _weak_self()
+            if s is None:
+                return -1
+            if not s._initialized or s._closed:
                 return -1
             try:
                 if not data or length <= 0:
                     return -1
 
-                stream = self._file_like_stream
+                stream = s._file_like_stream
                 readinto = getattr(stream, "readinto", None)
                 if readinto is not None:
                     # Most streams have readinto
@@ -1689,8 +1708,11 @@ class Stream:
             Returns:
                 New position in the stream, or -1 on error
             """
-            file_stream = self._file_like_stream
-            if not self._initialized or self._closed:
+            s = _weak_self()
+            if s is None:
+                return -1
+            file_stream = s._file_like_stream
+            if not s._initialized or s._closed:
                 return -1
             try:
                 # Fall back to tell() only for stream objects that do not
@@ -1718,13 +1740,16 @@ class Stream:
             Returns:
                 Number of bytes written, or -1 on error
             """
-            if not self._initialized or self._closed:
+            s = _weak_self()
+            if s is None:
+                return -1
+            if not s._initialized or s._closed:
                 return -1
             try:
                 if not data or length <= 0:
                     return -1
 
-                self._file_like_stream.write(ctypes.string_at(data, length))
+                s._file_like_stream.write(ctypes.string_at(data, length))
                 return length
             except Exception:
                 return -1
@@ -1743,10 +1768,13 @@ class Stream:
             Returns:
                 0 on success, -1 on error
             """
-            if not self._initialized or self._closed:
+            s = _weak_self()
+            if s is None:
+                return -1
+            if not s._initialized or s._closed:
                 return -1
             try:
-                self._file_like_stream.flush()
+                s._file_like_stream.flush()
                 return 0
             except Exception:
                 return -1
@@ -2898,6 +2926,7 @@ class Builder(ManagedResource):
         'url_error': "Error setting remote URL: {}",
         'resource_error': "Error adding resource: {}",
         'ingredient_error': "Error adding ingredient: {}",
+        'archive_read_error': "Error loading ingredient from archive: {}",
         'action_error': "Error adding action: {}",
         'archive_error': "Error writing archive: {}",
         'sign_error': "Error during signing: {}",
@@ -3285,6 +3314,55 @@ class Builder(ManagedResource):
             _check_ffi_operation_result(
                 result,
                 Builder._ERROR_MESSAGES["archive_error"].format("Unknown error"),
+                check=lambda r: r != 0)
+
+    def write_ingredient_archive(self, ingredient_id: str, stream: Any) -> None:
+        """Write a single-ingredient archive for the named ingredient.
+        The archive is in C2PA format.
+
+        Args:
+            ingredient_id: Identifier of the ingredient within this builder;
+                matched against the ingredient's label or instance_id
+            stream: Writable, seekable stream to receive the archive
+
+        Raises:
+            C2paError: If there was an error writing the archive
+        """
+        self._ensure_valid_state()
+
+        ingredient_id_str = _to_utf8_bytes(ingredient_id, "ingredient_id")
+
+        with Stream(stream) as stream_obj:
+            result = _lib.c2pa_builder_write_ingredient_archive(
+                self._handle, ingredient_id_str, stream_obj._stream)
+
+            _check_ffi_operation_result(result,
+                Builder._ERROR_MESSAGES["archive_error"].format(
+                    "Unknown error"
+                ),
+                check=lambda r: r != 0)
+
+    def add_ingredient_from_archive(self, stream: Any) -> None:
+        """Add an ingredient from a per-ingredient archive stream.
+        The archive must be in C2PA format, as written by
+        write_ingredient_archive.
+
+        Args:
+            stream: Readable, seekable stream containing the ingredient archive
+
+        Raises:
+            C2paError: If there was an error reading the archive
+        """
+        self._ensure_valid_state()
+
+        with Stream(stream) as stream_obj:
+            result = _lib.c2pa_builder_add_ingredient_from_archive(
+                self._handle, stream_obj._stream)
+
+            _check_ffi_operation_result(result,
+                Builder._ERROR_MESSAGES["archive_read_error"].format(
+                    "Unknown error"
+                ),
                 check=lambda r: r != 0)
 
     def with_archive(self, stream: Any) -> 'Builder':

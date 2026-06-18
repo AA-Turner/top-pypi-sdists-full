@@ -798,6 +798,26 @@ class CellOptimizer(base.BaseGeo):
             "lat", "lon", "afi", "included",
         ]]
 
+        # Per-variable Pearson r between yield and each EO variable's
+        # seasonal aggregate. Computed twice — once with all cells
+        # (baseline) and once with the GA's optimized mask — so the
+        # cross-region rollup can show how the optimizer impacts each
+        # variable's correlation independently. The multivariate
+        # baseline_r2 / optimized_r2 above don't separate the
+        # contributions per variable; these columns do.
+        base_x = aggregate_over_mask(per_cell, np.ones(n_cells, dtype=bool))
+        opt_x = aggregate_over_mask(per_cell, result.best_mask)
+        per_var_r: dict = {}
+        for vi, vname in enumerate(var_cols):
+            for tag, x_full in (("baseline", base_x), ("optimized", opt_x)):
+                xv = x_full[:, vi]
+                m = np.isfinite(xv) & np.isfinite(y)
+                if m.sum() >= 3 and float(np.nanstd(xv[m])) > 0 and float(np.nanstd(y[m])) > 0:
+                    r_val = float(np.corrcoef(xv[m], y[m])[0, 1])
+                else:
+                    r_val = float("nan")
+                per_var_r[f"{tag}_r_{vname}"] = r_val
+
         # Per-region summary row (returned to caller for cross-region rollup)
         summary = {
             "country":         country,
@@ -811,6 +831,7 @@ class CellOptimizer(base.BaseGeo):
             "optimized_r2":    float(result.best_r2),
             "lift":            float(result.best_r2 - result.baseline_r2),
             "n_gens_run":      int(result.n_generations_run),
+            **per_var_r,
         }
         return {"summary": summary, "production_rows": production_rows}
 
@@ -1576,6 +1597,108 @@ class CellOptimizer(base.BaseGeo):
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
         fig.savefig(sub_dir / f"baseline_vs_optimized_r2_{stem}.png", dpi=130)
+        plt.close(fig)
+
+        # 3. Per-variable r before vs after — one row per variable
+        # present in summary.csv (NDVI / tmax / tmin / precip etc.).
+        # Each row: baseline Pearson r on the X-axis, optimized
+        # Pearson r on the Y, one dot per region, y=x reference line,
+        # colour by per-variable lift, top-3 regions labelled.
+        # Complements baseline_vs_optimized_r2.png (which is joint
+        # multivariate R²) by showing how the optimizer's mask impacts
+        # each variable's individual correlation with yield.
+        self._plot_r_per_variable(grp, sub_dir, stem, country, crop, season, plt)
+
+    def _plot_r_per_variable(self, grp, sub_dir, stem, country, crop, season, plt):
+        """Per-variable r-impact across regions. Reads
+        ``baseline_r_<var>`` and ``optimized_r_<var>`` columns from the
+        summary DataFrame; silently skips when none are present
+        (older summaries pre-dating this feature, or single-var
+        parquets that only produce one pair).
+        """
+        # Discover which variables have baseline/optimized r columns.
+        var_pairs = []
+        for col in grp.columns:
+            if col.startswith("baseline_r_"):
+                var = col[len("baseline_r_"):]
+                opt_col = f"optimized_r_{var}"
+                if opt_col in grp.columns:
+                    var_pairs.append((var, col, opt_col))
+        if not var_pairs:
+            self.logger.info(
+                f"  {country}/{crop}/{stem}: no per-variable r columns "
+                f"in summary — skipping r_per_variable plot"
+            )
+            return
+
+        n = len(var_pairs)
+        fig, axes = plt.subplots(n, 1, figsize=(7, 6 * n), squeeze=False)
+
+        for vi, (var, base_col, opt_col) in enumerate(var_pairs):
+            ax = axes[vi][0]
+            mask = grp[base_col].notna() & grp[opt_col].notna()
+            sub = grp[mask].copy()
+            if sub.empty:
+                ax.set_axis_off()
+                ax.text(
+                    0.5, 0.5, f"{_display_var_name(var)}: no data",
+                    ha="center", va="center", transform=ax.transAxes,
+                    fontsize=11,
+                )
+                continue
+
+            sub["r_lift"] = sub[opt_col] - sub[base_col]
+            sc = ax.scatter(
+                sub[base_col], sub[opt_col],
+                c=sub["r_lift"].to_numpy(), cmap="RdYlGn",
+                vmin=-max(abs(sub["r_lift"].min()), abs(sub["r_lift"].max()), 0.01),
+                vmax= max(abs(sub["r_lift"].min()), abs(sub["r_lift"].max()), 0.01),
+                s=42, alpha=0.85, edgecolors="black", linewidths=0.4,
+            )
+            # y=x reference line.
+            lo = float(min(sub[base_col].min(), sub[opt_col].min(), -1.0)) - 0.05
+            hi = float(max(sub[base_col].max(), sub[opt_col].max(), 1.0)) + 0.05
+            # Symmetric bounds around 0 for readability.
+            bound = max(abs(lo), abs(hi))
+            lo, hi = -bound, bound
+            ax.plot([lo, hi], [lo, hi], color="gray", linestyle="--",
+                    linewidth=1.0, alpha=0.7, label="y = x (no impact)")
+            ax.axhline(0, color="black", linewidth=0.4, alpha=0.4)
+            ax.axvline(0, color="black", linewidth=0.4, alpha=0.4)
+            # Label top-3 by |r_lift|.
+            for _, row in sub.reindex(
+                sub["r_lift"].abs().sort_values(ascending=False).index
+            ).head(3).iterrows():
+                ax.annotate(
+                    _display_region_name(str(row["region"])),
+                    xy=(row[base_col], row[opt_col]),
+                    xytext=(4, 4), textcoords="offset points",
+                    fontsize=8, alpha=0.85,
+                )
+            fig.colorbar(
+                sc, ax=ax, fraction=0.04, pad=0.02,
+                label=f"r lift (Δ r for {_display_var_name(var)})",
+            )
+            mean_lift = float(sub["r_lift"].mean())
+            ax.set_xlabel(f"baseline r — yield vs {_display_var_name(var)}")
+            ax.set_ylabel(f"optimized r — yield vs {_display_var_name(var)}")
+            ax.set_title(
+                f"{_display_var_name(var)} — {len(sub)} regions; "
+                f"mean Δr = {mean_lift:+.3f}"
+            )
+            ax.set_xlim(lo, hi)
+            ax.set_ylim(lo, hi)
+            ax.set_aspect("equal")
+            ax.legend(loc="lower right", fontsize=8)
+            ax.grid(True, alpha=0.3)
+
+        fig.suptitle(
+            f"{country.title()} {crop.title()} s{season} — "
+            f"per-variable Pearson r impact across regions",
+            fontsize=12,
+        )
+        fig.tight_layout(rect=[0, 0, 1, 0.97])
+        fig.savefig(sub_dir / f"r_per_variable_{stem}.png", dpi=130)
         plt.close(fig)
 
     # ------------------------------------------------------------------

@@ -1,24 +1,23 @@
-"""
-Tests for Sphinx extensions.
-"""
+"""Tests for Sphinx extensions."""
 
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+from sphinx.errors import SphinxError
 from sphinx.testing.util import SphinxTestApp
 
 import sphinx_substitution_extensions
 
 
 def test_setup(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    Test that the setup function returns the expected metadata.
-    """
+    """Test that the setup function returns the expected metadata."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     (source_directory / "conf.py").touch()
@@ -35,12 +34,11 @@ def test_setup(
 
 
 def test_no_substitution_code_block(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    The ``code-block`` directive does not replace placeholders.
-    """
+    """The ``code-block`` directive does not replace placeholders."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     source_file = source_directory / "index.rst"
@@ -81,6 +79,7 @@ def test_no_substitution_code_block(
 
 
 def test_substitution_code_block(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
@@ -135,11 +134,13 @@ def test_substitution_code_block(
 
 
 def test_substitution_code_block_case_preserving(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``code-block`` directive respects the original case of replacements.
+    The ``code-block`` directive respects the original case of
+    replacements.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -188,11 +189,13 @@ def test_substitution_code_block_case_preserving(
 
 
 def test_default_substitutions_enabled(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    When ``substitutions_default_enabled`` is set to True in conf.py, code
+    When ``substitutions_default_enabled`` is set to True in conf.py,
+    code
     blocks should apply substitutions by default without needing the
     ``:substitutions:`` flag.
     """
@@ -245,11 +248,13 @@ def test_default_substitutions_enabled(
 
 
 def test_default_substitutions_disabled_with_flag(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    When ``substitutions_default_enabled`` is True but a code block has the
+    When ``substitutions_default_enabled`` is True but a code block has
+    the
     ``:nosubstitutions:`` flag, substitutions should not be applied.
     """
     source_directory = tmp_path / "source"
@@ -305,6 +310,7 @@ def test_default_substitutions_disabled_with_flag(
 
 
 def test_substitution_inline(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
@@ -354,11 +360,13 @@ def test_substitution_inline(
 
 
 def test_substitution_inline_case_preserving(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``substitution-code`` role respects the original case of replacements.
+    The ``substitution-code`` role respects the original case of
+    replacements.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -402,12 +410,15 @@ def test_substitution_inline_case_preserving(
 
 
 def test_substitution_download(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``substitution-download`` role replaces the placeholders defined in
-    ``conf.py`` as specified in both the download text and the download target.
+    The ``substitution-download`` role replaces the placeholders defined
+    in
+    ``conf.py`` as specified in both the download text and the download
+    target.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -458,12 +469,11 @@ def test_substitution_download(
 
 
 def test_no_substitution_literal_include(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    The ``literalinclude`` directive does not replace placeholders.
-    """
+    """The ``literalinclude`` directive does not replace placeholders."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     source_file = source_directory / "index.rst"
@@ -505,12 +515,15 @@ def test_no_substitution_literal_include(
 
 
 def test_substitution_literal_include(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``literalinclude`` directive replaces the placeholders defined in
-    ``conf.py`` as specified when the `:content-substitutions:` flag is set.
+    The ``literalinclude`` directive replaces the placeholders defined
+    in
+    ``conf.py`` as specified when the `:content-substitutions:` flag is
+    set.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -562,11 +575,13 @@ def test_substitution_literal_include(
 
 
 def test_substitution_literal_include_empty_file(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``literalinclude`` directive handles empty files without crashing.
+    The ``literalinclude`` directive handles empty files without
+    crashing.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -615,12 +630,11 @@ def test_substitution_literal_include_empty_file(
 
 
 def test_substitution_literal_include_multiple(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    The ``literalinclude`` directive replaces multiple placeholders.
-    """
+    """The ``literalinclude`` directive replaces multiple placeholders."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     source_file = source_directory / "index.rst"
@@ -672,12 +686,11 @@ def test_substitution_literal_include_multiple(
 
 
 def test_substitution_literal_include_with_caption(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    The ``literalinclude`` directive works with captions.
-    """
+    """The ``literalinclude`` directive works with captions."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     source_file = source_directory / "index.rst"
@@ -730,12 +743,11 @@ def test_substitution_literal_include_with_caption(
 
 
 def test_substitution_literal_include_in_rest_example(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    The ``literalinclude`` directive works inside rest-example.
-    """
+    """The ``literalinclude`` directive works inside rest-example."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     source_file = source_directory / "index.rst"
@@ -772,11 +784,13 @@ def test_substitution_literal_include_in_rest_example(
 
 
 def test_substitution_literal_include_path(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``literalinclude`` directive replaces placeholders in the file path
+    The ``literalinclude`` directive replaces placeholders in the file
+    path
     when the `:path-substitutions:` flag is set.
     """
     source_directory = tmp_path / "source"
@@ -827,6 +841,7 @@ def test_substitution_literal_include_path(
 
 
 def test_substitution_literal_include_both_path_and_content(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
@@ -892,12 +907,15 @@ def test_substitution_literal_include_both_path_and_content(
 
 
 def test_default_substitutions_literal_include_content(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    When ``substitutions_default_enabled`` is True, ``literalinclude`` should
-    apply content substitutions by default without requiring the ``:content-
+    When ``substitutions_default_enabled`` is True, ``literalinclude``
+    should
+    apply content substitutions by default without requiring the
+    ``:content-
     substitutions:`` flag.
     """
     source_directory = tmp_path / "source"
@@ -952,11 +970,13 @@ def test_default_substitutions_literal_include_content(
 
 
 def test_default_substitutions_literal_include_path(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    When ``substitutions_default_enabled`` is True, ``literalinclude`` should
+    When ``substitutions_default_enabled`` is True, ``literalinclude``
+    should
     apply path substitutions by default without requiring the ``:path-
     substitutions:`` flag.
     """
@@ -1008,12 +1028,15 @@ def test_default_substitutions_literal_include_path(
 
 
 def test_default_substitutions_literal_include_disabled_content(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    When ``substitutions_default_enabled`` is True but ``literalinclude`` has
-    the ``:nocontent-substitutions:`` flag, content substitutions should not be
+    When ``substitutions_default_enabled`` is True but
+    ``literalinclude`` has
+    the ``:nocontent-substitutions:`` flag, content substitutions should
+    not be
     applied.
     """
     source_directory = tmp_path / "source"
@@ -1066,11 +1089,14 @@ def test_default_substitutions_literal_include_disabled_content(
 
 
 def test_default_substitutions_literal_include_disabled_path(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """When ``substitutions_default_enabled`` is True but ``literalinclude``
-    has the ``:nopath-substitutions:`` flag, path substitutions should not be
+    """When ``substitutions_default_enabled`` is True but
+    ``literalinclude``
+    has the ``:nopath-substitutions:`` flag, path substitutions should not
+    be
     applied.
 
     Note: This test uses MyST format with custom delimiters because the `|`
@@ -1152,17 +1178,17 @@ def test_default_substitutions_literal_include_disabled_path(
 
 
 class TestMyst:
-    """
-    Tests for MyST documents.
-    """
+    """Tests for MyST documents."""
 
     @staticmethod
     def test_myst_substitutions_ignored_given_rst_definition(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
         """
-        MyST substitutions are ignored in rST documents with a rST substitution
+        MyST substitutions are ignored in rST documents with a rST
+        substitution
         definition.
         """
         source_directory = tmp_path / "source"
@@ -1223,6 +1249,7 @@ class TestMyst:
 
     @staticmethod
     def test_myst_substitutions_ignored_without_rst_definition(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
@@ -1286,12 +1313,11 @@ class TestMyst:
 
     @staticmethod
     def test_myst_substitutions(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
-        """
-        MyST substitutions are respected in MyST documents.
-        """
+        """MyST substitutions are respected in MyST documents."""
         source_directory = tmp_path / "source"
         source_directory.mkdir()
         index_source_file = source_directory / "index.rst"
@@ -1362,14 +1388,903 @@ class TestMyst:
         ).read_text()
         assert content_html == expected_content_html
 
+    @staticmethod
+    def test_myst_nested_substitutions(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST nested substitutions are flattened and applied
+        correctly.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|a|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|b.c|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|b.d.e|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "a": "value_a",
+                    "b": {
+                        "c": "value_b_c",
+                        "d": {
+                            "e": "value_b_d_e",
+                        },
+                    },
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+
+            $ PRE-value_a-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-value_b_c-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-value_b_d_e-POST
+            ```
+            """,
+        )
+
+        markdown_source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["myst_parser"]},
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "markdown_document.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
+    @staticmethod
+    def test_myst_nested_substitutions_with_lists(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST nested substitutions with lists are flattened and
+        applied correctly.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|items.0|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|items.1|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|nested.0.name|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|nested.1.value|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "items": ["first", "second"],
+                    "nested": [
+                        {"name": "a", "value": "1"},
+                        {"name": "b", "value": "2"},
+                    ],
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+
+            $ PRE-first-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-second-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-a-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-2-POST
+            ```
+            """,
+        )
+
+        markdown_source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["myst_parser"]},
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "markdown_document.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
+    @staticmethod
+    def test_myst_deep_nesting(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST deeply nested substitutions (5 levels) are flattened
+        correctly.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|level1.level2.level3.level4.level5|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "level1": {
+                        "level2": {
+                            "level3": {
+                                "level4": {
+                                    "level5": "deep_value",
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+
+            $ PRE-deep_value-POST
+            ```
+            """,
+        )
+
+        markdown_source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["myst_parser"]},
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "markdown_document.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
+    @staticmethod
+    def test_myst_empty_containers(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST empty containers (lists and dictionaries) do not create
+        keys
+        and do not break the build.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|normal|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|mixed.normal|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "empty_list": [],
+                    "empty_dict": {},
+                    "mixed": {
+                        "empty_nested_list": [],
+                        "empty_nested_dict": {},
+                        "normal": "value",
+                    },
+                    "normal": "normal_value",
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+
+            $ PRE-normal_value-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-value-POST
+            ```
+            """,
+        )
+
+        markdown_source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["myst_parser"]},
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "markdown_document.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
+    @staticmethod
+    def test_myst_mixed_types_in_list(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST mixed types in lists are converted to strings
+        correctly.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|mixed.0|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|mixed.1|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|mixed.2|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|mixed.3|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|mixed.4|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "mixed": [1, "text", 3.14, -42, 0],
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+
+            $ PRE-1-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-text-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-3.14-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE--42-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-0-POST
+            ```
+            """,
+        )
+
+        markdown_source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["myst_parser"]},
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "markdown_document.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
+    @staticmethod
+    def test_myst_nested_lists(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST nested lists are flattened with multi-index notation."""
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|matrix.0.0|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|matrix.0.1|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|matrix.1.0|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|matrix.1.1|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "matrix": [
+                        [1, 2],
+                        [3, 4],
+                    ],
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+
+            $ PRE-1-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-2-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-3-POST
+            ```
+
+            ```{code-block}
+
+            $ PRE-4-POST
+            ```
+            """,
+        )
+
+        markdown_source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["myst_parser"]},
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "markdown_document.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
+    @staticmethod
+    def test_myst_invalid_substitution_access(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST invalid substitution access does not break the build."""
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|items.99|-POST
+            ```
+
+            ```{code-block}
+            :substitutions:
+
+            $ PRE-|nonexistent.key|-POST
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=False,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "items": ["a", "b"],
+                },
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "markdown_document.html").read_text()
+        app.cleanup()
+
+        expected_text_in_html = [
+            "$ PRE-|items.99|-POST",
+            "$ PRE-|nonexistent.key|-POST",
+        ]
+        for text in expected_text_in_html:
+            assert text in content_html
+
+    @staticmethod
+    def test_myst_substitution_key_with_dot_raises_error(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST substitution keys containing dots raise SphinxError.
+
+        Dots are reserved for nested access notation.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            |key.with.dots|
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "key.with.dots": "value",
+                },
+            },
+        )
+
+        with pytest.raises(
+            expected_exception=SphinxError,
+            match=r"Substitution key 'key\.with\.dots' contains a dot",
+        ):
+            app.build()
+
+    @staticmethod
+    def test_myst_nested_substitution_key_with_dot_raises_error(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """MyST nested substitution keys containing dots raise SphinxError.
+
+        Dots are reserved for nested access notation.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        index_source_file = source_directory / "index.rst"
+        markdown_source_file = source_directory / "markdown_document.md"
+        (source_directory / "conf.py").touch()
+        index_source_file_content = dedent(
+            text="""\
+            .. toctree::
+
+               markdown_document
+            """,
+        )
+        markdown_source_file_content = dedent(
+            text="""\
+            # Title
+
+            ```{code-block}
+            :substitutions:
+
+            |parent.key.with.dots|
+            ```
+            """,
+        )
+        index_source_file.write_text(data=index_source_file_content)
+        markdown_source_file.write_text(data=markdown_source_file_content)
+
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": [
+                    "myst_parser",
+                    "sphinx_substitution_extensions",
+                ],
+                "myst_enable_extensions": ["substitution"],
+                "myst_substitutions": {
+                    "parent": {
+                        "key.with.dots": "value",
+                    },
+                },
+            },
+        )
+
+        with pytest.raises(
+            expected_exception=SphinxError,
+            match=r"Substitution key 'key\.with\.dots' contains a dot",
+        ):
+            app.build()
+
+    @staticmethod
+    def test_rst_substitution_key_with_dot_does_not_raise_error(
+        *,
+        tmp_path: Path,
+        make_app: Callable[..., SphinxTestApp],
+    ) -> None:
+        """Substitution names with dots do not raise SphinxError in reST.
+
+        The dot validation applies only to flattened MyST substitutions, so
+        a refactoring that leaked it into the reST path would be caught here.
+        """
+        source_directory = tmp_path / "source"
+        source_directory.mkdir()
+        source_file = source_directory / "index.rst"
+        (source_directory / "conf.py").touch()
+
+        source_file_content = dedent(
+            text="""\
+            .. |key.with.dots| replace:: example_substitution
+
+            .. code-block:: shell
+               :substitutions:
+
+               $ PRE-|key.with.dots|-POST
+            """,
+        )
+        source_file.write_text(data=source_file_content)
+        app = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": ["sphinx_substitution_extensions"],
+            },
+        )
+        app.build()
+        assert app.statuscode == 0
+        content_html = (app.outdir / "index.html").read_text()
+        app.cleanup()
+
+        equivalent_source = dedent(
+            text="""\
+            .. code-block:: shell
+
+                $ PRE-example_substitution-POST
+            """,
+        )
+
+        source_file.write_text(data=equivalent_source)
+        app_expected = make_app(
+            srcdir=source_directory,
+            exception_on_warning=True,
+            freshenv=True,
+        )
+        app_expected.build()
+        assert app_expected.statuscode == 0
+
+        expected_content_html = (
+            app_expected.outdir / "index.html"
+        ).read_text()
+        assert content_html == expected_content_html
+
 
 def test_xref_role_class_prefix_removal(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``SubstitutionXRefRole`` should only remove the "substitution-" prefix
-    from CSS classes, not all occurrences of "substitution-" in the class name.
+    The ``SubstitutionXRefRole`` should only remove the "substitution-"
+    prefix
+    from CSS classes, not all occurrences of "substitution-" in the class
+    name.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -1441,10 +2356,12 @@ def test_xref_role_class_prefix_removal(
 
 
 def test_no_substitution_image(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """The ``image`` directive does not replace custom placeholders by default.
+    """The ``image`` directive does not replace custom placeholders by
+    default.
 
     Note: reST by default processes |substitutions| in image paths, but
     our extension adds the ability to use custom delimiters like {{var}}.
@@ -1497,11 +2414,13 @@ def test_no_substitution_image(
 
 
 def test_substitution_image_path(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``image`` directive replaces placeholders in the file path when the
+    The ``image`` directive replaces placeholders in the file path when
+    the
     ``:path-substitutions:`` flag is set.
     """
     source_directory = tmp_path / "source"
@@ -1557,11 +2476,13 @@ def test_substitution_image_path(
 
 
 def test_substitution_image_path_multiple(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    The ``image`` directive replaces multiple placeholders in the file path.
+    The ``image`` directive replaces multiple placeholders in the file
+    path.
     """
     source_directory = tmp_path / "source"
     source_directory.mkdir()
@@ -1617,12 +2538,11 @@ def test_substitution_image_path_multiple(
 
 
 def test_substitution_image_with_options(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
-    """
-    The ``image`` directive works with standard image options.
-    """
+    """The ``image`` directive works with standard image options."""
     source_directory = tmp_path / "source"
     source_directory.mkdir()
     source_file = source_directory / "index.rst"
@@ -1678,11 +2598,13 @@ def test_substitution_image_with_options(
 
 
 def test_default_substitutions_image_path(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """
-    When ``substitutions_default_enabled`` is True, ``image`` should apply path
+    When ``substitutions_default_enabled`` is True, ``image`` should
+    apply path
     substitutions by default without requiring the ``:path-substitutions:``
     flag.
     """
@@ -1739,11 +2661,13 @@ def test_default_substitutions_image_path(
 
 
 def test_default_substitutions_image_disabled_path(
+    *,
     tmp_path: Path,
     make_app: Callable[..., SphinxTestApp],
 ) -> None:
     """When ``substitutions_default_enabled`` is True but ``image`` has the
-    ``:nopath-substitutions:`` flag, path substitutions should not be applied.
+    ``:nopath-substitutions:`` flag, path substitutions should not be
+    applied.
 
     Note: This test uses MyST format with custom delimiters because the `|`
     character cannot be used in Windows file paths.
@@ -1828,17 +2752,17 @@ def test_default_substitutions_image_disabled_path(
 
 
 class TestImageMyst:
-    """
-    Tests for image directive with MyST documents.
-    """
+    """Tests for image directive with MyST documents."""
 
     @staticmethod
     def test_myst_substitutions_image(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
         """
-        MyST substitutions are respected in image paths in MyST documents.
+        MyST substitutions are respected in image paths in MyST
+        documents.
         """
         source_directory = tmp_path / "source"
         source_directory.mkdir()
@@ -1918,11 +2842,13 @@ class TestImageMyst:
 
     @staticmethod
     def test_myst_substitutions_image_default_delimiters(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
         """
-        The default MyST substitution delimiters {{}} are respected for images.
+        The default MyST substitution delimiters {{}} are respected for
+        images.
         """
         source_directory = tmp_path / "source"
         source_directory.mkdir()
@@ -2001,6 +2927,7 @@ class TestImageMyst:
 
     @staticmethod
     def test_myst_substitutions_not_enabled(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
@@ -2079,12 +3006,11 @@ class TestImageMyst:
 
     @staticmethod
     def test_myst_substitutions_custom_markdown_suffix(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
-        """
-        Custom markdown suffixes are respected in MyST documents.
-        """
+        """Custom markdown suffixes are respected in MyST documents."""
         source_directory = tmp_path / "source"
         source_directory.mkdir()
         index_source_file = source_directory / "index.rst"
@@ -2167,12 +3093,11 @@ class TestImageMyst:
 
     @staticmethod
     def test_default_myst_sub_delimiters_code_block(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
-        """
-        The default MyST substitution delimiters are respected.
-        """
+        """The default MyST substitution delimiters are respected."""
         source_directory = tmp_path / "source"
         source_directory.mkdir()
         index_source_file = source_directory / "index.rst"
@@ -2245,12 +3170,11 @@ class TestImageMyst:
 
     @staticmethod
     def test_custom_myst_sub_delimiters_code_block(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
-        """
-        Custom MyST substitution delimiters are respected.
-        """
+        """Custom MyST substitution delimiters are respected."""
         source_directory = tmp_path / "source"
         source_directory.mkdir()
         index_source_file = source_directory / "index.rst"
@@ -2324,11 +3248,13 @@ class TestImageMyst:
 
     @staticmethod
     def test_substitution_code_role(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
         """
-        The ``substitution-code`` role replaces the placeholders defined in
+        The ``substitution-code`` role replaces the placeholders defined
+        in
         ``conf.py`` as specified.
         """
         source_directory = tmp_path / "source"
@@ -2396,11 +3322,13 @@ class TestImageMyst:
 
     @staticmethod
     def test_substitution_download(
+        *,
         tmp_path: Path,
         make_app: Callable[..., SphinxTestApp],
     ) -> None:
         """
-        The ``substitution-download`` role replaces the placeholders defined in
+        The ``substitution-download`` role replaces the placeholders
+        defined in
         ``conf.py`` as specified.
         """
         source_directory = tmp_path / "source"

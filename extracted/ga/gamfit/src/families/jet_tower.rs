@@ -100,6 +100,8 @@
 //!    scale port) implement ONLY `RowNllProgram` and get an exact
 //!    fourth-order tower for the price of writing the likelihood.
 
+use super::jet_algebra;
+
 /// Truncated fourth-order multivariate Taylor scalar in `K` variables.
 ///
 /// See the module documentation for semantics and conventions. `Copy` is
@@ -147,35 +149,50 @@ impl<const K: usize> Tower4<K> {
         out
     }
 
+    /// Read the (fully symmetric) derivative tensor entry whose differentiation
+    /// axes are `labels` (length 0..=4): value, `g`, `h`, `t3`, `t4`.
+    #[inline]
+    fn deriv(&self, labels: &[usize]) -> f64 {
+        assert!(
+            labels.len() <= 4,
+            "Tower4 carries at most fourth-order derivatives"
+        );
+        match labels.len() {
+            0 => self.v,
+            1 => self.g[labels[0]],
+            2 => self.h[labels[0]][labels[1]],
+            3 => self.t3[labels[0]][labels[1]][labels[2]],
+            _ => self.t4[labels[0]][labels[1]][labels[2]][labels[3]],
+        }
+    }
+
     /// Exact truncated Leibniz product.
     ///
-    /// Each output derivative `D_S(ab)` is the sum over all subsets of the
-    /// index multiset of `D_T(a) · D_{S∖T}(b)` — written out explicitly per
-    /// order so every term is auditable against the general formula.
+    /// Every output entry `D_S(ab) = Σ_{T ⊆ S} D_T(a) · D_{S∖T}(b)` is summed
+    /// by the shared [`jet_algebra::leibniz_product`] subset walker (#1151),
+    /// the same kernel `MultiDirJet::mul` uses; the two layouts differ only in
+    /// how a slot-group selects a derivative.
     pub fn mul(&self, o: &Self) -> Self {
         let a = self;
         let b = o;
         let mut out = Self::zero();
         out.v = a.v * b.v;
         for i in 0..K {
-            out.g[i] = a.v * b.g[i] + a.g[i] * b.v;
+            let labels = [i];
+            out.g[i] = jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
         }
         for i in 0..K {
             for j in 0..K {
-                out.h[i][j] = a.v * b.h[i][j] + a.g[i] * b.g[j] + a.g[j] * b.g[i] + a.h[i][j] * b.v;
+                let labels = [i, j];
+                out.h[i][j] = jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
             }
         }
         for i in 0..K {
             for j in 0..K {
                 for k in 0..K {
-                    out.t3[i][j][k] = a.v * b.t3[i][j][k]
-                        + a.g[i] * b.h[j][k]
-                        + a.g[j] * b.h[i][k]
-                        + a.g[k] * b.h[i][j]
-                        + a.h[j][k] * b.g[i]
-                        + a.h[i][k] * b.g[j]
-                        + a.h[i][j] * b.g[k]
-                        + a.t3[i][j][k] * b.v;
+                    let labels = [i, j, k];
+                    out.t3[i][j][k] =
+                        jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
                 }
             }
         }
@@ -183,23 +200,9 @@ impl<const K: usize> Tower4<K> {
             for j in 0..K {
                 for k in 0..K {
                     for l in 0..K {
-                        // 16 subsets of {i,j,k,l}: ∅ | singles | pairs | triples | full.
-                        out.t4[i][j][k][l] = a.v * b.t4[i][j][k][l]
-                            + a.g[i] * b.t3[j][k][l]
-                            + a.g[j] * b.t3[i][k][l]
-                            + a.g[k] * b.t3[i][j][l]
-                            + a.g[l] * b.t3[i][j][k]
-                            + a.h[i][j] * b.h[k][l]
-                            + a.h[i][k] * b.h[j][l]
-                            + a.h[i][l] * b.h[j][k]
-                            + a.h[j][k] * b.h[i][l]
-                            + a.h[j][l] * b.h[i][k]
-                            + a.h[k][l] * b.h[i][j]
-                            + a.t3[i][j][k] * b.g[l]
-                            + a.t3[i][j][l] * b.g[k]
-                            + a.t3[i][k][l] * b.g[j]
-                            + a.t3[j][k][l] * b.g[i]
-                            + a.t4[i][j][k][l] * b.v;
+                        let labels = [i, j, k, l];
+                        out.t4[i][j][k][l] =
+                            jet_algebra::leibniz_product(&labels, |t| a.deriv(t), |c| b.deriv(c));
                     }
                 }
             }
@@ -219,52 +222,7 @@ impl<const K: usize> Tower4<K> {
     /// block count: each partition into r blocks contributes
     /// `f⁽ʳ⁾ · Π_blocks D_block(u)`.
     pub fn compose_unary(&self, d: [f64; 5]) -> Self {
-        let u = self;
-        let mut out = Self::zero();
-        out.v = d[0];
-        for i in 0..K {
-            out.g[i] = d[1] * u.g[i];
-        }
-        for i in 0..K {
-            for j in 0..K {
-                out.h[i][j] = d[1] * u.h[i][j] + d[2] * u.g[i] * u.g[j];
-            }
-        }
-        for i in 0..K {
-            for j in 0..K {
-                for k in 0..K {
-                    out.t3[i][j][k] = d[1] * u.t3[i][j][k]
-                        + d[2] * (u.g[i] * u.h[j][k] + u.g[j] * u.h[i][k] + u.g[k] * u.h[i][j])
-                        + d[3] * u.g[i] * u.g[j] * u.g[k];
-                }
-            }
-        }
-        for i in 0..K {
-            for j in 0..K {
-                for k in 0..K {
-                    for l in 0..K {
-                        out.t4[i][j][k][l] = d[1] * u.t4[i][j][k][l]
-                            + d[2]
-                                * (u.g[i] * u.t3[j][k][l]
-                                    + u.g[j] * u.t3[i][k][l]
-                                    + u.g[k] * u.t3[i][j][l]
-                                    + u.g[l] * u.t3[i][j][k]
-                                    + u.h[i][j] * u.h[k][l]
-                                    + u.h[i][k] * u.h[j][l]
-                                    + u.h[i][l] * u.h[j][k])
-                            + d[3]
-                                * (u.g[i] * u.g[j] * u.h[k][l]
-                                    + u.g[i] * u.g[k] * u.h[j][l]
-                                    + u.g[i] * u.g[l] * u.h[j][k]
-                                    + u.g[j] * u.g[k] * u.h[i][l]
-                                    + u.g[j] * u.g[l] * u.h[i][k]
-                                    + u.g[k] * u.g[l] * u.h[i][j])
-                            + d[4] * u.g[i] * u.g[j] * u.g[k] * u.g[l];
-                    }
-                }
-            }
-        }
-        out
+        <Self as jet_algebra::JetAlgebra<5>>::compose_unary(self, d)
     }
 
     /// Multiply every channel by a plain scalar.
@@ -367,15 +325,59 @@ impl<const K: usize> Tower4<K> {
     /// `row_fourth_contracted` shape.
     pub fn fourth_contracted(&self, u: &[f64; K], w: &[f64; K]) -> [[f64; K]; K] {
         let mut out = [[0.0; K]; K];
-        for a in 0..K {
-            for b in 0..K {
+        for i in 0..K {
+            for j in 0..K {
                 let mut acc = 0.0;
-                for c in 0..K {
-                    for d in 0..K {
-                        acc += self.t4[a][b][c][d] * u[c] * w[d];
+                for k in 0..K {
+                    for l in 0..K {
+                        acc += self.t4[i][j][k][l] * u[k] * w[l];
                     }
                 }
-                out[a][b] = acc;
+                out[i][j] = acc;
+            }
+        }
+        out
+    }
+}
+
+impl<const K: usize> jet_algebra::JetAlgebra<5> for Tower4<K> {
+    #[inline]
+    fn derivative(&self, labels: &[usize]) -> f64 {
+        self.deriv(labels)
+    }
+
+    fn map_derivatives<F>(&self, mut f: F) -> Self
+    where
+        F: FnMut(&[usize]) -> f64,
+    {
+        let mut out = Self::zero();
+        out.v = f(&[]);
+        for i in 0..K {
+            let labels = [i];
+            out.g[i] = f(&labels);
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let labels = [i, j];
+                out.h[i][j] = f(&labels);
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    let labels = [i, j, k];
+                    out.t3[i][j][k] = f(&labels);
+                }
+            }
+        }
+        for i in 0..K {
+            for j in 0..K {
+                for k in 0..K {
+                    for l in 0..K {
+                        let labels = [i, j, k, l];
+                        out.t4[i][j][k][l] = f(&labels);
+                    }
+                }
             }
         }
         out
@@ -434,6 +436,21 @@ impl<const K: usize> Tower2<K> {
         out
     }
 
+    /// Read the derivative tensor entry whose differentiation axes are
+    /// `labels` (length 0..=2): value, `g`, `h`.
+    #[inline]
+    fn deriv(&self, labels: &[usize]) -> f64 {
+        assert!(
+            labels.len() <= 2,
+            "Tower2 carries at most second-order derivatives"
+        );
+        match labels.len() {
+            0 => self.v,
+            1 => self.g[labels[0]],
+            _ => self.h[labels[0]][labels[1]],
+        }
+    }
+
     /// Exact truncated (order ≤ 2) Leibniz product. The `v`/`g`/`h` channels
     /// match [`Tower4::mul`] term-for-term.
     pub fn mul(&self, o: &Self) -> Self {
@@ -460,18 +477,7 @@ impl<const K: usize> Tower2<K> {
     /// approximation. The full-order `[f64; 5]` derivative stacks the families
     /// already produce can be passed by slicing their first three entries.
     pub fn compose_unary(&self, d: [f64; 3]) -> Self {
-        let u = self;
-        let mut out = Self::zero();
-        out.v = d[0];
-        for i in 0..K {
-            out.g[i] = d[1] * u.g[i];
-        }
-        for i in 0..K {
-            for j in 0..K {
-                out.h[i][j] = d[1] * u.h[i][j] + d[2] * u.g[i] * u.g[j];
-            }
-        }
-        out
+        <Self as jet_algebra::JetAlgebra<3>>::compose_unary(self, d)
     }
 
     /// Multiply every channel by a plain scalar.
@@ -492,6 +498,32 @@ impl<const K: usize> Tower2<K> {
         let u = self.v;
         let s = u.sqrt();
         self.compose_unary([s, 0.5 / s, -0.25 / (u * s)])
+    }
+}
+
+impl<const K: usize> jet_algebra::JetAlgebra<3> for Tower2<K> {
+    #[inline]
+    fn derivative(&self, labels: &[usize]) -> f64 {
+        self.deriv(labels)
+    }
+
+    fn map_derivatives<F>(&self, mut f: F) -> Self
+    where
+        F: FnMut(&[usize]) -> f64,
+    {
+        let mut out = Self::zero();
+        out.v = f(&[]);
+        for i in 0..K {
+            let labels = [i];
+            out.g[i] = f(&labels);
+        }
+        for i in 0..K {
+            for j in 0..K {
+                let labels = [i, j];
+                out.h[i][j] = f(&labels);
+            }
+        }
+        out
     }
 }
 

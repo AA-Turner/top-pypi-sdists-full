@@ -31,6 +31,9 @@ from .literals import (
     EngineTypeType,
     PromoteModeType,
     SanitizationWarningReasonType,
+    SharedResourceErrorCodeType,
+    SharedResourceStatusType,
+    SharedResourceTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -74,6 +77,9 @@ __all__ = (
     "DescribeConfigurationResponseTypeDef",
     "DescribeConfigurationRevisionRequestTypeDef",
     "DescribeConfigurationRevisionResponseTypeDef",
+    "DescribeSharedResourcesRequestPaginateTypeDef",
+    "DescribeSharedResourcesRequestTypeDef",
+    "DescribeSharedResourcesResponseTypeDef",
     "DescribeUserRequestTypeDef",
     "DescribeUserResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
@@ -101,6 +107,8 @@ __all__ = (
     "RebootBrokerRequestTypeDef",
     "ResponseMetadataTypeDef",
     "SanitizationWarningTypeDef",
+    "SharedResourceErrorTypeDef",
+    "SharedResourceTypeDef",
     "UpdateBrokerRequestTypeDef",
     "UpdateBrokerResponseTypeDef",
     "UpdateConfigurationRequestTypeDef",
@@ -290,6 +298,18 @@ class DescribeConfigurationRevisionRequestTypeDef(TypedDict):
     ConfigurationRevision: str
 
 
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+
+class DescribeSharedResourcesRequestTypeDef(TypedDict):
+    BrokerId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class DescribeUserRequestTypeDef(TypedDict):
     BrokerId: str
     Username: str
@@ -299,12 +319,6 @@ class UserPendingChangesTypeDef(TypedDict):
     PendingChange: ChangeTypeType
     ConsoleAccess: NotRequired[bool]
     Groups: NotRequired[list[str]]
-
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 
 class ListBrokersRequestTypeDef(TypedDict):
@@ -351,6 +365,11 @@ class SanitizationWarningTypeDef(TypedDict):
     Reason: SanitizationWarningReasonType
     AttributeName: NotRequired[str]
     ElementName: NotRequired[str]
+
+
+class SharedResourceErrorTypeDef(TypedDict):
+    Code: SharedResourceErrorCodeType
+    Message: str
 
 
 class UpdateConfigurationRequestTypeDef(TypedDict):
@@ -435,6 +454,7 @@ class UpdateBrokerRequestTypeDef(TypedDict):
     LdapServerMetadata: NotRequired[LdapServerMetadataInputTypeDef]
     Logs: NotRequired[LogsTypeDef]
     MaintenanceWindowStartTime: NotRequired[WeeklyStartTimeTypeDef]
+    ResourceShareArns: NotRequired[Sequence[str]]
     SecurityGroups: NotRequired[Sequence[str]]
     DataReplicationMode: NotRequired[DataReplicationModeType]
 
@@ -528,6 +548,15 @@ class ListUsersResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class DescribeSharedResourcesRequestPaginateTypeDef(TypedDict):
+    BrokerId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListBrokersRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class DescribeUserResponseTypeDef(TypedDict):
     BrokerId: str
     ConsoleAccess: bool
@@ -536,10 +565,6 @@ class DescribeUserResponseTypeDef(TypedDict):
     Username: str
     ReplicationUser: bool
     ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ListBrokersRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class LogsSummaryTypeDef(TypedDict):
@@ -558,6 +583,19 @@ class UpdateConfigurationResponseTypeDef(TypedDict):
     Name: str
     Warnings: list[SanitizationWarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+SharedResourceTypeDef = TypedDict(
+    "SharedResourceTypeDef",
+    {
+        "ResourceArn": str,
+        "Status": SharedResourceStatusType,
+        "Type": SharedResourceTypeType,
+        "DnsNames": NotRequired[list[str]],
+        "Error": NotRequired[SharedResourceErrorTypeDef],
+        "ResourceShareArns": NotRequired[list[str]],
+    },
+)
 
 
 class DescribeBrokerInstanceOptionsResponseTypeDef(TypedDict):
@@ -591,6 +629,7 @@ class UpdateBrokerResponseTypeDef(TypedDict):
     LdapServerMetadata: LdapServerMetadataOutputTypeDef
     Logs: LogsTypeDef
     MaintenanceWindowStartTime: WeeklyStartTimeTypeDef
+    ResourceShareArns: list[str]
     SecurityGroups: list[str]
     DataReplicationMetadata: DataReplicationMetadataOutputTypeDef
     DataReplicationMode: DataReplicationModeType
@@ -634,3 +673,9 @@ class DescribeBrokerResponseTypeDef(TypedDict):
     PendingDataReplicationMetadata: DataReplicationMetadataOutputTypeDef
     PendingDataReplicationMode: DataReplicationModeType
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeSharedResourcesResponseTypeDef(TypedDict):
+    SharedResources: list[SharedResourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]

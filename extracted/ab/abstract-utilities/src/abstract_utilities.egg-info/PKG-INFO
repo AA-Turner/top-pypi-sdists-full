@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_utilities
-Version: 0.2.2.782
+Version: 0.2.2.783
 Summary: Utility modules for data comparison, JSON handling, string manipulation, math operations, and general automation tasks.
 Home-page: https://github.com/AbstractEndeavors/abstract_utilities
 Author: putkoff
@@ -11,27 +11,51 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: lxml
-Requires-Dist: ezodf
-Requires-Dist: tiktoken
-Requires-Dist: abstract_windows
-Requires-Dist: PyPDF2
-Requires-Dist: pdfplumber
-Requires-Dist: pytesseract
-Requires-Dist: flask
-Requires-Dist: pdf2image
-Requires-Dist: abstract_paths
-Requires-Dist: pathlib>=1.0.1
-Requires-Dist: abstract_security>=0.0.1
-Requires-Dist: yt_dlp>=2023.10.13
-Requires-Dist: pexpect>=4.8.0
+Provides-Extra: pdf
+Requires-Dist: PyPDF2; extra == "pdf"
+Requires-Dist: pdfplumber; extra == "pdf"
+Requires-Dist: pdf2image; extra == "pdf"
+Requires-Dist: pytesseract; extra == "pdf"
+Provides-Extra: data
+Requires-Dist: pandas; extra == "data"
+Requires-Dist: geopandas; extra == "data"
+Requires-Dist: openpyxl; extra == "data"
+Requires-Dist: ezodf; extra == "data"
+Provides-Extra: web
+Requires-Dist: flask; extra == "web"
+Requires-Dist: werkzeug; extra == "web"
+Requires-Dist: requests; extra == "web"
+Provides-Extra: tokens
+Requires-Dist: tiktoken; extra == "tokens"
+Provides-Extra: ssh
+Requires-Dist: pexpect>=4.8.0; extra == "ssh"
+Provides-Extra: env
+Requires-Dist: python-dotenv; extra == "env"
+Provides-Extra: ytdlp
+Requires-Dist: yt_dlp>=2023.10.13; extra == "ytdlp"
+Provides-Extra: all
+Requires-Dist: PyPDF2; extra == "all"
+Requires-Dist: ezodf; extra == "all"
+Requires-Dist: flask; extra == "all"
+Requires-Dist: geopandas; extra == "all"
+Requires-Dist: openpyxl; extra == "all"
+Requires-Dist: pandas; extra == "all"
+Requires-Dist: pdf2image; extra == "all"
+Requires-Dist: pdfplumber; extra == "all"
+Requires-Dist: pexpect>=4.8.0; extra == "all"
+Requires-Dist: pytesseract; extra == "all"
+Requires-Dist: python-dotenv; extra == "all"
+Requires-Dist: requests; extra == "all"
+Requires-Dist: tiktoken; extra == "all"
+Requires-Dist: werkzeug; extra == "all"
+Requires-Dist: yt_dlp>=2023.10.13; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: requires-dist
+Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary
 

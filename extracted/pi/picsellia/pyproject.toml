@@ -1,6 +1,6 @@
 [project]
 name = "picsellia"
-version = "6.32.0"
+version = "6.33.0"
 description = "Python SDK package for Picsellia MLOps platform"
 authors = [
     { "name" = "Pierre-Nicolas Tiffreau", "email" = "<pierre-nicolas@picsellia.com>" },

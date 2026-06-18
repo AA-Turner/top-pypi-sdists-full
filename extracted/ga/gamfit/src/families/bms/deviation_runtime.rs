@@ -2,8 +2,43 @@ use crate::basis::create_ispline_derivative_dense;
 use crate::faer_ndarray::{FaerEigh, fast_ab};
 use crate::families::cubic_cell_kernel as exact_kernel;
 use crate::pirls::LinearInequalityConstraints;
-use crate::span::{breakpoints_from_knots, span_index_for_breakpoints};
+use crate::util::span::span_index_for_breakpoints;
 use ndarray::{Array1, Array2, ArrayView2};
+
+/// Require a breakpoint sequence suitable for BMS span lookup: finite,
+/// strictly increasing, and long enough to define at least one span.
+fn validate_breakpoints(breakpoints: &[f64], label: &str) -> Result<(), String> {
+    if breakpoints.len() < 2 {
+        return Err(format!("{label} requires at least two breakpoints"));
+    }
+    if let Some((idx, window)) = breakpoints.windows(2).enumerate().find(|(_, window)| {
+        !window[0].is_finite() || !window[1].is_finite() || window[0] >= window[1]
+    }) {
+        return Err(format!(
+            "{label} requires strictly increasing finite breakpoints; breakpoints[{idx}]={:.6}, breakpoints[{}]={:.6}",
+            window[0],
+            idx + 1,
+            window[1]
+        ));
+    }
+    Ok::<(), _>(())
+}
+
+/// Deduplicate an ordered BMS knot sequence into strictly increasing
+/// breakpoints.
+fn breakpoints_from_knots(knots: &[f64], label: &str) -> Result<Vec<f64>, String> {
+    let mut breakpoints = Vec::new();
+    for &knot in knots {
+        if breakpoints
+            .last()
+            .is_none_or(|prev: &f64| (knot - *prev).abs() > 1e-12)
+        {
+            breakpoints.push(knot);
+        }
+    }
+    validate_breakpoints(&breakpoints, label)?;
+    Ok(breakpoints)
+}
 
 /// Round-off tolerance on the minimum monotonicity-derivative slack. The
 /// constraints are constructed with a positive required margin
@@ -34,27 +69,17 @@ pub enum DeviationRuntimeError {
     NumericalFailure { reason: String },
 }
 
-impl std::fmt::Display for DeviationRuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DeviationRuntimeError::InvalidInput { reason }
-            | DeviationRuntimeError::DimensionMismatch { reason }
-            | DeviationRuntimeError::NumericalFailure { reason } => f.write_str(reason),
-        }
-    }
-}
-
-impl std::error::Error for DeviationRuntimeError {}
-
-impl From<DeviationRuntimeError> for String {
-    fn from(err: DeviationRuntimeError) -> String {
-        err.to_string()
+crate::impl_reason_error_boilerplate! {
+    DeviationRuntimeError {
+        InvalidInput,
+        DimensionMismatch,
+        NumericalFailure,
     }
 }
 
 /// Installed cross-block flex block on the runtime.
 ///
-/// Direct on-runtime image of `identifiability_compiler::CompiledBlock`:
+/// Direct on-runtime image of `identifiability::families::compiler::CompiledBlock`:
 /// `anchor_correction` = `compiled.anchor_correction` (the d × k matrix M),
 /// `anchor_components` = the per-anchor predict-time tags (the parent
 /// predictor uses them to rebuild `n_row` at predict-time rows). The
@@ -274,7 +299,7 @@ pub(crate) fn smoothness_nullspace_orthogonal_complement(
     let evals = eigenvalues
         .as_slice()
         .ok_or_else(|| "raw smoothness penalty eigenvalues are not contiguous".to_string())?;
-    let threshold = crate::estimate::reml::unified::positive_eigenvalue_threshold(evals);
+    let threshold = crate::estimate::reml::reml_outer_engine::positive_eigenvalue_threshold(evals);
     let kept: Vec<usize> = evals
         .iter()
         .enumerate()
@@ -670,7 +695,7 @@ impl DeviationRuntime {
     }
 
     /// Single-step install of a compiled flex block from
-    /// `identifiability_compiler::compile`.
+    /// `identifiability::families::compiler::compile`.
     ///
     /// Semantics:
     /// - `compiled.t_lw` is the right-selector `V` applied to `span_c{0..3}`,
@@ -683,7 +708,7 @@ impl DeviationRuntime {
     ///   `design_at_training_with_residual`.
     pub(crate) fn install_compiled_flex_block(
         &mut self,
-        compiled: &crate::families::identifiability_compiler::CompiledBlock,
+        compiled: &crate::identifiability::families::compiler::CompiledBlock,
         anchor_components: Vec<AnchorComponentTag>,
         n_train_at_training: Array2<f64>,
     ) -> Result<(), String> {
@@ -966,7 +991,7 @@ impl DeviationRuntime {
                 reason: format!("deviation integrated penalty eigendecomposition failed: {e}"),
             })
         })?;
-        let threshold = crate::estimate::reml::unified::positive_eigenvalue_threshold(
+        let threshold = crate::estimate::reml::reml_outer_engine::positive_eigenvalue_threshold(
             evals.as_slice().ok_or_else(|| {
                 String::from(DeviationRuntimeError::NumericalFailure {
                     reason: "deviation penalty eigenvalues are not contiguous".to_string(),

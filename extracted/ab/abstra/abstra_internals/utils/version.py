@@ -1,4 +1,5 @@
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -57,7 +58,9 @@ def update_cached_latest_version(
     if not cached_file.parent.exists():
         cached_file.parent.mkdir(parents=True)
 
-    with open(cached_file, "w", encoding="utf-8") as f:
+    # Atomic write: the editor and the linter sidecar child share this cache.
+    tmp_file = cached_file.with_suffix(".json.tmp")
+    with open(tmp_file, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "version": str(version),
@@ -65,3 +68,4 @@ def update_cached_latest_version(
             },
             f,
         )
+    os.replace(tmp_file, cached_file)

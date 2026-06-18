@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-turn-detector
-Version: 1.6.0
+Version: 1.6.1
 Summary: End of utterance detection for LiveKit Agents
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -9,7 +9,6 @@ Author-email: LiveKit <hello@livekit.io>
 License-Expression: Apache-2.0
 Keywords: ai,audio,livekit,realtime,video,voice,webrtc
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
@@ -18,13 +17,16 @@ Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: jinja2
-Requires-Dist: livekit-agents>=1.6.0
+Requires-Dist: livekit-agents>=1.6.1
 Requires-Dist: numpy>=1.26
-Requires-Dist: onnxruntime>=1.18
+Requires-Dist: onnxruntime<1.24,>=1.18; python_version < '3.11'
+Requires-Dist: onnxruntime>=1.18; python_version >= '3.11'
 Requires-Dist: transformers!=4.57.2,!=4.57.3,>=4.47.1
 Description-Content-Type: text/markdown
 
 # Turn detector plugin for LiveKit Agents
+
+> ⚠️ **Deprecated.** This plugin is deprecated and will be removed in a future release. Use [`livekit.agents.inference.TurnDetector`](https://docs.livekit.io/agents/build/turns/turn-detector/) instead — it ships with `livekit-agents`, requires no additional install, and replaces both the English and Multilingual text-based models with a unified audio end-of-turn detector.
 
 This plugin introduces end-of-turn detection for LiveKit Agents using a custom open-weight model to determine when a user has finished speaking.
 
@@ -34,39 +36,28 @@ By leveraging a language model specifically trained for this task, this plugin o
 
 See [https://docs.livekit.io/agents/build/turns/turn-detector/](https://docs.livekit.io/agents/build/turns/turn-detector/) for more information.
 
-## Installation
-
-```bash
-pip install livekit-plugins-turn-detector
-```
-
 ## Usage
 
-### Multilingual model
-
-We've trained a multilingual model that supports the following languages: `English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Indonesian, Russian, Turkish, Hindi`
-
-The multilingual model requires ~400MB of RAM and completes inferences in ~25ms.
+The recommended replacement is `TurnDetector`, available from `livekit-agents` directly:
 
 ```python
-from livekit.plugins.turn_detector.multilingual import MultilingualModel
+from livekit.agents.inference import TurnDetector
 
 session = AgentSession(
     ...
-    turn_detection=MultilingualModel(),
+    turn_detection=TurnDetector(),
 )
 ```
 
 ### Usage with RealtimeModel
 
-The turn detector can be used even with speech-to-speech models such as OpenAI's Realtime API. You'll need to provide a separate STT to ensure our model has access to the text content.
+`TurnDetector` works with speech-to-speech models such as OpenAI's Realtime API:
 
 ```python
 session = AgentSession(
     ...
-    stt=deepgram.STT(model="nova-3", language="multi"),
     llm=openai.realtime.RealtimeModel(),
-    turn_detection=MultilingualModel(),
+    turn_detection=TurnDetector(),
 )
 ```
 

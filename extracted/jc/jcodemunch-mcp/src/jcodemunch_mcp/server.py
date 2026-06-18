@@ -578,6 +578,43 @@ def _save_session_state() -> None:
 atexit.register(_save_session_state)
 
 
+# ---------------------------------------------------------------------------
+# Live journal persistence (#334) — feeds the out-of-process PreCompact hook.
+#
+# The hook (`jcodemunch-mcp hook-precompact`) runs in a separate process from
+# this server, so it sees a fresh, empty SessionJournal. We persist a compact
+# snapshot of the live journal to a small file the hook reads back. Writes are
+# throttled (not every tool call) and best-effort. Disable with
+# JCODEMUNCH_LIVE_JOURNAL=0.
+# ---------------------------------------------------------------------------
+
+_live_journal_lock = threading.Lock()
+_live_journal_last_flush = 0.0
+_LIVE_JOURNAL_MIN_INTERVAL_S = 2.0
+
+
+def _live_journal_enabled() -> bool:
+    val = os.environ.get("JCODEMUNCH_LIVE_JOURNAL", "").strip().lower()
+    return val not in {"0", "false", "no", "off"}
+
+
+def _maybe_flush_live_journal(journal) -> None:
+    """Throttled, best-effort flush of the live journal to disk (#334)."""
+    if not _live_journal_enabled():
+        return
+    global _live_journal_last_flush
+    now = time.monotonic()
+    with _live_journal_lock:
+        if now - _live_journal_last_flush < _LIVE_JOURNAL_MIN_INTERVAL_S:
+            return
+        _live_journal_last_flush = now
+    try:
+        from .tools.session_state import save_live_journal
+        save_live_journal(journal, base_path=os.environ.get("CODE_INDEX_PATH") or None)
+    except Exception:
+        logger.debug("live journal flush failed", exc_info=True)
+
+
 def _cleanup_mermaid_temp_startup() -> None:
     """Clean stale mermaid viewer temp files from previous sessions."""
     if not config_module.get("render_diagram_viewer_enabled", False):
@@ -1964,6 +2001,11 @@ def _build_tools_list() -> list[Tool]:
                         "description": "Max tokens for source snippets across all files (default 8000). Files are prioritized by reference count.",
                         "default": 8000,
                     },
+                    "include_decisions": {
+                        "type": "boolean",
+                        "description": "When true, attach a read-only 'decisions' block: decision-bearing commits (revert/perf/refactor/rename/bugfix) mined from the git history of the focal symbol's file and the confirmed affected files, plus a volatility read ('3 reverts + 2 perf rewrites in 180d — review before changing'). Surfaced from the commit record; nothing is persisted. Default false (spends a few git-log calls).",
+                        "default": False,
+                    },
                 },
                 "required": ["repo", "symbol"]
             }
@@ -2022,6 +2064,11 @@ def _build_tools_list() -> list[Tool]:
                     "symbol_id": {
                         "type": "string",
                         "description": "Symbol name or full ID to analyse. Use search_symbols to find IDs."
+                    },
+                    "include_decisions": {
+                        "type": "boolean",
+                        "description": "When true, attach a read-only 'decisions' block: decision-bearing commits (revert/perf/refactor/rename/bugfix) mined from the git history of the focal symbol's file and the impacted files, plus a volatility read. Surfaced from the commit record; nothing is persisted. Default false (spends a few git-log calls).",
+                        "default": False,
                     },
                 },
                 "required": ["repo", "symbol_id"],
@@ -3115,6 +3162,18 @@ def _build_tools_list() -> list[Tool]:
                         "type": "boolean",
                         "description": "Include test_* functions as gateways (default false).",
                         "default": False,
+                    },
+                    "include_flow_edges": {
+                        "type": "boolean",
+                        "description": (
+                            "Resolve framework flow edges the call graph is blind to (default true). "
+                            "String-dispatched handlers (Django path()/re_path(), Express "
+                            "router.get(path, handler), Flask add_url_rule, Rails to:) surface as http "
+                            "gateways even with no route decorator, and templates a chain renders "
+                            "(render/render_template/res.render/view) attach as a per-chain 'views' list. "
+                            "Set false for pure call-graph behavior."
+                        ),
+                        "default": True,
                     },
                 },
                 "required": ["repo"],
@@ -4278,6 +4337,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     decorator_filter=arguments.get("decorator_filter"),
                     include_source=arguments.get("include_source", False),
                     source_budget=arguments.get("source_budget", 8000),
+                    include_decisions=arguments.get("include_decisions", False),
                 )
             )
         elif name == "get_call_hierarchy":
@@ -4300,6 +4360,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     repo=arguments["repo"],
                     symbol_id=arguments["symbol_id"],
                     storage_path=storage_path,
+                    include_decisions=arguments.get("include_decisions", False),
                 )
             )
         elif name == "get_symbol_provenance":
@@ -4680,6 +4741,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     kind=arguments.get("kind"),
                     max_depth=arguments.get("max_depth", 5),
                     include_tests=arguments.get("include_tests", False),
+                    include_flow_edges=arguments.get("include_flow_edges", True),
                     storage_path=storage_path,
                 )
             )
@@ -4814,6 +4876,9 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                                 "scanned_symbols": ne.get("scanned_symbols", 0),
                                 "timestamp": _t.time(),
                             })
+                # Persist a compact live snapshot so the out-of-process
+                # PreCompact hook can read real session state (#334). Throttled.
+                _maybe_flush_live_journal(journal)
             except Exception:
                 logger.debug("Journal recording failed", exc_info=True)
 
@@ -4959,6 +5024,21 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
     except KeyError as e:
         _call_ok = False
+        # A KeyError raised while extracting arguments in THIS dispatcher frame is
+        # a genuine missing caller argument. A KeyError raised deeper — inside a
+        # tool implementation (e.g. a dict-shape bug) — must NOT masquerade as a
+        # schema/argument problem (#331). Distinguish by the originating frame.
+        _tb = e.__traceback__
+        while _tb is not None and _tb.tb_next is not None:
+            _tb = _tb.tb_next
+        _origin = _tb.tb_frame.f_code.co_filename if _tb is not None else ""
+        if _origin and os.path.basename(_origin) != os.path.basename(__file__):
+            logger.error("call_tool %s raised an internal KeyError", name, exc_info=True)
+            payload = {
+                "error": f"Internal error processing {name}",
+                "summary": f"KeyError: {e}",
+            }
+            return [TextContent(type="text", text=json.dumps(payload, separators=(',', ':')))]
         return [TextContent(type="text", text=json.dumps({"error": f"Missing required argument: {e}. Check the tool schema for correct parameter names."}, separators=(',', ':')))]
     except Exception as exc:
         _call_ok = False

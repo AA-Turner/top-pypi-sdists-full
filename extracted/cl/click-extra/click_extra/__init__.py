@@ -40,7 +40,7 @@ from cloup import *  # type: ignore[no-redef, assignment]
 # XXX Import types first to avoid circular imports. The True condition is a hack to
 # prevent ruff from re-ordering imports.
 if True:
-    from .types import ChoiceSource, EnumChoice
+    from .types import ChoiceSource, EnumChoice, MultiChoice
 
 # Override cloup.Style with our own version. The override must happen after
 # ``from cloup import *`` (which would otherwise re-shadow our subclass) and
@@ -87,6 +87,7 @@ from .decorators import (  # type: ignore[no-redef]
     accessible_option,
     argument,
     color_option,
+    columns_option,
     command,
     config_option,
     group,
@@ -141,13 +142,18 @@ from .parameters import (
     search_params,
 )
 from .table import (
+    ColumnsOption,
+    ColumnSpec,
     SortByOption,
     TableFormat,
     TableFormatOption,
     print_data,
     print_sorted_table,
     print_table,
+    render_columns_markdown_table,
     render_table,
+    select_columns,
+    select_row,
     serialize_data,
 )
 from .telemetry import TelemetryOption
@@ -191,6 +197,8 @@ __all__ = [
     "ClickException",
     "Color",
     "ColorOption",
+    "ColumnSpec",
+    "ColumnsOption",
     "Command",
     "CommandCollection",
     "ConfigFormat",
@@ -226,6 +234,7 @@ __all__ = [
     "ManOption",
     "ManPage",
     "MissingParameter",
+    "MultiChoice",
     "NoConfigOption",
     "NoSuchCommand",
     "NoSuchOption",
@@ -261,6 +270,7 @@ __all__ = [
     "argument",
     "clear",
     "color_option",
+    "columns_option",
     "command",
     "config_option",
     "confirm",
@@ -311,12 +321,15 @@ __all__ = [
     "progressbar",
     "prompt",
     "register_theme",
+    "render_columns_markdown_table",
     "render_manpage",
     "render_manpages",
     "render_table",
     "run_config_validation",
     "search_params",
     "secho",
+    "select_columns",
+    "select_row",
     "serialize_data",
     "set_default_theme",
     "show_params_option",
@@ -344,13 +357,13 @@ __all__ = [
 """
 
 
-__version__ = "7.19.0"
+__version__ = "7.20.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "b17f66a9e99645c960038ae53455bbc85752cb7e"
+__git_tag_sha__ = "ff1eb90bba4f9c20a65ab274b95b33ba123a132a"
 
 
 def __getattr__(name: str) -> object:

@@ -28,6 +28,7 @@ from meridian import backend
 from meridian import constants as c
 from meridian.analysis import analyzer as analyzer_module
 from meridian.analysis import summary_text
+from meridian.analysis import tensors
 from meridian.common import errors as common_errors
 from meridian.data import time_coordinates as tc
 from meridian.model import context
@@ -489,9 +490,6 @@ class OptimizationResults:
     new_data: The optional `DataTensors` container that was used to create this
       budget allocation.
   """
-
-  meridian: model.Meridian
-  # The analyzer bound to the model above.
   analyzer: analyzer_module.Analyzer
   spend_ratio: np.ndarray  # spend / historical spend
   spend_bounds: tuple[np.ndarray, np.ndarray]
@@ -502,9 +500,10 @@ class OptimizationResults:
   _optimized_data: xr.Dataset
   _optimization_grid: OptimizationGrid
 
+  meridian: model.Meridian | None = None
   # The optional `DataTensors` container to use if optimization was performed
   # on data different from the original `input_data`.
-  new_data: analyzer_module.DataTensors | None = None
+  new_data: tensors.DataTensors | None = None
 
   # TODO: Move this, and the plotting methods, to a summarizer.
   @functools.cached_property
@@ -1401,13 +1400,30 @@ class BudgetOptimizer:
 
   def __init__(
       self,
-      meridian: model.Meridian,
+      # TODO: Remove deprecated meridian parameter.
+      meridian: model.Meridian | None = None,
+      *,
+      analyzer: analyzer_module.Analyzer | None = None,
   ):
-    self._meridian = meridian
-    self._analyzer = analyzer_module.Analyzer(
-        model_context=meridian.model_context,
-        inference_data=meridian.inference_data,
-    )
+    """Initializes the Budget Optimizer based on the model data and params.
+
+    Args:
+      meridian: Media mix model with the raw data from the model fitting.
+      analyzer: The analyzer bound to the model.
+    """
+    # TODO: Throw a deprecation warning for meridian.
+
+    if analyzer is not None:
+      self._analyzer = analyzer
+      self._meridian = meridian
+    elif meridian is not None:
+      self._analyzer = analyzer_module.Analyzer(
+          model_context=meridian.model_context,
+          inference_data=meridian.inference_data,
+      )
+      self._meridian = meridian
+    else:
+      raise ValueError('Either `analyzer` or `meridian` must be provided.')
 
   def _validate_model_fit(self, use_posterior: bool):
     """Validates that the model is fit."""
@@ -1419,7 +1435,7 @@ class BudgetOptimizer:
 
   def optimize(
       self,
-      new_data: analyzer_module.DataTensors | None = None,
+      new_data: tensors.DataTensors | None = None,
       use_posterior: bool = True,
       selected_geos: Sequence[str] | None = None,
       # TODO: Remove this argument.
@@ -1672,7 +1688,7 @@ class BudgetOptimizer:
     use_historical_budget = budget is None or np.isclose(
         budget, np.sum(optimization_grid.historical_spend)
     )
-    new_data = new_data or analyzer_module.DataTensors()
+    new_data = new_data or tensors.DataTensors()
     nonoptimized_data = self._create_budget_dataset(
         new_data=new_data.filter_fields(c.PAID_DATA + (c.TIME,)),
         use_posterior=use_posterior,
@@ -1769,7 +1785,7 @@ class BudgetOptimizer:
       rf_spend: backend.Tensor | None = None,
       revenue_per_kpi: backend.Tensor | None = None,
       use_optimal_frequency: bool = True,
-  ) -> analyzer_module.DataTensors:
+  ) -> tensors.DataTensors:
     """Creates a `DataTensors` for optimizations from CPM and flighting data.
 
     CPM is broken down into cost per media unit, `cpmu`, for the media channels
@@ -1782,7 +1798,7 @@ class BudgetOptimizer:
     national-level totals. If the model is a geo-level model, then the values
     are allocated across geos based on the population used in the model.
 
-    Below are the different combinations of tensors that can be provided:
+    Below are the different combinations of tensors_dict that can be provided:
       For media:
       1) `media`, `cpmu` (media units flighting pattern)
       2) `media_spend`, `cpmu` (spend flighting pattern)
@@ -1833,7 +1849,7 @@ class BudgetOptimizer:
         provided.
 
     Returns:
-      A `DataTensors` object with optional tensors `media`, `reach`,
+      A `DataTensors` object with optional tensors_dict `media`, `reach`,
       `frequency`, `media_spend`, `rf_spend`, `revenue_per_kpi`, and `time`.
     """
     n_times = time.shape[0] if isinstance(time, backend.Tensor) else len(time)
@@ -1852,49 +1868,51 @@ class BudgetOptimizer:
         use_optimal_frequency=use_optimal_frequency,
     )
 
-    tensors = {}
+    tensors_dict = {}
     if media is not None:
       cpmu = _expand_tensor(cpmu, (n_geos, n_times, media.shape[-1]))
-      tensors[c.MEDIA] = self._allocate_tensor_by_population(media)
-      tensors[c.MEDIA_SPEND] = tensors[c.MEDIA] * cpmu
+      tensors_dict[c.MEDIA] = self._allocate_tensor_by_population(media)
+      tensors_dict[c.MEDIA_SPEND] = tensors_dict[c.MEDIA] * cpmu
     if media_spend is not None:
       cpmu = _expand_tensor(cpmu, (n_geos, n_times, media_spend.shape[-1]))
-      tensors[c.MEDIA_SPEND] = self._allocate_tensor_by_population(media_spend)
-      tensors[c.MEDIA] = tensors[c.MEDIA_SPEND] / cpmu
+      tensors_dict[c.MEDIA_SPEND] = self._allocate_tensor_by_population(
+          media_spend
+      )
+      tensors_dict[c.MEDIA] = tensors_dict[c.MEDIA_SPEND] / cpmu
     if rf_impressions is not None:
       shape = (n_geos, n_times, rf_impressions.shape[-1])
       cprf = _expand_tensor(cprf, shape)
       allocated_impressions = self._allocate_tensor_by_population(
           rf_impressions
       )
-      tensors[c.RF_SPEND] = allocated_impressions * cprf
+      tensors_dict[c.RF_SPEND] = allocated_impressions * cprf
       if use_optimal_frequency:
         frequency = backend.ones_like(allocated_impressions)
-      tensors[c.FREQUENCY] = _expand_tensor(frequency, shape)
-      tensors[c.REACH] = backend.divide_no_nan(
-          allocated_impressions, tensors[c.FREQUENCY]
+      tensors_dict[c.FREQUENCY] = _expand_tensor(frequency, shape)
+      tensors_dict[c.REACH] = backend.divide_no_nan(
+          allocated_impressions, tensors_dict[c.FREQUENCY]
       )
     if rf_spend is not None:
       shape = (n_geos, n_times, rf_spend.shape[-1])
       cprf = _expand_tensor(cprf, shape)
-      tensors[c.RF_SPEND] = self._allocate_tensor_by_population(rf_spend)
-      impressions = backend.divide_no_nan(tensors[c.RF_SPEND], cprf)
+      tensors_dict[c.RF_SPEND] = self._allocate_tensor_by_population(rf_spend)
+      impressions = backend.divide_no_nan(tensors_dict[c.RF_SPEND], cprf)
       if use_optimal_frequency:
         frequency = backend.ones_like(impressions)
-      tensors[c.FREQUENCY] = _expand_tensor(frequency, shape)
-      tensors[c.REACH] = backend.divide_no_nan(
-          impressions, tensors[c.FREQUENCY]
+      tensors_dict[c.FREQUENCY] = _expand_tensor(frequency, shape)
+      tensors_dict[c.REACH] = backend.divide_no_nan(
+          impressions, tensors_dict[c.FREQUENCY]
       )
     if revenue_per_kpi is not None:
-      tensors[c.REVENUE_PER_KPI] = _expand_tensor(
+      tensors_dict[c.REVENUE_PER_KPI] = _expand_tensor(
           revenue_per_kpi, (n_geos, n_times)
       )
-    tensors[c.TIME] = backend.to_tensor(time)
-    return analyzer_module.DataTensors(**tensors)
+    tensors_dict[c.TIME] = backend.to_tensor(time)
+    return tensors.DataTensors(**tensors_dict)
 
   def _validate_grid(
       self,
-      new_data: analyzer_module.DataTensors | None,
+      new_data: tensors.DataTensors | None,
       use_posterior: bool,
       selected_geos: Sequence[str] | None,
       start_date: tc.Date,
@@ -1976,7 +1994,7 @@ class BudgetOptimizer:
       return False
 
     if new_data is None:
-      new_data = analyzer_module.DataTensors()
+      new_data = tensors.DataTensors()
     required_tensors = c.PERFORMANCE_DATA + (c.TIME,)
     filled_data = new_data.validate_and_fill_missing_data(
         required_tensors_names=required_tensors,
@@ -2162,7 +2180,7 @@ class BudgetOptimizer:
     """
     self._validate_model_fit(use_posterior)
     if new_data is None:
-      new_data = analyzer_module.DataTensors()
+      new_data = tensors.DataTensors()
     if selected_geos is not None and not selected_geos:
       raise ValueError('`selected_geos` must not be empty.')
     if selected_times is not None:
@@ -2214,7 +2232,7 @@ class BudgetOptimizer:
         )
     )
     if model_context.n_rf_channels > 0 and use_optimal_frequency:
-      opt_freq_data = analyzer_module.DataTensors(
+      opt_freq_data = tensors.DataTensors(
           rf_impressions=filled_data.reach * filled_data.frequency,
           rf_spend=filled_data.rf_spend,
           revenue_per_kpi=filled_data.revenue_per_kpi,
@@ -2315,7 +2333,7 @@ class BudgetOptimizer:
       self,
       hist_spend: np.ndarray,
       spend: np.ndarray,
-      new_data: analyzer_module.DataTensors | None = None,
+      new_data: tensors.DataTensors | None = None,
       optimal_frequency: Sequence[float] | None = None,
   ) -> tuple[
       backend.Tensor | None,
@@ -2351,7 +2369,7 @@ class BudgetOptimizer:
     Returns:
       Tuple of backend.tensors (new_media, new_reach, new_frequency).
     """
-    new_data = new_data or analyzer_module.DataTensors()
+    new_data = new_data or tensors.DataTensors()
     model_context = self._analyzer.model_context
     filled_data = new_data.validate_and_fill_missing_data(
         required_tensors_names=c.PAID_CHANNELS,
@@ -2393,7 +2411,7 @@ class BudgetOptimizer:
       self,
       hist_spend: np.ndarray,
       spend: np.ndarray,
-      new_data: analyzer_module.DataTensors | None = None,
+      new_data: tensors.DataTensors | None = None,
       use_posterior: bool = True,
       use_kpi: bool = False,
       selected_geos: Sequence[str] | None = None,
@@ -2407,7 +2425,7 @@ class BudgetOptimizer:
   ) -> xr.Dataset:
     """Creates the budget dataset."""
     model_context = self._analyzer.model_context
-    new_data = new_data or analyzer_module.DataTensors()
+    new_data = new_data or tensors.DataTensors()
     filled_data = new_data.validate_and_fill_missing_data(
         required_tensors_names=c.PAID_DATA + (c.TIME,),
         model_context=model_context,
@@ -2427,7 +2445,7 @@ class BudgetOptimizer:
         optimal_frequency=optimal_frequency,
     )
     budget = np.sum(spend_tensor)
-    inc_outcome_data = analyzer_module.DataTensors(
+    inc_outcome_data = tensors.DataTensors(
         media=new_media,
         reach=new_reach,
         frequency=new_frequency,
@@ -2473,7 +2491,7 @@ class BudgetOptimizer:
     )
 
     aggregated_impressions = self._analyzer.get_aggregated_impressions(
-        new_data=analyzer_module.DataTensors(
+        new_data=tensors.DataTensors(
             media=new_media, reach=new_reach, frequency=new_frequency
         ),
         selected_times=selected_times,
@@ -2571,10 +2589,11 @@ class BudgetOptimizer:
 
   def _update_incremental_outcome_grid(
       self,
+      *,
       i: int,
       incremental_outcome_grid: np.ndarray,
       multipliers_grid: backend.Tensor,
-      new_data: analyzer_module.DataTensors | None = None,
+      filled_data: tensors.DataTensors,
       selected_geos: Sequence[str] | None = None,
       selected_times: Sequence[str] | Sequence[bool] | None = None,
       use_posterior: bool = True,
@@ -2591,12 +2610,8 @@ class BudgetOptimizer:
         number of columns is equal to the number of total channels, containing
         incremental outcome by channel.
       multipliers_grid: A grid derived from spend.
-      new_data: An optional `DataTensors` object containing the new `media`,
-        `reach`, `frequency`, and `revenue_per_kpi` tensors. If `None`, the
-        existing tensors from the Meridian object are used. If any of the
-        tensors is provided with a different number of time periods than in
-        `InputData`, then all tensors must be provided with the same number of
-        time periods.
+      filled_data: A `DataTensors` object containing the new `media`,
+        `reach`, `frequency`, and `revenue_per_kpi` tensors.
       selected_geos: Optional list containing a subset of geos to include. By
         default, all geos are included. The selected geos should match those in
         `InputData.geo`.
@@ -2621,11 +2636,6 @@ class BudgetOptimizer:
         larger `batch_size` values.
     """
     model_context = self._analyzer.model_context
-    new_data = new_data or analyzer_module.DataTensors()
-    filled_data = new_data.validate_and_fill_missing_data(
-        required_tensors_names=c.PAID_DATA,
-        model_context=model_context,
-    )
     if model_context.n_media_channels > 0:
       new_media = (
           multipliers_grid[i, : model_context.n_media_channels]
@@ -2661,7 +2671,7 @@ class BudgetOptimizer:
         np.asarray(
             self._analyzer.incremental_outcome(
                 use_posterior=use_posterior,
-                new_data=analyzer_module.DataTensors(
+                new_data=tensors.DataTensors(
                     media=new_media,
                     reach=new_reach,
                     frequency=new_frequency,
@@ -2684,7 +2694,7 @@ class BudgetOptimizer:
       spend_bound_lower: np.ndarray,
       spend_bound_upper: np.ndarray,
       step_size: int,
-      new_data: analyzer_module.DataTensors | None = None,
+      new_data: tensors.DataTensors | None = None,
       selected_geos: Sequence[str] | None = None,
       selected_times: Sequence[str] | Sequence[bool] | None = None,
       use_posterior: bool = True,
@@ -2763,6 +2773,11 @@ class BudgetOptimizer:
     multipliers_grid = np.where(
         np.isnan(spend_grid), np.nan, multipliers_grid_base
     )
+    new_data = new_data or tensors.DataTensors()
+    filled_data = new_data.validate_and_fill_missing_data(
+        required_tensors_names=c.PAID_DATA,
+        model_context=model_context,
+    )
     for i in range(n_grid_rows):
       self._update_incremental_outcome_grid(
           i=i,
@@ -2770,7 +2785,7 @@ class BudgetOptimizer:
           multipliers_grid=multipliers_grid,
           selected_geos=selected_geos,
           selected_times=selected_times,
-          new_data=new_data,
+          filled_data=filled_data,
           use_posterior=use_posterior,
           use_kpi=use_kpi,
           optimal_frequency=optimal_frequency,
@@ -3203,7 +3218,7 @@ def _expand_selected_times(
     model_context: context.ModelContext,
     start_date: tc.Date,
     end_date: tc.Date,
-    new_data: analyzer_module.DataTensors | None,
+    new_data: tensors.DataTensors | None,
     return_flexible_str: bool = False,
 ) -> Sequence[str] | Sequence[bool] | None:
   """Creates selected_times from start_date and end_date.
@@ -3234,7 +3249,7 @@ def _expand_selected_times(
   if start_date is None and end_date is None:
     return None
 
-  new_data = new_data or analyzer_module.DataTensors()
+  new_data = new_data or tensors.DataTensors()
   if new_data.get_modified_times(model_context=model_context) is None:
     return model_context.expand_selected_time_dims(
         start_date=start_date,

@@ -28,10 +28,14 @@ from .literals import (
     ActionGroupSignatureType,
     ActionInvocationTypeType,
     AgentCollaborationType,
+    AgenticRetrieveRerankingModelTypeType,
+    AgenticRetrieveStatusType,
+    AgenticRetrieveStepType,
     AttributeTypeType,
     ConfirmationStateType,
     ConversationRoleType,
     CreationModeType,
+    DocumentOutputFormatType,
     ExecutionTypeType,
     ExternalSourceTypeType,
     FileSourceTypeType,
@@ -43,6 +47,7 @@ from .literals import (
     FlowExecutionStatusType,
     FlowNodeInputCategoryType,
     FlowNodeIODataTypeType,
+    FoundationModelTypeType,
     GuadrailActionType,
     GuardrailActionType,
     GuardrailContentFilterConfidenceType,
@@ -66,6 +71,7 @@ from .literals import (
     RequireConfirmationType,
     RerankDocumentTypeType,
     RerankingMetadataSelectionModeType,
+    RerankingModelTypeType,
     ResponseStateType,
     RetrievalResultContentColumnTypeType,
     RetrievalResultContentTypeType,
@@ -94,6 +100,36 @@ __all__ = (
     "AgentCollaboratorInvocationInputTypeDef",
     "AgentCollaboratorInvocationOutputTypeDef",
     "AgentCollaboratorOutputPayloadTypeDef",
+    "AgenticRetrieveActionDetailsTypeDef",
+    "AgenticRetrieveActionTypeDef",
+    "AgenticRetrieveBedrockGuardrailConfigurationTypeDef",
+    "AgenticRetrieveBedrockRerankingConfigurationTypeDef",
+    "AgenticRetrieveBedrockRerankingModelConfigurationTypeDef",
+    "AgenticRetrieveCitationReferenceTypeDef",
+    "AgenticRetrieveCitationTypeDef",
+    "AgenticRetrieveConfigurationTypeDef",
+    "AgenticRetrieveFailureTypeDef",
+    "AgenticRetrieveFullDocExpansionDetailsTypeDef",
+    "AgenticRetrieveGeneratedResponseTypeDef",
+    "AgenticRetrieveGuardrailWarningTypeDef",
+    "AgenticRetrieveMessageContentTypeDef",
+    "AgenticRetrieveMessageTypeDef",
+    "AgenticRetrievePolicyConfigurationTypeDef",
+    "AgenticRetrieveRerankingConfigurationTypeDef",
+    "AgenticRetrieveResponseEventTypeDef",
+    "AgenticRetrieveResultEventTypeDef",
+    "AgenticRetrieveResultItemTypeDef",
+    "AgenticRetrieveSourceMetadataTypeDef",
+    "AgenticRetrieveSourceRetrieverTypeDef",
+    "AgenticRetrieveStreamRequestTypeDef",
+    "AgenticRetrieveStreamResponseOutputTypeDef",
+    "AgenticRetrieveStreamResponseTypeDef",
+    "AgenticRetrieveTraceEventAttributesTypeDef",
+    "AgenticRetrieveTraceEventTypeDef",
+    "AgenticRetrieveTraceResultItemTypeDef",
+    "AgenticRetrieveWarningMessageTypeDef",
+    "AgenticRetrieveWarningTypeDef",
+    "AgenticRetrieverTypeDef",
     "AnalyzePromptEventTypeDef",
     "ApiInvocationInputTypeDef",
     "ApiParameterTypeDef",
@@ -104,6 +140,8 @@ __all__ = (
     "AttributionTypeDef",
     "AudioSegmentTypeDef",
     "BadGatewayExceptionTypeDef",
+    "BedrockFoundationModelConfigurationTypeDef",
+    "BedrockFoundationModelModelConfigurationTypeDef",
     "BedrockModelConfigurationsTypeDef",
     "BedrockRerankingConfigurationTypeDef",
     "BedrockRerankingModelConfigurationTypeDef",
@@ -179,6 +217,7 @@ __all__ = (
     "FlowTraceNodeOutputFieldTypeDef",
     "FlowTraceNodeOutputNextTypeDef",
     "FlowTraceTypeDef",
+    "FoundationModelConfigurationTypeDef",
     "FunctionDefinitionTypeDef",
     "FunctionInvocationInputTypeDef",
     "FunctionParameterTypeDef",
@@ -194,6 +233,8 @@ __all__ = (
     "GetAgentMemoryRequestPaginateTypeDef",
     "GetAgentMemoryRequestTypeDef",
     "GetAgentMemoryResponseTypeDef",
+    "GetDocumentContentRequestTypeDef",
+    "GetDocumentContentResponseTypeDef",
     "GetExecutionFlowSnapshotRequestTypeDef",
     "GetExecutionFlowSnapshotResponseTypeDef",
     "GetFlowExecutionRequestTypeDef",
@@ -268,6 +309,7 @@ __all__ = (
     "KnowledgeBaseRetrievalConfigurationTypeDef",
     "KnowledgeBaseRetrievalResultTypeDef",
     "KnowledgeBaseRetrieveAndGenerateConfigurationTypeDef",
+    "KnowledgeBaseRetrieverConfigurationTypeDef",
     "KnowledgeBaseTypeDef",
     "KnowledgeBaseVectorSearchConfigurationPaginatorTypeDef",
     "KnowledgeBaseVectorSearchConfigurationTypeDef",
@@ -288,6 +330,11 @@ __all__ = (
     "ListSessionsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ManagedSearchBedrockRerankingConfigurationTypeDef",
+    "ManagedSearchBedrockRerankingModelConfigurationTypeDef",
+    "ManagedSearchConfigurationPaginatorTypeDef",
+    "ManagedSearchConfigurationTypeDef",
+    "ManagedSearchRerankingConfigurationTypeDef",
     "MemorySessionSummaryTypeDef",
     "MemoryTypeDef",
     "MessageTypeDef",
@@ -361,14 +408,18 @@ __all__ = (
     "ResourceNotFoundExceptionTypeDef",
     "ResponseMetadataTypeDef",
     "ResponseStreamTypeDef",
+    "RetrievalContentTypeDef",
     "RetrievalFilterPaginatorTypeDef",
     "RetrievalFilterTypeDef",
+    "RetrievalOverridesTypeDef",
     "RetrievalResultConfluenceLocationTypeDef",
     "RetrievalResultContentColumnTypeDef",
     "RetrievalResultContentTypeDef",
     "RetrievalResultCustomDocumentLocationTypeDef",
+    "RetrievalResultGoogleDriveLocationTypeDef",
     "RetrievalResultKendraDocumentLocationTypeDef",
     "RetrievalResultLocationTypeDef",
+    "RetrievalResultOneDriveLocationTypeDef",
     "RetrievalResultS3LocationTypeDef",
     "RetrievalResultSalesforceLocationTypeDef",
     "RetrievalResultSharePointLocationTypeDef",
@@ -388,6 +439,7 @@ __all__ = (
     "RetrieveRequestTypeDef",
     "RetrieveResponseTypeDef",
     "RetrievedReferenceTypeDef",
+    "RetrieverConfigurationTypeDef",
     "ReturnControlPayloadTypeDef",
     "ReturnControlResultsTypeDef",
     "RoutingClassifierModelInvocationOutputTypeDef",
@@ -422,6 +474,7 @@ __all__ = (
     "UpdateSessionRequestTypeDef",
     "UpdateSessionResponseTypeDef",
     "UsageTypeDef",
+    "UserContextTypeDef",
     "ValidationExceptionTypeDef",
     "VectorSearchBedrockRerankingConfigurationTypeDef",
     "VectorSearchBedrockRerankingModelConfigurationTypeDef",
@@ -456,6 +509,108 @@ ParameterTypeDef = TypedDict(
 )
 
 
+class AgenticRetrieveMessageContentTypeDef(TypedDict):
+    text: NotRequired[str]
+
+
+class AgenticRetrieveSourceRetrieverTypeDef(TypedDict):
+    identifier: str
+
+
+class AgenticRetrieveBedrockGuardrailConfigurationTypeDef(TypedDict):
+    guardrailId: str
+    guardrailVersion: str
+
+
+class AgenticRetrieveBedrockRerankingModelConfigurationTypeDef(TypedDict):
+    modelArn: str
+
+
+class AgenticRetrieveCitationReferenceTypeDef(TypedDict):
+    resultIndex: int
+
+
+class AgenticRetrieveFailureTypeDef(TypedDict):
+    message: str
+
+
+AgenticRetrieveGuardrailWarningTypeDef = TypedDict(
+    "AgenticRetrieveGuardrailWarningTypeDef",
+    {
+        "action": GuardrailActionType,
+        "id": str,
+        "version": str,
+        "message": NotRequired[str],
+    },
+)
+
+
+class AgenticRetrieveResponseEventTypeDef(TypedDict):
+    text: str
+
+
+class RetrievalContentTypeDef(TypedDict):
+    mimeType: str
+    byteContent: NotRequired[bytes]
+    text: NotRequired[str]
+
+
+class AgenticRetrieveSourceMetadataTypeDef(TypedDict):
+    identifier: NotRequired[str]
+    retrievalType: NotRequired[Literal["BedrockKnowledgeBase"]]
+
+
+class UserContextTypeDef(TypedDict):
+    userId: str
+
+
+class BadGatewayExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+    resourceName: NotRequired[str]
+
+
+class ConflictExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+
+
+class DependencyFailedExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+    resourceName: NotRequired[str]
+
+
+class InternalServerExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+    reason: NotRequired[str]
+
+
+class ResourceNotFoundExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+
+
+class ServiceQuotaExceededExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+
+
+class ThrottlingExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+
+
+class ValidationExceptionTypeDef(TypedDict):
+    message: NotRequired[str]
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
+class AgenticRetrieveWarningMessageTypeDef(TypedDict):
+    message: str
+
+
 class AnalyzePromptEventTypeDef(TypedDict):
     message: NotRequired[str]
 
@@ -475,9 +630,8 @@ class AudioSegmentTypeDef(TypedDict):
     transcription: NotRequired[str]
 
 
-class BadGatewayExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-    resourceName: NotRequired[str]
+class BedrockFoundationModelModelConfigurationTypeDef(TypedDict):
+    modelArn: str
 
 
 class PerformanceConfigurationTypeDef(TypedDict):
@@ -517,10 +671,6 @@ class SatisfiedConditionTypeDef(TypedDict):
     conditionName: str
 
 
-class ConflictExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-
-
 class ContentBlockTypeDef(TypedDict):
     text: NotRequired[str]
 
@@ -529,14 +679,6 @@ class CreateInvocationRequestTypeDef(TypedDict):
     sessionIdentifier: str
     description: NotRequired[str]
     invocationId: NotRequired[str]
-
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 
 class CreateSessionRequestTypeDef(TypedDict):
@@ -566,11 +708,6 @@ class DeleteAgentMemoryRequestTypeDef(TypedDict):
 
 class DeleteSessionRequestTypeDef(TypedDict):
     sessionIdentifier: str
-
-
-class DependencyFailedExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-    resourceName: NotRequired[str]
 
 
 class EndSessionRequestTypeDef(TypedDict):
@@ -670,27 +807,6 @@ class FlowMultiTurnInputContentTypeDef(TypedDict):
 
 class FlowOutputContentTypeDef(TypedDict):
     document: NotRequired[dict[str, Any]]
-
-
-class InternalServerExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-    reason: NotRequired[str]
-
-
-class ResourceNotFoundExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-
-
-class ServiceQuotaExceededExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-
-
-class ThrottlingExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
-
-
-class ValidationExceptionTypeDef(TypedDict):
-    message: NotRequired[str]
 
 
 class FlowTraceConditionTypeDef(TypedDict):
@@ -980,6 +1096,11 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class ManagedSearchBedrockRerankingModelConfigurationTypeDef(TypedDict):
+    modelArn: str
+    additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
+
+
 class MemorySessionSummaryTypeDef(TypedDict):
     memoryId: NotRequired[str]
     sessionExpiryTime: NotRequired[datetime]
@@ -1092,8 +1213,16 @@ RetrievalResultCustomDocumentLocationTypeDef = TypedDict(
 )
 
 
+class RetrievalResultGoogleDriveLocationTypeDef(TypedDict):
+    url: NotRequired[str]
+
+
 class RetrievalResultKendraDocumentLocationTypeDef(TypedDict):
     uri: NotRequired[str]
+
+
+class RetrievalResultOneDriveLocationTypeDef(TypedDict):
+    url: NotRequired[str]
 
 
 class RetrievalResultS3LocationTypeDef(TypedDict):
@@ -1180,58 +1309,53 @@ class RequestBodyTypeDef(TypedDict):
     content: NotRequired[dict[str, list[ParameterTypeDef]]]
 
 
-class BedrockModelConfigurationsTypeDef(TypedDict):
-    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
-
-
-class InlineBedrockModelConfigurationsTypeDef(TypedDict):
-    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
-
-
-class ModelPerformanceConfigurationTypeDef(TypedDict):
-    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
-
-
-class BedrockRerankingConfigurationTypeDef(TypedDict):
-    modelConfiguration: BedrockRerankingModelConfigurationTypeDef
-    numberOfResults: NotRequired[int]
-
-
-class ByteContentDocTypeDef(TypedDict):
-    contentType: str
-    data: BlobTypeDef
-    identifier: str
-
-
-class ByteContentFileTypeDef(TypedDict):
-    data: BlobTypeDef
-    mediaType: str
-
-
-ImageInputSourceTypeDef = TypedDict(
-    "ImageInputSourceTypeDef",
-    {
-        "bytes": NotRequired[BlobTypeDef],
-    },
-)
-InputImageTypeDef = TypedDict(
-    "InputImageTypeDef",
-    {
-        "format": InputImageFormatType,
-        "inlineContent": BlobTypeDef,
-    },
-)
-
-
-class ConditionResultEventTypeDef(TypedDict):
-    nodeName: str
-    satisfiedConditions: list[SatisfiedConditionTypeDef]
-    timestamp: datetime
-
-
-class MessageTypeDef(TypedDict):
-    content: Sequence[ContentBlockTypeDef]
+class AgenticRetrieveMessageTypeDef(TypedDict):
+    content: AgenticRetrieveMessageContentTypeDef
     role: ConversationRoleType
+
+
+class AgenticRetrieveActionDetailsTypeDef(TypedDict):
+    inputQuery: AgenticRetrieveMessageContentTypeDef
+    sourceRetrievers: list[AgenticRetrieveSourceRetrieverTypeDef]
+
+
+class AgenticRetrieveFullDocExpansionDetailsTypeDef(TypedDict):
+    documentId: NotRequired[str]
+    sourceRetriever: NotRequired[AgenticRetrieveSourceRetrieverTypeDef]
+
+
+class AgenticRetrievePolicyConfigurationTypeDef(TypedDict):
+    bedrockGuardrailConfiguration: NotRequired[AgenticRetrieveBedrockGuardrailConfigurationTypeDef]
+
+
+class AgenticRetrieveBedrockRerankingConfigurationTypeDef(TypedDict):
+    modelConfiguration: AgenticRetrieveBedrockRerankingModelConfigurationTypeDef
+
+
+class AgenticRetrieveCitationTypeDef(TypedDict):
+    endIndex: int
+    references: list[AgenticRetrieveCitationReferenceTypeDef]
+    startIndex: int
+
+
+class AgenticRetrieveResultItemTypeDef(TypedDict):
+    content: RetrievalContentTypeDef
+    sourceRetriever: AgenticRetrieveSourceRetrieverTypeDef
+    metadata: NotRequired[dict[str, dict[str, Any]]]
+
+
+class AgenticRetrieveTraceResultItemTypeDef(TypedDict):
+    content: NotRequired[RetrievalContentTypeDef]
+    metadata: NotRequired[dict[str, dict[str, Any]]]
+    sourceRetriever: NotRequired[AgenticRetrieveSourceRetrieverTypeDef]
+
+
+class GetDocumentContentRequestTypeDef(TypedDict):
+    dataSourceId: str
+    documentId: str
+    knowledgeBaseId: str
+    outputFormat: NotRequired[DocumentOutputFormatType]
+    userContext: NotRequired[UserContextTypeDef]
 
 
 class CreateInvocationResponseTypeDef(TypedDict):
@@ -1253,6 +1377,13 @@ class EndSessionResponseTypeDef(TypedDict):
     sessionArn: str
     sessionId: str
     sessionStatus: SessionStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetDocumentContentResponseTypeDef(TypedDict):
+    documentContentLength: int
+    mimeType: str
+    presignedUrl: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1305,6 +1436,69 @@ class UpdateSessionResponseTypeDef(TypedDict):
     sessionId: str
     sessionStatus: SessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AgenticRetrieveWarningTypeDef(TypedDict):
+    guardrail: NotRequired[AgenticRetrieveGuardrailWarningTypeDef]
+    message: NotRequired[AgenticRetrieveWarningMessageTypeDef]
+
+
+class BedrockFoundationModelConfigurationTypeDef(TypedDict):
+    modelConfiguration: BedrockFoundationModelModelConfigurationTypeDef
+
+
+class BedrockModelConfigurationsTypeDef(TypedDict):
+    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+
+
+class InlineBedrockModelConfigurationsTypeDef(TypedDict):
+    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+
+
+class ModelPerformanceConfigurationTypeDef(TypedDict):
+    performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
+
+
+class BedrockRerankingConfigurationTypeDef(TypedDict):
+    modelConfiguration: BedrockRerankingModelConfigurationTypeDef
+    numberOfResults: NotRequired[int]
+
+
+class ByteContentDocTypeDef(TypedDict):
+    contentType: str
+    data: BlobTypeDef
+    identifier: str
+
+
+class ByteContentFileTypeDef(TypedDict):
+    data: BlobTypeDef
+    mediaType: str
+
+
+ImageInputSourceTypeDef = TypedDict(
+    "ImageInputSourceTypeDef",
+    {
+        "bytes": NotRequired[BlobTypeDef],
+    },
+)
+InputImageTypeDef = TypedDict(
+    "InputImageTypeDef",
+    {
+        "format": InputImageFormatType,
+        "inlineContent": BlobTypeDef,
+    },
+)
+
+
+class ConditionResultEventTypeDef(TypedDict):
+    nodeName: str
+    satisfiedConditions: list[SatisfiedConditionTypeDef]
+    timestamp: datetime
+
+
+class MessageTypeDef(TypedDict):
+    content: Sequence[ContentBlockTypeDef]
+    role: ConversationRoleType
 
 
 class CustomOrchestrationTraceTypeDef(TypedDict):
@@ -1674,7 +1868,9 @@ RetrievalResultLocationTypeDef = TypedDict(
         "type": RetrievalResultLocationTypeType,
         "confluenceLocation": NotRequired[RetrievalResultConfluenceLocationTypeDef],
         "customDocumentLocation": NotRequired[RetrievalResultCustomDocumentLocationTypeDef],
+        "googleDriveLocation": NotRequired[RetrievalResultGoogleDriveLocationTypeDef],
         "kendraDocumentLocation": NotRequired[RetrievalResultKendraDocumentLocationTypeDef],
+        "oneDriveLocation": NotRequired[RetrievalResultOneDriveLocationTypeDef],
         "s3Location": NotRequired[RetrievalResultS3LocationTypeDef],
         "salesforceLocation": NotRequired[RetrievalResultSalesforceLocationTypeDef],
         "sharePointLocation": NotRequired[RetrievalResultSharePointLocationTypeDef],
@@ -1713,6 +1909,36 @@ class ActionGroupInvocationInputTypeDef(TypedDict):
     verb: NotRequired[str]
 
 
+class AgenticRetrieveActionTypeDef(TypedDict):
+    fullDocumentExpansion: NotRequired[AgenticRetrieveFullDocExpansionDetailsTypeDef]
+    retrieve: NotRequired[AgenticRetrieveActionDetailsTypeDef]
+
+
+AgenticRetrieveRerankingConfigurationTypeDef = TypedDict(
+    "AgenticRetrieveRerankingConfigurationTypeDef",
+    {
+        "type": Literal["BEDROCK_RERANKING_MODEL"],
+        "bedrockRerankingConfiguration": NotRequired[
+            AgenticRetrieveBedrockRerankingConfigurationTypeDef
+        ],
+    },
+)
+
+
+class AgenticRetrieveGeneratedResponseTypeDef(TypedDict):
+    answer: str
+    citations: NotRequired[list[AgenticRetrieveCitationTypeDef]]
+
+
+FoundationModelConfigurationTypeDef = TypedDict(
+    "FoundationModelConfigurationTypeDef",
+    {
+        "type": Literal["BEDROCK_FOUNDATION_MODEL"],
+        "bedrockFoundationModelConfiguration": NotRequired[
+            BedrockFoundationModelConfigurationTypeDef
+        ],
+    },
+)
 RerankingConfigurationTypeDef = TypedDict(
     "RerankingConfigurationTypeDef",
     {
@@ -1752,6 +1978,15 @@ class ConversationHistoryTypeDef(TypedDict):
 class MetadataConfigurationForRerankingTypeDef(TypedDict):
     selectionMode: RerankingMetadataSelectionModeType
     selectiveModeConfiguration: NotRequired[RerankingMetadataSelectiveModeConfigurationTypeDef]
+
+
+RetrievalOverridesTypeDef = TypedDict(
+    "RetrievalOverridesTypeDef",
+    {
+        "filter": NotRequired[RetrievalFilterTypeDef],
+        "maxNumberOfResults": NotRequired[int],
+    },
+)
 
 
 class FlowExecutionInputEventTypeDef(TypedDict):
@@ -1958,6 +2193,7 @@ RerankDocumentUnionTypeDef = Union[RerankDocumentTypeDef, RerankDocumentOutputTy
 
 class KnowledgeBaseRetrievalResultTypeDef(TypedDict):
     content: RetrievalResultContentTypeDef
+    documentId: NotRequired[str]
     location: NotRequired[RetrievalResultLocationTypeDef]
     metadata: NotRequired[dict[str, dict[str, Any]]]
     score: NotRequired[float]
@@ -1989,6 +2225,31 @@ class ApiInvocationInputTypeDef(TypedDict):
     requestBody: NotRequired[ApiRequestBodyTypeDef]
 
 
+class AgenticRetrieveTraceEventAttributesTypeDef(TypedDict):
+    message: str
+    status: AgenticRetrieveStatusType
+    step: AgenticRetrieveStepType
+    actions: NotRequired[list[AgenticRetrieveActionTypeDef]]
+    failures: NotRequired[list[AgenticRetrieveFailureTypeDef]]
+    retrievalMetadata: NotRequired[list[AgenticRetrieveSourceMetadataTypeDef]]
+    retrievalResponse: NotRequired[list[AgenticRetrieveTraceResultItemTypeDef]]
+    warnings: NotRequired[list[AgenticRetrieveWarningTypeDef]]
+
+
+class AgenticRetrieveResultEventTypeDef(TypedDict):
+    results: list[AgenticRetrieveResultItemTypeDef]
+    generatedResponse: NotRequired[AgenticRetrieveGeneratedResponseTypeDef]
+    nextToken: NotRequired[str]
+
+
+class AgenticRetrieveConfigurationTypeDef(TypedDict):
+    foundationModelConfiguration: NotRequired[FoundationModelConfigurationTypeDef]
+    foundationModelType: NotRequired[FoundationModelTypeType]
+    maxAgentIteration: NotRequired[int]
+    rerankingConfiguration: NotRequired[AgenticRetrieveRerankingConfigurationTypeDef]
+    rerankingModelType: NotRequired[AgenticRetrieveRerankingModelTypeType]
+
+
 class InputFileTypeDef(TypedDict):
     name: str
     source: FileSourceTypeDef
@@ -2004,10 +2265,21 @@ ImageInputTypeDef = TypedDict(
 )
 
 
+class ManagedSearchBedrockRerankingConfigurationTypeDef(TypedDict):
+    modelConfiguration: ManagedSearchBedrockRerankingModelConfigurationTypeDef
+    metadataConfiguration: NotRequired[MetadataConfigurationForRerankingTypeDef]
+    numberOfRerankedResults: NotRequired[int]
+
+
 class VectorSearchBedrockRerankingConfigurationTypeDef(TypedDict):
     modelConfiguration: VectorSearchBedrockRerankingModelConfigurationTypeDef
     metadataConfiguration: NotRequired[MetadataConfigurationForRerankingTypeDef]
     numberOfRerankedResults: NotRequired[int]
+
+
+class KnowledgeBaseRetrieverConfigurationTypeDef(TypedDict):
+    knowledgeBaseId: str
+    retrievalOverrides: NotRequired[RetrievalOverridesTypeDef]
 
 
 class AgentActionGroupTypeDef(TypedDict):
@@ -2132,7 +2404,24 @@ class InvocationInputMemberTypeDef(TypedDict):
     functionInvocationInput: NotRequired[FunctionInvocationInputTypeDef]
 
 
+AgenticRetrieveTraceEventTypeDef = TypedDict(
+    "AgenticRetrieveTraceEventTypeDef",
+    {
+        "attributes": AgenticRetrieveTraceEventAttributesTypeDef,
+        "id": str,
+        "timestamp": int,
+    },
+)
 ImageInputUnionTypeDef = Union[ImageInputTypeDef, ImageInputOutputTypeDef]
+ManagedSearchRerankingConfigurationTypeDef = TypedDict(
+    "ManagedSearchRerankingConfigurationTypeDef",
+    {
+        "type": Literal["BEDROCK_RERANKING_MODEL"],
+        "bedrockRerankingConfiguration": NotRequired[
+            ManagedSearchBedrockRerankingConfigurationTypeDef
+        ],
+    },
+)
 VectorSearchRerankingConfigurationTypeDef = TypedDict(
     "VectorSearchRerankingConfigurationTypeDef",
     {
@@ -2142,6 +2431,10 @@ VectorSearchRerankingConfigurationTypeDef = TypedDict(
         ],
     },
 )
+
+
+class RetrieverConfigurationTypeDef(TypedDict):
+    knowledgeBase: NotRequired[KnowledgeBaseRetrieverConfigurationTypeDef]
 
 
 class InvocationResultMemberOutputTypeDef(TypedDict):
@@ -2204,11 +2497,44 @@ class ReturnControlPayloadTypeDef(TypedDict):
     invocationInputs: NotRequired[list[InvocationInputMemberTypeDef]]
 
 
+class AgenticRetrieveStreamResponseOutputTypeDef(TypedDict):
+    accessDeniedException: NotRequired[AccessDeniedExceptionTypeDef]
+    badGatewayException: NotRequired[BadGatewayExceptionTypeDef]
+    conflictException: NotRequired[ConflictExceptionTypeDef]
+    dependencyFailedException: NotRequired[DependencyFailedExceptionTypeDef]
+    internalServerException: NotRequired[InternalServerExceptionTypeDef]
+    resourceNotFoundException: NotRequired[ResourceNotFoundExceptionTypeDef]
+    responseEvent: NotRequired[AgenticRetrieveResponseEventTypeDef]
+    result: NotRequired[AgenticRetrieveResultEventTypeDef]
+    serviceQuotaExceededException: NotRequired[ServiceQuotaExceededExceptionTypeDef]
+    throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+    traceEvent: NotRequired[AgenticRetrieveTraceEventTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
+
+
 class ContentBodyTypeDef(TypedDict):
     body: NotRequired[str]
     images: NotRequired[Sequence[ImageInputUnionTypeDef]]
 
 
+ManagedSearchConfigurationPaginatorTypeDef = TypedDict(
+    "ManagedSearchConfigurationPaginatorTypeDef",
+    {
+        "filter": NotRequired[RetrievalFilterPaginatorTypeDef],
+        "numberOfResults": NotRequired[int],
+        "rerankingConfiguration": NotRequired[ManagedSearchRerankingConfigurationTypeDef],
+        "rerankingModelType": NotRequired[RerankingModelTypeType],
+    },
+)
+ManagedSearchConfigurationTypeDef = TypedDict(
+    "ManagedSearchConfigurationTypeDef",
+    {
+        "filter": NotRequired[RetrievalFilterTypeDef],
+        "numberOfResults": NotRequired[int],
+        "rerankingConfiguration": NotRequired[ManagedSearchRerankingConfigurationTypeDef],
+        "rerankingModelType": NotRequired[RerankingModelTypeType],
+    },
+)
 KnowledgeBaseVectorSearchConfigurationPaginatorTypeDef = TypedDict(
     "KnowledgeBaseVectorSearchConfigurationPaginatorTypeDef",
     {
@@ -2229,6 +2555,11 @@ KnowledgeBaseVectorSearchConfigurationTypeDef = TypedDict(
         "rerankingConfiguration": NotRequired[VectorSearchRerankingConfigurationTypeDef],
     },
 )
+
+
+class AgenticRetrieverTypeDef(TypedDict):
+    configuration: RetrieverConfigurationTypeDef
+    description: NotRequired[str]
 
 
 class ReturnControlResultsTypeDef(TypedDict):
@@ -2286,15 +2617,34 @@ AgentCollaboratorOutputPayloadTypeDef = TypedDict(
         "type": NotRequired[PayloadTypeType],
     },
 )
+
+
+class AgenticRetrieveStreamResponseTypeDef(TypedDict):
+    stream: EventStream[AgenticRetrieveStreamResponseOutputTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 ContentBodyUnionTypeDef = Union[ContentBodyTypeDef, ContentBodyOutputTypeDef]
 
 
 class KnowledgeBaseRetrievalConfigurationPaginatorTypeDef(TypedDict):
-    vectorSearchConfiguration: KnowledgeBaseVectorSearchConfigurationPaginatorTypeDef
+    managedSearchConfiguration: NotRequired[ManagedSearchConfigurationPaginatorTypeDef]
+    vectorSearchConfiguration: NotRequired[KnowledgeBaseVectorSearchConfigurationPaginatorTypeDef]
 
 
 class KnowledgeBaseRetrievalConfigurationTypeDef(TypedDict):
-    vectorSearchConfiguration: KnowledgeBaseVectorSearchConfigurationTypeDef
+    managedSearchConfiguration: NotRequired[ManagedSearchConfigurationTypeDef]
+    vectorSearchConfiguration: NotRequired[KnowledgeBaseVectorSearchConfigurationTypeDef]
+
+
+class AgenticRetrieveStreamRequestTypeDef(TypedDict):
+    agenticRetrieveConfiguration: AgenticRetrieveConfigurationTypeDef
+    messages: Sequence[AgenticRetrieveMessageTypeDef]
+    retrievers: Sequence[AgenticRetrieverTypeDef]
+    generateResponse: NotRequired[bool]
+    nextToken: NotRequired[str]
+    policyConfiguration: NotRequired[AgenticRetrievePolicyConfigurationTypeDef]
+    userContext: NotRequired[UserContextTypeDef]
 
 
 AgentCollaboratorInputPayloadTypeDef = TypedDict(
@@ -2358,6 +2708,7 @@ class RetrieveRequestPaginateTypeDef(TypedDict):
     retrievalQuery: KnowledgeBaseQueryTypeDef
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
     retrievalConfiguration: NotRequired[KnowledgeBaseRetrievalConfigurationPaginatorTypeDef]
+    userContext: NotRequired[UserContextTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -2386,6 +2737,7 @@ class RetrieveRequestTypeDef(TypedDict):
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
     nextToken: NotRequired[str]
     retrievalConfiguration: NotRequired[KnowledgeBaseRetrievalConfigurationTypeDef]
+    userContext: NotRequired[UserContextTypeDef]
 
 
 AgentCollaboratorInvocationInputTypeDef = TypedDict(
@@ -2460,6 +2812,7 @@ RetrieveAndGenerateRequestTypeDef = TypedDict(
         "retrieveAndGenerateConfiguration": NotRequired[RetrieveAndGenerateConfigurationTypeDef],
         "sessionConfiguration": NotRequired[RetrieveAndGenerateSessionConfigurationTypeDef],
         "sessionId": NotRequired[str],
+        "userContext": NotRequired[UserContextTypeDef],
     },
 )
 RetrieveAndGenerateStreamRequestTypeDef = TypedDict(
@@ -2469,6 +2822,7 @@ RetrieveAndGenerateStreamRequestTypeDef = TypedDict(
         "retrieveAndGenerateConfiguration": NotRequired[RetrieveAndGenerateConfigurationTypeDef],
         "sessionConfiguration": NotRequired[RetrieveAndGenerateSessionConfigurationTypeDef],
         "sessionId": NotRequired[str],
+        "userContext": NotRequired[UserContextTypeDef],
     },
 )
 

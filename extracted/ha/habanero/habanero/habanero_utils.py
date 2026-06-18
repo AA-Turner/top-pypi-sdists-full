@@ -1,7 +1,7 @@
 import json
 import re
 
-import httpx
+import httpx2
 
 from . import __version__
 from .exceptions import RequestError
@@ -25,10 +25,8 @@ def sub_str(x, n=3):
 
 
 def switch_classes(x, path, works):
-    if (
-        works
-        or re.sub("/", "", path) == "works"
-        and re.sub("/", "", path) != "licenses"
+    if works or (
+        re.sub("/", "", path) == "works" and re.sub("/", "", path) != "licenses"
     ):
         return Works(result=x)
     else:
@@ -37,7 +35,7 @@ def switch_classes(x, path, works):
 
 def check_kwargs(keys, kwargs):
     for x in range(len(keys)):
-        if keys[x] in kwargs.keys():
+        if keys[x] in kwargs:
             mssg = "The %s parameter is not allowed with this method" % keys[x]
             raise Exception(mssg)
 
@@ -75,7 +73,7 @@ def parse_json_err(x):
 
 
 def make_ua(mailto=None, ua_string=None):
-    requa = "python-httpx/" + httpx.__version__
+    requa = "python-httpx2/" + httpx2.__version__
     habua = "habanero/%s" % __version__
     ua = requa + " " + habua
     if mailto is not None:
@@ -89,13 +87,13 @@ def make_ua(mailto=None, ua_string=None):
 
 
 def filter_dict(x):
-    return dict((k, x[k]) for k, v in x.items() if k.find("query_") == 0)
+    return {k: x[k] for k, v in x.items() if k.find("query_") == 0}
 
 
 def rename_query_filters(x):
     newkeys = [re.sub("query_", "query.", v) for v in x]
     newkeys = [re.sub("_", "-", v) for v in newkeys]
-    mapping = dict(zip(x.keys(), newkeys))
+    mapping = dict(zip(x.keys(), newkeys, strict=True))
     return {mapping[k]: v for k, v in x.items()}
 
 

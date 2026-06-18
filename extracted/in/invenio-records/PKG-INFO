@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-records
-Version: 5.0.0
+Version: 6.0.0
 Summary: Invenio-Records is a metadata storage module.
 Home-page: https://github.com/inveniosoftware/invenio-records
 Author: CERN
@@ -14,7 +14,7 @@ License-File: LICENSE
 License-File: AUTHORS.rst
 Requires-Dist: arrow>=0.16.0
 Requires-Dist: invenio-celery<3.0.0,>=2.0.0
-Requires-Dist: invenio-i18n<4.0.0,>=3.0.0
+Requires-Dist: invenio-i18n<5.0.0,>=4.0.0
 Requires-Dist: jsonpatch>=1.26
 Requires-Dist: jsonref>=0.2
 Requires-Dist: jsonresolver>=0.5.0
@@ -38,11 +38,8 @@ Provides-Extra: docs
 Dynamic: license-file
 
 ..
-    This file is part of Invenio.
-    Copyright (C) 2015-2018 CERN.
-
-    Invenio is free software; you can redistribute it and/or modify it
-    under the terms of the MIT License; see LICENSE file for more details.
+    SPDX-FileCopyrightText: 2015-2018 CERN.
+    SPDX-License-Identifier: MIT
 
 ================
  Invenio-Records
@@ -78,16 +75,19 @@ Further documentation available Documentation:
 https://invenio-records.readthedocs.io/
 
 ..
-    This file is part of Invenio.
-    Copyright (C) 2015-2024 CERN.
-    Copyright (C) 2024-2026 Graz University of Technology.
-    Copyright (C) 2025 KTH Royal Institute of Technology.
-
-    Invenio is free software; you can redistribute it and/or modify it
-    under the terms of the MIT License; see LICENSE file for more details.
+    SPDX-FileCopyrightText: 2015-2024 CERN.
+    SPDX-FileCopyrightText: 2024-2026 Graz University of Technology.
+    SPDX-FileCopyrightText: 2025 KTH Royal Institute of Technology.
+    SPDX-License-Identifier: MIT
 
 Changes
 =======
+
+Version v6.0.0 (released 2026-06-16)
+
+- chore(setup): bump dependencies
+- chore(git-blame): ignore the SPDX license header commit
+- chore(licenses): update license headers to use SPDX
 
 Version v5.0.0 (released 2026-05-28)
 

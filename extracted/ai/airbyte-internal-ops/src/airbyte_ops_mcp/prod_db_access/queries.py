@@ -52,6 +52,8 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_SOURCE_CONNECTION_STATS,
     SELECT_SUCCESSFUL_SYNCS_FOR_VERSION,
     SELECT_SYNC_RESULTS_FOR_VERSION,
+    SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS,
+    SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION,
     SELECT_WORKSPACE_INFO,
     SELECT_WORKSPACES_BY_EMAIL_DOMAIN,
 )
@@ -64,21 +66,44 @@ _EXCLUDE_PINNED_SQL = (
     " AND actor_pin.id IS NULL AND ws_pin.id IS NULL AND org_pin.id IS NULL"
 )
 
+# SQL fragment appended to WHERE clauses when enabled_schedules_only=True.
+# Requires the query to already JOIN the `connection` table.
+# Filters to connections that are both active (not paused/inactive) and on an
+# automated sync schedule (not manual-trigger-only).
+_ENABLED_SCHEDULES_ONLY_SQL = (
+    " AND connection.status = 'active' AND connection.manual = false"
+)
 
-def _inject_exclude_pinned(
+
+def _inject_sql_filter(
     statement: sqlalchemy.sql.elements.TextClause,
+    sql_fragment: str,
 ) -> sqlalchemy.sql.elements.TextClause:
-    """Return a new TextClause with pin-exclusion conditions in the WHERE clause.
+    """Return a new TextClause with additional WHERE conditions injected.
 
-    Inserts the conditions before ORDER BY (if present) or before LIMIT,
+    Inserts the fragment before ORDER BY (if present) or before LIMIT,
     so the filter is always part of the WHERE clause — not after ORDER BY.
     """
     sql_str = str(statement.text)
     if "ORDER BY" in sql_str:
-        sql_str = sql_str.replace("ORDER BY", f"{_EXCLUDE_PINNED_SQL}\n    ORDER BY", 1)
+        sql_str = sql_str.replace("ORDER BY", f"{sql_fragment}\n    ORDER BY", 1)
     else:
-        sql_str = sql_str.replace("LIMIT :", f"{_EXCLUDE_PINNED_SQL}\n    LIMIT :")
+        sql_str = sql_str.replace("LIMIT :", f"{sql_fragment}\n    LIMIT :")
     return sqlalchemy.text(sql_str)
+
+
+def _inject_exclude_pinned(
+    statement: sqlalchemy.sql.elements.TextClause,
+) -> sqlalchemy.sql.elements.TextClause:
+    """Return a new TextClause with pin-exclusion conditions in the WHERE clause."""
+    return _inject_sql_filter(statement, _EXCLUDE_PINNED_SQL)
+
+
+def _inject_enabled_schedules_only(
+    statement: sqlalchemy.sql.elements.TextClause,
+) -> sqlalchemy.sql.elements.TextClause:
+    """Return a new TextClause filtering to active, scheduled connections."""
+    return _inject_sql_filter(statement, _ENABLED_SCHEDULES_ONLY_SQL)
 
 
 def _without_limit_clause(
@@ -172,6 +197,7 @@ def query_connections_by_connector(
     limit: int = 1000,
     *,
     exclude_pinned: bool = False,
+    enabled_schedules_only: bool = False,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Query connections by source connector type, optionally filtered by organization.
@@ -184,6 +210,10 @@ def query_connections_by_connector(
             version pin at any scope (actor, workspace, or organization).
             Filtering is applied at the SQL level so the full `limit`
             rows are returned.
+        enabled_schedules_only: If `True`, restrict results to connections that
+            are both active (not paused/inactive) and on an automated sync
+            schedule (not manual-trigger-only).  Filtering is applied at the
+            SQL level.
         gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
 
     Returns:
@@ -196,6 +226,8 @@ def query_connections_by_connector(
         query = SELECT_CONNECTIONS_BY_CONNECTOR
         if exclude_pinned:
             query = _inject_exclude_pinned(query)
+        if enabled_schedules_only:
+            query = _inject_enabled_schedules_only(query)
         return _run_sql_query(
             query,
             parameters={
@@ -209,6 +241,8 @@ def query_connections_by_connector(
     query = SELECT_CONNECTIONS_BY_CONNECTOR_AND_ORG
     if exclude_pinned:
         query = _inject_exclude_pinned(query)
+    if enabled_schedules_only:
+        query = _inject_enabled_schedules_only(query)
     return _run_sql_query(
         query,
         parameters={
@@ -227,6 +261,7 @@ def query_connections_by_destination_connector(
     limit: int = 1000,
     *,
     exclude_pinned: bool = False,
+    enabled_schedules_only: bool = False,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Query connections by destination connector type, optionally filtered by organization.
@@ -239,6 +274,10 @@ def query_connections_by_destination_connector(
             version pin at any scope (actor, workspace, or organization).
             Filtering is applied at the SQL level so the full `limit`
             rows are returned.
+        enabled_schedules_only: If `True`, restrict results to connections that
+            are both active (not paused/inactive) and on an automated sync
+            schedule (not manual-trigger-only).  Filtering is applied at the
+            SQL level.
         gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
 
     Returns:
@@ -249,6 +288,8 @@ def query_connections_by_destination_connector(
         query = SELECT_CONNECTIONS_BY_DESTINATION_CONNECTOR
         if exclude_pinned:
             query = _inject_exclude_pinned(query)
+        if enabled_schedules_only:
+            query = _inject_enabled_schedules_only(query)
         return _run_sql_query(
             query,
             parameters={
@@ -262,6 +303,8 @@ def query_connections_by_destination_connector(
     query = SELECT_CONNECTIONS_BY_DESTINATION_CONNECTOR_AND_ORG
     if exclude_pinned:
         query = _inject_exclude_pinned(query)
+    if enabled_schedules_only:
+        query = _inject_enabled_schedules_only(query)
     return _run_sql_query(
         query,
         parameters={
@@ -453,6 +496,7 @@ def query_recent_syncs_for_connector(
     limit: int = 100,
     *,
     exclude_pinned: bool = False,
+    enabled_schedules_only: bool = False,
     gsm_client: secretmanager.SecretManagerServiceClient | None = None,
 ) -> list[dict[str, Any]]:
     """Query recent sync jobs for ALL actors using a connector definition.
@@ -474,6 +518,10 @@ def query_recent_syncs_for_connector(
         exclude_pinned: If True, exclude actors that have a version pin at
             any scope (actor, workspace, or organization).  Filtering is
             applied at the SQL level so the full `limit` rows are returned.
+        enabled_schedules_only: If `True`, restrict results to connections that
+            are both active (not paused/inactive) and on an automated sync
+            schedule (not manual-trigger-only).  Filtering is applied at the
+            SQL level.
         gsm_client: GCP Secret Manager client. If None, a new client will be instantiated.
 
     Returns:
@@ -505,6 +553,8 @@ def query_recent_syncs_for_connector(
 
     if exclude_pinned:
         query = _inject_exclude_pinned(query)
+    if enabled_schedules_only:
+        query = _inject_enabled_schedules_only(query)
 
     results = _run_sql_query(
         query,
@@ -887,5 +937,41 @@ def query_connector_rollouts_for_connector(
         actor_definition_id=actor_definition_id,
         active_only=active_only,
         limit=limit,
+        gsm_client=gsm_client,
+    )
+
+
+def query_versions_with_pins_or_rollouts(
+    actor_definition_id: str | None = None,
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Query connector versions that have at least one pin or an active rollout.
+
+    Returns versions from `actor_definition_version` that are referenced by
+    at least one `scoped_configuration` pin (`key = 'connector_version'`) or
+    by an active `connector_rollout` as the release candidate version.
+
+    Each row includes aggregate `pin_count`, `rollout_state`, and `rollout_id`.
+
+    Args:
+        actor_definition_id: Optional connector definition UUID to filter results.
+            If `None`, returns the global superset across all connectors.
+        gsm_client: GCP Secret Manager client. If `None`, a new client will be instantiated.
+
+    Returns:
+        List of version dicts ordered by `pin_count` DESC, `last_published` DESC.
+    """
+    if actor_definition_id is not None:
+        return _run_sql_query(
+            SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION,
+            parameters={"actor_definition_id": actor_definition_id},
+            query_name="SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION",
+            gsm_client=gsm_client,
+        )
+    return _run_sql_query(
+        SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS,
+        parameters=None,
+        query_name="SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS",
         gsm_client=gsm_client,
     )

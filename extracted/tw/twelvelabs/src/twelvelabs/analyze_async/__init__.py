@@ -2,7 +2,13 @@
 
 # isort: skip_file
 
-from . import tasks
+from . import batches, tasks
+from .batches import (
+    BatchesListRequestAnalysisModeItem,
+    BatchesListResponse,
+    CreateAnalyzeBatchRequestAnalysisMode,
+    CreateAnalyzeBatchRequestModelName,
+)
 from .tasks import (
     CreateAsyncAnalyzeRequestAnalysisMode,
     CreateAsyncAnalyzeRequestModelName,
@@ -11,9 +17,14 @@ from .tasks import (
 )
 
 __all__ = [
+    "BatchesListRequestAnalysisModeItem",
+    "BatchesListResponse",
+    "CreateAnalyzeBatchRequestAnalysisMode",
+    "CreateAnalyzeBatchRequestModelName",
     "CreateAsyncAnalyzeRequestAnalysisMode",
     "CreateAsyncAnalyzeRequestModelName",
     "TasksListRequestAnalysisMode",
     "TasksListResponse",
+    "batches",
     "tasks",
 ]

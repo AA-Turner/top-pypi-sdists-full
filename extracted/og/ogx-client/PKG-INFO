@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: ogx_client
-Version: 1.1.1
+Version: 1.1.2
 Summary: The official Python library for the ogx-client API
 Project-URL: Homepage, https://github.com/ogx-ai/ogx-client-python
 Project-URL: Repository, https://github.com/ogx-ai/ogx-client-python

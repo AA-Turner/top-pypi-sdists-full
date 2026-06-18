@@ -649,7 +649,7 @@ class PositionGQL:
     """
 
     line: int
-    """Line position in a document (one-based)."""
+    """Line position in a document (zero-based)."""
 
     character: int
     """Character offset on a line in a document (zero-based)."""

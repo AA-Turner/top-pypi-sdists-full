@@ -34,7 +34,7 @@ jobs:
 
       - name: Build documentation
         run: |
-          uv run mkdocs build --strict
+          uv run properdocs build --strict
 
       - name: Deploy preview
         uses: rossjrw/pr-preview-action@v1

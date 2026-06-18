@@ -67,6 +67,7 @@ from zenml.zen_stores.schemas.project_schemas import ProjectSchema
 from zenml.zen_stores.schemas.schedule_schema import ScheduleSchema
 from zenml.zen_stores.schemas.schema_utils import (
     build_foreign_key_field,
+    build_index,
 )
 from zenml.zen_stores.schemas.stack_schemas import StackSchema
 from zenml.zen_stores.schemas.user_schemas import UserSchema
@@ -118,6 +119,10 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
             "parent_run_id",
             "child_key",
             name="unique_child_key_for_parent_run_id",
+        ),
+        build_index(
+            table_name=__tablename__,
+            column_names=["project_id", "created", "id"],
         ),
     )
 
@@ -547,6 +552,7 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                     self.snapshot.get_step_configuration(step_name).config
                 ),
                 pipeline_configuration=pipeline_configuration,
+                exclude_hook_sources=self.snapshot.is_dynamic,
             )
         else:
             raise RuntimeError("Pipeline run has no snapshot.")
@@ -950,6 +956,14 @@ class PipelineRunSchema(NamedSchema, RunMetadataInterface, table=True):
                 return False
 
             new_status = requested_status or current_status
+
+            # If the run is stopping and fails, we set its status to stopped.
+            if (
+                current_status
+                in {ExecutionStatus.STOPPING, ExecutionStatus.STOPPED}
+                and new_status == ExecutionStatus.FAILED
+            ):
+                new_status = ExecutionStatus.STOPPED
         else:
             # For static pipelines we compute the run status based on the step
             # statuses.

@@ -83,7 +83,7 @@ create_exception!(
 // EstimationError variant subclasses.
 //
 // Each subclass corresponds to exactly one variant of
-// `gam::estimate::EstimationError`. Catching the specific subclass lets
+// `gam::solver::estimate::EstimationError`. Catching the specific subclass lets
 // callers branch on the exact failure mode (e.g. retry with looser
 // tolerances on `RemlConvergenceError`, suggest more data on
 // `ModelOverparameterizedError`).
@@ -575,40 +575,11 @@ pub(crate) fn estimation_error_to_pyerr(err: EstimationError) -> PyErr {
 }
 
 pub(crate) fn py_value_error(message: String) -> PyErr {
-    // Final defensive translation at the Python boundary: convert the
-    // cryptic Rust assertion "SurvivalLocationScaleFamily expects N blocks,
-    // got 0" (and its blockwise_fit_from_parts cousin) into a clear
-    // user-actionable message before it surfaces as a Python ValueError.
-    //
-    // The Rust call stack that produces this string has many entry points
-    // (validate_joint_states from build_dynamic_geometry callers,
-    // blockwise_fit_from_parts when its inner refit produced empty states,
-    // etc.). We catch ALL of them here at the Python boundary so the
-    // gamfit caller never sees the implementation detail.
-    let user_facing = if message.contains("expects 3 blocks, got 0")
-        || message.contains("expects 4 blocks, got 0")
-        || (message.contains("block_states") && message.contains("got 0"))
-        || message.contains("blockwise fit requires at least one block state")
-    {
-        format!(
-            "gam fit failed at a degenerate inner-solver iterate. The most likely \
-             cause is an under-identified smooth (one of your covariates has no \
-             signal in the noise/scale dimension at this sample size) being \
-             driven to a numerically pathological smoothing parameter (λ > 10⁸). \
-             Try one of: (1) reduce the covariate count in your formula or \
-             noise_formula, (2) increase the training-set size, \
-             (3) use `baseline_target=\"linear\"` to drop the parametric baseline, \
-             or (4) use `noise_formula=\"1\"` to make the noise model an intercept. \
-             Underlying error: {message}"
-        )
-    } else {
-        message
-    };
     // Engine errors funneled here are gamfit-specific failures, so they must
     // carry GamError identity (a ValueError subclass) — preserving the
     // historical `except ValueError` contract while making `except
     // gamfit.GamError` reliable for engine errors (issue #330).
-    GamError::new_err(user_facing)
+    GamError::new_err(message)
 }
 
 fn panic_payload_message(payload: Box<dyn std::any::Any + Send>) -> String {
@@ -839,6 +810,10 @@ error_to_pyerr!(
     gam::families::survival::SurvivalError,
     SurvivalError
 );
-error_to_pyerr!(basis_error_to_pyerr, gam::basis::BasisError, GamError);
+error_to_pyerr!(
+    basis_error_to_pyerr,
+    gam::terms::basis::BasisError,
+    GamError
+);
 error_to_pyerr!(shape_error_to_pyerr, ndarray::ShapeError, GamError);
 error_to_pyerr!(serde_json_error_to_pyerr, serde_json::Error, GamError);

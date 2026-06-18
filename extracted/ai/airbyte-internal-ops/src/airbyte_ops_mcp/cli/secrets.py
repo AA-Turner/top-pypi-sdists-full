@@ -35,7 +35,6 @@ from rich.console import Console
 from rich.table import Table
 
 from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import error_console
 from airbyte_ops_mcp.connector_secrets import (
     DEFAULT_GCP_PROJECT_ID,
     ConnectorSecretWithNoValidVersionsError,
@@ -51,6 +50,8 @@ from airbyte_ops_mcp.connector_secrets.ci_masks import (
     is_running_in_ci,
     print_ci_secrets_masks,
 )
+
+error_console = Console(stderr=True)
 
 secrets_app = App(
     name="secrets", help="Manage connector integration-test secrets in GSM."

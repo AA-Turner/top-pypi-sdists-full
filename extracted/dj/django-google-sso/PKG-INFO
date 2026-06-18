@@ -1,33 +1,28 @@
 Metadata-Version: 2.4
 Name: django-google-sso
-Version: 9.0.3
+Version: 10.0.0
 Summary: Easily add Google Authentication to your Django Projects
+Project-URL: Homepage, https://github.com/megalus/django-google-sso
+Project-URL: Repository, https://github.com/megalus/django-google-sso
+Project-URL: Documentation, https://megalus.github.io/django-google-sso/
+Author-email: Chris Maillefaud <chrismaille@users.noreply.github.com>
 License: MIT
 License-File: LICENSE
-Keywords: google,django,sso
-Author: Chris Maillefaud
-Author-email: chrismaille@users.noreply.github.com
-Requires-Python: >=3.11,<4.0
-Classifier: Development Status :: 5 - Production/Stable
+Keywords: django,google,sso
+Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Plugins
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: django (>=4.2)
+Requires-Python: <4.0,>=3.11
+Requires-Dist: django>=5.0
 Requires-Dist: google-auth
 Requires-Dist: google-auth-httplib2
 Requires-Dist: google-auth-oauthlib
 Requires-Dist: loguru
-Project-URL: Repository, https://github.com/megalus/django-google-sso
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -77,9 +72,9 @@ $ pip install django-google-sso
 ```
 
 > **Compatibility**
-> - Python 3.11, 3.12, 3.13
-> - Django 4.2, 5.0, 5.1, 5.2
->
+> - Python 3.11, 3.12, 3.13, 3.14
+> - Django 5.0, 5.1, 5.2, 6.0
+
 > Older python/django versions are not supported.
 
 ### Configuration
@@ -153,4 +148,3 @@ For detailed documentation, visit:
 
 ## License
 This project is licensed under the terms of the MIT license.
-

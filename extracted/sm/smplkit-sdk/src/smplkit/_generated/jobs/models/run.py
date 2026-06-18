@@ -33,6 +33,9 @@ class Run:
 
     Attributes:
         job (str): The id of the job this run belongs to.
+        environment (str): The environment this run executed in. A scheduled run inherits the firing job-environment; a
+            manual run is created in the environment you name with the `X-Smplkit-Environment` header; a rerun copies its
+            source run's environment.
         trigger (RunTrigger): Why the run exists: `SCHEDULE`, `MANUAL` (Run now), or `RERUN`.
         status (RunStatus): Lifecycle state of the run.
         job_version (int | None | Unset): The job's version at the time the run executed.
@@ -54,6 +57,7 @@ class Run:
     """
 
     job: str
+    environment: str
     trigger: RunTrigger
     status: RunStatus
     job_version: int | None | Unset = UNSET
@@ -76,6 +80,8 @@ class Run:
         from ..models.run_result_type_0 import RunResultType0
 
         job = self.job
+
+        environment = self.environment
 
         trigger: str = self.trigger
 
@@ -180,6 +186,7 @@ class Run:
         field_dict.update(
             {
                 "job": job,
+                "environment": environment,
                 "trigger": trigger,
                 "status": status,
             }
@@ -220,6 +227,8 @@ class Run:
 
         d = dict(src_dict)
         job = d.pop("job")
+
+        environment = d.pop("environment")
 
         trigger = check_run_trigger(d.pop("trigger"))
 
@@ -408,6 +417,7 @@ class Run:
 
         run = cls(
             job=job,
+            environment=environment,
             trigger=trigger,
             status=status,
             job_version=job_version,

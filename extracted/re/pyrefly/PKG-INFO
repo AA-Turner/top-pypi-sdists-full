@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrefly
-Version: 1.0.0
+Version: 1.1.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
@@ -55,7 +55,7 @@ Pyrefly's current development status is [stable](https://github.com/facebook/pyr
 
 - Try out pyrefly in your browser: [Sandbox](https://pyrefly.org/sandbox/)
 - Get the command-line tool: `pip install pyrefly`
-- Get the IDE Extension: [IDE installation page](https://pyrefly.org/en/docs/IDE/)
+- Get the IDE extension: [IDE installation page](https://pyrefly.org/en/docs/IDE/)
 
 ### Version Policy
 

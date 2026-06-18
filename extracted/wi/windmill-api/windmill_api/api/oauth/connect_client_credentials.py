@@ -11,6 +11,7 @@ from ...types import Response
 
 
 def _get_kwargs(
+    workspace: str,
     client_path: str,
     *,
     json_body: ConnectClientCredentialsJsonBody,
@@ -21,7 +22,8 @@ def _get_kwargs(
 
     return {
         "method": "post",
-        "url": "/oauth/connect_client_credentials/{client}".format(
+        "url": "/w/{workspace}/oauth/connect_client_credentials/{client}".format(
+            workspace=workspace,
             client=client_path,
         ),
         "json": json_json_body,
@@ -53,6 +55,7 @@ def _build_response(
 
 
 def sync_detailed(
+    workspace: str,
     client_path: str,
     *,
     client: Union[AuthenticatedClient, Client],
@@ -61,6 +64,7 @@ def sync_detailed(
     """connect OAuth using client credentials
 
     Args:
+        workspace (str):
         client_path (str):
         json_body (ConnectClientCredentialsJsonBody):
 
@@ -73,6 +77,7 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
+        workspace=workspace,
         client_path=client_path,
         json_body=json_body,
     )
@@ -85,6 +90,7 @@ def sync_detailed(
 
 
 def sync(
+    workspace: str,
     client_path: str,
     *,
     client: Union[AuthenticatedClient, Client],
@@ -93,6 +99,7 @@ def sync(
     """connect OAuth using client credentials
 
     Args:
+        workspace (str):
         client_path (str):
         json_body (ConnectClientCredentialsJsonBody):
 
@@ -105,6 +112,7 @@ def sync(
     """
 
     return sync_detailed(
+        workspace=workspace,
         client_path=client_path,
         client=client,
         json_body=json_body,
@@ -112,6 +120,7 @@ def sync(
 
 
 async def asyncio_detailed(
+    workspace: str,
     client_path: str,
     *,
     client: Union[AuthenticatedClient, Client],
@@ -120,6 +129,7 @@ async def asyncio_detailed(
     """connect OAuth using client credentials
 
     Args:
+        workspace (str):
         client_path (str):
         json_body (ConnectClientCredentialsJsonBody):
 
@@ -132,6 +142,7 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
+        workspace=workspace,
         client_path=client_path,
         json_body=json_body,
     )
@@ -142,6 +153,7 @@ async def asyncio_detailed(
 
 
 async def asyncio(
+    workspace: str,
     client_path: str,
     *,
     client: Union[AuthenticatedClient, Client],
@@ -150,6 +162,7 @@ async def asyncio(
     """connect OAuth using client credentials
 
     Args:
+        workspace (str):
         client_path (str):
         json_body (ConnectClientCredentialsJsonBody):
 
@@ -163,6 +176,7 @@ async def asyncio(
 
     return (
         await asyncio_detailed(
+            workspace=workspace,
             client_path=client_path,
             client=client,
             json_body=json_body,

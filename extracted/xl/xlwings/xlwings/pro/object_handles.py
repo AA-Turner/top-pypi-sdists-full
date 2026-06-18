@@ -11,6 +11,8 @@ xlwings PRO is dual-licensed under one of the following licenses:
 Commercial licenses can be purchased at https://www.xlwings.org
 """
 
+import hashlib
+import json
 import uuid
 
 try:
@@ -117,7 +119,24 @@ cache = LRUObjectCache()
 _producer_cache_ids = {}
 
 
-def evict_superseded(caller_address, converted_result, user_id=None, session_id=None):
+def producer_discriminator(func_name, args):
+    """A stable key for a handle-producing call within its caller cell, derived from the
+    function name and (raw) arguments. Used as ``evict_superseded(discriminator=...)`` so
+    that several producers sharing one caller address - e.g. the two ``MAKE`` calls in
+    ``=CONSUME(MAKE("a"), MAKE("b"))`` - get distinct superseded-generation scopes instead
+    of evicting each other. Stable across recalculations (same name + args), distinct
+    between siblings with different args. Best-effort: arguments that aren't JSON
+    serializable fall back to ``repr`` so this never raises."""
+    try:
+        payload = json.dumps([func_name, args], default=repr, sort_keys=True)
+    except (TypeError, ValueError):
+        payload = repr((func_name, args))
+    return hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
+def evict_superseded(
+    caller_address, converted_result, user_id=None, session_id=None, discriminator=None
+):
     """Deletes the cache entries written by this cell's previous invocation that the new
     (converted) result no longer references. Called by ``custom_functions_call`` after
     each call of a handle-producing function (return options convert via
@@ -128,6 +147,16 @@ def evict_superseded(caller_address, converted_result, user_id=None, session_id=
     when available: caller addresses are not unique across users (everybody has a
     "Book1.xlsx"), and user ids don't distinguish anonymous users (auth disabled), so
     without scoping, one user's recalculation could evict another user's live handle.
+
+    ``discriminator`` distinguishes several handle-producing calls that share one caller
+    address - e.g. ``=CONSUME(MAKE("a"), MAKE("b"))``, where both ``MAKE`` calls are
+    invoked from (and report) the consuming cell. Without it, the second producer would
+    treat the first's object as a superseded previous generation and evict it before the
+    consumer runs. The caller derives it from the function name and arguments, so it's
+    stable across recalculations of a given producer but differs between siblings. Two
+    siblings with identical name and args still collide, but they produce interchangeable
+    objects; a recalculation with changed args leaks the old generation until expiry/LRU
+    (the same self-healing backstop as deleted formulas).
 
     A store can take over the producer tracking by implementing
     ``evict_superseded(scope, new_ids)`` - backends with shared storage do this so the
@@ -148,9 +177,11 @@ def evict_superseded(caller_address, converted_result, user_id=None, session_id=
     # integer database keys); the explicit None/"" check keeps falsy-but-valid ids
     # like 0.
     scope_parts = [
-        str(part) for part in (user_id, session_id) if part not in (None, "")
+        str(part)
+        for part in (user_id, session_id, caller_address, discriminator)
+        if part not in (None, "")
     ]
-    scope = ":".join([*scope_parts, caller_address])
+    scope = ":".join(scope_parts)
     backend_evict = getattr(cache, "evict_superseded", None)
     if backend_evict is not None:
         backend_evict(scope, new_ids)

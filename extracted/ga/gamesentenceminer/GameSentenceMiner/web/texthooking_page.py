@@ -762,6 +762,12 @@ async def send_word_coordinates_to_overlay(data):
         await websocket_manager.send(ID_OVERLAY, data)
 
 
+async def send_manual_background_to_overlay(image_data_url):
+    """Push a captured desktop snapshot to the overlay for exclusive-fullscreen manual mode."""
+    if image_data_url and websocket_manager.has_clients(ID_OVERLAY):
+        await websocket_manager.send(ID_OVERLAY, {"type": "manual_mode_background", "image": image_data_url})
+
+
 @app.route("/update_checkbox", methods=["POST"])
 def update_event():
     data = request.get_json()
@@ -1319,9 +1325,10 @@ class _LegacyMovedPageHandler(BaseHTTPRequestHandler):
 
     def _send_moved_page(self, include_body: bool = True):
         current_port = _get_single_port()
-        requested_host = (self.headers.get("Host") or "localhost").split(":", 1)[0] or "localhost"
-        requested_path = self.path if self.path else "/"
-        new_url = f"http://{requested_host}:{current_port}{requested_path}"
+        # Pin host to localhost and strip CR/LF + leading slashes so the Host header / request
+        # path can't be reflected into the Location header (open redirect / header injection).
+        requested_path = "/" + (self.path or "/").replace("\r", "").replace("\n", "").lstrip("/")
+        new_url = f"http://localhost:{current_port}{requested_path}"
 
         message = textwrap.dedent(f"""
             <!DOCTYPE html>

@@ -198,10 +198,6 @@ where
     F: FnMut(&WorkingModelIterationInfo),
 {
     const CONSTRAINED_OBJECTIVE_PLATEAU_STREAK: usize = 20;
-    // Minimum reduced-system dimension K at which building the GPU Y_i matvec
-    // backend for matrix-free InexactPCG pays for the device round-trip; below
-    // this the CPU-driven PCG matvec wins (issue #288 Part B).
-    const ARROW_GPU_MATVEC_MIN_K: usize = 5000;
 
     // ── Anderson acceleration of depth 1 (AA(1)) for the Fisher fixed-point ──
     // PIRLS normally uses observed-information Newton (already super-linear, no
@@ -893,71 +889,8 @@ where
                             solve_options.streaming_chunk_size = arrow_cfg.streaming_chunk_size;
                             solve_options.trust_region.radius = arrow_cfg.trust_region_radius;
                             let latent_snapshot = arrow_cfg.snapshot_t.as_ref()();
-                            // GPU dispatch.  Two sub-cases:
-                            //
-                            // (a) Dense system (no matrix-free hooks) → GPU
-                            //     dense-Schur path unchanged.
-                            //
-                            // (b) Matrix-free system at K ≥ 5000 + CUDA →
-                            //     build GPU Y_i matvec once (forward kernel),
-                            //     then run CPU-driven InexactPCG with the GPU
-                            //     closure as the matvec backend (issue #288
-                            //     Part B).  On Unavailable/RidgeBump the
-                            //     closure is dropped and the CPU-only path
-                            //     takes over.
-                            // Dispatch: GPU dense → GPU PCG matvec → CPU PCG.
-                            // All three paths produce (delta_t, delta_beta,
-                            // PcgDiagnostics); the GPU dense path provides
-                            // zero-valued diagnostics (it does not use PCG).
-                            let arrow_solve_result: Result<
-                                (
-                                    ndarray::Array1<f64>,
-                                    ndarray::Array1<f64>,
-                                    crate::solver::arrow_schur::PcgDiagnostics,
-                                ),
-                                crate::solver::arrow_schur::ArrowSchurError,
-                            > = if crate::gpu::cuda_selected() {
-                                let has_matvec = arrow_system.hbb_matvec.is_some()
-                                    || arrow_system.htbeta_matvec.is_some();
-                                if has_matvec
-                                    && arrow_system.k >= ARROW_GPU_MATVEC_MIN_K
-                                    && solve_options.mode
-                                        == crate::solver::arrow_schur::ArrowSolverMode::InexactPCG
-                                {
-                                    match crate::gpu::arrow_schur::gpu_schur_matvec_backend(
-                                        &arrow_system,
-                                        0.0,
-                                        loop_lambda,
-                                    ) {
-                                        Ok(gpu_mv) => {
-                                            solve_options.gpu_matvec = Some(gpu_mv);
-                                            arrow_system
-                                                .solve_with_options(0.0, loop_lambda, &solve_options)
-                                        }
-                                        Err(crate::gpu::arrow_schur::ArrowSchurGpuFailure::RidgeBumpRequired { row, bump: _ }) => {
-                                            Err(crate::solver::arrow_schur::ArrowSchurError::PerRowFactorFailed {
-                                                row,
-                                                reason: "GPU forward kernel Cholesky failed during matvec setup".to_string(),
-                                            })
-                                        }
-                                        Err(_) => {
-                                            // Unavailable or GpuRequiresDenseSystem:
-                                            // fall back to CPU InexactPCG without GPU matvec.
-                                            arrow_system
-                                                .solve_with_options(0.0, loop_lambda, &solve_options)
-                                        }
-                                    }
-                                } else {
-                                    crate::solver::gpu::arrow_schur_gpu::solve_arrow_newton_step_gpu(
-                                        &arrow_system,
-                                        0.0,
-                                        loop_lambda,
-                                    )
-                                    .map(|(dt, db)| (dt, db, crate::solver::arrow_schur::PcgDiagnostics::default()))
-                                }
-                            } else {
-                                arrow_system.solve_with_options(0.0, loop_lambda, &solve_options)
-                            };
+                            let arrow_solve_result =
+                                arrow_system.solve_with_options(0.0, loop_lambda, &solve_options);
                             match arrow_solve_result {
                                 Ok((delta_t, delta_beta, pcg_diag)) => {
                                     log::debug!(
@@ -1079,7 +1012,8 @@ where
             {
                 const GEODESIC_ACCEPT_ALPHA: f64 = 0.75;
                 // 1e-4 is the Transtrum-Sethna default for double precision.
-                const GEODESIC_FD_H: f64 = 1.0e-4;
+                // FD-OK: non-propagated geodesic curvature probe (bounded FD second directional derivative, not a coefficient derivative)
+                const GEODESIC_FD_H: f64 = 1.0e-4; // fd-ok: geodesic acceleration via FD of gradient; second-order correction to Newton step, accepted only when it reduces step size
 
                 // Snapshot the standard-step direction; clone is cheap (p)
                 // relative to the two model.update calls below.
@@ -1091,10 +1025,10 @@ where
                 {
                     let mut beta_pert = Array1::<f64>::zeros(beta.len());
                     beta_pert.assign(beta.as_ref());
-                    beta_pert.scaled_add(GEODESIC_FD_H, &dir_snapshot);
+                    beta_pert.scaled_add(GEODESIC_FD_H, &dir_snapshot); // fd-ok: geodesic acceleration via FD of gradient; second-order correction to Newton step, accepted only when it reduces step size
                     let plus = model.update(&Coefficients::new(beta_pert.clone()));
                     beta_pert.assign(beta.as_ref());
-                    beta_pert.scaled_add(-GEODESIC_FD_H, &dir_snapshot);
+                    beta_pert.scaled_add(-GEODESIC_FD_H, &dir_snapshot); // fd-ok: geodesic acceleration via FD of gradient; second-order correction to Newton step, accepted only when it reduces step size
                     let minus = model.update(&Coefficients::new(beta_pert));
 
                     // Re-sync the model's interior cache to the current
@@ -1106,7 +1040,8 @@ where
                     if let (Ok(g_plus), Ok(g_minus), Ok(_)) = (plus, minus, restored) {
                         let mut k_rhs = &g_plus.gradient + &g_minus.gradient;
                         k_rhs.scaled_add(-2.0, &state.gradient);
-                        k_rhs.mapv_inplace(|v| v / (GEODESIC_FD_H * GEODESIC_FD_H));
+                        k_rhs.mapv_inplace(|v| v / (GEODESIC_FD_H * GEODESIC_FD_H)); // fd-ok: geodesic acceleration via FD of gradient; second-order correction to Newton step, accepted only when it reduces step size
+                        // END-FD-OK
 
                         if array_is_finite(&k_rhs) {
                             let mut delta2 = Array1::<f64>::zeros(beta.len());
@@ -1232,8 +1167,17 @@ where
                     // When predicted reduction is at floating-point noise level
                     // relative to the objective, both predicted and actual are
                     // meaningless — treat as a neutral step (rho = 1) rather
-                    // than hard-rejecting on the sign of noise.
-                    let noise_floor = current_penalized.abs().max(1.0) * 1e-14;
+                    // than hard-rejecting on the sign of noise. The floor tracks
+                    // the penalized objective's own magnitude (issue #1127): the
+                    // predicted/screening reductions and `current_penalized` all
+                    // scale as `O(a²)` under `y → a·y`, so a relative floor is
+                    // scale-equivariant. The previous `.max(1.0)` absolute floor
+                    // pinned it at `1e-14` for a micro-unit response, mismatching
+                    // genuine `O(a²)` reductions and biasing the step screening
+                    // toward the over-smoothed iterate. A converged objective
+                    // (`current_penalized == 0`) yields a `0` floor, so the
+                    // `predicted_reduction > floor` branch still governs.
+                    let noise_floor = current_penalized.abs() * 1e-14;
                     let screening_rho = if predicted_reduction > noise_floor {
                         screening_reduction / predicted_reduction
                     } else if screening_reduction >= -noise_floor {
@@ -1648,11 +1592,17 @@ where
                         //   here (it remains confined to the fast path's
                         //   relaxed degenerate band, which demands
                         //   stationarity).
-                        let objective_scale = final_state_ref
-                            .deviance
-                            .abs()
-                            .max(final_state_ref.penalty_term.abs())
-                            .max(1.0);
+                        // Scale-equivariant objective magnitude (issue #1127):
+                        // the predicted reduction and Δdeviance compared against
+                        // this band both scale as `O(a²)` under a response
+                        // rescaling `y → a·y`, so the band must track the
+                        // objective's own magnitude rather than the absolute
+                        // `.max(1.0)` floor, which pinned it at `1.0` for a
+                        // micro-unit response and accepted a non-converged
+                        // constrained iterate. Well-scaled fits (`|obj| ≳ 1`)
+                        // are unchanged.
+                        let objective_scale =
+                            final_state_ref.deviance.abs() + final_state_ref.penalty_term.abs();
                         let plateau_band = options.convergence_tolerance * objective_scale * 0.1;
                         let model_progress_exhausted = predicted_reduction.is_finite()
                             && predicted_reduction.abs() <= plateau_band;

@@ -20,8 +20,9 @@ class CreateAccountJsonBody:
         cc_client_id (Union[Unset, str]): OAuth client ID for resource-level credentials (client_credentials flow only)
         cc_client_secret (Union[Unset, str]): OAuth client secret for resource-level credentials (client_credentials
             flow only)
-        cc_token_url (Union[Unset, str]): OAuth token URL override for resource-level authentication (client_credentials
-            flow only)
+        cc_instance (Union[Unset, str]): Instance name for built-in providers whose client-credentials token URL is
+            instance-templated; substituted into the fixed-host registry template server-side (client_credentials flow
+            only). The token URL is never caller-supplied.
         mcp_server_url (Union[Unset, str]): MCP server URL for MCP OAuth token refresh
         scopes (Union[Unset, List[str]]): OAuth scopes to use for token refresh. Overrides instance-level scopes.
     """
@@ -32,7 +33,7 @@ class CreateAccountJsonBody:
     grant_type: Union[Unset, str] = "authorization_code"
     cc_client_id: Union[Unset, str] = UNSET
     cc_client_secret: Union[Unset, str] = UNSET
-    cc_token_url: Union[Unset, str] = UNSET
+    cc_instance: Union[Unset, str] = UNSET
     mcp_server_url: Union[Unset, str] = UNSET
     scopes: Union[Unset, List[str]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -44,7 +45,7 @@ class CreateAccountJsonBody:
         grant_type = self.grant_type
         cc_client_id = self.cc_client_id
         cc_client_secret = self.cc_client_secret
-        cc_token_url = self.cc_token_url
+        cc_instance = self.cc_instance
         mcp_server_url = self.mcp_server_url
         scopes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.scopes, Unset):
@@ -65,8 +66,8 @@ class CreateAccountJsonBody:
             field_dict["cc_client_id"] = cc_client_id
         if cc_client_secret is not UNSET:
             field_dict["cc_client_secret"] = cc_client_secret
-        if cc_token_url is not UNSET:
-            field_dict["cc_token_url"] = cc_token_url
+        if cc_instance is not UNSET:
+            field_dict["cc_instance"] = cc_instance
         if mcp_server_url is not UNSET:
             field_dict["mcp_server_url"] = mcp_server_url
         if scopes is not UNSET:
@@ -89,7 +90,7 @@ class CreateAccountJsonBody:
 
         cc_client_secret = d.pop("cc_client_secret", UNSET)
 
-        cc_token_url = d.pop("cc_token_url", UNSET)
+        cc_instance = d.pop("cc_instance", UNSET)
 
         mcp_server_url = d.pop("mcp_server_url", UNSET)
 
@@ -102,7 +103,7 @@ class CreateAccountJsonBody:
             grant_type=grant_type,
             cc_client_id=cc_client_id,
             cc_client_secret=cc_client_secret,
-            cc_token_url=cc_token_url,
+            cc_instance=cc_instance,
             mcp_server_url=mcp_server_url,
             scopes=scopes,
         )

@@ -17,8 +17,13 @@ import warnings
 from openstack._utils import renamed_param
 from openstack.block_storage.v2 import backup as _backup
 from openstack.block_storage.v2 import capabilities as _capabilities
+from openstack.block_storage.v2 import consistency_group as _consistency_group
+from openstack.block_storage.v2 import (
+    consistency_group_snapshot as _consistency_group_snapshot,
+)
 from openstack.block_storage.v2 import extension as _extension
 from openstack.block_storage.v2 import limits as _limits
+from openstack.block_storage.v2 import qos_spec as _qos_spec
 from openstack.block_storage.v2 import quota_class_set as _quota_class_set
 from openstack.block_storage.v2 import quota_set as _quota_set
 from openstack.block_storage.v2 import service as _service
@@ -381,6 +386,57 @@ class Proxy(proxy.Proxy):
         """
         self._delete(_type.Type, type, ignore_missing=ignore_missing)
 
+    def update_type(
+        self,
+        type: str | _type.Type,
+        **attrs: Any,
+    ) -> _type.Type:
+        """Update a type
+
+        :param type: The value can be either the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type` instance.
+        :param attrs: The attributes to update on the type
+
+        :returns: The updated type
+        """
+        return self._update(_type.Type, type, **attrs)
+
+    def update_type_extra_specs(
+        self,
+        type: str | _type.Type,
+        **attrs: Any,
+    ) -> _type.Type:
+        """Update the extra_specs for a type
+
+        :param type: The value can be either the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type` instance.
+        :param attrs: The extra spec attributes to update on the type
+
+        :returns: A dict containing updated extra_specs
+        """
+        res = self._get_resource(_type.Type, type)
+        extra_specs = res.set_extra_specs(self, **attrs)
+        result = _type.Type.existing(id=res.id, extra_specs=extra_specs)
+        return result
+
+    def delete_type_extra_specs(
+        self,
+        type: str | _type.Type,
+        keys: Iterable[str],
+    ) -> None:
+        """Delete the extra_specs for a type
+
+        Note: This method will do a HTTP DELETE request for every key in keys.
+
+        :param type: The value can be either the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type` instance.
+        :param keys: The keys to delete.
+
+        :returns: ``None``
+        """
+        res = self._get_resource(_type.Type, type)
+        return res.delete_extra_specs(self, keys)
+
     def get_type_access(self, type: str | _type.Type) -> list[dict[str, Any]]:
         """Lists project IDs that have access to private volume type.
 
@@ -428,6 +484,110 @@ class Proxy(proxy.Proxy):
         project_id = resource.Resource._get_id(project)
         res = self._get_resource(_type.Type, type)
         res.remove_private_access(self, project_id)
+
+    def get_type_encryption(
+        self, volume_type: str | _type.Type
+    ) -> _type.TypeEncryption:
+        """Get the encryption details of a volume type
+
+        :param volume_type: The value can be the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type`
+            instance.
+
+        :returns: One :class:`~openstack.block_storage.v2.type.TypeEncryption`
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        """
+        volume_type_id = resource.Resource._get_id(volume_type)
+        return self._get(
+            _type.TypeEncryption,
+            volume_type_id=volume_type_id,
+            requires_id=False,
+        )
+
+    def create_type_encryption(
+        self, volume_type: str | _type.Type, **attrs: Any
+    ) -> _type.TypeEncryption:
+        """Create new type encryption from attributes
+
+        :param volume_type: The value can be the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type`
+            instance.
+
+        :param attrs: Keyword arguments which will be used to create
+            a :class:`~openstack.block_storage.v2.type.TypeEncryption`,
+            comprised of the properties on the TypeEncryption class.
+
+        :returns: The results of type encryption creation
+        """
+        volume_type_id = resource.Resource._get_id(volume_type)
+        return self._create(
+            _type.TypeEncryption, volume_type_id=volume_type_id, **attrs
+        )
+
+    def delete_type_encryption(
+        self,
+        encryption: str | _type.TypeEncryption | None = None,
+        volume_type: str | _type.Type | None = None,
+        ignore_missing: bool = True,
+    ) -> None:
+        """Delete type encryption attributes
+
+        :param encryption: The value can be None or a
+            :class:`~openstack.block_storage.v2.type.TypeEncryption`
+            instance. If encryption is None then volume_type must be
+            specified.
+        :param volume_type: The value can be the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type` instance. Required
+            if encryption is None.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the type does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent type.
+
+        :returns: ``None``
+        """
+        if volume_type:
+            volume_type_id = resource.Resource._get_id(volume_type)
+            encryption = self._get(
+                _type.TypeEncryption,
+                volume_type_id=volume_type_id,
+                requires_id=False,
+            )
+
+        self._delete(
+            _type.TypeEncryption, encryption, ignore_missing=ignore_missing
+        )
+
+    def update_type_encryption(
+        self,
+        encryption: str | _type.TypeEncryption | None = None,
+        volume_type: str | _type.Type | None = None,
+        **attrs: Any,
+    ) -> _type.TypeEncryption:
+        """Update a type
+
+        :param encryption: The value can be None or a
+            :class:`~openstack.block_storage.v2.type.TypeEncryption`
+            instance. If this is ``None`` then ``volume_type`` must be
+            specified.
+        :param volume_type: The value can be the ID of a type or a
+            :class:`~openstack.block_storage.v2.type.Type` instance.
+            Required if ``encryption`` is None.
+        :param attrs: The attributes to update on the type encryption.
+
+        :returns: The updated type encryption
+        """
+
+        if volume_type:
+            volume_type_id = resource.Resource._get_id(volume_type)
+            encryption = self._get(
+                _type.TypeEncryption,
+                volume_type_id=volume_type_id,
+                requires_id=False,
+            )
+
+        return self._update(_type.TypeEncryption, encryption, **attrs)
 
     # ========== Volumes ==========
 
@@ -542,6 +702,21 @@ class Proxy(proxy.Proxy):
         """
         return self._create(_volume.Volume, **attrs)
 
+    def update_volume(
+        self,
+        volume: str | _volume.Volume,
+        **attrs: Any,
+    ) -> _volume.Volume:
+        """Update a volume
+
+        :param volume: Either the ID of a volume or a
+            :class:`~openstack.block_storage.v2.volume.Volume` instance.
+        :param attrs: The attributes to update on the volume.
+
+        :returns: The updated volume
+        """
+        return self._update(_volume.Volume, volume, **attrs)
+
     def delete_volume(
         self,
         volume: str | _volume.Volume,
@@ -565,16 +740,21 @@ class Proxy(proxy.Proxy):
 
         :returns: ``None``
         """
-        volume = self._get_resource(_volume.Volume, volume)
-        try:
-            if not force:
-                volume.delete(self, params={'cascade': cascade})
-            else:
+        if force:
+            volume = self._get_resource(_volume.Volume, volume)
+            try:
                 volume.force_delete(self)
-        except exceptions.NotFoundException:
-            if ignore_missing:
-                return None
-            raise
+            except exceptions.NotFoundException:
+                if ignore_missing:
+                    return None
+                raise
+        else:
+            self._delete(
+                _volume.Volume,
+                volume,
+                ignore_missing=ignore_missing,
+                params={'cascade': cascade},
+            )
 
     # ========== Volume actions ==========
 
@@ -797,6 +977,35 @@ class Proxy(proxy.Proxy):
         volume = self._get_resource(_volume.Volume, volume)
         volume.complete_migration(self, new_volume, error)
 
+    def upload_volume_to_image(
+        self,
+        volume: str | _volume.Volume,
+        image_name: str,
+        force: bool = False,
+        disk_format: str | None = None,
+        container_format: str | None = None,
+    ) -> dict[str, Any]:
+        """Uploads the specified volume to image service.
+
+        :param volume: The value can be either the ID of a volume or a
+            :class:`~openstack.block_storage.v3.volume.Volume` instance.
+        :param image_name: The name for the new image.
+        :param force: Enables or disables upload of a volume that is
+            attached to an instance.
+        :param disk_format: Disk format for the new image.
+        :param container_format: Container format for the new image.
+
+        :returns: dictionary describing the image.
+        """
+        volume = self._get_resource(_volume.Volume, volume)
+        return volume.upload_to_image(
+            self,
+            image_name,
+            force=force,
+            disk_format=disk_format,
+            container_format=container_format,
+        )
+
     # ========== Backend pools ==========
 
     def backend_pools(
@@ -853,18 +1062,6 @@ class Proxy(proxy.Proxy):
         :returns: Backup instance
         """
         return self._get(_backup.Backup, backup)
-
-    def export_record(self, backup: str | _backup.Backup) -> dict[str, Any]:
-        """Get a backup
-
-        :param backup: The value can be the ID of a backup
-            or a :class:`~openstack.block_storage.v2.backup.Backup`
-            instance.
-
-        :returns: The backup export record fields
-        """
-        backup = self._get_resource(_backup.Backup, backup)
-        return backup.export(self)
 
     @overload
     def find_backup(
@@ -952,25 +1149,56 @@ class Proxy(proxy.Proxy):
 
     # ========== Backup actions ==========
 
+    def import_backup(self, service: str, url: str) -> _backup.Backup:
+        """Create a new backup from an external service.
+
+        :param service: The service used to perform the backup.
+        :param url: An identifier string to locate the backup.
+
+        :returns: The imported backup
+        """
+        return _backup.Backup.import_record(self, service=service, url=url)
+
+    def export_backup(self, backup: str | _backup.Backup) -> dict[str, Any]:
+        """Export information about a backup
+
+        :param backup: The value can be the ID of a backup
+            or a :class:`~openstack.block_storage.v2.backup.Backup`
+            instance.
+
+        :returns: The backup export record fields
+        """
+        backup = self._get_resource(_backup.Backup, backup)
+        return backup.export_record(self)
+
+    # TODO(stephenfin): Remove in 5.0
+    def export_record(self, backup: str | _backup.Backup) -> dict[str, Any]:
+        warnings.warn(
+            "export_record is a deprecated alias for export_backup and will "
+            "be removed in a future release.",
+            os_warnings.RemovedInSDK50Warning,
+        )
+        return self.export_backup(backup)
+
     @renamed_param('volume_id', 'volume')
     def restore_backup(
         self,
         backup: str | _backup.Backup,
-        volume: str | _volume.Volume,
-        name: str,
+        volume: str | _volume.Volume | None = None,
+        name: str | None = None,
     ) -> _backup.Backup:
         """Restore a Backup to volume
 
         :param backup: The value can be the ID of a backup or a
             :class:`~openstack.block_storage.v2.backup.Backup` instance
         :param volume: An ID or
-            :class:`~openstack.volume.v3.volume.Volume` instance of the
+            :class:`~openstack.volume.v2.volume.Volume` instance of the
             volume to restore the backup to.
         :param name: The name for new volume creation to restore.
 
         :returns: Updated backup instance
         """
-        volume_id = resource.Resource._get_id(volume)
+        volume_id = resource.Resource._get_id(volume) if volume else None
         return self._get_resource(_backup.Backup, backup).restore(
             self, volume_id=volume_id, name=name
         )
@@ -1032,6 +1260,212 @@ class Proxy(proxy.Proxy):
             resource can be found.
         """
         return self._get(_capabilities.Capabilities, host)
+
+    # ====== QoS ======
+
+    def create_qos_spec(self, **attrs: Any) -> _qos_spec.QoSSpec:
+        """Create a new QoS Spec from attributes
+
+        :param attrs: Keyword arguments which will be used to create a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec`, comprised
+            of the properties on the QoSSpec class.
+
+        :returns: The results of a QoS spec creation
+        :rtype: :class:`~openstack.block_storage.v2.qos_spec.QoSSpec`
+        """
+        return self._create(_qos_spec.QoSSpec, **attrs)
+
+    def delete_qos_spec(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+        ignore_missing: bool = True,
+        *,
+        force: bool = False,
+    ) -> None:
+        """Delete a QoS Spec
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised when
+            the type does not exist. When set to ``True``, no exception will be
+            set when attempting to delete a nonexistent type.
+        :param force: Whether to delete the QoS spec even if it's in use.
+
+        :returns: ``None``
+        """
+        res = self._get_resource(_qos_spec.QoSSpec, qos_spec)
+        try:
+            res.delete(self, params={'force': force})
+        except exceptions.NotFoundException:
+            if ignore_missing:
+                return None
+            raise
+
+    def update_qos_spec(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+        **attrs: Any,
+    ) -> _qos_spec.QoSSpec:
+        """Update a QoS spec
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+        :param dict attrs: The attributes to update on the QoS spec
+
+        :returns: The updated QoS spec
+        :rtype: :class:`~openstack.block_storage.v2.qos_spec.QoSSpec`
+        """
+        return self._update(_qos_spec.QoSSpec, qos_spec, **attrs)
+
+    def get_qos_spec(self, qos_spec: _qos_spec.QoSSpec) -> _qos_spec.QoSSpec:
+        """Get a single QoS spec
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+
+        :returns: One :class:`~openstack.block_storage.v2.qos_spec.QoSSpec`
+        :raises: :class:`~openstack.exceptions.ResourceNotFound` when no
+            resource can be found.
+        """
+        return self._get(_qos_spec.QoSSpec, qos_spec)
+
+    @overload
+    def find_qos_spec(
+        self,
+        name_or_id: str,
+        ignore_missing: Literal[False],
+        **query: Any,
+    ) -> _qos_spec.QoSSpec: ...
+
+    @overload
+    def find_qos_spec(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        **query: Any,
+    ) -> _qos_spec.QoSSpec | None: ...
+
+    def find_qos_spec(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        **query: Any,
+    ) -> _qos_spec.QoSSpec | None:
+        """Find a single QoS spec
+
+        :param name_or_id: The name or ID of a QoS spec
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the resource does not exist. When set to ``True``, None will
+            be returned when attempting to find a nonexistent resource.
+        :param query: Additional attributes like 'host'
+
+        :returns: One: class:`~openstack.block_storage.v2.qos_spec.QoSSpec` or
+            None
+        :raises: :class:`~openstack.exceptions.NotFoundException`
+            when no resource can be found.
+        :raises: :class:`~openstack.exceptions.DuplicateResource` when multiple
+            resources are found.
+        """
+        return self._find(
+            _qos_spec.QoSSpec,
+            name_or_id,
+            ignore_missing=ignore_missing,
+            **query,
+        )
+
+    def qos_specs(
+        self,
+        **query: Any,
+    ) -> Generator[_qos_spec.QoSSpec, None, None]:
+        """Return a generator of QoS specs
+
+        :param query: Optional query parameters to be sent to limit
+            the resources being returned.
+        :returns: A generator of QoSSpec objects
+        """
+        return self._list(_qos_spec.QoSSpec, **query)
+
+    def associate_qos_spec(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+        vol_type_id: str,
+    ) -> None:
+        """Associate a QoS spec with a volume type
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+        :param vol_type_id: The ID of the volume type to associate with.
+
+        :returns: ``None``
+        """
+        qos_spec_obj = self._get_resource(_qos_spec.QoSSpec, qos_spec)
+        qos_spec_obj.associate(self, vol_type_id)
+
+    def disassociate_qos_spec(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+        vol_type_id: str,
+    ) -> None:
+        """Disassociate a QoS spec from a volume type
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+        :param vol_type_id: The ID of the volume type to disassociate from.
+
+        :returns: ``None``
+        """
+        qos_spec_obj = self._get_resource(_qos_spec.QoSSpec, qos_spec)
+        qos_spec_obj.disassociate(self, vol_type_id)
+
+    def disassociate_all_qos_spec(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+    ) -> None:
+        """Disassociate a QoS spec from all volume types
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+
+        :returns: ``None``
+        """
+        qos_spec_obj = self._get_resource(_qos_spec.QoSSpec, qos_spec)
+        qos_spec_obj.disassociate_all(self)
+
+    def delete_qos_spec_metadata(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+        keys: Iterable[Any],
+    ) -> None:
+        """Delete metadata from a QoS spec
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+        :param keys: The keys to delete from the QoS spec.
+
+        :returns: ``None``
+        """
+        qos_spec_obj = self._get_resource(_qos_spec.QoSSpec, qos_spec)
+        qos_spec_obj.delete_keys(self, keys)
+
+    def qos_spec_associations(
+        self,
+        qos_spec: str | _qos_spec.QoSSpec,
+    ) -> Generator[_qos_spec.QoSSpecAssociation, None, None]:
+        """Return a generator of associations for a QoS spec
+
+        :param qos_spec: The value can be either the ID of a QoS spec or a
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpec` instance.
+
+        :returns: A generator of
+            :class:`~openstack.block_storage.v2.qos_spec.QoSSpecAssociation`
+            objects
+        """
+        qos_spec_id = resource.Resource._get_id(qos_spec)
+        return self._list(
+            _qos_spec.QoSSpecAssociation, qos_spec_id=qos_spec_id
+        )
 
     # ========== Quota class sets ==========
 
@@ -1136,13 +1570,13 @@ class Proxy(proxy.Proxy):
         :returns: ``None``
         """
         project = self._get_resource(_project.Project, project)
-        res = self._get_resource(
-            _quota_set.QuotaSet, None, project_id=project.id
+        self._delete(
+            _quota_set.QuotaSet,
+            None,
+            ignore_missing=False,
+            project_id=project.id,
+            params=query or None,
         )
-
-        if not query:
-            query = {}
-        res.delete(self, **query)
 
     # TODO(stephenfin): Drop the QuotaSet fallback in 5.0
     def update_quota_set(
@@ -1592,6 +2026,310 @@ class Proxy(proxy.Proxy):
         """
         transfer = self._get_resource(_transfer.Transfer, transfer)
         return transfer.accept(self, auth_key=auth_key)
+
+    # ========== Consistency groups ==========
+
+    def get_consistency_group(
+        self,
+        consistency_group: str | _consistency_group.ConsistencyGroup,
+    ) -> _consistency_group.ConsistencyGroup:
+        """Get a consistency group.
+
+        :param consistency_group: The value can be either the ID of a
+            consistency group or a
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`
+            instance.
+
+        :returns: One
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`
+        """
+        return self._get(
+            _consistency_group.ConsistencyGroup, consistency_group
+        )
+
+    def find_consistency_group(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _consistency_group.ConsistencyGroup | None:
+        """Find a single consistency group.
+
+        :param name_or_id: The name or ID of a consistency group.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised
+            when the consistency group does not exist.
+        :param details: When set to ``False``, no additional details will
+            be returned. The default, ``True``, will cause additional details
+            to be returned.
+
+        :returns: One
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`
+            or None.
+        :raises: :class:`~openstack.exceptions.ResourceNotFound`
+            when no resource can be found.
+        :raises: :class:`~openstack.exceptions.DuplicateResource` when multiple
+            resources are found.
+        """
+        list_base_path = '/consistencygroups/detail' if details else None
+        return self._find(
+            _consistency_group.ConsistencyGroup,
+            name_or_id,
+            ignore_missing=ignore_missing,
+            list_base_path=list_base_path,
+        )
+
+    def consistency_groups(
+        self, *, details: bool = True, **query: Any
+    ) -> Generator[_consistency_group.ConsistencyGroup, None, None]:
+        """Retrieve a generator of consistency groups.
+
+        :param details: When set to ``False``, no additional details will
+            be returned. The default, ``True``, will cause additional details
+            to be returned.
+        :param query: Optional query parameters to be sent to limit the
+            resources being returned:
+
+            * limit: Returns a number of items up to the limit value.
+            * offset: Used in conjunction with limit to return a slice of
+              items. Specifies where to start in the list.
+            * marker: The ID of the last-seen item.
+            * sort_dir: Sorts the response in the requested order.
+            * sort_key: Sorts the list of consistency groups by the specified
+              attribute.
+
+        :returns: A generator of consistency group objects.
+        """
+        base_path = '/consistencygroups/detail' if details else None
+        return self._list(
+            _consistency_group.ConsistencyGroup, base_path=base_path, **query
+        )
+
+    def create_consistency_group(
+        self, **attrs: Any
+    ) -> _consistency_group.ConsistencyGroup:
+        """Create a new consistency group.
+
+        :param attrs: Keyword arguments which will be used to create a
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`,
+            comprised of the properties on the ConsistencyGroup class.
+
+        :returns: The result of consistency group creation.
+        """
+        return self._create(_consistency_group.ConsistencyGroup, **attrs)
+
+    def create_consistency_group_from_source(
+        self,
+        *,
+        consistency_group_snapshot: (
+            str | _consistency_group_snapshot.ConsistencyGroupSnapshot | None
+        ) = None,
+        consistency_group: (
+            str | _consistency_group.ConsistencyGroup | None
+        ) = None,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> _consistency_group.ConsistencyGroup:
+        """Create a new consistency group from source.
+
+        :param consistency_group_snapshot: The value can be either the ID of
+            a consistency group snapshot or a
+            :class:`~openstack.block_storage.v2.consistency_group_snapshot.ConsistencyGroupSnapshot`
+            instance. Either this or ``consistency_group`` must be provided.
+        :param consistency_group: The value can be either the ID of a
+            consistency group or a
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`
+            instance. Either this or ``consistency_group_snapshot`` must be
+            provided.
+        :param name: The name to assign to the new consistency group.
+        :param description: The description to set on the new consistency
+            group.
+
+        :returns: The result of consistency group creation.
+        """
+        cg_id = None
+        if consistency_group:
+            cg_id = resource.Resource._get_id(consistency_group)
+
+        cg_snap_id = None
+        if consistency_group_snapshot:
+            cg_snap_id = resource.Resource._get_id(consistency_group_snapshot)
+
+        return _consistency_group.ConsistencyGroup.create_from_source(
+            self,
+            consistency_group_id=cg_id,
+            consistency_group_snapshot_id=cg_snap_id,
+            name=name,
+            description=description,
+        )
+
+    def delete_consistency_group(
+        self,
+        consistency_group: str | _consistency_group.ConsistencyGroup,
+        force: bool = False,
+    ) -> None:
+        """Delete a consistency group.
+
+        :param consistency_group: The value can be either the ID of a
+            consistency group or a
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`
+            instance.
+        :param force: When set to ``True``, volumes in the consistency group
+            will also be deleted when the consistency group is deleted.
+
+        :returns: ``None``
+        """
+        res = self._get_resource(
+            _consistency_group.ConsistencyGroup, consistency_group
+        )
+        res.delete(self, params={'force': force})
+
+    def update_consistency_group(
+        self,
+        consistency_group: str | _consistency_group.ConsistencyGroup,
+        **attrs: Any,
+    ) -> _consistency_group.ConsistencyGroup:
+        """Update a consistency group.
+
+        :param consistency_group: The value can be either the ID of a
+            consistency group or a
+            :class:`~openstack.block_storage.v2.consistency_group.ConsistencyGroup`
+            instance.
+        :param attrs: The attributes to update on the consistency group
+            represented by ``consistency_group``. To add or remove volumes,
+            pass ``add_volumes`` or ``remove_volumes`` as comma-separated lists
+            of volume IDs.
+
+        :returns: The updated consistency group.
+        """
+        return self._update(
+            _consistency_group.ConsistencyGroup, consistency_group, **attrs
+        )
+
+    # ========== Consistency group snapshots ==========
+
+    def get_consistency_group_snapshot(
+        self,
+        consistency_group_snapshot: (
+            str | _consistency_group_snapshot.ConsistencyGroupSnapshot
+        ),
+    ) -> _consistency_group_snapshot.ConsistencyGroupSnapshot:
+        """Get a consistency group snapshot.
+
+        :param consistency_group_snapshot: The value can be either the ID of a
+            consistency group snapshot or a
+            :class:`~openstack.block_storage.v2.consistency_group_snapshot.ConsistencyGroupSnapshot`
+            instance.
+
+        :returns: One
+            :class:`~openstack.block_storage.v2.consistency_group_snapshot.ConsistencyGroupSnapshot`
+        """
+        return self._get(
+            _consistency_group_snapshot.ConsistencyGroupSnapshot,
+            consistency_group_snapshot,
+        )
+
+    def find_consistency_group_snapshot(
+        self,
+        name_or_id: str,
+        ignore_missing: bool = True,
+        *,
+        details: bool = True,
+    ) -> _consistency_group_snapshot.ConsistencyGroupSnapshot | None:
+        """Find a single consistency group snapshot.
+
+        :param name_or_id: The name or ID of a consistency group snapshot.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised
+            when the consistency group snapshot does not exist.
+        :param details: When set to ``False``, no additional details will
+            be returned. The default, ``True``, will cause additional details
+            to be returned.
+
+        :returns: One
+            :class:`~openstack.block_storage.v2.consistency_group_snapshot.ConsistencyGroupSnapshot`
+            or None.
+        :raises: :class:`~openstack.exceptions.ResourceNotFound`
+            when no resource can be found.
+        :raises: :class:`~openstack.exceptions.DuplicateResource` when multiple
+            resources are found.
+        """
+        list_base_path = '/cgsnapshots/detail' if details else None
+        return self._find(
+            _consistency_group_snapshot.ConsistencyGroupSnapshot,
+            name_or_id,
+            ignore_missing=ignore_missing,
+            list_base_path=list_base_path,
+        )
+
+    def consistency_group_snapshots(
+        self, *, details: bool = True, **query: Any
+    ) -> Generator[
+        _consistency_group_snapshot.ConsistencyGroupSnapshot, None, None
+    ]:
+        """Retrieve a generator of consistency group snapshots.
+
+        :param details: When set to ``False``, no additional details will
+            be returned. The default, ``True``, will cause additional details
+            to be returned.
+        :param query: Optional query parameters to be sent to limit the
+            resources being returned:
+
+            * limit: Returns a number of items up to the limit value.
+            * offset: Used in conjunction with limit to return a slice of
+              items. Specifies where to start in the list.
+            * marker: The ID of the last-seen item.
+
+        :returns: A generator of consistency group snapshot objects.
+        """
+        base_path = '/cgsnapshots/detail' if details else None
+        return self._list(
+            _consistency_group_snapshot.ConsistencyGroupSnapshot,
+            base_path=base_path,
+            **query,
+        )
+
+    def create_consistency_group_snapshot(
+        self, **attrs: Any
+    ) -> _consistency_group_snapshot.ConsistencyGroupSnapshot:
+        """Create a new consistency group snapshot.
+
+        :param attrs: Keyword arguments which will be used to create a
+            :class:`~openstack.block_storage.v2.consistency_group_snapshot.ConsistencyGroupSnapshot`,
+            comprised of the properties on the ConsistencyGroupSnapshot class.
+            The ``consistencygroup_id`` attribute is required.
+
+        :returns: The result of consistency group snapshot creation.
+        """
+        return self._create(
+            _consistency_group_snapshot.ConsistencyGroupSnapshot, **attrs
+        )
+
+    def delete_consistency_group_snapshot(
+        self,
+        consistency_group_snapshot: (
+            str | _consistency_group_snapshot.ConsistencyGroupSnapshot
+        ),
+        ignore_missing: bool = True,
+    ) -> None:
+        """Delete a consistency group snapshot.
+
+        :param consistency_group_snapshot: The value can be either the ID of a
+            consistency group snapshot or a
+            :class:`~openstack.block_storage.v2.consistency_group_snapshot.ConsistencyGroupSnapshot`
+            instance.
+        :param ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised
+            when the consistency group snapshot does not exist.
+
+        :returns: ``None``
+        """
+        self._delete(
+            _consistency_group_snapshot.ConsistencyGroupSnapshot,
+            consistency_group_snapshot,
+            ignore_missing=ignore_missing,
+        )
 
     # ========== Utilities ==========
 

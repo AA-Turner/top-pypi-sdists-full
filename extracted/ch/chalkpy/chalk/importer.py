@@ -1294,13 +1294,15 @@ class ChalkImporter:
         if line_number is not None:
             line = linecache.getline(str(filename), line_number)
             if line != "":
+                # Traceback line numbers are 1-based; LSP ranges are 0-based.
+                lsp_line = line_number - 1
                 self.ranges[error_file] = RangeGQL(
                     start=PositionGQL(
-                        line=line_number,
+                        line=lsp_line,
                         character=len(line) - len(line.lstrip()),
                     ),
                     end=PositionGQL(
-                        line=line_number,
+                        line=lsp_line,
                         character=max(len(line) - 1, 0),
                     ),
                 )
@@ -1384,8 +1386,9 @@ class ChalkImporter:
                             # Underscore expressions attempt to obtain a best-effort location.
                             # Currently, the column is always 1, because we do not have a reliable
                             # way to get the column of a caller.
+                            # Definition locations are 1-based source metadata; LSP lines are 0-based.
                             underscore_position = PositionGQL(
-                                line=definition_location.line,
+                                line=definition_location.line - 1,
                                 character=definition_location.column,
                             )
                             range = RangeGQL(
@@ -1395,8 +1398,8 @@ class ChalkImporter:
                         else:
                             # This is a fallback used if there is no provided location.
                             range = RangeGQL(
-                                start=PositionGQL(line=1, character=1),
-                                end=PositionGQL(line=1, character=1),
+                                start=PositionGQL(line=0, character=1),
+                                end=PositionGQL(line=0, character=1),
                             )
 
                         diagnostics.append(

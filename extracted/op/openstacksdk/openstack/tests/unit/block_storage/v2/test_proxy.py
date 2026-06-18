@@ -16,7 +16,10 @@ import warnings
 from openstack.block_storage.v2 import _proxy
 from openstack.block_storage.v2 import backup
 from openstack.block_storage.v2 import capabilities
+from openstack.block_storage.v2 import consistency_group
+from openstack.block_storage.v2 import consistency_group_snapshot
 from openstack.block_storage.v2 import limits
+from openstack.block_storage.v2 import qos_spec
 from openstack.block_storage.v2 import quota_class_set
 from openstack.block_storage.v2 import quota_set
 from openstack.block_storage.v2 import service
@@ -90,6 +93,9 @@ class TestVolume(TestVolumeProxy):
             method_kwargs={"force": True},
             expected_args=[self.proxy],
         )
+
+    def test_volume_update(self):
+        self.verify_update(self.proxy.update_volume, volume.Volume)
 
     def test_fetch_volume_metadata(self):
         self._verify(
@@ -285,6 +291,19 @@ class TestVolumeActions(TestVolumeProxy):
             expected_args=[self.proxy, "1", True],
         )
 
+    def test_upload_to_image(self):
+        self._verify(
+            "openstack.block_storage.v2.volume.Volume.upload_to_image",
+            self.proxy.upload_volume_to_image,
+            method_args=["value", "1"],
+            expected_args=[self.proxy, "1"],
+            expected_kwargs={
+                "force": False,
+                "disk_format": None,
+                "container_format": None,
+            },
+        )
+
 
 class TestBackup(TestVolumeProxy):
     def test_backups_detailed(self):
@@ -330,6 +349,29 @@ class TestBackup(TestVolumeProxy):
 
     def test_backup_create_attrs(self):
         self.verify_create(self.proxy.create_backup, backup.Backup)
+
+    def test_backup_import(self):
+        self._verify(
+            "openstack.block_storage.v2.backup.Backup.import_record",
+            self.proxy.import_backup,
+            method_kwargs={
+                "service": "cinder.backup.drivers.swift",
+                "url": "eyJzdGF0",
+            },
+            expected_args=[self.proxy],
+            expected_kwargs={
+                "service": "cinder.backup.drivers.swift",
+                "url": "eyJzdGF0",
+            },
+        )
+
+    def test_backup_export(self):
+        self._verify(
+            "openstack.block_storage.v2.backup.Backup.export_record",
+            self.proxy.export_backup,
+            method_args=["value"],
+            expected_args=[self.proxy],
+        )
 
     def test_backup_restore(self):
         self._verify(
@@ -498,6 +540,32 @@ class TestType(TestVolumeProxy):
     def test_type_delete_ignore(self):
         self.verify_delete(self.proxy.delete_type, type.Type, True)
 
+    def test_type_update(self):
+        self.verify_update(self.proxy.update_type, type.Type)
+
+    def test_type_extra_specs_update(self):
+        kwargs = {"a": "1", "b": "2"}
+        id = "an_id"
+        self._verify(
+            "openstack.block_storage.v2.type.Type.set_extra_specs",
+            self.proxy.update_type_extra_specs,
+            method_args=[id],
+            method_kwargs=kwargs,
+            method_result=type.Type.existing(id=id, extra_specs=kwargs),
+            expected_args=[self.proxy],
+            expected_kwargs=kwargs,
+            expected_result=kwargs,
+        )
+
+    def test_type_extra_specs_delete(self):
+        self._verify(
+            "openstack.block_storage.v2.type.Type.delete_extra_specs",
+            self.proxy.delete_type_extra_specs,
+            expected_result=None,
+            method_args=["value", "key"],
+            expected_args=[self.proxy, "key"],
+        )
+
     def test_type_get_private_access(self):
         self._verify(
             "openstack.block_storage.v2.type.Type.get_private_access",
@@ -520,6 +588,131 @@ class TestType(TestVolumeProxy):
             self.proxy.remove_type_access,
             method_args=["value", "a"],
             expected_args=[self.proxy, "a"],
+        )
+
+    def test_type_encryption_get(self):
+        self.verify_get(
+            self.proxy.get_type_encryption,
+            type.TypeEncryption,
+            method_args=['value'],
+            expected_args=[],
+            expected_kwargs={'volume_type_id': 'value', 'requires_id': False},
+        )
+
+    def test_type_encryption_create(self):
+        self.verify_create(
+            self.proxy.create_type_encryption,
+            type.TypeEncryption,
+            method_kwargs={'volume_type': 'id'},
+            expected_kwargs={'volume_type_id': 'id'},
+        )
+
+    def test_type_encryption_update(self):
+        # Verify that the get call was made with correct kwargs
+        self.verify_get(
+            self.proxy.get_type_encryption,
+            type.TypeEncryption,
+            method_args=['value'],
+            expected_args=[],
+            expected_kwargs={'volume_type_id': 'value', 'requires_id': False},
+        )
+        self.verify_update(
+            self.proxy.update_type_encryption, type.TypeEncryption
+        )
+
+    def test_type_encryption_delete(self):
+        # Verify that the get call was made with correct kwargs
+        self.verify_get(
+            self.proxy.get_type_encryption,
+            type.TypeEncryption,
+            method_args=['value'],
+            expected_args=[],
+            expected_kwargs={'volume_type_id': 'value', 'requires_id': False},
+        )
+        self.verify_delete(
+            self.proxy.delete_type_encryption, type.TypeEncryption, False
+        )
+
+    def test_type_encryption_delete_ignore(self):
+        self.verify_delete(
+            self.proxy.delete_type_encryption, type.TypeEncryption, True
+        )
+
+
+class TestQosSpec(TestVolumeProxy):
+    def test_qos_spec_create(self):
+        self.verify_create(self.proxy.create_qos_spec, qos_spec.QoSSpec)
+
+    def test_qos_spec_delete(self):
+        self._verify(
+            "openstack.block_storage.v2.qos_spec.QoSSpec.delete",
+            self.proxy.delete_qos_spec,
+            method_args=["value"],
+            expected_args=[self.proxy],
+            expected_kwargs={"params": {"force": False}},
+        )
+
+    def test_qos_spec_delete_force(self):
+        self._verify(
+            "openstack.block_storage.v2.qos_spec.QoSSpec.delete",
+            self.proxy.delete_qos_spec,
+            method_args=["value"],
+            method_kwargs={"force": True},
+            expected_args=[self.proxy],
+            expected_kwargs={"params": {"force": True}},
+        )
+
+    def test_qos_spec_update(self):
+        self.verify_update(self.proxy.update_qos_spec, qos_spec.QoSSpec)
+
+    def test_qos_spec_get(self):
+        self.verify_get(self.proxy.get_qos_spec, qos_spec.QoSSpec)
+
+    def test_qos_spec_find(self):
+        self.verify_find(self.proxy.find_qos_spec, qos_spec.QoSSpec)
+
+    def test_qos_specs(self):
+        self.verify_list(self.proxy.qos_specs, qos_spec.QoSSpec)
+
+    def test_qos_spec_associate(self):
+        self._verify(
+            "openstack.block_storage.v2.qos_spec.QoSSpec.associate",
+            self.proxy.associate_qos_spec,
+            method_args=["value", "vol_type_id"],
+            expected_args=[self.proxy, "vol_type_id"],
+        )
+
+    def test_qos_spec_disassociate(self):
+        self._verify(
+            "openstack.block_storage.v2.qos_spec.QoSSpec.disassociate",
+            self.proxy.disassociate_qos_spec,
+            method_args=["value", "vol_type_id"],
+            expected_args=[self.proxy, "vol_type_id"],
+        )
+
+    def test_qos_spec_disassociate_all(self):
+        self._verify(
+            "openstack.block_storage.v2.qos_spec.QoSSpec.disassociate_all",
+            self.proxy.disassociate_all_qos_spec,
+            method_args=["value"],
+            expected_args=[self.proxy],
+        )
+
+    def test_qos_spec_delete_metadata(self):
+        self._verify(
+            "openstack.block_storage.v2.qos_spec.QoSSpec.delete_keys",
+            self.proxy.delete_qos_spec_metadata,
+            method_args=["value", ["key1", "key2"]],
+            expected_args=[self.proxy, ["key1", "key2"]],
+        )
+
+    def test_qos_spec_associations(self):
+        self.verify_list(
+            self.proxy.qos_spec_associations,
+            qos_spec.QoSSpecAssociation,
+            method_args=["value"],
+            expected_args=[],
+            expected_kwargs={"qos_spec_id": "value"},
         )
 
 
@@ -605,7 +798,7 @@ class TestQuotaSet(TestVolumeProxy):
             method_args=['prj'],
             method_kwargs={'user_id': 'uid'},
             expected_args=[self.proxy],
-            expected_kwargs={'user_id': 'uid'},
+            expected_kwargs={'params': {'user_id': 'uid'}},
         )
 
     @mock.patch.object(proxy_base.Proxy, '_get_resource')
@@ -694,4 +887,122 @@ class TestService(TestVolumeProxy):
             method_args=["value"],
             expected_args=[self.proxy],
             expected_kwargs={"backend_id": None},
+        )
+
+
+class TestConsistencyGroup(TestVolumeProxy):
+    def test_consistency_group_get(self):
+        self.verify_get(
+            self.proxy.get_consistency_group,
+            consistency_group.ConsistencyGroup,
+        )
+
+    def test_consistency_group_find(self):
+        self.verify_find(
+            self.proxy.find_consistency_group,
+            consistency_group.ConsistencyGroup,
+            method_kwargs={'details': True},
+            expected_kwargs={
+                'list_base_path': '/consistencygroups/detail',
+            },
+        )
+
+    def test_consistency_groups_detailed(self):
+        self.verify_list(
+            self.proxy.consistency_groups,
+            consistency_group.ConsistencyGroup,
+            method_kwargs={"details": True},
+            expected_kwargs={"base_path": "/consistencygroups/detail"},
+        )
+
+    def test_consistency_groups_not_detailed(self):
+        self.verify_list(
+            self.proxy.consistency_groups,
+            consistency_group.ConsistencyGroup,
+            method_kwargs={"details": False},
+            expected_kwargs={"base_path": None},
+        )
+
+    def test_consistency_group_create(self):
+        self.verify_create(
+            self.proxy.create_consistency_group,
+            consistency_group.ConsistencyGroup,
+        )
+
+    def test_consistency_group_create_from_source(self):
+        self._verify(
+            "openstack.block_storage.v2.consistency_group"
+            ".ConsistencyGroup.create_from_source",
+            self.proxy.create_consistency_group_from_source,
+            method_args=[],
+            expected_args=[self.proxy],
+            expected_kwargs={
+                'consistency_group_id': None,
+                'consistency_group_snapshot_id': None,
+                'name': None,
+                'description': None,
+            },
+        )
+
+    def test_consistency_group_delete(self):
+        self._verify(
+            "openstack.block_storage.v2.consistency_group"
+            ".ConsistencyGroup.delete",
+            self.proxy.delete_consistency_group,
+            method_args=["value"],
+            expected_args=[self.proxy],
+            expected_kwargs={"params": {"force": False}},
+        )
+
+    def test_consistency_group_update(self):
+        self.verify_update(
+            self.proxy.update_consistency_group,
+            consistency_group.ConsistencyGroup,
+        )
+
+
+class TestConsistencyGroupSnapshot(TestVolumeProxy):
+    def test_consistency_group_snapshot_get(self):
+        self.verify_get(
+            self.proxy.get_consistency_group_snapshot,
+            consistency_group_snapshot.ConsistencyGroupSnapshot,
+        )
+
+    def test_consistency_group_snapshot_find(self):
+        self.verify_find(
+            self.proxy.find_consistency_group_snapshot,
+            consistency_group_snapshot.ConsistencyGroupSnapshot,
+            method_kwargs={'details': True},
+            expected_kwargs={
+                'list_base_path': '/cgsnapshots/detail',
+            },
+        )
+
+    def test_consistency_group_snapshots_detailed(self):
+        self.verify_list(
+            self.proxy.consistency_group_snapshots,
+            consistency_group_snapshot.ConsistencyGroupSnapshot,
+            method_kwargs={"details": True},
+            expected_kwargs={"base_path": "/cgsnapshots/detail"},
+        )
+
+    def test_consistency_group_snapshots_not_detailed(self):
+        self.verify_list(
+            self.proxy.consistency_group_snapshots,
+            consistency_group_snapshot.ConsistencyGroupSnapshot,
+            method_kwargs={"details": False},
+            expected_kwargs={"base_path": None},
+        )
+
+    def test_consistency_group_snapshot_create(self):
+        self.verify_create(
+            self.proxy.create_consistency_group_snapshot,
+            consistency_group_snapshot.ConsistencyGroupSnapshot,
+        )
+
+    def test_consistency_group_snapshot_delete(self):
+        self.verify_delete(
+            self.proxy.delete_consistency_group_snapshot,
+            consistency_group_snapshot.ConsistencyGroupSnapshot,
+            True,
         )

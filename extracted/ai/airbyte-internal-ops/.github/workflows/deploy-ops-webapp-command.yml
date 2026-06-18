@@ -152,7 +152,22 @@ jobs:
       - name: Push image
         run: docker push "${{ steps.resolve-vars.outputs.image }}"
 
-      - name: Update Cloud Run service image
+      - name: Deploy to Cloud Run (preview)
+        if: steps.resolve-vars.outputs.is_preview == 'true'
+        run: |
+          ENV_VARS="AIRBYTE_OPS_WEBAPP_PREVIEW=1"
+          if [ -n "${{ env.OPS_WEBAPP_PR }}" ]; then
+            ENV_VARS="${ENV_VARS},AIRBYTE_OPS_WEBAPP_PREVIEW_PR=${{ env.OPS_WEBAPP_PR }}"
+          fi
+          gcloud run services update "${{ steps.resolve-vars.outputs.service }}" \
+            --project="${{ env.GCP_PROJECT }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --image="${{ steps.resolve-vars.outputs.image }}" \
+            --update-env-vars="${ENV_VARS}" \
+            --quiet
+
+      - name: Deploy to Cloud Run (production)
+        if: steps.resolve-vars.outputs.is_preview != 'true'
         run: >
           gcloud run services update "${{ steps.resolve-vars.outputs.service }}"
           --project="${{ env.GCP_PROJECT }}"

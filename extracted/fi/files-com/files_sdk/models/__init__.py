@@ -32,6 +32,7 @@ from files_sdk.models.child_site_management_policy import (
     ChildSiteManagementPolicy,
 )
 from files_sdk.models.clickwrap import Clickwrap
+from files_sdk.models.custom_domain import CustomDomain
 from files_sdk.models.desktop_configuration_profile import (
     DesktopConfigurationProfile,
 )
@@ -85,6 +86,7 @@ from files_sdk.models.metadata_category import MetadataCategory
 from files_sdk.models.notification import Notification
 from files_sdk.models.outbound_connection_log import OutboundConnectionLog
 from files_sdk.models.partner import Partner
+from files_sdk.models.partner_channel import PartnerChannel
 from files_sdk.models.partner_site import PartnerSite
 from files_sdk.models.partner_site_request import PartnerSiteRequest
 from files_sdk.models.payment import Payment

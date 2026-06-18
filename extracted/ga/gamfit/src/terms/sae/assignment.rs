@@ -8,8 +8,8 @@ use crate::terms::analytic_penalties::{
     AnalyticPenalty, IBPAssignmentPenalty, IbpHessianDiagThirdChannels,
     SoftmaxAssignmentSparsityPenalty, resolve_learnable_weight,
 };
-use crate::terms::latent_coord::{LatentCoordValues, LatentIdMode, LatentManifold};
-use crate::terms::sae_manifold::SaeManifoldRho;
+use crate::terms::latent::{LatentCoordValues, LatentIdMode, LatentManifold};
+use crate::terms::sae::manifold::SaeManifoldRho;
 
 /// #976 Layer-1 guard: cap on one accepted iteration's assignment-logit
 /// update, in units of the gate temperature τ (the gate's natural length
@@ -66,6 +66,22 @@ pub(crate) const SAE_ATOM_DECODER_NORM_COLLAPSE_RATIO: f64 = 1.0e-3;
 /// never does. When tripped, the guard reseeds all-but-the-strongest atom onto
 /// distinct residual PCs to break the shared basin.
 pub(crate) const SAE_DICTIONARY_COLLAPSE_EV_FLOOR: f64 = 0.02;
+
+/// #976 / #1117 K>1 robustness: bounded DICTIONARY-level multi-start budget for
+/// the simultaneous co-collapse arm (the EV-floor branch of
+/// [`crate::terms::sae::manifold::SaeManifoldTerm::enforce_decoder_norm_guard`]).
+/// Distinct from the per-atom [`SAE_ATOM_COLLAPSE_RESEED_BUDGET`] (= 1): that
+/// budget governs reseeding ONE atom's gate logits against an optimizer that
+/// keeps killing it, where a loop would fight the optimizer. A co-collapse
+/// reseed is categorically different — it is a full-dictionary multi-start that
+/// re-diversifies ALL atoms onto distinct principal directions of a FRESHLY
+/// recomputed residual, so successive attempts explore genuinely different
+/// basins. A single such reseed empirically cannot always break a K≥3 three-way
+/// basin (identical (K, seed) flips EV≈0.40 ↔ 0.00), so this arm gets a small
+/// bounded budget of independent multi-starts. It is consumed ONLY when the
+/// whole dictionary explains < [`SAE_DICTIONARY_COLLAPSE_EV_FLOOR`] of the
+/// variance — a no-op for any healthy fit (real OLMo K=1 ~0.22, K=2 ~0.40).
+pub(crate) const SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET: usize = 3;
 
 /// Machine-precision support cutoff for the smooth JumpReLU assignment prior,
 /// in units of the gate temperature below the hard threshold. The forward gate
@@ -573,16 +589,12 @@ pub fn ibp_map_row(logits: ArrayView1<'_, f64>, temperature: f64, alpha: f64) ->
     out
 }
 
-/// IBP-MAP concrete relaxation activations together with the diagonal Jacobian
-/// `∂z_k/∂l_k`, for the torch autograd `Function` to consume so that torch's
-/// IBP-Gumbel forward applies the same stick-breaking prior `π_k` and
-/// temperature scaling as the Rust closed-form path
-/// (`SaeAssignment::try_assignments_row` → [`ibp_map_row`]).
-///
-/// With `z_k = σ(l_k/τ) · π_k` the per-atom derivative is
-/// `∂z_k/∂l_k = σ(l_k/τ) (1 − σ(l_k/τ)) · π_k / τ`. The map is diagonal in `k`
-/// (each activation depends only on its own logit), so the Jacobian is returned
-/// as the per-atom diagonal vector.
+/// IBP-MAP activations together with the diagonal Jacobian `∂z_k/∂l_k`,
+/// shared with the torch autograd `Function` so the Python IBP-Gumbel path
+/// applies the same stick-breaking prior `π_k` and temperature scaling as the
+/// Rust closed form. With `z_k = σ(l_k/τ)·π_k` the per-atom derivative is
+/// `σ(l_k/τ)(1 − σ(l_k/τ))·π_k / τ`; the map is diagonal in `k`, so the
+/// Jacobian is returned as the per-atom diagonal vector.
 #[must_use]
 pub fn ibp_map_row_value_grad(
     logits: ArrayView1<'_, f64>,
@@ -1119,7 +1131,7 @@ pub(crate) fn ibp_assignment_third_channels(
 /// lower wins, identical to the union/mixture rungs) on the same rows — and
 /// routes them through [`select_hybrid_atom`]. The curved candidate's fitted
 /// turning `Θ` (from
-/// [`crate::terms::sae_chart_canonicalization::d1_atom_fitted_turning`]) enters
+/// [`crate::terms::sae::chart_canonicalization::d1_atom_fitted_turning`]) enters
 /// as the decision feature: a `Θ → 0` atom yields to the cheaper linear tail by
 /// construction (the dominance floor — a curved atom buys nothing on a straight
 /// feature), a high-`Θ` atom takes the curved parameterization when its

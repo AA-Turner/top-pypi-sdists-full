@@ -14,6 +14,7 @@ from abstra_internals.contracts_generated import (
 )
 from abstra_internals.controllers.sdk.sdk_ai import Format, Prompt
 from abstra_internals.controllers.sdk.sdk_context import SDKContextStore
+from abstra_internals.utils.deprecated import deprecated_kwarg
 
 T = TypeVar("T")
 
@@ -133,6 +134,7 @@ def prompt(
     format: "Format",
     temperature: float = ...,
 ) -> Dict[str, Any]: ...
+@deprecated_kwarg(("temperature", None))
 def prompt(
     prompt: Union["Prompt", List["Prompt"]],
     instructions: Union[str, List[str]] = [],
@@ -146,7 +148,8 @@ def prompt(
         prompt (Union[Prompt, List[Prompt]]): The prompt(s) to send to the AI model.
         instructions (Union[str, List[str]]): Additional instructions for the AI. Defaults to [].
         format (Optional[Format]): The expected format for the AI response. Defaults to None.
-        temperature (float): Controls randomness in the AI response, from 0.0 to 2.0. Defaults to 1.0.
+        temperature (float): Deprecated — our most capable models run at a fixed
+            temperature and ignore this value. Range 0.0 to 2.0; defaults to 1.0.
 
     Returns:
         The AI response formatted according to the specified format if provided.

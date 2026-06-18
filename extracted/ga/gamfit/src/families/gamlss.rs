@@ -31,7 +31,7 @@
 //! [`weighted_design_products`], [`row_linalg`], and [`joint_packing`].
 
 use crate::basis::{BasisOptions, PenaltyInfo, PenaltySource};
-use crate::pirls::MIN_WEIGHT;
+use crate::types::MIN_WEIGHT;
 
 use crate::custom_family::{
     AdditiveBlockJacobian, BlockEffectiveJacobian, BlockWorkingSet, BlockwiseFitOptions,
@@ -47,9 +47,11 @@ use crate::custom_family::{
     shared_dense_arc, weighted_crossprod_psi_maps,
 };
 
-use crate::estimate::UnifiedFitResult;
+use crate::model_types::UnifiedFitResult;
 
 use crate::faer_ndarray::{fast_ab, fast_atv, fast_av, fast_joint_hessian_2x2};
+
+use crate::families::block_layout::block_count::validate_block_count;
 
 use crate::families::location_scale_engine::build_location_scale_exact_joint_setup;
 
@@ -77,8 +79,8 @@ use crate::families::spatial_psi_bridge::build_block_spatial_psi_derivatives;
 use crate::families::wiggle::{
     SelectedWiggleBasis, WiggleBlockConfig, buildwiggle_block_input_from_knots,
     initializewiggle_knots_from_seed, monotone_wiggle_basis_with_derivative_order,
-    monotone_wiggle_nonnegative_constraints, select_wiggle_basis_from_seed,
-    validate_monotone_wiggle_beta_nonnegative,
+    monotone_wiggle_nonnegative_constraints, project_monotone_wiggle_beta_nonnegative,
+    select_wiggle_basis_from_seed, validate_monotone_wiggle_beta_nonnegative,
 };
 
 use crate::generative::{CustomFamilyGenerative, GenerativeSpec, NoiseModel};
@@ -101,7 +103,7 @@ use crate::smooth::{
     spatial_length_scale_term_indices,
 };
 
-use crate::solver::estimate::validate_all_finite_estimation;
+use crate::model_types::validate_all_finite_estimation;
 
 use crate::types::{InverseLink, RidgePolicy, StandardLink};
 

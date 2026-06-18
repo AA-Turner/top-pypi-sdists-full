@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.6.160
+Version: 2026.6.163
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -569,6 +569,7 @@ Plain replies that never reach threaded context still stay plain replies.
 - `!edit_schedule <id> <task>` - Edit an existing scheduled task
 - `!config <operation>` - Manage configuration
 - `!model [name|list|reset]` - Show or switch the model used in the current thread
+- `!thread_mode [room|thread|reset|show]` - Show or switch the thread mode used in the current room (room admin only)
 - `!hi` - Show welcome message
 
 <!-- OUTPUT:END -->

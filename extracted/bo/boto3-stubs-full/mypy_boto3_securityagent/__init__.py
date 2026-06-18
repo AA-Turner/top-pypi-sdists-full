@@ -25,7 +25,14 @@ Usage::
         ListPentestJobTasksPaginator,
         ListPentestJobsForPentestPaginator,
         ListPentestsPaginator,
+        ListPrivateConnectionsPaginator,
+        ListSecurityRequirementPacksPaginator,
+        ListSecurityRequirementsPaginator,
         ListTargetDomainsPaginator,
+        ListThreatModelJobTasksPaginator,
+        ListThreatModelJobsPaginator,
+        ListThreatModelsPaginator,
+        ListThreatsPaginator,
         SecurityAgentClient,
     )
 
@@ -46,7 +53,14 @@ Usage::
     list_pentest_job_tasks_paginator: ListPentestJobTasksPaginator = client.get_paginator("list_pentest_job_tasks")
     list_pentest_jobs_for_pentest_paginator: ListPentestJobsForPentestPaginator = client.get_paginator("list_pentest_jobs_for_pentest")
     list_pentests_paginator: ListPentestsPaginator = client.get_paginator("list_pentests")
+    list_private_connections_paginator: ListPrivateConnectionsPaginator = client.get_paginator("list_private_connections")
+    list_security_requirement_packs_paginator: ListSecurityRequirementPacksPaginator = client.get_paginator("list_security_requirement_packs")
+    list_security_requirements_paginator: ListSecurityRequirementsPaginator = client.get_paginator("list_security_requirements")
     list_target_domains_paginator: ListTargetDomainsPaginator = client.get_paginator("list_target_domains")
+    list_threat_model_job_tasks_paginator: ListThreatModelJobTasksPaginator = client.get_paginator("list_threat_model_job_tasks")
+    list_threat_model_jobs_paginator: ListThreatModelJobsPaginator = client.get_paginator("list_threat_model_jobs")
+    list_threat_models_paginator: ListThreatModelsPaginator = client.get_paginator("list_threat_models")
+    list_threats_paginator: ListThreatsPaginator = client.get_paginator("list_threats")
     ```
 """
 
@@ -66,7 +80,14 @@ from .paginator import (
     ListPentestJobsForPentestPaginator,
     ListPentestJobTasksPaginator,
     ListPentestsPaginator,
+    ListPrivateConnectionsPaginator,
+    ListSecurityRequirementPacksPaginator,
+    ListSecurityRequirementsPaginator,
     ListTargetDomainsPaginator,
+    ListThreatModelJobsPaginator,
+    ListThreatModelJobTasksPaginator,
+    ListThreatModelsPaginator,
+    ListThreatsPaginator,
 )
 
 Client = SecurityAgentClient
@@ -88,6 +109,13 @@ __all__ = (
     "ListPentestJobTasksPaginator",
     "ListPentestJobsForPentestPaginator",
     "ListPentestsPaginator",
+    "ListPrivateConnectionsPaginator",
+    "ListSecurityRequirementPacksPaginator",
+    "ListSecurityRequirementsPaginator",
     "ListTargetDomainsPaginator",
+    "ListThreatModelJobTasksPaginator",
+    "ListThreatModelJobsPaginator",
+    "ListThreatModelsPaginator",
+    "ListThreatsPaginator",
     "SecurityAgentClient",
 )

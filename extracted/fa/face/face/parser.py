@@ -142,6 +142,8 @@ class CommandParseResult:
                 pkg_name = os.path.basename(path)
                 executable_path = get_minimal_executable()
                 cmd_ = f'{executable_path} -m {pkg_name}'
+            else:
+                cmd_ = get_minimal_executable(cmd_)
 
         ret = {'args_': self,
                'cmd_': cmd_,
@@ -558,9 +560,10 @@ class Parser:
     :meth:`Parser.parse()` with ``sys.argv`` or any other list of strings.
     """
     def __init__(self, name, doc=None, flags=None, posargs=None,
-                 post_posargs=None, flagfile=True):
+                 post_posargs=None, flagfile=True, group=None):
         self.name = process_command_name(name)
         self.doc = doc
+        self.group = group
         flags = list(flags or [])
 
         self.posargs = _ensure_posargspec(posargs, 'posargs')

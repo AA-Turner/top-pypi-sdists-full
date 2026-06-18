@@ -9,18 +9,18 @@ from typing import Any
 from ..contexts import Ctx
 from ..exceptions import FailedParse
 from ..objectmodel import nodedataclass
+from .base import PEP8_LLEN, Box, Model
 from .math import ffset
-from .model import PEP8_LLEN, Box, Model
 
 
 @nodedataclass
 class Option(Box):
-    def _parse(self, ctx: Ctx) -> Any:
-        result = self.exp._parse(ctx)
-        return result
+    # NOTE parsing of options is handled by Choice._parse()
+    # def _parse(self, ctx: Ctx) -> Any:
 
     def optimized(self) -> Model:
-        return self.exp.optimized()
+        # NOTE hocus pocus! now you see me...
+        return self.exp.optimized()  # ... now you don't
 
 
 @nodedataclass
@@ -37,8 +37,10 @@ class Choice(Model):
         # ctx.expecting(*self.expecting)
         for o in self.options:
             ctx.states.push()
+            o._add_defined(ctx)
+            exp = o.exp if isinstance(o, Option) else o
             try:
-                value = o._parse(ctx)
+                value = exp._parse(ctx)
                 ctx.states.merge()
                 return value
             except FailedParse:

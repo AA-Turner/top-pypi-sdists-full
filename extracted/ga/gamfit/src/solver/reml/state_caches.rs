@@ -47,8 +47,8 @@ pub(crate) const HGB_WARMUP_ITERS_MAX: usize = 10;
 
 pub(crate) const HGB_TARGET_FRACTION: f64 = 0.1;
 
-// Treat log-lambda finite differences as local only up to a 1.0 log-scale step.
-pub(crate) const HGB_FD_DRHO_MAX_SQUARED: f64 = 1.0;
+// Treat log-lambda secant steps as local only up to a 1.0 log-scale step.
+pub(crate) const HGB_SECANT_DRHO_MAX_SQUARED: f64 = 1.0;
 
 pub(crate) const HGB_MIN_PAIRS_FOR_SENSITIVITY: usize = 3;
 
@@ -361,7 +361,7 @@ pub(crate) fn clear_outer_ift_residual_energy_for_fit() {
 }
 
 pub(crate) fn store_ift_residual_energy_for_outer_theta(theta: &Array1<f64>, energy: Option<f64>) {
-    let Some(key) = super::cache::sanitized_rhokey(theta) else {
+    let Some(key) = super::rho_key::sanitized_rhokey(theta) else {
         return;
     };
     if let Ok(mut cache) = outer_ift_residual_energy_cache().lock() {
@@ -483,7 +483,7 @@ impl HyperGradientBudget {
     }
 
     pub(crate) fn reestimate_sensitivities(&mut self) -> Option<[f64; 3]> {
-        let pairs = self.finite_difference_pairs();
+        let pairs = self.secant_gradient_pairs();
         if pairs.len() < HGB_MIN_PAIRS_FOR_SENSITIVITY {
             log::info!(
                 "[HGB] small-sample fallback to defaults: pairs={}, threshold={}",
@@ -586,7 +586,7 @@ impl HyperGradientBudget {
         mean_positive(&estimates)
     }
 
-    pub(crate) fn finite_difference_pairs(&self) -> Vec<(Array1<f64>, Array1<f64>, usize)> {
+    pub(crate) fn secant_gradient_pairs(&self) -> Vec<(Array1<f64>, Array1<f64>, usize)> {
         let entries: Vec<_> = self.history.iter().collect();
         let mut pairs = Vec::new();
         for i in 0..entries.len().saturating_sub(1) {
@@ -601,7 +601,7 @@ impl HyperGradientBudget {
             if drho.iter().all(|v| v.is_finite())
                 && dg.iter().all(|v| v.is_finite())
                 && drho_norm_squared > 0.0
-                && drho_norm_squared <= HGB_FD_DRHO_MAX_SQUARED
+                && drho_norm_squared <= HGB_SECANT_DRHO_MAX_SQUARED
             {
                 pairs.push((drho, dg, i));
             }
@@ -710,7 +710,7 @@ impl HyperGradientBudget {
 pub(crate) struct HyperGradientRuntimeState {
     pub(crate) budget: HyperGradientBudget,
     pub(crate) adaptive_kkt_override: Option<f64>,
-    pub(crate) trace_state: Arc<Mutex<super::unified::StochasticTraceState>>,
+    pub(crate) trace_state: Arc<Mutex<super::reml_outer_engine::StochasticTraceState>>,
 }
 
 impl HyperGradientRuntimeState {
@@ -718,7 +718,9 @@ impl HyperGradientRuntimeState {
         Self {
             budget: HyperGradientBudget::new(),
             adaptive_kkt_override: None,
-            trace_state: Arc::new(Mutex::new(super::unified::StochasticTraceState::default())),
+            trace_state: Arc::new(Mutex::new(
+                super::reml_outer_engine::StochasticTraceState::default(),
+            )),
         }
     }
 }
@@ -882,8 +884,8 @@ pub(crate) static EFS_SINGLE_LOOP_BIAS_GUARD: LazyLock<Mutex<EfsSingleLoopBiasGu
     LazyLock::new(|| Mutex::new(EfsSingleLoopBiasGuardState::default()));
 
 #[inline]
-pub(crate) fn compute_gradient_for_tk(mode: super::unified::EvalMode) -> bool {
-    mode != super::unified::EvalMode::ValueOnly
+pub(crate) fn compute_gradient_for_tk(mode: super::reml_outer_engine::EvalMode) -> bool {
+    mode != super::reml_outer_engine::EvalMode::ValueOnly
 }
 
 #[inline]
@@ -951,15 +953,11 @@ pub(crate) fn decode_efs_single_loop_cap(raw_cap: usize) -> Option<usize> {
 /// Add the wrap to any future outer-cost emission as well.
 #[inline]
 pub(crate) fn screening_residual_penalty(cost: f64, pr: &PirlsResult) -> f64 {
-    if !cost.is_finite() || !pr.status.is_failed_max_iterations() {
-        return cost;
-    }
-    let r_g = pr.relative_gradient_norm();
-    if r_g.is_finite() {
-        cost + 0.5 * r_g * r_g
-    } else {
-        f64::INFINITY
-    }
+    crate::solver::objective_base::failed_inner_residual_barrier_cost(
+        cost,
+        pr.status.is_failed_max_iterations(),
+        pr.relative_gradient_norm(),
+    )
 }
 
 pub(crate) fn hash_array_view(hasher: &mut Fingerprinter, values: ndarray::ArrayView1<'_, f64>) {
@@ -979,9 +977,9 @@ pub(crate) fn hash_array2(hasher: &mut Fingerprinter, values: &Array2<f64>) {
 
 pub(crate) fn hash_aux_prior_strength(
     hasher: &mut Fingerprinter,
-    strength: crate::terms::latent_coord::AuxPriorStrength,
+    strength: crate::terms::latent::AuxPriorStrength,
 ) {
-    use crate::terms::latent_coord::AuxPriorStrength;
+    use crate::terms::latent::AuxPriorStrength;
     match strength {
         AuxPriorStrength::Auto => hasher.write_str("auto"),
         AuxPriorStrength::Fixed(value) => {
@@ -992,9 +990,9 @@ pub(crate) fn hash_aux_prior_strength(
 }
 
 pub(in crate::solver::estimate) fn latent_id_mode_cache_fingerprint(
-    id_mode: &crate::terms::latent_coord::LatentIdMode,
+    id_mode: &crate::terms::latent::LatentIdMode,
 ) -> u64 {
-    use crate::terms::latent_coord::{AuxPriorFamily, LatentIdMode};
+    use crate::terms::latent::{AuxPriorFamily, LatentIdMode};
     let mut hasher = Fingerprinter::new();
     hasher.write_str("latent-id-mode-cache-v1");
     match id_mode {
@@ -1027,7 +1025,7 @@ pub(in crate::solver::estimate) fn latent_id_mode_cache_fingerprint(
         }
         LatentIdMode::DimSelection { .. } => hasher.write_str("dim-selection"),
         LatentIdMode::AuxOutcome { head, .. } => {
-            use crate::terms::behavioral_head::AuxOutcomeFamily;
+            use crate::terms::decoders::behavioral_head::AuxOutcomeFamily;
             hasher.write_str("aux-outcome");
             match head.family() {
                 AuxOutcomeFamily::Binomial => hasher.write_str("binomial"),
@@ -1073,7 +1071,7 @@ pub(crate) fn hash_scalar_weight_schedule(
     hasher: &mut Fingerprinter,
     schedule: &crate::terms::analytic_penalties::ScalarWeightSchedule,
 ) {
-    use crate::terms::sae_manifold::ScheduleKind;
+    use crate::terms::sae::manifold::ScheduleKind;
 
     hasher.write_f64(schedule.w_start);
     hasher.write_f64(schedule.w_end);
@@ -1106,9 +1104,9 @@ pub(crate) fn hash_weight_schedule_option(
 
 pub(crate) fn hash_gumbel_temperature_schedule(
     hasher: &mut Fingerprinter,
-    schedule: &crate::terms::sae_manifold::GumbelTemperatureSchedule,
+    schedule: &crate::terms::sae::manifold::GumbelTemperatureSchedule,
 ) {
-    use crate::terms::sae_manifold::ScheduleKind;
+    use crate::terms::sae::manifold::ScheduleKind;
 
     hasher.write_f64(schedule.tau_start);
     hasher.write_f64(schedule.tau_min);
@@ -1128,7 +1126,7 @@ pub(crate) fn hash_gumbel_temperature_schedule(
 
 pub(crate) fn hash_gumbel_schedule_option(
     hasher: &mut Fingerprinter,
-    schedule: &Option<crate::terms::sae_manifold::GumbelTemperatureSchedule>,
+    schedule: &Option<crate::terms::sae::manifold::GumbelTemperatureSchedule>,
 ) {
     match schedule {
         Some(schedule) => {
@@ -1602,6 +1600,7 @@ pub(crate) fn finite_nonnegative_bits_or_no_signal(value: Option<f64>) -> u64 {
         .unwrap_or(IFT_RESIDUAL_NO_SIGNAL_BITS)
 }
 
+#[derive(Clone)]
 pub(crate) struct TkCorrectionTerms {
     pub(crate) value: f64,
     pub(crate) gradient: Option<Array1<f64>>,
@@ -1627,11 +1626,11 @@ pub(crate) struct TkActiveBlock {
 /// return this, eliminating the tuple-order mismatch that previously existed
 /// between the two paths.
 pub(crate) struct DerivativeContext {
-    pub(crate) deriv_provider: Box<dyn super::unified::HessianDerivativeProvider>,
-    pub(crate) dispersion: super::unified::DispersionHandling,
+    pub(crate) deriv_provider: Box<dyn super::reml_outer_engine::HessianDerivativeProvider>,
+    pub(crate) dispersion: super::reml_outer_engine::DispersionHandling,
     pub(crate) log_likelihood: f64,
     pub(crate) firth_op: Option<std::sync::Arc<super::FirthDenseOperator>>,
-    pub(crate) barrier_config: Option<super::unified::BarrierConfig>,
+    pub(crate) barrier_config: Option<super::reml_outer_engine::BarrierConfig>,
 }
 
 /// Project a `GlmLikelihoodSpec` onto a `LikelihoodSpec` for pattern matching
@@ -1702,7 +1701,7 @@ pub(crate) const FIRTH_DEFAULT_PC_TAIL_PROB: f64 = 0.01;
 /// well-defined prior family. Its *outer-objective contribution*, however, is NOT
 /// the plain PC term: the REML/LAML runtime evaluates firth-default coordinates
 /// through the SELF-GATED, one-sided barrier
-/// [`rho_prior_eval::firth_default_barrier_terms`], which is byte-identically
+/// [`crate::rho_prior_eval::firth_default_barrier_terms`], which is byte-identically
 /// flat (cost/grad/hess = 0) on the identified side `ρ ≥ −2 ln(upper)` and only a
 /// convex wall against the `λ → 0` / `ρ → −∞` under-smoothing degeneracy below
 /// it. This restores STRICT zero-downside (a clean / well-conditioned fit is
@@ -1963,7 +1962,10 @@ impl crate::inference::hmc::BlockExcessTarget for Gam784BlockTarget<'_> {
     }
 
     fn excess_rho_gradient(&self, t: &Array1<f64>) -> Array1<f64> {
-        let (delta, _s) = self.displacement(t);
+        // Only the coefficient displacement `δ = V_b t` (O(pm)) is needed here;
+        // the per-row score `s = X_t δ` (the O(np) design matvec) that
+        // `displacement` also computes is unused, so skip it.
+        let delta = self.block_vecs.dot(t);
         let mut grad = Array1::<f64>::zeros(self.lambdas.len());
         for (k, (score, &lam)) in self
             .penalty_scores
@@ -1984,5 +1986,83 @@ impl crate::inference::hmc::BlockExcessTarget for Gam784BlockTarget<'_> {
 
     fn base_neg_score(&self) -> Array1<f64> {
         self.neg_score_at(&self.eta_hat)
+    }
+
+    /// Fused excess + displaced score sharing ONE design matvec `s = X_t δ` and
+    /// ONE inverse-link jet sweep at `η̂ + s`. The jet yields both `μ` (the
+    /// deviance/excess channel) and `d1 = dμ/dη` (the score channel), so the
+    /// per-draw O(n·p) matvec and O(n) jet evaluation — previously paid twice
+    /// (once in `excess`, once in `displaced_neg_score`) — are paid once. The
+    /// summed value is bit-identical to the separate calls: `excess` reads
+    /// `jet.mu` and `displaced_neg_score` reads the SAME jet's `d1`/`mu` floors,
+    /// which this method reproduces exactly (#784, #1082).
+    fn excess_with_displaced_neg_score(&self, t: &Array1<f64>) -> (f64, Option<Array1<f64>>) {
+        let (delta, s) = self.displacement(t);
+        let n = self.eta_hat.len();
+
+        // Family constants mirrored from `neg_score_at` / `calculate_deviance`.
+        let spec_response = reml_spec(&self.likelihood).response.clone();
+        let family = pirls::weight_family_for_glm_likelihood(&self.likelihood);
+        let fam_scale = match &spec_response {
+            ResponseFamily::Gaussian | ResponseFamily::Tweedie { .. } => {
+                1.0 / self.likelihood.fixed_phi().unwrap_or(1.0)
+            }
+            _ => 1.0,
+        };
+        const BINOMIAL_MU_EPS: f64 = 1e-12;
+        const MU_FLOOR: f64 = 1e-10;
+        let is_binomial = matches!(spec_response, ResponseFamily::Binomial);
+
+        // One jet sweep: collect μ (unclamped, for the deviance — matching
+        // `excess`) and the per-row score (clamped μ, for `displaced_neg_score`).
+        let mut mu_disp = Array1::<f64>::zeros(n);
+        let mut ngs = Array1::<f64>::zeros(n);
+        for i in 0..n {
+            let eta_i = self.eta_hat[i] + s[i];
+            let jet = match crate::mixture_link::inverse_link_jet_for_inverse_link(
+                &self.inverse_link,
+                eta_i,
+            ) {
+                Ok(jet) => jet,
+                // `excess` returns +∞ on an infeasible inverse-link jet.
+                Err(_) => return (f64::INFINITY, None),
+            };
+            mu_disp[i] = jet.mu;
+            let mu_c = if is_binomial {
+                jet.mu.clamp(BINOMIAL_MU_EPS, 1.0 - BINOMIAL_MU_EPS)
+            } else {
+                jet.mu.max(MU_FLOOR)
+            };
+            let v = pirls::variance_jet_for_weight_family(family, mu_c).v;
+            if v.is_finite() && v > 0.0 {
+                let d_dev_d_mu = -2.0 * self.prior_weights[i] * (self.y[i] - mu_c) / v * fam_scale;
+                ngs[i] = d_dev_d_mu * jet.d1 / (2.0 * self.phi);
+            }
+        }
+
+        let dev_disp = crate::pirls::calculate_deviance(
+            self.y.view(),
+            &mu_disp,
+            &self.likelihood,
+            self.prior_weights.view(),
+        );
+        if !dev_disp.is_finite() {
+            return (f64::INFINITY, None);
+        }
+        let neg_loglik_diff = (dev_disp - self.base_deviance) / (2.0 * self.phi);
+        let mut penalty_term = 0.0_f64;
+        for (score, &lam) in self.penalty_scores.iter().zip(self.lambdas.iter()) {
+            penalty_term += lam * score.dot(&delta);
+        }
+        let mut curv = 0.0_f64;
+        for i in 0..s.len() {
+            curv += self.weights_obs[i] * s[i] * s[i];
+        }
+        let excess = neg_loglik_diff + penalty_term - 0.5 * curv;
+        if excess.is_finite() {
+            (excess, Some(ngs))
+        } else {
+            (excess, None)
+        }
     }
 }

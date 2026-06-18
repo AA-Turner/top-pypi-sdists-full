@@ -20,12 +20,13 @@ use hashbrown::{HashMap, HashSet};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 
+use petgraph::EdgeType;
 use petgraph::graph::NodeIndex;
 use petgraph::prelude::*;
 use petgraph::visit::{IntoEdgeReferences, NodeIndexable};
-use petgraph::EdgeType;
 
 use rand::prelude::*;
+use rand::rngs::SysRng;
 use rand_distr::{Distribution, Uniform};
 use rand_pcg::Pcg64;
 
@@ -307,7 +308,7 @@ pub fn spring_layout<Ty>(
     adaptive_cooling: Option<bool>,
     num_iter: Option<usize>,
     tol: Option<f64>,
-    weight_fn: Option<PyObject>,
+    weight_fn: Option<Py<PyAny>>,
     default_weight: f64,
     scale: Option<f64>,
     center: Option<Point>,
@@ -322,7 +323,7 @@ where
 
     let mut rng: Pcg64 = match seed {
         Some(seed) => Pcg64::seed_from_u64(seed),
-        None => Pcg64::from_os_rng(),
+        None => Pcg64::try_from_rng(&mut SysRng).unwrap(),
     };
 
     let dist = Uniform::new(0.0, 1.0)

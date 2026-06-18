@@ -125,6 +125,8 @@ from .literals import (
     ScheduleTypeType,
     SchemaStatusType,
     SchemaVersionStatusType,
+    SearchFilterOperatorType,
+    SearchSortOrderType,
     SeparatorType,
     SessionStatusType,
     SessionTypeType,
@@ -189,6 +191,11 @@ __all__ = (
     "ApplyMappingPaginatorTypeDef",
     "ApplyMappingTypeDef",
     "ApplyMappingUnionTypeDef",
+    "AssetFormEntryTypeDef",
+    "AssetTypeFormReferenceTypeDef",
+    "AssetTypeItemTypeDef",
+    "AssociateGlossaryTermsRequestTypeDef",
+    "AssociateGlossaryTermsResponseTypeDef",
     "AthenaConnectorSourceOutputTypeDef",
     "AthenaConnectorSourceTypeDef",
     "AthenaConnectorSourceUnionTypeDef",
@@ -224,6 +231,8 @@ __all__ = (
     "BatchGetDataQualityResultResponseTypeDef",
     "BatchGetDevEndpointsRequestTypeDef",
     "BatchGetDevEndpointsResponseTypeDef",
+    "BatchGetIterableFormsRequestTypeDef",
+    "BatchGetIterableFormsResponseTypeDef",
     "BatchGetJobsRequestTypeDef",
     "BatchGetJobsResponseTypeDef",
     "BatchGetPartitionRequestTypeDef",
@@ -369,6 +378,10 @@ __all__ = (
     "CreateDatabaseRequestTypeDef",
     "CreateDevEndpointRequestTypeDef",
     "CreateDevEndpointResponseTypeDef",
+    "CreateGlossaryRequestTypeDef",
+    "CreateGlossaryResponseTypeDef",
+    "CreateGlossaryTermRequestTypeDef",
+    "CreateGlossaryTermResponseTypeDef",
     "CreateGlueIdentityCenterConfigurationRequestTypeDef",
     "CreateGlueIdentityCenterConfigurationResponseTypeDef",
     "CreateGrokClassifierRequestTypeDef",
@@ -457,6 +470,10 @@ __all__ = (
     "DecimalNumberOutputTypeDef",
     "DecimalNumberTypeDef",
     "DecimalNumberUnionTypeDef",
+    "DeleteAssetRequestTypeDef",
+    "DeleteAssetTypeRequestTypeDef",
+    "DeleteAttachmentRequestTypeDef",
+    "DeleteAttachmentResponseTypeDef",
     "DeleteBlueprintRequestTypeDef",
     "DeleteBlueprintResponseTypeDef",
     "DeleteCatalogRequestTypeDef",
@@ -472,6 +489,9 @@ __all__ = (
     "DeleteDataQualityRulesetRequestTypeDef",
     "DeleteDatabaseRequestTypeDef",
     "DeleteDevEndpointRequestTypeDef",
+    "DeleteFormTypeRequestTypeDef",
+    "DeleteGlossaryRequestTypeDef",
+    "DeleteGlossaryTermRequestTypeDef",
     "DeleteIntegrationRequestTypeDef",
     "DeleteIntegrationResourcePropertyRequestTypeDef",
     "DeleteIntegrationResponseTypeDef",
@@ -524,6 +544,8 @@ __all__ = (
     "DirectKinesisSourceTypeDef",
     "DirectKinesisSourceUnionTypeDef",
     "DirectSchemaChangePolicyTypeDef",
+    "DisassociateGlossaryTermsRequestTypeDef",
+    "DisassociateGlossaryTermsResponseTypeDef",
     "DoubleColumnStatisticsDataTypeDef",
     "DropDuplicatesOutputTypeDef",
     "DropDuplicatesTypeDef",
@@ -584,6 +606,11 @@ __all__ = (
     "FindMatchesMetricsTypeDef",
     "FindMatchesParametersTypeDef",
     "FindMatchesTaskRunPropertiesTypeDef",
+    "FormTypeItemTypeDef",
+    "GetAssetInputTypeDef",
+    "GetAssetOutputTypeDef",
+    "GetAssetTypeRequestTypeDef",
+    "GetAssetTypeResponseTypeDef",
     "GetBlueprintRequestTypeDef",
     "GetBlueprintResponseTypeDef",
     "GetBlueprintRunRequestTypeDef",
@@ -657,6 +684,12 @@ __all__ = (
     "GetDevEndpointsResponseTypeDef",
     "GetEntityRecordsRequestTypeDef",
     "GetEntityRecordsResponseTypeDef",
+    "GetFormTypeRequestTypeDef",
+    "GetFormTypeResponseTypeDef",
+    "GetGlossaryRequestTypeDef",
+    "GetGlossaryResponseTypeDef",
+    "GetGlossaryTermRequestTypeDef",
+    "GetGlossaryTermResponseTypeDef",
     "GetGlueIdentityCenterConfigurationResponseTypeDef",
     "GetIntegrationResourcePropertyRequestTypeDef",
     "GetIntegrationResourcePropertyResponseTypeDef",
@@ -766,6 +799,8 @@ __all__ = (
     "GetWorkflowRunsRequestPaginateTypeDef",
     "GetWorkflowRunsRequestTypeDef",
     "GetWorkflowRunsResponseTypeDef",
+    "GlossaryItemTypeDef",
+    "GlossaryTermItemTypeDef",
     "GluePolicyTypeDef",
     "GlueSchemaOutputTypeDef",
     "GlueSchemaTypeDef",
@@ -824,6 +859,10 @@ __all__ = (
     "IntegrationResourcePropertyFilterTypeDef",
     "IntegrationResourcePropertyTypeDef",
     "IntegrationTypeDef",
+    "ItemErrorTypeDef",
+    "IterableFormEntryTypeDef",
+    "IterableFormItemTypeDef",
+    "IterableFormListItemTypeDef",
     "JDBCConnectorOptionsOutputTypeDef",
     "JDBCConnectorOptionsTypeDef",
     "JDBCConnectorOptionsUnionTypeDef",
@@ -863,6 +902,9 @@ __all__ = (
     "LastActiveDefinitionTypeDef",
     "LastCrawlInfoTypeDef",
     "LineageConfigurationTypeDef",
+    "ListAssetTypesRequestPaginateTypeDef",
+    "ListAssetTypesRequestTypeDef",
+    "ListAssetTypesResponseTypeDef",
     "ListBlueprintsRequestPaginateTypeDef",
     "ListBlueprintsRequestTypeDef",
     "ListBlueprintsResponseTypeDef",
@@ -894,8 +936,20 @@ __all__ = (
     "ListEntitiesRequestPaginateTypeDef",
     "ListEntitiesRequestTypeDef",
     "ListEntitiesResponseTypeDef",
+    "ListFormTypesRequestPaginateTypeDef",
+    "ListFormTypesRequestTypeDef",
+    "ListFormTypesResponseTypeDef",
+    "ListGlossariesRequestPaginateTypeDef",
+    "ListGlossariesRequestTypeDef",
+    "ListGlossariesResponseTypeDef",
+    "ListGlossaryTermsRequestPaginateTypeDef",
+    "ListGlossaryTermsRequestTypeDef",
+    "ListGlossaryTermsResponseTypeDef",
     "ListIntegrationResourcePropertiesRequestTypeDef",
     "ListIntegrationResourcePropertiesResponseTypeDef",
+    "ListIterableFormsRequestPaginateTypeDef",
+    "ListIterableFormsRequestTypeDef",
+    "ListIterableFormsResponseTypeDef",
     "ListJobsRequestPaginateTypeDef",
     "ListJobsRequestTypeDef",
     "ListJobsResponseTypeDef",
@@ -1007,8 +1061,16 @@ __all__ = (
     "ProfileConfigurationUnionTypeDef",
     "PropertyPredicateTypeDef",
     "PropertyTypeDef",
+    "PutAssetRequestTypeDef",
+    "PutAssetResponseTypeDef",
+    "PutAssetTypeRequestTypeDef",
+    "PutAssetTypeResponseTypeDef",
+    "PutAttachmentRequestTypeDef",
+    "PutAttachmentResponseTypeDef",
     "PutDataCatalogEncryptionSettingsRequestTypeDef",
     "PutDataQualityProfileAnnotationRequestTypeDef",
+    "PutFormTypeRequestTypeDef",
+    "PutFormTypeResponseTypeDef",
     "PutResourcePolicyRequestTypeDef",
     "PutResourcePolicyResponseTypeDef",
     "PutSchemaVersionMetadataInputTypeDef",
@@ -1136,6 +1198,17 @@ __all__ = (
     "SchemaVersionErrorItemTypeDef",
     "SchemaVersionListItemTypeDef",
     "SchemaVersionNumberTypeDef",
+    "SearchAttributeFilterTypeDef",
+    "SearchFilterClausePaginatorTypeDef",
+    "SearchFilterClauseTypeDef",
+    "SearchFilterValueTypeDef",
+    "SearchInputPaginateTypeDef",
+    "SearchInputTypeDef",
+    "SearchMapFilterTypeDef",
+    "SearchMapFilterValueTypeDef",
+    "SearchOutputTypeDef",
+    "SearchResultItemTypeDef",
+    "SearchSortTypeDef",
     "SearchTablesRequestTypeDef",
     "SearchTablesResponseTypeDef",
     "SecurityConfigurationTypeDef",
@@ -1302,6 +1375,10 @@ __all__ = (
     "UpdateDataQualityRulesetResponseTypeDef",
     "UpdateDatabaseRequestTypeDef",
     "UpdateDevEndpointRequestTypeDef",
+    "UpdateGlossaryRequestTypeDef",
+    "UpdateGlossaryResponseTypeDef",
+    "UpdateGlossaryTermRequestTypeDef",
+    "UpdateGlossaryTermResponseTypeDef",
     "UpdateGlueIdentityCenterConfigurationRequestTypeDef",
     "UpdateGrokClassifierRequestTypeDef",
     "UpdateIcebergInputTypeDef",
@@ -1407,6 +1484,34 @@ class MappingPaginatorTypeDef(TypedDict):
     Children: NotRequired[list[dict[str, Any]]]
 
 
+class AssetFormEntryTypeDef(TypedDict):
+    FormTypeId: NotRequired[str]
+    Content: NotRequired[str]
+
+
+class AssetTypeFormReferenceTypeDef(TypedDict):
+    FormTypeIdentifier: str
+
+
+class AssetTypeItemTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+
+
+class AssociateGlossaryTermsRequestTypeDef(TypedDict):
+    Identifier: str
+    GlossaryTermIdentifiers: Sequence[str]
+    ClientToken: NotRequired[str]
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
 class AuditContextTypeDef(TypedDict):
     AdditionalAuditContext: NotRequired[str]
     RequestedColumns: NotRequired[Sequence[str]]
@@ -1446,14 +1551,6 @@ class BasicCatalogTargetTypeDef(TypedDict):
     Database: str
     Table: str
     PartitionKeys: NotRequired[Sequence[Sequence[str]]]
-
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
 
 
 class BatchDeleteConnectionRequestTypeDef(TypedDict):
@@ -1534,6 +1631,18 @@ class DevEndpointTypeDef(TypedDict):
     PublicKeys: NotRequired[list[str]]
     SecurityConfiguration: NotRequired[str]
     Arguments: NotRequired[dict[str, str]]
+
+
+class BatchGetIterableFormsRequestTypeDef(TypedDict):
+    AssetIdentifier: str
+    IterableFormName: str
+    ItemIdentifiers: Sequence[str]
+
+
+class ItemErrorTypeDef(TypedDict):
+    ItemIdentifier: NotRequired[str]
+    Code: NotRequired[str]
+    Message: NotRequired[str]
 
 
 class BatchGetJobsRequestTypeDef(TypedDict):
@@ -2428,6 +2537,20 @@ class CreateDevEndpointRequestTypeDef(TypedDict):
     Arguments: NotRequired[Mapping[str, str]]
 
 
+class CreateGlossaryRequestTypeDef(TypedDict):
+    Name: str
+    Description: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
+class CreateGlossaryTermRequestTypeDef(TypedDict):
+    GlossaryIdentifier: str
+    Name: str
+    ShortDescription: NotRequired[str]
+    LongDescription: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
 class CreateGlueIdentityCenterConfigurationRequestTypeDef(TypedDict):
     InstanceArn: str
     Scopes: NotRequired[Sequence[str]]
@@ -2647,6 +2770,19 @@ class DecimalNumberOutputTypeDef(TypedDict):
     Scale: int
 
 
+class DeleteAssetRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class DeleteAssetTypeRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class DeleteAttachmentRequestTypeDef(TypedDict):
+    Identifier: str
+    AttachmentName: str
+
+
 class DeleteBlueprintRequestTypeDef(TypedDict):
     Name: str
 
@@ -2707,6 +2843,18 @@ class DeleteDatabaseRequestTypeDef(TypedDict):
 
 class DeleteDevEndpointRequestTypeDef(TypedDict):
     EndpointName: str
+
+
+class DeleteFormTypeRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class DeleteGlossaryRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class DeleteGlossaryTermRequestTypeDef(TypedDict):
+    Identifier: str
 
 
 class DeleteIntegrationRequestTypeDef(TypedDict):
@@ -2870,6 +3018,12 @@ class DirectSchemaChangePolicyTypeDef(TypedDict):
     Database: NotRequired[str]
 
 
+class DisassociateGlossaryTermsRequestTypeDef(TypedDict):
+    Identifier: str
+    GlossaryTermIdentifiers: Sequence[str]
+    ClientToken: NotRequired[str]
+
+
 class DropDuplicatesTypeDef(TypedDict):
     Name: str
     Inputs: Sequence[str]
@@ -2986,6 +3140,23 @@ class FindMatchesTaskRunPropertiesTypeDef(TypedDict):
     JobId: NotRequired[str]
     JobName: NotRequired[str]
     JobRunId: NotRequired[str]
+
+
+class FormTypeItemTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+
+
+class GetAssetInputTypeDef(TypedDict):
+    Identifier: str
+
+
+class IterableFormEntryTypeDef(TypedDict):
+    FormTypeId: NotRequired[str]
+
+
+class GetAssetTypeRequestTypeDef(TypedDict):
+    Identifier: str
 
 
 class GetBlueprintRequestTypeDef(TypedDict):
@@ -3176,6 +3347,18 @@ class GetEntityRecordsRequestTypeDef(TypedDict):
     FilterPredicate: NotRequired[str]
     OrderBy: NotRequired[str]
     SelectedFields: NotRequired[Sequence[str]]
+
+
+class GetFormTypeRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class GetGlossaryRequestTypeDef(TypedDict):
+    Identifier: str
+
+
+class GetGlossaryTermRequestTypeDef(TypedDict):
+    Identifier: str
 
 
 class GetIntegrationResourcePropertyRequestTypeDef(TypedDict):
@@ -3425,6 +3608,18 @@ class GetWorkflowRunsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
+class GlossaryItemTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+
+
+class GlossaryTermItemTypeDef(TypedDict):
+    Id: NotRequired[str]
+    Name: NotRequired[str]
+    ShortDescription: NotRequired[str]
+
+
 GlueStudioSchemaColumnTypeDef = TypedDict(
     "GlueStudioSchemaColumnTypeDef",
     {
@@ -3552,6 +3747,13 @@ class IntegrationResourcePropertyFilterTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
 
 
+class IterableFormListItemTypeDef(TypedDict):
+    ItemId: NotRequired[str]
+    ItemName: NotRequired[str]
+    Description: NotRequired[str]
+    GlossaryTerms: NotRequired[list[str]]
+
+
 class JDBCConnectorOptionsOutputTypeDef(TypedDict):
     FilterPredicate: NotRequired[str]
     PartitionColumn: NotRequired[str]
@@ -3602,6 +3804,11 @@ class LabelingSetGenerationTaskRunPropertiesTypeDef(TypedDict):
     OutputS3Path: NotRequired[str]
 
 
+class ListAssetTypesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListBlueprintsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -3642,6 +3849,29 @@ class ListEntitiesRequestTypeDef(TypedDict):
     ParentEntityName: NotRequired[str]
     NextToken: NotRequired[str]
     DataStoreApiVersion: NotRequired[str]
+
+
+class ListFormTypesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListGlossariesRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListGlossaryTermsRequestTypeDef(TypedDict):
+    GlossaryIdentifier: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListIterableFormsRequestTypeDef(TypedDict):
+    AssetIdentifier: str
+    IterableFormName: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 
 class ListJobsRequestTypeDef(TypedDict):
@@ -3850,9 +4080,25 @@ class PropertyPredicateTypeDef(TypedDict):
     Comparator: NotRequired[ComparatorType]
 
 
+class PutAttachmentRequestTypeDef(TypedDict):
+    AssetIdentifier: str
+    AttachmentName: str
+    Content: str
+    FormTypeId: str
+    IterableFormName: NotRequired[str]
+    ItemIdentifier: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
 class PutDataQualityProfileAnnotationRequestTypeDef(TypedDict):
     ProfileId: str
     InclusionAnnotation: InclusionAnnotationValueType
+
+
+class PutFormTypeRequestTypeDef(TypedDict):
+    Name: str
+    Schema: str
+    ClientToken: NotRequired[str]
 
 
 class PutResourcePolicyRequestTypeDef(TypedDict):
@@ -3941,6 +4187,28 @@ class S3DirectSourceAdditionalOptionsTypeDef(TypedDict):
     BoundedFiles: NotRequired[int]
     EnableSamplePath: NotRequired[bool]
     SamplePath: NotRequired[str]
+
+
+class SearchFilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+    LongValue: NotRequired[int]
+
+
+class SearchSortTypeDef(TypedDict):
+    Attribute: str
+    Order: NotRequired[SearchSortOrderType]
+
+
+class SearchMapFilterValueTypeDef(TypedDict):
+    StringValue: NotRequired[str]
+
+
+class SearchResultItemTypeDef(TypedDict):
+    Id: NotRequired[str]
+    AssetName: NotRequired[str]
+    AssetDescription: NotRequired[str]
+    UpdatedAt: NotRequired[datetime]
+    AssetTypeId: NotRequired[str]
 
 
 class SortCriterionTypeDef(TypedDict):
@@ -4227,6 +4495,21 @@ class UpdateDataQualityRulesetRequestTypeDef(TypedDict):
     Ruleset: NotRequired[str]
 
 
+class UpdateGlossaryRequestTypeDef(TypedDict):
+    Identifier: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
+class UpdateGlossaryTermRequestTypeDef(TypedDict):
+    Identifier: str
+    Name: NotRequired[str]
+    ShortDescription: NotRequired[str]
+    LongDescription: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
 class UpdateGlueIdentityCenterConfigurationRequestTypeDef(TypedDict):
     Scopes: NotRequired[Sequence[str]]
     UserBackgroundSessionsEnabled: NotRequired[bool]
@@ -4479,37 +4762,33 @@ ApplyMappingPaginatorTypeDef = TypedDict(
 )
 
 
-class GetPartitionRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableName: str
-    PartitionValues: Sequence[str]
-    CatalogId: NotRequired[str]
-    AuditContext: NotRequired[AuditContextTypeDef]
+class IterableFormItemTypeDef(TypedDict):
+    ItemId: NotRequired[str]
+    ItemName: NotRequired[str]
+    GlossaryTerms: NotRequired[list[str]]
+    Forms: NotRequired[dict[str, AssetFormEntryTypeDef]]
+    Attachments: NotRequired[dict[str, AssetFormEntryTypeDef]]
 
 
-class GetTableVersionRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableName: str
-    CatalogId: NotRequired[str]
-    VersionId: NotRequired[str]
-    AuditContext: NotRequired[AuditContextTypeDef]
+class PutAssetRequestTypeDef(TypedDict):
+    AssetTypeId: str
+    Identifier: str
+    Name: str
+    Forms: Mapping[str, AssetFormEntryTypeDef]
+    Description: NotRequired[str]
+    ClientToken: NotRequired[str]
 
 
-class GetTableVersionsRequestTypeDef(TypedDict):
-    DatabaseName: str
-    TableName: str
-    CatalogId: NotRequired[str]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-    AuditContext: NotRequired[AuditContextTypeDef]
+class PutAssetTypeRequestTypeDef(TypedDict):
+    Name: str
+    Forms: Mapping[str, AssetTypeFormReferenceTypeDef]
+    ClientToken: NotRequired[str]
 
 
-class BackfillErrorTypeDef(TypedDict):
-    Code: NotRequired[BackfillErrorCodeType]
-    Partitions: NotRequired[list[PartitionValueListOutputTypeDef]]
-
-
-BasicCatalogTargetUnionTypeDef = Union[BasicCatalogTargetTypeDef, BasicCatalogTargetOutputTypeDef]
+class AssociateGlossaryTermsResponseTypeDef(TypedDict):
+    Identifier: str
+    GlossaryTerms: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchPutDataQualityStatisticAnnotationResponseTypeDef(TypedDict):
@@ -4570,6 +4849,22 @@ class CreateDevEndpointResponseTypeDef(TypedDict):
     SecurityConfiguration: str
     CreatedTimestamp: datetime
     Arguments: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateGlossaryResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Description: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateGlossaryTermResponseTypeDef(TypedDict):
+    Id: str
+    GlossaryId: str
+    Name: str
+    ShortDescription: str
+    LongDescription: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -4641,6 +4936,11 @@ class CreateWorkflowResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DeleteAttachmentResponseTypeDef(TypedDict):
+    Identifier: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DeleteBlueprintResponseTypeDef(TypedDict):
     Name: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4690,6 +4990,19 @@ class DeleteWorkflowResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class DisassociateGlossaryTermsResponseTypeDef(TypedDict):
+    Identifier: str
+    GlossaryTerms: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAssetTypeResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Forms: dict[str, AssetTypeFormReferenceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetCustomEntityTypeResponseTypeDef(TypedDict):
     Name: str
     RegexString: str
@@ -4714,6 +5027,29 @@ class GetEntityRecordsResponseTypeDef(TypedDict):
     Records: list[dict[str, Any]]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class GetFormTypeResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Schema: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetGlossaryResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Description: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetGlossaryTermResponseTypeDef(TypedDict):
+    Id: str
+    GlossaryId: str
+    Name: str
+    ShortDescription: str
+    LongDescription: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetGlueIdentityCenterConfigurationResponseTypeDef(TypedDict):
@@ -4800,6 +5136,12 @@ class GetWorkflowRunPropertiesResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListAssetTypesResponseTypeDef(TypedDict):
+    Items: list[AssetTypeItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListBlueprintsResponseTypeDef(TypedDict):
     Blueprints: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -4846,6 +5188,38 @@ class ListWorkflowsResponseTypeDef(TypedDict):
     Workflows: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class PutAssetResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Description: str
+    CreatedAt: datetime
+    Forms: dict[str, AssetFormEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutAssetTypeResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Forms: dict[str, AssetTypeFormReferenceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutAttachmentResponseTypeDef(TypedDict):
+    AssetId: str
+    IterableFormName: str
+    ItemIdentifier: str
+    AttachmentName: str
+    FormTypeId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutFormTypeResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Schema: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutResourcePolicyResponseTypeDef(TypedDict):
@@ -4982,6 +5356,22 @@ class UpdateDataQualityRulesetResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class UpdateGlossaryResponseTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Description: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateGlossaryTermResponseTypeDef(TypedDict):
+    Id: str
+    GlossaryId: str
+    Name: str
+    ShortDescription: str
+    LongDescription: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateJobFromSourceControlResponseTypeDef(TypedDict):
     JobName: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5023,6 +5413,39 @@ class UpdateUsageProfileResponseTypeDef(TypedDict):
 class UpdateWorkflowResponseTypeDef(TypedDict):
     Name: str
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPartitionRequestTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    PartitionValues: Sequence[str]
+    CatalogId: NotRequired[str]
+    AuditContext: NotRequired[AuditContextTypeDef]
+
+
+class GetTableVersionRequestTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    CatalogId: NotRequired[str]
+    VersionId: NotRequired[str]
+    AuditContext: NotRequired[AuditContextTypeDef]
+
+
+class GetTableVersionsRequestTypeDef(TypedDict):
+    DatabaseName: str
+    TableName: str
+    CatalogId: NotRequired[str]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    AuditContext: NotRequired[AuditContextTypeDef]
+
+
+class BackfillErrorTypeDef(TypedDict):
+    Code: NotRequired[BackfillErrorCodeType]
+    Partitions: NotRequired[list[PartitionValueListOutputTypeDef]]
+
+
+BasicCatalogTargetUnionTypeDef = Union[BasicCatalogTargetTypeDef, BasicCatalogTargetOutputTypeDef]
 
 
 class BatchDeleteConnectionResponseTypeDef(TypedDict):
@@ -5970,6 +6393,10 @@ class GetWorkflowRunsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListAssetTypesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListBlueprintsRequestPaginateTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -5984,6 +6411,25 @@ class ListEntitiesRequestPaginateTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     ParentEntityName: NotRequired[str]
     DataStoreApiVersion: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListFormTypesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListGlossariesRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListGlossaryTermsRequestPaginateTypeDef(TypedDict):
+    GlossaryIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListIterableFormsRequestPaginateTypeDef(TypedDict):
+    AssetIdentifier: str
+    IterableFormName: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -6190,6 +6636,26 @@ class TransformParametersTypeDef(TypedDict):
     FindMatchesParameters: NotRequired[FindMatchesParametersTypeDef]
 
 
+class ListFormTypesResponseTypeDef(TypedDict):
+    Items: list[FormTypeItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetAssetOutputTypeDef(TypedDict):
+    Id: str
+    Name: str
+    Description: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    AssetTypeId: str
+    GlossaryTerms: list[str]
+    Forms: dict[str, AssetFormEntryTypeDef]
+    Attachments: dict[str, AssetFormEntryTypeDef]
+    IterableForms: dict[str, IterableFormEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetConnectionsRequestPaginateTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     Filter: NotRequired[GetConnectionsFilterTypeDef]
@@ -6311,6 +6777,18 @@ class GetSessionEndpointResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ListGlossariesResponseTypeDef(TypedDict):
+    Items: list[GlossaryItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListGlossaryTermsResponseTypeDef(TypedDict):
+    Items: list[GlossaryTermItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class GlueSchemaOutputTypeDef(TypedDict):
     Columns: NotRequired[list[GlueStudioSchemaColumnTypeDef]]
 
@@ -6405,6 +6883,12 @@ class ListIntegrationResourcePropertiesRequestTypeDef(TypedDict):
     Marker: NotRequired[str]
     Filters: NotRequired[Sequence[IntegrationResourcePropertyFilterTypeDef]]
     MaxRecords: NotRequired[int]
+
+
+class ListIterableFormsResponseTypeDef(TypedDict):
+    Items: list[IterableFormListItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 JDBCConnectorOptionsUnionTypeDef = Union[
@@ -6604,6 +7088,24 @@ class UserDefinedFunctionTypeDef(TypedDict):
     CatalogId: NotRequired[str]
 
 
+class SearchAttributeFilterTypeDef(TypedDict):
+    Attribute: str
+    Operator: SearchFilterOperatorType
+    Value: NotRequired[SearchFilterValueTypeDef]
+
+
+class SearchMapFilterTypeDef(TypedDict):
+    Attribute: str
+    Key: str
+    Value: SearchMapFilterValueTypeDef
+
+
+class SearchOutputTypeDef(TypedDict):
+    Items: list[SearchResultItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class SearchTablesRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
     NextToken: NotRequired[str]
@@ -6751,6 +7253,12 @@ class SnowflakeTargetOutputTypeDef(TypedDict):
 
 
 SnowflakeNodeDataUnionTypeDef = Union[SnowflakeNodeDataTypeDef, SnowflakeNodeDataOutputTypeDef]
+
+
+class BatchGetIterableFormsResponseTypeDef(TypedDict):
+    Items: list[IterableFormItemTypeDef]
+    Errors: list[ItemErrorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PartitionIndexDescriptorTypeDef(TypedDict):
@@ -8195,6 +8703,20 @@ class GetUserDefinedFunctionsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class SearchFilterClausePaginatorTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAnyFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    AttributeFilter: NotRequired[SearchAttributeFilterTypeDef]
+    MapFilter: NotRequired[SearchMapFilterTypeDef]
+
+
+class SearchFilterClauseTypeDef(TypedDict):
+    AndAllFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    OrAnyFilters: NotRequired[Sequence[Mapping[str, Any]]]
+    AttributeFilter: NotRequired[SearchAttributeFilterTypeDef]
+    MapFilter: NotRequired[SearchMapFilterTypeDef]
+
+
 class StorageDescriptorTypeDef(TypedDict):
     Columns: NotRequired[Sequence[ColumnUnionTypeDef]]
     Location: NotRequired[str]
@@ -8863,6 +9385,23 @@ class TestConnectionInputTypeDef(TypedDict):
 
 
 RecipeStepUnionTypeDef = Union[RecipeStepTypeDef, RecipeStepOutputTypeDef]
+
+
+class SearchInputPaginateTypeDef(TypedDict):
+    SearchText: NotRequired[str]
+    Sort: NotRequired[SearchSortTypeDef]
+    FilterClause: NotRequired[SearchFilterClausePaginatorTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchInputTypeDef(TypedDict):
+    SearchText: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Sort: NotRequired[SearchSortTypeDef]
+    FilterClause: NotRequired[SearchFilterClauseTypeDef]
+
+
 StorageDescriptorUnionTypeDef = Union[StorageDescriptorTypeDef, StorageDescriptorOutputTypeDef]
 
 

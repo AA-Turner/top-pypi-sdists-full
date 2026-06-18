@@ -91,3 +91,50 @@ def test_stub_broker_join_reraises_actor_exceptions_in_the_joining_current_threa
     # Then that exception should be raised in my thread
     with pytest.raises(CustomError):
         stub_broker.join(do_work.queue_name, fail_fast=True)
+
+
+def test_stub_broker_flush_all_does_not_break_dead_letters(stub_broker, stub_worker):
+    class SomeError(Exception):
+        pass
+
+    @dramatiq.actor(max_retries=0)
+    def do_work():
+        raise SomeError(":(")
+
+    do_work.send()
+    with pytest.raises(SomeError):
+        stub_broker.join(do_work.queue_name)
+
+    # Flush queues then retry. Should have the same result
+    stub_broker.flush_all()
+
+    do_work.send()
+    with pytest.raises(SomeError):
+        stub_broker.join(do_work.queue_name)
+
+
+def test_stub_broker_respects_prefetch(stub_broker, stub_worker):
+    """Test that the stub broker respect the prefetch option."""
+
+    # Adjust Worker to only prefetch 5 messages
+    stub_worker.queue_prefetch = 5
+
+    @dramatiq.actor()
+    def do_work():
+        pass
+
+    # Pause just worker threads (not consumers) so messages are not removed from worker.work_queue
+    for worker_thread in stub_worker.workers:
+        worker_thread.pause()
+        worker_thread.paused_event.wait()
+
+    # Put 15 messages on the queue
+    for _ in range(15):
+        do_work.send()
+
+    time.sleep(0.01)
+
+    # 5 messages will be prefetched and should be on the work_queue
+    assert stub_worker.work_queue.qsize() == 5
+    # 10 messages will be left on the broker queue.
+    assert stub_broker.queues[do_work.queue_name].qsize() == 10

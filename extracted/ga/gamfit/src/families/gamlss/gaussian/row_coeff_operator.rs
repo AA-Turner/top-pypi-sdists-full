@@ -222,7 +222,7 @@ impl RowCoeffOperator {
     }
 }
 
-impl crate::solver::estimate::reml::unified::HyperOperator for RowCoeffOperator {
+impl crate::reml_contracts::HyperOperator for RowCoeffOperator {
     fn dim(&self) -> usize {
         self.dim
     }
@@ -343,9 +343,9 @@ impl crate::solver::estimate::reml::unified::HyperOperator for RowCoeffOperator 
     fn trace_projected_factor_cached(
         &self,
         factor: &Array2<f64>,
-        cache: &crate::solver::estimate::reml::unified::ProjectedFactorCache,
+        cache: &crate::reml_contracts::ProjectedFactorCache,
     ) -> f64 {
-        let key = crate::solver::estimate::reml::unified::ProjectedFactorKey::from_factor_view(
+        let key = crate::reml_contracts::ProjectedFactorKey::from_factor_view(
             self.projected_pair_gram_cache_id(),
             factor.view(),
         );
@@ -376,7 +376,7 @@ pub(crate) struct DesignTwoBlockRowCoeffOperator {
     pub(crate) pa: usize,
 }
 
-impl crate::solver::estimate::reml::unified::HyperOperator for DesignTwoBlockRowCoeffOperator {
+impl crate::reml_contracts::HyperOperator for DesignTwoBlockRowCoeffOperator {
     fn dim(&self) -> usize {
         self.dim
     }
@@ -435,7 +435,7 @@ impl crate::solver::estimate::reml::unified::HyperOperator for DesignTwoBlockRow
     fn trace_projected_factor_cached(
         &self,
         factor: &Array2<f64>,
-        cache: &crate::solver::estimate::reml::unified::ProjectedFactorCache,
+        cache: &crate::reml_contracts::ProjectedFactorCache,
     ) -> f64 {
         // Validate the factor row count up front. Without this, a caller that
         // hands in a factor whose row count does not equal the joint p slips
@@ -456,7 +456,7 @@ impl crate::solver::estimate::reml::unified::HyperOperator for DesignTwoBlockRow
             self.pa,
             self.dim - self.pa,
         );
-        let key = crate::solver::estimate::reml::unified::ProjectedFactorKey::from_factor_view(
+        let key = crate::reml_contracts::ProjectedFactorKey::from_factor_view(
             self.projected_row_gram_cache_id(),
             factor.view(),
         );
@@ -645,7 +645,7 @@ impl GaussianLocationScaleHessianWorkspace {
     /// estimator of the full-data joint Hessian.
     pub(crate) fn apply_outer_subsample(
         &mut self,
-        rows: &[crate::families::marginal_slope_shared::WeightedOuterRow],
+        rows: &[crate::solver::outer_subsample::WeightedOuterRow],
     ) {
         let n = self.coeff_mm.len();
         let mut mask_mm = Array1::<f64>::zeros(n);
@@ -767,8 +767,7 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
     fn directional_derivative_operator(
         &self,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
         let n = self.xmu.nrows();
         let pmu = self.xmu.ncols();
         let pls = self.x_ls.ncols();
@@ -825,8 +824,7 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleHessianWorkspace 
         &self,
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
         let n = self.xmu.nrows();
         let pmu = self.xmu.ncols();
         let pls = self.x_ls.ncols();

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_server
-Version: 2.19.0
+Version: 2.20.0
 Summary: The backend—i.e. core services, APIs, and REST endpoints—to Jupyter web applications.
 Project-URL: Homepage, https://jupyter-server.readthedocs.io
 Project-URL: Documentation, https://jupyter-server.readthedocs.io
@@ -63,7 +63,7 @@ Requires-Dist: nbformat>=5.3.0
 Requires-Dist: overrides>=5.0; python_version < '3.12'
 Requires-Dist: packaging>=22.0
 Requires-Dist: prometheus-client>=0.9
-Requires-Dist: pywinpty>=2.0.1; os_name == 'nt'
+Requires-Dist: pywinpty!=3.0.4,>=2.0.1; os_name == 'nt'
 Requires-Dist: pyzmq>=24
 Requires-Dist: send2trash>=1.8.2
 Requires-Dist: terminado>=0.8.3

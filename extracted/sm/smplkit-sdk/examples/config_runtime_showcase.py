@@ -25,16 +25,23 @@ from setup.config_runtime_setup import (
 # Example Pydantic configuration classes to showcase how "code-first"
 # configuration management works
 
+
 class App(BaseModel):
-    name: str = Field(default="Acme SaaS", description="Display name of the application.")
+    name: str = Field(
+        default="Acme SaaS", description="Display name of the application."
+    )
 
 
 class Support(BaseModel):
-    email: str = Field(default="support@acme.dev", description="Customer support contact.")
+    email: str = Field(
+        default="support@acme.dev", description="Customer support contact."
+    )
 
 
 class Plan(BaseModel):
-    max_seats: int = Field(default=5, description="Maximum seats per organization.")
+    max_seats: int = Field(
+        default=5, description="Maximum seats per organization."
+    )
     trial_days: int = Field(default=14, description="Trial length in days.")
     tier: str = Field(default="free", description="Plan tier identifier.")
 
@@ -58,10 +65,6 @@ async def main() -> None:
 
     # or SmplClient for synchronous use
     async with AsyncSmplClient(environment="production") as client:
-        # Start-of-run cleanup removes any residue from a prior run. The
-        # matching cleanup in the ``finally`` below guarantees we also tear
-        # down our resources even if an assertion fails mid-showcase, so a
-        # failed run never leaves orphaned configs for the next run.
         await cleanup_runtime_showcase(client)
         try:
             # bind Pydantic models
@@ -72,13 +75,17 @@ async def main() -> None:
                 parent=common,
             )
             print(f"common.app.name = {common.app.name}")
-            print(f"billing.app.name = {billing.app.name}  # inherited from common")
+            print(
+                f"billing.app.name = {billing.app.name}  # inherited from common"
+            )
             print(f"billing.plan.max_seats = {billing.plan.max_seats}")
 
             # add listeners if desired
             changes: list = []
 
-            @client.config.on_change("showcase-billing", item_key="plan.max_seats")
+            @client.config.on_change(
+                "showcase-billing", item_key="plan.max_seats"
+            )
             def on_max_seats(event):
                 changes.append(event)
                 print(
@@ -93,8 +100,12 @@ async def main() -> None:
             await asyncio.sleep(0.4)
 
             # observe changes are automatically reflected in bound models
-            print(f"billing.plan.max_seats after override = {billing.plan.max_seats}")
-            assert billing.plan.max_seats == 25, f"Expected 25, got {billing.plan.max_seats}"
+            print(
+                f"billing.plan.max_seats after override = {billing.plan.max_seats}"
+            )
+            assert billing.plan.max_seats == 25, (
+                f"Expected 25, got {billing.plan.max_seats}"
+            )
             assert len(changes) >= 1
 
             # you can also bind plain-old dictionaries

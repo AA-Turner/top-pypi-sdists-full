@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: advertools
-Version: 0.17.2
+Version: 0.18.0
 Summary: Digital Marketing productivity and analysis tools.
 Keywords: seo,marketing,advertising,adwords,bingads,search-engine-marketing,online-marketing,digital-marketing,digital-advertising,keywords
 Author-email: Elias Dabbas <eliasdabbas@gmail.com>
@@ -14,11 +14,13 @@ Requires-Dist: scrapy>=2.5.0
 Requires-Dist: twython>=3.8.0
 Requires-Dist: pyarrow>=5.0.0
 Requires-Dist: requests>=2.25.0
+Requires-Dist: anthropic>=0.51.0 ; extra == "claude"
 Project-URL: Changelog, https://github.com/eliasdabbas/advertools/blob/master/HISTORY.rst
 Project-URL: Documentation, https://advertools.readthedocs.io
 Project-URL: Homepage, https://adver.tools
 Project-URL: Issues, https://github.com/eliasdabbas/advertools/issues
 Project-URL: Repository, https://github.com/eliasdabbas/advertools.git
+Provides-Extra: claude
 
 .. image:: https://img.shields.io/pypi/v/advertools.svg
         :target: https://pypi.python.org/pypi/advertools

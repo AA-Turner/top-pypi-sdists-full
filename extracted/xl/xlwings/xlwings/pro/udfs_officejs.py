@@ -259,13 +259,27 @@ def xlarg(arg: str, convert: Any = None, **kwargs: Any) -> Callable[[_F], _F]:
     return inner
 
 
+def js_to_none(arg):
+    # Pyodide >= 0.28 surfaces JS `null` as a distinct `JsNull` sentinel rather
+    # than Python `None`, which breaks `arg is None` checks (e.g. empty Excel
+    # cells no longer trigger optional-argument defaults). Normalize it back.
+    try:
+        from pyodide.ffi import JsNull
+
+        if isinstance(arg, JsNull):
+            return None
+    except ImportError:
+        pass
+    return arg
+
+
 def to_scalar(arg):
     if isinstance(arg, (list, tuple)) and len(arg) == 1:
         if isinstance(arg[0], (list, tuple)) and len(arg[0]) == 1:
             arg = arg[0][0]
         else:
             arg = arg[0]
-    return arg
+    return js_to_none(arg)
 
 
 date_format_language_map = {
@@ -387,6 +401,22 @@ async def custom_functions_call(
     ret_info = func_info["ret"]
     required_roles = func_info["required_roles"]
 
+    # Compute the producer discriminator only for handle-producing calls that carry a
+    # caller address - the same guard as the evict_superseded() call below - to avoid the
+    # JSON+hash over the raw args on every (typically non-producing) custom function call.
+    # Captured here from the raw args before they're mutated below (varargs flattened,
+    # scalars converted, object handles resolved): distinguishes handle-producing calls
+    # that share a caller address, e.g. the two MAKE calls in =CONSUME(MAKE("a"), MAKE("b")).
+    caller_address = data.get("caller_address")
+    produces_handles = (
+        ret_info["options"].get("convert") in object_handles.CONVERTER_KEYS
+    )
+    producer_scope = (
+        object_handles.producer_discriminator(func_name, args)
+        if caller_address and produces_handles
+        else None
+    )
+
     if current_user:
         await check_user_roles(current_user, required_roles)
 
@@ -475,9 +505,16 @@ async def custom_functions_call(
                     logger.info(
                         f"Task {t.get_name()} failed with exception: {t.exception()}"
                     )
-                background_tasks.pop(task_key, None)
-                task_key_to_sid_counts.pop(task_key, None)
-                task_key_to_task.pop(task_key, None)
+                # Only clear the bookkeeping if it still points at THIS task.
+                # add_done_callback fires via loop.call_soon, so on a restart
+                # (e.g. full recalc) the cancelled old task's callback can run
+                # *after* the new task has already registered itself under the
+                # same key - an unconditional pop would untrack the live new
+                # task, orphaning it and breaking subsequent restarts.
+                if background_tasks.get(task_key) is t:
+                    background_tasks.pop(task_key, None)
+                    task_key_to_sid_counts.pop(task_key, None)
+                    task_key_to_task.pop(task_key, None)
 
             mytask.add_done_callback(on_task_done)
             return mytask
@@ -491,10 +528,6 @@ async def custom_functions_call(
         ret = func(*args)
 
     ret = convert(ret, ret_info, data)
-    caller_address = data.get("caller_address")
-    produces_handles = (
-        ret_info["options"].get("convert") in object_handles.CONVERTER_KEYS
-    )
     if caller_address and produces_handles:
         # Deterministically drop the object-handle entries that this cell's previous
         # invocation wrote. Only handle-producing functions are tracked - for any other
@@ -508,6 +541,7 @@ async def custom_functions_call(
             ret,
             user_id=getattr(current_user, "id", None),
             session_id=data.get("session_id"),
+            discriminator=producer_scope,
         )
     return ret
 

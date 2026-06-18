@@ -98,6 +98,9 @@ MAX_LINES = 500
 HARD_MAX_LINES = 50
 HARD_MAX_PDF_PAGES = 3
 
+READ_DOCUMENT_MAX_IMAGE_DIMENSION = 1568
+READ_DOCUMENT_JPEG_QUALITY = 80
+
 
 class UnknownNodeTypeError(Exception):
     def __init__(self, node_type: str):
@@ -208,19 +211,6 @@ class MainController:
 
         Retrieves the project's branding settings and navigation sidebar items.
 
-        Returns:
-            StyleSettingsWithSidebar: Workspace configuration containing:
-                - name (str): Workspace display name
-                - language (str): Language code
-                - theme (str): Theme name or null
-                - logo_url (str): Path to logo image
-                - favicon_url (str): Path to favicon
-                - brand_name (str): Brand display name
-                - main_color (str): Primary color hex
-                - font_family (str): Font family name
-                - font_color (str): Font color hex
-                - sidebar (list): Navigation sidebar items
-
         Copywritings:
             Get workspace settings
             Retrieving workspace settings...
@@ -239,38 +229,6 @@ class MainController:
         Args:
             id (str): Unique identifier of the stage to retrieve.
 
-        Returns:
-            Optional[Stage]: The stage object if found, None otherwise.
-                The returned object will be one of:
-                - FormStage: For interactive form stages
-                - HookStage: For HTTP endpoint stages
-                - JobStage: For scheduled job stages
-                - ScriptStage: For script processing stages
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Get a specific stage
-            stage = controller.get_stage("form-123")
-
-            if stage:
-                print(f"Found stage: {stage.title}")
-                print(f"Type: {stage.type}")
-                print(f"File: {stage.file}")
-
-                # Type-specific operations
-                if isinstance(stage, FormStage):
-                    print("This is a form stage")
-                elif isinstance(stage, HookStage):
-                    print("This is a hook stage")
-                elif isinstance(stage, JobStage):
-                    print("This is a job stage")
-                elif isinstance(stage, ScriptStage):
-                    print("This is a tasklet stage")
-            else:
-                print("Stage not found")
-            ```
 
         Note:
             - Returns None if no stage with the given ID exists
@@ -419,16 +377,6 @@ class MainController:
             max_lines (int): Maximum number of lines to return in a single call.
                 Hard maximum of 1000. Defaults to 500.
 
-        Returns:
-            dict | None: Dictionary containing file content and metadata if the stage exists:
-                - content (str): The file content as a string
-                - start_line (int): Actual starting line number (1-indexed)
-                - end_line (int): Actual ending line number (1-indexed)
-                - total_lines (int): Total number of lines in the file
-                - has_more (bool): Whether there are more lines after end_line
-                - truncated (bool): Whether the result was limited by max_lines
-                Returns None if the stage doesn't exist or has no associated file.
-
         Example:
             ```python
             controller = MainController(repositories)
@@ -448,15 +396,6 @@ class MainController:
 
             # Read specific lines 50-250
             result = controller.read_stage_file_with_pagination("hook-789", start_line=50, end_line=250)
-
-            # Read with automatic pagination
-            result = controller.read_stage_file_with_pagination("job-321", max_lines=500)
-            if result and result["truncated"]:
-                next_result = controller.read_stage_file_with_pagination(
-                    "job-321",
-                    start_line=result["end_line"] + 1,
-                    max_lines=500
-                )
             ```
 
         Note:
@@ -526,36 +465,6 @@ class MainController:
         Returns:
             str | None: The file content as a string if the file exists and is readable,
                 None if the file doesn't exist or is not a regular file.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Read a Python tasklet file
-            tasklet_content = controller.read_file("tasklet_data_processor.py")
-            if tasklet_content:
-                print("Tasklet content:")
-                print(tasklet_content)
-            else:
-                print("Tasklet file not found")
-
-            # Read configuration files
-            config_content = controller.read_file("config.json")
-            if config_content:
-                import json
-                config = json.loads(config_content)
-                print(f"Config loaded: {config}")
-
-            # Read form files
-            form_code = controller.read_file("forms/user_input.py")
-            if form_code:
-                print(f"Form code has {len(form_code)} characters")
-
-            # Handle non-existent files
-            missing_file = controller.read_file("non_existent.txt")
-            if missing_file is None:
-                print("File does not exist")
-            ```
 
         Note:
             - Files are read with UTF-8 encoding
@@ -706,18 +615,47 @@ class MainController:
             AbstraLogger.error(f"Failed to read PDF {file_path}: {e}")
             return None
 
+    def _downscale_image_to_jpeg(self, file_path: Path) -> bytes | None:
+        """Downscale + JPEG re-encode to cap token cost. Returns None if the
+        image can't be decoded, so the caller can fall back to the raw bytes."""
+        try:
+            from PIL import Image
+
+            from abstra_internals.utils.image import constrain_image_size
+
+            with Image.open(file_path) as img:
+                img.load()
+                img = constrain_image_size(
+                    img, max_dimension=READ_DOCUMENT_MAX_IMAGE_DIMENSION
+                )
+                if img.mode not in ("RGB", "L"):
+                    img = img.convert("RGB")
+                buffer = io.BytesIO()
+                img.save(buffer, format="JPEG", quality=READ_DOCUMENT_JPEG_QUALITY)
+                return buffer.getvalue()
+        except Exception as e:
+            AbstraLogger.warning(f"Could not downscale image {file_path}: {e}")
+            return None
+
     def _read_image_file(
         self,
         file_path: Path,
     ) -> dict[str, Any] | None:
         try:
-            image_data = base64.b64encode(file_path.read_bytes()).decode("utf-8")
-            ext = file_path.suffix.lower()
-            mime_type = {
-                ".png": "image/png",
-                ".gif": "image/gif",
-                ".webp": "image/webp",
-            }.get(ext, "image/jpeg")
+            jpeg_bytes = self._downscale_image_to_jpeg(file_path)
+            if jpeg_bytes is not None:
+                mime_type = "image/jpeg"
+                image_data = base64.b64encode(jpeg_bytes).decode("utf-8")
+            else:
+                # Fallback: pass the original bytes through unchanged.
+                ext = file_path.suffix.lower()
+                mime_type = {
+                    ".png": "image/png",
+                    ".gif": "image/gif",
+                    ".webp": "image/webp",
+                }.get(ext, "image/jpeg")
+                image_data = base64.b64encode(file_path.read_bytes()).decode("utf-8")
+
             data_uri = f"data:{mime_type};base64,{image_data}"
 
             return {
@@ -758,16 +696,6 @@ class MainController:
                 Hard maximum of 1000. Defaults to 500.
             encoding (str): File encoding. Defaults to "utf-8".
 
-        Returns:
-            dict | None: Dictionary containing file content and metadata if the file exists:
-                - content (str): The file content as a string
-                - start_line (int): Actual starting line number (1-indexed)
-                - end_line (int): Actual ending line number (1-indexed)
-                - total_lines (int): Total number of lines in the file
-                - has_more (bool): Whether there are more lines after end_line
-                - truncated (bool): Whether the result was limited by max_lines
-                Returns None if the file doesn't exist or is not a regular file.
-
         Example:
             ```python
             controller = MainController(repositories)
@@ -787,15 +715,6 @@ class MainController:
 
             # Read lines 500-900
             result = controller.read_file_with_pagination("data.py", start_line=500, end_line=900)
-
-            # Read with automatic pagination (max_lines limit)
-            result = controller.read_file_with_pagination("huge_file.csv", max_lines=500)
-            if result and result["truncated"]:
-                next_result = controller.read_file_with_pagination(
-                    "huge_file.csv",
-                    start_line=result["end_line"] + 1,
-                    max_lines=500
-                )
             ```
 
         Note:
@@ -863,9 +782,6 @@ class MainController:
                 Hard limit: 3 pages per call.
             encoding (str): File encoding. Defaults to "utf-8".
 
-        Returns:
-            dict | None: File content and metadata, or None if file not found.
-
         Copywritings:
             Read document
             Reading document...
@@ -906,37 +822,6 @@ class MainController:
         Returns:
             bool: True if the file exists and is a regular file, False otherwise.
 
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Check if specific files exist
-            if controller.check_file("requirements.txt"):
-                print("Requirements file exists")
-            else:
-                print("No requirements file found")
-
-            # Check tasklet files before reading
-            tasklet_path = "tasklet_data_processor.py"
-            if controller.check_file(tasklet_path):
-                content = controller.read_file(tasklet_path)
-                print("Tasklet loaded successfully")
-            else:
-                print(f"Tasklet {tasklet_path} not found")
-
-            # Check configuration files
-            config_files = ["config.json", "settings.yaml", ".env"]
-            for config_file in config_files:
-                if controller.check_file(config_file):
-                    print(f"Found config: {config_file}")
-                    break
-            else:
-                print("No configuration files found")
-
-            # Directories return False
-            is_file = controller.check_file("tasklets")  # Returns False (directory)
-            is_file = controller.check_file("tasklets/")  # Returns False (directory)
-            ```
 
         Note:
             - Only returns True for regular files, not directories or special files
@@ -950,81 +835,6 @@ class MainController:
             Checking if a file exists...
         """
         return Settings.root_path.joinpath(file_path).is_file()
-
-    def check_multiple_files_exists(self, file_paths: list[str]):
-        """
-        Check the existence of multiple files in the project workspace.
-
-        This method efficiently checks whether multiple files exist, returning
-        a dictionary mapping each file path to its existence status. Useful for
-        batch file existence verification.
-
-        Args:
-            file_paths (List[str]): List of relative file paths from the project
-                root directory to check for existence.
-
-        Returns:
-            Dict[str, bool]: Dictionary mapping each file path to a boolean indicating
-                whether the file exists. Key is the file path, value is True if the
-                file exists as a regular file, False otherwise.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Check multiple configuration files
-            config_files = [
-                "config.json",
-                "settings.yaml",
-                ".env",
-                "requirements.txt"
-            ]
-            existence_map = controller.check_files(config_files)
-
-            for file_path, exists in existence_map.items():
-                if exists:
-                    print(f"✓ {file_path} exists")
-                else:
-                    print(f"✗ {file_path} missing")
-
-            # Check all form files
-            form_files = [
-                "forms/user_registration.py",
-                "forms/data_input.py",
-                "forms/approval.py"
-            ]
-            form_status = controller.check_files(form_files)
-            existing_forms = [path for path, exists in form_status.items() if exists]
-            print(f"Found {len(existing_forms)} form files")
-
-            # Check dependency files
-            deps = ["package.json", "requirements.txt", "Pipfile", "pyproject.toml"]
-            dep_status = controller.check_files(deps)
-            if any(dep_status.values()):
-                print("Project has dependency management files")
-
-            # Validate project structure
-            required_files = ["abstra.json", "main.py", "README.md"]
-            file_status = controller.check_files(required_files)
-            missing_files = [f for f, exists in file_status.items() if not exists]
-            if missing_files:
-                print(f"Missing required files: {missing_files}")
-            ```
-
-        Note:
-            - More efficient than calling check_file() multiple times
-            - Only checks for regular files, directories return False
-            - All paths should be relative to the project root directory
-            - Returns False for non-existent files, directories, or special files
-            - Useful for validation, dependency checking, and project structure verification
-
-        Copywritings:
-            Check the existence of multiple files
-            Checking the existence of multiple files...
-        """
-        return {
-            file_path: self.check_file_exists(file_path) for file_path in file_paths
-        }
 
     def list_files(self, path: str = ".", mode: str = "file"):
         """
@@ -1136,48 +946,6 @@ class MainController:
                 )
             ]
 
-    def query_files_with_glob(
-        self, query: str, glob: str
-    ) -> list[tuple[str, int, str]]:
-        """
-        Search for a query string in files matching a glob pattern.
-
-        This method searches through files in the project directory that match
-        the specified glob pattern and returns lines containing the query string.
-
-        Args:
-            query (str): The string to search for in the files.
-            glob (str): Glob pattern to filter files (e.g., "*.py", "*.txt").
-
-        Returns:
-            List[Tuple[str, int, str]]: List of tuples containing:
-                - File path relative to project root
-                - Line number where the query was found
-                - Line content
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Search for 'def ' in all Python files
-            results = controller.search_in_files("def ", "*.py")
-            for file_path, line_number, line_content in results:
-                print(f"Found in {file_path} at line {line_number}: {line_content}")
-            ```
-
-        Note:
-            - Uses glob patterns to filter files
-            - Returns empty list if no matches found
-            - Case-sensitive search
-
-        Copywritings:
-            Search for a query in files matching a pattern
-            Searching for a query in files matching a pattern...
-        """
-        return FileSystemService.search_in_files(
-            Settings.root_path, query, glob, use_ignore=False
-        )
-
     def search_file_with_context(
         self,
         file: str,
@@ -1204,21 +972,6 @@ class MainController:
                 Defaults to True.
             max_matches (int): Maximum number of matches to return to prevent
                 context overflow. Defaults to 50.
-
-        Returns:
-            dict | None: Dictionary containing search results if the file exists:
-                - file (str): The file path that was searched
-                - total_lines (int): Total number of lines in the file
-                - total_matches (int): Total number of matches found
-                - matches_returned (int): Number of matches included (limited by max_matches)
-                - truncated (bool): Whether results were limited by max_matches
-                - matches (List[dict]): List of match objects, each containing:
-                    - match_line (int): Line number where pattern was found (1-indexed)
-                    - match_text (str): The actual line containing the match
-                    - start_line (int): First line of context (1-indexed)
-                    - end_line (int): Last line of context (1-indexed)
-                    - context (str): The matched line with surrounding context
-                Returns None if the file doesn't exist or is not readable.
 
         Example:
             ```python
@@ -1262,11 +1015,9 @@ class MainController:
             ```
 
         Note:
-            - Pattern uses Python regex syntax (re module)
             - Context windows may overlap for nearby matches
             - Line numbers are 1-indexed (first line is 1, not 0)
             - Returns None for non-existent or unreadable files
-            - Ideal for finding specific code patterns in large files
             - Much more efficient than reading entire file when searching
             - Use max_matches to control context window usage
 
@@ -1372,27 +1123,6 @@ class MainController:
         Args:
             path (str): Relative path from project root. Defaults to "." (root).
 
-        Returns:
-            dict | None: {"path": path, "entries": [...]} where each entry has:
-                - name (str): Basename of the entry.
-                - type (str): "file" or "dir".
-                - extension (str): Lowercase file extension including the dot
-                    (e.g. ".py"), or "" for directories.
-                - size_bytes (int): File size in bytes (0 for directories).
-            Returns None when *path* does not point to a directory.
-
-        Example:
-            ```python
-            # Explore root
-            result = controller.list_directory()
-            # result = {"path": ".", "entries": [
-            #   {"name": "src", "type": "dir", "extension": "", "size_bytes": 0},
-            #   {"name": "main.py", "type": "file", "extension": ".py", "size_bytes": 312},
-            # ]}
-
-            # Drill into src/
-            result = controller.list_directory("src")
-            ```
 
         Note:
             - Only lists *immediate* children, not recursive.
@@ -1426,10 +1156,6 @@ class MainController:
                 - "utils"         any file whose name starts with "utils"
                 - "**/test_*"     any file starting with "test_"
             max_results (int): Upper bound on results returned. Defaults to 200.
-
-        Returns:
-            list[str]: POSIX paths relative to project root, sorted.
-                Empty list if no files match.
 
         Example:
             ```python
@@ -1488,12 +1214,6 @@ class MainController:
             max_results (int): Maximum number of matching lines returned
                 across all files combined. Defaults to 100.
 
-        Returns:
-            list[dict]: Each item has:
-                - file (str): Relative POSIX path of the matching file.
-                - line_number (int): 1-indexed line number of the match.
-                - line (str): Content of the matched line (no trailing newline).
-
         Example:
             ```python
             # Find all uses of a function across the codebase
@@ -1548,9 +1268,6 @@ class MainController:
                 - main_color (str): Primary color hex (e.g., '#FF5733')
                 - font_family (str): Font family name
                 - font_color (str): Font color hex
-
-        Returns:
-            StyleSettings: The updated workspace settings.
 
         Example:
             ```python
@@ -1625,16 +1342,6 @@ class MainController:
             id (str): Unique identifier of the stage to delete.
             remove_file (bool, optional): Whether to also delete the associated
                 Python file from the filesystem. Defaults to False.
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Delete stage but keep the file
-            controller.delete_stage("stage-123")
-            # Delete stage and its file completely
-            controller.delete_stage("stage-456", remove_file=True)
-            ```
 
         Warning:
             - Deleting a stage that is referenced by workflow transitions may
@@ -1789,10 +1496,6 @@ class MainController:
             id (Optional[str], optional): Custom identifier for the stage. If None,
                 a unique ID will be automatically generated.
 
-        Returns:
-            StageWithFile: The newly created stage object (FormStage, PageStage,
-                HookStage, JobStage, or ScriptStage depending on `type`).
-
         Copywritings:
             Create a new stage
             Creating a new stage...
@@ -1867,12 +1570,6 @@ class MainController:
             **JobStage properties:**
                 - schedule (str): Cron expression (e.g., "0 9 * * *")
 
-        Returns:
-            Stage: The updated stage object with new properties applied.
-
-        Raises:
-            Exception: If the stage with the given ID is not found.
-
         Example:
             ```python
             # Update form title and access control
@@ -1944,34 +1641,6 @@ class MainController:
         This method returns a complete list of all stages (forms, hooks, jobs,
         and tasklets) that are part of the project workflow.
 
-        Returns:
-            List[Stage]: List containing all workflow stages, including:
-                - FormStage: Interactive user interface stages
-                - HookStage: HTTP endpoint stages
-                - JobStage: Scheduled background task stages
-                - ScriptStage: Programmatic processing stages
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Get all stages
-            all_stages = controller.get_stages()
-            print(f"Total stages: {len(all_stages)}")
-
-            # Categorize stages by type
-            forms = [s for s in all_stages if isinstance(s, FormStage)]
-            hooks = [s for s in all_stages if isinstance(s, HookStage)]
-            jobs = [s for s in all_stages if isinstance(s, JobStage)]
-            scripts = [s for s in all_stages if isinstance(s, ScriptStage)]
-
-            print(f"Forms: {len(forms)}, Hooks: {len(hooks)}")
-            print(f"Jobs: {len(jobs)}, Scripts: {len(scripts)}")
-
-            # Print stage details
-            for stage in all_stages:
-                print(f"- {stage.title} ({stage.type}): {stage.id}")
-            ```
 
         Note:
             - Only enabled stages are returned (disabled jobs are excluded)
@@ -2041,24 +1710,6 @@ class MainController:
         Returns access control configuration for the home page and all forms.
         Each item includes the stage ID, title, type, and access settings.
 
-        Returns:
-            List[Dict]: List of access control configurations, each containing:
-                - id (str): Stage identifier ('home' for home page, UUID for forms)
-                - title (str): Display name of the stage
-                - type (str): Stage type ('home' or 'forms')
-                - is_public (bool): Whether the stage is publicly accessible
-                - required_roles (list): List of role names required for access
-
-        Example:
-            ```python
-            controls = controller.list_access_controls()
-            # Returns:
-            # [
-            #   {"id": "home", "title": "Home", "type": "home", "is_public": True, "required_roles": []},
-            #   {"id": "abc-123", "title": "My Form", "type": "forms", "is_public": False, "required_roles": ["admin"]}
-            # ]
-            ```
-
         Copywritings:
             List access control settings
             Listing access control settings...
@@ -2080,9 +1731,6 @@ class MainController:
             is_public (bool): If True, anyone can access. If False, authentication is required.
             required_roles (List[str]): List of role names. User must have at least one of these roles.
                 Empty list means any authenticated user can access (when is_public is False).
-
-        Returns:
-            Dict: The updated access control configuration.
 
         Example:
             ```python
@@ -2149,18 +1797,6 @@ class MainController:
             offset (int): Number of executions to skip (for pagination).
                 Defaults to 0.
 
-        Returns:
-            dict: Dictionary containing:
-                - executions (list[dict]): Slim execution summaries, each with:
-                    - id (str): Execution id
-                    - stage_id (str): Id of the stage that produced it
-                    - status (str): Current execution status
-                    - created_at (str): UTC ISO timestamp of when it started
-                    - updated_at (Optional[str]): UTC ISO timestamp of the
-                      last status change, if any
-                - total_count (int): Total number of executions matching the
-                  filter (independent of limit/offset)
-
         Example:
             ```python
             controller = MainController(repositories)
@@ -2213,9 +1849,6 @@ class MainController:
         Args:
             execution_id (str): Unique identifier of the execution to stop.
 
-        Returns:
-            None: The execution will be stopped asynchronously.
-
         Copywritings:
             Stop a running execution
             Stopping a running execution...
@@ -2250,20 +1883,6 @@ class MainController:
         Args:
             id (str): Unique identifier of the execution to retrieve logs for.
 
-        Returns:
-            dict: Dictionary containing:
-                - logs (str): The formatted log output text
-                - total_entries (int): Total number of log entries
-
-        Example:
-            ```python
-            result = controller.get_execution_logs("exec-123")
-            print(result["logs"])
-            # [STDOUT] Execution started for stage ceb1fe9b
-            # [STDERR] Traceback (most recent call last):
-            # [STDERR]   File "form.py", line 9
-            # [STDERR] SyntaxError: '(' was never closed
-            ```
 
         Copywritings:
             Get execution logs for a specific execution
@@ -2299,26 +1918,6 @@ class MainController:
         Args:
             execution_id (str): Unique identifier of the execution to query.
 
-        Returns:
-            ExecutionTasksResponse: Object containing:
-                - trigger_task: The task that triggered this execution (if any)
-                - sent_tasks: List of tasks created during this execution
-
-        Example:
-            ```python
-            controller = MainController(repositories)
-
-            # Get tasks for a specific execution
-            task_info = controller.get_execution_tasks("exec-123")
-
-            if task_info.trigger_task:
-                print(f"Triggered by task: {task_info.trigger_task.id}")
-                print(f"Task type: {task_info.trigger_task.type}")
-
-            print(f"Created {len(task_info.sent_tasks)} new tasks:")
-            for task in task_info.sent_tasks:
-                print(f"  - {task.type}: {task.id}")
-            ```
 
         Note:
             - trigger_task will be None if the execution was not triggered by a task
@@ -2398,8 +1997,6 @@ class MainController:
         Args:
             id (str): Unique identifier of the job stage to run.
             user_jwt (Optional[str]): JWT token for web-editor user identification.
-        Returns:
-            None: The job will be executed, and logs will be generated.
 
         Copywritings:
             Run a job for debugging
@@ -2452,8 +2049,6 @@ class MainController:
             request (Request): A simulated HTTP request to feed the hook.
                 Fields use snake_case (query_params, headers, method, body).
             user_jwt (Optional[str]): JWT token for web-editor user identification.
-        Returns:
-            dict: Response containing the body, status, and headers from the hook execution.
 
         Copywritings:
             Run a hook for debugging
@@ -2518,9 +2113,6 @@ class MainController:
             id (str): Unique identifier of the tasklet stage to run.
             task_id (str): ID of an existing task. You can create a task using the create_task method.
             user_jwt (Optional[str]): JWT token for web-editor user identification.
-
-        Returns:
-            None: The tasklet will be executed, and logs will be generated.
 
         Copywritings:
             Run a tasklet for debugging
@@ -2846,9 +2438,6 @@ class MainController:
             tab_id (str): The tab ID from browser_open_page or run_page.
             selector (str): CSS selector for the element (e.g. "div.my-class", "#main", "table").
 
-        Returns:
-            str: The outer HTML of the matched element.
-
         Copywritings:
             Get element HTML
             Getting element HTML...
@@ -2926,10 +2515,6 @@ class MainController:
         Args:
             id (str): The page stage ID.
             query_params (dict, optional): Query parameters to append to the URL.
-
-        Returns:
-            dict with: text_content, page_summary (interactive elements),
-            console_logs, network_errors (failed requests only), url.
 
         Copywritings:
             Run page for debugging
@@ -3027,9 +2612,6 @@ class MainController:
             version (str, optional): Specific version to install. If not provided,
                                    installs the latest version.
 
-        Returns:
-            dict: Result containing the updated requirements list and installation status.
-
         Copywritings:
             Add and install Python package
             Adding and installing Python package...
@@ -3091,19 +2673,6 @@ class MainController:
             limit (int): Maximum number of issues to return per page.
                 Hard maximum of 20. Defaults to 20.
             offset (int): Number of issues to skip for pagination. Defaults to 0.
-
-        Returns:
-            dict: Paginated results containing:
-                - issues (list): List of linter issue objects, each with:
-                    - rule_name (str): Unique identifier for the linter rule
-                    - rule_label (str): Human-readable description of the rule
-                    - type (str): Severity level ('security', 'error', 'bug', 'warning', 'info')
-                    - issue_label (str): Description of the specific issue found
-                    - fixes (list[str]): Names of available automatic fixes
-                - total (int): Total number of matching issues (before pagination)
-                - limit (int): The limit used
-                - offset (int): The offset used
-                - has_more (bool): Whether there are more results after this page
 
         Copywritings:
             List linter issues in the codebase

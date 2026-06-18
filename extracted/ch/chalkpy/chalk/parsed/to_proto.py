@@ -160,10 +160,12 @@ class ToProtoConverter:
             if (dl := v.definition_location()) is None:
                 return None
             # TODO: Dominic - see if we can maintain more specific line range info
+            # UnderscoreDefinitionLocation lines are 1-based; LSP Position lines are 0-based.
             return Location(
                 uri=dl.file,
                 range=Range(
-                    start=Position(line=dl.line, character=dl.column), end=Position(line=dl.line, character=dl.column)
+                    start=Position(line=dl.line - 1, character=dl.column),
+                    end=Position(line=dl.line - 1, character=dl.column),
                 ),
             )
         else:
@@ -218,19 +220,25 @@ class ToProtoConverter:
         # Ignoring source.errors when converting model versions because structured errors in model versions
         # prevent that specific model from being used at runtime.
         try:
+            source_file_reference = None
+            if source.source_line_start is not None and source.source_line_end is not None:
+                source_file_reference = pb.SourceFileReference(
+                    code=source.code,
+                    file_name=source.filename,
+                    range=Range(
+                        # Source metadata lines are 1-based inclusive; LSP ranges use 0-based
+                        # starts and exclusive ends, so the whole-line end stays unchanged.
+                        start=Position(line=source.source_line_start - 1, character=0),
+                        end=Position(line=source.source_line_end, character=0),
+                    ),
+                )
+
             return pb.ModelReference(
                 name=source.name,
                 version=source.version,
                 alias=source.alias,
                 as_of=datetime_to_proto_timestamp(source.as_of_date) if source.as_of_date else None,
-                source_file_reference=pb.SourceFileReference(
-                    code=source.code,
-                    file_name=source.filename,
-                    range=Range(
-                        start=Position(line=source.source_line_start, character=0),
-                        end=Position(line=source.source_line_end, character=0),
-                    ),
-                ),
+                source_file_reference=source_file_reference,
             )
         except Exception as e:
             raise ValueError(f"Could not convert model {source.name} [{source.identifier}]") from e
@@ -254,7 +262,9 @@ class ToProtoConverter:
                     code=source.code,
                     file_name=source.filename,
                     range=Range(
-                        start=Position(line=source.source_line_start, character=0),
+                        # Source metadata lines are 1-based inclusive; LSP ranges use 0-based
+                        # starts and exclusive ends, so the whole-line end stays unchanged.
+                        start=Position(line=source.source_line_start - 1, character=0),
                         end=Position(line=source.source_line_end, character=0),
                     ),
                 ),
@@ -590,7 +600,9 @@ class ToProtoConverter:
                     code=captured_global.source,
                     file_name=captured_global.source_file_name,
                     range=Range(
-                        start=Position(line=captured_global.source_line_start, character=0),
+                        # Source metadata lines are 1-based inclusive; LSP ranges use 0-based
+                        # starts and exclusive ends, so the whole-line end stays unchanged.
+                        start=Position(line=captured_global.source_line_start - 1, character=0),
                         end=Position(line=captured_global.source_line_end, character=0),
                     ),
                 )

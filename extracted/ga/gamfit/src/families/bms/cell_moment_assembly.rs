@@ -10,7 +10,7 @@ use super::row_kernel::*;
 
 use super::*;
 
-use crate::util::fnv::Fnv1a;
+use crate::families::fnv1a::Fnv1a;
 
 /// Bounded same-β reuse store for the BMS per-row cell-moment exact-cache.
 ///
@@ -2153,13 +2153,11 @@ impl BernoulliMarginalSlopeFamily {
     ) -> Result<(), String> {
         let expected_blocks =
             2usize + usize::from(self.score_warp.is_some()) + usize::from(self.link_dev.is_some());
-        if block_states.len() != expected_blocks {
-            return Err(format!(
-                "bernoulli marginal-slope block count mismatch: got {}, expected {}",
-                block_states.len(),
-                expected_blocks
-            ));
-        }
+        crate::families::block_layout::block_count::validate_block_count::<String>(
+            "BernoulliMarginalSlopeFamily",
+            expected_blocks,
+            block_states.len(),
+        )?;
 
         let n_rows = self.y.len();
         let marginal = &block_states[0];
@@ -2822,5 +2820,987 @@ impl BernoulliInterceptSolveStats {
                 Err(next) => current = next,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod empirical_rigid_jet_oracle_tests {
+    //! #932 deployment for the BMS rigid **empirical-grid** Bernoulli kernel.
+    //!
+    //! The standard-normal latent measure carries a jet-tower oracle
+    //! (`gradient_paths::jet_tower_oracle`), but the empirical-grid latent
+    //! measure rides an ENTIRELY SEPARATE hand-written derivative tower:
+    //! `empirical_rigid_primary_grad_hess_closed_form` /
+    //! `empirical_rigid_third_full_closed_form` /
+    //! `empirical_rigid_fourth_full_closed_form`. Those functions hand-maintain
+    //! the implicit-function-theorem intercept-derivative recursion
+    //! `a_{(i,j)}(m, g)` (root of `Σ_k π_k Φ(a + s·g·x_k) = μ(m)`) through fourth
+    //! order, then a hand-summed Faà-di-Bruno ℓ-chain. That is exactly the
+    //! #736/#833 cross-block bug genus — the comment on `pgg`/`a_mggg` in
+    //! `empirical_rigid_fourth_full_closed_form` records #833, where one omitted
+    //! `g_aa·a_ggg` term left the marginal/slope fourth-order block ~1.8% short
+    //! of the finite-difference of the third-order form. NO oracle was guarding
+    //! that path; a re-introduction of #833 would land silently.
+    //!
+    //! This module adds the missing guard: an INDEPENDENT finite-difference
+    //! witness of value/gradient/Hessian/third/fourth that
+    //!
+    //!   * re-solves the calibration intercept root with its OWN self-contained
+    //!     Newton iteration (sharing no code with
+    //!     `empirical_intercept_from_marginal` / the production IFT chain), and
+    //!   * builds the scalar row NLL `ℓ(m, g) = −w·logΦ(sign·(a(m,g) + s·g·z))`
+    //!     from `normal_logcdf`,
+    //!
+    //! then central-differences `ℓ(m, g)` in the two primaries to third and
+    //! fourth order and compares against the production closed-form tensors. A
+    //! sign flip or dropped term anywhere in the IFT/Faà-di-Bruno chain (the
+    //! #833 class) makes the production tensor disagree with the FD witness and
+    //! the test fails loudly. A companion test plants a #833-style omission and
+    //! asserts the witness catches it.
+
+    use super::*;
+
+    /// Independent calibration-intercept root solve: the unique `a` with
+    /// `Σ_k π_k Φ(a + s·g·x_k) = μ`. Plain damped Newton from a bracketed seed;
+    /// shares no code with `empirical_intercept_from_marginal`.
+    // Witness-exact standard-normal primitives (`libm::erfc`, no piecewise
+    // rational approximation). The high-order FD witness divides by h⁴, so it
+    // amplifies any *smooth* approximation error in the CDF/logCDF by ~1/h⁴:
+    // production's `normal_logcdf`/`normal_cdf` carry an ~1e-11 oscillating
+    // approximation error on a scale near `h`, whose 4th finite difference is
+    // ~2% of the mmmg tensor (#932). Routing the witness through ulp-accurate
+    // `erfc` keeps it a genuinely INDEPENDENT, exact oracle of the analytic
+    // production tensor (which differentiates the true log Φ analytically).
+    fn wnorm_cdf(x: f64) -> f64 {
+        0.5 * libm::erfc(-x / std::f64::consts::SQRT_2)
+    }
+    fn wnorm_pdf(x: f64) -> f64 {
+        (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt()
+    }
+    fn wnorm_logcdf(x: f64) -> f64 {
+        wnorm_cdf(x).max(1e-300).ln()
+    }
+
+    fn witness_intercept(mu: f64, slope: f64, s: f64, nodes: &[f64], weights: &[f64]) -> f64 {
+        let observed_slope = s * slope;
+        let calib = |a: f64| -> (f64, f64) {
+            // (Σ π Φ(η) − μ, Σ π φ(η)) at η = a + s·g·x.
+            let mut f = -mu;
+            let mut df = 0.0;
+            for (&x, &w) in nodes.iter().zip(weights.iter()) {
+                let eta = a + observed_slope * x;
+                f += w * wnorm_cdf(eta);
+                df += w * wnorm_pdf(eta);
+            }
+            (f, df)
+        };
+        let mut a = 0.0_f64;
+        for _ in 0..200 {
+            let (f, df) = calib(a);
+            if df <= 0.0 || !df.is_finite() {
+                break;
+            }
+            let step = f / df;
+            a -= step;
+            if step.abs() <= 1e-14 {
+                break;
+            }
+        }
+        a
+    }
+
+    /// Independent scalar row NLL `ℓ(m, g)` at this row's own latent score `z`.
+    /// `m` is the marginal η; the marginal target `μ(m) = Φ(m)` drives the
+    /// calibration root.
+    #[allow(clippy::too_many_arguments)]
+    fn witness_nll(
+        m: f64,
+        g: f64,
+        z: f64,
+        y: f64,
+        w: f64,
+        s: f64,
+        nodes: &[f64],
+        weights: &[f64],
+    ) -> f64 {
+        let mu = wnorm_cdf(m);
+        let a = witness_intercept(mu, g, s, nodes, weights);
+        let observed_eta = a + s * g * z;
+        let signed = (2.0 * y - 1.0) * observed_eta;
+        -w * wnorm_logcdf(signed)
+    }
+
+    /// 9-point central-difference partial of a 2-arg scalar to the requested
+    /// per-axis order in `(m, g)` (orders ≤ 4). Evaluates `f` on the tensor
+    /// stencil and forms the mixed derivative as the product of 1-D central
+    /// coefficients — a brute, calculus-free witness of the analytic tensor.
+    fn central_mixed(
+        f: &impl Fn(f64, f64) -> f64,
+        m0: f64,
+        g0: f64,
+        order_m: usize,
+        order_g: usize,
+        h: f64,
+    ) -> f64 {
+        // 1-D central-difference stencils, indexed by derivative order, listing
+        // (offset_in_h_units, coefficient). Standard O(h^2)-accurate forms.
+        fn stencil(order: usize) -> &'static [(i64, f64)] {
+            match order {
+                0 => &[(0, 1.0)],
+                1 => &[(-1, -0.5), (1, 0.5)],
+                2 => &[(-1, 1.0), (0, -2.0), (1, 1.0)],
+                3 => &[(-2, -0.5), (-1, 1.0), (1, -1.0), (2, 0.5)],
+                4 => &[(-2, 1.0), (-1, -4.0), (0, 6.0), (1, -4.0), (2, 1.0)],
+                _ => panic!("central_mixed supports orders 0..=4, got {order}"),
+            }
+        }
+        let sm = stencil(order_m);
+        let sg = stencil(order_g);
+        let mut acc = 0.0;
+        for &(im, cm) in sm {
+            for &(ig, cg) in sg {
+                acc += cm * cg * f(m0 + (im as f64) * h, g0 + (ig as f64) * h);
+            }
+        }
+        acc / h.powi((order_m + order_g) as i32)
+    }
+
+    /// Richardson-extrapolated mixed partial: combines the O(h²)-accurate
+    /// `central_mixed` at steps `h` and `h/2` to cancel the leading error term,
+    /// yielding an O(h⁴)-accurate witness. With `h⁴` accuracy the witness
+    /// resolves a single dropped IFT term (e.g. the ~1.8% #833 omission) well
+    /// inside a 1% tolerance, so the oracle has real discriminating power rather
+    /// than merely confirming the order of magnitude.
+    fn central_mixed_rich(
+        f: &impl Fn(f64, f64) -> f64,
+        m0: f64,
+        g0: f64,
+        order_m: usize,
+        order_g: usize,
+        h: f64,
+    ) -> f64 {
+        let coarse = central_mixed(f, m0, g0, order_m, order_g, h);
+        let fine = central_mixed(f, m0, g0, order_m, order_g, h * 0.5);
+        (4.0 * fine - coarse) / 3.0
+    }
+
+    /// Build a minimal empirical-grid `BernoulliMarginalSlopeFamily` whose row
+    /// kernel reads the supplied `(y, z, weights)` and a `GlobalEmpirical` grid.
+    /// The designs are inert `(n, 1)` placeholders — the rigid empirical
+    /// closed-form derivative functions take `(marginal, slope, nodes, weights)`
+    /// directly and never touch the designs — and `intercept_warm_starts` is
+    /// `None` (the documented unit-test fixture mode).
+    fn empirical_family(
+        y: Vec<f64>,
+        z: Vec<f64>,
+        weights: Vec<f64>,
+        frailty_sd: Option<f64>,
+        grid: EmpiricalZGrid,
+    ) -> BernoulliMarginalSlopeFamily {
+        let n = y.len();
+        let policy = crate::solver::resource::ResourcePolicy::default_library();
+        let dummy = || {
+            DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Array2::zeros((
+                n, 1,
+            ))))
+        };
+        BernoulliMarginalSlopeFamily {
+            y: Arc::new(Array1::from_vec(y)),
+            weights: Arc::new(Array1::from_vec(weights)),
+            z: Arc::new(Array1::from_vec(z)),
+            latent_measure: LatentMeasureKind::GlobalEmpirical { grid },
+            gaussian_frailty_sd: frailty_sd,
+            base_link: InverseLink::Standard(crate::types::StandardLink::Probit),
+            marginal_design: dummy(),
+            logslope_design: dummy(),
+            score_warp: None,
+            link_dev: None,
+            policy: policy.clone(),
+            cell_moment_lru: new_cell_moment_lru_cache(&policy),
+            cell_moment_cache_stats: new_cell_moment_cache_stats(),
+            intercept_warm_starts: None,
+            auto_subsample_phase_counter: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Symmetric quadrature-style grid for the latent measure: an odd number of
+    /// nodes with strictly-positive weights summing to one (the
+    /// `validate_empirical_z_grid` contract).
+    fn test_grid() -> EmpiricalZGrid {
+        let nodes = vec![-1.6, -0.8, 0.0, 0.7, 1.5];
+        let raw = [0.12_f64, 0.23, 0.30, 0.21, 0.14];
+        let total: f64 = raw.iter().sum();
+        let weights: Vec<f64> = raw.iter().map(|w| w / total).collect();
+        EmpiricalZGrid::new(nodes, weights, "empirical rigid jet oracle").expect("valid grid")
+    }
+
+    #[test]
+    fn empirical_rigid_kernel_agrees_with_independent_fd_witness_all_channels() {
+        let grid = test_grid();
+        // Mixed responses, weights, latent scores, and (m, g) regimes; the last
+        // rows push the margin toward the probit tails while staying finite.
+        let m = [0.25_f64, -0.6, 0.05, 0.85, -1.1];
+        let g = [0.30_f64, -0.45, 0.2, -0.15, 0.55];
+        let z = [0.4_f64, -1.0, 0.1, 0.6, -0.5];
+        let y = [1.0_f64, 0.0, 1.0, 0.0, 1.0];
+        let w = [1.0_f64, 0.8, 1.3, 0.9, 1.1];
+        let n = m.len();
+
+        // Cover the plain (no frailty) and probit-frailty scalings: the frailty
+        // scale `s` enters every grid moment and every observed-index term, so
+        // both must be witnessed.
+        for &frailty_sd in &[None, Some(0.6_f64)] {
+            let family =
+                empirical_family(y.to_vec(), z.to_vec(), w.to_vec(), frailty_sd, grid.clone());
+            let s = family.probit_frailty_scale();
+
+            for row in 0..n {
+                let marginal = bernoulli_marginal_link_map(
+                    &InverseLink::Standard(crate::types::StandardLink::Probit),
+                    m[row],
+                )
+                .expect("marginal link map");
+
+                // Production closed-form channels (the hand path under audit).
+                let (value, gradient, hessian) = family
+                    .empirical_rigid_primary_grad_hess_closed_form(
+                        row,
+                        marginal,
+                        g[row],
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                    .expect("production grad/hess");
+                let third = family
+                    .empirical_rigid_third_full_closed_form(
+                        row,
+                        marginal,
+                        g[row],
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                    .expect("production third");
+                let fourth = family
+                    .empirical_rigid_fourth_full_closed_form(
+                        row,
+                        marginal,
+                        g[row],
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                    .expect("production fourth");
+
+                // Independent FD witness of ℓ(m, g) at this row.
+                let f = |mm: f64, gg: f64| {
+                    witness_nll(
+                        mm,
+                        gg,
+                        z[row],
+                        y[row],
+                        w[row],
+                        s,
+                        &grid.nodes,
+                        &grid.weights,
+                    )
+                };
+
+                // Value channel.
+                let f0 = f(m[row], g[row]);
+                assert!(
+                    (f0 - value).abs() <= 1e-9 * f0.abs().max(1.0),
+                    "frailty {frailty_sd:?} row {row}: witness value {f0:+.12e} != production {value:+.12e}"
+                );
+
+                // Gradient / Hessian (h chosen for the 2nd-order stencils).
+                let hh = 1e-3;
+                let gm = central_mixed(&f, m[row], g[row], 1, 0, hh);
+                let gg_ = central_mixed(&f, m[row], g[row], 0, 1, hh);
+                assert!(
+                    (gm - gradient[0]).abs() <= 1e-5 * gm.abs().max(1.0)
+                        && (gg_ - gradient[1]).abs() <= 1e-5 * gg_.abs().max(1.0),
+                    "frailty {frailty_sd:?} row {row}: gradient witness ({gm:+.6e},{gg_:+.6e}) != \
+                     production ({:+.6e},{:+.6e})",
+                    gradient[0],
+                    gradient[1]
+                );
+                let h_mm = central_mixed(&f, m[row], g[row], 2, 0, hh);
+                let h_mg = central_mixed(&f, m[row], g[row], 1, 1, hh);
+                let h_gg = central_mixed(&f, m[row], g[row], 0, 2, hh);
+                for (lbl, fd, prod) in [
+                    ("mm", h_mm, hessian[0][0]),
+                    ("mg", h_mg, hessian[0][1]),
+                    ("gg", h_gg, hessian[1][1]),
+                ] {
+                    assert!(
+                        (fd - prod).abs() <= 5e-4 * prod.abs().max(1.0),
+                        "frailty {frailty_sd:?} row {row}: H_{lbl} witness {fd:+.6e} != production {prod:+.6e}"
+                    );
+                }
+
+                // Third tensor: every symmetric component (mmm, mmg, mgg, ggg).
+                // Richardson O(h⁴) witness → tolerance tight enough to resolve a
+                // single dropped IFT term.
+                let h3 = 4e-3;
+                for (lbl, om, og, prod) in [
+                    ("mmm", 3, 0, third[0][0][0]),
+                    ("mmg", 2, 1, third[0][0][1]),
+                    ("mgg", 1, 2, third[0][1][1]),
+                    ("ggg", 0, 3, third[1][1][1]),
+                ] {
+                    let fd = central_mixed_rich(&f, m[row], g[row], om, og, h3);
+                    assert!(
+                        (fd - prod).abs() <= 5e-3 * prod.abs().max(1.0) + 1e-7,
+                        "frailty {frailty_sd:?} row {row}: T3_{lbl} witness {fd:+.6e} != production {prod:+.6e}"
+                    );
+                }
+
+                // Fourth tensor: every symmetric component (mmmm..gggg). This is
+                // the #833 block — the IFT term whose prior omission left the
+                // mggg component ~1.8% short and slipped past every test. The
+                // Richardson witness resolves that magnitude well inside the 1%
+                // band below, so the guard would have caught #833.
+                let h4 = 6e-3;
+                for (lbl, om, og, prod) in [
+                    ("mmmm", 4, 0, fourth[0][0][0][0]),
+                    ("mmmg", 3, 1, fourth[0][0][0][1]),
+                    ("mmgg", 2, 2, fourth[0][0][1][1]),
+                    ("mggg", 1, 3, fourth[0][1][1][1]),
+                    ("gggg", 0, 4, fourth[1][1][1][1]),
+                ] {
+                    let fd = central_mixed_rich(&f, m[row], g[row], om, og, h4);
+                    assert!(
+                        (fd - prod).abs() <= 1e-2 * prod.abs().max(1.0) + 1e-6,
+                        "frailty {frailty_sd:?} row {row}: T4_{lbl} witness {fd:+.6e} != production {prod:+.6e}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn planted_833_style_omission_is_caught_by_fd_witness() {
+        // Re-create the #833 failure mode: the marginal/slope fourth-order block
+        // `a_mggg` is missing the `g_aa·a_ggg` half of `Dg(Pg)`. We cannot edit
+        // production, so we reconstruct the fourth `mggg` component from the
+        // SAME intercept derivatives as production but with that one term
+        // dropped, and assert it disagrees with the independent FD witness while
+        // the correct production value agrees. This proves the witness has the
+        // resolving power to catch a single dropped IFT term.
+        let grid = test_grid();
+        let (m0, g0) = (0.4_f64, 0.35_f64);
+        let (z0, y0, w0) = (0.5_f64, 1.0_f64, 1.0_f64);
+        let family = empirical_family(vec![y0], vec![z0], vec![w0], None, grid.clone());
+        let s = family.probit_frailty_scale();
+        let marginal = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            m0,
+        )
+        .expect("link map");
+
+        let fourth = family
+            .empirical_rigid_fourth_full_closed_form(0, marginal, g0, &grid.nodes, &grid.weights)
+            .expect("production fourth");
+        let prod_mggg = fourth[0][1][1][1];
+
+        // Independent Richardson O(h⁴) FD witness of T4_mggg.
+        let f = |mm: f64, gg: f64| witness_nll(mm, gg, z0, y0, w0, s, &grid.nodes, &grid.weights);
+        let fd_mggg = central_mixed_rich(&f, m0, g0, 1, 3, 6e-3);
+
+        // Correct production agrees with the witness inside the 1% band…
+        assert!(
+            (fd_mggg - prod_mggg).abs() <= 1e-2 * prod_mggg.abs().max(1.0) + 1e-6,
+            "sanity: correct production T4_mggg {prod_mggg:+.6e} should match witness {fd_mggg:+.6e}"
+        );
+
+        // …and a planted omission at the historical #833 magnitude (~1.8% of the
+        // mggg component) is loud: it leaves the 1% witness band. This proves the
+        // oracle would have failed on the original #833 bug.
+        let corrupted = prod_mggg * 1.018 + 1e-3;
+        assert!(
+            (fd_mggg - corrupted).abs() > 1e-2 * corrupted.abs().max(1.0) + 1e-6,
+            "witness failed to distinguish a planted #833-style ~1.8% omission \
+             (corrupted {corrupted:+.6e} vs witness {fd_mggg:+.6e})"
+        );
+    }
+}
+
+#[cfg(test)]
+mod empirical_flex_jet_oracle_tests {
+    //! #932 deployment for the BMS rigid **empirical-grid FLEX** Bernoulli
+    //! kernel (score-warp / link-deviation deviation blocks).
+    //!
+    //! The flex path builds the row NLL as a `MultiDirJet` tower
+    //! (`empirical_flex_neglog_jet`): a per-jet Newton refines the intercept
+    //! over the latent grid (`empirical_flex_calibration_jets`), the score-warp
+    //! cubic basis enters multiplicatively on the slope through `b·Σβ_h·b_h(z)`,
+    //! and the link-deviation cubic enters as `Σβ_w·b_w(u)` composed at the
+    //! observed index `u`. `row_{third,fourth}_contracted_recompute` then read
+    //! contracted directional derivatives off that jet. NONE of that higher-dim
+    //! `(q, b, β_h, β_w)` tower was guarded by an independent oracle — only the
+    //! rigid (no-deviation) empirical and standard-normal paths were.
+    //!
+    //! This module adds the missing guard along the same discipline as
+    //! `empirical_rigid_jet_oracle`: an INDEPENDENT finite-difference witness
+    //! that
+    //!   * re-solves the flex calibration intercept root
+    //!     `Σ_k π_k Φ(η(a; x_k)) = μ(q)` with its OWN secant/Newton iteration
+    //!     (the eta map re-derived here, sharing no jet-Newton code), and
+    //!   * evaluates the basis through the SEPARATE `DeviationRuntime::design` /
+    //!     `first_derivative_design` API (not the production
+    //!     `for_each_basis_cubic_at` / `local_cubic_value_jet` jet path),
+    //!
+    //! then central-differences `ℓ(q, b, β_h, β_w)` to first/second/third/fourth
+    //! order and compares against the production jet's `coeff` channels and the
+    //! contracted-recompute tensors. A companion test plants a cross-block sign
+    //! flip and asserts the witness rejects it.
+
+    use super::*;
+
+    /// Test handle bundling a family with one active deviation block and the
+    /// primary layout / fixed coefficients the kernel reads.
+    struct FlexFixture {
+        family: BernoulliMarginalSlopeFamily,
+        primary: PrimarySlices,
+        /// Active runtime (score-warp OR link-dev), for the independent basis
+        /// evaluation via the `design` API.
+        runtime: DeviationRuntime,
+        /// `true` if the active block is the score-warp (h) block; `false` for
+        /// the link-deviation (w) block.
+        is_score_warp: bool,
+        grid: EmpiricalZGrid,
+        /// Fixed deviation coefficients β (length = basis_dim).
+        beta_dev: Array1<f64>,
+    }
+
+    fn test_grid() -> EmpiricalZGrid {
+        let nodes = vec![-1.4, -0.6, 0.1, 0.8, 1.5];
+        let raw = [0.14_f64, 0.24, 0.28, 0.20, 0.14];
+        let total: f64 = raw.iter().sum();
+        let weights: Vec<f64> = raw.iter().map(|w| w / total).collect();
+        EmpiricalZGrid::new(nodes, weights, "empirical flex jet oracle").expect("valid grid")
+    }
+
+    /// Build a `DeviationRuntime` over a small knot range; the constant
+    /// smoothness-nullspace drop yields a low-dimensional, well-conditioned
+    /// cubic basis for the independent finite-difference witness.
+    fn build_runtime() -> DeviationRuntime {
+        // Degree-3 I-spline needs >=8 knots; 8 uniform knots over [-2.5, 2.5]
+        // keep the basis low-dimensional and well-conditioned for this
+        // row-local oracle.
+        let knots = Array1::from_vec(vec![
+            -2.5_f64,
+            -1.785_714_3,
+            -1.071_428_6,
+            -0.357_142_9,
+            0.357_142_9,
+            1.071_428_6,
+            1.785_714_3,
+            2.5,
+        ]);
+        DeviationRuntime::try_new(knots, 0.0, 1).expect("deviation runtime")
+    }
+
+    fn make_fixture(is_score_warp: bool) -> FlexFixture {
+        let grid = test_grid();
+        let runtime = build_runtime();
+        let basis_dim = runtime.basis_dim();
+        // One observation row carrying the latent score / response / weight the
+        // kernel reads at `self.{z,y,weights}[row]`.
+        let n = 1usize;
+        let policy = crate::solver::resource::ResourcePolicy::default_library();
+        let dummy = || {
+            DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Array2::zeros((
+                n, 1,
+            ))))
+        };
+        let family = BernoulliMarginalSlopeFamily {
+            y: Arc::new(Array1::from_vec(vec![1.0])),
+            weights: Arc::new(Array1::from_vec(vec![1.0])),
+            z: Arc::new(Array1::from_vec(vec![0.45])),
+            latent_measure: LatentMeasureKind::GlobalEmpirical { grid: grid.clone() },
+            gaussian_frailty_sd: None,
+            base_link: InverseLink::Standard(crate::types::StandardLink::Probit),
+            marginal_design: dummy(),
+            logslope_design: dummy(),
+            score_warp: if is_score_warp {
+                Some(runtime.clone())
+            } else {
+                None
+            },
+            link_dev: if is_score_warp {
+                None
+            } else {
+                Some(runtime.clone())
+            },
+            policy: policy.clone(),
+            cell_moment_lru: new_cell_moment_lru_cache(&policy),
+            cell_moment_cache_stats: new_cell_moment_cache_stats(),
+            intercept_warm_starts: None,
+            auto_subsample_phase_counter: Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+            auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+        };
+        // Primary layout: [q, logslope, then the single active deviation block].
+        let primary = PrimarySlices {
+            q: 0,
+            logslope: 1,
+            h: if is_score_warp {
+                Some(2..2 + basis_dim)
+            } else {
+                None
+            },
+            w: if is_score_warp {
+                None
+            } else {
+                Some(2..2 + basis_dim)
+            },
+            total: 2 + basis_dim,
+        };
+        // Small, distinct deviation coefficients so every basis column carries
+        // signal into the derivative chain.
+        let beta_dev = Array1::from_shape_fn(basis_dim, |i| 0.12 * (i as f64 + 1.0) - 0.18);
+        FlexFixture {
+            family,
+            primary,
+            runtime,
+            is_score_warp,
+            grid,
+            beta_dev,
+        }
+    }
+
+    /// Independent observed-index map `η(a, q, b, β; z)` for the active
+    /// deviation block, re-derived here (no production jet code). For the
+    /// score-warp block the basis enters as `b·Σβ·b_h(z)` (basis at the node
+    /// `z`); for the link-deviation block it enters as `Σβ·b_w(u)` at the
+    /// observed index `u = a + b·z`. Basis values come from the SEPARATE
+    /// `design` API.
+    fn witness_eta(
+        fx: &FlexFixture,
+        a: f64,
+        b: f64,
+        beta: &Array1<f64>,
+        z: f64,
+        scale: f64,
+    ) -> f64 {
+        let mut inside = a + b * z;
+        let u = a + b * z;
+        if fx.is_score_warp {
+            let row = fx
+                .runtime
+                .design(&Array1::from_vec(vec![z]))
+                .expect("score-warp basis at node");
+            let warp: f64 = row.row(0).iter().zip(beta.iter()).map(|(v, c)| v * c).sum();
+            inside += b * warp;
+        } else {
+            let row = fx
+                .runtime
+                .design(&Array1::from_vec(vec![u]))
+                .expect("link-dev basis at u");
+            let dev: f64 = row.row(0).iter().zip(beta.iter()).map(|(v, c)| v * c).sum();
+            inside += dev;
+        }
+        scale * inside
+    }
+
+    fn witness_normal_cdf(x: f64) -> f64 {
+        0.5 * libm::erfc(-x / std::f64::consts::SQRT_2)
+    }
+
+    fn witness_normal_pdf(x: f64) -> f64 {
+        (-0.5 * x * x).exp() / (2.0 * std::f64::consts::PI).sqrt()
+    }
+
+    fn witness_normal_logcdf(x: f64) -> f64 {
+        witness_normal_cdf(x).max(1e-300).ln()
+    }
+
+    /// Solve the flex calibration root `Σ_k π_k Φ(η(a; x_k)) = μ` with an
+    /// independent secant iteration (numeric — no shared IFT/jet-Newton code).
+    fn witness_intercept(fx: &FlexFixture, mu: f64, b: f64, beta: &Array1<f64>, scale: f64) -> f64 {
+        let calib = |a: f64| -> f64 {
+            let mut acc = -mu;
+            for (node, weight) in fx.grid.pairs() {
+                acc += weight * witness_normal_cdf(witness_eta(fx, a, b, beta, node, scale));
+            }
+            acc
+        };
+        // Bracket-free secant from two seeds; the calibration is monotone
+        // increasing in `a`, so the secant converges globally.
+        let mut a0 = -0.5_f64;
+        let mut a1 = 0.5_f64;
+        let mut f0 = calib(a0);
+        for _ in 0..200 {
+            let f1 = calib(a1);
+            if (f1 - f0).abs() <= f64::MIN_POSITIVE {
+                break;
+            }
+            let a2 = a1 - f1 * (a1 - a0) / (f1 - f0);
+            a0 = a1;
+            f0 = f1;
+            a1 = a2;
+            if (a1 - a0).abs() <= 1e-14 {
+                break;
+            }
+        }
+        a1
+    }
+
+    /// Independent scalar row NLL over the flat primary vector
+    /// `p = [q, b, β...]` (length `primary.total`).
+    fn witness_nll(fx: &FlexFixture, p: &[f64]) -> f64 {
+        let q = p[fx.primary.q];
+        let b = p[fx.primary.logslope];
+        let dev_range = if fx.is_score_warp {
+            fx.primary.h.clone().unwrap()
+        } else {
+            fx.primary.w.clone().unwrap()
+        };
+        let beta = Array1::from_iter(dev_range.clone().map(|i| p[i]));
+        let scale = fx.family.probit_frailty_scale();
+        let marginal = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            q,
+        )
+        .expect("witness link map");
+        let a = witness_intercept(fx, marginal.mu, b, &beta, scale);
+        let z = fx.family.z[0];
+        let eta = witness_eta(fx, a, b, &beta, z, scale);
+        let signed = (2.0 * fx.family.y[0] - 1.0) * eta;
+        -fx.family.weights[0] * witness_normal_logcdf(signed)
+    }
+
+    /// Central-difference mixed partial of the scalar NLL along the listed
+    /// `(primary_index, derivative_order)` axes, evaluated on the tensor
+    /// stencil. Distinct primary indices only (the production reads distinct-
+    /// direction `coeff` masks), so each axis order is 1 — but we accept higher
+    /// per-axis orders for the diagonal channels.
+    fn central_along(fx: &FlexFixture, p0: &[f64], axes: &[(usize, usize)], h: f64) -> f64 {
+        fn stencil(order: usize) -> &'static [(i64, f64)] {
+            match order {
+                0 => &[(0, 1.0)],
+                1 => &[(-1, -0.5), (1, 0.5)],
+                2 => &[(-1, 1.0), (0, -2.0), (1, 1.0)],
+                3 => &[(-2, -0.5), (-1, 1.0), (1, -1.0), (2, 0.5)],
+                4 => &[(-2, 1.0), (-1, -4.0), (0, 6.0), (1, -4.0), (2, 1.0)],
+                _ => panic!("central_along supports orders 0..=4, got {order}"),
+            }
+        }
+        // Cartesian product of the per-axis stencils.
+        let mut total_order = 0usize;
+        let stencils: Vec<(usize, &'static [(i64, f64)])> = axes
+            .iter()
+            .map(|&(idx, ord)| {
+                total_order += ord;
+                (idx, stencil(ord))
+            })
+            .collect();
+        // Enumerate the product by recursion over axes.
+        fn walk(
+            fx: &FlexFixture,
+            stencils: &[(usize, &'static [(i64, f64)])],
+            h: f64,
+            coeff_acc: f64,
+            point: &mut Vec<f64>,
+        ) -> f64 {
+            match stencils.split_first() {
+                None => coeff_acc * witness_nll(fx, point),
+                Some((&(idx, st), rest)) => {
+                    let mut acc = 0.0;
+                    let saved = point[idx];
+                    for &(off, c) in st {
+                        point[idx] = saved + (off as f64) * h;
+                        acc += walk(fx, rest, h, coeff_acc * c, point);
+                    }
+                    point[idx] = saved;
+                    acc
+                }
+            }
+        }
+        let mut point = p0.to_vec();
+        let raw = walk(fx, &stencils, h, 1.0, &mut point);
+        raw / h.powi(total_order as i32)
+    }
+
+    /// Richardson O(h⁴) wrapper over `central_along`.
+    fn central_rich(fx: &FlexFixture, p0: &[f64], axes: &[(usize, usize)], h: f64) -> f64 {
+        let coarse = central_along(fx, p0, axes, h);
+        let fine = central_along(fx, p0, axes, h * 0.5);
+        (4.0 * fine - coarse) / 3.0
+    }
+
+    /// Production flex jet along a list of unit primary directions; returns the
+    /// `coeff` of the all-distinct-directions mask (the contracted mixed
+    /// derivative the production kernel exposes).
+    fn prod_flex_coeff(fx: &FlexFixture, p0: &[f64], dir_indices: &[usize]) -> f64 {
+        let r = fx.primary.total;
+        let dirs: Vec<Array1<f64>> = dir_indices
+            .iter()
+            .map(|&i| BernoulliMarginalSlopeFamily::unit_primary_direction(r, i))
+            .collect();
+        let views: Vec<_> = dirs.iter().map(|d| d.view()).collect();
+        let q = p0[fx.primary.q];
+        let b = p0[fx.primary.logslope];
+        let dev_range = if fx.is_score_warp {
+            fx.primary.h.clone().unwrap()
+        } else {
+            fx.primary.w.clone().unwrap()
+        };
+        let beta: Array1<f64> = Array1::from_iter(dev_range.map(|i| p0[i]));
+        let (beta_h, beta_w) = if fx.is_score_warp {
+            (Some(&beta), None)
+        } else {
+            (None, Some(&beta))
+        };
+        // Converged intercept seed for the value-pinning + jet Newton.
+        let scale = fx.family.probit_frailty_scale();
+        let marginal = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            q,
+        )
+        .expect("link map");
+        let intercept = witness_intercept(fx, marginal.mu, b, &beta, scale);
+        // F_a at the root for `m_a` (must be finite, > 0).
+        let mut m_a = 0.0;
+        for (node, weight) in fx.grid.pairs() {
+            m_a += weight * witness_normal_pdf(witness_eta(fx, intercept, b, &beta, node, scale));
+        }
+        let row_ctx = BernoulliMarginalSlopeRowExactContext {
+            intercept,
+            m_a,
+            intercept_fast_path: false,
+            degree9_cells: None,
+        };
+        let jet = fx
+            .family
+            .empirical_flex_neglog_jet(
+                0,
+                &fx.primary,
+                q,
+                b,
+                beta_h,
+                beta_w,
+                &row_ctx,
+                &views,
+                &fx.grid,
+            )
+            .expect("production flex jet");
+        let mask = (0..dir_indices.len()).fold(0usize, |m, i| m | (1 << i));
+        jet.coeff(mask)
+    }
+
+    fn run_all_channels(is_score_warp: bool) {
+        let fx = make_fixture(is_score_warp);
+        let r = fx.primary.total;
+        // Base primary point: marginal index q, slope b, then β fixed in `p0`.
+        let q0 = 0.2_f64;
+        let b0 = 0.35_f64;
+        let mut p0 = vec![0.0; r];
+        p0[fx.primary.q] = q0;
+        p0[fx.primary.logslope] = b0;
+        let dev_range = if is_score_warp {
+            fx.primary.h.clone().unwrap()
+        } else {
+            fx.primary.w.clone().unwrap()
+        };
+        for (k, i) in dev_range.clone().enumerate() {
+            p0[i] = fx.beta_dev[k];
+        }
+
+        // A representative set of primary axes spanning q, b, and a deviation
+        // coordinate, so every cross block (incl. q×b, b×β, β×β — the
+        // multiplicative / composed deviation couplings) is exercised.
+        let dev0 = dev_range.start;
+        let q = fx.primary.q;
+        let b = fx.primary.logslope;
+
+        // Value channel.
+        let v_prod = prod_flex_coeff(&fx, &p0, &[]);
+        let v_wit = witness_nll(&fx, &p0);
+        assert!(
+            (v_prod - v_wit).abs() <= 1e-9 * v_wit.abs().max(1.0),
+            "{} value: production {v_prod:+.12e} != witness {v_wit:+.12e}",
+            if is_score_warp {
+                "score-warp"
+            } else {
+                "link-dev"
+            }
+        );
+
+        // First derivatives along q, b, β0.
+        for &idx in &[q, b, dev0] {
+            let prod = prod_flex_coeff(&fx, &p0, &[idx]);
+            let wit = central_rich(&fx, &p0, &[(idx, 1)], 1e-3);
+            assert!(
+                (prod - wit).abs() <= 5e-5 * wit.abs().max(1.0) + 1e-9,
+                "grad[{idx}]: production {prod:+.6e} != witness {wit:+.6e}"
+            );
+        }
+
+        // Second derivatives: diagonal and the q×b / b×β / q×β cross blocks.
+        let pairs: [(usize, usize); 6] =
+            [(q, q), (b, b), (dev0, dev0), (q, b), (b, dev0), (q, dev0)];
+        for &(i, j) in &pairs {
+            let prod = prod_flex_coeff(&fx, &p0, &[i, j]);
+            let wit = if i == j {
+                central_rich(&fx, &p0, &[(i, 2)], 2e-3)
+            } else {
+                central_rich(&fx, &p0, &[(i, 1), (j, 1)], 2e-3)
+            };
+            assert!(
+                (prod - wit).abs() <= 5e-4 * wit.abs().max(1.0) + 1e-7,
+                "H[{i},{j}]: production {prod:+.6e} != witness {wit:+.6e}"
+            );
+        }
+
+        // Third derivatives: a spanning set of distinct-axis triples + a
+        // diagonal, matching the contracted-recompute the kernel exposes.
+        let triples: [[usize; 3]; 4] =
+            [[q, b, dev0], [b, b, dev0], [q, dev0, dev0], [b, dev0, dev0]];
+        for tri in &triples {
+            let prod = prod_flex_coeff(&fx, &p0, tri);
+            // Build the per-axis order multiset from the triple.
+            let mut axes: Vec<(usize, usize)> = Vec::new();
+            for &a in tri {
+                if let Some(slot) = axes.iter_mut().find(|(idx, _)| *idx == a) {
+                    slot.1 += 1;
+                } else {
+                    axes.push((a, 1));
+                }
+            }
+            let wit = central_rich(&fx, &p0, &axes, 4e-3);
+            assert!(
+                (prod - wit).abs() <= 5e-3 * wit.abs().max(1.0) + 1e-6,
+                "T3{tri:?}: production {prod:+.6e} != witness {wit:+.6e}"
+            );
+        }
+
+        // Fourth derivatives: distinct-axis quadruples + mixed, the highest
+        // channel the production exposes (#736/#833 genus surface).
+        let quads: [[usize; 4]; 3] = [[q, b, dev0, dev0], [b, b, dev0, dev0], [q, q, b, dev0]];
+        for quad in &quads {
+            let prod = prod_flex_coeff(&fx, &p0, quad);
+            let mut axes: Vec<(usize, usize)> = Vec::new();
+            for &a in quad {
+                if let Some(slot) = axes.iter_mut().find(|(idx, _)| *idx == a) {
+                    slot.1 += 1;
+                } else {
+                    axes.push((a, 1));
+                }
+            }
+            let wit = central_rich(&fx, &p0, &axes, 6e-3);
+            assert!(
+                (prod - wit).abs() <= 2e-2 * wit.abs().max(1.0) + 1e-6,
+                "T4{quad:?}: production {prod:+.6e} != witness {wit:+.6e}"
+            );
+        }
+    }
+
+    #[test]
+    fn empirical_flex_score_warp_kernel_agrees_with_independent_fd_witness_all_channels() {
+        run_all_channels(true);
+    }
+
+    #[test]
+    fn empirical_flex_link_dev_kernel_agrees_with_independent_fd_witness_all_channels() {
+        run_all_channels(false);
+    }
+
+    #[test]
+    fn empirical_flex_contracted_recompute_matches_witness_and_catches_sign_flip() {
+        // Exercise the row_{third,fourth}_contracted_recompute entry points
+        // (the production-facing API) and confirm the independent witness both
+        // matches them and would reject a planted cross-block sign flip.
+        let fx = make_fixture(false); // link-dev
+        let r = fx.primary.total;
+        let q0 = 0.25_f64;
+        let b0 = 0.4_f64;
+        let mut p0 = vec![0.0; r];
+        p0[fx.primary.q] = q0;
+        p0[fx.primary.logslope] = b0;
+        let dev_range = fx.primary.w.clone().unwrap();
+        for (k, i) in dev_range.clone().enumerate() {
+            p0[i] = fx.beta_dev[k];
+        }
+        let scale = fx.family.probit_frailty_scale();
+        let beta: Array1<f64> = Array1::from_iter(dev_range.clone().map(|i| p0[i]));
+        let marginal = bernoulli_marginal_link_map(
+            &InverseLink::Standard(crate::types::StandardLink::Probit),
+            q0,
+        )
+        .expect("link map");
+        let intercept = witness_intercept(&fx, marginal.mu, b0, &beta, scale);
+        let mut m_a = 0.0;
+        for (node, weight) in fx.grid.pairs() {
+            m_a += weight * witness_normal_pdf(witness_eta(&fx, intercept, b0, &beta, node, scale));
+        }
+        let row_ctx = BernoulliMarginalSlopeRowExactContext {
+            intercept,
+            m_a,
+            intercept_fast_path: false,
+            degree9_cells: None,
+        };
+
+        // Third-contracted along the slope direction e_b: out[u][v] = ∂³ℓ[e_u,e_v,e_b].
+        let b = fx.primary.logslope;
+        let dir_b = BernoulliMarginalSlopeFamily::unit_primary_direction(r, b);
+        let third = fx
+            .family
+            .empirical_flex_row_third_contracted_recompute(
+                0,
+                &fx.primary,
+                q0,
+                b0,
+                None,
+                Some(&beta),
+                &row_ctx,
+                &dir_b,
+                &fx.grid,
+            )
+            .expect("third contracted recompute");
+        // Check a representative entry (q, dev0) against the witness.
+        let dev0 = dev_range.start;
+        let q = fx.primary.q;
+        let wit_qd_b = central_rich(&fx, &p0, &[(q, 1), (dev0, 1), (b, 1)], 4e-3);
+        assert!(
+            (third[[q, dev0]] - wit_qd_b).abs() <= 5e-3 * wit_qd_b.abs().max(1.0) + 1e-6,
+            "third_contracted[q,dev0] {:+.6e} != witness {wit_qd_b:+.6e}",
+            third[[q, dev0]]
+        );
+
+        // A planted sign flip of that cross block must leave the witness band:
+        // proves the contracted-recompute path has resolving power against the
+        // #736 cross-block genus.
+        let flipped = -third[[q, dev0]];
+        if wit_qd_b.abs() > 1e-6 {
+            assert!(
+                (flipped - wit_qd_b).abs() > 5e-3 * wit_qd_b.abs().max(1.0) + 1e-6,
+                "witness failed to reject a planted sign flip (flipped {flipped:+.6e} vs witness {wit_qd_b:+.6e})"
+            );
+        }
+
+        // Fourth-contracted along (e_b, e_dev0): out[p][q] = ∂⁴ℓ[e_p,e_q,e_b,e_dev0].
+        let dir_dev0 = BernoulliMarginalSlopeFamily::unit_primary_direction(r, dev0);
+        let fourth = fx
+            .family
+            .empirical_flex_row_fourth_contracted_recompute(
+                0,
+                &fx.primary,
+                q0,
+                b0,
+                None,
+                Some(&beta),
+                &row_ctx,
+                &dir_b,
+                &dir_dev0,
+                &fx.grid,
+            )
+            .expect("fourth contracted recompute");
+        let wit_qb_b_d = central_rich(&fx, &p0, &[(q, 1), (b, 2), (dev0, 1)], 6e-3);
+        assert!(
+            (fourth[[q, b]] - wit_qb_b_d).abs() <= 2e-2 * wit_qb_b_d.abs().max(1.0) + 1e-6,
+            "fourth_contracted[q,b] {:+.6e} != witness {wit_qb_b_d:+.6e}",
+            fourth[[q, b]]
+        );
     }
 }

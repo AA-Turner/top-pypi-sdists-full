@@ -34,9 +34,17 @@ from picsellia.types.enums import (
     AddEvaluationType,
     AnnotationStatus,
     ExperimentStatus,
+    GCPSupportedGPU,
     InferenceType,
     JobStatus,
     ObjectDataType,
+)
+from picsellia.types.payload import (
+    ClassificationFormat,
+    EvaluationFormat,
+    KeypointFormat,
+    PolygonFormat,
+    RectangleFormat,
 )
 from picsellia.types.schemas import ExperimentSchema, LogDataType
 
@@ -840,7 +848,7 @@ class Experiment(Dao):
 
     @exception_handler
     @beartype
-    def launch(self, gpus: int = 1) -> Job:
+    def launch(self, gpus: int = 1, gpu_type: str | None = None) -> Job:
         """Launch a job on a remote environment with this experiment.
 
         :information-source: The remote environment has to be setup prior launching the experiment.
@@ -852,9 +860,11 @@ class Experiment(Dao):
             ```
         Arguments:
             gpus (int, optional): Number of GPU to use for the training. Defaults to 1.
+            gpu_type(str, optional): GPU type to use for the training. Defaults to None, which means default GPU type.
         """
         payload = {
             "gpus": gpus,
+            "gpu_type": GCPSupportedGPU.validate(gpu_type) if gpu_type else None,
         }
 
         r = self.connection.post(
@@ -966,6 +976,7 @@ class Experiment(Dao):
         self,
         base_model_version: "ModelVersion",
         attach_parameters: bool | None = None,
+        attach_model_files: bool | None = None,
     ) -> None:
         """Set a base experiment to this experiment.
 
@@ -976,19 +987,26 @@ class Experiment(Dao):
         If attach_parameters is False, it will do nothing for parameters.
         If attach_parameters is None, it will copy the base_model_version parameters inside a "parameters" Log ONLY if there was no prior "parameters" Log on this experiment.
 
+        If attach_model_files is True, it will copy ModelFile of ModelVersion, replacing artifacts that have the same name, and keeping the others.
+        If attach_model_files is False, it will not copy any ModelFile from the model version.
+        If attach_model_files is None, it will copy ModelFile only if there are no existing artifacts.
+
         Examples:
             ```python
             base_model_version = client.get_model_version_by_id("f91c4f26-e956-4a4f-ac75-d8371cf9928c")
             # This will copy parameters only if there were no parameters inside experiment.
+            # This will also create the artifacts if they were not existing
             experiment.set_base_model_version(base_model_version)
             ```
         Arguments:
             base_model_version (ModelVersion): A model version to set as base model_version.
             attach_parameters (bool, optional): Define the behavior for parameters. Defaults to None.
+            attach_model_files (bool, optional): Define the behavior for model files. Defaults to None.
         """
         payload = {
             "model_version_id": base_model_version.id,
-            "do_attach_base_parameters": attach_parameters,
+            "attach_base_parameters": attach_parameters,
+            "attach_model_files": attach_model_files,
         }
         self.connection.post(
             f"/api/experiment/{self.id}/model", data=orjson.dumps(payload)
@@ -1163,8 +1181,11 @@ class Experiment(Dao):
         polygons: list[tuple[list[list[int]], Label, float]] | None = None,
         classifications: list[tuple[Label, float]] | None = None,
         keypoints: list[tuple[list[list[int]], Label, float]] | None = None,
+        custom_metrics: dict[str, Any] | None = None,
     ):
         """Add an evaluation of the asset by this experiment.
+
+        If you want to add multiple evaluation, you can use add_evaluations() instead.
 
         By default, if given asset had already been evaluated, evaluation will be replaced.
         You can add different shapes but will only be able to compute evaluation metrics on one kind of inference type.
@@ -1178,11 +1199,12 @@ class Experiment(Dao):
             ```
         Arguments:
             asset (Asset): asset to add evaluation on
-            add_type (str ou AddEvaluationType): replace or keep old evaluation, defaults to
+            add_type (str ou AddEvaluationType): replace or keep old evaluation, defaults to replace
             rectangles (optional): list of tuples representing rectangles with scores
             polygons  (optional): list of tuples representing polygons with scores
             classifications (optional): list of tuples representing classifications with scores
             keypoints (optional): list of tuples representing keypoints with scores
+            custom_metrics (optional): custom metrics to store on Evaluation
         """
         if (
             rectangles is None
@@ -1194,42 +1216,80 @@ class Experiment(Dao):
                 "Please give parameter 'rectangles', 'classifications', 'keypoints' or 'polygons'"
             )
 
-        import_type = AddEvaluationType.validate(add_type)
-        payload = {"import_type": import_type}
-        payload_evaluation: dict[str, Any] = {"asset_id": asset.id}
+        evaluation = EvaluationFormat(custom_metrics=custom_metrics)
         if rectangles is not None:
-            payload_evaluation["rectangles"] = [
-                {
-                    "x": rectangle[0],
-                    "y": rectangle[1],
-                    "w": rectangle[2],
-                    "h": rectangle[3],
-                    "label_id": rectangle[4].id,
-                    "score": rectangle[5],
-                }
+            evaluation.rectangles = [
+                RectangleFormat(
+                    x=rectangle[0],
+                    y=rectangle[1],
+                    w=rectangle[2],
+                    h=rectangle[3],
+                    label_id=rectangle[4].id,
+                    score=rectangle[5],
+                )
                 for rectangle in rectangles
             ]
-
         if polygons is not None:
-            payload_evaluation["polygons"] = [
-                {"polygon": polygon[0], "label_id": polygon[1].id, "score": polygon[2]}
+            evaluation.polygons = [
+                PolygonFormat(
+                    polygon=polygon[0], label_id=polygon[1].id, score=polygon[2]
+                )
                 for polygon in polygons
             ]
         if classifications is not None:
-            payload_evaluation["classifications"] = [
-                {"label_id": classification[0].id, "score": classification[1]}
+            evaluation.classifications = [
+                ClassificationFormat(
+                    label_id=classification[0].id, score=classification[1]
+                )
                 for classification in classifications
             ]
         if keypoints is not None:
-            payload_evaluation["keypoints"] = [
-                {
-                    "keypoints": keypoint[0],
-                    "label_id": keypoint[1].id,
-                    "score": keypoint[2],
-                }
+            evaluation.keypoints = [
+                KeypointFormat(
+                    keypoints=keypoint[0],
+                    label_id=keypoint[1].id,
+                    score=keypoint[2],
+                )
                 for keypoint in keypoints
             ]
-        payload["evaluations"] = [payload_evaluation]
+
+        self.add_evaluations({asset.id: evaluation}, add_type)
+
+    @exception_handler
+    @beartype
+    def add_evaluations(
+        self,
+        evaluations: dict[str | UUID, EvaluationFormat | dict],
+        add_type: str | AddEvaluationType = AddEvaluationType.REPLACE,
+    ) -> None:
+        """Add evaluations on multiple assets at once
+
+        By default, if there is an existing evaluation on a given asset, it will be overridden, you can change add_type if you need another behavior.
+
+        Examples:
+            ```python
+            asset_1 = dataset_version.find_asset(filename="asset-1.png")
+            evaluation_1 = EvaluationFormat(rectangles=[RectangleFormat(x=10, y=20, w=30, h=40, label_id=label_cat.id, score=0.8), RectangleFormat(x=50, y=60, w=20, h=30, label_id=label_dog.id, score=0.7)])
+            experiment.add_evaluations(evaluations={asset_1.id: evaluation_1})
+            ```
+        Arguments:
+            evaluations (dict): a map between asset ids and EvaluationFormat schema.
+            add_type (str ou AddEvaluationType): replace or keep old evaluation, defaults to replace.
+        """
+        payload = {
+            "import_type": AddEvaluationType.validate(add_type),
+            "evaluations": [],
+        }
+
+        if len(evaluations) < 1 or len(evaluations) > 100:
+            raise ValueError(
+                "You cannot add less than 1 evaluation or more than 100 evaluations"
+            )
+
+        for asset_id, evaluation in evaluations.items():
+            asset_eval = EvaluationFormat.model_validate(evaluation).model_dump()
+            asset_eval["asset_id"] = asset_id
+            payload["evaluations"].append(asset_eval)
 
         self.connection.post(
             f"/api/experiment/{self.id}/evaluations", data=orjson.dumps(payload)

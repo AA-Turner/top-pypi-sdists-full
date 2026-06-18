@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 from PIL.Image import Image
 from pydicom.uid import UID
@@ -71,7 +71,7 @@ class WsiDicomWebImageData(WsiDicomImageData):
         """The uid of the transfer syntax of the image."""
         return self._transfer_syntax
 
-    def _get_decoded_tiles(
+    def get_decoded_tiles(
         self, tiles: Iterable[Point], z: float, path: str
     ) -> Iterator[Image]:
         """
@@ -104,7 +104,7 @@ class WsiDicomWebImageData(WsiDicomImageData):
             else:
                 yield next(frames)
 
-    def _get_encoded_tiles(
+    def get_encoded_tiles(
         self, tiles: Iterable[Point], z: float, path: str
     ) -> Iterator[bytes]:
         """

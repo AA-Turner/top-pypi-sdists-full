@@ -34,24 +34,22 @@ pub enum GamlssError {
     NumericalFailure { reason: String },
 }
 
-impl std::fmt::Display for GamlssError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GamlssError::DimensionMismatch { reason }
-            | GamlssError::InvalidInput { reason }
-            | GamlssError::NonFinite { reason }
-            | GamlssError::UnsupportedConfiguration { reason }
-            | GamlssError::ConstraintViolation { reason }
-            | GamlssError::NumericalFailure { reason } => f.write_str(reason),
-        }
+crate::impl_reason_error_boilerplate! {
+    GamlssError {
+        DimensionMismatch,
+        InvalidInput,
+        NonFinite,
+        UnsupportedConfiguration,
+        ConstraintViolation,
+        NumericalFailure,
     }
 }
 
-impl std::error::Error for GamlssError {}
-
-impl From<GamlssError> for String {
-    fn from(err: GamlssError) -> Self {
-        err.to_string()
+impl From<crate::families::block_layout::block_count::BlockCountMismatch> for GamlssError {
+    fn from(err: crate::families::block_layout::block_count::BlockCountMismatch) -> GamlssError {
+        GamlssError::DimensionMismatch {
+            reason: err.message(),
+        }
     }
 }
 
@@ -84,10 +82,10 @@ pub(crate) const MIN_DERIV: f64 = 1e-8;
 /// `1e-12 · max|x|² · n` stays comfortably above `f64::MIN_POSITIVE`
 /// at large scale.
 ///
-/// This is the canonical PIRLS positive-weight floor (`1e-12`); the value is
-/// owned by [`crate::solver::pirls::MIN_WEIGHT`] so every floored family shares
-/// one definition rather than re-declaring it per module.
-use crate::solver::pirls::MIN_WEIGHT;
+/// This is the canonical positive-weight floor (`1e-12`); the value is owned by
+/// [`crate::types::MIN_WEIGHT`] so every floored family shares one definition
+/// rather than re-declaring it per module.
+use crate::types::MIN_WEIGHT;
 
 /// Hard symmetric clamp on η used by the Poisson / Gaussian / Gamma working-
 /// model log-likelihood loops to keep `exp(η)` and `log(σ)` finite under the
@@ -234,7 +232,7 @@ impl DenseOrOperator<'_> {
 /// materializer's error so callers can pin which block failed.
 pub(crate) fn dense_block_from_spec<'a>(
     spec: &'a ParameterBlockSpec,
-    material_policy: &crate::resource::MaterializationPolicy,
+    material_policy: &crate::solver::resource::MaterializationPolicy,
     materialization_label: &str,
 ) -> Result<Cow<'a, Array2<f64>>, String> {
     match spec.design.as_dense_ref() {
@@ -263,7 +261,7 @@ pub(crate) fn dense_locscale_block_designs_fromspecs<'a>(
     primary_block_idx: usize,
     log_sigma_block_idx: usize,
     primary_label: &str,
-    material_policy: &crate::resource::MaterializationPolicy,
+    material_policy: &crate::solver::resource::MaterializationPolicy,
 ) -> Result<(Cow<'a, Array2<f64>>, Cow<'a, Array2<f64>>), String> {
     if specs.len() != expected_count {
         return Err(GamlssError::DimensionMismatch {
@@ -299,7 +297,7 @@ pub(crate) fn dense_locscale_block_designs_cached<'a>(
     family_name: &str,
     short_family_name: &str,
     primary_label: &str,
-    material_policy: &crate::resource::MaterializationPolicy,
+    material_policy: &crate::solver::resource::MaterializationPolicy,
 ) -> Result<(Cow<'a, Array2<f64>>, Cow<'a, Array2<f64>>), String> {
     let primary_design = primary_design
         .ok_or_else(|| format!("{family_name} exact path is missing {primary_label} design"))?;
@@ -365,13 +363,13 @@ pub(crate) fn locscale_joint_psi_direction_parts(
     expected_blocks: usize,
     family_name: &str,
     primary_label: &str,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &crate::solver::resource::ResourcePolicy,
 ) -> Result<Option<LocScalePsiDirectionParts>, String> {
-    if block_states.len() != expected_blocks || derivative_blocks.len() != expected_blocks {
+    validate_block_count::<GamlssError>(family_name, expected_blocks, block_states.len())?;
+    if derivative_blocks.len() != expected_blocks {
         return Err(GamlssError::DimensionMismatch {
             reason: format!(
-                "{family_name} joint psi direction expects {expected_blocks} blocks and {expected_blocks} derivative block lists, got {} and {}",
-                block_states.len(),
+                "{family_name} joint psi direction expects {expected_blocks} derivative block lists, got {}",
                 derivative_blocks.len()
             ),
         }
@@ -452,7 +450,7 @@ pub(crate) struct LocScalePsiDriftConfig<'a> {
     pub(crate) log_sigma_block_idx: usize,
     pub(crate) family_name: &'a str,
     pub(crate) primary_label: &'a str,
-    pub(crate) policy: &'a crate::resource::ResourcePolicy,
+    pub(crate) policy: &'a crate::solver::resource::ResourcePolicy,
 }
 
 pub(crate) fn locscale_joint_psisecond_design_drifts(
@@ -534,7 +532,7 @@ pub(crate) fn psi_psi_map_to_drift_slots(
     n: usize,
     p: usize,
     label: &str,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &crate::solver::resource::ResourcePolicy,
 ) -> Result<
     (
         Option<crate::custom_family::CustomFamilyPsiSecondDesignAction>,
@@ -569,7 +567,7 @@ pub(crate) fn dense_block_or_operator<'a>(
     n: usize,
     p: usize,
     budget_bytes: usize,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &crate::solver::resource::ResourcePolicy,
 ) -> DenseOrOperator<'a> {
     if let Some(dense) = design.as_dense_ref() {
         return DenseOrOperator::Borrowed(dense);

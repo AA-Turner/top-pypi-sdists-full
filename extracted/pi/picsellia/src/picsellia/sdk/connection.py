@@ -663,10 +663,7 @@ class JwtServiceConnection(AbstractConnection):
         return {"Authorization": f"Bearer {self.jwt}"}
 
     def generate_jwt(self):
-        url = urljoin(self.host, self.login_path)
-        response = self.session.post(
-            url=url, data=orjson.dumps(self.jwt_identifier_data)
-        )
+        response = self._call_auth_login()
 
         if response.status_code != 200:
             raise exceptions.UnauthorizedError("Unauthorized attempt to connect.")
@@ -679,11 +676,18 @@ class JwtServiceConnection(AbstractConnection):
                 "Cannot parse response from external service. Please contact support."
             )
 
+    @retry((requests.ReadTimeout, requests.ConnectionError))
+    def _call_auth_login(self) -> Response:
+        url = urljoin(self.host, self.login_path)
+        return self.session.post(url=url, data=orjson.dumps(self.jwt_identifier_data))
+
     @wrapped_request
+    @retry((requests.ConnectionError, requests.exceptions.ChunkedEncodingError))
     def get(self, path: str, params: dict | None = None, stream: bool = False):
         return super().get(path, params, stream)
 
     @wrapped_request
+    @retry((requests.ConnectionError, requests.exceptions.ChunkedEncodingError))
     def xget(
         self,
         path: str,
@@ -694,6 +698,7 @@ class JwtServiceConnection(AbstractConnection):
         return super().xget(path, data, params, stream)
 
     @wrapped_request
+    @retry(requests.ConnectionError)
     def post(
         self,
         path: str,
@@ -704,6 +709,7 @@ class JwtServiceConnection(AbstractConnection):
         return super().post(path, data, params, files)
 
     @wrapped_request
+    @retry(requests.ConnectionError)
     def put(
         self,
         path: str,
@@ -713,6 +719,7 @@ class JwtServiceConnection(AbstractConnection):
         return super().put(path, data, params)
 
     @wrapped_request
+    @retry(requests.ConnectionError)
     def patch(
         self,
         path: str,
@@ -722,6 +729,7 @@ class JwtServiceConnection(AbstractConnection):
         return super().patch(path, data, params)
 
     @wrapped_request
+    @retry(requests.ConnectionError)
     def delete(
         self,
         path: str,

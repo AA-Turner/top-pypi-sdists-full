@@ -3,6 +3,7 @@ import pytest
 from face import (Flag,
                   ERROR,
                   Command,
+                  CommandGroup,
                   CommandChecker,
                   Parser,
                   PosArgSpec,
@@ -44,7 +45,10 @@ def subcmd_cmd():
      # invalid subcommands
      # TODO: the following should also include "nonexistent-subcmd" but instead it lists "nonexistent_subcmd"
      (['halp', 'nonexistent-subcmd'], ['error', 'subcmd'], 1),
-     (['halp', 'subcmd', 'nonexistent-subsubcmd'], ['error', 'subsubcmd'], 1)
+     (['halp', 'subcmd', 'nonexistent-subsubcmd'], ['error', 'subsubcmd'], 1),
+     # subcommand group invoked without specifying a subcommand
+     (['halp'], ['error', 'expected a subcommand'], 1),
+     (['halp', 'subcmd'], ['error', 'expected a subcommand'], 1),
      ]
 )
 def test_help(subcmd_cmd, argv, contains, exit_code, capsys):
@@ -126,3 +130,148 @@ def test_flag_post_doc():
     assert format_flag_post_doc(Flag('flag', missing=42)) == '(defaults to 42)'
     assert format_flag_post_doc(Flag('flag', missing=ERROR)) == '(required)'
     assert format_flag_post_doc(Flag('flag', display={'post_doc': '(fun)'})) == '(fun)'
+
+
+
+def test_missing_subcmd_shows_help_and_errors(subcmd_cmd, capsys):
+    """When a subcommand group is invoked without a subcommand,
+    help is shown to stdout AND an error is printed to stderr."""
+    with pytest.raises(SystemExit) as exc_info:
+        subcmd_cmd.run(['halp', 'subcmd'])
+
+    assert exc_info.value.code == 1
+
+    out, err = capsys.readouterr()
+    # Help text goes to stdout
+    assert 'Usage' in out
+    assert 'subsubcmd' in out
+    # Error goes to stderr
+    assert 'expected a subcommand' in err
+
+
+def test_missing_subcmd_checker():
+    cmd = get_subcmd_cmd()
+    cc = CommandChecker(cmd)
+
+    # Subcommand group without subcommand -> exit 1
+    res = cc.fail('halp subcmd')
+    assert 'Usage' in res.stdout
+    assert 'expected a subcommand' in res.stderr
+
+    # Explicit help -> exit 0
+    res = cc.run('halp subcmd -h')
+    assert 'Usage' in res.stdout
+
+
+def test_subcmd_group_named():
+    cmd = Command(None, name='app')
+    setup = CommandGroup('Setup')
+    setup.add(lambda: None, name='create', doc='create a thing')
+    setup.add(lambda: None, name='delete', doc='delete a thing')
+    cmd.add(setup)
+    info = CommandGroup('Info')
+    info.add(lambda: None, name='list', doc='list things')
+    cmd.add(info)
+
+    cc = CommandChecker(cmd)
+    res = cc.run('app -h')
+    assert 'Setup:' in res.stdout
+    assert 'Info:' in res.stdout
+    assert 'create' in res.stdout
+    assert 'delete' in res.stdout
+    assert 'list' in res.stdout
+
+
+def test_subcmd_group_ungrouped_first():
+    cmd = Command(None, name='app')
+    cmd.add(lambda: None, name='version', doc='show version')
+    grp = CommandGroup('Ops')
+    grp.add(lambda: None, name='deploy', doc='deploy it')
+    cmd.add(grp)
+
+    cc = CommandChecker(cmd)
+    res = cc.run('app -h')
+    # version appears before 'Ops:' heading
+    vi = res.stdout.index('version')
+    oi = res.stdout.index('Ops:')
+    assert vi < oi
+
+
+def test_subcmd_group_backward_compat():
+    """Command with no groups produces same flat help output."""
+    cmd = Command(None, name='app')
+    cmd.add(lambda: None, name='alpha', doc='do alpha')
+    cmd.add(lambda: None, name='beta', doc='do beta')
+
+    cc = CommandChecker(cmd)
+    res = cc.run('app -h')
+    lines = res.stdout.splitlines()
+    # No group headings anywhere
+    assert not any(line.strip().endswith(':') and line.strip() != 'Subcommands:'
+                   and line.strip() != 'Flags:' for line in lines)
+    # Subcommands at normal indent, not double-indented
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith('alpha') or stripped.startswith('beta'):
+            indent = len(line) - len(stripped)
+            assert indent == 2  # section_indent is '  '
+
+
+def test_subcmd_group_kwarg():
+    cmd = Command(None, name='app')
+    cmd.add(lambda: None, name='foo', doc='do foo', group='Stuff')
+    cmd.add(lambda: None, name='bar', doc='do bar', group='Stuff')
+
+    cc = CommandChecker(cmd)
+    res = cc.run('app -h')
+    assert 'Stuff:' in res.stdout
+    assert 'foo' in res.stdout
+    assert 'bar' in res.stdout
+
+
+def test_subcmd_group_dispatch():
+    result = []
+    cmd = Command(None, name='app')
+    grp = CommandGroup('Ops')
+    grp.add(lambda: result.append('ran'), name='do_it')
+    cmd.add(grp)
+
+    cmd.run(['app', 'do-it'])
+    assert result == ['ran']
+
+
+def test_command_group_constructor():
+    with pytest.raises(ValueError):
+        CommandGroup('')
+    with pytest.raises(ValueError):
+        CommandGroup(None)
+    grp = CommandGroup('Valid')
+    assert grp.name == 'Valid'
+    assert grp._commands == []
+
+
+def test_command_group_add_prebuilt():
+    grp = CommandGroup('Ops')
+    subcmd = Command(lambda: None, name='deploy', doc='deploy it')
+    ret = grp.add(subcmd)
+    assert ret is subcmd
+    assert grp._commands == [subcmd]
+
+
+def test_command_group_add_invalid():
+    grp = CommandGroup('Ops')
+    with pytest.raises(TypeError, match='expected callable or Command'):
+        grp.add(42)
+
+
+def test_command_group_repr():
+    grp = CommandGroup('Ops')
+    assert repr(grp) == "CommandGroup('Ops', commands=0)"
+    grp.add(lambda: None, name='x')
+    assert repr(grp) == "CommandGroup('Ops', commands=1)"
+
+
+def test_add_command_group_invalid():
+    cmd = Command(None, name='app')
+    with pytest.raises(TypeError, match='expected CommandGroup instance'):
+        cmd.add_command_group('not a group')

@@ -26,6 +26,7 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AuthFlowType,
+    CapabilityTypeType,
     ExecutionStatusType,
     GithubRepoOwnerTypeType,
     GitLabTokenTypeType,
@@ -41,6 +42,7 @@ from .literals import (
     PrivateConnectionTypeType,
     RecommendationPriorityType,
     RecommendationStatusType,
+    RemoteAgentAuthorizationMethodType,
     ResourceConfigDnsResolutionType,
     SchedulerStateType,
     ServiceType,
@@ -71,6 +73,7 @@ __all__ = (
     "AssetFileContentTypeDef",
     "AssetFileSummaryTypeDef",
     "AssetFileTypeDef",
+    "AssetSourceUrlContentTypeDef",
     "AssetTypeDef",
     "AssetTypeSummaryTypeDef",
     "AssetVersionMetadataTypeDef",
@@ -84,6 +87,7 @@ __all__ = (
     "AzureConfigurationTypeDef",
     "AzureDevOpsConfigurationTypeDef",
     "BlobTypeDef",
+    "CapabilityConfigurationTypeDef",
     "ChatExecutionTypeDef",
     "CreateAgentSpaceInputTypeDef",
     "CreateAgentSpaceOutputTypeDef",
@@ -250,9 +254,18 @@ __all__ = (
     "RegisteredMCPServerSigV4DetailsTypeDef",
     "RegisteredNewRelicDetailsTypeDef",
     "RegisteredPagerDutyDetailsTypeDef",
+    "RegisteredRemoteAgentDetailsTypeDef",
+    "RegisteredRemoteAgentSigV4DetailsTypeDef",
     "RegisteredServiceNowDetailsTypeDef",
     "RegisteredServiceTypeDef",
     "RegisteredSlackServiceDetailsTypeDef",
+    "RemoteAgentAPIKeyConfigTypeDef",
+    "RemoteAgentAuthorizationConfigTypeDef",
+    "RemoteAgentBearerTokenConfigTypeDef",
+    "RemoteAgentOAuthClientCredentialsConfigTypeDef",
+    "RemoteAgentServiceDetailsTypeDef",
+    "RemoteAgentSigV4AuthorizationConfigTypeDef",
+    "RemoteAgentSigV4ServiceDetailsTypeDef",
     "ResponseMetadataTypeDef",
     "ScheduleConditionTypeDef",
     "SelfManagedInputTypeDef",
@@ -384,6 +397,23 @@ class RegisteredPagerDutyDetailsTypeDef(TypedDict):
     scopes: list[str]
 
 
+class RegisteredRemoteAgentDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationMethod: RemoteAgentAuthorizationMethodType
+    description: NotRequired[str]
+    apiKeyHeader: NotRequired[str]
+
+
+class RegisteredRemoteAgentSigV4DetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    region: str
+    service: str
+    description: NotRequired[str]
+    roleArn: NotRequired[str]
+
+
 class RegisteredServiceNowDetailsTypeDef(TypedDict):
     instanceUrl: NotRequired[str]
 
@@ -405,6 +435,10 @@ class AgentSpaceTypeDef(TypedDict):
     description: NotRequired[str]
     locale: NotRequired[str]
     kmsKeyArn: NotRequired[str]
+
+
+class AssetSourceUrlContentTypeDef(TypedDict):
+    url: str
 
 
 AssetFileBodyOutputTypeDef = TypedDict(
@@ -452,6 +486,10 @@ class AssetZipContentOutputTypeDef(TypedDict):
 class AssistantMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolUse: NotRequired[dict[str, Any]]
+
+
+class CapabilityConfigurationTypeDef(TypedDict):
+    enabled: NotRequired[bool]
 
 
 class GenericWebhookTypeDef(TypedDict):
@@ -690,12 +728,14 @@ class GitHubConfigurationTypeDef(TypedDict):
     owner: str
     ownerType: GithubRepoOwnerTypeType
     instanceIdentifier: NotRequired[str]
+    runtimeRoleArn: NotRequired[str]
 
 
 class GitLabConfigurationTypeDef(TypedDict):
     projectId: str
     projectPath: str
     instanceIdentifier: NotRequired[str]
+    runtimeRoleArn: NotRequired[str]
 
 
 class GitLabDetailsTypeDef(TypedDict):
@@ -998,6 +1038,33 @@ class RegisteredAzureIdentityDetailsTypeDef(TypedDict):
     webIdentityTokenAudiences: Sequence[str]
 
 
+class RemoteAgentAPIKeyConfigTypeDef(TypedDict):
+    apiKeyName: str
+    apiKeyValue: str
+    apiKeyHeader: str
+
+
+class RemoteAgentBearerTokenConfigTypeDef(TypedDict):
+    tokenName: str
+    tokenValue: str
+    authorizationHeader: NotRequired[str]
+
+
+class RemoteAgentOAuthClientCredentialsConfigTypeDef(TypedDict):
+    clientId: str
+    clientSecret: str
+    exchangeUrl: str
+    clientName: NotRequired[str]
+    exchangeParameters: NotRequired[Mapping[str, str]]
+    scopes: NotRequired[Sequence[str]]
+
+
+class RemoteAgentSigV4AuthorizationConfigTypeDef(TypedDict):
+    region: str
+    service: str
+    roleArn: NotRequired[str]
+
+
 class ScheduleConditionTypeDef(TypedDict):
     expression: str
 
@@ -1162,6 +1229,8 @@ class AdditionalServiceDetailsTypeDef(TypedDict):
     mcpservergrafana: NotRequired[RegisteredGrafanaServerDetailsTypeDef]
     pagerduty: NotRequired[RegisteredPagerDutyDetailsTypeDef]
     mcpserversigv4: NotRequired[RegisteredMCPServerSigV4DetailsTypeDef]
+    remoteagent: NotRequired[RegisteredRemoteAgentDetailsTypeDef]
+    remoteagentsigv4: NotRequired[RegisteredRemoteAgentSigV4DetailsTypeDef]
 
 
 class AdditionalServiceRegistrationStepTypeDef(TypedDict):
@@ -1602,6 +1671,19 @@ RegisteredAzureIdentityDetailsUnionTypeDef = Union[
 ]
 
 
+class RemoteAgentAuthorizationConfigTypeDef(TypedDict):
+    apiKey: NotRequired[RemoteAgentAPIKeyConfigTypeDef]
+    oAuthClientCredentials: NotRequired[RemoteAgentOAuthClientCredentialsConfigTypeDef]
+    bearerToken: NotRequired[RemoteAgentBearerTokenConfigTypeDef]
+
+
+class RemoteAgentSigV4ServiceDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationConfig: RemoteAgentSigV4AuthorizationConfigTypeDef
+    description: NotRequired[str]
+
+
 class TriggerConditionTypeDef(TypedDict):
     schedule: NotRequired[ScheduleConditionTypeDef]
 
@@ -1795,6 +1877,13 @@ class UpdateBacklogTaskResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class RemoteAgentServiceDetailsTypeDef(TypedDict):
+    name: str
+    endpoint: str
+    authorizationConfig: RemoteAgentAuthorizationConfigTypeDef
+    description: NotRequired[str]
+
+
 CreateTriggerRequestTypeDef = TypedDict(
     "CreateTriggerRequestTypeDef",
     {
@@ -1928,6 +2017,8 @@ class ServiceDetailsTypeDef(TypedDict):
     pagerduty: NotRequired[PagerDutyDetailsTypeDef]
     azureidentity: NotRequired[RegisteredAzureIdentityDetailsUnionTypeDef]
     mcpserversigv4: NotRequired[MCPServerSigV4ServiceDetailsTypeDef]
+    remoteagent: NotRequired[RemoteAgentServiceDetailsTypeDef]
+    remoteagentsigv4: NotRequired[RemoteAgentSigV4ServiceDetailsTypeDef]
 
 
 class ServiceConfigurationOutputTypeDef(TypedDict):
@@ -1948,6 +2039,8 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationOutputTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationOutputTypeDef]
     mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationOutputTypeDef]
+    remoteagent: NotRequired[dict[str, Any]]
+    remoteagentsigv4: NotRequired[dict[str, Any]]
 
 
 class ServiceConfigurationTypeDef(TypedDict):
@@ -1968,6 +2061,8 @@ class ServiceConfigurationTypeDef(TypedDict):
     mcpservergrafana: NotRequired[MCPServerGrafanaConfigurationTypeDef]
     pagerduty: NotRequired[PagerDutyConfigurationTypeDef]
     mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationTypeDef]
+    remoteagent: NotRequired[Mapping[str, Any]]
+    remoteagentsigv4: NotRequired[Mapping[str, Any]]
 
 
 AssetContentTypeDef = TypedDict(
@@ -1975,6 +2070,7 @@ AssetContentTypeDef = TypedDict(
     {
         "file": NotRequired[AssetFileContentTypeDef],
         "zip": NotRequired[AssetZipContentUnionTypeDef],
+        "sourceUrl": NotRequired[AssetSourceUrlContentTypeDef],
     },
 )
 
@@ -2003,6 +2099,7 @@ class AssociationTypeDef(TypedDict):
     serviceId: str
     configuration: ServiceConfigurationOutputTypeDef
     status: NotRequired[ValidationStatusType]
+    capabilities: NotRequired[dict[CapabilityTypeType, CapabilityConfigurationTypeDef]]
 
 
 ServiceConfigurationUnionTypeDef = Union[
@@ -2053,9 +2150,11 @@ class AssociateServiceInputTypeDef(TypedDict):
     agentSpaceId: str
     serviceId: str
     configuration: ServiceConfigurationUnionTypeDef
+    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationTypeDef]]
 
 
 class UpdateAssociationInputTypeDef(TypedDict):
     agentSpaceId: str
     associationId: str
     configuration: ServiceConfigurationUnionTypeDef
+    capabilities: NotRequired[Mapping[CapabilityTypeType, CapabilityConfigurationTypeDef]]

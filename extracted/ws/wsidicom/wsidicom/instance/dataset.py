@@ -14,10 +14,11 @@
 
 import logging
 import math
+from collections.abc import Sequence
 from copy import deepcopy
 from enum import Enum
 from functools import cached_property
-from typing import Any, ClassVar, List, Optional, Sequence, Tuple
+from typing import Any, ClassVar
 
 from pydicom.dataset import Dataset
 from pydicom.multival import MultiValue
@@ -28,8 +29,9 @@ from pydicom.uid import (
     VLWholeSlideMicroscopyImageStorage,
     generate_uid,
 )
-from pydicom.valuerep import DSfloat
+from pydicom.valuerep import MAX_VALUE_LEN, DSfloat
 
+from wsidicom.codec import Encoder
 from wsidicom.config import settings
 from wsidicom.errors import (
     WsiDicomError,
@@ -39,7 +41,13 @@ from wsidicom.errors import (
 from wsidicom.geometry import Size, SizeMm
 from wsidicom.instance.image_data import ImageData
 from wsidicom.metadata.image import ImageType
-from wsidicom.tags import OpticalPathIdentificationSequenceTag, OpticalPathIdentifierTag
+from wsidicom.tags import (
+    LossyImageCompressionMethodTag,
+    LossyImageCompressionRatioTag,
+    OpticalPathIdentificationSequenceTag,
+    OpticalPathIdentifierTag,
+    PerFrameFunctionalGroupsSequenceTag,
+)
 from wsidicom.uid import FileUids, SlideUids
 
 
@@ -54,7 +62,7 @@ class WsiDataset(Dataset):
     collision with dicom fields (that are handled by pydicom.dataset.Dataset).
     """
 
-    REQUIRED_ATTRIBUTES: ClassVar[Tuple[str, ...]] = (
+    REQUIRED_ATTRIBUTES: ClassVar[tuple[str, ...]] = (
         "SOPInstanceUID",
         "StudyInstanceUID",
         "SeriesInstanceUID",
@@ -117,8 +125,8 @@ class WsiDataset(Dataset):
             return int(self.ConcatenationFrameOffsetNumber)
         except AttributeError:
             raise WsiDicomError(
-                "Concatenated file missing concatenation frame offset" "number"
-            )
+                "Concatenated file missing concatenation frame offsetnumber"
+            ) from None
 
     @property
     def frame_count(self) -> int:
@@ -154,12 +162,12 @@ class WsiDataset(Dataset):
         raise WsiDicomError("Undetermined tile type.")
 
     @cached_property
-    def pixel_measure(self) -> Optional[Dataset]:
+    def pixel_measure(self) -> Dataset | None:
         """Return Pixel measure dataset from dataset if found.
 
         Returns
         -------
-        Optional[Dataset]
+        Dataset | None
             Found Pixel measure dataset.
         """
         shared_functional_group = getattr(self, "SharedFunctionalGroupsSequence", None)
@@ -173,7 +181,7 @@ class WsiDataset(Dataset):
         return pixel_measure_sequence[0]
 
     @cached_property
-    def pixel_spacing(self) -> Optional[SizeMm]:
+    def pixel_spacing(self) -> SizeMm | None:
         """Read pixel spacing from dicom dataset.
 
         Parameters
@@ -197,7 +205,7 @@ class WsiDataset(Dataset):
         return None
 
     @cached_property
-    def spacing_between_slices(self) -> Optional[float]:
+    def spacing_between_slices(self) -> float | None:
         """Return spacing between slices."""
         if self.pixel_measure is None:
             return None
@@ -228,13 +236,13 @@ class WsiDataset(Dataset):
         return self._ext_depth_of_field[0]
 
     @property
-    def ext_depth_of_field_planes(self) -> Optional[int]:
+    def ext_depth_of_field_planes(self) -> int | None:
         """Return number of focal planes used for extended depth of
         field."""
         return self._ext_depth_of_field[1]
 
     @property
-    def ext_depth_of_field_plane_distance(self) -> Optional[float]:
+    def ext_depth_of_field_plane_distance(self) -> float | None:
         """Return total focal depth used for extended depth of field."""
         return self._ext_depth_of_field[2]
 
@@ -287,7 +295,7 @@ class WsiDataset(Dataset):
         return image_size
 
     @cached_property
-    def mm_size(self) -> Optional[SizeMm]:
+    def mm_size(self) -> SizeMm | None:
         """Read mm size from dataset.
 
         Returns
@@ -304,7 +312,7 @@ class WsiDataset(Dataset):
         return mm_size
 
     @cached_property
-    def mm_depth(self) -> Optional[float]:
+    def mm_depth(self) -> float | None:
         """Return depth of image in mm."""
         return getattr(self, "ImagedVolumeDepth", None)
 
@@ -340,7 +348,7 @@ class WsiDataset(Dataset):
         return self.PhotometricInterpretation
 
     @cached_property
-    def optical_path_sequence(self) -> Optional[DicomSequence]:
+    def optical_path_sequence(self) -> DicomSequence | None:
         """Return optical path sequence from dataset."""
         return getattr(self, "OpticalPathSequence", None)
 
@@ -369,12 +377,12 @@ class WsiDataset(Dataset):
         return self.get("TotalPixelMatrixFocalPlanes", 1)
 
     @property
-    def slice_thickness(self) -> Optional[float]:
+    def slice_thickness(self) -> float | None:
         """Return slice thickness spacing from pixel measure dataset.
 
         Returns
         -------
-        Optional[float]
+        float | None
             Slice thickess or None if unknown.
         """
         if self.pixel_measure is not None:
@@ -398,7 +406,7 @@ class WsiDataset(Dataset):
         return self._get_image_type(self.ImageType)
 
     @classmethod
-    def is_supported_wsi_dicom(cls, dataset: Dataset) -> Optional[ImageType]:
+    def is_supported_wsi_dicom(cls, dataset: Dataset) -> ImageType | None:
         """Check if dataset is a DICOM WSI type that the library can read.
 
         The dataset is rejected (``None`` returned) if it is not of the WSI SOP
@@ -414,11 +422,11 @@ class WsiDataset(Dataset):
 
         Returns
         -------
-        Optional[ImageType]
+        ImageType | None
             WSI image flavor, or None if the dataset is not a supported WSI.
         """
 
-        sop_class_uid: Optional[UID] = getattr(dataset, "SOPClassUID", None)
+        sop_class_uid: UID | None = getattr(dataset, "SOPClassUID", None)
         if sop_class_uid != VLWholeSlideMicroscopyImageStorage:
             logging.debug(f"Non-wsi image, SOP class {sop_class_uid}.")
             return None
@@ -459,7 +467,7 @@ class WsiDataset(Dataset):
         caller: Object
             Object that the files belongs to.
         """
-        instance_uids: List[UID] = []
+        instance_uids: list[UID] = []
 
         for dataset in datasets:
             instance_uid = UID(dataset.SOPInstanceUID)
@@ -493,7 +501,7 @@ class WsiDataset(Dataset):
             )
         )
 
-    def matches_series(self, uids: SlideUids, tile_size: Optional[Size] = None) -> bool:
+    def matches_series(self, uids: SlideUids, tile_size: Size | None = None) -> bool:
         """Check if instance is valid (Uids and tile size match).
         Base uids should match for instances in all types of series,
         tile size should only match for level series.
@@ -523,7 +531,7 @@ class WsiDataset(Dataset):
             return "0"
         return optical_path_identifier.value
 
-    def get_multi_value(self, tag: BaseTag) -> List[Any]:
+    def get_multi_value(self, tag: BaseTag) -> list[Any]:
         """Return values for tag as list of values. If tag is not found, return empty
         list. If tag is not multi value, return list with one value.
 
@@ -534,7 +542,7 @@ class WsiDataset(Dataset):
 
         Returns
         -------
-        List[Any]
+        list[Any]
             List of values.
         """
         element = self.get(tag)
@@ -573,7 +581,7 @@ class WsiDataset(Dataset):
             Copy of dataset set as tiled full.
 
         """
-        dataset = deepcopy(self)
+        dataset = self._copy_without_per_frame()
         dataset.DimensionOrganizationType = "TILED_FULL"
         # Make a new Shared functional group sequence and Pixel measure
         # sequence if not in dataset, otherwise update the Pixel measure
@@ -604,10 +612,6 @@ class WsiDataset(Dataset):
         shared_functional_group[0].PixelMeasuresSequence = pixel_measure
         dataset.SharedFunctionalGroupsSequence = shared_functional_group
 
-        # Remove Per Frame functional groups sequence
-        if "PerFrameFunctionalGroupsSequence" in dataset:
-            del dataset["PerFrameFunctionalGroupsSequence"]
-
         dataset.TotalPixelMatrixColumns = max(
             math.ceil(dataset.TotalPixelMatrixColumns / scale), 1
         )
@@ -624,13 +628,36 @@ class WsiDataset(Dataset):
 
         return dataset
 
+    def update_for_transcoding(self, transcoder: Encoder, scale: int) -> None:
+        """Update dataset metadata for transcoding.
+
+        Parameters
+        ----------
+        transcoder: Encoder
+            Encoder being used for transcoding.
+        scale: int
+            Scale factor applied to the image data.
+        """
+        self.PhotometricInterpretation = transcoder.photometric_interpretation
+        if transcoder.lossy_method:
+            self.LossyImageCompression = "01"
+            ratios = self.get_multi_value(LossyImageCompressionRatioTag)
+            methods = self.get_multi_value(LossyImageCompressionMethodTag)
+            if scale != 1:
+                ratios.clear()
+                methods.clear()
+            ratios.append(" " * MAX_VALUE_LEN["DS"])
+            methods.append(transcoder.lossy_method.value)
+            self.LossyImageCompressionRatio = ratios
+            self.LossyImageCompressionMethod = methods
+
     @classmethod
     def create_instance_dataset(
         cls,
         dataset: Dataset,
         image_type: ImageType,
         image_data: ImageData,
-        pyramid_index: Optional[int] = None,
+        pyramid_index: int | None = None,
     ) -> "WsiDataset":
         """Return instance dataset for image_data based on base dataset.
 
@@ -642,7 +669,7 @@ class WsiDataset(Dataset):
             Type of instance ('VOLUME', 'LABEL', 'OVERVIEW)
         image_data:
             Image data to create dataset for.
-        pyramid_index: Optional[int] = None
+        pyramid_index: int | None = None
             Pyramid index. of image data, if volume image.
 
         Returns
@@ -772,14 +799,25 @@ class WsiDataset(Dataset):
         dataset.ExtendedDepthOfField = "NO"
         return WsiDataset(dataset)
 
+    def _copy_without_per_frame(self) -> "WsiDataset":
+        """Copy dataset excluding PerFrameFunctionalGroupsSequence."""
+        dataset = deepcopy(
+            {
+                tag: elem
+                for tag, elem in self.items()
+                if tag != PerFrameFunctionalGroupsSequenceTag
+            }
+        )
+        return WsiDataset(dataset)
+
     @cached_property
-    def _ext_depth_of_field(self) -> Tuple[bool, Optional[int], Optional[float]]:
+    def _ext_depth_of_field(self) -> tuple[bool, int | None, float | None]:
         """Return extended depth of field (enabled, number of focal planes,
         distance between focal planes) from dataset.
 
         Returns
         -------
-        Tuple[bool, Optional[int], Optional[float]]
+        tuple[bool, int | None, float | None]
             If extended depth of field is used, and if used number of focal
             planes and distance between focal planes.
         """
@@ -798,7 +836,7 @@ class WsiDataset(Dataset):
     @staticmethod
     def _get_spacing_between_slices_for_focal_planes(
         focal_planes: Sequence[float],
-    ) -> Optional[float]:
+    ) -> float | None:
         """Return spacing between slices in mm for focal planes (defined in
         um). Spacing must be the same between all focal planes for TILED_FULL
         arrangement.
@@ -810,13 +848,13 @@ class WsiDataset(Dataset):
 
         Returns
         -------
-        Optional[float]
+        float | None
             Spacing between focal planes, or None if only one focal plane.
 
         """
         if len(focal_planes) == 1:
             return None
-        spacing: Optional[float] = None
+        spacing: float | None = None
         sorted_focal_planes = sorted(focal_planes)
         for index in range(len(sorted_focal_planes) - 1):
             this_spacing = sorted_focal_planes[index + 1] - sorted_focal_planes[index]
@@ -834,7 +872,7 @@ class WsiDataset(Dataset):
         return spacing / 1000.0
 
     @staticmethod
-    def _get_image_type(wsi_type: Tuple[str, str, str, str]) -> ImageType:
+    def _get_image_type(wsi_type: tuple[str, str, str, str]) -> ImageType:
         """Return wsi flavour from wsi type tuple.
 
         Returns

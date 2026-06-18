@@ -288,3 +288,32 @@ class AbstractCampaign(Dao, abc.ABC, Generic[TCampaignStep, TCampaignAssignment]
             )
         else:
             logger.info(f"{processed} assignment(s) have been unassigned.")
+
+    @exception_handler
+    @beartype
+    def get_campaign_issue_counts(
+        self,
+        users: list[User | UUID | str] | None = None,
+        steps: list[TCampaignStep | UUID | str] | None = None,
+    ) -> list[dict]:
+        """Get campaign issue counts for a list of users
+
+        Returns:
+        a list of a dict with keys
+            user_id (UUID | None): id of the user, None if unassigned
+            opened (int): count of opened issue
+            closed (int): count of closed issue
+        """
+        params = {
+            "user_ids": self._parse_list_of_ids(users) if users else None,
+            "step_ids": self._parse_list_of_ids(steps) if steps else None,
+        }
+        return self.connection.get(
+            f"{self._base_path}/analytics/{self.id}/issues/counts/users", params=params
+        ).json()
+
+    @staticmethod
+    def _parse_list_of_ids(items: list[UUID | str | Dao] | None) -> list | None:
+        if items is None:
+            return None
+        return [item if isinstance(item, (UUID, str)) else item.id for item in items]

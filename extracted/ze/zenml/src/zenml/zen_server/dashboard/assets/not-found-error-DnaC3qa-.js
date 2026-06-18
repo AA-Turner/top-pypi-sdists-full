@@ -1,0 +1,1 @@
+var e=`NotFoundError`;function t(){let t=Error(e);throw t.cause=e,t}function n(t){return typeof t!=`object`||!t||!(`cause`in t)?!1:t.cause===e}export{t as n,n as t};

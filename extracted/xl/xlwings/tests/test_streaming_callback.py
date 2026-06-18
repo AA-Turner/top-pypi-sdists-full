@@ -216,6 +216,58 @@ class TestStreamingCallbackRestart:
 
         assert len([k for k in background_tasks if k == "my_stream_key"]) == 1
 
+    @pytest.mark.anyio
+    async def test_restart_keeps_new_task_tracked_and_streaming(self):
+        """Regression: on a restart (e.g. full recalc) the cancelled old task's
+        done-callback fires via call_soon *after* the new task registers. An
+        unconditional pop-by-key would untrack the live new task, leaving it an
+        orphan and breaking the next restart - the symptom being a stream that
+        updates once and then stops.
+        """
+        results = []
+        call_count = 0
+
+        @xlfunc
+        async def my_stream():
+            nonlocal call_count
+            call_count += 1
+            my_id = call_count
+            while True:
+                yield my_id
+                await asyncio.sleep(0.01)
+
+        mod = _make_module(my_stream)
+        data = _make_data("my_stream", "my_stream_key")
+
+        # First invocation
+        first = await custom_functions_call(
+            data, mod, streaming_callback=lambda r: None
+        )
+        # Restart back-to-back (no sleep), as a recalc re-invocation would.
+        second = await custom_functions_call(
+            data, mod, streaming_callback=lambda r: results.append(r)
+        )
+
+        # Give the cancelled task's done-callback (call_soon) a chance to run,
+        # then let the new task stream.
+        await asyncio.sleep(0.05)
+
+        # The new task must still be the tracked one (not popped by the old
+        # task's late-firing done-callback)...
+        assert background_tasks.get("my_stream_key") is second
+        # ...and there must be no live orphan: the old task is done/cancelled.
+        assert first.done()
+        # Exactly one live task is emitting, so every result carries the same
+        # id (a surviving orphan would interleave a different id). And it keeps
+        # emitting rather than stopping after the first value.
+        assert results, "new task should have streamed at least once"
+        assert (
+            len(set(repr(r) for r in results)) == 1
+        ), f"orphaned old task interleaved results: {results}"
+        count_after_first = len(results)
+        await asyncio.sleep(0.05)
+        assert len(results) > count_after_first, "stream stopped after restart"
+
 
 class TestStreamingCallbackCancel:
     @pytest.mark.anyio

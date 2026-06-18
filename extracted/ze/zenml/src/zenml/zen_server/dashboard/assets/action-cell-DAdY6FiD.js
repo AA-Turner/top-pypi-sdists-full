@@ -1,0 +1,1 @@
+import{O as e,k as t}from"./chunk-JSBRDJBE-DD67o4Z0.js";var n=t();function r({children:t,className:r,...i}){return(0,n.jsx)(`div`,{className:e(`flex items-center justify-end`,r),...i,children:t})}export{r as t};

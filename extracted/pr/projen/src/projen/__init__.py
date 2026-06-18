@@ -9935,6 +9935,25 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(typing.Optional["Task"], jsii.invoke(self, "removeTask", [name]))
 
+    @jsii.member(jsii_name="runTask")
+    def run_task(
+        self,
+        name: builtins.str,
+        args: typing.Optional[typing.Sequence[typing.Union[builtins.str, jsii.Number]]] = None,
+    ) -> None:
+        '''(experimental) Runs the specified task.
+
+        :param name: The name of the task to run.
+        :param args: Arguments to pass to the task.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c2811987738cd1e99bc7d61b8ab251e6bc7250e6d9044541d04c5c93d8822aef)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument args", value=args, expected_type=type_hints["args"])
+        return typing.cast(None, jsii.invoke(self, "runTask", [name, args]))
+
     @jsii.member(jsii_name="synthesize")
     def synthesize(self) -> None:
         '''(experimental) Synthesizes files to the project output directory.
@@ -14715,6 +14734,13 @@ def _typecheckingstub__836b8399b5241179b18880b35ae533996a76c85a9b01d5c5c846aaef0
 
 def _typecheckingstub__6c96f29b4423e28b4b65e683fc7e07a1024953e3610bb284fa1a0a90b8c77c07(
     name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2811987738cd1e99bc7d61b8ab251e6bc7250e6d9044541d04c5c93d8822aef(
+    name: builtins.str,
+    args: typing.Optional[typing.Sequence[typing.Union[builtins.str, jsii.Number]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

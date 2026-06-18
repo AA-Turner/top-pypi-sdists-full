@@ -12,12 +12,14 @@ Usage::
 
     from types_boto3_mq.client import MQClient
     from types_boto3_mq.paginator import (
+        DescribeSharedResourcesPaginator,
         ListBrokersPaginator,
     )
 
     session = Session()
     client: MQClient = session.client("mq")
 
+    describe_shared_resources_paginator: DescribeSharedResourcesPaginator = client.get_paginator("describe_shared_resources")
     list_brokers_paginator: ListBrokersPaginator = client.get_paginator("list_brokers")
     ```
 """
@@ -29,7 +31,12 @@ from typing import TYPE_CHECKING
 
 from botocore.paginate import PageIterator, Paginator
 
-from .type_defs import ListBrokersRequestPaginateTypeDef, ListBrokersResponseTypeDef
+from .type_defs import (
+    DescribeSharedResourcesRequestPaginateTypeDef,
+    DescribeSharedResourcesResponseTypeDef,
+    ListBrokersRequestPaginateTypeDef,
+    ListBrokersResponseTypeDef,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Unpack
@@ -37,7 +44,28 @@ else:
     from typing_extensions import Unpack
 
 
-__all__ = ("ListBrokersPaginator",)
+__all__ = ("DescribeSharedResourcesPaginator", "ListBrokersPaginator")
+
+
+if TYPE_CHECKING:
+    _DescribeSharedResourcesPaginatorBase = Paginator[DescribeSharedResourcesResponseTypeDef]
+else:
+    _DescribeSharedResourcesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeSharedResourcesPaginator(_DescribeSharedResourcesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mq/paginator/DescribeSharedResources.html#MQ.Paginator.DescribeSharedResources)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mq/paginators/#describesharedresourcespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeSharedResourcesRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeSharedResourcesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mq/paginator/DescribeSharedResources.html#MQ.Paginator.DescribeSharedResources.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_mq/paginators/#describesharedresourcespaginator)
+        """
 
 
 if TYPE_CHECKING:

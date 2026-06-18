@@ -66,7 +66,7 @@ class Crossref:
 
     Using `ua_string` you can set an additional string that will be added
     to the UA string we send in every request, which looks like:
-    `python-httpx/0.27.2 habanero/1.2.6`. We send that string with
+    `python-httpx2/0.27.2 habanero/1.2.6`. We send that string with
     the headers: `User-Agent` and `X-USER-AGENT`. Turn on verbose curl
     output to see the request headers sent. To unset the `ua_string`
     you set, just initialize a new Crossref class.
@@ -98,7 +98,7 @@ class Crossref:
     **Verbose curl output**::
 
         import logging
-        import httpx
+        import httpx2
         logging.basicConfig(
             format="%(levelname)s [%(asctime)s] %(name)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
@@ -216,7 +216,7 @@ class Crossref:
         self,
         ids: List[str] | str | None = None,
         query: Optional[str] = None,
-        filter: Optional[dict] = None,
+        filter: Optional[dict] = None, # noqa: A002 (TODO: fix at next major version)
         offset: Optional[float] = None,
         limit: Optional[float] = None,
         sample: Optional[float] = None,
@@ -410,7 +410,7 @@ class Crossref:
         self,
         ids: List[str] | str | int | None = None,
         query: Optional[str] = None,
-        filter: Optional[dict] = None,
+        filter: Optional[dict] = None, # noqa: A002 (TODO: fix at next major version)
         offset: Optional[float] = None,
         limit: Optional[float] = None,
         sample: Optional[float] = None,
@@ -525,7 +525,7 @@ class Crossref:
     def prefixes(
         self,
         ids: List[str] | str,
-        filter: Optional[dict] = None,
+        filter: Optional[dict] = None, # noqa: A002 (TODO: fix at next major version)
         offset: Optional[float] = None,
         limit: Optional[float] = None,
         sample: Optional[float] = None,
@@ -641,7 +641,7 @@ class Crossref:
         self,
         ids: List[str] | str | None = None,
         query: Optional[str] = None,
-        filter: Optional[dict] = None,
+        filter: Optional[dict] = None, # noqa: A002 (TODO: fix at next major version)
         offset: Optional[float] = None,
         limit: Optional[float] = None,
         sample: Optional[float] = None,
@@ -769,7 +769,7 @@ class Crossref:
         self,
         ids: List[str] | str | None = None,
         query: Optional[str] = None,
-        filter: Optional[dict] = None,
+        filter: Optional[dict] = None, # noqa: A002 (TODO: fix at next major version)
         offset: Optional[float] = None,
         limit: Optional[float] = None,
         sample: Optional[float] = None,
@@ -892,7 +892,7 @@ class Crossref:
         self,
         ids: List[str] | str | None = None,
         query: Optional[str] = None,
-        filter: Optional[dict] = None,
+        filter: Optional[dict] = None, # noqa: A002 (TODO: fix at next major version)
         offset: Optional[float] = None,
         limit: Optional[float] = None,
         sample: Optional[float] = None,
@@ -1140,7 +1140,7 @@ class Crossref:
         )
         return [z["DOI"] for z in res["message"]["items"]]
 
-    def filter_names(self, type: str = "works") -> list:
+    def filter_names(self, type: str = "works") -> list: # noqa: A002 (TODO: fix at next major version)
         """
         Filter names - just the names of each filter
 
@@ -1164,7 +1164,7 @@ class Crossref:
         nms.sort()
         return nms
 
-    def filter_details(self, type: str = "works") -> dict:
+    def filter_details(self, type: str = "works") -> dict: # noqa: A002 (TODO: fix at next major version)
         """
         Filter details - filter names, possible values, and description
 

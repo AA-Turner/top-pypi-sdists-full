@@ -44,6 +44,7 @@ from picsellia.sdk.worker import Worker
 from picsellia.services import coco_importer, voc_importer, yolo_importer
 from picsellia.services.asset_splitter import AssetSplitter
 from picsellia.services.coco_file_builder import COCOFileBuilder
+from picsellia.services.export_key import ExportKeyService
 from picsellia.services.lister.asset_lister import AssetFilter, AssetLister
 from picsellia.services.visual_search import (
     DatasetVersionVisualSearchService,
@@ -51,6 +52,7 @@ from picsellia.services.visual_search import (
     RectangleVisualSearchService,
 )
 from picsellia.types.enums import (
+    AnnotationExportKey,
     AnnotationFileType,
     AnnotationStatus,
     ImportAnnotationMode,
@@ -964,7 +966,8 @@ class DatasetVersion(Dao, Taggable):
         status: AnnotationStatus | str | None = None,
         force_replace: bool = True,
         export_video: bool = False,
-        use_id: bool = False,
+        use_id: bool | None = None,
+        export_key: AnnotationExportKey | str | None = None,
     ) -> str:
         """Export annotations of this dataset version into a file, and download it.
         It will only export the last created annotation and its shapes.
@@ -983,18 +986,19 @@ class DatasetVersion(Dao, Taggable):
             status (AnnotationStatus, optional): status of annotations. Defaults to None.
             force_replace (bool, optional): if true, will replace an existing file annotation. Defaults to True.
             export_video (bool, optional): if true, will export video of your dataset, instead of assets. Defaults to False.
-            use_id (bool, optional): if true, id will be used when generating annotation files.
+            use_id (bool, optional): deprecated. Use export_key="ASSET_ID" instead.
+            export_key (AnnotationExportKey, optional): When exporting, you can choose to set a different key inside the image detail body.
                 For example, in coco file, assuming you have "image_1.png", it will generate tag like
                 <filename>018c59e3-b21b-7006-a82b-047d3931db81.png</filename>.
                 You should combine this method with dataset_version.download(use_id=True)
-                Defaults to False.
+                Defaults to "FILENAME".
         Returns:
             Path of downloaded file.
         """
         payload = {
             "type": AnnotationFileType.validate(annotation_file_type),
             "export_video": export_video,
-            "use_id": use_id,
+            "export_key": ExportKeyService.get_export_key(use_id, export_key),
         }
         if assets is not None:
             payload["asset_ids"] = [asset.id for asset in assets]
@@ -1027,7 +1031,8 @@ class DatasetVersion(Dao, Taggable):
         status: AnnotationStatus | str | None = None,
         enforced_ordered_categories: list[str] | None = None,
         assets: MultiAsset | list[Asset] | None = None,
-        use_id: bool = False,
+        use_id: bool | None = None,
+        export_key: AnnotationExportKey | str | None = None,
     ) -> COCOFile:
         """Build a coco file locally instead of exporting it from the platform.
         This method will load annotations of a dataset with given filters, then build all coco annotations,
@@ -1048,13 +1053,16 @@ class DatasetVersion(Dao, Taggable):
             assets (MultiAsset or list[Asset], optional): assets of annotations. Defaults to None.
             enforced_ordered_categories (list[str], optional): use this parameter to enforce an order of categories
                                                                  for the coco file. Defaults to None.
-            use_id (bool, optional): set True if you downloaded assets with id as filenames, COCO File will then use ids
-                                     as filenames. Defaults to False.
+            use_id (bool, optional): deprecated. Use export_key="ASSET_ID" instead.
+            export_key (AnnotationExportKey, optional): When exporting, you can choose to set a different key inside
+                                                        the <filename> tag of images. Defaults to "FILENAME"
         Returns:
             A COCO File object
         """
         if worker:
             logger.warning("worker is deprecated and should not be used anymore.")
+
+        export_key = ExportKeyService.get_export_key(use_id, export_key)
 
         label_names = {str(label.id): label.name for label in self.list_labels()}
         if enforced_ordered_categories:
@@ -1078,7 +1086,7 @@ class DatasetVersion(Dao, Taggable):
         annotations = self.load_annotations(status=status, assets=assets)
         asset_ids = builder.load_coco_annotations(annotations)
         loaded_assets = self.list_assets(ids=asset_ids)
-        builder.load_coco_images(loaded_assets, use_id=use_id)
+        builder.load_coco_images(loaded_assets, export_key=export_key)
         builder.load_coco_categories(skeletons)
         return builder.build()
 
@@ -1297,7 +1305,8 @@ class DatasetVersion(Dao, Taggable):
         force_create_label: bool = True,
         fail_on_asset_not_found: bool = True,
         status: AnnotationStatus | None = None,
-        use_id: bool = False,
+        use_id: bool | None = None,
+        export_key: AnnotationExportKey | str | None = None,
     ) -> dict[str, int]:
         """Read a COCO file, parse it and create some annotations and shape for given assets
 
@@ -1321,9 +1330,9 @@ class DatasetVersion(Dao, Taggable):
             fail_on_asset_not_found (bool): Raise an error if asset is not found. Defaults to True
             status (AnnotationStatus, optional): Annotation Status of imported annotations, default will be PENDING.
                                                  Defaults to None.
-            use_id (bool, optional): If your coco file have asset id as filename, set this to true.
-                                                Defaults to False.
-
+            use_id (bool, optional): deprecated. Use export_key="ASSET_ID" instead.
+            export_key (AnnotationExportKey, optional): If your coco file doesn't have filenames as <filename> tag,
+                            but object name, asset id or data id, use this parameter to read it. Defaults to "FILENAME"
         Raises:
             FileNotFoundException: if file is not found
 
@@ -1337,15 +1346,17 @@ class DatasetVersion(Dao, Taggable):
         self._assert_import_annotation_possible()
         mode = ImportAnnotationMode.validate(mode)
 
+        export_key = ExportKeyService.get_export_key(use_id, export_key)
+
         logger.info(f"Parsing file {file_path}..")
         cocofile = coco_importer.parse_coco_file(file_path)
         return self._import_coco_file(
             cocofile,
+            export_key,
             mode,
             force_create_label,
             fail_on_asset_not_found,
             status,
-            use_id,
         )
 
     @exception_handler
@@ -1358,7 +1369,8 @@ class DatasetVersion(Dao, Taggable):
         force_create_label: bool = True,
         fail_on_asset_not_found: bool = True,
         status: AnnotationStatus | None = None,
-        use_id: bool = False,
+        use_id: bool | None = None,
+        export_key: AnnotationExportKey | str | None = None,
     ) -> dict[str, int]:
         """Read a Video COCO file, parse it and create some annotations and shape for given assets.
         Experimental feature: the availability and support of this feature can change until it’s stable
@@ -1383,8 +1395,9 @@ class DatasetVersion(Dao, Taggable):
             fail_on_asset_not_found (bool): Raise an error if asset is not found. Defaults to True
             status (AnnotationStatus, optional): Annotation Status of imported annotations, default will be PENDING.
                                                  Defaults to None.
-            use_id (bool, optional): If your coco file have asset id as filename, set this to true.
-                                                Defaults to False.
+            use_id (bool, optional): deprecated. Use export_key="ASSET_ID" instead.
+            export_key (AnnotationExportKey, optional): If your coco file doesn't have filenames as <filename> tag,
+                            but object name, asset id or data id, use this parameter to read it. Defaults to "FILENAME"
 
         Raises:
             FileNotFoundException: if file is not found
@@ -1402,25 +1415,27 @@ class DatasetVersion(Dao, Taggable):
         self._assert_import_annotation_possible()
         mode = ImportAnnotationMode.validate(mode)
 
+        export_key = ExportKeyService.get_export_key(use_id, export_key)
+
         logger.info(f"Parsing file {file_path}..")
         coco_file = coco_importer.parse_coco_video_file(file_path)
         return self._import_coco_file(
             coco_file,
+            export_key,
             mode,
             force_create_label,
             fail_on_asset_not_found,
             status,
-            use_id,
         )
 
     def _import_coco_file(
         self,
         cocofile: COCOFile | VideoCOCOFile,
+        export_key: AnnotationExportKey,
         mode: ImportAnnotationMode | str = ImportAnnotationMode.REPLACE,
         force_create_label: bool = True,
         fail_on_asset_not_found: bool = True,
         status: AnnotationStatus | None = None,
-        use_id: bool = False,
     ) -> dict[str, int]:
         import_video = isinstance(cocofile, VideoCOCOFile)
 
@@ -1439,7 +1454,7 @@ class DatasetVersion(Dao, Taggable):
         logger.info("Reading images as assets...")
         assets: dict[int, tuple[str, dict | None]] = (
             self._read_images_and_retrieve_assets_and_attributes(
-                coco_assets, fail_on_asset_not_found, use_id
+                coco_assets, fail_on_asset_not_found, export_key
             )
         )
 
@@ -1611,7 +1626,7 @@ class DatasetVersion(Dao, Taggable):
         self,
         coco_assets: list[COCOImage] | list[COCOVideo],
         fail_on_asset_not_found: bool,
-        use_id: bool,
+        export_key: AnnotationExportKey,
     ) -> dict[int, tuple[str, dict | None]]:
         filenames = {}
         attributes = {}
@@ -1620,12 +1635,10 @@ class DatasetVersion(Dao, Taggable):
             attributes[coco_asset.file_name] = (
                 coco_asset.attributes if isinstance(coco_asset, COCOImage) else None
             )
-        if use_id:
-            # asset ids are in filename keys of coco file, as <id>.<extension>
-            asset_ids = [filename.split(".")[0] for filename in filenames.keys()]
-            multi_assets = self.list_assets(ids=asset_ids)
-        else:
-            multi_assets = self.list_assets(filenames=list(filenames.keys()))
+
+        multi_assets = ExportKeyService.fetch_assets_from_coco_filenames(
+            self.list_assets, export_key, list(filenames.keys())
+        )
 
         if fail_on_asset_not_found and len(multi_assets) != len(filenames):
             raise ResourceNotFoundError(
@@ -1634,10 +1647,7 @@ class DatasetVersion(Dao, Taggable):
 
         assets = {}
         for asset in multi_assets:
-            if use_id:
-                key = asset.id_with_extension
-            else:
-                key = asset.filename
+            key = ExportKeyService.get_coco_filename_from_asset(export_key, asset)
             image_id = filenames[key]
             asset_attributes = attributes.get(key, None)
             assets[image_id] = (str(asset.id), asset_attributes)

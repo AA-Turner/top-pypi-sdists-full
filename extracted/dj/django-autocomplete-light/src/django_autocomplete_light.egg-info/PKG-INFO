@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-autocomplete-light
-Version: 4.0.1
+Version: 5.0.0
 Summary: Fresh autocompletes for Django
 Author-email: James Pic <jamespic@gmail.com>
 License: MIT

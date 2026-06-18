@@ -16,35 +16,35 @@ use std::borrow::{Borrow, Cow};
 use std::convert::From;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{BufRead, BufReader, BufWriter};
+use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::iter::{FromIterator, Iterator};
 use std::num::{ParseFloatError, ParseIntError};
 use std::path::Path;
 use std::str::ParseBoolError;
 
+use flate2::Compression;
 use flate2::bufread::GzDecoder;
 use flate2::write::GzEncoder;
-use flate2::Compression;
 use hashbrown::HashSet;
 
 use indexmap::map::Entry;
 
+use quick_xml::Error as XmlError;
 use quick_xml::events::{BytesDecl, BytesStart, BytesText, Event};
 use quick_xml::name::QName;
-use quick_xml::Error as XmlError;
 use quick_xml::{Reader, Writer};
 
 use petgraph::algo;
 use petgraph::{Directed, EdgeType, Undirected};
 
-use pyo3::exceptions::PyException;
-use pyo3::prelude::*;
 use pyo3::IntoPyObjectExt;
 use pyo3::PyErr;
+use pyo3::exceptions::PyException;
+use pyo3::prelude::*;
 
 use rustworkx_core::dictmap::{DictMap, InitWithHasher};
 
-use crate::{digraph::PyDiGraph, graph::PyGraph, StablePyGraph};
+use crate::{StablePyGraph, digraph::PyDiGraph, graph::PyGraph};
 
 pub enum Error {
     Xml(String),
@@ -127,7 +127,7 @@ fn xml_attribute<'a>(element: &'a BytesStart<'a>, key: &[u8]) -> Result<String, 
         })
 }
 
-#[pyclass(eq, name = "GraphMLDomain")]
+#[pyclass(eq, name = "GraphMLDomain", from_py_object)]
 #[derive(Clone, Copy, PartialEq)]
 pub enum Domain {
     Node,
@@ -150,7 +150,7 @@ impl TryFrom<&[u8]> for Domain {
     }
 }
 
-#[pyclass(eq, name = "GraphMLType")]
+#[pyclass(eq, name = "GraphMLType", from_py_object)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Type {
     Boolean,
@@ -250,8 +250,10 @@ impl Value {
     }
 }
 
-impl<'py> FromPyObject<'py> for Value {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for Value {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         if let Ok(value) = ob.extract::<bool>() {
             return Ok(Value::Boolean(value));
         }
@@ -522,7 +524,7 @@ impl Graph {
         py: Python<'_>,
         dir: Direction,
         pygraph: &StablePyGraph<Ty>,
-        attrs: &PyObject,
+        attrs: &Py<PyAny>,
     ) -> PyResult<Self> {
         let mut attrs: Option<DictMap<String, Value>> = attrs.extract(py).ok();
         let id = attrs
@@ -548,14 +550,16 @@ impl Graph {
         let mut node_ids = DictMap::new();
         let mut fresh_index_counter = 0;
         for (node_index, element_info) in node_infos.vec {
-            let id = element_info.id.unwrap_or_else(|| loop {
-                let id = format!("n{fresh_index_counter}");
-                fresh_index_counter += 1;
-                if node_infos.id_taken.contains(&id) {
-                    continue;
+            let id = element_info.id.unwrap_or_else(|| {
+                loop {
+                    let id = format!("n{fresh_index_counter}");
+                    fresh_index_counter += 1;
+                    if node_infos.id_taken.contains(&id) {
+                        continue;
+                    }
+                    node_infos.id_taken.insert(id.clone());
+                    break id;
                 }
-                node_infos.id_taken.insert(id.clone());
-                break id;
             });
             graph.nodes.push(Node {
                 id: id.clone(),
@@ -1155,11 +1159,13 @@ impl GraphML {
             let gzip_encoder = GzEncoder::new(buf_writer, Compression::default());
             let mut writer = Writer::new(gzip_encoder);
             self.write_graph_to_writer(&mut writer)?;
-            writer.into_inner().finish()?;
+            writer.into_inner().finish()?.flush()?;
         } else {
             let file = File::create(path)?;
-            let mut writer = Writer::new(file);
+            let buf_writer = BufWriter::new(file);
+            let mut writer = Writer::new(buf_writer);
             self.write_graph_to_writer(&mut writer)?;
+            writer.into_inner().flush()?;
         }
         Ok(())
     }
@@ -1261,7 +1267,7 @@ pub fn read_graphml<'py>(
 }
 
 /// Key definition: id, domain, name of the key, type, default value.
-#[pyclass(name = "GraphMLKey")]
+#[pyclass(name = "GraphMLKey", skip_from_py_object)]
 pub struct KeySpec {
     #[pyo3(get)]
     id: String,

@@ -17,10 +17,13 @@
 //! All assembly — gradient, matvec, diagonal, dense Hessian, directional
 //! derivatives — is then generic over any `RowKernel<K>`.
 
-use crate::custom_family::{ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace};
-use crate::solver::estimate::reml::unified::{
-    HyperOperator, ProjectedFactorCache, ProjectedFactorKey,
+use crate::custom_family::{
+    ExactNewtonJointGradientEvaluation, ExactNewtonJointHessianWorkspace,
+    JointHessianSourcePreference, MaterializationIntent, use_joint_matrix_free_path,
 };
+use crate::faer_ndarray::fast_ab;
+use crate::matrix::DesignMatrix;
+use crate::reml_contracts::{HyperOperator, ProjectedFactorCache, ProjectedFactorKey};
 use crate::util::loop_progress::LoopProgress;
 use ndarray::{Array1, Array2, ArrayView2, s};
 use rayon::prelude::*;
@@ -32,7 +35,14 @@ use std::sync::Arc;
 /// machinery is pure noise. Above this, a silent multi-minute build is
 /// the documented failure mode this logging exists to expose.
 const ROW_KERNEL_CACHE_PROGRESS_MIN_ROWS: usize = 100_000;
-const ARROW_ROW_CHUNK: usize = 256;
+// `ARROW_ROW_CHUNK` / `arrow_row_chunk_count` + the `RowSet` reduction type
+// moved DOWN to the `crate::outer_subsample` lower layer (#1135). Re-imported
+// here so the in-file uses keep resolving; `RowSet` is `pub use`-d so the many
+// in-family `crate::families::row_kernel::RowSet` call sites (allowed to depend
+// on `families`) keep working, while `terms` and the type definition both
+// reference the lower layer directly.
+pub use crate::outer_subsample::RowSet;
+use crate::outer_subsample::{ARROW_ROW_CHUNK, arrow_row_chunk_count};
 
 /// Byte budget above which the full dense `J·F` projection (`n × K·rank` f64)
 /// is no longer materialized-and-cached whole. Aligned with `ResourcePolicy`'s
@@ -77,15 +87,6 @@ fn jf_tile_rows<const K: usize>(rank: usize) -> usize {
     let per_row = (K.saturating_mul(rank)).max(1) * std::mem::size_of::<f64>();
     let max_rows = (JF_TILE_BUDGET_BYTES / per_row).max(1);
     (max_rows / ARROW_ROW_CHUNK).max(1) * ARROW_ROW_CHUNK
-}
-
-#[inline]
-fn arrow_row_chunk_count(n_rows: usize) -> usize {
-    if n_rows == 0 {
-        0
-    } else {
-        (n_rows - 1) / ARROW_ROW_CHUNK + 1
-    }
 }
 
 /// Row-block size for the parallel per-row **cache build** (`build_row_kernel_cache`).
@@ -148,35 +149,19 @@ fn cache_build_block_count(n_rows: usize, chunk_rows: usize) -> usize {
 // Threading `RowSet` through every `row_kernel_*` function is Agent C's
 // job — this module exposes only the type definition and basic
 // constructors used by the κ-staging schedule in `smooth.rs`.
-/// Row-selection contract for outer-only assembly.
-///
-/// Identifies which observations participate in a given evaluation pass and
-/// how they are weighted. `All` iterates every row `0..n_total` with weight
-/// 1.0 (full-data behaviour). `Subsample { rows, n_full }` walks the pre-built
-/// `WeightedOuterRow` list where each row's `weight` is its Horvitz–Thompson
-/// inverse-inclusion scale `1/π_i`, so any partial sum `Σ_i w_i · f(row_i)`
-/// is an unbiased estimator of the corresponding full-data sum
-/// `Σ_{i=1..n_full} f(row_i)`. Inner-PIRLS and final-covariance passes always
-/// run with `All`; only outer score / gradient hot loops consume a non-`All`
-/// variant.
-#[derive(Clone)]
-pub enum RowSet {
-    All,
-    Subsample {
-        rows: Arc<Vec<crate::families::marginal_slope_shared::WeightedOuterRow>>,
-        n_full: usize,
-    },
-}
-
+// `RowSet` (and its `par_reduce_fold`/`par_try_reduce_fold` reduction methods)
+// moved DOWN to `crate::outer_subsample` (#1135) so `terms` and other consumers
+// can name it without the `Subsample` field reaching up into `solver`. The
+// family-specific `from_options` constructor below stays here because it reads
+// `custom_family::BlockwiseFitOptions`.
 impl RowSet {
     /// Build a `RowSet` directly from the outer-only subsample carried on
     /// `BlockwiseFitOptions`. When `outer_score_subsample` is `None` this
     /// returns `RowSet::All` with the caller-supplied `n_total`.
     ///
     /// `n_total` is the full data row count; it is recorded as `n_full`
-    /// on the `Subsample` variant so the Horvitz–Thompson weights can be
-    /// validated downstream against the population size, and is returned
-    /// directly inside `All` callers via `n_effective`.
+    /// on the `Subsample` variant so downstream row-set consumers can validate
+    /// Horvitz-Thompson weights against the population size.
     pub fn from_options(
         opts: &crate::families::custom_family::BlockwiseFitOptions,
         n_total: usize,
@@ -187,171 +172,6 @@ impl RowSet {
                 rows: Arc::clone(&s.rows),
                 n_full: n_total,
             },
-        }
-    }
-
-    /// Effective row count: `n_total` for `All`, mask length for
-    /// `Subsample`. Used to size workspaces and estimate per-eval cost.
-    pub fn n_effective(&self) -> f64 {
-        match self {
-            Self::All => f64::NAN,
-            Self::Subsample { rows, .. } => rows.len() as f64,
-        }
-    }
-
-    /// Number of contributing rows. For `All` this is `n_total`; for
-    /// `Subsample` this is the mask length. Used by callers that need to
-    /// size workspaces without consulting `n_effective` (which returns
-    /// NaN for `All`).
-    #[inline]
-    pub fn len(&self, n_total: usize) -> usize {
-        match self {
-            Self::All => n_total,
-            Self::Subsample { rows, .. } => rows.len(),
-        }
-    }
-
-    /// Parallel `for_each` over the row set with no per-call allocation.
-    ///
-    /// `body(row_index, ht_weight)` is invoked for each contributing row.
-    /// `All` calls with `weight = 1.0` and `row_index ∈ 0..n_total`;
-    /// `Subsample` calls with each `WeightedOuterRow`'s `(index, weight)`.
-    #[inline]
-    pub fn par_for_each<F>(&self, n_total: usize, body: F)
-    where
-        F: Fn(usize, f64) + Send + Sync,
-    {
-        match self {
-            Self::All => {
-                let chunks = arrow_row_chunk_count(n_total);
-                (0..chunks).into_par_iter().for_each(|chunk_idx| {
-                    let start = chunk_idx * ARROW_ROW_CHUNK;
-                    let end = (start + ARROW_ROW_CHUNK).min(n_total);
-                    for i in start..end {
-                        body(i, 1.0);
-                    }
-                });
-            }
-            Self::Subsample { rows, .. } => {
-                rows.par_chunks(ARROW_ROW_CHUNK).for_each(|chunk| {
-                    for r in chunk {
-                        body(r.index, r.weight);
-                    }
-                });
-            }
-        }
-    }
-
-    /// Parallel fold-reduce over the row set. `init` produces a fresh
-    /// accumulator, `fold` is the per-row update, `reduce` combines two
-    /// accumulators.
-    ///
-    /// Returns the reduced result. Both branches process fixed-size row chunks
-    /// in parallel, then combine the chunk accumulators in chunk-index order on
-    /// the caller thread. The resulting floating-point reduction tree is fixed
-    /// across Rayon worker counts and work-stealing decisions.
-    #[inline]
-    pub fn par_reduce_fold<T, I, F, R>(&self, n_total: usize, init: I, fold: F, reduce: R) -> T
-    where
-        T: Send,
-        I: Fn() -> T + Send + Sync,
-        F: Fn(T, usize, f64) -> T + Send + Sync,
-        R: Fn(T, T) -> T + Send + Sync,
-    {
-        match self {
-            Self::All => {
-                let chunk_accumulators: Vec<T> = (0..arrow_row_chunk_count(n_total))
-                    .into_par_iter()
-                    .map(|chunk_idx| {
-                        let start = chunk_idx * ARROW_ROW_CHUNK;
-                        let end = (start + ARROW_ROW_CHUNK).min(n_total);
-                        let mut acc = init();
-                        for i in start..end {
-                            acc = fold(acc, i, 1.0);
-                        }
-                        acc
-                    })
-                    .collect();
-                let mut total = init();
-                for acc in chunk_accumulators {
-                    total = reduce(total, acc);
-                }
-                total
-            }
-            Self::Subsample { rows, .. } => {
-                let chunk_accumulators: Vec<T> = rows
-                    .par_chunks(ARROW_ROW_CHUNK)
-                    .map(|chunk| {
-                        let mut acc = init();
-                        for r in chunk {
-                            acc = fold(acc, r.index, r.weight);
-                        }
-                        acc
-                    })
-                    .collect();
-                let mut total = init();
-                for acc in chunk_accumulators {
-                    total = reduce(total, acc);
-                }
-                total
-            }
-        }
-    }
-
-    /// Parallel try-fold over fixed-size row chunks, followed by deterministic
-    /// chunk-index-order reduction on the caller thread.
-    #[inline]
-    pub fn par_try_reduce_fold<T, E, I, F, R>(
-        &self,
-        n_total: usize,
-        init: I,
-        fold: F,
-        reduce: R,
-    ) -> Result<T, E>
-    where
-        T: Send,
-        E: Send,
-        I: Fn() -> T + Send + Sync,
-        F: Fn(T, usize, f64) -> Result<T, E> + Send + Sync,
-        R: Fn(T, T) -> Result<T, E> + Send + Sync,
-    {
-        match self {
-            Self::All => {
-                let chunk_accumulators: Vec<Result<T, E>> = (0..arrow_row_chunk_count(n_total))
-                    .into_par_iter()
-                    .map(|chunk_idx| {
-                        let start = chunk_idx * ARROW_ROW_CHUNK;
-                        let end = (start + ARROW_ROW_CHUNK).min(n_total);
-                        let mut acc = init();
-                        for i in start..end {
-                            acc = fold(acc, i, 1.0)?;
-                        }
-                        Ok(acc)
-                    })
-                    .collect();
-                let mut total = init();
-                for acc in chunk_accumulators {
-                    total = reduce(total, acc?)?;
-                }
-                Ok(total)
-            }
-            Self::Subsample { rows, .. } => {
-                let chunk_accumulators: Vec<Result<T, E>> = rows
-                    .par_chunks(ARROW_ROW_CHUNK)
-                    .map(|chunk| {
-                        let mut acc = init();
-                        for r in chunk {
-                            acc = fold(acc, r.index, r.weight)?;
-                        }
-                        Ok(acc)
-                    })
-                    .collect();
-                let mut total = init();
-                for acc in chunk_accumulators {
-                    total = reduce(total, acc?)?;
-                }
-                Ok(total)
-            }
         }
     }
 }
@@ -488,8 +308,9 @@ pub trait RowKernel<const K: usize>: Send + Sync {
     /// inner joint-Newton `hessian_qp` cost). A kernel whose pullback is a pure
     /// design-row Gram (no structured cross terms) can instead accumulate the
     /// per-row contraction weights over a row chunk and close each chunk with a
-    /// `Xᵀ diag(w) X` BLAS-3 product. The default returns `None`, preserving the
-    /// exact generic per-row path for every other kernel bit-for-bit.
+    /// `Xᵀ diag(w) X` BLAS-3 product. The default returns the exact generic
+    /// per-row path; overrides return `None` only for row sets they explicitly
+    /// decline.
     ///
     /// `rows == RowSet::All` is the only case an override should claim; under a
     /// subsample / non-unit-weight `RowSet` the override must return `None` so
@@ -509,6 +330,55 @@ pub trait RowKernel<const K: usize>: Send + Sync {
         ))
     }
 
+    /// Optional BLAS-3 fast path for the BATCHED all-axes FIRST directional
+    /// derivative of the dense Hessian: with the direction sweeping every
+    /// canonical axis `e_a`, return the `p` dense matrices `{Hdot[e_a]}_{a=0..p}`,
+    ///
+    /// ```text
+    ///   Hdot[e_a] = Σ_i  Jᵢᵀ T³ᵢ[J·e_a] Jᵢ.
+    /// ```
+    ///
+    /// This is the per-cycle hotspot of the inner-Newton Jeffreys/Firth term
+    /// (`joint_jeffreys_term`'s `grad[k]`/`H_Φ` loop). The generic per-axis path
+    /// asks for `Hdot[e_a]` `p` separate times; for a kernel the family
+    /// reconstructs fresh per call (rigid Bernoulli marginal-slope) that rebuilds
+    /// the `O(n)` per-row tensor cache `p` times every cycle the Jeffreys gate
+    /// arms (gam#979). For a kernel whose pullback is a pure design-row Gram the
+    /// per-row third tensor is INDEPENDENT of the swept axis, so it is built once
+    /// and each axis closed with chunked `Xᵀ diag(w) X`-style BLAS-3 GEMMs. The
+    /// default declines this batched optimization, so the dispatcher runs the
+    /// exact generic per-axis path bit-for-bit. Overrides should claim only the
+    /// full-data unit-weight
+    /// `RowSet::All` case; under a subsample / non-unit-weight `RowSet` return
+    /// `None` so the generic Horvitz-Thompson per-row path runs per axis.
+    ///
+    /// **Correctness contract.** Output `a` must equal, bit-for-bit, the generic
+    /// per-axis `row_kernel_directional_derivative(self, rows, e_a)` reduced in
+    /// deterministic in-row order (same contract as
+    /// [`Self::hessian_dense_override`]).
+    fn directional_derivative_all_axes_dense_override(
+        &self,
+        rows: &RowSet,
+        p: usize,
+    ) -> Option<Result<Vec<Array2<f64>>, String>> {
+        // Default declines (the batched dispatcher then runs the generic
+        // per-axis sweep). The dispatcher passes `p = n_coefficients()`; a
+        // mismatch is a hard caller-contract violation regardless of which path
+        // runs, so it is surfaced here where both `rows` and `p` are consumed —
+        // keeping the default body free of unused bindings without masking a bad
+        // call (same idiom as the second-directional default below).
+        if p != self.n_coefficients() {
+            let all = matches!(rows, RowSet::All);
+            return Some(Err(format!(
+                "directional_derivative_all_axes_dense_override: axis count {} \
+                 disagrees with n_coefficients() {} (rows::All = {all})",
+                p,
+                self.n_coefficients(),
+            )));
+        }
+        None
+    }
+
     /// Optional BLAS-3 fast path for the dense joint Hessian assembly
     /// `H = Σ_i w_i · Jᵢᵀ Hᵢ Jᵢ` from the cached per-row `K×K` Hessians.
     ///
@@ -521,10 +391,11 @@ pub trait RowKernel<const K: usize>: Send + Sync {
     /// observed joint Hessian, then its directional derivatives). A kernel whose
     /// pullback is a pure design-row Gram can instead gather the per-row
     /// contraction weights and close each row chunk with `Xᵀ diag(w) X`
-    /// BLAS-3 products. The default returns `None`, preserving the exact generic
-    /// per-row path for every other kernel bit-for-bit. Overrides should claim
-    /// only the full-data unit-weight `RowSet::All` case; under a subsample /
-    /// non-unit-weight `RowSet` return `None` so the generic HT path runs.
+    /// BLAS-3 products. The default returns the exact generic per-row path;
+    /// overrides return `None` only for row sets they explicitly decline.
+    /// Overrides should claim only the full-data unit-weight `RowSet::All` case;
+    /// under a subsample / non-unit-weight `RowSet` return `None` so the generic
+    /// HT path runs.
     fn hessian_dense_override(
         &self,
         rows: &RowSet,
@@ -665,6 +536,123 @@ pub(crate) fn row_kernel_jacobian_action_matrix_generic_rows<const K: usize>(
             }
         });
     jf
+}
+
+/// One design's whole-row Jacobian-action block `design · factor_block`.
+///
+/// Dense designs use a BLAS-3 matrix multiply. Sparse/operator-backed designs
+/// use one design matvec per factor column, matching the row-kernel generic
+/// reference arithmetic while avoiding per-row dispatch.
+pub(crate) fn row_kernel_design_jf(
+    design: &DesignMatrix,
+    factor_block: ArrayView2<'_, f64>,
+    n_rows: usize,
+) -> Array2<f64> {
+    let rank = factor_block.ncols();
+    if rank == 0 {
+        return Array2::<f64>::zeros((n_rows, 0));
+    }
+    let factor = factor_block.as_standard_layout().into_owned();
+    match design.as_dense_ref() {
+        Some(dense) => fast_ab(dense, &factor),
+        None => row_kernel_design_jf_column_dot(design, &factor, n_rows),
+    }
+}
+
+/// Row-range analogue of [`row_kernel_design_jf`]: one design's
+/// `(end-start) × rank` Jacobian-action block over rows `[start, end)`.
+pub(crate) fn row_kernel_design_jf_rows(
+    design: &DesignMatrix,
+    factor_block: ArrayView2<'_, f64>,
+    start: usize,
+    end: usize,
+) -> Array2<f64> {
+    let b = end.saturating_sub(start);
+    let rank = factor_block.ncols();
+    if rank == 0 {
+        return Array2::<f64>::zeros((b, 0));
+    }
+    let factor = factor_block.as_standard_layout().into_owned();
+    match design.as_dense_ref() {
+        Some(dense) => {
+            let block = dense.slice(s![start..end, ..]);
+            fast_ab(&block, &factor)
+        }
+        None => {
+            let mut out = Array2::<f64>::zeros((b, rank));
+            for (i, row) in (start..end).enumerate() {
+                for c in 0..rank {
+                    out[[i, c]] = design.dot_row_view(row, factor.column(c));
+                }
+            }
+            out
+        }
+    }
+}
+
+/// Pack per-primary-axis `J_axis · F_axis` blocks into the row-kernel standard
+/// row-major layout: `[axis0 rank cols | axis1 rank cols | ...]`.
+pub(crate) fn row_kernel_pack_jf_axes<const K: usize>(
+    n_rows: usize,
+    rank: usize,
+    axes: impl IntoIterator<Item = (usize, Array2<f64>)>,
+) -> Array2<f64> {
+    let mut jf = Array2::<f64>::zeros((n_rows, K * rank));
+    if rank == 0 {
+        return jf;
+    }
+    for (axis, block) in axes {
+        assert!(
+            axis < K,
+            "row-kernel JF axis index {axis} out of range for K={K}"
+        );
+        assert_eq!(
+            block.dim(),
+            (n_rows, rank),
+            "row-kernel JF axis {axis} block shape must be ({n_rows}, {rank})"
+        );
+        jf.slice_mut(s![.., axis * rank..(axis + 1) * rank])
+            .assign(&block);
+    }
+    jf
+}
+
+/// Per-column matrix-vector dispatch for `design · factor_block` when no
+/// contiguous dense backing is available.
+pub(crate) fn row_kernel_design_jf_column_dot(
+    design: &DesignMatrix,
+    factor_block: &Array2<f64>,
+    n_rows: usize,
+) -> Array2<f64> {
+    let rank = factor_block.ncols();
+    let mut out = Array2::<f64>::zeros((n_rows, rank));
+    for c in 0..rank {
+        let result = design.dot(&factor_block.column(c).to_owned());
+        out.column_mut(c).assign(&result);
+    }
+    out
+}
+
+/// Validate that shared row-kernel caches have one entry per observation.
+pub(crate) fn validate_row_kernel_cache_lengths(
+    context: &str,
+    expected_len: usize,
+    caches: &[(&str, usize)],
+) -> Result<(), String> {
+    let mismatches = caches
+        .iter()
+        .filter_map(|(name, actual)| {
+            (*actual != expected_len).then_some(format!("{name}={actual}"))
+        })
+        .collect::<Vec<_>>();
+    if mismatches.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{context} row-kernel cache length mismatch: {} expected={expected_len}",
+            mismatches.join(" ")
+        ))
+    }
 }
 
 // ── Cache ────────────────────────────────────────────────────────────
@@ -1039,6 +1027,43 @@ pub fn row_kernel_directional_derivative_generic<const K: usize>(
         },
         |a, b| Ok(a + b),
     )
+}
+
+/// Batched all-axes FIRST directional derivative: with the direction sweeping
+/// every canonical axis `e_a`, return the `p` dense matrices
+/// `{Hdot[e_a]}_{a=0..p}`.
+///
+/// Dispatches to [`RowKernel::directional_derivative_all_axes_dense_override`]
+/// when the kernel provides a BLAS-3 fast path on this row-set; otherwise falls
+/// back to `p` independent [`row_kernel_directional_derivative`] sweeps, one per
+/// unit axis `e_a` — bit-for-bit the generic per-axis path the inner-Newton
+/// Jeffreys term consumed before the batched hook existed. The fall-back runs
+/// the axis sweep on the Rayon pool (each axis is an independent full-data pure
+/// evaluation) so it is no slower than the prior per-axis parallel loop; the
+/// nested-BLAS guard pins each axis's GEMMs to `Par::Seq`.
+pub fn row_kernel_directional_derivative_all_axes<const K: usize>(
+    kern: &(impl RowKernel<K> + ?Sized + Sync),
+    rows: &RowSet,
+) -> Result<Vec<Array2<f64>>, String> {
+    let p = kern.n_coefficients();
+    if let Some(result) = kern.directional_derivative_all_axes_dense_override(rows, p) {
+        return result;
+    }
+    // Generic fall-back: each axis `e_a` is one independent full-data
+    // first-directional sweep. Fan the `p` axes across the pool with the
+    // nested-BLAS guard so any inner GEMM stays `Par::Seq` (mirrors the prior
+    // Jeffreys per-axis parallel sweep). Index-ordered collection keeps the
+    // output bit-identical to a serial axis loop.
+    (0..p)
+        .into_par_iter()
+        .map(|a| {
+            let mut axis = vec![0.0_f64; p];
+            axis[a] = 1.0;
+            crate::linalg::faer_ndarray::with_nested_parallel(|| {
+                row_kernel_directional_derivative(kern, rows, &axis)
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
 }
 
 /// Second directional derivative of the Hessian: ∂²H/∂β²[d_u, d_v] over `rows`.
@@ -1907,6 +1932,34 @@ impl<const K: usize, T: RowKernel<K> + 'static> ExactNewtonJointHessianWorkspace
         )))
     }
 
+    fn hessian_source_preference_for_intent(
+        &self,
+        intent: MaterializationIntent,
+    ) -> JointHessianSourcePreference {
+        match intent {
+            // The inner Newton step only needs H·v and the diagonal
+            // preconditioner. Keep large row-kernel families on the
+            // matrix-free path instead of forcing the direct dense build.
+            MaterializationIntent::InnerSolve
+                if use_joint_matrix_free_path(self.cache.p, self.cache.n) =>
+            {
+                JointHessianSourcePreference::Operator
+            }
+            MaterializationIntent::InnerSolve => JointHessianSourcePreference::Dense,
+            // Logdet and outer consumers either factorize/materialize H or
+            // have row-kernel-specific projected trace paths. The one-pass
+            // dense build is bounded and cheaper than reconstructing H from
+            // p canonical HVPs.
+            MaterializationIntent::LogdetFactorization
+            | MaterializationIntent::OuterEvaluation
+            | MaterializationIntent::OuterGradient => JointHessianSourcePreference::Dense,
+        }
+    }
+
+    fn hessian_matvec_available(&self) -> bool {
+        true
+    }
+
     fn hessian_matvec(&self, v: &Array1<f64>) -> Result<Option<Array1<f64>>, String> {
         let sl = v.as_slice().ok_or("hessian_matvec: non-contiguous input")?;
         Ok(Some(row_kernel_hessian_matvec(
@@ -1915,6 +1968,21 @@ impl<const K: usize, T: RowKernel<K> + 'static> ExactNewtonJointHessianWorkspace
             &self.rows,
             sl,
         )))
+    }
+
+    fn hessian_matvec_into(&self, v: &Array1<f64>, out: &mut Array1<f64>) -> Result<bool, String> {
+        let result = self
+            .hessian_matvec(v)?
+            .ok_or_else(|| "row-kernel hessian_matvec unexpectedly unavailable".to_string())?;
+        if result.len() != out.len() {
+            return Err(format!(
+                "row-kernel hessian_matvec_into: result length {} != out length {}",
+                result.len(),
+                out.len()
+            ));
+        }
+        out.assign(&result);
+        Ok(true)
     }
 
     fn hessian_diagonal(&self) -> Result<Option<Array1<f64>>, String> {
@@ -1993,8 +2061,43 @@ impl<const K: usize, T: RowKernel<K> + 'static> ExactNewtonJointHessianWorkspace
 #[cfg(test)]
 mod gram_inner_contraction_tests {
     use super::*;
-    use crate::solver::estimate::reml::unified::ProjectedFactorCache;
+    use crate::custom_family::{
+        JointHessianSource, exact_newton_joint_hessian_source_from_workspace,
+    };
+    use crate::reml_contracts::ProjectedFactorCache;
     use ndarray::Array2;
+
+    #[test]
+    fn pack_jf_axes_places_blocks_in_primary_axis_order() {
+        let axis0 = Array2::from_shape_vec((2, 2), vec![1.0, 2.0, 3.0, 4.0]).unwrap();
+        let axis2 = Array2::from_shape_vec((2, 2), vec![5.0, 6.0, 7.0, 8.0]).unwrap();
+
+        let packed = row_kernel_pack_jf_axes::<3>(2, 2, [(2, axis2), (0, axis0)]);
+
+        assert_eq!(packed.dim(), (2, 6));
+        assert_eq!(
+            packed,
+            Array2::from_shape_vec(
+                (2, 6),
+                vec![1.0, 2.0, 0.0, 0.0, 5.0, 6.0, 3.0, 4.0, 0.0, 0.0, 7.0, 8.0,],
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn validate_row_kernel_cache_lengths_reports_all_mismatches() {
+        validate_row_kernel_cache_lengths("ctx", 3, &[("third", 3), ("fourth", 3)])
+            .expect("matching lengths pass");
+
+        let err = validate_row_kernel_cache_lengths("ctx", 3, &[("third", 2), ("fourth", 4)])
+            .expect_err("mismatches fail");
+
+        assert_eq!(
+            err,
+            "ctx row-kernel cache length mismatch: third=2 fourth=4 expected=3"
+        );
+    }
 
     /// Synthetic K=4 row kernel: dense `(n × p)` design `X` per primary scalar
     /// (so each row's Jacobian is a sparse-style stack of K row vectors), with
@@ -2138,6 +2241,40 @@ mod gram_inner_contraction_tests {
             }
             Ok(t)
         }
+    }
+
+    #[test]
+    fn row_kernel_workspace_routes_inner_solve_to_operator() {
+        let p = crate::custom_family::JOINT_MATRIX_FREE_MIN_DIM;
+        let kernel = SyntheticKernel::new(8, p, 0x979);
+        let workspace: Arc<dyn ExactNewtonJointHessianWorkspace> =
+            Arc::new(RowKernelHessianWorkspace::new(kernel).expect("workspace"));
+
+        let source = exact_newton_joint_hessian_source_from_workspace(
+            &workspace,
+            p,
+            MaterializationIntent::InnerSolve,
+            "row-kernel inner source",
+        )
+        .expect("source construction succeeds")
+        .expect("source is present");
+
+        let JointHessianSource::Operator {
+            apply,
+            apply_into,
+            diagonal,
+            ..
+        } = source
+        else {
+            panic!("row-kernel inner solve must use operator source");
+        };
+        assert_eq!(diagonal.len(), p);
+
+        let v = Array1::from_shape_fn(p, |i| (i as f64 % 7.0 - 3.0) * 0.125);
+        let hv = apply(&v).expect("operator apply succeeds");
+        let mut hv_into = Array1::<f64>::zeros(p);
+        apply_into(&v, &mut hv_into).expect("operator apply_into succeeds");
+        assert_eq!(hv, hv_into);
     }
 
     /// Independent reference: per-row, per-column bilinear-of-K-vector form,

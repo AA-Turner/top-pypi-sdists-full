@@ -12,7 +12,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any, TypeVar, Union, cast, Optional
 
 import regex as re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Set
 
 import arelle
 from arelle import FileSource, ModelRelationshipSet, XmlUtil, ModelValue, XbrlConst, XmlValidate
@@ -130,7 +130,7 @@ def loadSchemalocatedSchemas(modelXbrl: ModelXbrl) -> None:
         modelDocumentsSchemaLocated: set[ModelDocumentClass] = set()
         # loadSchemalocatedSchemas sometimes adds to modelXbrl.urlDocs
         while True:
-            modelDocuments: set[ModelDocumentClass] = set(modelXbrl.urlDocs.values()) - modelDocumentsSchemaLocated
+            modelDocuments: Set[ModelDocumentClass] = dict.fromkeys(d for d in modelXbrl.urlDocs.values() if d not in modelDocumentsSchemaLocated).keys()
             if not modelDocuments:
                 break
             for modelDocument in modelDocuments:
@@ -612,9 +612,9 @@ class ModelXbrl:
         :param scenOCCs: Scenario non-dimensional nodes
         """
         if dims:
-            segAspect, scenAspect = (arelle.ModelFormulaObject.Aspect.NON_XDT_SEGMENT, arelle.ModelFormulaObject.Aspect.NON_XDT_SCENARIO)
+            segAspect, scenAspect = (arelle.Aspect.Aspect.NON_XDT_SEGMENT, arelle.Aspect.Aspect.NON_XDT_SCENARIO)
         else:
-            segAspect, scenAspect = (arelle.ModelFormulaObject.Aspect.COMPLETE_SEGMENT, arelle.ModelFormulaObject.Aspect.COMPLETE_SCENARIO)
+            segAspect, scenAspect = (arelle.Aspect.Aspect.COMPLETE_SEGMENT, arelle.Aspect.Aspect.COMPLETE_SCENARIO)
         for c in self.contexts.values():
             if (c.entityIdentifier == (entityIdentScheme, entityIdentValue) and
                 ((c.isInstantPeriod and periodType == "instant" and dateUnionEqual(c.instantDatetime, periodEndInstant, instantEndDate=True)) or

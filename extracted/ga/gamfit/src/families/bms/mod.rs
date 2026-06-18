@@ -8,14 +8,12 @@ use crate::custom_family::{
     evaluate_custom_family_joint_hyper_shared, fit_custom_family,
     joint_hyper_options_for_outer_tolerance,
 };
-use crate::estimate::UnifiedFitResult;
-use crate::estimate::reml::unified::{DenseSpectralOperator, HessianOperator, HyperOperator};
+use crate::estimate::reml::reml_outer_engine::{DenseSpectralOperator, HessianOperator};
 use crate::families::cubic_cell_kernel as exact_kernel;
 use crate::families::jet_partitions::MultiDirJet;
-use crate::families::lognormal_kernel::FrailtySpec;
 use crate::families::marginal_slope_shared::{
     CoeffSupport, DirectionalScaleJets, ObservedDenestedCellPartials, SparsePrimaryCoeffJetView,
-    WeightedOuterRow, add_optional_matrix, add_optional_vector, add_two_surface_psi_outer,
+    add_optional_matrix, add_optional_vector, add_two_surface_psi_outer,
     build_denested_partition_cells as shared_denested_partition_cells, chunked_row_reduction,
     directional_obj_grad_hess, eval_coeff4_at, is_sigma_aux_index as shared_is_sigma_aux_index,
     observed_denested_cell_partials as shared_observed_denested_cell_partials, outer_row_indices,
@@ -28,19 +26,23 @@ use crate::families::row_kernel::{
     row_kernel_hessian_dense, row_kernel_log_likelihood,
 };
 use crate::families::spatial_psi_bridge::build_block_spatial_psi_derivatives;
+use crate::families::survival::lognormal_kernel::FrailtySpec;
 use crate::families::wiggle::initializewiggle_knots_from_seed;
 use crate::matrix::{DesignMatrix, SymmetricMatrix};
+use crate::model_types::UnifiedFitResult;
 use crate::pirls::LinearInequalityConstraints;
 use crate::probability::{
     normal_cdf, normal_logcdf, normal_pdf, signed_probit_logcdf_and_mills_ratio,
     standard_normal_quantile,
 };
+use crate::reml_contracts::HyperOperator;
 use crate::smooth::{
     ExactJointHyperSetup, SpatialLengthScaleOptimizationOptions, SpatialLogKappaCoords,
     TermCollectionDesign, TermCollectionSpec, apply_spatial_anisotropy_pilot_initializer,
     build_term_collection_designs_and_freeze_joint, optimize_spatial_length_scale_exact_joint,
     spatial_length_scale_term_indices,
 };
+use crate::solver::outer_subsample::WeightedOuterRow;
 use crate::types::{InverseLink, StandardLink, WigglePenaltyConfig};
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, ArrayViewMut1, s};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -1087,7 +1089,6 @@ impl LatentZConditionalCalibration {
     ) -> Result<Array2<f64>, String> {
         let n = score_zeta_sensitivity.nrows();
         let p_beta = score_zeta_sensitivity.ncols();
-        let dim_theta1 = self.theta1_dim();
         if z.len() != n || a_block.nrows() != n {
             return Err(format!(
                 "generated_regressor_correction row mismatch: score_zeta_sensitivity rows={n}, \
@@ -1120,6 +1121,22 @@ impl LatentZConditionalCalibration {
         // ~13s/disease cost of the SE correction). Floored rows yield an exact
         // all-zero `J` row, so they contribute zero to the GEMM — bit-identical
         // to skipping them, no approximation.
+        let j_mat = self.build_zeta_theta1_jacobian(z, a_block);
+        let vb_g = self.beta_theta1_sensitivity(score_zeta_sensitivity, j_mat.view(), vb)?;
+        Ok(self.generated_regressor_term(vb_g.view()))
+    }
+
+    /// Per-row ζ-Jacobian matrix `J` (`n × dim θ₁`, row `i` = `∂ζ_i/∂θ₁`) built
+    /// row-by-row from [`Self::zeta_theta1_jacobian_row`]. Floored rows yield an
+    /// exact all-zero row, so they contribute nothing to the `G = Sᵀ·J` cross
+    /// product (bit-identical to skipping them).
+    fn build_zeta_theta1_jacobian(
+        &self,
+        z: ArrayView1<'_, f64>,
+        a_block: ArrayView2<'_, f64>,
+    ) -> Array2<f64> {
+        let n = a_block.nrows();
+        let dim_theta1 = self.theta1_dim();
         let mut j_mat = Array2::<f64>::zeros((n, dim_theta1));
         for i in 0..n {
             let j_zeta_row = self.zeta_theta1_jacobian_row(z[i], a_block.row(i));
@@ -1133,12 +1150,34 @@ impl LatentZConditionalCalibration {
                 *slot = jz;
             }
         }
+        j_mat
+    }
+
+    /// Signed first-order sensitivity `∂β̂/∂θ₁ = Vb·G` (`p_β × dim θ₁`) of the
+    /// converged second-stage slope to the first-stage calibration parameters,
+    /// the SIGNED quantity the Murphy–Topel correction is built from.
+    ///
+    /// `G = Sᵀ·J = Σ_i s_i ⊗ (∂ζ_i/∂θ₁)` with `s_i = ∂score_β,i/∂ζ_i` the
+    /// LOG-LIKELIHOOD-score sensitivity (the sign convention #1131 fixes at the
+    /// source in [`gradient_paths::rigid_standard_normal_mixed_z_sensitivity`]),
+    /// and `Vb = H_β⁻¹` the NLL-Hessian inverse. Under this convention the
+    /// implicit-function theorem on `∂(log L)/∂β = 0` gives
+    /// `∂β̂/∂θ₁ = +H_β⁻¹·G = +Vb·G`, so the returned matrix matches the finite
+    /// difference of the refit slope in θ₁ in BOTH sign and magnitude — unlike
+    /// the PSD correction term [`Self::generated_regressor_correction`], which is
+    /// invariant to this sign. `j_zeta` is the per-row ζ-Jacobian matrix
+    /// (`n × dim θ₁`, row `i` = `∂ζ_i/∂θ₁`).
+    fn beta_theta1_sensitivity(
+        &self,
+        score_zeta_sensitivity: ArrayView2<'_, f64>,
+        j_zeta: ArrayView2<'_, f64>,
+        vb: ArrayView2<'_, f64>,
+    ) -> Result<Array2<f64>, String> {
         // G = Sᵀ·J (p_β × dim θ₁) via the SIMD/GPU-routed cross product.
-        let g = crate::linalg::faer_ndarray::fast_atb(&score_zeta_sensitivity, &j_mat);
+        let g = crate::linalg::faer_ndarray::fast_atb(&score_zeta_sensitivity, &j_zeta);
         // Vb·G = H_β⁻¹·G (vb is the naive reduced-frame covariance the fit
         // already produced — reused, never recomputed).
-        let vb_g = vb.dot(&g);
-        Ok(self.generated_regressor_term(vb_g.view()))
+        Ok(vb.dot(&g))
     }
 }
 

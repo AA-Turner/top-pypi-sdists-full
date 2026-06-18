@@ -1,5 +1,7 @@
+from typing import no_type_check
+
 import pytest
-from httpx import HTTPError
+from httpx2 import HTTPError
 
 from habanero import Crossref
 
@@ -23,6 +25,7 @@ def test_prefixes_works():
     assert isinstance(res, dict)
 
 
+@no_type_check
 def test_prefixes_filter():
     """prefixes - param: filter"""
     with pytest.raises(TypeError, match="missing 1 required positional"):
@@ -40,7 +43,7 @@ def test_prefixes_field_queries():
     )
     eds = [x.get("editor")[0] for x in res["message"]["items"]]
     assert isinstance(res, dict)
-    assert 5 == len(res["message"])
+    assert len(res["message"]) == 5
     assert isinstance(eds, list)
     assert isinstance(eds[0], dict)
 

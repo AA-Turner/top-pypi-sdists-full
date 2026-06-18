@@ -9,7 +9,7 @@
 //! `Result<_, String>`; typed `Err(...)` values flow through
 //! `From<SmoothError> for String` at those boundaries via `.into()`.
 
-use crate::util::block_count::BlockCountMismatch;
+use crate::families::block_layout::block_count::BlockCountMismatch;
 
 /// Typed errors emitted by smooth-term helpers in the `smooth` module.
 #[derive(Clone, Debug)]
@@ -28,21 +28,11 @@ pub enum SmoothError {
     InvalidIndex { reason: String },
 }
 
-impl std::fmt::Display for SmoothError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SmoothError::InvalidConfig { reason }
-            | SmoothError::DimensionMismatch { reason }
-            | SmoothError::InvalidIndex { reason } => f.write_str(reason),
-        }
-    }
-}
-
-impl std::error::Error for SmoothError {}
-
-impl From<SmoothError> for String {
-    fn from(err: SmoothError) -> String {
-        err.to_string()
+crate::impl_reason_error_boilerplate! {
+    SmoothError {
+        InvalidConfig,
+        DimensionMismatch,
+        InvalidIndex,
     }
 }
 

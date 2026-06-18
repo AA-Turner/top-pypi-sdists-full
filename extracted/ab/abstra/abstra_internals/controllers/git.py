@@ -145,9 +145,9 @@ class GitController:
         Get the git status of the project, including current branch, last commit,
         whether the working tree has uncommitted changes, and a list of changed files.
 
-        Returns:
-            dict: ``{ available, branch, last_commit, has_changes, changed_files, ... }``.
-            ``available`` is ``False`` when the project is not a git repository.
+        Copywritings:
+            Get the git status of the project
+            Retrieving the git status of the project...
         """
         self._ensure_authentication()
 
@@ -283,8 +283,9 @@ class GitController:
             message (str): Commit message. Required and non-empty.
             author (Optional[str]): Override the commit author (``Name <email>`` format).
 
-        Returns:
-            dict: ``{ success: bool, message: str, errorType?: str, largeFiles?: list }``.
+        Copywritings:
+            Commit all changes
+            Committing all changes...
         """
         commit_message = message.strip()
         if not commit_message:
@@ -354,8 +355,9 @@ class GitController:
             offset (int): Skip the most recent ``offset`` commits.
             branch (Optional[str]): Branch to read history from. Omit for current.
 
-        Returns:
-            dict: ``{ commits: [{ hash, message, author, date }], hasMore: bool }``.
+        Copywritings:
+            List recent commits
+            Listing recent commits...
         """
         commits = self.git_repository.get_commit_history(
             limit=limit, offset=offset, branch=branch

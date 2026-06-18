@@ -22,8 +22,8 @@ use smallvec::SmallVec;
 use ty_module_resolver::{ModuleName, resolve_module};
 
 use crate::HasTrackedScope;
-use crate::ast_ids::AstIdsBuilder;
 use crate::ast_ids::node_key::ExpressionNodeKey;
+use crate::ast_ids::{AstIdsBuilder, ScopedUseId};
 use crate::ast_node_ref::AstNodeRef;
 use crate::definition::{
     AnnotatedAssignmentDefinitionNodeRef, AssignmentDefinitionNodeRef,
@@ -42,7 +42,7 @@ use crate::place::{PlaceExpr, PlaceTableBuilder, PossiblyNarrowedPlacesBuilder, 
 use crate::predicate::{
     CallableAndCallExpr, ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate,
     PredicateNode, PredicateOrLiteral, ScopedPredicateId, SequencePatternPredicateKind,
-    StarImportPlaceholderPredicate,
+    StarImportPlaceholderPredicate, SubjectElementPatternPredicate,
 };
 use crate::program::Program;
 use crate::re_exports::exported_names;
@@ -131,9 +131,52 @@ struct ScopeInfo<'ast> {
     /// Text ranges for `global` and `nonlocal` declarations in this scope, which we use to
     /// populate `nested_global_or_nonlocal_declarations` when we reach end of scope.
     this_scope_global_or_nonlocal_declarations: FxHashMap<Name, TextRange>,
+    /// Free symbol uses from nested scopes that may resolve to this scope.
+    pending_captures: PendingCaptures,
 }
 
 type NestedGlobalOrNonlocalDeclarations = FxHashMap<Name, SmallVec<[NestedDeclaration; 1]>>;
+
+/// Captures cannot be resolved until the enclosing scope is complete because a later binding can
+/// make the name local. For example, `inner` captures `outer`'s local `value`, even though the
+/// binding appears after `inner` is defined:
+///
+/// ```python
+/// def outer():
+///     def inner():
+///         return value
+///
+///     value = 1
+/// ```
+///
+/// Each pending capture remembers the bindings visible when the nested scope was created and, for
+/// lazy scopes, any bindings added afterward.
+type PendingCaptures = FxHashMap<Name, SmallVec<[PendingCapture; 1]>>;
+
+#[derive(Debug)]
+struct PendingCapture {
+    nested_scope: FileScopeId,
+    laziness: ScopeLaziness,
+    binding_definition_ids: SmallVec<[ScopedDefinitionId; 2]>,
+}
+
+#[derive(Debug)]
+struct UnresolvedCapture {
+    /// The scope containing the free symbol use. Retaining this lets final resolution apply class
+    /// scope visibility rules correctly as the capture is propagated outward.
+    nested_scope: FileScopeId,
+    name: Name,
+    laziness: ScopeLaziness,
+}
+
+impl UnresolvedCapture {
+    fn through_scope(mut self, scope_laziness: ScopeLaziness) -> Self {
+        if scope_laziness.is_lazy() {
+            self.laziness = ScopeLaziness::Lazy;
+        }
+        self
+    }
+}
 
 #[derive(Copy, Clone, Debug, get_size2::GetSize)]
 pub struct NestedDeclaration {
@@ -478,6 +521,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             narrowing_aliases: saved_aliases,
             nested_global_or_nonlocal_declarations: FxHashMap::default(),
             this_scope_global_or_nonlocal_declarations: FxHashMap::default(),
+            pending_captures: FxHashMap::default(),
         });
     }
 
@@ -552,6 +596,112 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 let place_id = place_table.symbol_id(symbol.name())?;
                 place_table.place(place_id).is_bound().then_some(scope_id)
             })
+    }
+
+    fn register_pending_capture(&mut self, capture: UnresolvedCapture) {
+        let current_scope = self.current_scope();
+        let binding_definition_ids = self.place_tables[current_scope]
+            .symbol_id(&capture.name)
+            .into_iter()
+            .flat_map(|symbol| {
+                self.use_def_maps[current_scope].symbol_binding_definition_ids(symbol)
+            })
+            .collect();
+
+        let captures = self
+            .current_scope_info_mut()
+            .pending_captures
+            .entry(capture.name)
+            .or_default();
+
+        if let Some(pending) = captures
+            .iter_mut()
+            .find(|pending| pending.nested_scope == capture.nested_scope)
+        {
+            pending
+                .binding_definition_ids
+                .extend(binding_definition_ids);
+            if capture.laziness.is_lazy() {
+                pending.laziness = ScopeLaziness::Lazy;
+            }
+        } else {
+            captures.push(PendingCapture {
+                nested_scope: capture.nested_scope,
+                laziness: capture.laziness,
+                binding_definition_ids,
+            });
+        }
+    }
+
+    fn record_pending_capture_binding(
+        &mut self,
+        symbol: ScopedSymbolId,
+        definition_id: ScopedDefinitionId,
+    ) {
+        let current_scope = self.current_scope();
+        let name = self.place_tables[current_scope]
+            .symbol(symbol)
+            .name()
+            .clone();
+
+        let Some(captures) = self
+            .current_scope_info_mut()
+            .pending_captures
+            .get_mut(&name)
+        else {
+            return;
+        };
+
+        for capture in captures {
+            if capture.laziness.is_lazy() {
+                capture.binding_definition_ids.push(definition_id);
+            }
+        }
+    }
+
+    fn finish_pending_captures(
+        &mut self,
+        popped_scope_id: FileScopeId,
+        popped_scope_laziness: ScopeLaziness,
+        pending_captures: PendingCaptures,
+    ) -> Vec<UnresolvedCapture> {
+        let mut unresolved = Vec::new();
+
+        #[expect(
+            clippy::iter_over_hash_type,
+            reason = "capture resolution and usage marking are order-independent"
+        )]
+        for (name, captures) in pending_captures {
+            for capture in captures {
+                if self.resolve_nested_reference_scope(capture.nested_scope, &name)
+                    == Some(popped_scope_id)
+                {
+                    self.use_def_maps[popped_scope_id]
+                        .mark_binding_definitions_used(capture.binding_definition_ids);
+                } else {
+                    unresolved.push(
+                        UnresolvedCapture {
+                            nested_scope: capture.nested_scope,
+                            name: name.clone(),
+                            laziness: capture.laziness,
+                        }
+                        .through_scope(popped_scope_laziness),
+                    );
+                }
+            }
+        }
+
+        for symbol in self.place_tables[popped_scope_id].symbols() {
+            if symbol.is_used() && !symbol.is_local() && !symbol.is_global() {
+                unresolved.push(UnresolvedCapture {
+                    nested_scope: popped_scope_id,
+                    name: symbol.name().clone(),
+                    laziness: popped_scope_laziness,
+                });
+            }
+        }
+
+        unresolved
     }
 
     // Records snapshots of the place states visible from the current lazy scope.
@@ -731,59 +881,6 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             })
     }
 
-    /// Marks bindings in enclosing scopes as used when a nested scope resolves a reference to them.
-    ///
-    /// This reuses enclosing-snapshot data so lazy scopes account for later reassignments that can
-    /// also reach the nested reference.
-    fn mark_captured_bindings_used(&mut self) {
-        let mut resolved_scopes_by_nested_symbol =
-            FxHashMap::<(FileScopeId, ScopedSymbolId), Option<FileScopeId>>::default();
-
-        let mut snapshots_to_mark = Vec::new();
-
-        #[expect(
-            clippy::iter_over_hash_type,
-            reason = "snapshot resolution is independent and marking bindings is idempotent"
-        )]
-        for (&key, &snapshot_id) in &self.enclosing_snapshots {
-            let ScopedPlaceId::Symbol(enclosing_symbol_id) = key.enclosing_place else {
-                continue;
-            };
-
-            let enclosing_symbol =
-                self.place_tables[key.enclosing_scope].symbol(enclosing_symbol_id);
-            let nested_place_table = &self.place_tables[key.nested_scope];
-
-            let Some(nested_symbol_id) =
-                nested_place_table.symbol_id(enclosing_symbol.name().as_str())
-            else {
-                continue;
-            };
-
-            let nested_symbol = nested_place_table.symbol(nested_symbol_id);
-            if !nested_symbol.is_used() || nested_symbol.is_local() || nested_symbol.is_global() {
-                continue;
-            }
-
-            let resolved_scope = *resolved_scopes_by_nested_symbol
-                .entry((key.nested_scope, nested_symbol_id))
-                .or_insert_with(|| {
-                    self.resolve_nested_reference_scope(
-                        key.nested_scope,
-                        enclosing_symbol.name().as_str(),
-                    )
-                });
-
-            if resolved_scope == Some(key.enclosing_scope) {
-                snapshots_to_mark.push((key.enclosing_scope, snapshot_id));
-            }
-        }
-
-        for (scope_id, snapshot_id) in snapshots_to_mark {
-            self.use_def_maps[scope_id].mark_enclosing_snapshot_bindings_used(snapshot_id);
-        }
-    }
-
     /// Returns the `NestedGlobalOrNonlocalDeclarations` that are still visible to the enclosing
     /// scope, including those contributed by `global` and `nonlocal` keywords in the popped scope,
     /// but excluding nested `nonlocal`s that resolved to the popped scope.
@@ -795,6 +892,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             narrowing_aliases,
             mut nested_global_or_nonlocal_declarations,
             this_scope_global_or_nonlocal_declarations,
+            pending_captures,
             ..
         } = self
             .scope_stack
@@ -808,10 +906,20 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         popped_scope.extend_descendants(children_end);
         let popped_scope_kind = popped_scope.kind();
 
-        if popped_scope.is_eager() {
+        let popped_scope_laziness = popped_scope.kind().laziness();
+
+        if popped_scope_laziness.is_eager() {
             self.record_eager_snapshots(popped_scope_id);
         } else {
             self.record_lazy_snapshots(popped_scope_id);
+        }
+
+        let unresolved_captures =
+            self.finish_pending_captures(popped_scope_id, popped_scope_laziness, pending_captures);
+        if !self.scope_stack.is_empty() {
+            for capture in unresolved_captures {
+                self.register_pending_capture(capture);
+            }
         }
 
         // If we've popped the module scope, there is no enclosing scope that needs our nested
@@ -987,9 +1095,9 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         &mut self.ast_ids[scope_id]
     }
 
-    /// If the given expression is a use of an unconstrained collection literal, returns
+    /// If the given expression is a use of an unannotated collection literal, returns
     /// the definition of the collection literal.
-    fn unconstrained_collection_literal_binding(
+    fn unannotated_collection_literal_binding(
         &self,
         collection_use: &ast::Expr,
     ) -> Option<Definition<'db>> {
@@ -1003,9 +1111,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 definition
                     .kind(self.db)
                     .as_unannotated_assignment()
-                    .is_some_and(|assignment| {
-                        is_unconstrained_collection_literal(assignment.value(self.module))
-                    })
+                    .is_some_and(|assignment| is_collection_literal(assignment.value(self.module)))
             })
             // TODO: Support uses that refer to multiple definitions. This currently seems to lead to
             // cycle-related panics.
@@ -1430,6 +1536,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             self.mark_place_declared(place);
         }
 
+        let definition_id = self.current_use_def_map().next_definition_id();
         let use_def = self.current_use_def_map_mut();
         match category {
             DefinitionCategory::DeclarationAndBinding => {
@@ -1456,10 +1563,11 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             }
         }
 
-        if category.is_binding() {
-            if let Some(id) = place.as_symbol() {
-                self.update_lazy_snapshots(id);
-            }
+        if category.is_binding()
+            && let Some(id) = place.as_symbol()
+        {
+            self.record_pending_capture_binding(id, definition_id);
+            self.update_lazy_snapshots(id);
         }
 
         let mut try_node_stack_manager = std::mem::take(&mut self.try_node_context_stack_manager);
@@ -1717,7 +1825,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         fn resolve_to_literal(node: &ast::Expr) -> Option<bool> {
             match node {
                 ast::Expr::BooleanLiteral(ast::ExprBooleanLiteral { value, .. }) => Some(*value),
-                ast::Expr::Name(ast::ExprName { id, .. }) if id == "TYPE_CHECKING" => Some(true),
+                node if is_if_type_checking(node) => Some(true),
                 ast::Expr::NumberLiteral(ast::ExprNumberLiteral {
                     value: ast::Number::Int(n),
                     ..
@@ -1811,7 +1919,8 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         PossiblyNarrowedPlacesBuilder::new(self.db, place_table)
                             .pattern(pattern, module)
                     }
-                    PredicateNode::IsNonTerminalCall(_)
+                    PredicateNode::SubjectElementPattern(_)
+                    | PredicateNode::IsNonTerminalCall(_)
                     | PredicateNode::StarImportPlaceholder(_) => {
                         // These predicates don't narrow any places
                         PossiblyNarrowedPlaces::default()
@@ -2005,6 +2114,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         &mut self,
         subject: Expression<'db>,
         pattern: &ast::Pattern,
+        sequence_subject_targets: &[(ScopedPlaceId, ScopedUseId, ExpressionNodeKey)],
         guard: Option<&ast::Expr>,
         previous_pattern: Option<PatternPredicate<'db>>,
         is_catchall: bool,
@@ -2050,8 +2160,29 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         // predicates are still created normally for proper control flow tracking.
         let predicate_id = if is_catchall {
             ScopedPredicateId::ALWAYS_TRUE
-        } else {
+        } else if sequence_subject_targets.is_empty() {
             self.record_narrowing_constraint(predicate)
+        } else {
+            let predicate_id = self.add_predicate(predicate);
+            for &(place, use_id, target) in sequence_subject_targets {
+                let subject_element_id =
+                    self.add_predicate(PredicateOrLiteral::Predicate(Predicate {
+                        node: PredicateNode::SubjectElementPattern(
+                            SubjectElementPatternPredicate {
+                                pattern: pattern_predicate,
+                                target,
+                            },
+                        ),
+                        is_positive: true,
+                    }));
+                self.current_use_def_map_mut()
+                    .record_narrowing_constraint_for_bindings_at_use(
+                        subject_element_id,
+                        place,
+                        use_id,
+                    );
+            }
+            predicate_id
         };
         (predicate, predicate_id, pattern_predicate)
     }
@@ -2465,7 +2596,6 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
         // Pop the root scope
         self.pop_scope();
-        self.mark_captured_bindings_used();
         self.sweep_nonlocal_lazy_snapshots();
         assert!(self.scope_stack.is_empty());
 
@@ -2862,10 +2992,10 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
                             let star_import_predicate = self.add_predicate(star_import.into());
 
-                            let associated_member_ids = self.place_tables[self.current_scope()]
+                            let scope = self.current_scope();
+                            let associated_member_ids = self.place_tables[scope]
                                 .associated_place_ids(ScopedPlaceId::Symbol(symbol_id));
-                            let pre_definition = self
-                                .current_use_def_map()
+                            let pre_definition = self.use_def_maps[scope]
                                 .single_symbol_snapshot(symbol_id, associated_member_ids);
 
                             let pre_definition_reachability =
@@ -2982,9 +3112,9 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
                 self.visit_expr(&node.value);
 
-                // Unconstrained collection literals must be standalone expressions to participate
+                // Unannotated collection literals must be standalone expressions to participate
                 // in full-scope bidirectional inference.
-                if node.targets.len() == 1 && is_unconstrained_collection_literal(&node.value) {
+                if node.targets.len() == 1 && is_collection_literal(&node.value) {
                     self.add_standalone_assigned_expression(&node.value, node);
                 }
 
@@ -3380,6 +3510,37 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                     return;
                 }
 
+                // A match subject is evaluated once. Retain the bindings read by each place so
+                // that case predicates constrain those values rather than later rebindings.
+                let places = self.current_place_table();
+                let ast_ids = self.current_ast_ids();
+                let mut sequence_subject_targets =
+                    SmallVec::<[(ScopedPlaceId, ScopedUseId, ExpressionNodeKey); 2]>::new();
+                let mut subject_elements: Vec<&ast::Expr> = match subject.as_ref() {
+                    ast::Expr::List(list) => list.elts.iter().collect(),
+                    ast::Expr::Tuple(tuple) => tuple.elts.iter().collect(),
+                    _ => Vec::new(),
+                };
+                while let Some(element) = subject_elements.pop() {
+                    match element {
+                        ast::Expr::List(list) => subject_elements.extend(&list.elts),
+                        ast::Expr::Tuple(tuple) => subject_elements.extend(&tuple.elts),
+                        _ => {
+                            let Some(target) = PlaceExpr::try_from_expr(element)
+                                .and_then(|place| places.place_id((&place).into()))
+                                .zip(ast_ids.try_use_id(element))
+                            else {
+                                continue;
+                            };
+                            sequence_subject_targets.push((
+                                target.0,
+                                target.1,
+                                ExpressionNodeKey::from(element),
+                            ));
+                        }
+                    }
+                }
+
                 let mut no_case_matched = self.flow_snapshot();
 
                 let has_catchall = cases
@@ -3402,6 +3563,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         .add_pattern_narrowing_constraint(
                             subject_expr,
                             &case.pattern,
+                            &sequence_subject_targets,
                             case.guard.as_deref(),
                             previous_pattern,
                             is_catchall,
@@ -3824,7 +3986,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                 };
 
                 if let Some((func, expr, is_await)) = call_info {
-                    // Avoid creating reachability nodes for calls on unconstrained collection
+                    // Avoid creating reachability nodes for calls on unannotated collection
                     // literals. Without this short-circuit, performing reachability analysis
                     // can lead to quadratic blowup of cycle dependencies during full-scope
                     // collection inference, as Salsa flattens the dependencies of all cycle
@@ -3840,7 +4002,7 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
                         && func
                             .as_attribute_expr()
                             .and_then(|attribute| {
-                                self.unconstrained_collection_literal_binding(&attribute.value)
+                                self.unannotated_collection_literal_binding(&attribute.value)
                             })
                             .is_none()
                     {
@@ -4086,9 +4248,9 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                     if is_use {
                         self.record_place_use(place_id, expr);
 
-                        // Keep track of any uses of collection literals.
+                        // Keep track of any uses of unannotated collection literals.
                         if let Some(collection_def) =
-                            self.unconstrained_collection_literal_binding(expr)
+                            self.unannotated_collection_literal_binding(expr)
                             && let Some(current_statement) = self.current_statements.last_mut()
                         {
                             current_statement
@@ -4809,11 +4971,6 @@ fn is_if_not_type_checking(expr: &ast::Expr) -> bool {
     )
 }
 
-pub(crate) fn is_unconstrained_collection_literal(expr: &ast::Expr) -> bool {
-    match expr {
-        ast::Expr::List(list) => list.elts.is_empty(),
-        ast::Expr::Set(set) => set.elts.is_empty(),
-        ast::Expr::Dict(dict) => dict.items.is_empty(),
-        _ => false,
-    }
+pub(crate) fn is_collection_literal(expr: &ast::Expr) -> bool {
+    expr.is_list_expr() || expr.is_set_expr() || expr.is_dict_expr()
 }

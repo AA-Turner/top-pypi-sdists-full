@@ -209,6 +209,7 @@ class Model(Dao, Taggable):
             InferenceType.LINE,
             InferenceType.POINT,
             InferenceType.KEYPOINT,
+            InferenceType.MASK,
         ]:
             raise TypeError(f"Type '{type}' not supported yet for model version")
 

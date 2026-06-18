@@ -1,0 +1,23 @@
+---
+features:
+  - |
+    Added new generator functions,
+    :func:`rustworkx.generators.directed_hexagonal_lattice_graph` and
+    :func:`rustworkx.generators.hexagonal_lattice_graph`, for constructing a
+    hexagonal lattice graph. For example:
+
+    .. jupyter-execute::
+
+      import rustworkx
+      from rustworkx.visualization import mpl_draw
+
+      graph = rustworkx.generators.directed_hexagonal_lattice_graph(3, 3)
+      mpl_draw(graph)
+
+    .. jupyter-execute::
+
+      import rustworkx
+      from rustworkx.visualization import mpl_draw
+
+      graph = rustworkx.generators.hexagonal_lattice_graph(3, 3)
+      mpl_draw(graph)

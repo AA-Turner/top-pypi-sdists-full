@@ -44,7 +44,7 @@ pub(crate) trait LocationScaleJointPsiFamily: Clone + Send + Sync + 'static {
     /// message so the originating family stays visible after unification.
     const LABEL: &'static str;
 
-    fn ws_policy(&self) -> &crate::resource::ResourcePolicy;
+    fn ws_policy(&self) -> &crate::solver::resource::ResourcePolicy;
 
     fn ws_exact_joint_dense_block_designs<'a>(
         &'a self,
@@ -58,7 +58,7 @@ pub(crate) trait LocationScaleJointPsiFamily: Clone + Send + Sync + 'static {
         psi_index: usize,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &crate::solver::resource::ResourcePolicy,
     ) -> Result<Option<Self::Direction>, String>;
 
     fn ws_psi_second_order_terms_from_parts(
@@ -69,7 +69,7 @@ pub(crate) trait LocationScaleJointPsiFamily: Clone + Send + Sync + 'static {
         psi_b: &Self::Direction,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        subsample: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        subsample: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<ExactNewtonJointPsiSecondOrderTerms, String>;
 
     fn ws_psi_hessian_directional_from_parts(
@@ -79,7 +79,7 @@ pub(crate) trait LocationScaleJointPsiFamily: Clone + Send + Sync + 'static {
         d_beta_flat: &Array1<f64>,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        subsample: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        subsample: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<Array2<f64>, String>;
 }
 
@@ -87,7 +87,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleFamily {
     type Direction = LocationScaleJointPsiDirection;
     const LABEL: &'static str = "GaussianLocationScaleFamily";
 
-    fn ws_policy(&self) -> &crate::resource::ResourcePolicy {
+    fn ws_policy(&self) -> &crate::solver::resource::ResourcePolicy {
         &self.policy
     }
 
@@ -105,7 +105,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleFamily {
         psi_index: usize,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &crate::solver::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         self.exact_newton_joint_psi_direction(
             block_states,
@@ -125,7 +125,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleFamily {
         psi_b: &LocationScaleJointPsiDirection,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        subsample: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        subsample: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<ExactNewtonJointPsiSecondOrderTerms, String> {
         self.exact_newton_joint_psisecond_order_terms_from_parts(
             block_states,
@@ -145,7 +145,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleFamily {
         d_beta_flat: &Array1<f64>,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        subsample: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        subsample: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<Array2<f64>, String> {
         self.exact_newton_joint_psihessian_directional_derivative_from_parts(
             block_states,
@@ -162,7 +162,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleWiggleFamily {
     type Direction = LocationScaleJointPsiDirection;
     const LABEL: &'static str = "GaussianLocationScaleWiggleFamily";
 
-    fn ws_policy(&self) -> &crate::resource::ResourcePolicy {
+    fn ws_policy(&self) -> &crate::solver::resource::ResourcePolicy {
         &self.policy
     }
 
@@ -180,7 +180,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleWiggleFamily {
         psi_index: usize,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &crate::solver::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         self.exact_newton_joint_psi_direction(
             block_states,
@@ -200,7 +200,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleWiggleFamily {
         psi_b: &LocationScaleJointPsiDirection,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        outer_rows: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        outer_rows: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<ExactNewtonJointPsiSecondOrderTerms, String> {
         assert!(outer_rows.map_or(true, |r| r.len() <= isize::MAX as usize));
         // Wiggle ψ path: full-data exact (= trivially unbiased). The
@@ -239,7 +239,7 @@ impl LocationScaleJointPsiFamily for GaussianLocationScaleWiggleFamily {
         d_beta_flat: &Array1<f64>,
         design_loc: &Array2<f64>,
         design_scale: &Array2<f64>,
-        outer_rows: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        outer_rows: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<Array2<f64>, String> {
         assert!(outer_rows.map_or(true, |r| r.len() <= isize::MAX as usize));
         // Same rationale as `ws_psi_second_order_terms_from_parts` above:
@@ -279,7 +279,7 @@ pub(crate) struct LocationScaleJointPsiWorkspace<F: LocationScaleJointPsiFamily>
     pub(crate) design_scale: Arc<Array2<f64>>,
     pub(crate) psi_directions: ExactNewtonJointPsiDirectCache<F::Direction>,
     pub(crate) outer_score_subsample:
-        Option<Arc<crate::families::marginal_slope_shared::OuterScoreSubsample>>,
+        Option<Arc<crate::solver::outer_subsample::OuterScoreSubsample>>,
 }
 
 impl<F: LocationScaleJointPsiFamily> LocationScaleJointPsiWorkspace<F> {
@@ -297,9 +297,7 @@ impl<F: LocationScaleJointPsiFamily> LocationScaleJointPsiWorkspace<F> {
         block_states: Vec<ParameterBlockState>,
         specs: &[ParameterBlockSpec],
         derivative_blocks: Vec<Vec<CustomFamilyBlockPsiDerivative>>,
-        outer_score_subsample: Option<
-            Arc<crate::families::marginal_slope_shared::OuterScoreSubsample>,
-        >,
+        outer_score_subsample: Option<Arc<crate::solver::outer_subsample::OuterScoreSubsample>>,
     ) -> Result<Self, String> {
         let Some((design_loc, design_scale)) =
             family.ws_exact_joint_dense_block_designs(Some(specs))?
@@ -344,7 +342,7 @@ impl<F: LocationScaleJointPsiFamily> LocationScaleJointPsiWorkspace<F> {
 
     pub(crate) fn subsample_rows(
         &self,
-    ) -> Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]> {
+    ) -> Option<&[crate::solver::outer_subsample::WeightedOuterRow]> {
         self.outer_score_subsample
             .as_ref()
             .map(|s| s.rows.as_ref().as_slice())
@@ -381,22 +379,20 @@ where
         &self,
         psi_index: usize,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<crate::solver::estimate::reml::unified::DriftDerivResult>, String> {
+    ) -> Result<Option<crate::reml_contracts::DriftDerivResult>, String> {
         let Some(dir) = self.psi_direction(psi_index)? else {
             return Ok(None);
         };
-        Ok(Some(
-            crate::solver::estimate::reml::unified::DriftDerivResult::Dense(
-                self.family.ws_psi_hessian_directional_from_parts(
-                    &self.block_states,
-                    dir.as_ref(),
-                    d_beta_flat,
-                    self.design_loc.as_ref(),
-                    self.design_scale.as_ref(),
-                    self.subsample_rows(),
-                )?,
-            ),
-        ))
+        Ok(Some(crate::reml_contracts::DriftDerivResult::Dense(
+            self.family.ws_psi_hessian_directional_from_parts(
+                &self.block_states,
+                dir.as_ref(),
+                d_beta_flat,
+                self.design_loc.as_ref(),
+                self.design_scale.as_ref(),
+                self.subsample_rows(),
+            )?,
+        )))
     }
 }
 
@@ -468,7 +464,7 @@ pub(crate) struct GaussianJointPsiMixedDriftWeights {
 /// of the full-data quantities.
 pub(crate) fn apply_ht_mask_first(
     weights: &mut GaussianJointPsiFirstWeights,
-    rows: &[crate::families::marginal_slope_shared::WeightedOuterRow],
+    rows: &[crate::solver::outer_subsample::WeightedOuterRow],
 ) {
     let n = weights.objective_psirow.len();
     let mut obj = Array1::<f64>::zeros(n);
@@ -517,7 +513,7 @@ pub(crate) fn apply_ht_mask_first(
 /// `fast_atv(_, d2score_*)` reductions.
 pub(crate) fn apply_ht_mask_second(
     weights: &mut GaussianJointPsiSecondWeights,
-    rows: &[crate::families::marginal_slope_shared::WeightedOuterRow],
+    rows: &[crate::solver::outer_subsample::WeightedOuterRow],
 ) {
     let n = weights.objective_psi_psirow.len();
     let mut obj = Array1::<f64>::zeros(n);
@@ -549,7 +545,7 @@ pub(crate) fn apply_ht_mask_second(
 /// `gaussian_joint_psi_mixedhessian_drift_fromweights`.
 pub(crate) fn apply_ht_mask_mixed(
     weights: &mut GaussianJointPsiMixedDriftWeights,
-    rows: &[crate::families::marginal_slope_shared::WeightedOuterRow],
+    rows: &[crate::solver::outer_subsample::WeightedOuterRow],
 ) {
     let n = weights.dhmumu_u.len();
     let mut dhmm_u = Array1::<f64>::zeros(n);
@@ -1062,8 +1058,7 @@ pub(crate) fn build_two_block_custom_family_joint_psi_operator_from_actions(
     left_drift_weights: &Array1<f64>,
     cross_drift_weights: &Array1<f64>,
     right_drift_weights: &Array1<f64>,
-) -> Result<Option<std::sync::Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-{
+) -> Result<Option<std::sync::Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
     if left_action.is_none() && right_action.is_none() {
         return Ok(None);
     }

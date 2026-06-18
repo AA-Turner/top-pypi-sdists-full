@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 CERN.
+ * SPDX-License-Identifier: MIT
+ */
+
 import React from "react";
 import RequestsFeed from "./RequestsFeed";
 import { Placeholder, Feed } from "semantic-ui-react";

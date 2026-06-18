@@ -21,7 +21,6 @@ class TestVideoToVideo:
     def test_method_create_overload_1(self, client: RunwayML) -> None:
         video_to_video = client.video_to_video.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
         )
         assert_matches_type(VideoToVideoCreateResponse, video_to_video, path=["response"])
@@ -30,7 +29,6 @@ class TestVideoToVideo:
     def test_method_create_with_all_params_overload_1(self, client: RunwayML) -> None:
         video_to_video = client.video_to_video.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
             content_moderation={"public_figure_threshold": "auto"},
             keyframes=[
@@ -39,6 +37,8 @@ class TestVideoToVideo:
                     "uri": "https://example.com/file",
                 }
             ],
+            prompt_text="x",
+            ratio="ratio",
             seed=0,
             target_aspect_ratio="16:9",
         )
@@ -48,7 +48,6 @@ class TestVideoToVideo:
     def test_raw_response_create_overload_1(self, client: RunwayML) -> None:
         response = client.video_to_video.with_raw_response.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
         )
 
@@ -61,7 +60,6 @@ class TestVideoToVideo:
     def test_streaming_response_create_overload_1(self, client: RunwayML) -> None:
         with client.video_to_video.with_streaming_response.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
         ) as response:
             assert not response.is_closed
@@ -210,7 +208,6 @@ class TestAsyncVideoToVideo:
     async def test_method_create_overload_1(self, async_client: AsyncRunwayML) -> None:
         video_to_video = await async_client.video_to_video.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
         )
         assert_matches_type(VideoToVideoCreateResponse, video_to_video, path=["response"])
@@ -219,7 +216,6 @@ class TestAsyncVideoToVideo:
     async def test_method_create_with_all_params_overload_1(self, async_client: AsyncRunwayML) -> None:
         video_to_video = await async_client.video_to_video.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
             content_moderation={"public_figure_threshold": "auto"},
             keyframes=[
@@ -228,6 +224,8 @@ class TestAsyncVideoToVideo:
                     "uri": "https://example.com/file",
                 }
             ],
+            prompt_text="x",
+            ratio="ratio",
             seed=0,
             target_aspect_ratio="16:9",
         )
@@ -237,7 +235,6 @@ class TestAsyncVideoToVideo:
     async def test_raw_response_create_overload_1(self, async_client: AsyncRunwayML) -> None:
         response = await async_client.video_to_video.with_raw_response.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
         )
 
@@ -250,7 +247,6 @@ class TestAsyncVideoToVideo:
     async def test_streaming_response_create_overload_1(self, async_client: AsyncRunwayML) -> None:
         async with async_client.video_to_video.with_streaming_response.create(
             model="aleph2",
-            prompt_text="x",
             video_uri="https://example.com/video.mp4",
         ) as response:
             assert not response.is_closed

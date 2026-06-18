@@ -1,0 +1,23 @@
+---
+features:
+  - |
+    Added new generator functions,
+    :func:`rustworkx.generators.binomial_tree_graph` and
+    :func:`rustworkx.generators.directed_binomial_tree_graph`, for constructing
+    a binomial tree graph. For example:
+
+    .. jupyter-execute::
+
+      import rustworkx
+      from rustworkx.visualization import mpl_draw
+
+      graph = rustworkx.generators.binomial_tree_graph(4)
+      mpl_draw(graph)
+
+    .. jupyter-execute::
+
+      import rustworkx
+      from rustworkx.visualization import mpl_draw
+
+      graph = rustworkx.generators.directed_binomial_tree_graph(4)
+      mpl_draw(graph)

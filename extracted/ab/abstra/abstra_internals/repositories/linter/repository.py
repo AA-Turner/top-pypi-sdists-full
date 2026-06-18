@@ -57,12 +57,16 @@ BLOCKING_TYPES = {"error", "security", "bug"}
 
 
 class LocalLinterRepository(LinterRepository):
-    def __init__(self):
+    def __init__(self, serial: bool = False):
         self.checks: List[LinterCheck] = []
         # Single-flight lock: prevents concurrent callers (boot _initial_lint
         # racing the first HTTP /check, or overlapping save-triggered lints)
         # from each spawning their own thread-per-rule fan-out.
         self._run_lock = threading.Lock()
+        # serial=True runs rules on the caller thread, one at a time — used by
+        # the linter sidecar child, where thread-per-rule would only inflate
+        # the pod's CFS throttle. Default keeps the threaded fan-out.
+        self._serial = serial
 
     def find_issues_in_codebase(self) -> List[LinterCheck]:
         """
@@ -138,6 +142,19 @@ class LocalLinterRepository(LinterRepository):
             for path in scope:
                 issues.extend(rule.find_issues(path))
             scoped_results.append((rule, issues))
+
+        if self._serial:
+            for rule in target_rules:
+                # A failing rule loses its check silently — the same outcome
+                # as the threaded fan-out, where only that rule's thread dies.
+                try:
+                    if paths is not None and isinstance(rule, PathScopedLinterRule):
+                        check_rule_scoped(rule, paths)
+                    else:
+                        check_rule(rule, new_checks)
+                except Exception:
+                    continue
+            return new_checks, scoped_results
 
         for rule in target_rules:
             if paths is not None and isinstance(rule, PathScopedLinterRule):
@@ -221,9 +238,6 @@ class LocalLinterRepository(LinterRepository):
                 Must match exactly with the rule name from get_checks().
             fix_name (str): Name of the specific fix to apply.
                 Must match exactly with a fix name available for the rule's issues.
-
-        Returns:
-            bool: True if the fix was found and applied successfully, False otherwise.
 
         Example:
             ```python

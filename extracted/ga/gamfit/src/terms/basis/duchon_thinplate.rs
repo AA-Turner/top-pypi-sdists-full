@@ -27,7 +27,7 @@ type DuchonBasisCacheKey = (u64, u64);
 #[derive(Clone)]
 struct CachedDuchonBasis(BasisBuildResult);
 
-impl crate::resource::ResidentBytes for CachedDuchonBasis {
+impl crate::solver::resource::ResidentBytes for CachedDuchonBasis {
     fn resident_bytes(&self) -> usize {
         // Coarse charge: the dominant resident cost is the dense design columns
         // and the penalty Grams. An estimate suffices — the byte budget only
@@ -54,12 +54,12 @@ impl crate::resource::ResidentBytes for CachedDuchonBasis {
 /// densification ceiling used elsewhere; with ~17 diseases over one cohort the
 /// working set is a single `BasisBuildResult`, so even a modest budget retains
 /// the shared basis across the whole sweep.
-fn duchon_basis_cache() -> &'static crate::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis>
-{
+fn duchon_basis_cache()
+-> &'static crate::solver::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis> {
     static CACHE: std::sync::OnceLock<
-        crate::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis>,
+        crate::solver::resource::ByteLruCache<DuchonBasisCacheKey, CachedDuchonBasis>,
     > = std::sync::OnceLock::new();
-    CACHE.get_or_init(|| crate::resource::ByteLruCache::new(1 << 30))
+    CACHE.get_or_init(|| crate::solver::resource::ByteLruCache::new(1 << 30))
 }
 
 /// 128-bit content fingerprint of `(data, spec)`. Two independent hashers (one
@@ -129,7 +129,22 @@ fn build_duchon_basis_uncached(
     }
     let centers = select_centers_by_strategy(data, &spec.center_strategy)?;
     assert_spatial_centers_below_large_scale_cap(data.ncols(), centers.view())?;
-    if spec.periodic.is_some() {
+    if let Some(periodic) = spec.periodic.as_ref() {
+        if periodic.len() != data.ncols() {
+            crate::bail_invalid_basis!(
+                "periodic must have length d={}, got {}",
+                data.ncols(),
+                periodic.len()
+            );
+        }
+        if data.ncols() > 1 && periodic.iter().any(Option::is_some) {
+            let flags = periodic.iter().map(Option::is_some).collect::<Vec<_>>();
+            let periods = periodic
+                .iter()
+                .map(|axis| axis.unwrap_or(1.0))
+                .collect::<Vec<_>>();
+            return build_duchon_basis_mixed_periodicity_auto(data, spec, &flags, Some(&periods));
+        }
         return build_periodic_duchon_basis_1d(data, spec, centers, workspace);
     }
     // `spec.power` is the LITERAL Duchon spectral power `s` at the basis layer.
@@ -262,11 +277,14 @@ fn build_duchon_basis_uncached(
                 };
                 raw * kernel_amp
             };
+            let kernel_gauge = Arc::new(crate::solver::gauge::Gauge::from_block_transforms(&[
+                kernel_transform.clone(),
+            ]));
             let base_op = ChunkedKernelDesignOperator::new(
                 shared_data.clone(),
                 Arc::new(centers.clone()),
                 kernel,
-                Some(Arc::new(kernel_transform.clone())),
+                Some(kernel_gauge),
                 Some(Arc::new(poly_block.clone())),
             )
             .map_err(BasisError::InvalidInput)?;
@@ -290,11 +308,14 @@ fn build_duchon_basis_uncached(
                 };
                 raw * kernel_amp
             };
+            let kernel_gauge = Arc::new(crate::solver::gauge::Gauge::from_block_transforms(&[
+                kernel_transform.clone(),
+            ]));
             let base_op = ChunkedKernelDesignOperator::new(
                 shared_data,
                 Arc::new(centers.clone()),
                 kernel,
-                Some(Arc::new(kernel_transform.clone())),
+                Some(kernel_gauge),
                 Some(Arc::new(poly_block)),
             )
             .map_err(BasisError::InvalidInput)?;
@@ -409,6 +430,77 @@ fn build_duchon_basis_uncached(
         },
         kronecker_factored: None,
     })
+}
+
+/// Rebuild the Duchon penalty list at a NEW `length_scale` purely from FROZEN
+/// basis geometry — no data rows touched (#1033, n-free per-ψ penalty re-key).
+///
+/// The κ-loop fast path skips the n-row `reset_surface`, so it needs `S(ψ_new)`
+/// reconstructed exactly and `n`-free at each trial length-scale. This mirrors
+/// the cold penalty assembly (`build_duchon_basis_uncached` lines ~345-396)
+/// EXACTLY, but every input is taken from the already-frozen
+/// `BasisMetadata::Duchon` (centers, identifiability transform, operator
+/// collocation points) plus the spec's `(power, nullspace_order,
+/// aniso_log_scales, operator_penalties)`. The only thing that moves is
+/// `length_scale`.
+///
+/// The polynomial-column count is `C(d + r, r)` — a pure function of `(d, r)` —
+/// so it is recomputed from the centers (`polynomial_block_from_order(centers,
+/// order).ncols()`), which equals the cold build's `polynomial_block_from_order(
+/// data, order).ncols()` because `.ncols()` does not depend on the row count.
+///
+/// Returns the per-block penalty matrices (term-local frame, same order/count
+/// the cold build emits) and the active per-block nullspace dims — exactly the
+/// objects the cold build feeds into `filter_active_penalty_candidates_with_ops`.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn duchon_penalties_at_length_scale(
+    centers: ArrayView2<'_, f64>,
+    identifiability_transform: Option<&Array2<f64>>,
+    operator_collocation_points: Option<ArrayView2<'_, f64>>,
+    operator_penalties: &DuchonOperatorPenaltySpec,
+    power: f64,
+    nullspace_order: DuchonNullspaceOrder,
+    aniso_log_scales: Option<&[f64]>,
+    length_scale: Option<f64>,
+    workspace: &mut BasisWorkspace,
+) -> Result<(Vec<Array2<f64>>, Vec<usize>), BasisError> {
+    // Recompute the effective order + auto-seeded anisotropy exactly as the cold
+    // build does (duchon_thinplate.rs:151/159). Both are pure functions of the
+    // frozen centers + spec, so the κ trial replays the SAME structural choices.
+    let effective_nullspace_order = duchon_effective_nullspace_order(centers, nullspace_order);
+    let aniso = auto_seed_aniso_contrasts(centers, aniso_log_scales);
+    // n-free kernel-constraint nullspace (from centers; cached on the workspace).
+    let kernel_transform =
+        kernel_constraint_nullspace(centers, effective_nullspace_order, &mut workspace.cache)?;
+    // Polynomial column count: `C(d+r, r)`, independent of the row count, so the
+    // n-free centers-based form equals the cold build's data-based `.ncols()`.
+    let poly_cols = polynomial_block_from_order(centers, effective_nullspace_order).ncols();
+    let mut candidates = duchon_native_penalty_candidates(
+        centers,
+        length_scale,
+        power,
+        effective_nullspace_order,
+        aniso.as_deref(),
+        &kernel_transform,
+        identifiability_transform,
+        poly_cols,
+    )?;
+    if let Some(points) = operator_collocation_points {
+        candidates.extend(duchon_operator_penalty_candidates(
+            points,
+            centers,
+            operator_penalties,
+            length_scale,
+            power,
+            effective_nullspace_order,
+            aniso.is_some(),
+            identifiability_transform,
+            workspace,
+        )?);
+    }
+    let (penalties, nullspace_dims, _info, _eig, _ops) =
+        filter_active_penalty_candidates_with_ops(candidates)?;
+    Ok((penalties, nullspace_dims))
 }
 
 /// Materialise the polynomial null-space block for a Duchon basis.
@@ -1508,8 +1600,9 @@ pub fn apply_sum_to_zero_constraint(
         return Ok((basis_matrix.to_owned(), Array2::eye(k)));
     }
 
-    // Constrained basis
-    let constrained = fast_ab(&basis_matrix, &z);
+    let gauge = crate::solver::gauge::Gauge::sum_to_zero(z);
+    let constrained = gauge.restrict_design(&basis_matrix);
+    let z = gauge.block_transform(0);
     Ok((constrained, z))
 }
 

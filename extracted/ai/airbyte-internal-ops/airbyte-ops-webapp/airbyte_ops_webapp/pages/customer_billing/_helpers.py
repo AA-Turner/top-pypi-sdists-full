@@ -8,8 +8,9 @@ from typing import Any
 
 from prefab_ui.actions import SetState, ShowToast
 from prefab_ui.components import SelectOption
-from prefab_ui.rx import RESULT
+from prefab_ui.rx import ERROR, RESULT
 
+from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
 from airbyte_ops_webapp.state import (
     AIRBYTE_BEARER_TOKEN_ENV_VAR,
     AIRBYTE_CONFIG_API_ROOT_ENV_VAR,
@@ -27,7 +28,7 @@ DEFAULT_ADMIN_USER_EMAIL = "devin-local@example.com"
 def auth_available(bearer_token_override: str | None = None) -> bool:
     """Return `True` when Cloud API credentials are available."""
     if mock_only_enabled():
-        return True
+        return mock_oauth_is_authenticated()
     if os.getenv(AIRBYTE_BEARER_TOKEN_ENV_VAR):
         return True
     return bool(bearer_token_override)
@@ -135,18 +136,12 @@ def lookup_success_actions() -> list[SetState]:
     ]
 
 
-# Static error messages for on_error handlers (transport-level failures).
-# Tool functions handle application errors internally via on_success path.
-LOOKUP_ERROR = "Organization lookup failed. Please try again."
-APPLY_ERROR = "Apply operation failed. Please try again."
-
-
 def lookup_fail_actions() -> list[Any]:
     """State updates after a failed org lookup."""
     return [
-        *fail_tool_call(LOOKUP_ERROR),
+        *fail_tool_call(ERROR),
         SetState("org_loaded", False),
-        SetState("lookup_error", LOOKUP_ERROR),
+        SetState("lookup_error", ERROR),
     ]
 
 
@@ -162,7 +157,7 @@ def apply_success_actions() -> list[Any]:
 def apply_fail_actions() -> list[Any]:
     """State updates after a failed apply operation."""
     return [
-        *fail_tool_call(APPLY_ERROR),
-        SetState("apply_result", {"success": False, "message": APPLY_ERROR}),
+        *fail_tool_call(ERROR),
+        SetState("apply_result", {"success": False, "message": ERROR}),
         SetState("result_modal_open", True),
     ]

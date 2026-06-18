@@ -45,43 +45,11 @@ class WorkflowController:
         including all stages (forms, hooks, jobs, scripts) and the transitions between them.
         It includes disabled stages for complete workflow visualization.
 
-        Returns:
-            Dict: Workflow configuration containing:
-                - stages: List of stage objects with metadata and positioning
-                - transitions: List of connections between stages with task type information
-
-        Example:
-            ```python
-            controller = WorkflowController(repositories)
-
-            workflow = controller.get_workflow()
-
-            print(f"Workflow has {len(workflow['stages'])} stages")
-            print(f"Workflow has {len(workflow['transitions'])} transitions")
-
-            # Examine stages
-            for stage in workflow['stages']:
-                print(f"Stage: {stage['title']} ({stage['type']})")
-                print(f"  ID: {stage['id']}")
-                print(f"  Position: ({stage['position']['x']}, {stage['position']['y']})")
-                if 'filename' in stage['props']:
-                    print(f"  File: {stage['props']['filename']}")
-                if 'path' in stage['props']:
-                    print(f"  Path: {stage['props']['path']}")
-
-            # Examine transitions
-            for transition in workflow['transitions']:
-                print(f"Transition: {transition['sourceStageId']} -> {transition['targetStageId']}")
-                print(f"  Type: {transition['type']}")
-                if transition['props']['taskType']:
-                    print(f"  Task Type: {transition['props']['taskType']}")
-            ```
 
         Note:
             - Includes both enabled and disabled stages for complete workflow view
             - Stage positions are returned in x, y coordinate format for visual editor
             - Transitions include task type information for conditional workflow routing
-            - Used primarily by the visual workflow editor for rendering and editing
 
         Copywritings:
             Get the workflow stages and transitions
@@ -260,17 +228,6 @@ class WorkflowController:
             task_type (Optional[str]): Optional filter for task routing. If None or empty,
                 matches ALL tasks. If set, only matches tasks with this exact type string.
 
-        Returns:
-            Dict: Operation result containing:
-                - status (str): "success" when the transition is created.
-                - message (str): Human-readable confirmation message.
-                - transition (Dict): The created transition with id, sourceStageId,
-                  targetStageId, type and props (taskType).
-
-        Raises:
-            ValueError: If the source or target stage does not exist in the workflow.
-            UnknownNodeTypeError: If the source or target stage type is invalid.
-
         Copywritings:
             Add a new transition between two stages in the workflow
             Adding a new transition between two stages in the workflow...
@@ -319,17 +276,6 @@ class WorkflowController:
 
         Args:
             transition_id (str): ID of the transition to delete.
-
-        Returns:
-            Dict: Operation result containing:
-                - status (str): "success" when the transition is deleted.
-                - message (str): Human-readable confirmation message.
-                - transition_id (str): The id of the deleted transition.
-                - sourceStageId (str): The id of the stage the transition started from.
-                - targetStageId (str): The id of the stage the transition pointed to.
-
-        Raises:
-            ValueError: If the transition with the given ID does not exist.
 
         Copywritings:
             Delete a transition from the workflow

@@ -331,7 +331,10 @@ class Pair(NamedTuple, Foo):  # E: Named tuples do not support multiple inherita
 class Pair2(NamedTuple):
     x: int
     y: int
-class Pair3(Pair2, Foo):  # E: Named tuples do not support multiple inheritance
+# CPython allows mixing concrete NamedTuple subclasses with other bases.
+class Pair3(Pair2, Foo):
+    pass
+class Pair4(Foo, Pair2):
     pass
     "#,
 );
@@ -670,7 +673,6 @@ assert_type(instance2[1], Any)
 );
 
 testcase!(
-    bug = "namedtuple + mixin is valid in CPython but we reject it",
     test_named_tuple_base_class_call_with_mixin,
     r#"
 from typing import assert_type, Any
@@ -680,7 +682,7 @@ class Mixin:
     def greet(self) -> str:
         return "hi"
 
-class B(namedtuple("B", ["x"]), Mixin):  # E: Named tuples do not support multiple inheritance
+class B(namedtuple("B", ["x"]), Mixin):
     pass
 
 b = B(1)
@@ -693,14 +695,13 @@ testcase!(
     bug = "only the first namedtuple base's fields should be used",
     test_named_tuple_base_class_call_two_namedtuples,
     r#"
-from typing import assert_type, Any
 from collections import namedtuple
 
-class C(namedtuple("C1", ["x"]), namedtuple("C2", ["y"])):  # E: Named tuples do not support multiple inheritance
+class C(namedtuple("C1", ["x"]), namedtuple("C2", ["y"])):
     pass
 
 c = C(1)
-assert_type(c.x, Any)
+c.y  # This should probably be an error, but it's not today
     "#,
 );
 
@@ -708,19 +709,19 @@ testcase!(
     bug = "only the first namedtuple base's fields should be used",
     test_named_tuple_base_class_call_namedtuple_mixin_namedtuple,
     r#"
-from typing import assert_type, Any
+from typing import assert_type
 from collections import namedtuple
 
 class Mixin:
     def greet(self) -> str:
         return "hi"
 
-class D(namedtuple("D1", ["x"]), Mixin, namedtuple("D2", ["y"])):  # E: Named tuples do not support multiple inheritance
+class D(namedtuple("D1", ["x"]), Mixin, namedtuple("D2", ["y"])):
     pass
 
 d = D(1)
-assert_type(d.x, Any)
 assert_type(d.greet(), str)
+d.y  # This should probably be an error, but it's not today
     "#,
 );
 
@@ -875,6 +876,39 @@ q3 = Query()
 "#,
 );
 
+testcase!(
+    test_typing_namedtuple_adjacent_defaults_with_non_trivial_expressions,
+    r#"
+from typing import NamedTuple, assert_type
+
+A = NamedTuple('A', [('x', int)])
+B = NamedTuple('B', [('a', A)])
+B.__new__.__defaults__ = (A(1),)
+b = B()  # should succeed
+assert_type(b.a, A)
+
+D = NamedTuple('D', [('a', A)])
+D.__new__.__defaults__ = (C(),)  # E: Could not find name `C`
+"#,
+);
+
+testcase!(
+    test_collections_namedtuple_adjacent_defaults_with_non_trivial_expressions,
+    r#"
+import collections
+from typing import assert_type, Any
+
+A = collections.namedtuple('A', ['x'])
+B = collections.namedtuple('B', ['a'])
+B.__new__.__defaults__ = (A(1),)
+b = B()  # should succeed
+assert_type(b.a, Any)
+
+D = collections.namedtuple('D', ['a'])
+D.__new__.__defaults__ = (C(),)  # E: Could not find name `C`
+"#,
+);
+
 // Regression test for https://github.com/facebook/pyrefly/issues/2622
 // `import collections.abc` should not break special handling of `collections.namedtuple`.
 testcase!(
@@ -1000,6 +1034,19 @@ info = ExtendedFieldInfo("col1", 1, "extra_val")
 assert_type(info.extra, Any)
 # Dynamic fields from the starred expression
 assert_type(info.anything, Any)
+"#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/2458
+testcase!(
+    test_namedtuple_from_function_missing_attribute,
+    r#"
+from collections import namedtuple
+
+def f():
+    return namedtuple("X", "a b c")
+
+f().d  # E: has no class attribute `d`
 "#,
 );
 

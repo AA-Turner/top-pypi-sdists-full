@@ -18,12 +18,13 @@ def node_to_range(node: ast.AST) -> RangeGQL | None:
     ):
         return None
     return RangeGQL(
+        # Python AST lines are 1-based; LSP positions are 0-based.
         start=PositionGQL(
-            line=getattr(node, "lineno"),
+            line=getattr(node, "lineno") - 1,
             character=getattr(node, "col_offset"),
         ),
         end=PositionGQL(
-            line=getattr(node, "end_lineno"),
+            line=getattr(node, "end_lineno") - 1,
             character=getattr(node, "end_col_offset"),
         ),
     )
@@ -62,12 +63,13 @@ def get_comment_range(lines: List[str], name: str) -> RangeGQL | None:
                         offset_end -= 1
 
                 return RangeGQL(
+                    # Line indexes are 0-based LSP lines.
                     start=PositionGQL(
-                        line=start_line_index + 1,
+                        line=start_line_index,
                         character=offset_start,
                     ),
                     end=PositionGQL(
-                        line=end_line_index + 1,
+                        line=end_line_index,
                         character=offset_end,
                     ),
                 )
@@ -85,12 +87,13 @@ def get_variable_range(lines: List[str], name: str) -> RangeGQL | None:
             start = line.index(variable_name)
             end = start + len(variable_name)
             return RangeGQL(
+                # Line indexes are 0-based LSP lines.
                 start=PositionGQL(
-                    line=i + 1,
+                    line=i,
                     character=start,
                 ),
                 end=PositionGQL(
-                    line=i + 1,
+                    line=i,
                     character=end,
                 ),
             )
@@ -125,12 +128,13 @@ def get_feature_range(lines: List[str], exp: Select | Union, name: str) -> Range
             start = start_of_substring + start_of_value_offset
             end = start + len(value)
             return RangeGQL(
+                # Line indexes are 0-based LSP lines.
                 start=PositionGQL(
-                    line=i + 1,
+                    line=i,
                     character=start,
                 ),
                 end=PositionGQL(
-                    line=i + 1,
+                    line=i,
                     character=end,
                 ),
             )
@@ -138,12 +142,13 @@ def get_feature_range(lines: List[str], exp: Select | Union, name: str) -> Range
 
 def get_full_range(lines: List[str]) -> RangeGQL:
     return RangeGQL(
+        # Full-file ranges use 0-based LSP line indexes.
         start=PositionGQL(
-            line=1,
+            line=0,
             character=0,
         ),
         end=PositionGQL(
-            line=len(lines),
+            line=len(lines) - 1 if len(lines) > 0 else 0,
             character=len(lines[-1]) if len(lines) > 0 else 0,
         ),
     )
@@ -152,13 +157,16 @@ def get_full_range(lines: List[str]) -> RangeGQL:
 def get_full_comment_range(lines: List[str]) -> RangeGQL | None:
     for i, line in enumerate(lines):
         if not line.lstrip().startswith("--"):
+            if i == 0:
+                return None
             return RangeGQL(
+                # Full-comment ranges use 0-based LSP line indexes.
                 start=PositionGQL(
-                    line=1,
+                    line=0,
                     character=0,
                 ),
                 end=PositionGQL(
-                    line=i,
+                    line=i - 1,
                     character=len(lines[i - 1]),
                 ),
             )
@@ -174,12 +182,13 @@ def get_sql_range(lines: List[str]) -> RangeGQL | None:
     if start is None:
         return None
     return RangeGQL(
+        # SQL body ranges use 0-based LSP line indexes.
         start=PositionGQL(
-            line=start + 1,
+            line=start,
             character=0,
         ),
         end=PositionGQL(
-            line=len(lines),
+            line=len(lines) - 1,
             character=len(lines[-1]),
         ),
     )

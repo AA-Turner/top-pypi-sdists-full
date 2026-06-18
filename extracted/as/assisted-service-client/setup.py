@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.53.0.post76",
+    version="2.53.0.post82",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",
@@ -301,6 +301,7 @@ Class | Method | HTTP request | Description
  - [InstallerArgsParams](docs/InstallerArgsParams.md)
  - [Interface](docs/Interface.md)
  - [Inventory](docs/Inventory.md)
+ - [InventoryTruncation](docs/InventoryTruncation.md)
  - [IoPerf](docs/IoPerf.md)
  - [Ip](docs/Ip.md)
  - [Iscsi](docs/Iscsi.md)

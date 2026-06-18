@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub enum MixedPrecisionPolicy {
+pub enum GpuMixedPrecisionPolicy {
     /// Always use fp64 factorization; no refinement attempted.
     Off,
     /// Attempt fp32 Cholesky factorization followed by up to
@@ -31,7 +31,7 @@ pub struct GpuDispatchPolicy {
     pub keep_design_resident_min_bytes: usize,
     pub prefer_gpu_factorization_min_p: usize,
     pub row_kernel_min_n: usize,
-    pub mixed_precision: MixedPrecisionPolicy,
+    pub mixed_precision: GpuMixedPrecisionPolicy,
 }
 
 impl Default for GpuDispatchPolicy {
@@ -58,7 +58,7 @@ impl Default for GpuDispatchPolicy {
             keep_design_resident_min_bytes: 32 * 1024 * 1024,
             prefer_gpu_factorization_min_p: 512,
             row_kernel_min_n: 50_000,
-            mixed_precision: MixedPrecisionPolicy::Refinement,
+            mixed_precision: GpuMixedPrecisionPolicy::Refinement,
         }
     }
 }
@@ -94,7 +94,7 @@ impl GpuDispatchPolicy {
     /// attempting fp32 factorization + iterative refinement will be profitable.
     ///
     /// The predicate is conservative:
-    ///   * `MixedPrecisionPolicy::Off` or `Never` → always `false`.
+    ///   * `GpuMixedPrecisionPolicy::Off` or `Never` → always `false`.
     ///   * `Refinement` with `p < REFINEMENT_MIN_P` → `false` (GEMV overhead
     ///     not amortised by fp32 POTRF savings below this threshold).
     ///   * Otherwise `true`; the caller still falls back to fp64 factorization
@@ -103,8 +103,8 @@ impl GpuDispatchPolicy {
     #[inline]
     pub const fn iterative_refinement_should_attempt(&self, p: usize) -> bool {
         match self.mixed_precision {
-            MixedPrecisionPolicy::Off | MixedPrecisionPolicy::Never => false,
-            MixedPrecisionPolicy::Refinement => p >= Self::REFINEMENT_MIN_P,
+            GpuMixedPrecisionPolicy::Off | GpuMixedPrecisionPolicy::Never => false,
+            GpuMixedPrecisionPolicy::Refinement => p >= Self::REFINEMENT_MIN_P,
         }
     }
 
@@ -184,21 +184,31 @@ impl GpuDispatchPolicy {
     /// Per-apply flop estimate for one reduced-Schur matvec `S·x` of a
     /// matrix-free SAE Kronecker system, as a pure function of the system shape.
     ///
-    /// Per row block `i` the apply does: a sparse forward gather
-    /// `v_i = H_tβ^(i)·x` (`≈ 2·m_i·k`, modelled by the per-row latent depth
-    /// `d` as the M-frame width), a `d×d` triangular solve through the cached
-    /// Cholesky factor (`≈ d²`), and a sparse transpose scatter
-    /// `H_βt^(i)·w_i` (`≈ 2·m_i·k`). Summed over `n` homogeneous rows and
-    /// folding the gather/scatter into the dominant `d·k` cross term, the apply
-    /// is `≈ n·(2·d·k + d²)`. This is the `n × p × M`-flavoured batched work the
-    /// charter names — keyed on the *frame depth* `d` (M) and border width `k`
-    /// (p), not row count alone, so LLM shapes (few rows, wide `k`, modest `d`)
-    /// register the real arithmetic the row-count gate misses.
-    const fn reduced_schur_matvec_flops(n: usize, k: usize, d: usize) -> u128 {
+    /// Per row block `i` the apply does: a forward cross-block GEMV
+    /// `v_i = H_tβ^(i)·x` (`≈ 2·d·k` multiply-adds, with the per-row latent
+    /// depth `d` as the M-frame width and `k` the border), a `d×d` triangular
+    /// solve through the cached Cholesky factor (`≈ d²`), and a transpose
+    /// cross-block GEMV `H_βt^(i)·w_i` (`≈ 2·d·k`). The two `2·d·k` GEMVs would
+    /// sum to `4·d·k`; this estimate deliberately undercounts to a single
+    /// `2·d·k` cross term as a conservative (lower-bound) admission floor, so
+    /// the apply is modelled as `≈ n·(2·d·k + d²)`. This is a deliberate
+    /// lower bound on the true `≈ n·(4·d·k + d²)` arithmetic — admitting a
+    /// shape under the smaller figure can only be more conservative, never
+    /// over-eager. It is keyed on the *frame depth* `d` (M) and border width
+    /// `k` (p), not row count alone, so LLM shapes (few rows, wide `k`, modest
+    /// `d`) register arithmetic the row-count gate misses.
+    ///
+    /// USE FOR DISPATCH GATING ONLY. This is **not** a flop count: it omits the
+    /// transpose cross-block GEMV (`2·d·k`), so it is a strict lower bound on the
+    /// true per-apply work `n·(4·d·k + d²)`. The gate can therefore only
+    /// under-admit, never over-admit. Do not reuse it for benchmark / speedup
+    /// accounting.
+    const fn admission_work_lower_bound(n: usize, k: usize, d: usize) -> u128 {
         let n = n as u128;
         let k = k as u128;
         let d = d as u128;
-        // 2·d·k cross-block apply (forward + transpose) + d² per-row solve.
+        // 2·d·k cross-block apply (forward only) + d² per-row solve — the
+        // transpose GEMV is intentionally dropped so this stays a lower bound.
         n.saturating_mul(
             2u128
                 .saturating_mul(d)
@@ -241,23 +251,17 @@ impl GpuDispatchPolicy {
     ///   Pass [`Self::MATVEC_OFFLOAD_MIN_CG_ITERS`] when no measured budget is
     ///   available; a tighter (smaller) value only makes the gate stricter.
     ///
-    /// ## Call site to re-key (owned by the arrow-Schur engine, not this file)
+    /// ## Live arrow-Schur call site
     ///
-    /// `crate::solver::arrow_schur::maybe_inject_gpu_schur_matvec` currently
-    /// gates the InexactPCG reduced-Schur matvec injection on
-    /// `dense_hessian_work_target_is_gpu(sys.rows.len(), sys.k)` — the
-    /// **dense-Direct** flop floor keyed on `(n, k)` only, which ignores the
-    /// per-row frame depth `d` (the SAE active-set / M dimension) and the
-    /// `cg_iters` amortization that makes the resident matvec profitable. It
-    /// should instead call
+    /// `crate::solver::arrow_schur::maybe_inject_gpu_schur_matvec` gates the
+    /// InexactPCG reduced-Schur matvec injection on this predicate:
     /// `reduced_schur_matvec_should_offload(sys.rows.len(), sys.k, sys.d,
     /// options.pcg.max_iterations.min(options.trust_region.max_iterations))`,
     /// where `sys.d` is the system's max per-row latent depth and the iteration
-    /// budget is the same `max_iterations` the PCG loop is launched with a few
-    /// lines below. `try_device_arrow_direct` (the **dense** Direct point
-    /// solve) correctly keeps `dense_hessian_work_target_is_gpu` — that path is
-    /// a single large factorization, not the amortised matvec, so its gate is
-    /// the right one and must not be changed.
+    /// budget is the same `max_iterations` the PCG loop launches with.
+    /// `try_device_arrow_direct` (the **dense** Direct point solve) correctly
+    /// keeps `dense_hessian_work_target_is_gpu`: that path is a single large
+    /// factorization, not the amortised matvec.
     pub const fn reduced_schur_matvec_should_offload(
         &self,
         n: usize,
@@ -274,7 +278,7 @@ impl GpuDispatchPolicy {
         if k < Self::DEVICE_LOOP_MIN_P {
             return false;
         }
-        let per_apply = Self::reduced_schur_matvec_flops(n, k, d);
+        let per_apply = Self::admission_work_lower_bound(n, k, d);
         let total = per_apply.saturating_mul(cg_iters as u128);
         total >= Self::MATVEC_OFFLOAD_FLOPS_MIN
     }
@@ -438,7 +442,7 @@ mod refinement_policy_tests {
     #[test]
     fn off_policy_never_attempts_refinement() {
         let pol = GpuDispatchPolicy {
-            mixed_precision: MixedPrecisionPolicy::Off,
+            mixed_precision: GpuMixedPrecisionPolicy::Off,
             ..Default::default()
         };
         assert!(!pol.iterative_refinement_should_attempt(1024));
@@ -447,7 +451,7 @@ mod refinement_policy_tests {
     #[test]
     fn never_policy_never_attempts_refinement() {
         let pol = GpuDispatchPolicy {
-            mixed_precision: MixedPrecisionPolicy::Never,
+            mixed_precision: GpuMixedPrecisionPolicy::Never,
             ..Default::default()
         };
         assert!(!pol.iterative_refinement_should_attempt(1024));
@@ -481,7 +485,9 @@ mod reduced_schur_matvec_offload_tests {
     }
 
     /// Even with only a single conservative CG iteration the wide LLM border
-    /// clears the breakeven (the per-apply work alone is ~3.3e7 flops > 1e7),
+    /// clears the breakeven (the per-apply work alone is `2_000·(2·8·2_048 +
+    /// 8²) ≈ 6.6e7` flops > 1e7 by the conservative `n·(2·d·k + d²)` model;
+    /// the true `n·(4·d·k + d²)` arithmetic is ≈1.3e8),
     /// so the gate is not relying on an inflated iteration count.
     #[test]
     fn admits_llm_shape_with_one_cg_iter() {
@@ -543,5 +549,27 @@ mod reduced_schur_matvec_offload_tests {
         assert!(pol.reduced_schur_matvec_should_offload(n, k, d, 1_000));
         // Monotonicity: admitted at 1_000 ⇒ admitted at every larger budget.
         assert!(pol.reduced_schur_matvec_should_offload(n, k, d, 5_000));
+    }
+
+    /// The admission lower bound must stay strictly below the true per-apply
+    /// work `n·(4·d·k + d²)` for any non-degenerate cross-block shape (it drops
+    /// the transpose GEMV). Treating the lower bound as a flop count would
+    /// over-report device speedups, so this asserts the gap is real.
+    #[test]
+    fn admission_lower_bound_undercounts_actual_work() {
+        for &(n, k, d) in &[
+            (2_000usize, 2_048usize, 8usize),
+            (200, GpuDispatchPolicy::DEVICE_LOOP_MIN_P, 4),
+            (1, 1, 1),
+        ] {
+            let lower = GpuDispatchPolicy::admission_work_lower_bound(n, k, d);
+            // True per-apply work models the full forward+transpose GEMV pair
+            // plus the d×d solve: n·(4·d·k + d²).
+            let actual = (n as u128) * (4 * (d as u128) * (k as u128) + (d as u128) * (d as u128));
+            assert!(
+                lower < actual,
+                "admission lower bound {lower} must undercount actual work {actual} for ({n},{k},{d})"
+            );
+        }
     }
 }

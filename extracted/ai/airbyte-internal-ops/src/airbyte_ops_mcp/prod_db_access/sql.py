@@ -458,6 +458,7 @@ SELECT_ACTORS_PINNED_TO_VERSION = sqlalchemy.text(
              sc.origin_type,
              sc.origin,
              sc.description,
+             sc.reference_url,
              sc.created_at,
              sc.expires_at,
              'actor' AS pin_scope_type
@@ -474,6 +475,7 @@ SELECT_ACTORS_PINNED_TO_VERSION = sqlalchemy.text(
              sc.origin_type,
              sc.origin,
              sc.description,
+             sc.reference_url,
              sc.created_at,
              sc.expires_at,
              'workspace' AS pin_scope_type
@@ -502,6 +504,7 @@ SELECT_ACTORS_PINNED_TO_VERSION = sqlalchemy.text(
              sc.origin_type,
              sc.origin,
              sc.description,
+             sc.reference_url,
              sc.created_at,
              sc.expires_at,
              'organization' AS pin_scope_type
@@ -541,17 +544,21 @@ SELECT_ACTORS_PINNED_TO_VERSION = sqlalchemy.text(
          all_pins.actor_id,
          all_pins.actor_definition_id,
          all_pins.origin_type,
-         all_pins.origin,
+         all_pins.origin AS pinned_by_user_id,
          all_pins.description,
+         all_pins.reference_url,
          all_pins.created_at,
          all_pins.expires_at,
          all_pins.pin_scope_type,
          actor.name AS actor_name,
+         actor.actor_type,
          actor.workspace_id,
          workspace.name AS workspace_name,
          workspace.organization_id,
          workspace.dataplane_group_id,
-         dataplane_group.name AS dataplane_name
+         dataplane_group.name AS dataplane_name,
+         origin_user.name AS pinned_by_user_name,
+         origin_user.email AS pinned_by_user_email
     FROM all_pins
     JOIN actor
       ON all_pins.actor_id = actor.id
@@ -561,6 +568,8 @@ SELECT_ACTORS_PINNED_TO_VERSION = sqlalchemy.text(
      AND workspace.tombstone = false
     LEFT JOIN dataplane_group
       ON workspace.dataplane_group_id = dataplane_group.id
+    LEFT JOIN "user" origin_user
+      ON all_pins.origin = CAST(origin_user.id AS TEXT)
     ORDER BY
          all_pins.created_at DESC
     """
@@ -1957,6 +1966,82 @@ SELECT_CONNECTOR_ROLLOUT_BY_ID = sqlalchemy.text(
       ON cr.updated_by = rollout_user.id
     WHERE
          cr.id = :rollout_id
+    """
+)
+
+# =============================================================================
+# Versions with Pins or Active Rollouts
+# =============================================================================
+
+# All connector versions that have at least one pin OR an active progressive rollout.
+# Starts from actor_definition_version, LEFT JOINs pin counts and active rollouts,
+# then filters to versions that have either pins > 0 or an active rollout.
+SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS = sqlalchemy.text(
+    """
+    WITH pin_counts AS (
+        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        FROM scoped_configuration
+        WHERE key = 'connector_version'
+        GROUP BY value::uuid
+    )
+    SELECT
+         versions.id AS version_id,
+         versions.actor_definition_id AS connector_definition_id,
+         definitions.name AS connector_name,
+         versions.docker_repository,
+         versions.docker_image_tag,
+         versions.last_published,
+         COALESCE(pins.pin_count, 0) AS pin_count,
+         rollouts.state AS rollout_state,
+         rollouts.id::text AS rollout_id
+    FROM actor_definition_version AS versions
+    JOIN actor_definition AS definitions
+      ON versions.actor_definition_id = definitions.id
+    LEFT JOIN pin_counts AS pins
+      ON versions.id = pins.version_id
+    LEFT JOIN connector_rollout AS rollouts
+      ON versions.id = rollouts.release_candidate_version_id
+     AND rollouts.state NOT IN ('succeeded', 'failed_rolled_back', 'canceled')
+    WHERE
+         pins.pin_count > 0
+      OR rollouts.id IS NOT NULL
+    ORDER BY
+         versions.created_at DESC
+    """
+)
+
+# Same as above but filtered by actor_definition_id
+SELECT_VERSIONS_WITH_PINS_OR_ROLLOUTS_BY_DEFINITION = sqlalchemy.text(
+    """
+    WITH pin_counts AS (
+        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        FROM scoped_configuration
+        WHERE key = 'connector_version'
+        GROUP BY value::uuid
+    )
+    SELECT
+         versions.id AS version_id,
+         versions.actor_definition_id AS connector_definition_id,
+         definitions.name AS connector_name,
+         versions.docker_repository,
+         versions.docker_image_tag,
+         versions.last_published,
+         COALESCE(pins.pin_count, 0) AS pin_count,
+         rollouts.state AS rollout_state,
+         rollouts.id::text AS rollout_id
+    FROM actor_definition_version AS versions
+    JOIN actor_definition AS definitions
+      ON versions.actor_definition_id = definitions.id
+    LEFT JOIN pin_counts AS pins
+      ON versions.id = pins.version_id
+    LEFT JOIN connector_rollout AS rollouts
+      ON versions.id = rollouts.release_candidate_version_id
+     AND rollouts.state NOT IN ('succeeded', 'failed_rolled_back', 'canceled')
+    WHERE
+         versions.actor_definition_id = :actor_definition_id
+     AND (pins.pin_count > 0 OR rollouts.id IS NOT NULL)
+    ORDER BY
+         versions.created_at DESC
     """
 )
 

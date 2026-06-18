@@ -83,7 +83,7 @@ def is_accelerated_attribute(module: ModuleType, name: str) -> bool:
 # The intent is that non-accelerated deprecations will warn, and accelerated
 # deprecations will error.
 
-@dataclass
+@dataclass(slots=True)
 class DeprecationState:
   accelerated: bool = False
 
@@ -129,3 +129,5 @@ register('jax-array-numpy-dtype')
 register('jax-nn-one-hot-float-input')
 register('jax-numpy-astype-complex-to-real')
 register('jax-array-positional-args')
+register('jax-pallas-call-mgpu')
+register('jax-pallas-mgpu-shapes-types')

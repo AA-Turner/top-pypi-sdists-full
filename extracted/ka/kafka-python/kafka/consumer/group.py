@@ -180,7 +180,9 @@ class KafkaConsumer:
             rebalances. Default: 3000
         receive_message_max_bytes (int): Maximum allowed network frame size.
             Used to avoid OOM when decoding malformed network message header.
-            Default: 1000000.
+            Automatically raised to ``fetch_max_bytes + max_partition_fetch_bytes``
+            if configured lower, since a FetchResponse frame may be that large.
+            Default: 100_000_000.
         receive_buffer_bytes (int): The size of the TCP receive buffer
             (SO_RCVBUF) to use when reading data. Default: None (relies on
             system defaults). The java client defaults to 32768.
@@ -328,7 +330,7 @@ class KafkaConsumer:
         'heartbeat_interval_ms': 3000,
         'receive_buffer_bytes': None,
         'send_buffer_bytes': None,
-        'receive_message_max_bytes': 1000000,
+        'receive_message_max_bytes': 100_000_000,
         'socket_options': [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)],
         'consumer_timeout_ms': float('inf'),
         'security_protocol': 'PLAINTEXT',
@@ -388,6 +390,20 @@ class KafkaConsumer:
                 "request_timeout_ms ({}) which must be larger than "
                 "fetch_max_wait_ms ({})."
                 .format(connections_max_idle_ms, request_timeout_ms, fetch_max_wait_ms))
+
+        # fetch_max_bytes (KIP-74) is a soft cap the broker applies to the
+        # *record data* in a FetchResponse body, not to the whole frame. The
+        # frame also carries the response header + per-topic/per-partition
+        # metadata, and the broker returns at least the first record batch even
+        # when it alone exceeds fetch_max_bytes. So a FetchResponse frame can be
+        # somewhat larger than fetch_max_bytes; give the frame-size guard
+        # max_partition_fetch_bytes of headroom over it so legitimate responses
+        # aren't rejected as InvalidReceiveError. Auto-raise so the guard tracks
+        # the fetch sizing unless the user explicitly configured a larger value.
+        fetch_response_max_bytes = (
+            self.config['fetch_max_bytes'] + self.config['max_partition_fetch_bytes'])
+        if self.config['receive_message_max_bytes'] < fetch_response_max_bytes:
+            self.config['receive_message_max_bytes'] = fetch_response_max_bytes
 
         if self.config['metrics_enabled']:
             metrics_tags = {'client-id': self.config['client_id']}
@@ -662,13 +678,17 @@ class KafkaConsumer:
         self._coordinator.commit_offsets_sync(offsets, timeout_ms=timeout_ms)
 
     def group_metadata(self):
-        """Return a snapshot of this consumer's group membership (KIP-447).
+        """Return a snapshot of this consumer's group membership.
 
         Pass the result to KafkaProducer.send_offsets_to_transaction() so the
         broker can fence stale instances of this consumer when committing
-        offsets inside a transaction. The snapshot is always safe to call:
-        if no group_id is configured (manual assignment) the returned
-        ConsumerGroupMetadata has group_id=None.
+        offsets inside a transaction (KIP-447). The snapshot also exposes the
+        current MemberState (``state``), so callers can observe whether the
+        consumer has converged on a stable assignment.
+
+        The snapshot is always safe to call: if no group_id is configured
+        (manual assignment) the returned ConsumerGroupMetadata has
+        group_id=None and is permanently unjoined.
 
         Returns:
             ConsumerGroupMetadata

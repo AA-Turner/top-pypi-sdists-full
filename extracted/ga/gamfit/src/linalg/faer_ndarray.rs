@@ -358,7 +358,7 @@ pub fn fast_atb<S1: Data<Elem = f64>, S2: Data<Elem = f64>>(
     a: &ArrayBase<S1, Ix2>,
     b: &ArrayBase<S2, Ix2>,
 ) -> Array2<f64> {
-    if let Some(out) = crate::gpu::linalg::try_fast_atb(a.view(), b.view()) {
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_atb(a.view(), b.view()) {
         return out;
     }
     let (n_a, p) = a.dim();
@@ -450,7 +450,7 @@ pub fn fast_ab<S1: Data<Elem = f64>, S2: Data<Elem = f64>>(
     a: &ArrayBase<S1, Ix2>,
     b: &ArrayBase<S2, Ix2>,
 ) -> Array2<f64> {
-    if let Some(out) = crate::gpu::linalg::try_fast_ab(a.view(), b.view()) {
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_ab(a.view(), b.view()) {
         return out;
     }
     let n = a.nrows();
@@ -467,7 +467,7 @@ pub fn fast_av<S1: Data<Elem = f64>, S2: Data<Elem = f64>>(
     a: &ArrayBase<S1, Ix2>,
     v: &ArrayBase<S2, Ix1>,
 ) -> Array1<f64> {
-    if let Some(out) = crate::gpu::linalg::try_fast_av(a.view(), v.view()) {
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_av(a.view(), v.view()) {
         return out;
     }
     fast_av_impl(a, v)
@@ -608,7 +608,7 @@ pub fn fast_atv<S1: Data<Elem = f64>, S2: Data<Elem = f64>>(
     a: &ArrayBase<S1, Ix2>,
     v: &ArrayBase<S2, Ix1>,
 ) -> Array1<f64> {
-    if let Some(out) = crate::gpu::linalg::try_fast_atv(a.view(), v.view()) {
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_atv(a.view(), v.view()) {
         return out;
     }
     fast_atv_impl(a, v)
@@ -709,7 +709,7 @@ pub fn fast_xt_diag_x<S1: Data<Elem = f64>, S2: Data<Elem = f64>>(
         w.len(),
         "fast_xt_diag_x row/weight length mismatch"
     );
-    if let Some(out) = crate::gpu::linalg::try_fast_xt_diag_x(x.view(), w.view()) {
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_xt_diag_x(x.view(), w.view()) {
         return out;
     }
     let p = x.ncols();
@@ -950,7 +950,8 @@ pub fn fast_xt_diag_y<S1: Data<Elem = f64>, S2: Data<Elem = f64>, S3: Data<Elem 
         w.len(),
         "fast_xt_diag_y row/weight length mismatch"
     );
-    if let Some(out) = crate::gpu::linalg::try_fast_xt_diag_y(x.view(), w.view(), y.view()) {
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_xt_diag_y(x.view(), w.view(), y.view())
+    {
         return out;
     }
     fast_xt_diag_y_impl(x, w, y)
@@ -1066,7 +1067,7 @@ pub fn fast_joint_hessian_2x2<
     w_ab: &ArrayBase<S4, Ix1>,
     w_bb: &ArrayBase<S5, Ix1>,
 ) -> Array2<f64> {
-    if let Some(out) = crate::gpu::linalg::try_fast_joint_hessian_2x2(
+    if let Some(out) = crate::gpu::linalg_dispatch::try_fast_joint_hessian_2x2(
         x_a.view(),
         x_b.view(),
         w_aa.view(),
@@ -1821,7 +1822,7 @@ pub const fn default_rrqr_rank_alpha() -> f64 {
 /// `column_permutation[j]` of `A`. With rank `r < min(m, n)`, the trailing
 /// `min(m, n) - r` entries of `column_permutation` name the columns that the
 /// pivoted QR demoted past the rank threshold — i.e., the columns identified
-/// as redundant. Identifiability auditors (`solver/identifiability_audit.rs`)
+/// as redundant. Identifiability auditors (`crate::identifiability::audit`)
 /// use that suffix to attribute `DroppedColumn` entries to specific original
 /// columns.
 pub struct RrqrWithPermutation {
@@ -1995,7 +1996,34 @@ pub fn rrqr_from_gram_with_permutation<S: Data<Elem = f64>>(
     } else {
         tol / max_dropped.max(f64::MIN_POSITIVE)
     };
-    let verdict_margin = kept_margin.min(dropped_margin);
+    // Gram-squaring precision floor. Forming `G = XᵀX` collapses the bottom half
+    // of the spectrum: a true singular value below `√ε · σ_max` is lost in the
+    // rounding of `G` (its squared value `σ² < ε·σ_max²` underflows the Gram's
+    // representable range), and the eigen-square-root then RESURRECTS it as a
+    // SPURIOUS pivot of magnitude `≈ √(ε·σ_max²) = √ε · σ_max` — orders of
+    // magnitude ABOVE the true σ and above `tol`. That artefact makes col-piv QR
+    // on `F` KEEP a column the tall (un-squared) QR would demote: an EXACTLY
+    // collinear alias (true σ = 0, so `σ² = 0` floored at `≈ ε·σ_max²`) shows up
+    // as a kept pivot near `√ε · leading`, over-ranking the design and dropping
+    // nothing (gam#933: a callback-owned column aliased with a higher-priority
+    // anchor was never demoted, so the reduction never ran and the MAP-uniqueness
+    // check then fired on the raw collinear joint design). `min_kept / tol` does
+    // NOT catch this — the spurious pivot sits comfortably above `tol`, so the
+    // existing margin reports a falsely-confident verdict. The honest test is
+    // whether the smallest KEPT pivot is itself near the Gram precision floor
+    // `√ε · leading`: if so, the Gram path cannot distinguish it from a true zero
+    // and the verdict MUST be re-confirmed on the full-precision tall design.
+    // Encode that as a third margin term `min_kept / (√ε · leading)` so a kept
+    // pivot in the floor regime shrinks `verdict_margin` below the caller's
+    // fallback threshold; for a genuinely full-rank design every kept pivot is
+    // `≫ √ε · leading` and this term is large, leaving the fast path intact.
+    let gram_precision_floor = f64::EPSILON.sqrt() * leading_diag.max(1.0);
+    let kept_floor_margin = if rank == 0 {
+        f64::INFINITY
+    } else {
+        min_kept / gram_precision_floor.max(f64::MIN_POSITIVE)
+    };
+    let verdict_margin = kept_margin.min(dropped_margin).min(kept_floor_margin);
     Ok(RrqrFromGram {
         rank,
         column_permutation,
@@ -2326,4 +2354,89 @@ mod tests {
             "all eigenvalues should be finite"
         );
     }
+
+    /// gam#933 regression: the Gram-squared RRQR must NOT silently over-rank an
+    /// EXACTLY collinear design. Forming `G = XᵀX` squares the spectrum, so the
+    /// zero singular value of an exact alias underflows to `≈ ε·σ_max²` in `G` and
+    /// the eigen-square-root resurrects it as a SPURIOUS pivot `≈ √ε·σ_max` that
+    /// sits above `tol` — col-piv QR on the Gram factor would KEEP it and report
+    /// full rank. The precision-floor margin term must catch this: the smallest
+    /// kept pivot is near `√ε·leading`, so `verdict_margin` collapses below the
+    /// caller's fallback threshold, forcing the full-precision tall path (which
+    /// sees the true zero singular value and demotes the column).
+    #[test]
+    fn gram_rrqr_flags_low_margin_on_exact_collinearity_so_caller_falls_back() {
+        // Joint design [1, x | x, x²] with x ∈ [-1, 1]: columns 1 and 2 are an
+        // EXACT duplicate (the #933 callback-owned alias), so the true rank is 3.
+        let n = 48usize;
+        let x: Vec<f64> = (0..n)
+            .map(|i| -1.0 + 2.0 * (i as f64) / (n as f64 - 1.0))
+            .collect();
+        let mut a = Array2::<f64>::zeros((n, 4));
+        for i in 0..n {
+            a[[i, 0]] = 1.0;
+            a[[i, 1]] = x[i];
+            a[[i, 2]] = x[i];
+            a[[i, 3]] = x[i] * x[i];
+        }
+        let alpha = default_rrqr_rank_alpha();
+
+        // The tall (un-squared) RRQR is the full-precision reference: it must see
+        // rank 3 and demote one of the duplicate x columns.
+        let tall = rrqr_with_permutation(&a, alpha).expect("tall RRQR should succeed");
+        assert_eq!(tall.rank, 3, "tall RRQR must demote the exact alias");
+
+        // The Gram-squared RRQR must report a SMALL verdict_margin here so the
+        // caller re-confirms on the tall design instead of trusting a possibly
+        // over-ranked Gram verdict. (We do not assert the Gram rank itself —
+        // squaring may report 3 or 4 — only that the margin signals the cliff.)
+        let unit = Array1::<f64>::ones(n);
+        let gram = fast_xt_diag_x_with_parallelism(&a, &unit, faer::get_global_parallelism());
+        let gram_rrqr =
+            rrqr_from_gram_with_permutation(&gram, n, alpha).expect("Gram RRQR should succeed");
+        assert!(
+            gram_rrqr.verdict_margin < JOINT_GRAM_RRQR_TRUST_MARGIN_FOR_TEST,
+            "exact-collinearity Gram verdict must report low margin to force tall \
+             fallback; got margin={:.3e} (rank={})",
+            gram_rrqr.verdict_margin,
+            gram_rrqr.rank,
+        );
+    }
+
+    /// Companion to the regression above: a genuinely full-rank, moderately
+    /// conditioned design must keep a LARGE Gram verdict margin so the fast Gram
+    /// path is retained (the precision-floor term must not trip on real, small-
+    /// but-nonzero singular values).
+    #[test]
+    fn gram_rrqr_keeps_high_margin_on_full_rank_design() {
+        let n = 200usize;
+        let p = 5usize;
+        let mut a = Array2::<f64>::zeros((n, p));
+        // Deterministic, well-separated columns (distinct low-order polynomials).
+        for i in 0..n {
+            let t = (i as f64) / (n as f64 - 1.0);
+            a[[i, 0]] = 1.0;
+            a[[i, 1]] = t;
+            a[[i, 2]] = t * t;
+            a[[i, 3]] = t * t * t;
+            a[[i, 4]] = (t * 6.0).sin();
+        }
+        let alpha = default_rrqr_rank_alpha();
+        let unit = Array1::<f64>::ones(n);
+        let gram = fast_xt_diag_x_with_parallelism(&a, &unit, faer::get_global_parallelism());
+        let gram_rrqr =
+            rrqr_from_gram_with_permutation(&gram, n, alpha).expect("Gram RRQR should succeed");
+        assert_eq!(gram_rrqr.rank, p, "full-rank design must keep all columns");
+        assert!(
+            gram_rrqr.verdict_margin >= JOINT_GRAM_RRQR_TRUST_MARGIN_FOR_TEST,
+            "full-rank design must keep a high margin (fast Gram path); got {:.3e}",
+            gram_rrqr.verdict_margin,
+        );
+    }
 }
+
+/// Local mirror of the audit's `JOINT_GRAM_RRQR_MIN_VERDICT_MARGIN` fallback
+/// threshold, used only by the regression tests above to assert the verdict
+/// margin lands on the correct side of the cliff. Kept in sync by value (1e3).
+#[cfg(test)]
+const JOINT_GRAM_RRQR_TRUST_MARGIN_FOR_TEST: f64 = 1.0e3;

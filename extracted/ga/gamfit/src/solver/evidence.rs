@@ -1971,15 +1971,30 @@ pub fn arrow_log_det_from_cache(cache: &ArrowFactorCache) -> Option<f64> {
         // ridge damping, which is a different operator. Reject loudly.
         return None;
     }
-    let schur = cache.schur_factor.as_ref()?;
+    if let Some(log_det) = cache.joint_hessian_log_det {
+        return log_det.is_finite().then_some(log_det);
+    }
+    // A `k == 0` cache has no shared β block, so the dense Direct path forms no
+    // reduced Schur complement and `schur_factor` is legitimately `None` (the
+    // joint Hessian is block-diagonal in the latent rows). Its log-det is the
+    // per-row sum with no Schur term. Only reject when `k > 0` and the factor
+    // is absent — the InexactPCG case that never built the dense `K×K` factor.
+    // (#1132 euclidean K=4: a β-profiled atom reaches here with `k == 0`.)
+    let schur = match cache.schur_factor.as_ref() {
+        Some(schur) => Some(schur),
+        None if cache.k == 0 => None,
+        None => return None,
+    };
 
     let mut acc = 0.0_f64;
     // Per-row arrow blocks: log|H_uu_i| = 2 Σ log diag(L_i).
     for l in cache.undamped_factors_iter() {
         acc += 2.0 * log_det_from_chol_lower(l);
     }
-    // Schur block: log|A| = 2 Σ log diag(L_schur).
-    acc += 2.0 * log_det_from_chol_lower(schur.view());
+    // Schur block: log|A| = 2 Σ log diag(L_schur). Empty for the `k == 0` case.
+    if let Some(schur) = schur {
+        acc += 2.0 * log_det_from_chol_lower(schur.view());
+    }
     // #1038 cross-row IBP: when the cache carries an exact rank-`R` Woodbury,
     // the per-row + Schur factors above are of the NO-SELF base `H₀'`, so the
     // exact `log det H_full = log det H₀' + log det(I_R + D Uᵀ H₀'⁻¹ U)`. The
@@ -2680,37 +2695,44 @@ pub fn cache_matches_system(cache: &ArrowFactorCache, sys: &ArrowSchurSystem) ->
 // #1026 hybrid curved + linear-tail dictionary split-selection
 // ---------------------------------------------------------------------------
 //
-// A linear SAE atom is the EXACT special case of a curved d=1 atom: the
-// euclidean-d=1-linear basis is one decoder direction (`γ(t) = t·b`, a straight
-// image with zero turning). So a dictionary whose atom set INCLUDES the linear
-// atom as a special case cannot lose to a pure-linear dictionary at matched
-// active budget — it strictly generalizes it. The only open question is, per
-// atom, whether paying for the curved parameterization buys enough likelihood
-// to beat the cheaper linear special case. This module adjudicates that split
-// by the SAME rank-aware Laplace evidence criterion the union/mixture rungs use
-// (`−V = NLE`, lower wins), so the fit selects the curved-vs-linear split by
-// evidence rather than fiat.
+// COMMON-EVIDENCE NOTE (#1202): the candidates BOTH fit the same data — the
+// atom's leave-this-atom-out response residual `y_resp` (the response with every
+// other atom's contribution removed). The curved candidate predicts the atom's
+// actual mass-scaled contribution `a_k·γ_k`, the linear candidate the best
+// mass-weighted straight line fit to `y_resp`. Because the curved family's
+// `Θ = 0` member reproduces the linear prediction exactly, linear IS the nested
+// `Θ = 0` sub-model on common data, so the "match-or-beat" statements below are a
+// genuine data-level comparison: the curved candidate wins only when fitting the
+// response residual better than its own straight projection pays for its extra
+// parameters. See `crate::terms::sae::hybrid_split` for the residual assembly.
 //
-// ## The dominance floor (Θ → 0) and the curved ceiling (Θ large)
+// The per-slot adjudication uses the SAME rank-aware Laplace evidence criterion
+// the union/mixture rungs use (`−V = NLE`, lower wins), comparing the data-fit +
+// complexity cost of the curved contribution against that of the straight line.
 //
-// The decision is structurally pinned by nesting. Because the linear fit is the
-// curved family restricted to its straight (`Θ = 0`) sub-model, the curved fit's
-// maximized likelihood is ALWAYS ≥ the linear fit's at the same rows. But the
-// curved atom pays a strictly larger free-parameter price `P_curved > P_linear`
-// (the extra basis coefficients beyond the single decoder direction), which the
-// rank-aware Laplace normalizer charges. Hence:
+// ## The turning floor (Θ → 0) and the curved ceiling (Θ large)
 //
-//   * Θ → 0 (a straight feature): the curved fit recovers no extra likelihood
-//     over its linear sub-model, so `NLE_curved ≥ NLE_linear` and LINEAR wins —
-//     the dominance floor. A curved atom "buys nothing on a straight feature."
-//   * Θ large (a genuinely turning feature): the curved fit captures curvature
-//     the linear secant cannot, lowering `NLE_curved` below `NLE_linear` by more
-//     than the parameter price, so CURVED wins.
+// Per slot, the curved candidate fits the response residual with its actual
+// mass-scaled contribution `a_k·γ_k` (data-fit `½·curved_rss`) and pays a larger
+// free-parameter price `P_curved > P_linear`; the linear candidate fits the same
+// residual with its best straight line (data-fit `½·linear_rss ≥ ½·curved_rss`
+// whenever the curve beats its own straight projection) at a smaller price,
+// charged with its genuine weighted Gram logdet `p·(log w_sum + log s_tt)`
+// (#1203). Hence:
+//
+//   * Θ → 0 (the residual is straight): the curve and the line fit it equally, so
+//     the cheaper LINEAR candidate wins — the turning floor / nested dominance. A
+//     curved parameterization "buys nothing" on an already-straight residual.
+//   * Θ large (a genuinely turning residual): the line's data-fit residual
+//     exceeds the curved atom's extra parameter price, so CURVED wins. (Whether
+//     curved wins also depends on the coordinate spread `s_tt` and amplitude, via
+//     the honest logdet — a tightly-spread, mildly-curved residual can still
+//     prefer the cheaper line.)
 //
 // The crossover is governed by the documented shatter law: a linear SAE shatters
 // a feature of total turning Θ into `N(ε) ≈ Θ/(2√(2ε))` rank-1 directions at
 // relative reconstruction error ε, so the curved advantage scales as `Θ/√ε`. We
-// use the fitted turning Θ (`sae_chart_canonicalization::d1_atom_fitted_turning`)
+// use the fitted turning Θ (`sae::chart_canonicalization::d1_atom_fitted_turning`)
 // as the decision FEATURE: it both (a) sharpens the evidence comparison into a
 // falsifiable per-atom prediction and (b) provides the exact-zero dominance
 // guard — when an atom's fitted turning is identically zero, the curved fit has
@@ -2747,9 +2769,10 @@ impl HybridAtomParam {
 /// One fitted candidate parameterization for a single hybrid-dictionary atom
 /// slot, scored on the COMMON rank-aware Laplace scale (`−V = NLE`, lower wins,
 /// identical to the union/mixture rungs). The curved and linear candidates for
-/// the SAME slot are fit on the same rows, so their NLEs are directly
-/// comparable; the only structural difference is the curved candidate's larger
-/// free-parameter price.
+/// the SAME slot are fit on the same rows AND the same data (the atom's response
+/// residual, #1202), so their NLEs are directly comparable; the structural
+/// difference is the curved candidate's larger free-parameter price and whatever
+/// data-fit it buys with its curvature.
 #[derive(Debug, Clone, Copy)]
 pub struct HybridAtomCandidate {
     pub param: HybridAtomParam,
@@ -2832,10 +2855,15 @@ pub const HYBRID_LINEAR_TURNING_FLOOR: f64 = 1e-9;
 ///     it cannot lose — we enforce that exactly instead of trusting evidence
 ///     noise at the floor.
 ///  2. **Evidence comparison.** Otherwise select the candidate with the smaller
-///     `NLE`. Because the linear atom is the curved family's `Θ = 0` sub-model,
-///     the curved candidate can only win when its extra curvature lowers the NLE
-///     by MORE than its extra parameter price — the `Θ/√ε` crossover, decided
-///     here by the evidence numbers themselves, not by fiat.
+///     `NLE`. The curved candidate wins only when its extra curvature lowers the
+///     NLE by MORE than its extra parameter price — the `Θ/√ε` crossover, decided
+///     here by the evidence numbers themselves, not by fiat. This is a
+///     common-data comparison (both candidates fit the atom's response residual,
+///     see `crate::terms::sae::hybrid_split`) in which linear is the curved
+///     family's nested `Θ = 0` sub-model (#1202): the curved candidate cannot be
+///     charged its extra parameters to fit the residual no better than its own
+///     straight projection, and a tightly-spread, mildly-curved residual can
+///     still prefer the cheaper line.
 ///  3. **Tie-break.** Exact NLE ties go to the cheaper (fewer-parameter)
 ///     candidate — i.e. linear — preserving the strict-generalization guarantee
 ///     that the hybrid never pays for curvature it does not need.
@@ -2896,8 +2924,12 @@ pub struct HybridSplitSelection {
     pub atoms: Vec<HybridAtomChoice>,
     /// `Σ NLE` across the selected per-atom parameterizations — the dictionary's
     /// summed rank-aware Laplace negative-log-evidence (lower wins). Because each
-    /// slot picks the argmin, this is ≤ the pure-linear dictionary's summed NLE
-    /// at the same slots: the hybrid match-or-beats pure-linear by construction.
+    /// slot picks the argmin over {curved contribution, best straight line to the
+    /// response residual}, this is ≤ the sum of the per-slot LINEAR-candidate
+    /// NLEs. The linear baseline is the best straight line fit to each atom's
+    /// leave-this-atom-out RESPONSE residual (#1202), the curved family's nested
+    /// `Θ = 0` member on common data — so this is a genuine data-level
+    /// match-or-beat dominance, not a post-hoc curve-simplification one.
     pub total_negative_log_evidence: f64,
     /// `Σ P` across the selected parameterizations — the dictionary's total
     /// free-parameter price (the matched-active-budget accounting).
@@ -2930,9 +2962,11 @@ impl HybridSplitSelection {
 /// atom slot `i` (each scored on the same rows, on the common Laplace scale).
 ///
 /// The result reduces EXACTLY to pure-linear when every slot's curved candidate
-/// has `Θ → 0` (the dominance floor fires everywhere) and to pure-curved when
-/// every slot's curved candidate wins the evidence comparison — the two limits
-/// the strict-generalization argument demands.
+/// has `Θ → 0` (the turning floor fires everywhere) and to pure-curved when
+/// every slot's curved candidate wins the evidence comparison. (Common-data
+/// criterion, #1202 — both candidates fit the atom's response residual, with
+/// linear nested as the curved family's `Θ = 0` sub-model; see the module header
+/// above and `crate::terms::sae::hybrid_split`.)
 ///
 /// Returns an error only if some slot has no candidates to adjudicate (an empty
 /// dictionary slot is a caller bug, not a silent skip).
@@ -3195,6 +3229,7 @@ mod tests {
             htt_factors: ArrowFactorSlab::from_blocks(vec![l_huu]),
             htt_factors_undamped: crate::solver::arrow_schur::ArrowUndampedFactors::SameAsDamped,
             schur_factor: Some(l_schur),
+            joint_hessian_log_det: None,
             solver_mode: crate::solver::arrow_schur::ArrowSolverMode::Direct,
             ridge_t: 0.0,
             ridge_beta: 0.0,
@@ -3233,6 +3268,65 @@ mod tests {
         let expected =
             0.5 * (2.0_f64.ln() + 1.875_f64.ln()) - 0.5 * (2.0 * std::f64::consts::PI).ln();
         assert!((v - expected).abs() < 1e-12);
+    }
+
+    /// #1132 bug 2: a β-profiled atom (no shared `β` block, `k == 0`) reaches
+    /// `arrow_log_det_from_cache` in the dense Direct path with
+    /// `schur_factor = None` — there is no reduced Schur complement to form. The
+    /// joint Hessian is then block-diagonal in the latent rows, so its log-det
+    /// is exactly the per-row sum with NO Schur term. Before the fix this
+    /// returned `None` (the `schur_factor.as_ref()?` bail), starving the REML
+    /// Laplace normaliser and erroring "arrow_log_det_from_cache returned None
+    /// at ridge=0 Direct mode". Now it returns `Some(Σ_i log|H_tt^(i)|)`.
+    fn k0_direct_cache_no_schur(latent_diag: f64) -> ArrowFactorCache {
+        let l_huu = Array2::from_shape_vec((1, 1), vec![latent_diag.sqrt()]).unwrap();
+        ArrowFactorCache {
+            htt_factors: ArrowFactorSlab::from_blocks(vec![l_huu]),
+            htt_factors_undamped: crate::solver::arrow_schur::ArrowUndampedFactors::SameAsDamped,
+            schur_factor: None,
+            joint_hessian_log_det: None,
+            solver_mode: crate::solver::arrow_schur::ArrowSolverMode::Direct,
+            ridge_t: 0.0,
+            ridge_beta: 0.0,
+            htbeta: crate::solver::arrow_schur::ArrowHtbetaCache::Disabled { estimated_bytes: 0 },
+            d: 1,
+            row_dims: std::sync::Arc::from(vec![1usize]),
+            row_offsets: std::sync::Arc::from(vec![0usize, 1usize]),
+            k: 0,
+            manifold_mode_fingerprint: 0,
+            row_hessian_fingerprint: 0,
+            pcg_diagnostics: crate::solver::arrow_schur::PcgDiagnostics::default(),
+            gauge_deflated_directions: 0,
+            cross_row_woodbury: None,
+        }
+    }
+
+    #[test]
+    fn arrow_log_det_some_for_k0_direct_cache_without_schur() {
+        let cache = k0_direct_cache_no_schur(3.0);
+        let log_det = arrow_log_det_from_cache(&cache)
+            .expect("k==0 Direct cache must yield Some(per-row sum), not None (#1132)");
+        // Single latent block H_tt = [[3.0]]; no Schur term for k == 0.
+        assert!(
+            (log_det - 3.0_f64.ln()).abs() < 1e-12,
+            "log_det = {log_det}"
+        );
+        // The cache's own computation must agree bit-for-bit.
+        let cached = cache
+            .compute_undamped_arrow_log_det()
+            .expect("compute_undamped_arrow_log_det must be Some for k==0");
+        assert!((cached - 3.0_f64.ln()).abs() < 1e-12, "cached = {cached}");
+    }
+
+    #[test]
+    fn arrow_log_det_none_for_kpos_cache_without_schur() {
+        // k > 0 but no dense Schur factor is the genuine InexactPCG case and
+        // must still reject (the guard must not over-broaden to all `None`).
+        let mut cache = k0_direct_cache_no_schur(3.0);
+        cache.k = 1;
+        cache.solver_mode = crate::solver::arrow_schur::ArrowSolverMode::InexactPCG;
+        assert!(arrow_log_det_from_cache(&cache).is_none());
+        assert!(cache.compute_undamped_arrow_log_det().is_none());
     }
 
     #[test]
@@ -3619,9 +3713,12 @@ mod tests {
         // Mixed synthetic: slots 0..3 are CIRCLE features (high turning Θ = 2π,
         // the curved fit captures the loop), slots 3..7 are LINEAR DIRECTIONS
         // (straight, Θ = 0). The evidence split must select curved for the
-        // circles and linear for the directions — and at matched actives the
-        // hybrid's summed evidence must be ≤ the pure-linear baseline (the
-        // strict-generalization, match-or-beat guarantee, (4)).
+        // circles and linear for the directions — and the hybrid's summed
+        // evidence must be ≤ the summed per-slot LINEAR-candidate NLE (each
+        // slot's best straight line fit to its response residual). This is a
+        // data-level match-or-beat dominance (#1202: linear is the curved
+        // family's nested Θ = 0 sub-model on common data), and holds because each
+        // slot picks the argmin of its two common-data candidates.
         let mut slots: Vec<Vec<HybridAtomCandidate>> = Vec::new();
         let mut pure_linear_baseline = 0.0_f64;
         // Three circle features: a curved atom replaces ~10-30 linear secants, so
@@ -3667,13 +3764,14 @@ mod tests {
         assert_eq!(split.curved_atom_count, 3);
         assert_eq!(split.linear_atom_count(), 4);
 
-        // EV at matched actives: the hybrid's summed negative-log-evidence is ≤
-        // the pure-linear dictionary's (lower NLE = higher evidence = the curved
-        // atoms strictly improved the circle slots, the linear slots are
-        // unchanged). The hybrid match-or-beats pure-linear by construction.
+        // The hybrid's summed negative-log-evidence is ≤ the summed per-slot
+        // LINEAR-candidate NLE (each slot's best straight line fit to its response
+        // residual): the per-slot argmin can only lower the sum. This is a
+        // data-level match-or-beat dominance (#1202): linear is the curved
+        // family's nested Θ = 0 sub-model on common data.
         assert!(
             split.total_negative_log_evidence <= pure_linear_baseline + 1e-9,
-            "hybrid NLE {} must be <= pure-linear baseline {}",
+            "hybrid NLE {} must be <= summed linear-candidate NLE {}",
             split.total_negative_log_evidence,
             pure_linear_baseline
         );

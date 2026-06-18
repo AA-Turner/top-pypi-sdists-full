@@ -119,7 +119,7 @@ conf = snaptrade_client.Configuration(
                  ):
         """Constructor
         """
-        self.host = "https://api.snaptrade.com/api/v1" if host is None else host
+        self.host = "https://api.snaptrade.com" if host is None else host
         """Default Base url
         """
         self.server_index = 0 if server_index is None and host is None else server_index
@@ -439,7 +439,7 @@ conf = snaptrade_client.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 1.0.0\n"\
-               "SDK Package Version: 11.0.207".\
+               "SDK Package Version: 11.0.208".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self):

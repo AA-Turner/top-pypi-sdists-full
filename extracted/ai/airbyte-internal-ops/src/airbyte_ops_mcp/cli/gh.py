@@ -30,6 +30,7 @@ import time
 from typing import Annotated, Literal
 
 from cyclopts import Parameter
+from fastmcp_extensions.cli import exit_with_error, print_json
 
 from airbyte_ops_mcp.airbyte_repo.list_connectors import (
     format_github_actions_connector_matrix,
@@ -37,7 +38,6 @@ from airbyte_ops_mcp.airbyte_repo.list_connectors import (
 )
 from airbyte_ops_mcp.airbyte_repo.utils import parse_pr_info
 from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import exit_with_error, print_json
 from airbyte_ops_mcp.connector_metadata import (
     ConnectorMetadataDpathError,
     ConnectorMetadataDpathNotFoundError,

@@ -1,7 +1,6 @@
 import pytest
-from httpx import HTTPError
 
-from habanero import Crossref
+from habanero import Crossref, exceptions
 
 cr = Crossref()
 
@@ -12,8 +11,8 @@ def test_cursor():
     res = cr.works(query="widget", cursor="*", cursor_max=10)
     assert isinstance(res, dict)
     assert isinstance(res["message"], dict)
-    assert 4 == len(res)
-    assert 6 == len(res["message"])
+    assert len(res) == 4
+    assert len(res["message"]) == 6
 
 
 @pytest.mark.vcr
@@ -27,17 +26,17 @@ def test_cursor_max():
     items2 = [item for sublist in items2 for item in sublist]
     assert isinstance(res1, list)
     assert isinstance(res2, list)
-    assert 60 == len(items1)
-    assert 40 == len(items2)
+    assert len(items1) == 60
+    assert len(items2) == 40
 
 
 @pytest.mark.vcr
 def test_cursor_fails_cursor_value():
-    with pytest.raises(HTTPError):
+    with pytest.raises(exceptions.RequestError):
         cr.works(query="widget", cursor="thing")
 
 
 @pytest.mark.vcr
 def test_cursor_fails_cursor_max():
     with pytest.raises(ValueError):
-        cr.works(query="widget", cursor="*", cursor_max="thing")
+        cr.works(query="widget", cursor="*", cursor_max="thing")  # ty: ignore[invalid-argument-type]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: TatSu
-Version: 5.22.0
+Version: 5.22.1
 Summary: TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.
 Project-URL: Homepage, https://github.com/neogeny/TatSu
 Project-URL: Repository, https://github.com/neogeny/TatSu

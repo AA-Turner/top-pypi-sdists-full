@@ -1301,6 +1301,7 @@ mod runaway_tests {
             name: name.to_string(),
             feature_col,
             feature_cols: vec![feature_col],
+            categorical_levels: vec![],
             double_penalty: false,
             coefficient_geometry: LinearCoefficientGeometry::default(),
             coefficient_min: None,
@@ -1657,7 +1658,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
     spec: BernoulliMarginalSlopeTermSpec,
     options: &BlockwiseFitOptions,
     kappa_options: &SpatialLengthScaleOptimizationOptions,
-    policy: &crate::resource::ResourcePolicy,
+    policy: &crate::solver::resource::ResourcePolicy,
 ) -> Result<BernoulliMarginalSlopeFitResult, String> {
     let mut spec = spec;
     let data_view = data;
@@ -1950,7 +1951,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
         use super::deviation_runtime::ParametricAnchorBlock;
         let mut prepared = build_score_warp_deviation_block_from_seed(z_train, cfg)?;
         // `install_compiled_flex_block_into_runtime` now delegates
-        // its math body to `identifiability_compiler::compile` (commit
+        // its math body to `identifiability::families::compiler::compile` (commit
         // 4e20b8dc8); the prior Phase-4a shadow compile here was a
         // duplicate of that internal call and has been removed.
         let outcome = install_compiled_flex_block_into_runtime(
@@ -2324,7 +2325,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
     let analytic_joint_gradient_available = analytic_joint_derivatives_available
         && matches!(
             joint_gradient,
-            crate::solver::outer_strategy::Derivative::Analytic
+            crate::solver::rho_optimizer::Derivative::Analytic
         );
     // Keep the analytic outer Hessian advertised at large scale. The
     // row-tensor terms below are represented through block-local
@@ -2502,7 +2503,7 @@ pub fn fit_bernoulli_marginal_slope_terms(
             if let Some(err) = runaway_error.borrow().as_ref().cloned() {
                 return Err(err);
             }
-            use crate::solver::estimate::reml::unified::EvalMode;
+            use crate::reml_contracts::EvalMode;
             // One-shot row-measure waypoint. This closure runs on EVERY outer
             // objective evaluation (value/gradient/Hessian probes, line-search
             // cost-only probes, EFS evals), so an unconditional per-eval line

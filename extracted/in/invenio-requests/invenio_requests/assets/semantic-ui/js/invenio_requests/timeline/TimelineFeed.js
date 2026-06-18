@@ -1,10 +1,9 @@
-// This file is part of InvenioRequests
-// Copyright (C) 2022-2026 CERN.
-// Copyright (C) 2024 KTH Royal Institute of Technology.
-// Copyright (C) 2025 Graz University of Technology.
-//
-// Invenio Requests is free software; you can redistribute it and/or modify it
-// under the terms of the MIT License; see LICENSE file for more details.
+/*
+ * SPDX-FileCopyrightText: 2022-2026 CERN.
+ * SPDX-FileCopyrightText: 2024 KTH Royal Institute of Technology.
+ * SPDX-FileCopyrightText: 2025 Graz University of Technology.
+ * SPDX-License-Identifier: MIT
+ */
 
 import PropTypes from "prop-types";
 import React, { Component } from "react";

@@ -37,6 +37,8 @@ from .paginator import (
     RetrievePaginator,
 )
 from .type_defs import (
+    AgenticRetrieveStreamRequestTypeDef,
+    AgenticRetrieveStreamResponseTypeDef,
     CreateInvocationRequestTypeDef,
     CreateInvocationResponseTypeDef,
     CreateSessionRequestTypeDef,
@@ -49,6 +51,8 @@ from .type_defs import (
     GenerateQueryResponseTypeDef,
     GetAgentMemoryRequestTypeDef,
     GetAgentMemoryResponseTypeDef,
+    GetDocumentContentRequestTypeDef,
+    GetDocumentContentResponseTypeDef,
     GetExecutionFlowSnapshotRequestTypeDef,
     GetExecutionFlowSnapshotResponseTypeDef,
     GetFlowExecutionRequestTypeDef,
@@ -155,6 +159,17 @@ class AgentsforBedrockRuntimeClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent_runtime/client/#generate_presigned_url)
         """
 
+    def agentic_retrieve_stream(
+        self, **kwargs: Unpack[AgenticRetrieveStreamRequestTypeDef]
+    ) -> AgenticRetrieveStreamResponseTypeDef:
+        """
+        Retrieves information from one or more knowledge bases using an agentic
+        approach.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/agentic_retrieve_stream.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent_runtime/client/#agentic_retrieve_stream)
+        """
+
     def create_invocation(
         self, **kwargs: Unpack[CreateInvocationRequestTypeDef]
     ) -> CreateInvocationResponseTypeDef:
@@ -221,6 +236,16 @@ class AgentsforBedrockRuntimeClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/get_agent_memory.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent_runtime/client/#get_agent_memory)
+        """
+
+    def get_document_content(
+        self, **kwargs: Unpack[GetDocumentContentRequestTypeDef]
+    ) -> GetDocumentContentResponseTypeDef:
+        """
+        Retrieves the content of an ingested document from a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/get_document_content.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent_runtime/client/#get_document_content)
         """
 
     def get_execution_flow_snapshot(

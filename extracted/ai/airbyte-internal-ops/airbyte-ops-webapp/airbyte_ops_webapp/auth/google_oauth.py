@@ -19,6 +19,13 @@ from prefab_ui.rx import RESULT, STATE
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
+from airbyte_ops_webapp.auth.mock_session import (
+    mock_google_login,
+    mock_google_logout,
+    mock_google_session_state,
+)
+from airbyte_ops_webapp.state import mock_only_enabled
+
 GOOGLE_CLIENT_ID_ENV_VAR = "AIRBYTE_OPS_WEBAPP_GOOGLE_CLIENT_ID"
 DEFAULT_GOOGLE_CLIENT_ID = (
     "351139268520-qauoed89jqafh9358lffkmv8nmkt9m95.apps.googleusercontent.com"
@@ -86,6 +93,22 @@ def hydrate_google_oauth_action() -> Fetch:
     )
 
 
+def logout_google_oauth_action() -> Fetch:
+    """Return a Fetch action that logs out of Google and updates UI state."""
+    return Fetch.delete(
+        GOOGLE_OAUTH_SESSION_PATH,
+        on_success=[
+            SetState("google_authenticated", False),
+            SetState("google_user_email", ""),
+            SetState("google_access_token", ""),
+            SetState("google_status", "Signed out of Google."),
+        ],
+        on_error=[
+            SetState("google_status", "Google logout failed. Please try again."),
+        ],
+    )
+
+
 async def google_oauth_callback_response(_request: Request) -> HTMLResponse:
     """Serve the Google OAuth callback page."""
     config = google_oauth_config()
@@ -122,6 +145,8 @@ async def google_oauth_token_response(request: Request) -> JSONResponse:
 
 async def google_oauth_session_response(request: Request) -> JSONResponse:
     """Manage the Google OAuth session cookie."""
+    if mock_only_enabled():
+        return _mock_google_session_response(request)
     if request.method == "DELETE":
         return _delete_google_session_response()
 
@@ -172,6 +197,15 @@ async def google_oauth_session_response(request: Request) -> JSONResponse:
         return _refresh_google_session_response(request, session_payload)
 
     return _json_response(_google_session_state(session_payload))
+
+
+def _mock_google_session_response(request: Request) -> JSONResponse:
+    """Handle Google OAuth session requests in mock mode using in-memory state."""
+    if request.method == "DELETE":
+        return _json_response(mock_google_logout())
+    if request.method == "POST":
+        return _json_response(mock_google_login())
+    return _json_response(mock_google_session_state())
 
 
 def _refresh_google_session_response(
@@ -458,6 +492,33 @@ class GoogleOAuthError(Exception):
         self.status_code = status_code
         self.error = error
         self.description = description
+
+
+def mock_login_google_oauth_action() -> Fetch:
+    """Return a Fetch action that simulates Google OAuth login in mock mode."""
+    return Fetch.post(
+        GOOGLE_OAUTH_SESSION_PATH,
+        body={"mock": True},
+        on_success=[
+            SetState("google_authenticated", RESULT.google_authenticated),
+            SetState("google_user_email", RESULT.google_user_email),
+            SetState("google_access_token", RESULT.google_access_token),
+            SetState("google_status", RESULT.google_status),
+        ],
+    )
+
+
+def mock_logout_google_oauth_action() -> Fetch:
+    """Return a Fetch action that simulates Google OAuth logout in mock mode."""
+    return Fetch.delete(
+        GOOGLE_OAUTH_SESSION_PATH,
+        on_success=[
+            SetState("google_authenticated", RESULT.google_authenticated),
+            SetState("google_user_email", RESULT.google_user_email),
+            SetState("google_access_token", RESULT.google_access_token),
+            SetState("google_status", RESULT.google_status),
+        ],
+    )
 
 
 # --- JS Actions for Google OAuth ---

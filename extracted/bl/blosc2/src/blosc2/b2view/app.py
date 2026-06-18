@@ -2,17 +2,35 @@
 
 from __future__ import annotations
 
+import contextlib
 import io
+import os
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 from rich.markup import escape as markup_escape
+from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.content import Content
+from textual.css.query import NoMatches
 from textual.screen import ModalScreen
 from textual.theme import Theme
-from textual.widgets import DataTable, Footer, Header, Input, Static, Tree
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Header,
+    Input,
+    OptionList,
+    ProgressBar,
+    SelectionList,
+    Static,
+    Tree,
+)
+from textual.widgets._header import HeaderTitle
+from textual.widgets.option_list import Option
+from textual.widgets.selection_list import Selection
 
 try:
     from textual_plotext import PlotextPlot
@@ -26,6 +44,7 @@ try:
 except ImportError:  # high-res view is optional
     TextualImage = None
 
+import blosc2
 from blosc2.b2view.model import DataSliceLayout, StoreBrowser
 from blosc2.b2view.render import (
     column_float_decimals,
@@ -246,8 +265,8 @@ class HelpScreen(ModalScreen[None]):
             [
                 ("left / right", "move cursor; pages at the edges"),
                 ("s / e  (home / end)", "first / last column window"),
-                ("c", "go to column index or name..."),
-                ("/", "filter visible columns by substring (CTable)"),
+                ("c", "go to column (searchable name list; CTable, else index)"),
+                ("/", "pick which columns to show (searchable multi-select; CTable)"),
                 ("p", "plot a whole-column overview (needs textual-plotext)"),
                 ("enter", "decode a skipped cell (list/struct/object column)"),
             ],
@@ -332,6 +351,9 @@ class GoToRowScreen(ModalScreen[int | None]):
         input_widget = self.query_one("#goto-input", Input)
         input_widget.value = str(self.current)
         input_widget.focus()
+        # Pre-select the current value so the first keystroke replaces it (typing
+        # a fresh number is the common case); arrows/edits still work as usual.
+        input_widget.select_all()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         value = event.value.strip().replace("_", "")
@@ -389,6 +411,9 @@ class GoToColumnScreen(ModalScreen[int | None]):
         input_widget = self.query_one("#gotocol-input", Input)
         input_widget.value = str(self.current)
         input_widget.focus()
+        # Pre-select the current index so typing a column name (or a new index)
+        # replaces it instead of appending (e.g. "0" + "payment.fare").
+        input_widget.select_all()
 
     def _fail(self, message: str) -> None:
         self.query_one("#gotocol-title", Static).update(message)
@@ -418,6 +443,217 @@ class GoToColumnScreen(ModalScreen[int | None]):
             return matches[0]
         self._fail(f"{'Ambiguous' if matches else 'Unknown'} column name {value!r}")
         return None
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class ColumnSelectScreen(ModalScreen["int | None"]):
+    """Searchable column picker: type to filter, ↑/↓ to move, Enter to choose.
+
+    Dismisses with the chosen column's index into *names* (or None on cancel),
+    a drop-in for :class:`GoToColumnScreen`'s result contract.  Used by the
+    ``c`` go-to-column key (CTables, where columns have names) and by the
+    scatter ``s`` key to pick the Y column from the visible-column universe.
+    """
+
+    CSS = """
+    ColumnSelectScreen {
+        align: center middle;
+    }
+    #colselect-dialog {
+        width: 50;
+        height: auto;
+        max-height: 80%;
+        border: thick $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    #colselect-title {
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    #colselect-list {
+        height: auto;
+        max-height: 16;
+    }
+    """
+
+    BINDINGS: ClassVar = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, *, names: list[str], title: str = "Select column"):
+        super().__init__()
+        self.names = names
+        self._title = title
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="colselect-dialog"):
+            yield Static(self._title, id="colselect-title")
+            yield Input(placeholder="type to filter…", id="colselect-input")
+            yield OptionList(id="colselect-list")
+
+    def on_mount(self) -> None:
+        self._populate("")
+        self.query_one("#colselect-input", Input).focus()
+
+    def _populate(self, query: str) -> None:
+        """Refill the list with names matching *query* (case-insensitive substring).
+
+        Each option's id is the column's original index into *names*, so a match
+        resolves to the right column regardless of the current filtering.
+        """
+        q = query.strip().lower()
+        option_list = self.query_one("#colselect-list", OptionList)
+        option_list.clear_options()
+        matches = [Option(name, id=str(i)) for i, name in enumerate(self.names) if q in name.lower()]
+        option_list.add_options(matches)
+        if matches:
+            option_list.highlighted = 0
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self._populate(event.value)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        # Enter from the filter input accepts the currently highlighted match.
+        self._accept_highlighted()
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option.id is not None:
+            self.dismiss(int(event.option.id))
+
+    def _accept_highlighted(self) -> None:
+        option_list = self.query_one("#colselect-list", OptionList)
+        idx = option_list.highlighted
+        if idx is None:
+            return
+        option = option_list.get_option_at_index(idx)
+        if option.id is not None:
+            self.dismiss(int(option.id))
+
+    def on_key(self, event: events.Key) -> None:
+        # Focus stays in the filter Input; ↑/↓ drive the list highlight so the
+        # user can type then arrow to a match without leaving the keyboard home.
+        if event.key in ("down", "up"):
+            option_list = self.query_one("#colselect-list", OptionList)
+            (option_list.action_cursor_down if event.key == "down" else option_list.action_cursor_up)()
+            event.stop()
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class _ApplySelectionList(SelectionList):
+    """A SelectionList whose Enter *applies* (dismisses) instead of toggling.
+
+    SelectionList toggles the highlighted row on Space; Enter is inherited from
+    OptionList as another toggle.  Here Enter is rebound so it bubbles up as
+    "apply the chosen set", matching the Enter-applies convention of the other
+    b2view modals (Space still toggles).
+    """
+
+    BINDINGS: ClassVar = [Binding("enter", "apply", "Apply", show=False)]
+
+    def action_apply(self) -> None:
+        self.screen.action_apply_filter()
+
+
+class ColumnFilterScreen(ModalScreen["list[str] | None"]):
+    """Searchable multi-select for which CTable columns to show.
+
+    Type in the filter box to narrow the candidate list; Tab (or ↓) moves into
+    the checkbox list where Space toggles a column; Enter applies the checked
+    set and Escape cancels.  Opens with the currently-visible columns checked;
+    applying an empty set (or all of them) shows every column.
+
+    Dismisses with the chosen column names in table order, or ``None`` on cancel.
+    """
+
+    CSS = """
+    ColumnFilterScreen {
+        align: center middle;
+    }
+    #colfilter-dialog {
+        width: 60;
+        height: auto;
+        max-height: 90%;
+        border: thick $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    #colfilter-title {
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    #colfilter-list {
+        height: auto;
+        max-height: 18;
+    }
+    """
+
+    BINDINGS: ClassVar = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, *, names: list[str], selected: list[str]):
+        super().__init__()
+        self.names = names
+        self._checked: set[str] = {n for n in selected if n in set(names)}
+        self._visible: list[str] = list(names)
+        self._populating = False
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="colfilter-dialog"):
+            yield Static(
+                "Show columns — type to filter · Tab/↓ to list · Space toggles · Enter applies",
+                id="colfilter-title",
+            )
+            yield Input(placeholder="type to filter…", id="colfilter-input")
+            yield _ApplySelectionList(id="colfilter-list")
+
+    def on_mount(self) -> None:
+        self._populate("")
+        self.query_one("#colfilter-input", Input).focus()
+
+    def _populate(self, query: str) -> None:
+        """Refill the checkbox list with names matching *query*, preserving checks.
+
+        ``_checked`` is the source of truth across re-filters (a checked column
+        that scrolls out of the filtered view stays checked); each option's box
+        is seeded from it.
+        """
+        q = query.strip().lower()
+        sel = self.query_one("#colfilter-list", SelectionList)
+        self._visible = [name for name in self.names if q in name.lower()]
+        self._populating = True
+        try:
+            sel.clear_options()
+            sel.add_options([Selection(name, name, name in self._checked) for name in self._visible])
+            if self._visible:
+                sel.highlighted = 0
+        finally:
+            self._populating = False
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        self._populate(event.value)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.action_apply_filter()
+
+    def on_selection_list_selected_changed(self, event: SelectionList.SelectedChanged) -> None:
+        # Merge the visible options' checkbox states into _checked, leaving any
+        # checked-but-filtered-out columns untouched.  Skipped while _populate
+        # is rebuilding the list (those toggles are not user actions).
+        if self._populating:
+            return
+        selected = set(event.selection_list.selected)
+        self._checked = (self._checked - set(self._visible)) | selected
+
+    def on_key(self, event: events.Key) -> None:
+        # ↓ from the filter box drops focus into the checkbox list (Tab also works).
+        if event.key == "down" and self.query_one("#colfilter-input", Input).has_focus:
+            self.query_one("#colfilter-list", SelectionList).focus()
+            event.stop()
+
+    def action_apply_filter(self) -> None:
+        self.dismiss([name for name in self.names if name in self._checked])
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -593,9 +829,10 @@ class PlotScreen(ModalScreen["tuple[int, int] | None"]):
     }
     """
 
-    _KEYS_HINT = "+/- zoom · ←/→ pan · 0 reset · g range · v view rows · h hi-res · q close"
+    _KEYS_HINT = "+/- zoom · ←/→ pan · 0 reset · g range · v view rows · h hi-res · s scatter · q close"
     _MIN_WIDTH = 16  # smallest zoom window (rows), so the envelope still reads
-    _HIRES_MAX_POINTS = 50_000  # above this, ask the user to zoom in first
+    _HIRES_MAX_POINTS = 50_000  # above this, the hi-res raw view is strided-sampled
+    _SCATTER_MAX_POINTS = 50_000  # above this, the col-vs-col scatter is strided-sampled
 
     BINDINGS: ClassVar = [
         ("escape", "close", "Close"),
@@ -610,6 +847,7 @@ class PlotScreen(ModalScreen["tuple[int, int] | None"]):
         ("g", "goto_range", "Range"),
         ("v", "view_range", "View rows"),
         ("h", "hires", "High-res"),
+        ("s", "scatter", "Scatter"),
     ]
 
     def __init__(
@@ -622,11 +860,17 @@ class PlotScreen(ModalScreen["tuple[int, int] | None"]):
         row_stop: int,
         series: dict,
         raw_fetch=None,
+        xcol: str | None = None,
+        scatter_fetch=None,
+        scatter_columns: list[str] | None = None,
     ):
         super().__init__()
         self.title_prefix = title_prefix
         self._fetch = fetch
         self._raw_fetch = raw_fetch  # (start, stop) -> {"x", "y", ...} raw read
+        self._xcol = xcol  # X column name, for scatter labels
+        self._scatter_fetch = scatter_fetch  # (ycol, start, stop) -> series, or None
+        self._scatter_columns = scatter_columns or []
         self.n = n
         self.row_start = row_start
         self.row_stop = row_stop
@@ -715,11 +959,12 @@ class PlotScreen(ModalScreen["tuple[int, int] | None"]):
         self.dismiss((self.row_start, self.row_stop))
 
     def action_hires(self) -> None:
-        """h key — open a high-res matplotlib image of the current raw range.
+        """h key — open a high-res matplotlib min/max envelope of the current range.
 
         Pushed on top of this screen so ``q`` returns to the braille view with
-        the zoom intact.  The braille envelope stays the fast navigator; this is
-        the drill-down once you have zoomed to a range worth seeing in detail.
+        the zoom intact.  It reuses the on-screen envelope data (so it always
+        renders, no zoom gate); inside it ``r`` toggles to raw values, sampled
+        when the range is wide (see ``read_series``' ``max_points``).
         """
         if self._raw_fetch is None or TextualImage is None or not _matplotlib_available():
             self.app.notify(
@@ -727,18 +972,173 @@ class PlotScreen(ModalScreen["tuple[int, int] | None"]):
                 severity="warning",
             )
             return
-        width = self.row_stop - self.row_start
-        if width > self._HIRES_MAX_POINTS:
-            self.app.notify(
-                f"Zoom in to ≤ {self._HIRES_MAX_POINTS} rows for a high-res view (now {width})",
-                severity="warning",
-            )
+        if not self.x:
+            self.app.notify("No finite values in range", severity="warning")
             return
-        series = self._raw_fetch(self.row_start, self.row_stop)
-        self.app.push_screen(HiResPlotScreen(title=self.plot_title, x=series["x"], y=series["y"]))
+        self.app.push_screen(
+            HiResPlotScreen(
+                mode="envelope",
+                title_prefix=self.title_prefix,
+                n=self.n,
+                row_start=self.row_start,
+                row_stop=self.row_stop,
+                envelope={"x": self.x, "ymin": self.ymin, "ymax": self.ymax},
+                raw_fetch=self._raw_fetch,
+            )
+        )
+
+    def action_scatter(self) -> None:
+        """s key — scatter the current X column against a chosen Y column.
+
+        The current zoom/position fixes the row range first, so the scatter read
+        is bounded; only CTable sources (which carry a *scatter_fetch* closure)
+        support it.  The Y column is picked from the visible-column universe.
+        """
+        if self._scatter_fetch is None or not self._scatter_columns:
+            self.app.notify("Scatter needs a CTable column", severity="warning")
+            return
+
+        def _on_ycol(index: int | None) -> None:
+            if index is None:
+                return
+            ycol = self._scatter_columns[index]
+            try:
+                series = self._scatter_fetch(ycol, self.row_start, self.row_stop)
+            except ValueError as exc:
+                self.app.notify(str(exc), severity="warning")
+                return
+            x = np.asarray(series["x"], dtype=np.float64)
+            y = np.asarray(series["y"], dtype=np.float64)
+            finite = np.isfinite(x) & np.isfinite(y)
+            if not finite.any():
+                self.app.notify("No finite points in range", severity="warning")
+                return
+            if series["sampled"]:
+                self.app.notify(
+                    f"Sampled {series['shown']} of "
+                    f"{series['row_stop'] - series['row_start']} rows (stride {series['stride']})",
+                    severity="warning",
+                )
+            self.app.push_screen(
+                ScatterPlotScreen(
+                    xcol=self._xcol or "x",
+                    ycol=ycol,
+                    series=series,
+                )
+            )
+
+        self.app.push_screen(
+            ColumnSelectScreen(names=self._scatter_columns, title="Scatter Y column"),
+            _on_ycol,
+        )
 
     def action_close(self) -> None:
         self.dismiss(None)
+
+
+class ScatterPlotScreen(ModalScreen[None]):
+    """A col-vs-col scatter (X column vs a chosen Y column) over a row range.
+
+    Pushed on top of :class:`PlotScreen` by the ``s`` key once the user has
+    framed a row range; both columns are read row-aligned over that range (see
+    :meth:`B2View.read_xy`).  ``q``/``esc`` return to the braille plot
+    underneath.  No zoom in v1.
+    """
+
+    CSS = """
+    ScatterPlotScreen {
+        align: center middle;
+    }
+    #scatter-dialog {
+        width: 90%;
+        height: 80%;
+        border: thick $accent;
+        background: $surface;
+        padding: 1 2;
+    }
+    #scatter-title {
+        text-style: bold;
+        height: 1;
+    }
+    #scatter-widget {
+        height: 1fr;
+    }
+    #scatter-keys {
+        height: 1;
+        color: $text-muted;
+    }
+    """
+
+    _KEYS_HINT = "h hi-res · q/esc back to plot"
+
+    BINDINGS: ClassVar = [
+        ("escape", "close", "Close"),
+        ("q", "close", "Close"),
+        ("h", "hires", "High-res"),
+    ]
+
+    def __init__(self, *, xcol: str, ycol: str, series: dict):
+        super().__init__()
+        self.xcol = xcol
+        self.ycol = ycol
+        x = np.asarray(series["x"], dtype=np.float64)
+        y = np.asarray(series["y"], dtype=np.float64)
+        finite = np.isfinite(x) & np.isfinite(y)
+        self.x = list(x[finite])
+        self.y = list(y[finite])
+        title = f"{xcol} vs {ycol} · rows {series['row_start']}:{series['row_stop']}"
+        if series["sampled"]:
+            width = series["row_stop"] - series["row_start"]
+            title += f" · sampled {series['shown']}/{width} (stride {series['stride']})"
+        self.plot_title = title
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="scatter-dialog"):
+            yield Static(markup_escape(self.plot_title), id="scatter-title")
+            yield PlotextPlot(id="scatter-widget")
+            yield Static(self._KEYS_HINT, id="scatter-keys")
+
+    def on_mount(self) -> None:
+        widget = self.query_one(PlotextPlot)
+        plt = widget.plt
+        plt.clear_figure()
+        if self.x:
+            # braille gives 2x4 sub-cell resolution, matching PlotScreen's lines
+            # (the default scatter marker is one full cell per point).
+            plt.scatter(self.x, self.y, marker="braille")
+        plt.xlabel(self.xcol)
+        plt.ylabel(self.ycol)
+        widget.refresh()
+
+    def action_hires(self) -> None:
+        """h key — open a high-res matplotlib scatter over the braille scatter.
+
+        The point set is already bounded (read_xy strided it to fit), so no zoom
+        gate is needed here, unlike PlotScreen's hi-res line view.
+        """
+        if TextualImage is None or not _matplotlib_available():
+            self.app.notify(
+                "High-res view needs the 'textual-image' and 'matplotlib' packages",
+                severity="warning",
+            )
+            return
+        if not self.x:
+            self.app.notify("No finite points to plot", severity="warning")
+            return
+        self.app.push_screen(
+            HiResPlotScreen(
+                mode="scatter",
+                title=self.plot_title,
+                scatter_xy=(self.x, self.y),
+                xlabel=self.xcol,
+                ylabel=self.ycol,
+            )
+        )
+
+    def action_close(self) -> None:
+        # pop_screen (not dismiss): pushed without a result callback, so this
+        # returns to the braille PlotScreen with its zoom intact.
+        self.app.pop_screen()
 
 
 def _matplotlib_available() -> bool:
@@ -751,12 +1151,22 @@ def _matplotlib_available() -> bool:
 
 
 class HiResPlotScreen(ModalScreen[None]):
-    """A high-res matplotlib image of a raw series range, over the braille plot.
+    """A high-res matplotlib image over the braille plot, in one of three modes.
 
     Rendered with matplotlib (Agg) to a PNG and shown via ``textual-image``,
     which auto-selects the best terminal protocol (kitty/iTerm2/sixel) and
     degrades to colored half-cells elsewhere.  ``q``/``esc``/``h`` return to the
     braille view underneath with its zoom intact.
+
+    Modes:
+
+    - ``"scatter"`` — a static col-vs-col scatter (from ``ScatterPlotScreen``).
+    - ``"envelope"`` — the min/max envelope of a column (from ``PlotScreen``'s
+      ``h``), reusing the on-screen braille envelope data.
+    - ``"raw"`` — the column's raw values, reached by toggling with ``r`` from
+      envelope mode; fetched lazily (and strided-sampled when wide).
+
+    Envelope and raw share one screen: ``r`` toggles between them in place.
     """
 
     CSS = """
@@ -789,37 +1199,91 @@ class HiResPlotScreen(ModalScreen[None]):
     }
     """
 
-    _KEYS_HINT = "q/esc/h · back to braille"
-
     BINDINGS: ClassVar = [
         ("escape", "close", "Close"),
         ("q", "close", "Close"),
         ("h", "close", "Close"),
+        ("r", "toggle_raw", "Raw/envelope"),
     ]
 
-    def __init__(self, *, title: str, x, y):
+    def __init__(
+        self,
+        *,
+        mode: str = "raw",
+        xlabel: str = "row",
+        ylabel: str | None = None,
+        # scatter mode:
+        title: str | None = None,
+        scatter_xy: tuple | None = None,
+        # column (envelope/raw) modes:
+        title_prefix: str | None = None,
+        n: int | None = None,
+        row_start: int | None = None,
+        row_stop: int | None = None,
+        envelope: dict | None = None,
+        raw_fetch=None,
+    ):
         super().__init__()
-        self._title = title
-        self._x = x
-        self._y = y
+        self._mode = mode
+        self._xlabel = xlabel
+        self._ylabel = ylabel
+        self._static_title = title
+        self._scatter_xy = scatter_xy
+        self._title_prefix = title_prefix
+        self._n = n
+        self._row_start = row_start
+        self._row_stop = row_stop
+        self._envelope = envelope
+        self._raw_fetch = raw_fetch
+        self._raw_series: dict | None = None  # lazily fetched on first 'r'
+        # Toggling is offered only for the column path (envelope + a raw fetch).
+        self._can_toggle = envelope is not None and raw_fetch is not None
+
+    @property
+    def _keys_hint(self) -> str:
+        if self._can_toggle:
+            return "r raw/envelope · q/esc/h back to braille"
+        return "q/esc/h · back to braille"
+
+    def _current_title(self) -> str:
+        if self._mode == "scatter":
+            return self._static_title or ""
+        full = self._row_start == 0 and self._row_stop == self._n
+        rng = "" if full else f" · rows {self._row_start}:{self._row_stop}"
+        base = f"{self._title_prefix} · {self._n} rows{rng}"
+        if self._mode == "envelope":
+            return f"{base} · min/max envelope"
+        s = self._raw_series
+        if s is not None and s.get("sampled"):
+            width = s["row_stop"] - s["row_start"]
+            return f"{base} · raw values · sampled {s['shown']}/{width} (stride {s['stride']})"
+        return f"{base} · raw values"
 
     def compose(self) -> ComposeResult:
         with Vertical(id="hires-dialog"):
-            yield Static(markup_escape(self._title), id="hires-title")
+            yield Static(markup_escape(self._current_title()), id="hires-title")
             # A VerticalScroll is focusable, so the screen's key bindings fire
             # (the image widget itself is not focusable).
             yield VerticalScroll(id="hires-body")
-            yield Static(self._KEYS_HINT, id="hires-keys")
+            yield Static(self._keys_hint, id="hires-keys")
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
+        self.query_one("#hires-body", VerticalScroll).focus()
+        await self._show()
+
+    async def _show(self) -> None:
+        """(Re)render the current mode into the image body and refresh the title."""
         body = self.query_one("#hires-body", VerticalScroll)
-        body.focus()
+        # Await the removal so a re-render (the 'r' toggle) doesn't collide with
+        # the still-present image widget on its #hires-image id.
+        await body.remove_children()
+        self.query_one("#hires-title", Static).update(markup_escape(self._current_title()))
         try:
             png = self._render_png()
         except Exception as exc:  # pragma: no cover - defensive
-            body.mount(Static(f"Could not render: {exc}"))
+            await body.mount(Static(f"Could not render: {exc}"))
             return
-        body.mount(TextualImage(io.BytesIO(png), id="hires-image"))
+        await body.mount(TextualImage(io.BytesIO(png), id="hires-image"))
 
     def _render_png(self) -> bytes:
         import matplotlib
@@ -828,15 +1292,51 @@ class HiResPlotScreen(ModalScreen[None]):
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots(figsize=(12, 6), dpi=110)
-        ax.plot(self._x, self._y, linewidth=0.8, color="#1f77b4")
-        ax.set_xlabel("row")
-        ax.margins(x=0)
+        if self._mode == "scatter":
+            x, y = self._scatter_xy
+            ax.scatter(x, y, s=6, color="#1f77b4", alpha=0.6)
+        elif self._mode == "envelope":
+            env = self._envelope
+            x, ymin, ymax = env["x"], env["ymin"], env["ymax"]
+            ax.fill_between(x, ymin, ymax, color="#1f77b4", alpha=0.3)
+            ax.plot(x, ymax, linewidth=0.6, color="#1f77b4")
+            if list(ymin) != list(ymax):  # a single line when the band collapses
+                ax.plot(x, ymin, linewidth=0.6, color="#1f77b4")
+            ax.margins(x=0)
+        else:  # raw
+            s = self._raw_series
+            ax.plot(s["x"], s["y"], linewidth=0.8, color="#1f77b4")
+            ax.margins(x=0)
+        ax.set_title(self._current_title(), fontsize=10)
+        ax.set_xlabel(self._xlabel)
+        if self._ylabel is not None:
+            ax.set_ylabel(self._ylabel)
         ax.grid(True, alpha=0.3)
         fig.tight_layout()
         buf = io.BytesIO()
         fig.savefig(buf, format="png")
         plt.close(fig)
         return buf.getvalue()
+
+    async def action_toggle_raw(self) -> None:
+        """r key — toggle the column view between min/max envelope and raw values.
+
+        No-op in scatter mode.  The raw series is fetched lazily on the first
+        switch (and strided-sampled when wide, see read_series' max_points).
+        """
+        if not self._can_toggle:
+            return
+        if self._mode == "envelope":
+            if self._raw_series is None:
+                try:
+                    self._raw_series = self._raw_fetch(self._row_start, self._row_stop)
+                except Exception as exc:  # pragma: no cover - defensive
+                    self.app.notify(f"Could not read raw values: {exc}", severity="warning")
+                    return
+            self._mode = "raw"
+        else:
+            self._mode = "envelope"
+        await self._show()
 
     def action_close(self) -> None:
         # pop_screen (not dismiss): this screen is pushed without a result
@@ -913,8 +1413,212 @@ class CellDetailScreen(ModalScreen[None]):
         self.app.pop_screen()
 
 
+def _http_download(url: str, dest: str, on_progress) -> None:
+    """Stream *url* to *dest*, reporting ``on_progress(downloaded, total)``.
+
+    Module-level (and free of Textual) so it can be monkeypatched in tests.
+    Writes to a temp file beside *dest* and atomically renames on success, so an
+    interrupted download never leaves a corrupt file at the final name.  *total*
+    is ``None`` when the server sends no ``Content-Length``.
+    """
+    import requests
+
+    tmp = dest + ".part"
+    with requests.get(url, stream=True, timeout=30) as resp:
+        resp.raise_for_status()
+        length = resp.headers.get("Content-Length")
+        total = int(length) if length is not None else None
+        downloaded = 0
+        on_progress(0, total)
+        with open(tmp, "wb") as fh:
+            for chunk in resp.iter_content(chunk_size=1 << 16):
+                if not chunk:
+                    continue
+                fh.write(chunk)
+                downloaded += len(chunk)
+                on_progress(downloaded, total)
+    os.replace(tmp, dest)
+
+
+def _fetch_remote_size(info_url: str) -> int | None:
+    """Return the stored size (``cbytes``) from the bundle's info endpoint, or None.
+
+    The download stream itself sends no ``Content-Length``, so this companion
+    metadata call is what makes the progress bar determinate.  Any failure
+    (network, missing key) just yields None -> an indeterminate bar.
+    """
+    import requests
+
+    try:
+        with requests.get(info_url, timeout=15) as resp:
+            resp.raise_for_status()
+            return int(resp.json()["cbytes"])
+    except Exception:
+        return None
+
+
+class DownloadScreen(ModalScreen["bool | str"]):
+    """Centered "Downloading … Please wait…" message with a progress bar.
+
+    Pushed at startup when ``--download`` needs to fetch the bundle.  Runs the
+    download on a worker thread and dismisses with ``True`` on success or the
+    error string on failure; the app opens the file (or exits) from there.
+    """
+
+    CSS = """
+    DownloadScreen {
+        align: center middle;
+    }
+    #download-dialog {
+        width: auto;
+        height: auto;
+        border: thick $accent;
+        background: $surface;
+        padding: 2 4;
+    }
+    #download-message {
+        text-style: bold;
+        margin-bottom: 1;
+        width: 100%;
+        content-align: center middle;
+    }
+    """
+
+    def __init__(
+        self,
+        url: str,
+        *,
+        dest: str,
+        name: str,
+        info_url: str | None = None,
+        source_url: str | None = None,
+    ):
+        super().__init__()
+        self._url = url
+        self._dest = dest
+        self._name = name
+        self._info_url = info_url
+        self._source_url = source_url
+
+    def compose(self) -> ComposeResult:
+        message = f"Downloading {self._name} file"
+        if self._source_url:
+            message += f"\nfrom {self._source_url}"
+        with Vertical(id="download-dialog"):
+            yield Static(message, id="download-message")
+            yield ProgressBar(id="download-bar", show_eta=True)
+
+    def on_mount(self) -> None:
+        self._run_download()
+
+    @work(thread=True)
+    def _run_download(self) -> None:
+        bar = self.query_one("#download-bar", ProgressBar)
+        # Prefer the info endpoint's size (the download stream omits
+        # Content-Length); fall back to it if info is unavailable.
+        size = _fetch_remote_size(self._info_url) if self._info_url else None
+
+        def on_progress(downloaded: int, content_total: int | None) -> None:
+            total = size or content_total
+            # An unknown total leaves the bar indeterminate (pulsing).  Marshal
+            # the update onto the UI thread.
+            if total:
+                self.app.call_from_thread(bar.update, total=total, progress=downloaded)
+            else:
+                self.app.call_from_thread(bar.update, progress=downloaded)
+
+        try:
+            _http_download(self._url, self._dest, on_progress)
+        except Exception as exc:  # network/IO failure -> surface to the app
+            self.app.call_from_thread(self.dismiss, str(exc))
+            return
+        self.app.call_from_thread(self.dismiss, True)
+
+
+class B2ViewHeader(Header):
+    """App header that also shows the open bundle's filename, left of the title.
+
+    The filename is rendered *into the stock ``HeaderTitle`` widget* (in the
+    space left of the centered "b2view — Python-Blosc2 X" title) rather than as
+    extra docked child widgets.  Adding docked children to the Header was found
+    to break Tab focus cycling between the panels under the Windows test driver,
+    so this keeps the Header's widget tree exactly as Textual builds it and only
+    overrides what the title renders.  The filename takes only the room left over
+    once the centered title is reserved, truncating (with an ellipsis) as the
+    terminal narrows.  Set the name with :meth:`set_filename`.
+    """
+
+    _GAP = 2  # cells kept between the filename and the centered title
+
+    DEFAULT_CSS = """
+    B2ViewHeader {
+        background: $primary;  /* Blosc2 turquoise brand bar */
+        color: $foreground;
+    }
+    B2ViewHeader HeaderIcon {
+        color: $accent;  /* yellow command-palette glyph */
+        width: 4;  /* tighten the gap to the filename (stock is 8) */
+    }
+    B2ViewHeader HeaderTitle {
+        content-align: left middle;  /* we place the title ourselves */
+    }
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._label = ""
+
+    def set_filename(self, label: str) -> None:
+        self._label = label
+        self._refresh_title()
+
+    def on_resize(self) -> None:
+        self._refresh_title()
+
+    def _refresh_title(self) -> None:
+        with contextlib.suppress(NoMatches):  # HeaderTitle may not be composed yet
+            self.query_one(HeaderTitle).update(self.format_title())
+
+    def format_title(self) -> Content:
+        """Render the centered title with the filename in the left gutter.
+
+        With no filename (or no room for one) this is just the stock centered
+        title.  Otherwise the title is left-padded so it stays centered across
+        the ``HeaderTitle`` region, and the filename fills the left gutter.
+        """
+        base = super().format_title()
+        if not self._label:
+            return base
+        try:
+            width = self.query_one(HeaderTitle).content_size.width
+        except NoMatches:
+            return base
+        title_len = base.cell_length
+        if width <= 0 or title_len >= width:
+            return base  # not even room for the title alone
+        # Left padding that centers the title across the full HeaderTitle width.
+        left_pad = (width - title_len) // 2
+        avail = left_pad - self._GAP  # cells the filename may use
+        if avail < 2:  # below this there is not even room for " x"
+            return base
+        label = f" {self._label}"
+        if len(label) > avail:
+            label = label[: avail - 1] + "…"
+        gutter = " " * (left_pad - len(label))
+        return Content.assemble((label, "italic dim"), gutter, base)
+
+
 class B2ViewApp(App):
     """Browse TreeStore hierarchy and preview objects."""
+
+    TITLE = "b2view"  # header title (defaults to the class name otherwise)
+
+    # Keep escape on our own layered exit (action_dim_exit: dim mode -> locked
+    # row window -> row filter -> column filter).  Textual's default would have
+    # escape *restore* a maximized panel first, silently shadowing that ladder
+    # (e.g. escape after a plot's `v` would un-maximize instead of unlocking the
+    # window).  Restoring a maximized panel stays on its dedicated `r` key.
+    ESCAPE_TO_MINIMIZE = False
 
     CSS = """
     #main { height: 1fr; }
@@ -966,9 +1670,17 @@ class B2ViewApp(App):
         start_panel: str = "tree",
         preview_rows: int = 20,
         preview_cols: int = 10,
+        download_url: str | None = None,
+        info_url: str | None = None,
     ):
         super().__init__()
+        self.sub_title = f"Python-Blosc2 {blosc2.__version__}"  # shown beside the title in the header
         self.urlpath = urlpath
+        self.download_url = download_url  # when set, fetch urlpath before browsing
+        self.info_url = info_url  # optional: metadata endpoint giving the size
+        # Header label: the path as given on the CLI, or the @public-relative
+        # path for a download (set in on_mount once that is known).
+        self._header_label = urlpath
         self.start_path = start_path
         self.start_panel = start_panel
         self.preview_rows = preview_rows
@@ -990,7 +1702,7 @@ class B2ViewApp(App):
         self.row_window: tuple[int, int] | None = None
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield B2ViewHeader()
         with Horizontal(id="main"):
             with B2ViewPanel(id="tree-pane") as tree_pane:
                 tree_pane.border_title = "tree"
@@ -1023,7 +1735,43 @@ class B2ViewApp(App):
     def on_mount(self) -> None:
         self.register_theme(BLOSC2_THEME)
         self.theme = "blosc2"
+        if self.download_url:
+            # Fetch the bundle first, then open it from _after_download.  The
+            # message shows the @public-relative path (e.g. "large/foo.b2z"),
+            # falling back to the local basename for any other URL shape.
+            name = os.path.basename(self.urlpath)
+            if "/@public/" in self.download_url:
+                name = self.download_url.split("/@public/", 1)[1]
+            self._header_label = name  # @public-relative path for the header
+            # A browsable URL for the source root, so the user can see where the
+            # file comes from: e.g. https://cat2.cloud/demo/?roots=@public
+            source_url = None
+            if "/api/" in self.download_url:
+                source_url = self.download_url.split("/api/", 1)[0] + "/?roots=@public"
+            self.push_screen(
+                DownloadScreen(
+                    self.download_url,
+                    dest=self.urlpath,
+                    name=name,
+                    info_url=self.info_url,
+                    source_url=source_url,
+                ),
+                self._after_download,
+            )
+        else:
+            self._start_browsing()
+
+    def _after_download(self, result: bool | str) -> None:
+        """Resume browsing once DownloadScreen finishes (True ok, else error)."""
+        if result is True:
+            self._start_browsing()
+        else:
+            self.exit(message=f"Download failed: {result}")
+
+    def _start_browsing(self) -> None:
+        """Open the bundle and populate the tree (the normal startup path)."""
         self.browser = StoreBrowser(self.urlpath)
+        self.query_one(B2ViewHeader).set_filename(self._header_label)
         tree = self.query_one("#tree", Tree)
         tree.root.data = "/"
         self.load_children(tree.root)
@@ -1669,8 +2417,7 @@ class B2ViewApp(App):
                 total = self.browser.base_nrows(self.selected_path)
                 chips.append(f"filter: [bold]{markup_escape(flt)}[/bold] ({total} total)")
             if col_flt:
-                total_cols = self.browser.base_ncols(self.selected_path)
-                chips.append(f"cols: [bold]{markup_escape(col_flt)}[/bold] ({total_cols} total)")
+                chips.append(f"cols: [bold]{markup_escape(col_flt)}[/bold]")
             if flt or col_flt or self.row_window is not None:
                 chips.append("<Esc>unlock/clear")
         return chips
@@ -1854,13 +2601,35 @@ class B2ViewApp(App):
             )
 
         def raw_fetch(start: int, stop: int | None) -> dict:
+            # max_points caps the raw read: a wide range is strided-sampled
+            # rather than refused, for the hi-res 'r' (raw values) view.
             return self.browser.read_series(
                 self.selected_path,
                 column=column,
                 layout=layout,
                 row_start=start,
                 row_stop=stop,
+                max_points=PlotScreen._HIRES_MAX_POINTS,
             )
+
+        # Col-vs-col scatter ('s' key) is CTable-only; build the read closure and
+        # the visible-column universe for the Y picker just for that source kind.
+        scatter_fetch = None
+        scatter_columns = None
+        if buffer.get("source_kind") == "ctable":
+
+            def scatter_fetch(ycol: str, start: int, stop: int) -> dict:
+                return self.browser.read_xy(
+                    self.selected_path,
+                    xcol=name,
+                    ycol=ycol,
+                    layout=layout,
+                    row_start=start,
+                    row_stop=stop,
+                    max_points=PlotScreen._SCATTER_MAX_POINTS,
+                )
+
+            scatter_columns = self.browser.column_names(self.selected_path) or columns
 
         series = fetch(0, None)  # whole series (uses the fast SUMMARY tier if any)
         x, _ymin, _ymax, _descr = _plot_view(series)
@@ -1876,6 +2645,9 @@ class B2ViewApp(App):
                 row_stop=series["row_stop"],
                 series=series,
                 raw_fetch=raw_fetch,
+                xcol=name,
+                scatter_fetch=scatter_fetch,
+                scatter_columns=scatter_columns,
             ),
             self._view_plot_range,
         )
@@ -1943,9 +2715,16 @@ class B2ViewApp(App):
         page = self.table_page
         if page.get("source_kind") not in _COL_PAGED_KINDS:
             return
-        current = page["col_start"] + self.query_one("#data-table", DataTable).cursor_column
-        names = self.browser.column_names(self.selected_path) if page["source_kind"] == "ctable" else None
-        screen = GoToColumnScreen(ncols=page["ncols"], current=current, names=names)
+        if page["source_kind"] == "ctable":
+            # Named columns -> pick from a searchable list (type to filter, ↑/↓,
+            # Enter); the option ids index into the visible-column universe, which
+            # is exactly what _go_to_column expects.
+            names = self.browser.column_names(self.selected_path)
+            screen: ModalScreen[int | None] = ColumnSelectScreen(names=names, title="Go to column")
+        else:
+            # N-D arrays have no column names; fall back to a numeric index entry.
+            current = page["col_start"] + self.query_one("#data-table", DataTable).cursor_column
+            screen = GoToColumnScreen(ncols=page["ncols"], current=current, names=None)
         self.push_screen(screen, self._go_to_column)
 
     def action_filter_rows(self) -> None:
@@ -1979,23 +2758,22 @@ class B2ViewApp(App):
         if self.table_page.get("source_kind") != "ctable":
             self.notify("Column filtering is only supported for CTable nodes", severity="warning")
             return
-        screen = FilterScreen(
-            current=self.browser.get_column_filter(self.selected_path),
-            title="Filter columns by substring (empty clears)",
-            placeholder="e.g. payment",
+        # Preselect the currently-shown columns (column_names honors any active
+        # selection); the picker universe is the full, unfiltered column set.
+        screen = ColumnFilterScreen(
+            names=self.browser.base_column_names(self.selected_path),
+            selected=self.browser.column_names(self.selected_path) or [],
         )
-        self.push_screen(screen, self._apply_column_filter)
+        self.push_screen(screen, self._apply_column_selection)
 
-    def _apply_column_filter(self, pattern: str | None) -> None:
-        if pattern is None or self.browser is None or self.table_page is None:
-            return
-        if pattern == (self.browser.get_column_filter(self.selected_path) or ""):
-            return
-        try:
-            self.browser.set_column_filter(self.selected_path, pattern)
-        except Exception as exc:
-            self.notify(f"Invalid column filter: {exc}", severity="error")
-            return
+    def _apply_column_selection(self, names: list[str] | None) -> None:
+        if names is None or self.browser is None or self.table_page is None:
+            return  # cancelled
+        self.browser.set_column_selection(self.selected_path, names)
+        self._reload_columns()
+
+    def _reload_columns(self) -> None:
+        """Reload the grid after the visible-column set changed."""
         self.grid_col_start = 0
         self.table_buffer = None
         data = self._load_table_page(self.selected_path, self.table_page["start"])
@@ -2266,7 +3044,8 @@ class B2ViewApp(App):
         if self.browser.get_filter(self.selected_path):
             self._apply_filter("")
         elif self.browser.get_column_filter(self.selected_path):
-            self._apply_column_filter("")
+            self.browser.set_column_selection(self.selected_path, None)
+            self._reload_columns()
 
     def action_grid_row_top(self) -> None:
         """Jump to the first row of the table."""

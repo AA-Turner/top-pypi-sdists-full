@@ -11,6 +11,12 @@ mod grammar;
 mod display_marker;
 mod reserved_range;
 mod replace;
+mod shake_rng;
+mod seed;
+mod masks;
+mod fakers;
+mod pools;
+mod person;
 
 /// argus-redact Rust core — high-performance pure functions over argus-redact-core.
 #[pymodule]
@@ -27,11 +33,55 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(normalize::map_spans_to_original, m)?)?;
     m.add_function(wrap_pyfunction!(grammar::normalize_grammar_en, m)?)?;
     m.add_function(wrap_pyfunction!(grammar::restore_grammar_en, m)?)?;
+    m.add_function(wrap_pyfunction!(grammar::self_ref_pronouns, m)?)?;
     m.add_function(wrap_pyfunction!(display_marker::mark_for_display, m)?)?;
     m.add_function(wrap_pyfunction!(display_marker::strip_display_markers, m)?)?;
     m.add_function(wrap_pyfunction!(display_marker::resolve_marker, m)?)?;
     m.add_function(wrap_pyfunction!(display_marker::preset_marker_chars, m)?)?;
+    m.add_function(wrap_pyfunction!(reserved_range::reserved_range_patterns, m)?)?;
     m.add_function(wrap_pyfunction!(reserved_range::scan_for_pollution, m)?)?;
     m.add_function(wrap_pyfunction!(replace::replace, m)?)?;
+    m.add_class::<crate::shake_rng::PyShakeRng>()?;
+    m.add_function(wrap_pyfunction!(shake_rng::seed_from_value, m)?)?;
+    m.add_function(wrap_pyfunction!(seed::resolve_salt, m)?)?;
+    m.add_function(wrap_pyfunction!(seed::type_seed_offset, m)?)?;
+    m.add_function(wrap_pyfunction!(masks::mask_value, m)?)?;
+    m.add_function(wrap_pyfunction!(masks::mask_name, m)?)?;
+    m.add_function(wrap_pyfunction!(masks::mask_landline, m)?)?;
+    m.add_function(wrap_pyfunction!(masks::resolve_collision, m)?)?;
+    m.add_function(wrap_pyfunction!(fakers::generate_unique_fake, m)?)?;
+    m.add_function(wrap_pyfunction!(fakers::builtin_faker_name, m)?)?;
+    m.add_function(wrap_pyfunction!(fakers::builtin_faker_names, m)?)?;
+    // ── pool accessors (zh) ──
+    m.add_function(wrap_pyfunction!(pools::reserved_person_names_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::reserved_person_names_aliases_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::reserved_cities_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::reserved_addresses_zh_aliases, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::passport_prefixes_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::plate_special_prefixes_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::hkid_reserved_letter, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::twid_reserved_letter, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::macau_reserved_lead, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::twarc_reserved_prefix, m)?)?;
+    // ── pool accessors (en) ──
+    m.add_function(wrap_pyfunction!(pools::reserved_person_names_en, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::reserved_person_names_aliases_en, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::reserved_addresses_en, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::reserved_addresses_en_aliases, m)?)?;
+    // ── person-name pool accessors (zh) ──
+    m.add_function(wrap_pyfunction!(pools::person_surnames_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::person_compound_surnames_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::person_not_names_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::person_common_words_zh, m)?)?;
+    // ── person-name pool accessors (en) ──
+    m.add_function(wrap_pyfunction!(pools::person_given_names_en, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::person_surnames_en, m)?)?;
+    // ── pool accessors (shared) ──
+    m.add_function(wrap_pyfunction!(pools::rfc2606_domains, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::rfc5737_prefixes, m)?)?;
+    m.add_function(wrap_pyfunction!(pools::rfc7042_mac_prefix, m)?)?;
+    // ── person-name detectors (zh, en) ──
+    m.add_function(wrap_pyfunction!(person::detect_person_names_zh, m)?)?;
+    m.add_function(wrap_pyfunction!(person::detect_person_names_en, m)?)?;
     Ok(())
 }

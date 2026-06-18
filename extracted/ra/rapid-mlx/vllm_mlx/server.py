@@ -38,6 +38,7 @@ The server provides:
 """
 
 import argparse
+import asyncio
 import gc
 import logging
 import os
@@ -241,6 +242,31 @@ from .runtime.cache import (
 )
 
 
+async def _shutdown_save_prefix_cache() -> None:
+    """Lifespan shutdown step: persist prefix cache off the event loop.
+
+    The synchronous ``_save_prefix_cache_to_disk`` call streams 200-300
+    MB per entry through ``save_prompt_cache`` under the GIL. Calling
+    it on the asyncio loop thread (which is what the lifespan handler
+    runs on) starves any other coroutine waiting on the same loop for
+    tens of seconds — ``/healthz`` polls from supervisors that still
+    consider us "stopping" hang, graceful-shutdown HTTP responses
+    never flush, etc.
+
+    Extracted from inline-in-lifespan so tests can pin the
+    ``asyncio.to_thread`` wrapper at its production callsite. Codex
+    flagged PR #667 round 1 because the previous test wrapped
+    ``to_thread`` itself — a regression that dropped the wrapper from
+    the lifespan would not have been caught. The test now drives THIS
+    function and watches whether the loop stays responsive during the
+    save; if anyone in the future replaces the ``await asyncio.to_thread
+    (...)`` line below with a direct call, the regression fires.
+    """
+    if _engine is None or not hasattr(_engine, "save_cache_to_disk"):
+        return
+    await asyncio.to_thread(_save_prefix_cache_to_disk)
+
+
 async def lifespan(app: FastAPI):
     """FastAPI lifespan for startup/shutdown events."""
     global _engine, _mcp_manager
@@ -361,9 +387,14 @@ async def lifespan(app: FastAPI):
     # Shutdown: stop accepting "ready" before tearing things down.
     get_config().ready = False
 
-    # Shutdown: Save cache to disk BEFORE stopping engine
-    if _engine is not None and hasattr(_engine, "save_cache_to_disk"):
-        _save_prefix_cache_to_disk()
+    # Shutdown: Save cache to disk BEFORE stopping engine.
+    #
+    # Delegates to ``_shutdown_save_prefix_cache`` which wraps the
+    # synchronous save in ``asyncio.to_thread`` — see that function's
+    # docstring for the rationale. Extracted so the regression test
+    # pins the wrapper at the production callsite rather than wrapping
+    # ``to_thread`` test-side (codex PR #667 round 1 BLOCKING-3).
+    await _shutdown_save_prefix_cache()
 
     # Shutdown: Close MCP connections and stop engine
     if _mcp_manager is not None:
@@ -1084,6 +1115,13 @@ Examples:
         default=True,
         help="Enable continuous batching (default: on).",
     )
+    # PFlash long-prompt prefill compression (#287). Off by default. The
+    # unified ``rapid-mlx serve`` CLI exposes the same surface; we mirror
+    # it here so the standalone ``python -m vllm_mlx.server`` path is
+    # not a silent gap (SOP §10).
+    from .cli import _add_pflash_args as _add_pflash_args_to_server_parser
+
+    _add_pflash_args_to_server_parser(parser)
     # Deprecated flags — accepted silently to avoid breaking user scripts
     import argparse as _ap
 
@@ -1340,9 +1378,29 @@ Examples:
     # was silently dropped — same bug class as #400. The unified rapid-mlx
     # CLI builds a richer SchedulerConfig in cli.py; the standalone path only
     # exposes a small subset of flags, so we plumb just those.
+    from .pflash import config_from_args as _server_pflash_config_from_args
+    from .pflash import resolve_pflash_mode_default as _server_pflash_resolve_default
+    from .pflash import validate_model_support as _server_pflash_validate
     from .scheduler import SchedulerConfig
 
-    scheduler_config = SchedulerConfig(prefill_step_size=args.prefill_step_size)
+    # Per-alias PFlash default (#287): verified Qwen3.5 / Qwen3.6 aliases
+    # switch to ``always`` when the user passes no ``--pflash`` flag; all
+    # other aliases keep the conservative ``off``. Explicit overrides win.
+    args.pflash = _server_pflash_resolve_default(args, model_name=args.model)
+    try:
+        server_pflash_config = _server_pflash_config_from_args(args)
+        _server_pflash_validate(
+            server_pflash_config,
+            model_name=args.model,
+            is_mllm=getattr(args, "mllm", False) or is_mllm_model(args.model),
+        )
+    except ValueError as e:
+        parser.error(str(e))
+
+    scheduler_config = SchedulerConfig(
+        prefill_step_size=args.prefill_step_size,
+        pflash_config=server_pflash_config,
+    )
 
     # Load model before starting server
     if args.mllm and args.no_mllm:

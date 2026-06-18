@@ -42,7 +42,8 @@ class Inventory(object):
         'cpu': 'Cpu',
         'gpus': 'list[Gpu]',
         'routes': 'list[Route]',
-        'tpm_version': 'str'
+        'tpm_version': 'str',
+        'truncation': 'InventoryTruncation'
     }
 
     attribute_map = {
@@ -57,10 +58,11 @@ class Inventory(object):
         'cpu': 'cpu',
         'gpus': 'gpus',
         'routes': 'routes',
-        'tpm_version': 'tpm_version'
+        'tpm_version': 'tpm_version',
+        'truncation': 'truncation'
     }
 
-    def __init__(self, hostname=None, bmc_address=None, interfaces=None, disks=None, boot=None, system_vendor=None, bmc_v6address=None, memory=None, cpu=None, gpus=None, routes=None, tpm_version=None):  # noqa: E501
+    def __init__(self, hostname=None, bmc_address=None, interfaces=None, disks=None, boot=None, system_vendor=None, bmc_v6address=None, memory=None, cpu=None, gpus=None, routes=None, tpm_version=None, truncation=None):  # noqa: E501
         """Inventory - a model defined in Swagger"""  # noqa: E501
 
         self._hostname = None
@@ -75,6 +77,7 @@ class Inventory(object):
         self._gpus = None
         self._routes = None
         self._tpm_version = None
+        self._truncation = None
         self.discriminator = None
 
         if hostname is not None:
@@ -101,6 +104,8 @@ class Inventory(object):
             self.routes = routes
         if tpm_version is not None:
             self.tpm_version = tpm_version
+        if truncation is not None:
+            self.truncation = truncation
 
     @property
     def hostname(self):
@@ -359,6 +364,27 @@ class Inventory(object):
             )
 
         self._tpm_version = tpm_version
+
+    @property
+    def truncation(self):
+        """Gets the truncation of this Inventory.  # noqa: E501
+
+
+        :return: The truncation of this Inventory.  # noqa: E501
+        :rtype: InventoryTruncation
+        """
+        return self._truncation
+
+    @truncation.setter
+    def truncation(self, truncation):
+        """Sets the truncation of this Inventory.
+
+
+        :param truncation: The truncation of this Inventory.  # noqa: E501
+        :type: InventoryTruncation
+        """
+
+        self._truncation = truncation
 
     def to_dict(self):
         """Returns the model properties as a dict"""

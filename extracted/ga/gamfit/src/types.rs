@@ -2,7 +2,89 @@ use ndarray::{Array1, ArrayView1};
 use serde::{Deserialize, Serialize};
 use std::ops::{Deref, DerefMut};
 
-pub use crate::hull::PeeledHull;
+pub use crate::terms::geometry::PeeledHull;
+
+/// Lower floor on positive working weights shared by likelihood families and
+/// PIRLS row assembly so weighted normal equations stay numerically well posed.
+pub(crate) const MIN_WEIGHT: f64 = 1e-12;
+
+/// Hyperprior placed on a coefficient group's precision / log-precision.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum CoefficientGroupPrior {
+    Flat,
+    NormalLogPrecision {
+        mean: f64,
+        sd: f64,
+    },
+    GammaPrecision {
+        shape: f64,
+        rate: f64,
+    },
+    /// Penalized-complexity prior calibrated by `P(exp(-rho/2) > upper) =
+    /// tail_prob`; see [`RhoPrior::PenalizedComplexity`].
+    PenalizedComplexity {
+        upper: f64,
+        tail_prob: f64,
+    },
+}
+
+impl CoefficientGroupPrior {
+    pub fn to_rho_prior(&self) -> RhoPrior {
+        match *self {
+            Self::Flat => RhoPrior::Flat,
+            Self::NormalLogPrecision { mean, sd } => RhoPrior::Normal { mean, sd },
+            Self::GammaPrecision { shape, rate } => RhoPrior::GammaPrecision { shape, rate },
+            Self::PenalizedComplexity { upper, tail_prob } => {
+                RhoPrior::PenalizedComplexity { upper, tail_prob }
+            }
+        }
+    }
+
+    pub fn validate(&self, context: &str) -> Result<(), String> {
+        match *self {
+            Self::Flat => Ok(()),
+            Self::NormalLogPrecision { mean, sd } => {
+                if !mean.is_finite() {
+                    return Err(format!(
+                        "{context} Normal log-precision prior requires finite mean, got {mean}"
+                    ));
+                }
+                if !sd.is_finite() || sd <= 0.0 {
+                    return Err(format!(
+                        "{context} Normal log-precision prior requires sd > 0, got {sd}"
+                    ));
+                }
+                Ok(())
+            }
+            Self::GammaPrecision { shape, rate } => {
+                if !shape.is_finite() || shape <= 0.0 {
+                    return Err(format!(
+                        "{context} Gamma precision prior requires shape > 0, got {shape}"
+                    ));
+                }
+                if !rate.is_finite() || rate < 0.0 {
+                    return Err(format!(
+                        "{context} Gamma precision prior requires rate >= 0, got {rate}"
+                    ));
+                }
+                Ok(())
+            }
+            Self::PenalizedComplexity { upper, tail_prob } => {
+                if !upper.is_finite() || upper <= 0.0 {
+                    return Err(format!(
+                        "{context} penalized-complexity prior requires upper > 0, got {upper}"
+                    ));
+                }
+                if !tail_prob.is_finite() || tail_prob <= 0.0 || tail_prob >= 1.0 {
+                    return Err(format!(
+                        "{context} penalized-complexity prior requires tail probability in (0, 1), got {tail_prob}"
+                    ));
+                }
+                Ok(())
+            }
+        }
+    }
+}
 
 /// Shared default for monotone wiggle/deviation blocks. Formula DSL defaults,
 /// workflow configs, and runtime deviation blocks should all derive from this
@@ -589,9 +671,6 @@ impl ResponseFamily {
     /// Concretely:
     /// * `Binomial` — refuses an all-zero or all-one response: the saturated
     ///   logit is ±∞ and the REML score is +∞ (issue #331).
-    /// * `Gaussian` — refuses a response whose sample standard deviation is
-    ///   below `GAUSSIAN_MIN_SAMPLE_SD` (≈ machine ε); the marginal
-    ///   `-n/2·log σ²` REML term diverges to +∞ as σ → 0 (issue #332).
     /// * Every other family currently returns `Ok(())` at this layer — the
     ///   support check already guarantees enough variation to make the
     ///   log-likelihood finite.
@@ -631,27 +710,7 @@ impl ResponseFamily {
                     kind,
                 })
             }
-            Self::Gaussian => {
-                if y.is_empty() {
-                    return Ok(());
-                }
-                let n = y.len();
-                let mean: f64 = y.iter().copied().sum::<f64>() / (n as f64);
-                let ssq: f64 = y.iter().map(|&v| (v - mean) * (v - mean)).sum::<f64>();
-                let var = if n > 1 { ssq / ((n - 1) as f64) } else { ssq };
-                let sd = var.sqrt();
-                if !sd.is_finite() || sd <= GAUSSIAN_MIN_SAMPLE_SD {
-                    Err(ResponseDegeneracy {
-                        family_label: self.response_support_label(),
-                        kind: ResponseDegeneracyKind::GaussianNearConstant {
-                            sample_sd: sd,
-                            min_sd: GAUSSIAN_MIN_SAMPLE_SD,
-                        },
-                    })
-                } else {
-                    Ok(())
-                }
-            }
+            Self::Gaussian => Ok(()),
             Self::Poisson
             | Self::Tweedie { .. }
             | Self::NegativeBinomial { .. }
@@ -799,16 +858,6 @@ pub const BINOMIAL_BINARY_TOL: f64 = 1.0e-12;
 /// continuous data, whose fractional parts are O(1).
 pub const COUNT_INTEGER_TOL: f64 = 1.0e-9;
 
-/// Floor on the sample standard deviation of a Gaussian response.
-///
-/// The marginal Gaussian REML objective contains `-n/2·log σ̂²`; when σ̂ → 0
-/// this diverges to +∞ and the outer solver reports the cryptic
-/// `fit_result.reml_score must be finite, got inf` (issue #332). The
-/// threshold is generous (≈ machine ε scaled) so well-conditioned scientific
-/// data never trips it; only data that is effectively constant in f64
-/// arithmetic gets rejected.
-pub const GAUSSIAN_MIN_SAMPLE_SD: f64 = 1.0e-10;
-
 /// Classifier for a [`ResponseDegeneracy`]. Each variant carries the family-
 /// specific evidence the caller needs to format a useful message without
 /// having to re-derive the diagnostic.
@@ -818,10 +867,6 @@ pub enum ResponseDegeneracyKind {
     BinomialAllZeros,
     /// Bernoulli / Binomial response with every observed value equal to 1.
     BinomialAllOnes,
-    /// Gaussian response whose sample sd is below
-    /// [`GAUSSIAN_MIN_SAMPLE_SD`]; carries the observed sd and the threshold
-    /// so the message can be precise.
-    GaussianNearConstant { sample_sd: f64, min_sd: f64 },
 }
 
 /// Degenerate-response detail produced by
@@ -860,17 +905,6 @@ impl ResponseDegeneracy {
                  sample that includes both classes).",
                 family = self.family_label,
                 name = response_name,
-            ),
-            ResponseDegeneracyKind::GaussianNearConstant { sample_sd, min_sd } => format!(
-                "{family} response '{name}' is effectively constant (sample sd ≈ {sd:.3e} ≤ {floor:.0e}); \
-                 the marginal REML log-likelihood −n/2·log σ² diverges to +∞ as σ → 0. \
-                 Fix: check the response column units (is it being read in the right \
-                 scale?), centre/rescale the response, or drop the column if it carries \
-                 no signal.",
-                family = self.family_label,
-                name = response_name,
-                sd = sample_sd,
-                floor = min_sd,
             ),
         }
     }
@@ -1998,6 +2032,41 @@ impl GlmLikelihoodSpec {
             ResponseFamily::NegativeBinomial { theta, .. } => Some(theta),
             _ => None,
         }
+    }
+
+    /// Produce a copy of this spec with the Negative-Binomial overdispersion
+    /// `theta` PINNED at `theta` for the duration of the smoothing-parameter
+    /// (λ) search (#1082). Converts an `EstimatedNegBinTheta` spec into the
+    /// statistically-identical `FixedNegBinTheta` form (`theta_fixed = true`),
+    /// which gates off the per-inner-solve ML refresh in
+    /// `GamWorkingModel::update_with_curvature` (its guard is
+    /// `negbin_theta_is_estimated()`).
+    ///
+    /// Rationale: with θ estimated, the inner solver re-derives θ from each
+    /// outer iterate's *warm-start* η, so θ — and hence the NB working response,
+    /// deviance and penalty-logdet that feed the REML criterion — drifts every
+    /// outer evaluation. The outer optimizer then chases a moving target and the
+    /// projected-gradient convergence test never trips, grinding the loop to
+    /// `max_iter` (the #1082 negative-binomial tensor timeout). Holding θ fixed
+    /// across the λ-search makes the REML objective `F(ρ) = REML(ρ, θ_frozen)` a
+    /// genuine stationary function of ρ, so the loop converges in a handful of
+    /// iterations — and θ is still ML-refreshed at the single final, reported fit
+    /// (the `refine_dispersion_at_converged_eta = true` accept-fit), exactly as
+    /// the function-level docs require ("estimate the scale at the converged fit,
+    /// not inside the λ search; mgcv likewise"). No-op for non-NB families and
+    /// for an already user-fixed θ.
+    #[inline]
+    pub fn with_negbin_theta_frozen_for_search(mut self, theta: f64) -> Self {
+        if let ResponseFamily::NegativeBinomial {
+            theta: family_theta,
+            theta_fixed,
+        } = &mut self.spec.response
+        {
+            *family_theta = theta;
+            *theta_fixed = true;
+            self.scale = LikelihoodScaleMetadata::FixedNegBinTheta { theta };
+        }
+        self
     }
 }
 

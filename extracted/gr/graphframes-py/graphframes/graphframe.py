@@ -86,17 +86,17 @@ else:
         return False
 
 
-from graphframes.classic.graphframe import GraphFrame as GraphFrameClassic
 from graphframes.internal.utils import (
     _HASH2VEC_DECAY_FUNCTIONS,
     _RandomWalksEmbeddingsParameters,
 )
-from graphframes.lib import Pregel
 
 if TYPE_CHECKING:
     from pyspark.sql import Column, DataFrame
 
+    from graphframes.classic.graphframe import GraphFrame as GraphFrameClassic
     from graphframes.connect.graphframes_client import GraphFrameConnect
+    from graphframes.lib import Pregel
 
 """Constant for the vertices ID column name."""
 ID = "id"
@@ -177,6 +177,8 @@ class GraphFrame:
 
             self._impl = GraphFrameConnect(v, e)  # ty: ignore[invalid-argument-type]
         else:
+            from graphframes.classic.graphframe import GraphFrame as GraphFrameClassic
+
             self._impl = GraphFrameClassic(v, e)  # ty: ignore[invalid-argument-type]
 
     @property
@@ -845,7 +847,7 @@ class GraphFrame:
         See Scala documentation for more details.
 
         :param maxIter: the number of iterations to be performed
-        :param algorithm: implementation to use, posible values are "graphframes" and "graphx";
+        :param algorithm: implementation to use, possible values are "graphframes" and "graphx";
                           "graphx" is faster for small-medium sized graphs,
                           "graphframes" requires less amount of memory
         :param use_local_checkpoints: should local checkpoints be used, default false;
@@ -1003,7 +1005,7 @@ class GraphFrame:
         See Scala documentation for more details.
 
         :param landmarks: a set of one or more landmarks
-        :param algorithm: implementation to use, posible values are "graphframes" and "graphx";
+        :param algorithm: implementation to use, possible values are "graphframes" and "graphx";
                           "graphx" is faster for small-medium sized graphs,
                           "graphframes" requires less amount of memory
         :param use_local_checkpoints: should local checkpoints be used, default false;
@@ -1130,8 +1132,11 @@ class GraphFrame:
                                cost of memory. (default: 12).
         :return: A DataFrame containing the vertex "id" and the triangle "count".
         """  # noqa: E501
-        if (__version__[:3] < "4.1") and (algorithm == "approx"):
-            raise ValueError("approximate algorithm requires Spark 4.1+")
+        spark_version = self._impl._spark.version
+        if (spark_version[:3] < "4.1") and (algorithm == "approx"):
+            err_msg = "approximate algorithm requires Spark 4.1+"
+            err_msg += f" version {spark_version[:3]} is not supported"
+            raise ValueError(err_msg)
         return self._impl.triangleCount(
             storage_level=storage_level, algorithm=algorithm, log_nom_entries=lg_nom_entries
         )

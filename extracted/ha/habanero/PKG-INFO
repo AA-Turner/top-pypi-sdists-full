@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: habanero
-Version: 2.4.0
+Version: 2.9.2
 Summary: Low Level Client for Crossref Search API
 Project-URL: Homepage, https://github.com/sckott/habanero
 Project-URL: Documentation, https://habanero.readthedocs.io/
@@ -30,7 +30,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.10
-Requires-Dist: httpx>=0.28.1
+Requires-Dist: httpx2>=2.4.0
 Requires-Dist: packaging>=26.2
 Requires-Dist: tqdm>=4.67.3
 Requires-Dist: urllib3<3.0.0,>=2.7.0
@@ -47,35 +47,13 @@ This is a low level client for working with Crossref's search API. It's been nam
 
 `Crossref API docs <https://api.crossref.org/swagger-ui/index.html>`__
 
+`habanero docs <https://habanero.readthedocs.io/>`__
+
 Other Crossref API clients:
 
 - Ruby: `serrano`, `<https://github.com/sckott/serrano>`__
 
 Crossref's API issue tracker: https://crossref.atlassian.net/jira/software/c/projects/CR/issues/
-
-`habanero` includes three modules you can import as needed (or
-import all):
-
-`Crossref` - Crossref search API. The `Crossref` module includes methods matching Crossref API routes, and a few convenience methods for getting DOI agency and random DOIs:
-
-- `works` - `/works` route
-- `members` - `/members` route
-- `prefixes` - `/prefixes` route
-- `funders` - `/funders` route
-- `journals` - `/journals` route
-- `types` - `/types` route
-- `licenses` - `/licenses` route
-- `registration_agency` - get DOI minting agency
-- `random_dois` - get random set of DOIs
-
-`counts` - citation counts. Includes the single `citation_count` method
-
-`cn` - content negotiation. Includes the methods:
-
-- `content_negotiation` - get citations in a variety of formats
-- `csl_styles` - get CSL styles, used in `content_negotation` method
-
-`WorksContainer` - A class for handling Crossref works. Pass output of works from methods on the `Crossref` class to more easily extract specific fields of works.
 
 Note about searching:
 
@@ -131,54 +109,6 @@ Or build it yourself locally
     cd habanero
     make install
 
-Usage
-=====
-
-Initialize a client
-
-.. code-block:: python
-
-    from habanero import Crossref
-    cr = Crossref()
-
-Works route
-
-.. code-block:: python
-
-  # query
-  x = cr.works(query = "ecology")
-  x['message']
-  x['message']['total-results']
-  x['message']['items']
-
-  # fetch data by DOI
-  cr.works(ids = '10.1371/journal.pone.0033693')
-
-Members route
-
-.. code-block:: python
-
-  # ids here is the Crossref Member ID; 98 = Hindawi
-  cr.members(ids = 98, works = True)
-
-Citation counts
-
-.. code-block:: python
-
-  from habanero import counts
-  counts.citation_count(doi = "10.1016/j.fbr.2012.01.001")
-
-Content negotiation - get citations in many formats
-
-.. code-block:: python
-
-  from habanero import cn
-  cn.content_negotiation(ids = '10.1126/science.169.3946.635')
-  cn.content_negotiation(ids = '10.1126/science.169.3946.635', format = "citeproc-json")
-  cn.content_negotiation(ids = "10.1126/science.169.3946.635", format = "rdf-xml")
-  cn.content_negotiation(ids = "10.1126/science.169.3946.635", format = "text")
-  cn.content_negotiation(ids = "10.1126/science.169.3946.635", format = "text", style = "apa")
-  cn.content_negotiation(ids = "10.1126/science.169.3946.635", format = "bibentry")
 
 Meta
 ====

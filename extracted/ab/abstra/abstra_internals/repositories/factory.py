@@ -9,6 +9,7 @@ from abstra_internals.environment import (
     CLOUD_API_PROD_HEADERS,
     CLOUD_API_PROD_URL,
     RABBITMQ_CONNECTION_URI,
+    linter_sidecar_enabled,
 )
 from abstra_internals.repositories.ai import (
     AIRepository,
@@ -95,6 +96,20 @@ from abstra_internals.repositories.users import (
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
 
 
+def _build_editor_linter_repository() -> LinterRepository:
+    """Editor linting runs in a dedicated child process by default; the
+    ABSTRA_LINTER_SIDECAR kill-switch falls back to the in-process fan-out.
+    The sidecar spawns lazily on the first lint RPC, so building it here is
+    free for processes that never lint (executors, workers, tests)."""
+    if linter_sidecar_enabled():
+        from abstra_internals.repositories.linter.sidecar.client import (
+            SidecarLinterRepository,
+        )
+
+        return SidecarLinterRepository()
+    return LocalLinterRepository()
+
+
 def get_mp_context_repository() -> MPContextReposity:
     """Get the appropriate multiprocessing context repository based on environment variable."""
     import os
@@ -140,7 +155,7 @@ def build_editor_repositories(local_queue: Optional[Queue] = None):
         base_url=CLOUD_API_CLI_URL, base_headers_resolver=resolve_headers_raise
     )
 
-    linter = LocalLinterRepository()
+    linter = _build_editor_linter_repository()
 
     return Repositories(
         project=LocalProjectRepository(),
@@ -222,7 +237,7 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
         base_url=CLOUD_API_CLI_URL, base_headers_resolver=resolve_headers_raise
     )
 
-    linter = LocalLinterRepository()
+    linter = _build_editor_linter_repository()
     mp_context_repo = get_mp_context_repository()
 
     # Only tasks/execution/execution_logs differ between the two backends; the

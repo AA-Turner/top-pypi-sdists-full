@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::util::fnv::Fnv1a;
+use crate::families::fnv1a::Fnv1a;
 
 #[derive(Clone)]
 pub(super) struct BernoulliMarginalSlopeFamily {
@@ -19,7 +19,7 @@ pub(super) struct BernoulliMarginalSlopeFamily {
     /// joint psi calculus. Threaded from the fit entry point so large-scale
     /// runs pick up the caller's analytic-operator preference instead of an
     /// inline default.
-    pub(super) policy: crate::resource::ResourcePolicy,
+    pub(super) policy: crate::solver::resource::ResourcePolicy,
     /// Fit-lifetime byte-limited LRU for de-nested cubic cell moments. The key
     /// is the exact bit pattern of `(c0, c1, c2, c3, left, right)`, so reuse
     /// across PIRLS cycles is safe only for byte-identical cells while LRU
@@ -479,7 +479,7 @@ pub(super) fn append_deviation_function_penalty(
         runtime.integrated_derivative_penalty_with_nullity(derivative_order)?;
     block
         .penalties
-        .push(crate::solver::estimate::PenaltySpec::Dense(penalty));
+        .push(crate::model_types::PenaltySpec::Dense(penalty));
     block.nullspace_dims.push(nullity);
     Ok(())
 }

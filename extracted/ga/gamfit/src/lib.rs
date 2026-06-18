@@ -43,6 +43,12 @@
 
 include!(concat!(env!("OUT_DIR"), "/lint_errors.rs"));
 
+// `config_resolve` was extracted from `src/main/` so the CLI driver and the
+// Python FFI (gam-pyffi) can share the same JSON → FitConfig resolver; pull
+// the current crate in under the `gam` alias so the file can keep using
+// `gam::…` paths and stay drop-in for both compilation units.
+extern crate self as gam;
+
 #[macro_use]
 mod macros;
 
@@ -62,28 +68,51 @@ pub fn init_parallelism() {
     });
 }
 
-pub mod cache;
+#[path = "main/config_resolve.rs"]
 pub mod config_resolve;
 pub mod families;
 pub mod geometry;
 pub mod gpu;
-pub mod identifiability_diagnostics;
+pub mod identifiability;
 pub mod inference;
-pub mod kernels;
 pub mod linalg;
-pub(crate) mod parallel_strategy;
+pub mod model_types;
+/// Lower-layer outer-iteration row-subsampling/chunking primitives (RowSet,
+/// ARROW_ROW_CHUNK). Hosted at the crate root so `families` can name them
+/// without importing up into `solver`; `crate::solver::outer_subsample` is a
+/// back-compat re-export.
+pub mod outer_subsample;
+/// Lower-layer Pareto-smoothed importance-sampling primitive. Self-contained
+/// (no solver/inference deps); hosted at the crate root so `solver` and a
+/// relocated `rho_uncertainty` can depend on it downward (#1135).
+/// `crate::inference::psis` remains a back-compat re-export.
+pub mod psis;
+pub mod reml_contracts;
 pub mod report;
+/// Lower-layer resource-policy/materialization-budget types. Hosted at the
+/// crate root (not under `solver`) so the `families` layer can name them
+/// without importing *up* into `solver` (#1135). `crate::solver::resource`
+/// remains a back-compat re-export.
 pub mod resource;
-pub mod sae_identifiability;
+pub(crate) mod rho_prior_eval;
+/// Lower-layer ρ-uncertainty (PSIS-on-ρ) diagnostic. Depends only on the
+/// lower-layer `crate::psis`; hosted at the crate root so `solver` (its primary
+/// consumer) can depend on it downward instead of importing *up* into
+/// `inference` (#1135). `crate::inference::rho_uncertainty` remains a
+/// back-compat re-export.
+pub mod rho_uncertainty;
 pub mod solver;
-mod span;
-pub mod sparkline;
+/// Lower-layer outer-objective contract (the `OuterHessianOperator` trait,
+/// `OuterEval`/`HessianResult`/`EfsEval`, and the capability enums) that the
+/// `families` layer implements and returns. Hosted below `solver` so families
+/// do not import *up* into `crate::solver::rho_optimizer` (#1135).
+pub mod solver_contract;
 pub mod terms;
 pub mod test_support;
 pub mod types;
 pub mod util;
+pub mod warm_start;
 
-#[path = "heartbeat.rs"]
 pub mod process_monitor;
 
 pub use data::{encode_recordswith_inferred_schema, load_csvwith_inferred_schema};
@@ -96,7 +125,7 @@ pub use geometry::{
 pub use gpu::GpuPolicy;
 pub use inference::{
     alo, conformal, data, generative, higher_order, hmc, model_comparison, polya_gamma, predict,
-    probability, psis, quadrature, rho_posterior, rho_uncertainty, sample, smooth_test,
+    probability, quadrature, rho_posterior, sample, smooth_test,
 };
 pub use linalg::{faer_ndarray, matrix, utils};
 // #931-#935 criterion calculus: the profiled-criterion abstraction
@@ -107,15 +136,16 @@ pub use linalg::{faer_ndarray, matrix, utils};
 // deleted in the same commit). `PenaltySubspaceTrace` is the #901 spectral kernel
 // the logdet atom's `Sensitivity` is built from.
 pub use solver::estimate::reml::atoms::{
-    BetaChannel, CriterionAtom, CriterionSum, HessianLogdetAtom, SampledBlockAtom, Sensitivity,
-    StratumFingerprint, ThetaDirection,
+    BetaChannel, CriterionAtom, CriterionSum, HessianLogdetAtom, JeffreysLogdetAtom,
+    PenaltyQuadAtom, SampledBlockAtom, Sensitivity, StratumFingerprint, ThetaDirection,
 };
-pub use solver::estimate::reml::unified::PenaltySubspaceTrace;
+pub use solver::estimate::reml::reml_outer_engine::PenaltySubspaceTrace;
 // #986 frontier ρ-scaling: the per-atom decoupled EFS outer engine. `run_outer`
 // auto-routes to it at frontier rho dimension; callers with a known
 // arrow-border overlap drive `run_per_atom_efs` directly with an explicit
 // `SharedBorderTopology` (`new` for a named border set, `disjoint` /
 // `fully_coupled` for the two extremes).
+pub use outer_subsample::{OuterScoreSubsample, RowSet, WeightedOuterRow};
 pub use resource::{
     ByteLruCache, DerivativeStorageMode, MaterializationPolicy, MatrixMaterializationError,
     ProblemHints, ResidentBytes, ResourcePolicy,
@@ -126,21 +156,17 @@ pub use solver::estimate::reml::per_atom_efs::{
 pub use solver::{
     estimate, gaussian_reml, mixture_link, pirls, seeding, topology_selector, visualizer,
 };
-pub use terms::{basis, construction, hull, smooth, term_builder};
+pub use solver_contract::{
+    DeclaredHessianForm, Derivative, EfsEval, HessianResult, OuterEval,
+    OuterHessianMaterialization, OuterHessianOperator, OuterStrategyError,
+};
+pub use terms::{basis, construction, smooth, term_builder};
 
 pub use families::custom_family;
 pub use families::gamlss;
-pub use families::survival;
-pub use families::survival_construction;
-pub use families::survival_location_scale;
-pub use families::survival_marginal_slope;
-pub use families::survival_predict;
 pub use families::transformation_normal;
 pub use gpu::GpuDeviceInfo;
-pub use solver::protocol::{
-    LatentScoreSemantics, MarginalSlopeCalibrationProtocol, SurvivalMarginalSlopeProtocol,
-};
-pub use solver::workflow::{
+pub use solver::fit_orchestration::{
     BernoulliMarginalSlopeFitRequest, BinomialLocationScaleFitRequest, CrossFitScoreCalibration,
     CtnStage1Recipe, DispersionLocationScaleFitRequest, DispersionLocationScaleFitResult,
     FitConfig, FitRequest, FitResult, GaussianLocationScaleFitRequest, LatentBinaryFitRequest,
@@ -153,4 +179,7 @@ pub use solver::workflow::{
     fit_residual_cascade_from_formula, fit_spline_scan_from_formula, is_binary_response,
     materialize, prepare_survival_time_stack, residual_cascade_fast_path, resolve_family,
     resolve_offset_column, resolve_weight_column, spline_scan_fast_path,
+};
+pub use solver::protocol::{
+    LatentScoreSemantics, MarginalSlopeCalibrationProtocol, SurvivalMarginalSlopeProtocol,
 };

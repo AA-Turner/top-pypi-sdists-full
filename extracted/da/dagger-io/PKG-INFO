@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: dagger-io
-Version: 0.21.6
+Version: 0.21.7
 Summary: A client package for running Dagger pipelines in Python.
 Author: Dagger
 Author-email: Dagger <hello@dagger.io>

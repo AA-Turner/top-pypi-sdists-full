@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "click-extra"
-version = "7.19.0"
+version = "7.20.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -192,7 +192,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/kdeldycke/click-extra"
-"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.19.0"
+"Download" = "https://github.com/kdeldycke/click-extra/releases/tag/v7.20.0"
 "Changelog" = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 "Issues" = "https://github.com/kdeldycke/click-extra/issues"
 "Repository" = "https://github.com/kdeldycke/click-extra"
@@ -395,7 +395,7 @@ run.source = [ "click_extra" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "7.19.0"
+current_version = "7.20.0"
 allow_dirty = true
 ignore_missing_files = true
 # Parse versions with an optional .devN suffix (PEP 440).
@@ -534,6 +534,12 @@ exclude = [
 dependency-graph.all-extras = true
 dependency-graph.all-groups = false
 exclude = [ "skills", "workflows/debug.yaml" ]
+# Render the Click command tree as roff `.1` files and attach a
+# `click-extra-manpages.tar.gz` asset to every GitHub release. The script
+# target mirrors `click_extra_manpages` in `docs/conf.py`, so the release
+# tarball and the HTML docs site stay in lockstep. Requires repomatic
+# >= 6.25.0 in the release engine.
+manpages.script = "click_extra.cli:demo"
 # Custom axes for upstream dependency testing (full matrix only).
 test-matrix.variations.click-version = [ "released", "stable", "main" ]
 test-matrix.variations.cloup-version = [ "released", "master" ]

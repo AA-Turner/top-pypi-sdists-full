@@ -9,6 +9,7 @@ import QuantConnect.Data
 import QuantConnect.Data.Consolidators
 import QuantConnect.Data.Market
 import QuantConnect.Python
+import QuantConnect.Securities
 import System
 
 QuantConnect_Data_Consolidators_ClassicRenkoConsolidator = typing.Any
@@ -1973,6 +1974,206 @@ class Calendar(System.Object):
 
     YEARLY: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo]
     """Computes the start of year (1st of the current year) of given date/time"""
+
+
+class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators.IDataConsolidator):
+    """Consolidator for open markets bar only, extended hours bar are not consolidated."""
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """
+        The consolidation period requested
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def consolidator(self) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        The consolidator instance
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def exchange_hours(self) -> QuantConnect.Securities.SecurityExchangeHours:
+        """
+        The associated security exchange hours instance
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @exchange_hours.setter
+    def exchange_hours(self, value: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        ...
+
+    @property
+    def data_time_zone(self) -> typing.Any:
+        """
+        The associated data time zone
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @data_time_zone.setter
+    def data_time_zone(self, value: typing.Any) -> None:
+        ...
+
+    @property
+    def consolidated(self) -> QuantConnect.Data.IBaseData:
+        """
+        Gets the most recently consolidated piece of data. This will be null if this consolidator
+        has not produced any data yet.
+        """
+        ...
+
+    @property
+    def input_type(self) -> typing.Type:
+        """Gets the type consumed by this consolidator"""
+        ...
+
+    @property
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
+        ...
+
+    @property
+    def output_type(self) -> typing.Type:
+        """Gets the type produced by this consolidator"""
+        ...
+
+    @property
+    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
+        """Event handler that fires when a new piece of data is produced"""
+        ...
+
+    @data_consolidated.setter
+    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
+        ...
+
+    @overload
+    def __init__(self, daily_strict_end_time_enabled: bool, resolution: QuantConnect.Resolution, data_type: typing.Type, tick_type: QuantConnect.TickType, extended_market_hours: bool) -> None:
+        """
+        Initializes a new instance of the MarketHourAwareConsolidator class.
+        
+        :param resolution: The resolution.
+        :param data_type: The target data type
+        :param tick_type: The target tick type
+        :param extended_market_hours: True if extended market hours should be consolidated
+        """
+        ...
+
+    @overload
+    def __init__(self, daily_strict_end_time_enabled: bool, period: datetime.timedelta, data_type: typing.Type, tick_type: QuantConnect.TickType, extended_market_hours: bool) -> None:
+        """
+        Initializes a new instance of the MarketHourAwareConsolidator class for an arbitrary period.
+        Intraday periods are anchored to the market open without extending past the close.
+        
+        :param daily_strict_end_time_enabled: True if daily strict end times should be enabled
+        :param period: The consolidation period
+        :param data_type: The target data type
+        :param tick_type: The target tick type
+        :param extended_market_hours: True if extended market hours should be consolidated
+        """
+        ...
+
+    @overload
+    def create_consolidator(self, resolution: QuantConnect.Resolution, data_type: typing.Type, tick_type: QuantConnect.TickType) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Creates the inner consolidator that produces the requested data_type output.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def create_consolidator(self, calendar: typing.Callable[[datetime.datetime], QuantConnect.Data.Consolidators.CalendarInfo], data_type: typing.Type, tick_type: QuantConnect.TickType) -> QuantConnect.Data.Consolidators.IDataConsolidator:
+        """
+        Creates the underlying calendar based consolidator for the given data type, used for arbitrary periods
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def daily_strict_end_time(self, date_time: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Consolidators.CalendarInfo:
+        """
+        Determines a bar start time and period
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def forward_consolidated_bar(self, sender: typing.Any, consolidated: QuantConnect.Data.IBaseData) -> None:
+        """
+        Will forward the underlying consolidated bar to consumers on this object
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def initialize(self, data: QuantConnect.Data.IBaseData) -> None:
+        """
+        Perform late initialization based on the datas symbol
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def intraday_calendar(self, date_time: typing.Union[datetime.datetime, datetime.date]) -> QuantConnect.Data.Consolidators.CalendarInfo:
+        """
+        Determines a bar start time and period for intraday consolidation, anchored to the market open
+        without extending past the market close so a bar never spans across closed market hours
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets the consolidator"""
+        ...
+
+    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Scans this consolidator to see if it should emit a bar due to time passing
+        
+        :param current_local_time: The current time in the local time zone (same as QuantConnect.Data.BaseData.Time)
+        """
+        ...
+
+    def update(self, data: QuantConnect.Data.IBaseData) -> None:
+        """
+        Updates this consolidator with the specified data
+        
+        :param data: The new data for the consolidator
+        """
+        ...
+
+    def use_strict_end_time(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> bool:
+        """
+        Useful for testing
+        
+        
+        This Class is protected.
+        """
+        ...
 
 
 class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidatorBase[QuantConnect.Data.DynamicData]):

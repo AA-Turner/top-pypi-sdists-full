@@ -41,15 +41,28 @@ from .paginator import (
     ListPentestJobsForPentestPaginator,
     ListPentestJobTasksPaginator,
     ListPentestsPaginator,
+    ListPrivateConnectionsPaginator,
+    ListSecurityRequirementPacksPaginator,
+    ListSecurityRequirementsPaginator,
     ListTargetDomainsPaginator,
+    ListThreatModelJobsPaginator,
+    ListThreatModelJobTasksPaginator,
+    ListThreatModelsPaginator,
+    ListThreatsPaginator,
 )
 from .type_defs import (
     AddArtifactInputTypeDef,
     AddArtifactOutputTypeDef,
+    BatchCreateSecurityRequirementsInputTypeDef,
+    BatchCreateSecurityRequirementsOutputTypeDef,
     BatchDeleteCodeReviewsInputTypeDef,
     BatchDeleteCodeReviewsOutputTypeDef,
     BatchDeletePentestsInputTypeDef,
     BatchDeletePentestsOutputTypeDef,
+    BatchDeleteSecurityRequirementsInputTypeDef,
+    BatchDeleteSecurityRequirementsOutputTypeDef,
+    BatchDeleteThreatModelsInputTypeDef,
+    BatchDeleteThreatModelsOutputTypeDef,
     BatchGetAgentSpacesInputTypeDef,
     BatchGetAgentSpacesOutputTypeDef,
     BatchGetArtifactMetadataInputTypeDef,
@@ -68,8 +81,20 @@ from .type_defs import (
     BatchGetPentestJobTasksOutputTypeDef,
     BatchGetPentestsInputTypeDef,
     BatchGetPentestsOutputTypeDef,
+    BatchGetSecurityRequirementsInputTypeDef,
+    BatchGetSecurityRequirementsOutputTypeDef,
     BatchGetTargetDomainsInputTypeDef,
     BatchGetTargetDomainsOutputTypeDef,
+    BatchGetThreatModelJobsInputTypeDef,
+    BatchGetThreatModelJobsOutputTypeDef,
+    BatchGetThreatModelJobTasksInputTypeDef,
+    BatchGetThreatModelJobTasksOutputTypeDef,
+    BatchGetThreatModelsInputTypeDef,
+    BatchGetThreatModelsOutputTypeDef,
+    BatchGetThreatsInputTypeDef,
+    BatchGetThreatsOutputTypeDef,
+    BatchUpdateSecurityRequirementsInputTypeDef,
+    BatchUpdateSecurityRequirementsOutputTypeDef,
     CreateAgentSpaceInputTypeDef,
     CreateAgentSpaceOutputTypeDef,
     CreateApplicationRequestTypeDef,
@@ -81,16 +106,29 @@ from .type_defs import (
     CreateMembershipRequestTypeDef,
     CreatePentestInputTypeDef,
     CreatePentestOutputTypeDef,
+    CreatePrivateConnectionInputTypeDef,
+    CreatePrivateConnectionOutputTypeDef,
+    CreateSecurityRequirementPackInputTypeDef,
+    CreateSecurityRequirementPackOutputTypeDef,
     CreateTargetDomainInputTypeDef,
     CreateTargetDomainOutputTypeDef,
+    CreateThreatInputTypeDef,
+    CreateThreatModelInputTypeDef,
+    CreateThreatModelOutputTypeDef,
+    CreateThreatOutputTypeDef,
     DeleteAgentSpaceInputTypeDef,
     DeleteAgentSpaceOutputTypeDef,
     DeleteApplicationRequestTypeDef,
     DeleteArtifactInputTypeDef,
     DeleteIntegrationInputTypeDef,
     DeleteMembershipRequestTypeDef,
+    DeletePrivateConnectionInputTypeDef,
+    DeletePrivateConnectionOutputTypeDef,
+    DeleteSecurityRequirementPackInputTypeDef,
     DeleteTargetDomainInputTypeDef,
     DeleteTargetDomainOutputTypeDef,
+    DescribePrivateConnectionInputTypeDef,
+    DescribePrivateConnectionOutputTypeDef,
     EmptyResponseMetadataTypeDef,
     GetApplicationRequestTypeDef,
     GetApplicationResponseTypeDef,
@@ -98,6 +136,10 @@ from .type_defs import (
     GetArtifactOutputTypeDef,
     GetIntegrationInputTypeDef,
     GetIntegrationOutputTypeDef,
+    GetSecurityRequirementPackInputTypeDef,
+    GetSecurityRequirementPackOutputTypeDef,
+    ImportSecurityRequirementsInputTypeDef,
+    ImportSecurityRequirementsOutputTypeDef,
     InitiateProviderRegistrationInputTypeDef,
     InitiateProviderRegistrationOutputTypeDef,
     ListAgentSpacesInputTypeDef,
@@ -128,17 +170,34 @@ from .type_defs import (
     ListPentestJobTasksOutputTypeDef,
     ListPentestsInputTypeDef,
     ListPentestsOutputTypeDef,
+    ListPrivateConnectionsInputTypeDef,
+    ListPrivateConnectionsOutputTypeDef,
+    ListSecurityRequirementPacksInputTypeDef,
+    ListSecurityRequirementPacksOutputTypeDef,
+    ListSecurityRequirementsInputTypeDef,
+    ListSecurityRequirementsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
     ListTargetDomainsInputTypeDef,
     ListTargetDomainsOutputTypeDef,
+    ListThreatModelJobsInputTypeDef,
+    ListThreatModelJobsOutputTypeDef,
+    ListThreatModelJobTasksInputTypeDef,
+    ListThreatModelJobTasksOutputTypeDef,
+    ListThreatModelsInputTypeDef,
+    ListThreatModelsOutputTypeDef,
+    ListThreatsInputTypeDef,
+    ListThreatsOutputTypeDef,
     StartCodeRemediationInputTypeDef,
     StartCodeReviewJobInputTypeDef,
     StartCodeReviewJobOutputTypeDef,
     StartPentestJobInputTypeDef,
     StartPentestJobOutputTypeDef,
+    StartThreatModelJobInputTypeDef,
+    StartThreatModelJobOutputTypeDef,
     StopCodeReviewJobInputTypeDef,
     StopPentestJobInputTypeDef,
+    StopThreatModelJobInputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateAgentSpaceInputTypeDef,
@@ -151,8 +210,16 @@ from .type_defs import (
     UpdateIntegratedResourcesInputTypeDef,
     UpdatePentestInputTypeDef,
     UpdatePentestOutputTypeDef,
+    UpdatePrivateConnectionCertificateInputTypeDef,
+    UpdatePrivateConnectionCertificateOutputTypeDef,
+    UpdateSecurityRequirementPackInputTypeDef,
+    UpdateSecurityRequirementPackOutputTypeDef,
     UpdateTargetDomainInputTypeDef,
     UpdateTargetDomainOutputTypeDef,
+    UpdateThreatInputTypeDef,
+    UpdateThreatModelInputTypeDef,
+    UpdateThreatModelOutputTypeDef,
+    UpdateThreatOutputTypeDef,
     VerifyTargetDomainInputTypeDef,
     VerifyTargetDomainOutputTypeDef,
 )
@@ -170,6 +237,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
@@ -216,6 +284,16 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#add_artifact)
         """
 
+    def batch_create_security_requirements(
+        self, **kwargs: Unpack[BatchCreateSecurityRequirementsInputTypeDef]
+    ) -> BatchCreateSecurityRequirementsOutputTypeDef:
+        """
+        Batch creates security requirements in a customer managed pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_create_security_requirements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_create_security_requirements)
+        """
+
     def batch_delete_code_reviews(
         self, **kwargs: Unpack[BatchDeleteCodeReviewsInputTypeDef]
     ) -> BatchDeleteCodeReviewsOutputTypeDef:
@@ -234,6 +312,26 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_pentests.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_delete_pentests)
+        """
+
+    def batch_delete_security_requirements(
+        self, **kwargs: Unpack[BatchDeleteSecurityRequirementsInputTypeDef]
+    ) -> BatchDeleteSecurityRequirementsOutputTypeDef:
+        """
+        Batch deletes security requirements from a customer managed pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_security_requirements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_delete_security_requirements)
+        """
+
+    def batch_delete_threat_models(
+        self, **kwargs: Unpack[BatchDeleteThreatModelsInputTypeDef]
+    ) -> BatchDeleteThreatModelsOutputTypeDef:
+        """
+        Deletes one or more threat models from an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_delete_threat_models.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_delete_threat_models)
         """
 
     def batch_get_agent_spaces(
@@ -326,6 +424,16 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_pentests)
         """
 
+    def batch_get_security_requirements(
+        self, **kwargs: Unpack[BatchGetSecurityRequirementsInputTypeDef]
+    ) -> BatchGetSecurityRequirementsOutputTypeDef:
+        """
+        Batch retrieves security requirements from a pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_security_requirements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_security_requirements)
+        """
+
     def batch_get_target_domains(
         self, **kwargs: Unpack[BatchGetTargetDomainsInputTypeDef]
     ) -> BatchGetTargetDomainsOutputTypeDef:
@@ -334,6 +442,56 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_target_domains.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_target_domains)
+        """
+
+    def batch_get_threat_model_job_tasks(
+        self, **kwargs: Unpack[BatchGetThreatModelJobTasksInputTypeDef]
+    ) -> BatchGetThreatModelJobTasksOutputTypeDef:
+        """
+        Retrieves information about one or more tasks within a threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threat_model_job_tasks.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_threat_model_job_tasks)
+        """
+
+    def batch_get_threat_model_jobs(
+        self, **kwargs: Unpack[BatchGetThreatModelJobsInputTypeDef]
+    ) -> BatchGetThreatModelJobsOutputTypeDef:
+        """
+        Retrieves information about one or more threat model jobs in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threat_model_jobs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_threat_model_jobs)
+        """
+
+    def batch_get_threat_models(
+        self, **kwargs: Unpack[BatchGetThreatModelsInputTypeDef]
+    ) -> BatchGetThreatModelsOutputTypeDef:
+        """
+        Retrieves information about one or more threat models in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threat_models.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_threat_models)
+        """
+
+    def batch_get_threats(
+        self, **kwargs: Unpack[BatchGetThreatsInputTypeDef]
+    ) -> BatchGetThreatsOutputTypeDef:
+        """
+        Retrieves information about one or more threats.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_get_threats.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_get_threats)
+        """
+
+    def batch_update_security_requirements(
+        self, **kwargs: Unpack[BatchUpdateSecurityRequirementsInputTypeDef]
+    ) -> BatchUpdateSecurityRequirementsOutputTypeDef:
+        """
+        Batch updates security requirements within a customer managed pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/batch_update_security_requirements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#batch_update_security_requirements)
         """
 
     def create_agent_space(
@@ -396,6 +554,27 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_pentest)
         """
 
+    def create_private_connection(
+        self, **kwargs: Unpack[CreatePrivateConnectionInputTypeDef]
+    ) -> CreatePrivateConnectionOutputTypeDef:
+        """
+        Creates a private connection for reaching a self-hosted provider instance over
+        private networking using Amazon VPC Lattice.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_private_connection.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_private_connection)
+        """
+
+    def create_security_requirement_pack(
+        self, **kwargs: Unpack[CreateSecurityRequirementPackInputTypeDef]
+    ) -> CreateSecurityRequirementPackOutputTypeDef:
+        """
+        Creates a customer managed security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_security_requirement_pack.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_security_requirement_pack)
+        """
+
     def create_target_domain(
         self, **kwargs: Unpack[CreateTargetDomainInputTypeDef]
     ) -> CreateTargetDomainOutputTypeDef:
@@ -404,6 +583,26 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_target_domain)
+        """
+
+    def create_threat(
+        self, **kwargs: Unpack[CreateThreatInputTypeDef]
+    ) -> CreateThreatOutputTypeDef:
+        """
+        Creates a new threat under a threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_threat.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_threat)
+        """
+
+    def create_threat_model(
+        self, **kwargs: Unpack[CreateThreatModelInputTypeDef]
+    ) -> CreateThreatModelOutputTypeDef:
+        """
+        Creates a new threat model configuration in an agent space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/create_threat_model.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#create_threat_model)
         """
 
     def delete_agent_space(
@@ -452,6 +651,27 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_membership)
         """
 
+    def delete_private_connection(
+        self, **kwargs: Unpack[DeletePrivateConnectionInputTypeDef]
+    ) -> DeletePrivateConnectionOutputTypeDef:
+        """
+        Deletes a private connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_private_connection.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_private_connection)
+        """
+
+    def delete_security_requirement_pack(
+        self, **kwargs: Unpack[DeleteSecurityRequirementPackInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a customer managed security requirement pack and all its associated
+        security requirements.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_security_requirement_pack.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_security_requirement_pack)
+        """
+
     def delete_target_domain(
         self, **kwargs: Unpack[DeleteTargetDomainInputTypeDef]
     ) -> DeleteTargetDomainOutputTypeDef:
@@ -460,6 +680,16 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/delete_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#delete_target_domain)
+        """
+
+    def describe_private_connection(
+        self, **kwargs: Unpack[DescribePrivateConnectionInputTypeDef]
+    ) -> DescribePrivateConnectionOutputTypeDef:
+        """
+        Retrieves the details of a private connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/describe_private_connection.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#describe_private_connection)
         """
 
     def get_application(
@@ -488,6 +718,27 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_integration.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_integration)
+        """
+
+    def get_security_requirement_pack(
+        self, **kwargs: Unpack[GetSecurityRequirementPackInputTypeDef]
+    ) -> GetSecurityRequirementPackOutputTypeDef:
+        """
+        Retrieves information about a security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_security_requirement_pack.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_security_requirement_pack)
+        """
+
+    def import_security_requirements(
+        self, **kwargs: Unpack[ImportSecurityRequirementsInputTypeDef]
+    ) -> ImportSecurityRequirementsOutputTypeDef:
+        """
+        Imports security requirements from uploaded documents into a customer managed
+        security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/import_security_requirements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#import_security_requirements)
         """
 
     def initiate_provider_registration(
@@ -647,6 +898,36 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_pentests)
         """
 
+    def list_private_connections(
+        self, **kwargs: Unpack[ListPrivateConnectionsInputTypeDef]
+    ) -> ListPrivateConnectionsOutputTypeDef:
+        """
+        Lists the private connections in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_private_connections.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_private_connections)
+        """
+
+    def list_security_requirement_packs(
+        self, **kwargs: Unpack[ListSecurityRequirementPacksInputTypeDef]
+    ) -> ListSecurityRequirementPacksOutputTypeDef:
+        """
+        Lists all security requirement packs in the caller's account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_security_requirement_packs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_security_requirement_packs)
+        """
+
+    def list_security_requirements(
+        self, **kwargs: Unpack[ListSecurityRequirementsInputTypeDef]
+    ) -> ListSecurityRequirementsOutputTypeDef:
+        """
+        Lists security requirements within a pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_security_requirements.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_security_requirements)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
     ) -> ListTagsForResourceOutputTypeDef:
@@ -665,6 +946,46 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_target_domains.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_target_domains)
+        """
+
+    def list_threat_model_job_tasks(
+        self, **kwargs: Unpack[ListThreatModelJobTasksInputTypeDef]
+    ) -> ListThreatModelJobTasksOutputTypeDef:
+        """
+        Returns a paginated list of task summaries for the specified threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threat_model_job_tasks.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_threat_model_job_tasks)
+        """
+
+    def list_threat_model_jobs(
+        self, **kwargs: Unpack[ListThreatModelJobsInputTypeDef]
+    ) -> ListThreatModelJobsOutputTypeDef:
+        """
+        Returns a paginated list of threat model job summaries for the specified threat
+        model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threat_model_jobs.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_threat_model_jobs)
+        """
+
+    def list_threat_models(
+        self, **kwargs: Unpack[ListThreatModelsInputTypeDef]
+    ) -> ListThreatModelsOutputTypeDef:
+        """
+        Returns a paginated list of threat model summaries for the specified agent
+        space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threat_models.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_threat_models)
+        """
+
+    def list_threats(self, **kwargs: Unpack[ListThreatsInputTypeDef]) -> ListThreatsOutputTypeDef:
+        """
+        Returns a paginated list of threats for a threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_threats.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_threats)
         """
 
     def start_code_remediation(
@@ -697,6 +1018,16 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_pentest_job)
         """
 
+    def start_threat_model_job(
+        self, **kwargs: Unpack[StartThreatModelJobInputTypeDef]
+    ) -> StartThreatModelJobOutputTypeDef:
+        """
+        Starts a new threat model job for a threat model configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/start_threat_model_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#start_threat_model_job)
+        """
+
     def stop_code_review_job(
         self, **kwargs: Unpack[StopCodeReviewJobInputTypeDef]
     ) -> dict[str, Any]:
@@ -713,6 +1044,16 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_pentest_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#stop_pentest_job)
+        """
+
+    def stop_threat_model_job(
+        self, **kwargs: Unpack[StopThreatModelJobInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops a running threat model job.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/stop_threat_model_job.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#stop_threat_model_job)
         """
 
     def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
@@ -792,6 +1133,26 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_pentest)
         """
 
+    def update_private_connection_certificate(
+        self, **kwargs: Unpack[UpdatePrivateConnectionCertificateInputTypeDef]
+    ) -> UpdatePrivateConnectionCertificateOutputTypeDef:
+        """
+        Updates the certificate associated with a private connection.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_private_connection_certificate.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_private_connection_certificate)
+        """
+
+    def update_security_requirement_pack(
+        self, **kwargs: Unpack[UpdateSecurityRequirementPackInputTypeDef]
+    ) -> UpdateSecurityRequirementPackOutputTypeDef:
+        """
+        Updates a security requirement pack.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_security_requirement_pack.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_security_requirement_pack)
+        """
+
     def update_target_domain(
         self, **kwargs: Unpack[UpdateTargetDomainInputTypeDef]
     ) -> UpdateTargetDomainOutputTypeDef:
@@ -800,6 +1161,26 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_target_domain)
+        """
+
+    def update_threat(
+        self, **kwargs: Unpack[UpdateThreatInputTypeDef]
+    ) -> UpdateThreatOutputTypeDef:
+        """
+        Updates a threat.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_threat.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_threat)
+        """
+
+    def update_threat_model(
+        self, **kwargs: Unpack[UpdateThreatModelInputTypeDef]
+    ) -> UpdateThreatModelOutputTypeDef:
+        """
+        Updates an existing threat model configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/update_threat_model.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#update_threat_model)
         """
 
     def verify_target_domain(
@@ -968,8 +1349,85 @@ class SecurityAgentClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_private_connections"]
+    ) -> ListPrivateConnectionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_requirement_packs"]
+    ) -> ListSecurityRequirementPacksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_requirements"]
+    ) -> ListSecurityRequirementsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_target_domains"]
     ) -> ListTargetDomainsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_model_job_tasks"]
+    ) -> ListThreatModelJobTasksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_model_jobs"]
+    ) -> ListThreatModelJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threat_models"]
+    ) -> ListThreatModelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_threats"]
+    ) -> ListThreatsPaginator:
         """
         Create a paginator for an operation.
 

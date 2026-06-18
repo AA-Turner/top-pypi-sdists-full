@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import httpx
+import httpx2 as httpx
 import pytest
 
 from bumpversion.click_config import config_option, download_url, resolve_conf_location
@@ -105,10 +105,12 @@ class TestDownloadUrl:
     def test_download_url_request_error(self, mocker):
         """Should raise BadInputError for a RequestError."""
         # Arrange
-        mocker.patch("httpx.get", side_effect=httpx.RequestError("Request failed"))
+        mocker.patch("httpx2.get", side_effect=httpx.RequestError("Request failed"))
 
         # Act & Assert
-        with pytest.raises(BadInputError, match="Unable to download configuration from URL"):
+        with pytest.raises(
+            BadInputError, match="Unable to download configuration from URL"
+        ):
             download_url("http://example.com/config.txt")
 
     def test_download_url_http_status_error(self, mocker):
@@ -118,7 +120,7 @@ class TestDownloadUrl:
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
             "Error", request=mocker.Mock(), response=mock_response
         )
-        mocker.patch("httpx.get", return_value=mock_response)
+        mocker.patch("httpx2.get", return_value=mock_response)
 
         # Act & Assert
         with pytest.raises(BadInputError, match="Error response 404 while requesting"):

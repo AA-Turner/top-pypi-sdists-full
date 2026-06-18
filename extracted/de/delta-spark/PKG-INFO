@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: delta_spark
-Version: 4.2.0
+Version: 4.3.0
 Summary: Python APIs for using Delta Lake with Apache Spark
 Home-page: https://github.com/delta-io/delta/
 Author: The Delta Lake Project Authors

@@ -1,3 +1,5 @@
+from typing import no_type_check
+
 import pytest
 
 from habanero import Crossref
@@ -14,12 +16,13 @@ def test_filter_names():
     assert isinstance(res_works[0], str)
     assert isinstance(res_members, list)
     assert isinstance(res_members[0], str)
-    assert 3 == len(res_members)
+    assert len(res_members) == 3
     assert isinstance(res_funders, list)
     assert isinstance(res_funders[0], str)
-    assert 1 == len(res_funders)
+    assert len(res_funders) == 1
 
 
+@no_type_check
 def test_filter_names_errors():
     with pytest.raises(ValueError):
         cr.filter_names("adf")
@@ -36,6 +39,7 @@ def test_filter_details():
     assert isinstance(res_funders, dict)
 
 
+@no_type_check
 def test_filter_details_errors():
     with pytest.raises(ValueError):
         cr.filter_details("adf")

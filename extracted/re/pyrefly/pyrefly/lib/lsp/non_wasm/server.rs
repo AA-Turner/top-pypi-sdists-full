@@ -11,13 +11,9 @@ use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::hash_map::Entry;
 use std::hash::Hasher;
-use std::io::BufReader;
-use std::io::Stdin;
 use std::io::Write;
 use std::iter::once;
 use std::num::NonZeroUsize;
-#[cfg(unix)]
-use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -25,11 +21,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::Instant;
 
-use crossbeam_channel::Receiver;
 use crossbeam_channel::Sender;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -206,16 +200,16 @@ use lsp_types::request::WillRenameFiles;
 use lsp_types::request::WorkDoneProgressCreate;
 use lsp_types::request::WorkspaceConfiguration;
 use lsp_types::request::WorkspaceSymbolRequest;
-use pyrefly_build::SourceDatabase;
 use pyrefly_build::handle::Handle;
+use pyrefly_build::source_db::SourceDatabase;
 use pyrefly_config::config::ConfigSource;
 use pyrefly_config::error_kind::Severity;
 use pyrefly_python::PYTHON_EXTENSIONS;
+use pyrefly_python::ast::Ast;
 use pyrefly_python::module::TextRangeWithModule;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_name::ModuleNameWithKind;
 use pyrefly_python::module_path::ModulePath;
-use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::events::CategorizedEvents;
@@ -226,6 +220,7 @@ use pyrefly_util::interned_path::InternedPath;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::VecExt;
+use pyrefly_util::stdlib::is_python_stdlib_file;
 use pyrefly_util::task_heap::CancellationHandle;
 use pyrefly_util::task_heap::Cancelled;
 use pyrefly_util::telemetry::ActivityKey;
@@ -243,6 +238,7 @@ use pyrefly_util::telemetry::TelemetryServerState;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::ThreadPool;
 use pyrefly_util::watch_pattern::WatchPattern;
+use ruff_python_ast::name::Name;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -261,8 +257,6 @@ use vec1::Vec1;
 
 use crate::ModuleInfo;
 use crate::alt::types::class_metadata::ClassMro;
-use crate::binding::binding::BindingClass;
-use crate::binding::binding::KeyClass;
 use crate::binding::binding::KeyClassMro;
 use crate::binding::binding::KeyUndecoratedFunctionRange;
 use crate::commands::config_finder::ConfigConfigurerWrapper;
@@ -291,18 +285,16 @@ use crate::lsp::non_wasm::module_helpers::ThriftRemapper;
 use crate::lsp::non_wasm::module_helpers::handle_from_module_path;
 use crate::lsp::non_wasm::module_helpers::make_open_handle;
 use crate::lsp::non_wasm::module_helpers::module_info_to_uri;
+use crate::lsp::non_wasm::move_symbol_new_file::move_symbol_to_new_file_code_action;
 use crate::lsp::non_wasm::mru::CompletionMru;
 use crate::lsp::non_wasm::protocol::Message;
 use crate::lsp::non_wasm::protocol::Notification;
 use crate::lsp::non_wasm::protocol::Request;
 use crate::lsp::non_wasm::protocol::Response;
-use crate::lsp::non_wasm::protocol::read_lsp_message;
-use crate::lsp::non_wasm::protocol::write_lsp_message;
 use crate::lsp::non_wasm::queue::HeavyTaskQueue;
 use crate::lsp::non_wasm::queue::LspEvent;
 use crate::lsp::non_wasm::queue::LspQueue;
 use crate::lsp::non_wasm::safe_delete_file::safe_delete_file_code_action;
-use crate::lsp::non_wasm::stdlib::is_python_stdlib_file;
 use crate::lsp::non_wasm::stdlib::should_show_stdlib_error;
 use crate::lsp::non_wasm::transaction_manager::TransactionManager;
 use crate::lsp::non_wasm::type_error_display_status::TypeErrorDisplayStatus;
@@ -352,8 +344,20 @@ use crate::state::state::Transaction;
 use crate::state::subscriber::CompositeSubscriber;
 use crate::state::subscriber::PublishDiagnosticsSubscriber;
 use crate::state::subscriber::Subscriber;
+use crate::tsp::type_conversion::convert_type_with_resolvers;
 use crate::types::class::ClassDefIndex;
 use crate::types::class::ClassType;
+
+enum RequestError {
+    Cancelled,
+    Internal(String),
+}
+
+impl From<Cancelled> for RequestError {
+    fn from(Cancelled: Cancelled) -> Self {
+        RequestError::Cancelled
+    }
+}
 
 pub struct InitializeInfo {
     pub params: InitializeParams,
@@ -436,41 +440,55 @@ pub trait TspInterface: Send + Sync + 'static {
     /// (e.g. on the wrong platform).
     fn get_python_search_paths(&self, from_url: &Url) -> Result<Vec<String>, String>;
 
-    /// Return the inferred type at the given position in a file.
+    /// Compute the type at the given position and convert it to the TSP wire
+    /// format.
     ///
-    /// `uri` is a file URI string (e.g. `file:///path/to/file.py`).
-    /// `line` and `character` are zero-based positions within the file.
+    /// `uri` is a file URI string (e.g. `file:///path/to/file.py`); `line` and
+    /// `character` are zero-based. Every declaration location in the result is
+    /// resolved against the *same* transaction that computed the type. Because
+    /// computing a type already demands its `Stdlib`, that transaction is warm,
+    /// so the export lookups during conversion cannot hit a cold `get_stdlib`.
     ///
     /// Returns `None` when the URI cannot be resolved, the position is invalid,
     /// or no type information is available at that location.
-    fn get_type_at_position(
+    fn type_at_position(&self, uri: &str, line: u32, character: u32) -> Option<tsp_types::Type>;
+
+    /// Return the computed (inferred) type for a node spanning the given range,
+    /// converted to the TSP wire format.
+    ///
+    /// Unlike [`TspInterface::type_at_position`], which resolves the identifier
+    /// at a single position, this is range-aware: when the requested range
+    /// covers a whole call expression (e.g. `Foo()`), it returns the call's
+    /// result type rather than the callee's declaration sitting at the range's
+    /// start. Used by the TSP `getComputedType` endpoint, where the client
+    /// sends the full source range of the node it cares about. Falls back to
+    /// the position-based (declaration-preserving) lookup when the range is not
+    /// a call expression.
+    ///
+    /// `start_line`/`start_character` and `end_line`/`end_character` are the
+    /// zero-based bounds of the node range. As with [`type_at_position`],
+    /// declaration locations are resolved against the same warm transaction
+    /// that produced the type, so the export lookups cannot hit a cold
+    /// `get_stdlib`.
+    fn computed_type_at_range(
+        &self,
+        uri: &str,
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+    ) -> Option<tsp_types::Type>;
+
+    /// As [`TspInterface::type_at_position`], but returns the contextually
+    /// expected type — a call argument's parameter type, an annotated target's
+    /// declared type, etc. — falling back to the computed type where no
+    /// expected-type context applies.
+    fn expected_type_at_position(
         &self,
         uri: &str,
         line: u32,
         character: u32,
-    ) -> Option<pyrefly_types::types::Type>;
-
-    /// Resolve the source range of a function name from its `FuncDefIndex`.
-    ///
-    /// Uses the binding table to look up `KeyUndecoratedFunctionRange` for
-    /// the function's module, returning the `TextRange` of the function
-    /// name identifier. Returns `None` when the function has no
-    /// `FuncDefIndex` or the module's bindings are unavailable.
-    fn resolve_func_def_range(
-        &self,
-        func_id: &pyrefly_types::callable::FuncId,
-    ) -> Option<TextRange>;
-
-    /// Resolve an importable module to its backing filesystem path using the
-    /// import-resolution context of `source_uri`.
-    ///
-    /// Returns `None` when the source URI is invalid, cannot be mapped to a
-    /// path, or the target module cannot be resolved.
-    fn resolve_module_uri(
-        &self,
-        source_uri: &str,
-        module: &pyrefly_types::module::ModuleType,
-    ) -> Option<PathBuf>;
+    ) -> Option<tsp_types::Type>;
 
     /// Resolve a URI to a filesystem path.
     ///
@@ -484,283 +502,9 @@ pub trait TspInterface: Send + Sync + 'static {
     fn maybe_get_code_cell_index(&self, uri: &Url) -> Option<usize>;
 }
 
-pub struct Connection {
-    pub sender: Sender<Message>,
-    /// Channel receiver, only present for test connections created via
-    /// `Connection::memory()`. The test client reads from this to observe
-    /// messages sent by the server.
-    channel_receiver: Option<Receiver<Message>>,
-}
-
-/// Owns the message source for the LSP/TSP server. Either a crossbeam channel
-/// (used in tests via `Connection::memory()`) or a direct stdin reader (used in
-/// production via `Connection::stdio()`).
-///
-/// This is kept separate from `Connection` so the read side can take `&mut self`
-/// without requiring interior mutability — stdin is only ever read from one
-/// thread.
-pub enum MessageReader {
-    Channel(Receiver<Message>),
-    Stdio(BufReader<Stdin>),
-    /// A generic byte stream, used for IPC transports (Unix domain sockets,
-    /// Windows named pipes).
-    Stream(BufReader<Box<dyn std::io::Read + Send>>),
-}
-
-impl MessageReader {
-    /// Receive the next message, blocking until one is available.
-    /// Returns `None` if the connection is closed (channel disconnected or
-    /// stdin EOF).
-    pub fn recv(&mut self) -> Option<Message> {
-        match self {
-            MessageReader::Channel(r) => r.recv().ok(),
-            MessageReader::Stdio(r) => read_lsp_message(r).ok().flatten(),
-            MessageReader::Stream(r) => read_lsp_message(r).ok().flatten(),
-        }
-    }
-}
-
-pub struct IoThread {
-    writer: JoinHandle<std::io::Result<()>>,
-}
-
-#[cfg(windows)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum WindowsNamedPipeExpectedAccess {
-    Read,
-    Write,
-}
-
-#[cfg(windows)]
-impl WindowsNamedPipeExpectedAccess {
-    fn open(self, pipe_name: &str) -> std::io::Result<std::fs::File> {
-        use std::fs::OpenOptions;
-
-        let mut options = OpenOptions::new();
-        match self {
-            Self::Read => {
-                options.read(true);
-            }
-            Self::Write => {
-                options.write(true);
-            }
-        }
-        options.open(pipe_name)
-    }
-}
-
-#[cfg(windows)]
-fn open_windows_split_pipe_with<T>(
-    expected_access: WindowsNamedPipeExpectedAccess,
-    open_duplex: impl FnOnce() -> std::io::Result<T>,
-    open_expected: impl FnOnce(WindowsNamedPipeExpectedAccess) -> std::io::Result<T>,
-) -> std::io::Result<T> {
-    open_duplex().or_else(|_| open_expected(expected_access))
-}
-
-impl IoThread {
-    pub fn join(self) -> std::io::Result<()> {
-        match self.writer.join() {
-            Ok(result) => result,
-            Err(e) => std::panic::panic_any(e),
-        }
-    }
-}
-
-impl Connection {
-    fn from_ipc_streams(
-        writer_stream: Box<dyn Write + Send>,
-        reader_stream: Box<dyn std::io::Read + Send>,
-    ) -> (Self, MessageReader, IoThread) {
-        let (writer_sender, writer_receiver) = crossbeam_channel::unbounded();
-        let writer = std::thread::spawn(move || {
-            let mut output = writer_stream;
-            while let Ok(msg) = writer_receiver.recv() {
-                write_lsp_message(&mut output, msg)?;
-            }
-            Ok(())
-        });
-        (
-            Self {
-                sender: writer_sender,
-                channel_receiver: None,
-            },
-            MessageReader::Stream(BufReader::new(Box::new(reader_stream))),
-            IoThread { writer },
-        )
-    }
-
-    /// Create a connection that reads directly from stdin and writes to stdout.
-    /// Only the writer uses a background thread; reads happen inline in the
-    /// calling thread, eliminating a context switch per LSP message.
-    pub fn stdio() -> (Self, MessageReader, IoThread) {
-        let (writer_sender, writer_receiver) = crossbeam_channel::unbounded();
-        let writer = std::thread::spawn(move || {
-            let mut stdout = std::io::stdout().lock();
-            while let Ok(msg) = writer_receiver.recv() {
-                write_lsp_message(&mut stdout, msg)?
-            }
-            Ok(())
-        });
-        (
-            Self {
-                sender: writer_sender,
-                channel_receiver: None,
-            },
-            MessageReader::Stdio(BufReader::new(std::io::stdin())),
-            IoThread { writer },
-        )
-    }
-
-    /// Create a connection over a local IPC mechanism (Unix domain socket on
-    /// Unix, named pipe on Windows). The `pipe_name` is a socket path on Unix
-    /// or a pipe name on Windows (automatically prefixed with `\\.\pipe\`).
-    pub fn ipc(pipe_name: &str) -> std::io::Result<(Self, MessageReader, IoThread)> {
-        let (writer_stream, reader_stream) = Self::connect_ipc(pipe_name)?;
-        Ok(Self::from_ipc_streams(writer_stream, reader_stream))
-    }
-
-    /// Create a connection over IPC endpoints that may be provided either as
-    /// one full-duplex endpoint or as separate inbound and outbound endpoints.
-    pub fn ipc_split(
-        input_pipe_name: &str,
-        output_pipe_name: &str,
-    ) -> std::io::Result<(Self, MessageReader, IoThread)> {
-        let writer_stream = Self::connect_ipc_writer(output_pipe_name)?;
-        let reader_stream = Self::connect_ipc_reader(input_pipe_name)?;
-        Ok(Self::from_ipc_streams(writer_stream, reader_stream))
-    }
-
-    #[cfg(unix)]
-    fn connect_ipc(
-        pipe_name: &str,
-    ) -> std::io::Result<(Box<dyn Write + Send>, Box<dyn std::io::Read + Send>)> {
-        let stream = UnixStream::connect(pipe_name)?;
-        let reader = stream.try_clone()?;
-        Ok((Box::new(stream), Box::new(reader)))
-    }
-
-    #[cfg(unix)]
-    fn connect_ipc_reader(pipe_name: &str) -> std::io::Result<Box<dyn std::io::Read + Send>> {
-        Ok(Box::new(UnixStream::connect(pipe_name)?))
-    }
-
-    #[cfg(unix)]
-    fn connect_ipc_writer(pipe_name: &str) -> std::io::Result<Box<dyn Write + Send>> {
-        Ok(Box::new(UnixStream::connect(pipe_name)?))
-    }
-
-    #[cfg(windows)]
-    fn connect_ipc(
-        pipe_name: &str,
-    ) -> std::io::Result<(Box<dyn Write + Send>, Box<dyn std::io::Read + Send>)> {
-        let stream = Self::open_windows_named_pipe(pipe_name)?;
-        let reader = stream.try_clone()?;
-        Ok((Box::new(stream), Box::new(reader)))
-    }
-
-    #[cfg(windows)]
-    fn connect_ipc_reader(pipe_name: &str) -> std::io::Result<Box<dyn std::io::Read + Send>> {
-        Ok(Box::new(Self::open_windows_split_named_pipe(
-            pipe_name,
-            WindowsNamedPipeExpectedAccess::Read,
-        )?))
-    }
-
-    #[cfg(windows)]
-    fn connect_ipc_writer(pipe_name: &str) -> std::io::Result<Box<dyn Write + Send>> {
-        Ok(Box::new(Self::open_windows_split_named_pipe(
-            pipe_name,
-            WindowsNamedPipeExpectedAccess::Write,
-        )?))
-    }
-
-    #[cfg(windows)]
-    fn open_windows_named_pipe(pipe_name: &str) -> std::io::Result<std::fs::File> {
-        use std::fs::OpenOptions;
-
-        OpenOptions::new().read(true).write(true).open(pipe_name)
-    }
-
-    #[cfg(windows)]
-    fn open_windows_split_named_pipe(
-        pipe_name: &str,
-        expected_access: WindowsNamedPipeExpectedAccess,
-    ) -> std::io::Result<std::fs::File> {
-        // This workaround is needed because of a few limitations on Windows.
-        //
-        // Windows named pipes do not support synchronous concurrent reads and
-        // writes on the same handle, so we cannot use a single named pipe for
-        // full-duplex communication here. Windows does support concurrent
-        // reads and writes through async APIs, but Pyrefly has a synchronous
-        // codebase, so that approach is not available to us.
-        //
-        // There is also a Node.js limitation. To work around the Windows
-        // limitation, we support using two IPC channels separately for inbound
-        // and outbound communication, similar to stdin and stdout in stdio.
-        // However, Node.js does not allow creating a Windows IPC named pipe
-        // that is only inbound or only outbound; it always creates a
-        // full-duplex pipe. Also, we cannot know how the pipe was created
-        // until we open it.
-        //
-        // Because of these two constraints, we use this workaround on
-        // Windows: we first try to open the pipe with both read and write
-        // access. If that fails, we open it only with the expected access for
-        // clients that can create a named pipe with specific access permissions.
-        open_windows_split_pipe_with(
-            expected_access,
-            || Self::open_windows_named_pipe(pipe_name),
-            |expected_access| expected_access.open(pipe_name),
-        )
-    }
-
-    /// Create a connection from a transport specification string.
-    /// Supported values: `"stdio"` for stdin/stdout, or `"ipc://<name>"` for a
-    /// local socket / named pipe.
-    pub fn from_transport(transport: &str) -> std::io::Result<(Self, MessageReader, IoThread)> {
-        if transport == "stdio" {
-            return Ok(Self::stdio());
-        }
-
-        if let Some(pipe_name) = transport.strip_prefix("ipc://") {
-            return Self::ipc(pipe_name);
-        }
-
-        Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("Unsupported TSP transport: {transport}"),
-        ))
-    }
-
-    pub fn memory() -> ((Self, MessageReader), (Self, MessageReader)) {
-        let (s1, r1) = crossbeam_channel::unbounded();
-        let (s2, r2) = crossbeam_channel::unbounded();
-        (
-            (
-                Self {
-                    sender: s1,
-                    channel_receiver: Some(r2.clone()),
-                },
-                MessageReader::Channel(r2),
-            ),
-            (
-                Self {
-                    sender: s2,
-                    channel_receiver: Some(r1.clone()),
-                },
-                MessageReader::Channel(r1),
-            ),
-        )
-    }
-
-    /// Access the underlying channel receiver. Only available for
-    /// channel-based connections (tests).
-    pub fn channel_receiver(&self) -> &Receiver<Message> {
-        self.channel_receiver
-            .as_ref()
-            .expect("channel_receiver not available for stdio connections")
-    }
-}
+pub use super::connection::Connection;
+pub use super::connection::IoThread;
+pub use super::connection::MessageReader;
 
 struct ServerConnection(Connection);
 
@@ -1025,39 +769,11 @@ fn format_diagnostic_message_for_markdown(message: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::io;
-
     use lsp_types::CodeActionKind;
 
     use super::SOURCE_FIX_ALL_PYREFLY;
     use super::format_diagnostic_message_for_markdown;
     use super::matches_fix_all_kind;
-    use crate::lsp::non_wasm::protocol::Message;
-    use crate::lsp::non_wasm::protocol::Notification;
-
-    fn notification_message(method: &str) -> Message {
-        Message::Notification(Notification {
-            method: method.to_owned(),
-            params: serde_json::Value::Null,
-            activity_key: None,
-        })
-    }
-
-    fn assert_notification_method(message: Message, expected: &str) {
-        match message {
-            Message::Notification(notification) => {
-                assert_eq!(notification.method, expected);
-            }
-            other => panic!("expected notification, got {other:?}"),
-        }
-    }
-
-    fn expect_io_error<T>(result: io::Result<T>, message: &str) -> io::Error {
-        match result {
-            Ok(_) => panic!("{message}"),
-            Err(error) => error,
-        }
-    }
 
     #[test]
     fn test_format_diagnostic_message_for_markdown() {
@@ -1117,400 +833,6 @@ mod tests {
         )));
         assert!(!matches_fix_all_kind(&CodeActionKind::QUICKFIX));
         assert!(!matches_fix_all_kind(&CodeActionKind::REFACTOR_EXTRACT));
-    }
-    #[cfg(any(unix, windows))]
-    mod ipc_transport {
-        use std::io;
-        use std::io::BufReader;
-        use std::thread;
-
-        use super::super::Connection;
-        use super::assert_notification_method;
-        use super::expect_io_error;
-        use super::notification_message;
-        use crate::lsp::non_wasm::protocol::Message;
-        use crate::lsp::non_wasm::protocol::read_lsp_message;
-        use crate::lsp::non_wasm::protocol::write_lsp_message;
-
-        #[derive(Clone, Copy)]
-        enum SplitEndpointMode {
-            Duplex,
-            Directional,
-        }
-
-        #[cfg(unix)]
-        mod platform {
-            use std::io;
-            use std::net::Shutdown;
-            use std::os::unix::net::UnixListener;
-            use std::os::unix::net::UnixStream;
-
-            use tempfile::TempDir;
-
-            use super::SplitEndpointMode;
-
-            pub type PeerStream = UnixStream;
-
-            pub struct SingleEndpoint {
-                pub name: String,
-                listener: UnixListener,
-                _tempdir: TempDir,
-            }
-
-            pub struct SplitEndpoint {
-                pub input_name: String,
-                pub output_name: String,
-                mode: SplitEndpointMode,
-                input_listener: UnixListener,
-                output_listener: UnixListener,
-                _tempdir: TempDir,
-            }
-
-            pub struct MissingSplitOutputEndpoint {
-                pub input_name: String,
-                pub output_name: String,
-                _input_listener: UnixListener,
-                _tempdir: TempDir,
-            }
-
-            fn socket_name(tempdir: &TempDir, name: &str) -> String {
-                tempdir
-                    .path()
-                    .join(name)
-                    .to_str()
-                    .expect("temporary Unix socket path should be valid UTF-8")
-                    .to_owned()
-            }
-
-            pub fn single_endpoint(_label: &str) -> io::Result<SingleEndpoint> {
-                let tempdir = tempfile::tempdir()?;
-                let name = socket_name(&tempdir, "single.sock");
-                let listener = UnixListener::bind(&name)?;
-                Ok(SingleEndpoint {
-                    name,
-                    listener,
-                    _tempdir: tempdir,
-                })
-            }
-
-            pub fn accept_single_endpoint(endpoint: SingleEndpoint) -> io::Result<PeerStream> {
-                let (stream, _) = endpoint.listener.accept()?;
-                Ok(stream)
-            }
-
-            pub fn split_endpoint(
-                label: &str,
-                mode: SplitEndpointMode,
-            ) -> io::Result<SplitEndpoint> {
-                let tempdir = tempfile::tempdir()?;
-                let input_name = socket_name(&tempdir, &format!("{label}-i.sock"));
-                let output_name = socket_name(&tempdir, &format!("{label}-o.sock"));
-                let input_listener = UnixListener::bind(&input_name)?;
-                let output_listener = UnixListener::bind(&output_name)?;
-                Ok(SplitEndpoint {
-                    input_name,
-                    output_name,
-                    mode,
-                    input_listener,
-                    output_listener,
-                    _tempdir: tempdir,
-                })
-            }
-
-            pub fn accept_split_endpoint(
-                endpoint: SplitEndpoint,
-            ) -> io::Result<(PeerStream, PeerStream)> {
-                let (output_stream, _) = endpoint.output_listener.accept()?;
-                let (input_stream, _) = endpoint.input_listener.accept()?;
-                match endpoint.mode {
-                    SplitEndpointMode::Duplex => {}
-                    SplitEndpointMode::Directional => {
-                        input_stream.shutdown(Shutdown::Read)?;
-                        output_stream.shutdown(Shutdown::Write)?;
-                    }
-                }
-                Ok((input_stream, output_stream))
-            }
-
-            pub fn missing_endpoint_name(_label: &str) -> io::Result<String> {
-                let tempdir = tempfile::tempdir()?;
-                Ok(socket_name(&tempdir, "missing.sock"))
-            }
-
-            pub fn missing_split_output_endpoint() -> io::Result<MissingSplitOutputEndpoint> {
-                let tempdir = tempfile::tempdir()?;
-                let input_name = socket_name(&tempdir, "input.sock");
-                let output_name = socket_name(&tempdir, "missing-output.sock");
-                let input_listener = UnixListener::bind(&input_name)?;
-                Ok(MissingSplitOutputEndpoint {
-                    input_name,
-                    output_name,
-                    _input_listener: input_listener,
-                    _tempdir: tempdir,
-                })
-            }
-        }
-
-        #[cfg(windows)]
-        mod platform {
-            use std::ffi::OsStr;
-            use std::ffi::c_void;
-            use std::fs::File;
-            use std::io;
-            use std::os::windows::ffi::OsStrExt;
-            use std::os::windows::io::AsRawHandle;
-            use std::os::windows::io::FromRawHandle;
-            use std::ptr::null_mut;
-
-            use uuid::Uuid;
-
-            use super::SplitEndpointMode;
-
-            pub type PeerStream = File;
-
-            pub struct SingleEndpoint {
-                pub name: String,
-                pipe: File,
-            }
-
-            pub struct SplitEndpoint {
-                pub input_name: String,
-                pub output_name: String,
-                input_pipe: File,
-                output_pipe: File,
-            }
-
-            pub struct MissingSplitOutputEndpoint {
-                pub input_name: String,
-                pub output_name: String,
-                _input_pipe: File,
-            }
-
-            const ERROR_PIPE_CONNECTED: i32 = 535;
-            const PIPE_ACCESS_INBOUND: u32 = 0x0000_0001;
-            const PIPE_ACCESS_OUTBOUND: u32 = 0x0000_0002;
-            const PIPE_ACCESS_DUPLEX: u32 = 0x0000_0003;
-            const PIPE_TYPE_BYTE: u32 = 0x0000_0000;
-            const PIPE_READMODE_BYTE: u32 = 0x0000_0000;
-            const PIPE_WAIT: u32 = 0x0000_0000;
-            const INVALID_HANDLE_VALUE: *mut c_void = -1_isize as *mut c_void;
-
-            unsafe extern "system" {
-                fn CreateNamedPipeW(
-                    lp_name: *const u16,
-                    dw_open_mode: u32,
-                    dw_pipe_mode: u32,
-                    n_max_instances: u32,
-                    n_out_buffer_size: u32,
-                    n_in_buffer_size: u32,
-                    n_default_time_out: u32,
-                    lp_security_attributes: *mut c_void,
-                ) -> *mut c_void;
-
-                fn ConnectNamedPipe(h_named_pipe: *mut c_void, lp_overlapped: *mut c_void) -> i32;
-            }
-
-            fn pipe_name(label: &str) -> String {
-                format!(
-                    r"\\.\pipe\pyrefly-{label}-{}-{}",
-                    std::process::id(),
-                    Uuid::new_v4()
-                )
-            }
-
-            fn wide_null(value: &str) -> Vec<u16> {
-                OsStr::new(value).encode_wide().chain(Some(0)).collect()
-            }
-
-            fn create_named_pipe(pipe_name: &str, access: u32) -> io::Result<File> {
-                let pipe_name = wide_null(pipe_name);
-                let handle = unsafe {
-                    CreateNamedPipeW(
-                        pipe_name.as_ptr(),
-                        access,
-                        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-                        1,
-                        4096,
-                        4096,
-                        0,
-                        null_mut(),
-                    )
-                };
-                if handle == INVALID_HANDLE_VALUE {
-                    Err(io::Error::last_os_error())
-                } else {
-                    Ok(unsafe { File::from_raw_handle(handle) })
-                }
-            }
-
-            fn connect_named_pipe(pipe: &File) -> io::Result<()> {
-                let connected = unsafe { ConnectNamedPipe(pipe.as_raw_handle(), null_mut()) };
-                if connected != 0 {
-                    return Ok(());
-                }
-                let error = io::Error::last_os_error();
-                if error.raw_os_error() == Some(ERROR_PIPE_CONNECTED) {
-                    Ok(())
-                } else {
-                    Err(error)
-                }
-            }
-
-            pub fn single_endpoint(label: &str) -> io::Result<SingleEndpoint> {
-                let name = pipe_name(label);
-                let pipe = create_named_pipe(&name, PIPE_ACCESS_DUPLEX)?;
-                Ok(SingleEndpoint { name, pipe })
-            }
-
-            pub fn accept_single_endpoint(endpoint: SingleEndpoint) -> io::Result<PeerStream> {
-                connect_named_pipe(&endpoint.pipe)?;
-                Ok(endpoint.pipe)
-            }
-
-            pub fn split_endpoint(
-                label: &str,
-                mode: SplitEndpointMode,
-            ) -> io::Result<SplitEndpoint> {
-                let (input_access, output_access) = match mode {
-                    SplitEndpointMode::Duplex => (PIPE_ACCESS_DUPLEX, PIPE_ACCESS_DUPLEX),
-                    SplitEndpointMode::Directional => (PIPE_ACCESS_OUTBOUND, PIPE_ACCESS_INBOUND),
-                };
-                let input_name = pipe_name(&format!("{label}-input"));
-                let output_name = pipe_name(&format!("{label}-output"));
-                let input_pipe = create_named_pipe(&input_name, input_access)?;
-                let output_pipe = create_named_pipe(&output_name, output_access)?;
-                Ok(SplitEndpoint {
-                    input_name,
-                    output_name,
-                    input_pipe,
-                    output_pipe,
-                })
-            }
-
-            pub fn accept_split_endpoint(
-                endpoint: SplitEndpoint,
-            ) -> io::Result<(PeerStream, PeerStream)> {
-                connect_named_pipe(&endpoint.output_pipe)?;
-                connect_named_pipe(&endpoint.input_pipe)?;
-                Ok((endpoint.input_pipe, endpoint.output_pipe))
-            }
-
-            pub fn missing_endpoint_name(label: &str) -> io::Result<String> {
-                Ok(pipe_name(label))
-            }
-
-            pub fn missing_split_output_endpoint() -> io::Result<MissingSplitOutputEndpoint> {
-                let input_name = pipe_name("existing-input");
-                let output_name = pipe_name("missing-output");
-                let input_pipe = create_named_pipe(&input_name, PIPE_ACCESS_OUTBOUND)?;
-                Ok(MissingSplitOutputEndpoint {
-                    input_name,
-                    output_name,
-                    _input_pipe: input_pipe,
-                })
-            }
-        }
-
-        fn read_message_from_peer(
-            stream: platform::PeerStream,
-            missing_message: &str,
-        ) -> io::Result<Message> {
-            let mut reader = BufReader::new(stream);
-            read_lsp_message(&mut reader)?
-                .ok_or_else(|| io::Error::new(io::ErrorKind::UnexpectedEof, missing_message))
-        }
-
-        fn run_split_endpoint_test(mode: SplitEndpointMode, label: &str) -> io::Result<()> {
-            let endpoint = platform::split_endpoint(label, mode)?;
-            let input_name = endpoint.input_name.clone();
-            let output_name = endpoint.output_name.clone();
-            let peer = thread::spawn(move || -> io::Result<Message> {
-                let (mut input_stream, output_stream) = platform::accept_split_endpoint(endpoint)?;
-                write_lsp_message(&mut input_stream, notification_message("client/to/server"))?;
-                read_message_from_peer(output_stream, "expected a message on the output endpoint")
-            });
-
-            let (connection, mut reader, io_thread) =
-                Connection::ipc_split(&input_name, &output_name)?;
-            assert_notification_method(
-                reader
-                    .recv()
-                    .expect("expected a message from the input endpoint"),
-                "client/to/server",
-            );
-
-            connection
-                .sender
-                .send(notification_message("server/to/client"))
-                .expect("test connection should stay open");
-            drop(connection);
-            io_thread.join()?;
-
-            let outbound = peer.join().expect("split IPC peer panicked")?;
-            assert_notification_method(outbound, "server/to/client");
-            Ok(())
-        }
-
-        #[test]
-        fn test_ipc_single_endpoint_is_full_duplex() -> io::Result<()> {
-            let endpoint = platform::single_endpoint("single")?;
-            let name = endpoint.name.clone();
-            let peer = thread::spawn(move || -> io::Result<Message> {
-                let mut stream = platform::accept_single_endpoint(endpoint)?;
-                write_lsp_message(&mut stream, notification_message("client/to/server"))?;
-                read_message_from_peer(stream, "expected a message from the server writer")
-            });
-
-            let (connection, mut reader, io_thread) = Connection::ipc(&name)?;
-            assert_notification_method(
-                reader.recv().expect("expected a message from the peer"),
-                "client/to/server",
-            );
-
-            connection
-                .sender
-                .send(notification_message("server/to/client"))
-                .expect("test connection should stay open");
-            drop(connection);
-            io_thread.join()?;
-
-            let outbound = peer.join().expect("IPC peer panicked")?;
-            assert_notification_method(outbound, "server/to/client");
-            Ok(())
-        }
-
-        #[test]
-        fn test_ipc_split_uses_duplex_endpoints() -> io::Result<()> {
-            run_split_endpoint_test(SplitEndpointMode::Duplex, "duplex")
-        }
-
-        #[test]
-        fn test_ipc_split_uses_directional_endpoints() -> io::Result<()> {
-            run_split_endpoint_test(SplitEndpointMode::Directional, "directional")
-        }
-
-        #[test]
-        fn test_ipc_single_endpoint_reports_missing_endpoint() -> io::Result<()> {
-            let name = platform::missing_endpoint_name("missing-single")?;
-
-            let error = expect_io_error(Connection::ipc(&name), "missing endpoint should fail");
-
-            assert_eq!(error.kind(), io::ErrorKind::NotFound);
-            Ok(())
-        }
-
-        #[test]
-        fn test_ipc_split_reports_missing_output_endpoint() -> io::Result<()> {
-            let endpoint = platform::missing_split_output_endpoint()?;
-
-            let error = expect_io_error(
-                Connection::ipc_split(&endpoint.input_name, &endpoint.output_name),
-                "missing output endpoint should fail",
-            );
-
-            assert_eq!(error.kind(), io::ErrorKind::NotFound);
-            Ok(())
-        }
     }
 }
 
@@ -1897,17 +1219,21 @@ pub fn dispatch_lsp_events(server: &Server, reader: &mut MessageReader) {
     let _ = server.lsp_queue().send(LspEvent::Exit);
 }
 
-pub fn capabilities(
-    indexing_mode: IndexingMode,
-    initialization_params: &InitializeParams,
-) -> ServerCapabilitiesWithTypeHierarchy {
-    let augments_syntax_tokens = initialization_params
+fn client_augments_syntax_tokens(initialization_params: &InitializeParams) -> bool {
+    initialization_params
         .capabilities
         .text_document
         .as_ref()
         .and_then(|c| c.semantic_tokens.as_ref())
         .and_then(|c| c.augments_syntax_tokens)
-        .unwrap_or(false);
+        .unwrap_or(false)
+}
+
+pub fn capabilities(
+    indexing_mode: IndexingMode,
+    initialization_params: &InitializeParams,
+) -> ServerCapabilitiesWithTypeHierarchy {
+    let augments_syntax_tokens = client_augments_syntax_tokens(initialization_params);
 
     // Parse syncNotebooks from initialization options, defaults to true
     let sync_notebooks = initialization_params
@@ -1992,6 +1318,9 @@ pub fn capabilities(
             // syntax highlighting for tokens we don't provide, it will be a regression
             // (e.g. users might lose keyword highlighting).
             // Therefore, we should not produce semantic tokens if the client doesn't support `augments_syntax_tokens`.
+            // We now have an implementation path for a full semantic token stream that fills in
+            // syntax tokens, but we do not advertise that capability to non-augmenting clients yet.
+            // todo(kylei): enable semantic tokens to non-augmenting clients
             Some(SemanticTokensServerCapabilities::SemanticTokensOptions(
                 SemanticTokensOptions {
                     legend: SemanticTokensLegends::lsp_semantic_token_legends(),
@@ -2505,12 +1834,23 @@ impl Server {
                     let ruff_notebook =
                         params.notebook_document.to_ruff_notebook(&cell_contents)?;
                     let lsp_notebook = LspNotebook::new(ruff_notebook, notebook_document);
-                    let notebook_path = url.to_file_path().map_err(|_| {
-                        anyhow::anyhow!(
-                            "Could not convert uri to filepath: {}, expected a notebook",
-                            url
-                        )
-                    })?;
+                    let notebook_path = url
+                        .to_file_path()
+                        .or_else(|_| {
+                            if url.scheme() == "untitled" || url.scheme() == "inmemory" {
+                                Ok(self
+                                    .unsaved_file_tracker
+                                    .ensure_path_for_open(&url, "jupyter"))
+                            } else {
+                                Err(())
+                            }
+                        })
+                        .map_err(|_| {
+                            anyhow::anyhow!(
+                                "Could not convert uri to filepath: {}, expected a notebook",
+                                url
+                            )
+                        })?;
                     for cell_url in lsp_notebook.code_cell_urls() {
                         self.open_notebook_cells
                             .write()
@@ -2959,7 +2299,7 @@ impl Server {
                                 &params.query,
                                 telemetry,
                                 telemetry_event,
-                            ))),
+                            )?)),
                         ));
                     }
                 } else if let Some(params) = as_request::<DocumentDiagnosticRequest>(&x) {
@@ -3223,6 +2563,15 @@ impl Server {
             initialize_params.initialization_options.as_ref(),
         );
 
+        let dir_cache_enabled = initialize_params
+            .initialization_options
+            .as_ref()
+            .and_then(|opts| opts.get("pyrefly"))
+            .and_then(|pyrefly| pyrefly.get("experiments"))
+            .and_then(|exp| exp.get("dirEntryCache"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         let should_request_workspace_settings = initialize_params
             .capabilities
             .workspace
@@ -3240,7 +2589,7 @@ impl Server {
             indexing_mode,
             workspace_indexing_limit,
             build_system_blocking,
-            state: State::new(config_finder, thread_count),
+            state: State::new_with_options(config_finder, thread_count, dir_cache_enabled),
             open_notebook_cells: RwLock::new(HashMap::new()),
             open_files: RwLock::new(HashMap::new()),
             published_workspace_diagnostics: Mutex::new(HashMap::new()),
@@ -3300,6 +2649,10 @@ impl Server {
     }
 
     pub fn telemetry_state(&self) -> TelemetryServerState {
+        let mut active_experiments = Vec::new();
+        if self.state.dir_cache_enabled() {
+            active_experiments.push("dir_entry_cache".to_owned());
+        }
         TelemetryServerState {
             has_sourcedb: self.workspaces.sourcedb_available(),
             id: self.id,
@@ -3307,6 +2660,7 @@ impl Server {
             server_start_time: self.server_start_time,
             agent_session_id: self.agent_session_id.clone(),
             agent_invocation_id: self.agent_invocation_id.clone(),
+            active_experiments,
         }
     }
 
@@ -3951,18 +3305,19 @@ impl Server {
         info!("Populating all files in the config ({:?}).", config.source);
 
         let project_path_blobs = config.get_filtered_globs(None);
-        let paths = project_path_blobs.files().unwrap_or_default();
         let mut handles = Vec::new();
-        for path in paths {
-            let module_path = ModulePath::filesystem(path.clone());
-            let path_config = self
-                .state
-                .config_finder()
-                .python_file(ModuleNameWithKind::guaranteed(unknown), &module_path);
-            if config != path_config {
-                continue;
+        if let Ok(paths) = project_path_blobs.files_iter() {
+            for path in paths {
+                let module_path = ModulePath::filesystem(path.clone());
+                let path_config = self
+                    .state
+                    .config_finder()
+                    .python_file(ModuleNameWithKind::guaranteed(unknown), &module_path);
+                if config != path_config {
+                    continue;
+                }
+                handles.push(handle_from_module_path(&self.state, module_path));
             }
-            handles.push(handle_from_module_path(&self.state, module_path));
         }
 
         info!("Prepare to check {} files.", handles.len());
@@ -4000,15 +3355,14 @@ impl Server {
                 Some(workspace_root.as_path()),
                 HiddenDirFilter::RelativeTo(vec![workspace_root.clone()]),
             );
-            let paths = globs
-                .files_with_limit(self.workspace_indexing_limit)
-                .unwrap_or_default();
             let mut handles = Vec::new();
-            for path in paths {
-                handles.push(handle_from_module_path(
-                    &self.state,
-                    ModulePath::filesystem(path.clone()),
-                ));
+            if let Ok(paths) = globs.files_iter_with_limit(self.workspace_indexing_limit) {
+                for path in paths {
+                    handles.push(handle_from_module_path(
+                        &self.state,
+                        ModulePath::filesystem(path.clone()),
+                    ));
+                }
             }
 
             info!("Prepare to check {} files.", handles.len());
@@ -4339,15 +3693,17 @@ impl Server {
             notebook_document.metadata = Some(metadata.clone());
         }
         notebook_document.version = version;
+
+        // Track existing cell contents during both metdata-only (for kernel-switching) changes and cell-content changes
+        for cell in &notebook_document.cells {
+            let cell_contents = original_notebook
+                .get_cell_contents(&cell.document)
+                .unwrap_or_default();
+            cell_content_map.insert(cell.document.clone(), cell_contents);
+        }
+
         // Changes to cells
         if let Some(change) = &params.change.cells {
-            // Track existing cell contents
-            for cell in &notebook_document.cells {
-                let cell_contents = original_notebook
-                    .get_cell_contents(&cell.document)
-                    .unwrap_or_default();
-                cell_content_map.insert(cell.document.clone(), cell_contents);
-            }
             // Structural changes
             if let Some(structure) = &change.structure {
                 let start = structure.array.start as usize;
@@ -5080,8 +4436,13 @@ impl Server {
                 import_format,
                 Some(&self.lsp_thread_pool),
             ) {
-                actions.extend(quickfixes.into_iter().filter_map(
-                    |(title, info, range, insert_text)| {
+                actions.extend(quickfixes.into_iter().filter_map(|(title, edits)| {
+                    // A quick fix may carry more than one edit (e.g. the missing
+                    // `@override` fix inserts both the decorator and an import). Group
+                    // every edit by the document it targets into a single workspace edit
+                    // so the whole fix applies in one action.
+                    let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+                    for (info, range, insert_text) in edits {
                         let lsp_location = self.to_lsp_location(&TextRangeWithModule {
                             module: info.clone(),
                             range,
@@ -5118,23 +4479,21 @@ impl Server {
                                 }
                             }
                         };
-                        Some(CodeActionOrCommand::CodeAction(CodeAction {
-                            title,
-                            kind: Some(CodeActionKind::QUICKFIX),
-                            edit: Some(WorkspaceEdit {
-                                changes: Some(HashMap::from([(
-                                    edit_uri,
-                                    vec![TextEdit {
-                                        range: edit_range,
-                                        new_text: insert_text,
-                                    }],
-                                )])),
-                                ..Default::default()
-                            }),
+                        changes.entry(edit_uri).or_default().push(TextEdit {
+                            range: edit_range,
+                            new_text: insert_text,
+                        });
+                    }
+                    Some(CodeActionOrCommand::CodeAction(CodeAction {
+                        title,
+                        kind: Some(CodeActionKind::QUICKFIX),
+                        edit: Some(WorkspaceEdit {
+                            changes: Some(changes),
                             ..Default::default()
-                        }))
-                    },
-                ));
+                        }),
+                        ..Default::default()
+                    }))
+                }));
             }
             record_code_action_telemetry("quickfix", start);
         }
@@ -5275,6 +4634,10 @@ impl Server {
                 transaction.convert_star_import_code_actions(&handle, range)
             );
             timed_refactor_action!(
+                "convert_dict",
+                transaction.convert_dict_code_actions(&handle, range)
+            );
+            timed_refactor_action!(
                 "pytest_fixture_type_annotation",
                 transaction.pytest_fixture_type_annotation_code_actions(
                     &handle,
@@ -5289,6 +4652,19 @@ impl Server {
                 actions.push(action);
             }
             record_code_action_telemetry("convert_module_package", start);
+            let start = Instant::now();
+            if let Some(action) = move_symbol_to_new_file_code_action(
+                &self.initialize_params.capabilities,
+                transaction,
+                &handle,
+                uri,
+                range,
+                import_format,
+                self.path_remapper.as_ref(),
+            ) {
+                actions.push(action);
+            }
+            record_code_action_telemetry("move_symbol_new_file", start);
         }
         let start = Instant::now();
         if let Some(action) = safe_delete_file_code_action(
@@ -5320,18 +4696,11 @@ impl Server {
                 .find_local_references(&handle, position, true)
                 .into_map(|range| DocumentHighlight {
                     range: info.to_lsp_range(range),
-                    kind: Some(
-                        if transaction
-                            .identifier_at(&handle, range.start())
-                            .expect("local references should point at identifiers")
-                            .context
-                            .is_write()
-                        {
-                            DocumentHighlightKind::WRITE
-                        } else {
-                            DocumentHighlightKind::READ
-                        },
-                    ),
+                    kind: Some(match transaction.identifier_at(&handle, range.start()) {
+                        Some(id) if id.context.is_write() => DocumentHighlightKind::WRITE,
+                        Some(_) => DocumentHighlightKind::READ,
+                        None => DocumentHighlightKind::TEXT,
+                    }),
                 }),
         ))
     }
@@ -5360,7 +4729,7 @@ impl Server {
             FindDefinitionItemWithDocstring,
             &dyn Telemetry,
             &TelemetryEvent,
-        ) -> Result<T, Cancelled>
+        ) -> Result<T, RequestError>
         + Send
         + Sync
         + 'static,
@@ -5409,12 +4778,21 @@ impl Server {
                             Ok(Some(transform_result(results))),
                         )));
                     }
-                    Err(Cancelled) => {
+                    Err(RequestError::Cancelled) => {
                         let message = format!("Request {request_id} is canceled");
                         info!("{message}");
                         server.connection.send(Message::Response(Response::new_err(
                             request_id,
                             ErrorCode::RequestCanceled as i32,
+                            message,
+                        )));
+                    }
+                    Err(RequestError::Internal(detail)) => {
+                        let message = format!("Request {request_id} failed: {detail}");
+                        tracing::warn!("{message}");
+                        server.connection.send(Message::Response(Response::new_err(
+                            request_id,
+                            ErrorCode::InternalError as i32,
                             message,
                         )));
                     }
@@ -5490,12 +4868,14 @@ impl Server {
                         include_declaration,
                     );
 
-                    let external_results = ext_handle
-                        .map(|h| h.join().unwrap_or_default())
-                        .unwrap_or_default();
+                    let external_results = ext_handle.and_then(|h| h.join().ok());
                     (local_results, external_results)
                 });
 
+                let external_results = external_results
+                    .transpose()
+                    .map_err(|e| RequestError::Internal(e.to_string()))?
+                    .unwrap_or_default();
                 Ok((local_results?, external_results))
             },
             move |results: (Vec<(ModuleInfo, Vec<TextRange>)>, Vec<(Url, Vec<Range>)>)| {
@@ -5769,10 +5149,11 @@ impl Server {
         let uri = &params.text_document.uri;
         let maybe_cell_idx = self.maybe_get_code_cell_index(uri);
         let handle = self.make_handle_if_enabled(uri, Some(SemanticTokensFullRequest::METHOD))?;
+        let include_syntax_tokens = !client_augments_syntax_tokens(&self.initialize_params);
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
             data: transaction
-                .semantic_tokens(&handle, None, maybe_cell_idx)
+                .semantic_tokens(&handle, None, maybe_cell_idx, include_syntax_tokens)
                 .unwrap_or_default(),
         })))
     }
@@ -5789,10 +5170,11 @@ impl Server {
             .get_module_info(&handle)
             .ok_or(EmptyResponseReason::ModuleInfoNotFound)?;
         let range = self.from_lsp_range(uri, &module_info, params.range);
+        let include_syntax_tokens = !client_augments_syntax_tokens(&self.initialize_params);
         Ok(Some(SemanticTokensRangeResult::Tokens(SemanticTokens {
             result_id: None,
             data: transaction
-                .semantic_tokens(&handle, Some(range), maybe_cell_idx)
+                .semantic_tokens(&handle, Some(range), maybe_cell_idx, include_syntax_tokens)
                 .unwrap_or_default(),
         })))
     }
@@ -5837,7 +5219,7 @@ impl Server {
         query: &str,
         telemetry: &impl Telemetry,
         telemetry_event: &mut TelemetryEvent,
-    ) -> Vec<SymbolInformation> {
+    ) -> anyhow::Result<Vec<SymbolInformation>> {
         let external_provider = self.external_references.clone();
         let workspace_uri = self
             .initialize_params
@@ -5878,11 +5260,11 @@ impl Server {
                 })
                 .collect();
 
-            let external_results = ext_handle
-                .map(|h| h.join().unwrap_or_default())
-                .unwrap_or_default();
+            let external_results = ext_handle.and_then(|h| h.join().ok());
             (local_results, external_results)
         });
+
+        let external_results = external_results.transpose()?.unwrap_or_default();
 
         // Local results take priority; skip external results for files already covered.
         let local_uris: HashSet<Url> = local_results
@@ -5895,7 +5277,7 @@ impl Server {
                 merged.push(sym);
             }
         }
-        merged
+        Ok(merged)
     }
 
     fn append_unreachable_diagnostics(
@@ -5937,6 +5319,9 @@ impl Server {
         if let Some(bindings) = transaction.get_bindings(handle) {
             let module_info = bindings.module();
             for unused in bindings.unused_parameters() {
+                if Ast::is_intentionally_unused(unused.name.as_str()) {
+                    continue;
+                }
                 let lsp_range = module_info.to_lsp_range(unused.range);
                 items.push(Diagnostic {
                     range: lsp_range,
@@ -5985,6 +5370,9 @@ impl Server {
         if let Some(bindings) = transaction.get_bindings(handle) {
             let module_info = bindings.module();
             for unused in bindings.unused_variables() {
+                if Ast::is_intentionally_unused(unused.name.as_str()) {
+                    continue;
+                }
                 let lsp_range = module_info.to_lsp_range(unused.range);
                 items.push(Diagnostic {
                     range: lsp_range,
@@ -6436,14 +5824,14 @@ impl Server {
                 // Run local and external searches in parallel.
                 let (local_results, external_calls) = std::thread::scope(|s| {
                     let ext_handle = qualified_name.as_ref().map(|qname| {
-                        s.spawn(|| {
+                        s.spawn(|| -> anyhow::Result<_> {
                             let external_refs = external_references.find_references(
                                 qname,
                                 &source_uri,
                                 Duration::from_secs(10),
                                 Some(sub_task_telemetry),
-                            );
-                            convert_external_references_to_incoming_calls(external_refs)
+                            )?;
+                            Ok(convert_external_references_to_incoming_calls(external_refs))
                         })
                     });
 
@@ -6454,12 +5842,14 @@ impl Server {
                             &target_def,
                         );
 
-                    let external_calls = ext_handle
-                        .map(|h| h.join().unwrap_or_default())
-                        .unwrap_or_default();
+                    let external_calls = ext_handle.and_then(|h| h.join().ok());
                     (local_results, external_calls)
                 });
 
+                let external_calls = external_calls
+                    .transpose()
+                    .map_err(|e| RequestError::Internal(e.to_string()))?
+                    .unwrap_or_default();
                 Ok((local_results?, external_calls))
             },
             move |(local_callers, external_calls): (
@@ -6588,12 +5978,7 @@ impl Server {
         let ast = transaction.as_ref().get_ast(handle)?;
         let class_def = find_class_at_position_in_ast(&ast, definition.definition_range.start())?;
         let bindings = transaction.as_ref().get_bindings(handle)?;
-        let key = KeyClass(ShortIdentifier::new(&class_def.name));
-        let class_idx = bindings.key_to_idx_hashed_opt(Hashed::new(&key))?;
-        let def_index = match bindings.get(class_idx) {
-            BindingClass::ClassDef(class_binding) => class_binding.def_index,
-            BindingClass::FunctionalClassDef(def_index, ..) => *def_index,
-        };
+        let def_index = bindings.class_def_index(class_def)?;
         Some(TypeHierarchyTarget {
             def_index,
             module_path: definition.module.path().dupe(),
@@ -6654,13 +6039,8 @@ impl Server {
             let mut class_defs = Vec::new();
             collect_class_defs(ast.body.as_slice(), &mut class_defs);
             for class_def in class_defs {
-                let key = KeyClass(ShortIdentifier::new(&class_def.name));
-                let Some(class_idx) = bindings.key_to_idx_hashed_opt(Hashed::new(&key)) else {
+                let Some(class_def_index) = bindings.class_def_index(class_def) else {
                     continue;
-                };
-                let class_def_index = match bindings.get(class_idx) {
-                    BindingClass::ClassDef(class_binding) => class_binding.def_index,
-                    BindingClass::FunctionalClassDef(def_index, ..) => *def_index,
                 };
                 if class_def_index == target.def_index && module_info.path() == &target.module_path
                 {
@@ -6670,17 +6050,11 @@ impl Server {
                     true
                 } else {
                     let mro = solutions.get(&KeyClassMro(class_def_index));
-                    matches!(
-                        mro.as_ref(),
-                        ClassMro::Resolved(ancestors)
-                            if ancestors
-                                .iter()
-                                .any(|ancestor| {
-                                    let ancestor_class = ancestor.class_object();
-                                    ancestor_class.index() == target.def_index
-                                        && ancestor_class.module_path() == &target.module_path
-                                })
-                    )
+                    mro.ancestors_no_object().iter().any(|ancestor| {
+                        let ancestor_class = ancestor.class_object();
+                        ancestor_class.index() == target.def_index
+                            && ancestor_class.module_path() == &target.module_path
+                    })
                 };
                 if !is_subtype {
                     continue;
@@ -6791,7 +6165,8 @@ impl Server {
                 let mro = solutions.get(&KeyClassMro(target.def_index));
                 let stdlib = transaction.as_ref().get_stdlib(handle);
                 let mut items = Vec::new();
-                if let ClassMro::Resolved(ancestors) = mro.as_ref() {
+                // Skip the implicit trailing `object` for cyclic MROs.
+                if let ClassMro::Resolved { ancestors, .. } = mro.as_ref() {
                     for ancestor in ancestors {
                         if let Some(item) = type_hierarchy_item_from_class_type(ancestor) {
                             items.push(item);
@@ -6852,6 +6227,106 @@ impl Server {
             |items| items,
         )
     }
+
+    /// Open `uri` at `(line, character)`: resolve the path, build a handle, and
+    /// start a transaction, returning it alongside the handle and the resolved
+    /// in-file position.
+    fn open_at_position<'a>(
+        &'a self,
+        uri: &str,
+        line: u32,
+        character: u32,
+    ) -> Option<(Transaction<'a>, Handle, TextSize)> {
+        let url = Url::parse(uri)
+            .ok()
+            .or_else(|| Url::from_file_path(uri).ok())?;
+        let path = self.path_for_uri_or_notebook_cell(&url)?;
+        let notebook_cell = self.maybe_get_code_cell_index(&url);
+
+        let handle = make_open_handle(&self.state, &path);
+        let transaction = self.state.transaction();
+        let module_info = transaction.get_module_info(&handle)?;
+        let position =
+            module_info.from_lsp_position(lsp_types::Position { line, character }, notebook_cell);
+        Some((transaction, handle, position))
+    }
+
+    /// Convert `ty` to the TSP wire format, resolving every declaration location
+    /// against `transaction` — the same transaction that produced `ty`, reached
+    /// through `source_handle`'s import context.
+    ///
+    /// Reusing that transaction is what keeps conversion both cheap and correct:
+    /// computing `ty` already populated the transaction's `Stdlib`, so the
+    /// export lookups below cannot hit the cold `get_stdlib` path and need no
+    /// warm-up run; and a single transaction serves the whole query instead of
+    /// one per resolved symbol.
+    fn convert_type_in_transaction(
+        &self,
+        transaction: &Transaction,
+        source_handle: &Handle,
+        ty: &pyrefly_types::types::Type,
+    ) -> tsp_types::Type {
+        // A `Def` function's name range, looked up in its module's binding table.
+        // The handle reuses `source_handle`'s `SysInfo` (as `get_class_fields`
+        // does for cross-module lookups) so the function's module is found under
+        // the same `SysInfo` the transaction computed it with; re-deriving a
+        // config-default `SysInfo` would miss the module in a multi-`SysInfo`
+        // transaction and silently collapse the range to zero.
+        let resolve_func_range = |func_id: &pyrefly_types::callable::FuncId| {
+            let def_index = func_id.def_index?;
+            let handle = Handle::new(
+                func_id.module.name(),
+                func_id.module.path().dupe(),
+                source_handle.sys_info().dupe(),
+            );
+            let bindings = transaction.get_bindings(&handle)?;
+            let key = KeyUndecoratedFunctionRange(def_index);
+            let idx = bindings.key_to_idx_hashed_opt(Hashed::new(&key))?;
+            Some(bindings.get(idx).0.range())
+        };
+        // An importable module's backing filesystem path.
+        let resolve_module_path = |module: &pyrefly_types::module::ModuleType| {
+            let module_name = ModuleName::from_str(&module.to_string());
+            let finding = transaction
+                .import_handle(source_handle, module_name, None)
+                .finding()?;
+            let path = to_real_path(finding.path())?;
+            Some(path.canonicalize().unwrap_or(path))
+        };
+        // An exported symbol's original definition, following re-exports.
+        let resolve_export = |module_name: ModuleName, name: &Name| {
+            resolve_export_location(transaction, source_handle, module_name, name)
+        };
+        convert_type_with_resolvers(
+            ty,
+            Some(&resolve_func_range),
+            Some(&resolve_module_path),
+            Some(&resolve_export),
+        )
+    }
+}
+
+/// Resolve an exported symbol's original definition (following re-exports) to a
+/// `(ModulePath, Range)`, looked up in `transaction` from `source_handle`'s
+/// import context.
+///
+/// The target module is reached via `import_handle`, so it inherits
+/// `source_handle`'s `SysInfo` — the one whose `Stdlib` this transaction already
+/// computed. That keeps the export lookup on the warm `get_stdlib` path:
+/// re-deriving the handle from the module path would pick a config-derived
+/// `SysInfo` that was never computed, panicking in `get_stdlib` whenever the
+/// transaction holds more than one `SysInfo`.
+pub(crate) fn resolve_export_location(
+    transaction: &Transaction,
+    source_handle: &Handle,
+    module_name: ModuleName,
+    name: &Name,
+) -> Option<(ModulePath, lsp_types::Range)> {
+    let target_handle = transaction
+        .import_handle(source_handle, module_name, None)
+        .finding()?;
+    let (module, range) = transaction.lookup_export_location(&target_handle, name)?;
+    Some((module.path().dupe(), module.to_lsp_range(range)))
 }
 
 impl TspInterface for Server {
@@ -6962,12 +6437,24 @@ impl TspInterface for Server {
         Ok(paths)
     }
 
-    fn get_type_at_position(
+    fn type_at_position(&self, uri: &str, line: u32, character: u32) -> Option<tsp_types::Type> {
+        let (transaction, handle, position) = self.open_at_position(uri, line, character)?;
+        // For TSP, return the raw declared type without coercing callees in
+        // call position. This keeps the function's `Declaration::Regular`
+        // intact on the wire, which TSP clients need to re-resolve the
+        // signature (parameters, overloads) from source.
+        let ty = transaction.get_type_at_preserving_declaration(&handle, position)?;
+        Some(self.convert_type_in_transaction(&transaction, &handle, &ty))
+    }
+
+    fn computed_type_at_range(
         &self,
         uri: &str,
-        line: u32,
-        character: u32,
-    ) -> Option<pyrefly_types::types::Type> {
+        start_line: u32,
+        start_character: u32,
+        end_line: u32,
+        end_character: u32,
+    ) -> Option<tsp_types::Type> {
         let url = Url::parse(uri)
             .ok()
             .or_else(|| Url::from_file_path(uri).ok())?;
@@ -6977,43 +6464,43 @@ impl TspInterface for Server {
         let handle = make_open_handle(&self.state, &path);
         let transaction = self.state.transaction();
         let module_info = transaction.get_module_info(&handle)?;
-        let position =
-            module_info.from_lsp_position(lsp_types::Position { line, character }, notebook_cell);
-        transaction.get_type_at(&handle, position)
+        let start = module_info.from_lsp_position(
+            lsp_types::Position {
+                line: start_line,
+                character: start_character,
+            },
+            notebook_cell,
+        );
+        let end = module_info.from_lsp_position(
+            lsp_types::Position {
+                line: end_line,
+                character: end_character,
+            },
+            notebook_cell,
+        );
+        let range = TextRange::new(start, end);
+        // Range-aware lookup: a whole call-expression range resolves to the
+        // call's result type, other ranges to the declaration-preserving type.
+        // Convert against the *same* transaction that produced `ty`, so export
+        // location resolution stays warm and cannot hit a cold `get_stdlib`.
+        let ty = transaction.get_computed_type_at_range(&handle, range)?;
+        Some(self.convert_type_in_transaction(&transaction, &handle, &ty))
     }
 
-    fn resolve_func_def_range(
+    fn expected_type_at_position(
         &self,
-        func_id: &pyrefly_types::callable::FuncId,
-    ) -> Option<TextRange> {
-        let def_index = func_id.def_index?;
-        let handle = handle_from_module_path(&self.state, func_id.module.path().dupe());
-        let transaction = self.state.transaction();
-        let bindings = transaction.get_bindings(&handle)?;
-        let key = KeyUndecoratedFunctionRange(def_index);
-        let idx = bindings.key_to_idx_hashed_opt(Hashed::new(&key))?;
-        Some(bindings.get(idx).0.range())
-    }
-
-    fn resolve_module_uri(
-        &self,
-        source_uri: &str,
-        module: &pyrefly_types::module::ModuleType,
-    ) -> Option<PathBuf> {
-        let url = Url::parse(source_uri)
-            .ok()
-            .or_else(|| Url::from_file_path(source_uri).ok())?;
-        let source_path = self.path_for_uri_or_notebook_cell(&url)?;
-
-        let source_handle = make_open_handle(&self.state, &source_path);
-        let transaction = self.state.transaction();
-        let module_name = ModuleName::from_str(&module.to_string());
-        let finding = transaction
-            .import_handle(&source_handle, module_name, None)
-            .finding()?;
-
-        let path = to_real_path(finding.path())?;
-        Some(path.canonicalize().unwrap_or(path))
+        uri: &str,
+        line: u32,
+        character: u32,
+    ) -> Option<tsp_types::Type> {
+        let (transaction, handle, position) = self.open_at_position(uri, line, character)?;
+        // Prefer the contextually expected type; fall back to the computed type
+        // (preserving declarations) so the result is meaningful even outside an
+        // expected-type context.
+        let ty = transaction
+            .get_expected_type_at(&handle, position)
+            .or_else(|| transaction.get_type_at_preserving_declaration(&handle, position))?;
+        Some(self.convert_type_in_transaction(&transaction, &handle, &ty))
     }
 
     fn resolve_uri_to_path(&self, uri: &Url) -> Option<PathBuf> {

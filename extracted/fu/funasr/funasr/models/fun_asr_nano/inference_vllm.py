@@ -175,6 +175,13 @@ class FunASRNanoVLLM:
         self.device = device
         self.dtype = dtype
         self.torch_dtype = dtype_map.get(dtype, torch.bfloat16)
+        if self.torch_dtype == torch.float16:
+            logger.warning(
+                "dtype='fp16' can produce degraded or garbage transcription for "
+                "Fun-ASR-Nano (numerical overflow in the audio embedding path). "
+                "Use dtype='bf16' (recommended) or dtype='fp32'. On GPUs without "
+                "bfloat16 support (e.g. NVIDIA V100), use 'fp32'."
+            )
         self.model_dir = model_dir
 
         # Step 1: Prepare LLM weights for vLLM (extract from model.pt if needed)
@@ -527,6 +534,8 @@ class FunASRNanoVLLM:
         except ImportError:
             from vllm.inputs.data import EmbedsPrompt
 
+        from funasr.models.fun_asr_nano.vllm_utils import resolve_repetition_penalty
+
         if isinstance(inputs, (str, np.ndarray, torch.Tensor)):
             inputs = [inputs]
 
@@ -535,7 +544,8 @@ class FunASRNanoVLLM:
             temperature=temperature,
             top_p=top_p,
             top_k=top_k if top_k > 0 else -1,
-            repetition_penalty=repetition_penalty,
+            # Prompt-embeds mode has no token IDs to penalize; see #2948.
+            repetition_penalty=resolve_repetition_penalty(repetition_penalty),
             skip_special_tokens=True,
         )
 

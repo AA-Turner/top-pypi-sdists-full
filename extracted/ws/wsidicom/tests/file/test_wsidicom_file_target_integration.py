@@ -12,18 +12,18 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, List
 
 import pytest
 from PIL import ImageChops, ImageFilter, ImageStat
-from pydicom.uid import generate_uid
 
 from tests.conftest import WsiTestDefinitions
 from wsidicom import WsiDicom
 from wsidicom.codec import Jpeg2kSettings, JpegSettings, Settings
 from wsidicom.codec.encoder import Encoder
 from wsidicom.file import OffsetTableType, WsiDicomFileTarget
+from wsidicom.metadata.uid_generator import CallableUidGenerator
 from wsidicom.series import Pyramid, Pyramids
 from wsidicom.tags import LossyImageCompressionMethodTag, LossyImageCompressionRatioTag
 
@@ -32,7 +32,11 @@ from wsidicom.tags import LossyImageCompressionMethodTag, LossyImageCompressionR
 class TestWsiDicomFileTargetIntegration:
     @pytest.mark.parametrize("wsi_name", WsiTestDefinitions.wsi_names("full"))
     def test_save_levels(
-        self, wsi_name: str, wsi_factory: Callable[[str], WsiDicom], tmp_path: Path
+        self,
+        wsi_name: str,
+        wsi_factory: Callable[[str], WsiDicom],
+        tmp_path: Path,
+        uid_generator: CallableUidGenerator,
     ):
         # Arrange
         wsi = wsi_factory(wsi_name)
@@ -40,9 +44,16 @@ class TestWsiDicomFileTargetIntegration:
 
         # Act
         with WsiDicomFileTarget(
-            tmp_path, generate_uid, 1, 16, OffsetTableType.BASIC, None, None, False
+            tmp_path,
+            uid_generator,
+            1,
+            16,
+            OffsetTableType.BASIC,
+            None,
+            None,
+            False,
         ) as target:
-            target.save_pyramids(wsi.pyramids, True)
+            target.save(wsi.pyramids, None, None, True)
 
         # Assert
         with WsiDicom.open(tmp_path) as saved_wsi:
@@ -55,7 +66,8 @@ class TestWsiDicomFileTargetIntegration:
         wsi_name: str,
         wsi_factory: Callable[[str], WsiDicom],
         tmp_path: Path,
-        include_levels: List[int],
+        include_levels: list[int],
+        uid_generator: CallableUidGenerator,
     ):
         # Arrange
         wsi = wsi_factory(wsi_name)
@@ -63,15 +75,15 @@ class TestWsiDicomFileTargetIntegration:
         # Act
         with WsiDicomFileTarget(
             tmp_path,
-            generate_uid,
+            uid_generator,
             1,
-            16,
+            None,
             OffsetTableType.BASIC,
             None,
             include_levels,
             False,
         ) as target:
-            target.save_pyramids(wsi.pyramids, True)
+            target.save(wsi.pyramids, None, None, True)
 
         # Assert
         with WsiDicom.open(tmp_path) as saved_wsi:
@@ -87,6 +99,7 @@ class TestWsiDicomFileTargetIntegration:
         tmp_path: Path,
         settings: Settings,
         force_transcoding: bool,
+        uid_generator: CallableUidGenerator,
     ):
         # Arrange
         wsi = wsi_factory(wsi_name)
@@ -101,9 +114,9 @@ class TestWsiDicomFileTargetIntegration:
         # Act
         with WsiDicomFileTarget(
             tmp_path,
-            generate_uid,
+            uid_generator,
             1,
-            16,
+            None,
             OffsetTableType.BASIC,
             None,
             [-1],
@@ -111,7 +124,7 @@ class TestWsiDicomFileTargetIntegration:
             transcoder,
             force_transcoding,
         ) as target:
-            target.save_pyramids(wsi.pyramids, True)
+            target.save(wsi.pyramids, None, None, True)
 
         # Assert
         with WsiDicom.open(tmp_path) as saved_wsi:
@@ -156,6 +169,7 @@ class TestWsiDicomFileTargetIntegration:
         wsi_name: str,
         wsi_factory: Callable[[str], WsiDicom],
         tmp_path: Path,
+        uid_generator: CallableUidGenerator,
     ):
         # Arrange
         wsi = wsi_factory(wsi_name)
@@ -170,9 +184,16 @@ class TestWsiDicomFileTargetIntegration:
 
         # Act
         with WsiDicomFileTarget(
-            tmp_path, generate_uid, 1, 16, OffsetTableType.BASIC, None, None, True
+            tmp_path,
+            uid_generator,
+            1,
+            16,
+            OffsetTableType.BASIC,
+            None,
+            None,
+            True,
         ) as target:
-            target.save_pyramids(pyramids, True)
+            target.save(pyramids, None, None, True)
 
         # Assert
         with WsiDicom.open(tmp_path) as saved_wsi:
@@ -190,33 +211,47 @@ class TestWsiDicomFileTargetIntegration:
         wsi_name: str,
         wsi_factory: Callable[[str], WsiDicom],
         tmp_path: Path,
+        uid_generator: CallableUidGenerator,
     ):
-        # Arrange
+        # Arrange — create a pyramid missing the smallest levels so that
+        # add_missing_levels generates downsampled children.
         wsi = wsi_factory(wsi_name)
-        target_level = wsi.pyramids[0][-2]
-        source_level = wsi.pyramids[0][-3]
+        pyramid = wsi.pyramids[0]
+        tile_size = pyramid.tile_size
+        levels_larger_than_tile = [
+            level for level in pyramid if level.size.any_greater_than(tile_size)
+        ]
+        if len(levels_larger_than_tile) < 2:
+            pytest.skip("Not enough multi-tile levels for test")
+
+        # Keep only multi-tile levels — child levels will be generated
+        pyramid_missing_smallest = Pyramid(levels_larger_than_tile, [])
+        pyramids = Pyramids([pyramid_missing_smallest])
 
         # Act
         with WsiDicomFileTarget(
             tmp_path,
-            generate_uid,
+            uid_generator,
             1,
-            100,
+            None,
             OffsetTableType.BASIC,
             None,
             None,
-            False,
+            True,
         ) as target:
-            target._save_and_open_level(source_level, wsi.pyramids[0].pixel_spacing, 2)
+            target.save(pyramids, None, None, False)
 
-        # Assert
+        # Assert — verify a generated child level is visually close
         with WsiDicom.open(tmp_path) as created_wsi:
-            created_size = created_wsi.pyramids[0][0].size.to_tuple()
-            target_size = target_level.size.to_tuple()
-            assert created_size == target_size
+            assert len(created_wsi.pyramids[0]) > len(levels_larger_than_tile)
+            # The first generated level should be the single-tile level
+            last_source = levels_larger_than_tile[-1]
+            child_level_idx = last_source.level + 1
+            created_level = created_wsi.pyramids[0].get(child_level_idx)
+            created_size = created_level.size.to_tuple()
 
-            created = created_wsi.read_region((0, 0), 0, created_size)
-            original = wsi.read_region((0, 0), target_level.level, target_size)
+            created = created_wsi.read_region((0, 0), child_level_idx, created_size)
+            original = wsi.read_region((0, 0), child_level_idx, created_size)
             blur = ImageFilter.GaussianBlur(2)
             diff = ImageChops.difference(created.filter(blur), original.filter(blur))
             for band_rms in ImageStat.Stat(diff).rms:

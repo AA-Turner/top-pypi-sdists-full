@@ -1,4 +1,3 @@
-
 #[pyfunction(signature = (
     t,
     y,
@@ -422,8 +421,16 @@ fn latent_glm_family_from_str(
             InverseLink::Standard(StandardLink::Log),
         )),
         "tweedie" | "tweedie-log" => {
-            if !tweedie_p.is_finite() {
-                return Err(format!("tweedie_p must be finite; got {tweedie_p}"));
+            // The compound-Poisson-Gamma Tweedie variance power must lie
+            // strictly in (1, 2); outside that range the unit-deviance and
+            // working-response formulas are undefined and the downstream
+            // solver bails with a NaN deviance. Validate eagerly here (mirror
+            // of the negbin/beta nuisance-parameter checks below) so the user
+            // sees an actionable error instead of an opaque fit failure.
+            if !gam::types::is_valid_tweedie_power(tweedie_p) {
+                return Err(format!(
+                    "tweedie_p must be finite and strictly between 1 and 2; got {tweedie_p}"
+                ));
             }
             Ok(LikelihoodSpec::new(
                 ResponseFamily::Tweedie { p: tweedie_p },
@@ -481,7 +488,7 @@ fn glm_reml_fit_latent_impl(
     analytic_penalties: Option<&AnalyticPenaltyRegistry>,
 ) -> Result<
     (
-        gam::estimate::ExternalOptimResult,
+        gam::solver::estimate::ExternalOptimResult,
         Array2<f64>,
         Array2<f64>,
         Option<LatentAuxStrengthState>,
@@ -586,7 +593,7 @@ fn glm_reml_fit_latent_impl(
 fn set_ok_glm_latent_items<'py>(
     py: Python<'py>,
     out: &Bound<'py, PyDict>,
-    fit: gam::estimate::ExternalOptimResult,
+    fit: gam::solver::estimate::ExternalOptimResult,
     n_obs: usize,
     p: usize,
     aux_strength_state: Option<LatentAuxStrengthState>,
@@ -896,7 +903,7 @@ fn glm_reml_fit_latent_backward<'py>(
         .dense_stabilizedhessian_transformed("latent GLM backward")
         .map_err(|err| py_value_error(err.to_string()))?;
     let factor = factorize_symmetricwith_fallback(
-        gam::faer_ndarray::FaerArrayView::new(&h).as_ref(),
+        gam::linalg::faer_ndarray::FaerArrayView::new(&h).as_ref(),
         Side::Lower,
     )
     .map_err(|err| py_value_error(format!("latent GLM Hessian factorization failed: {err}")))?;
@@ -1024,7 +1031,7 @@ fn glm_reml_fit_latent_backward<'py>(
 fn set_ok_gaussian_reml_items<'py>(
     py: Python<'py>,
     out: &Bound<'py, PyDict>,
-    fit: gam::gaussian_reml::GaussianRemlMultiResult,
+    fit: gam::solver::gaussian_reml::GaussianRemlMultiResult,
 ) -> PyResult<()> {
     let status = if fit.lambda.is_finite() && fit.reml_score.is_finite() {
         "ok"
@@ -1069,7 +1076,7 @@ fn set_ok_gaussian_reml_items<'py>(
 
 fn gaussian_reml_fit_state_from_pydict(
     state: &Bound<'_, PyDict>,
-) -> Result<gam::gaussian_reml::GaussianRemlMultiResult, String> {
+) -> Result<gam::solver::gaussian_reml::GaussianRemlMultiResult, String> {
     fn get<'py>(state: &'py Bound<'py, PyDict>, key: &str) -> Result<Bound<'py, PyAny>, String> {
         state
             .get_item(key)
@@ -1108,7 +1115,7 @@ fn gaussian_reml_fit_state_from_pydict(
         .as_array()
         .to_owned();
 
-    Ok(gam::gaussian_reml::GaussianRemlMultiResult {
+    Ok(gam::solver::gaussian_reml::GaussianRemlMultiResult {
         lambda: get(state, "lambda")?
             .extract::<f64>()
             .map_err(|err| err.to_string())?,
@@ -1136,7 +1143,7 @@ fn gaussian_reml_fit_state_from_pydict(
             .extract::<f64>()
             .map_err(|err| err.to_string())?,
         sigma2,
-        cache: gam::gaussian_reml::GaussianRemlEigenCache {
+        cache: gam::solver::gaussian_reml::GaussianRemlEigenCache {
             penalty_eigenvalues,
             eigenvectors,
             coefficient_basis,
@@ -1165,7 +1172,7 @@ fn gaussian_reml_fit_state_from_pydict(
 fn batched_gaussian_reml_fits_from_pydict(
     state: &Bound<'_, PyDict>,
     row_offsets: ArrayView1<'_, usize>,
-) -> Result<Vec<Option<gam::gaussian_reml::GaussianRemlMultiResult>>, String> {
+) -> Result<Vec<Option<gam::solver::gaussian_reml::GaussianRemlMultiResult>>, String> {
     fn get<'py>(state: &'py Bound<'py, PyDict>, key: &str) -> Result<Bound<'py, PyAny>, String> {
         state
             .get_item(key)
@@ -1289,7 +1296,7 @@ fn batched_gaussian_reml_fits_from_pydict(
                 fitted.nrows()
             ));
         }
-        fits.push(Some(gam::gaussian_reml::GaussianRemlMultiResult {
+        fits.push(Some(gam::solver::gaussian_reml::GaussianRemlMultiResult {
             lambda: lambdas[b],
             rho: rhos[b],
             coefficients: coefficients.slice(s![b, .., ..]).to_owned(),
@@ -1301,7 +1308,7 @@ fn batched_gaussian_reml_fits_from_pydict(
             reml_hess_rho: reml_hess_rhos[b],
             edf: edf[b],
             sigma2: sigma2.slice(s![b, ..]).to_owned(),
-            cache: gam::gaussian_reml::GaussianRemlEigenCache {
+            cache: gam::solver::gaussian_reml::GaussianRemlEigenCache {
                 penalty_eigenvalues: cache_penalty_eigenvalues.slice(s![b, ..]).to_owned(),
                 eigenvectors: cache_eigenvectors.slice(s![b, .., ..]).to_owned(),
                 coefficient_basis: cache_coefficient_basis.slice(s![b, .., ..]).to_owned(),
@@ -1464,8 +1471,9 @@ fn gaussian_reml_fit_formula_table_impl(
     if standard.offset.iter().any(|value| value.abs() > 0.0) {
         return Err("shared-tangent Gaussian REML fitting does not support offsets".to_string());
     }
-    let design = gam::smooth::build_term_collection_design(standard.data.view(), &standard.spec)
-        .map_err(|err| format!("failed to build formula design matrix: {err}"))?;
+    let design =
+        gam::terms::smooth::build_term_collection_design(standard.data.view(), &standard.spec)
+            .map_err(|err| format!("failed to build formula design matrix: {err}"))?;
     let x = design
         .design
         .try_to_dense_by_chunks("shared_tangent_gaussian_reml design")?;
@@ -1586,7 +1594,7 @@ fn gaussian_reml_fit_formula_table_impl(
     // emitting `M` blocks — not `M*D` — is exactly what ties the smoothing across
     // tangent coordinates and yields the output-isotropic, frame-equivariant fit.
     let m = design.penalties.len();
-    let mut s_list: Vec<gam::smooth::BlockwisePenalty> = Vec::with_capacity(m);
+    let mut s_list: Vec<gam::terms::smooth::BlockwisePenalty> = Vec::with_capacity(m);
     for penalty in &design.penalties {
         if penalty.col_range.start > penalty.col_range.end
             || penalty.col_range.end > k
@@ -1616,7 +1624,7 @@ fn gaussian_reml_fit_formula_table_impl(
             }
         }
         let shifted = (penalty.col_range.start * d)..(penalty.col_range.end * d);
-        s_list.push(gam::smooth::BlockwisePenalty::new(shifted, kron));
+        s_list.push(gam::terms::smooth::BlockwisePenalty::new(shifted, kron));
     }
     if s_list.is_empty() {
         return Err(
@@ -1628,7 +1636,7 @@ fn gaussian_reml_fit_formula_table_impl(
 
     let offset_zero = Array1::<f64>::zeros(n * d);
     let joint_weights = Array1::<f64>::ones(n * d);
-    let opts = gam::estimate::FitOptions {
+    let opts = gam::solver::estimate::FitOptions {
         latent_cloglog: None,
         mixture_link: None,
         optimize_mixture: false,
@@ -1648,7 +1656,7 @@ fn gaussian_reml_fit_formula_table_impl(
         kronecker_penalty_system: None,
         kronecker_factored: None,
     };
-    let fit = gam::estimate::fit_gamwith_heuristic_lambdas(
+    let fit = gam::solver::estimate::fit_gamwith_heuristic_lambdas(
         joint_x,
         joint_y.view(),
         joint_weights.view(),
@@ -1684,13 +1692,13 @@ fn gaussian_reml_fit_formula_table_impl(
     // (its shared `Sᵇ ⊗ I_D` block). We record, for each surviving canonical
     // position, its origin block and the block's penalty rank (`rank(Sᵇ)·D` —
     // the full rank across all `D` outputs), needed for the residual-df total.
-    let specs: Vec<gam::estimate::PenaltySpec> = s_list
+    let specs: Vec<gam::solver::estimate::PenaltySpec> = s_list
         .iter()
-        .map(gam::estimate::PenaltySpec::from_blockwise_ref)
+        .map(gam::solver::estimate::PenaltySpec::from_blockwise_ref)
         .collect();
     let mut survivor_block: Vec<(usize, f64)> = Vec::with_capacity(s_list.len());
     for (b, spec) in specs.iter().enumerate() {
-        if let Some(canonical) = gam::construction::canonicalize_penalty_spec(
+        if let Some(canonical) = gam::terms::construction::canonicalize_penalty_spec(
             spec,
             p_total,
             b,
@@ -1875,7 +1883,10 @@ fn gaussian_reml_fit_batched_impl(
                 Some(w) => w.slice(s![start..end]).to_owned(),
                 None => Array1::ones(end - start),
             };
-            Some(gam::faer_ndarray::fast_xt_diag_x(&x_slice, &owned_weight))
+            Some(gam::linalg::faer_ndarray::fast_xt_diag_x(
+                &x_slice,
+                &owned_weight,
+            ))
         })
         .collect();
 
@@ -1893,7 +1904,7 @@ fn gaussian_reml_fit_batched_impl(
         }
     }
     let batched_caches = build_gaussian_reml_eigen_cache_batched(live_xtwx, penalty, None);
-    let mut prebuilt_caches: Vec<Option<gam::gaussian_reml::GaussianRemlEigenCache>> =
+    let mut prebuilt_caches: Vec<Option<gam::solver::gaussian_reml::GaussianRemlEigenCache>> =
         (0..batch).map(|_| None).collect();
     for (i, cache_result) in batched_caches.into_iter().enumerate() {
         if let Ok(cache) = cache_result {
@@ -1905,7 +1916,13 @@ fn gaussian_reml_fit_batched_impl(
     // (skipping its chol + eigh in `prepare_gaussian_reml`) or falls through
     // to a fresh build when the batched cache build dropped that element.
     let fit_results: Vec<
-        Result<(usize, Option<gam::gaussian_reml::GaussianRemlMultiResult>), String>,
+        Result<
+            (
+                usize,
+                Option<gam::solver::gaussian_reml::GaussianRemlMultiResult>,
+            ),
+            String,
+        >,
     > = (0..batch)
         .into_par_iter()
         .map(|b| {
@@ -2031,7 +2048,7 @@ fn gaussian_reml_fit_batched_backward_impl(
     grad_fitted: Option<ArrayView2<'_, f64>>,
     grad_reml_score: Option<ArrayView1<'_, f64>>,
     grad_edf: Option<ArrayView1<'_, f64>>,
-    forward_fits: Option<&[Option<gam::gaussian_reml::GaussianRemlMultiResult>]>,
+    forward_fits: Option<&[Option<gam::solver::gaussian_reml::GaussianRemlMultiResult>]>,
 ) -> Result<BatchedGaussianRemlBackwardResult, String> {
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -2069,7 +2086,7 @@ fn gaussian_reml_fit_batched_backward_impl(
         Result<
             (
                 usize,
-                Option<gam::gaussian_reml::GaussianRemlBackwardResult>,
+                Option<gam::solver::gaussian_reml::GaussianRemlBackwardResult>,
             ),
             String,
         >,
@@ -2349,7 +2366,7 @@ fn gaussian_reml_fit_positions_backward_impl(
     grad_edf: f64,
     by: Option<ArrayView1<'_, f64>>,
     by_start_col: usize,
-    forward_fit: Option<&gam::gaussian_reml::GaussianRemlMultiResult>,
+    forward_fit: Option<&gam::solver::gaussian_reml::GaussianRemlMultiResult>,
 ) -> Result<PositionGaussianRemlBackwardResult, String> {
     let x = position_basis_design(
         t,
@@ -2627,7 +2644,7 @@ fn gaussian_reml_fit_positions_batched_streaming_impl(
                 Some(w) => w.slice(s![start..end]).to_owned(),
                 None => Array1::ones(end - start),
             };
-            Ok(Some(gam::faer_ndarray::fast_xt_diag_x(
+            Ok(Some(gam::linalg::faer_ndarray::fast_xt_diag_x(
                 &x.view(),
                 &owned_weight,
             )))
@@ -2643,7 +2660,7 @@ fn gaussian_reml_fit_positions_batched_streaming_impl(
         }
     }
     let batched_caches = build_gaussian_reml_eigen_cache_batched(live_xtwx, penalty, None);
-    let mut prebuilt_caches: Vec<Option<gam::gaussian_reml::GaussianRemlEigenCache>> =
+    let mut prebuilt_caches: Vec<Option<gam::solver::gaussian_reml::GaussianRemlEigenCache>> =
         (0..batch).map(|_| None).collect();
     for (i, cache_result) in batched_caches.into_iter().enumerate() {
         if let Ok(cache) = cache_result {
@@ -2652,7 +2669,13 @@ fn gaussian_reml_fit_positions_batched_streaming_impl(
     }
 
     let fit_results: Vec<
-        Result<(usize, Option<gam::gaussian_reml::GaussianRemlMultiResult>), String>,
+        Result<
+            (
+                usize,
+                Option<gam::solver::gaussian_reml::GaussianRemlMultiResult>,
+            ),
+            String,
+        >,
     > = (0..batch)
         .into_par_iter()
         .map(|b| {
@@ -2799,7 +2822,7 @@ fn gaussian_reml_fit_positions_batched_backward_impl(
     grad_edf: Option<ArrayView1<'_, f64>>,
     by: Option<ArrayView1<'_, f64>>,
     by_start_col: usize,
-    forward_fits: Option<&[Option<gam::gaussian_reml::GaussianRemlMultiResult>]>,
+    forward_fits: Option<&[Option<gam::solver::gaussian_reml::GaussianRemlMultiResult>]>,
 ) -> Result<BatchedPositionGaussianRemlBackwardResult, String> {
     use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -3323,6 +3346,7 @@ fn posterior_predict_bands_table(
 }
 
 #[pyfunction]
+#[pyo3(signature = (eta_flat, n_draws, n_rows, family_kind, level, link_spec=None))]
 fn posterior_eta_bands(
     py: Python<'_>,
     eta_flat: Vec<f64>,
@@ -3330,9 +3354,17 @@ fn posterior_eta_bands(
     n_rows: usize,
     family_kind: String,
     level: f64,
+    link_spec: Option<String>,
 ) -> PyResult<String> {
     detach_py_result(py, "posterior_eta_bands", move || {
-        posterior_eta_bands_impl(eta_flat, n_draws, n_rows, &family_kind, level)
+        posterior_eta_bands_impl(
+            eta_flat,
+            n_draws,
+            n_rows,
+            &family_kind,
+            level,
+            link_spec.as_deref(),
+        )
     })
 }
 
@@ -3367,14 +3399,35 @@ fn posterior_trace_selection_json(request_json: &str) -> PyResult<String> {
 }
 
 #[pyfunction]
+#[pyo3(signature = (eta, family_kind, link_spec=None))]
 fn apply_inverse_link_array(
     py: Python<'_>,
     eta: Vec<f64>,
     family_kind: String,
+    link_spec: Option<String>,
 ) -> PyResult<Vec<f64>> {
     detach_py_result(py, "apply_inverse_link_array", move || {
-        apply_inverse_link_vec(&eta, &family_kind)
+        apply_inverse_link_with_optional_spec(&eta, &family_kind, link_spec.as_deref())
     })
+}
+
+/// Apply the inverse link to `eta`, preferring the typed `link_spec` (a
+/// serialized [`InverseLink`]) when present. The parameterized links (`Sas`,
+/// `Mixture`, `LatentCLogLog`, `BetaLogistic`) carry per-fit state the bare
+/// `family_kind` tag drops, so they are only fully evaluable via the spec; when
+/// no spec is supplied the call falls back to the string-tag path, which still
+/// covers every `Standard` link (issue #1133).
+fn apply_inverse_link_with_optional_spec(
+    eta: &[f64],
+    family_kind: &str,
+    link_spec: Option<&str>,
+) -> Result<Vec<f64>, String> {
+    if let Some(spec_json) = link_spec {
+        let link: InverseLink = serde_json::from_str(spec_json)
+            .map_err(|err| format!("failed to parse link_spec for inverse link: {err}"))?;
+        return apply_inverse_link_spec_vec(eta, &link);
+    }
+    apply_inverse_link_vec(eta, family_kind)
 }
 
 #[pyfunction]
@@ -3405,9 +3458,11 @@ fn curvature_inference_json(
 }
 
 /// #1063 per-term LR significance report for every penalized smooth term:
-/// `statistic_lr`, `ref_df`, `bartlett_factor`, `statistic_corrected`,
-/// `p_value_uncorrected`, `p_value_corrected`, and `correction_provenance`
-/// (`"lawley_lr"` | `"none"`).
+/// `statistic_lr`, `ref_df`, `bartlett_factor`,
+/// `bartlett_factor_conditional`, `rho_variation_shift`,
+/// `statistic_corrected`, `p_value_uncorrected`, `p_value_corrected`, and
+/// `correction_provenance` (`"lawley_lr_estimated_lambda"` |
+/// `"lawley_lr_fixed_lambda"` | `"none"`).
 ///
 /// Unlike `summary_json` (Wood rank-truncated **Wald** χ²), this computes a
 /// genuine **likelihood-ratio** statistic by a constrained refit dropping each
@@ -3495,8 +3550,7 @@ fn model_debiased_functional_json_impl(
 
     let dataset = dataset_with_inferred_schema(headers, rows)?;
     let (fit_config, _) = parse_fit_config(None)?;
-    let materialized =
-        materialize(&formula, &dataset, &fit_config).map_err(|e| format!("{e}"))?;
+    let materialized = materialize(&formula, &dataset, &fit_config).map_err(|e| format!("{e}"))?;
     let standard = match materialized.request {
         FitRequest::Standard(req) => req,
         _ => {
@@ -3517,7 +3571,7 @@ fn model_debiased_functional_json_impl(
 
     // Recover fitted beta, H, and X'WX from the saved model.
     let saved_fit =
-        gam::families::survival_predict::fit_result_from_saved_model_for_prediction(&model)
+        gam::families::survival::predict::fit_result_from_saved_model_for_prediction(&model)
             .map_err(|e| format!("debiased_functional: {e}"))?;
     let h = saved_fit.penalized_hessian().ok_or_else(|| {
         "debiased_functional: model does not carry a dense penalized Hessian; \
@@ -3576,7 +3630,9 @@ fn model_debiased_functional_json_impl(
     let target = spec_val
         .get("target")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| "debiased_functional: target_spec_json must contain \"target\"".to_string())?;
+        .ok_or_else(|| {
+            "debiased_functional: target_spec_json must contain \"target\"".to_string()
+        })?;
 
     // Build the functional gradient g = dθ/dβ from the spec.
     let gradient: ndarray::Array1<f64> = match target {
@@ -3742,16 +3798,12 @@ fn resolve_average_derivative_column(
     spec_val: &serde_json::Value,
 ) -> Result<usize, String> {
     if let Some(name) = spec_val.get("deriv_var").and_then(|v| v.as_str()) {
-        return dataset
-            .column_map()
-            .get(name)
-            .copied()
-            .ok_or_else(|| {
-                format!(
-                    "debiased_functional: average_derivative \"deriv_var\" '{name}' \
+        return dataset.column_map().get(name).copied().ok_or_else(|| {
+            format!(
+                "debiased_functional: average_derivative \"deriv_var\" '{name}' \
                      is not a column of the training data"
-                )
-            });
+            )
+        });
     }
     let mut cols: Vec<usize> = spec
         .smooth_terms
@@ -6043,7 +6095,7 @@ fn equivariant_penalty_value<'py>(
     log_bandwidth: Option<PyReadonlyArray1<'py, f64>>,
 ) -> PyResult<f64> {
     let log_bandwidth = log_bandwidth.as_ref().map(|values| values.as_array());
-    gam::terms::equivariant_penalty::equivariant_penalty_value(
+    gam::terms::analytic_penalties::equivariant_penalty::equivariant_penalty_value(
         group.as_str(),
         w.as_array(),
         g.as_array(),
@@ -6244,4 +6296,47 @@ fn poincare_mobius_add<'py>(
         poincare_mobius_add_impl(u_owned.view(), v_owned.view(), curvature)
     })?;
     Ok(out.into_pyarray(py).unbind())
+}
+
+#[cfg(test)]
+mod latent_glm_family_validation_tests {
+    use super::latent_glm_family_from_str;
+    use gam::types::ResponseFamily;
+
+    /// The Tweedie compound-Poisson-Gamma variance power must lie strictly in
+    /// (1, 2). Previously `latent_glm_family_from_str` only rejected non-finite
+    /// `tweedie_p`, so an out-of-range power (e.g. 2.5, 1.0, 0.5) constructed a
+    /// `ResponseFamily::Tweedie { p }` whose deviance/working-response formulas
+    /// are undefined — surfacing only later as an opaque NaN-deviance fit
+    /// failure. This now mirrors the eager negbin/beta nuisance-parameter
+    /// checks and rejects the bad power up front with an actionable message.
+    #[test]
+    fn tweedie_rejects_out_of_range_variance_power() {
+        for &bad in &[0.5_f64, 1.0, 2.0, 2.5, -1.0, f64::INFINITY, f64::NAN] {
+            let result = latent_glm_family_from_str("tweedie", bad, 1.0, 1.0);
+            assert!(
+                result.is_err(),
+                "tweedie_p={bad} is outside (1, 2) and must be rejected"
+            );
+            let msg = result.err().unwrap();
+            assert!(
+                msg.contains("between 1 and 2"),
+                "error message must explain the (1, 2) constraint; got {msg:?}"
+            );
+        }
+    }
+
+    /// A valid in-range Tweedie power is still accepted and yields the expected
+    /// `ResponseFamily::Tweedie { p }` (the validation does not over-reject).
+    #[test]
+    fn tweedie_accepts_canonical_variance_power() {
+        for &good in &[1.1_f64, 1.5, 1.9] {
+            let spec = latent_glm_family_from_str("tweedie", good, 1.0, 1.0)
+                .expect("in-range Tweedie power must be accepted");
+            match spec.response {
+                ResponseFamily::Tweedie { p } => assert_eq!(p, good),
+                other => panic!("expected Tweedie family, got {other:?}"),
+            }
+        }
+    }
 }

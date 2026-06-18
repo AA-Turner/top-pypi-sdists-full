@@ -100,6 +100,7 @@ BACKENDS: dict[str, dict] = {
         "default_model": os.environ.get("OPENAI_MODEL", "gpt-4.1-mini"),
         "env_key": "OPENAI_API_KEY",
         "model_env_key": "GRAPHIFY_OPENAI_MODEL",
+        "max_tokens": 16384,
         "pricing": {"input": 0.40, "output": 1.60},  # USD per 1M tokens
         # Default (gpt-4.1-mini) accepts temperature=0. Reasoning models
         # (o1/o3/o4/gpt-5) reject any explicit temperature and have it omitted
@@ -721,7 +722,12 @@ def _parse_llm_json(raw: str) -> dict:
         else:
             stripped = after_fence.strip()
     try:
-        return json.loads(stripped)
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+        # Top-level array/scalar (common LLM output) is not a usable graph
+        # fragment; fall through to the next strategy rather than returning a
+        # non-dict that callers will try to subscript (e.g. result["input_tokens"]).
     except json.JSONDecodeError:
         pass
     # Strategy 2: extract the first balanced JSON object found anywhere in
@@ -751,7 +757,10 @@ def _parse_llm_json(raw: str) -> dict:
                 depth -= 1
                 if depth == 0:
                     try:
-                        return json.loads(stripped[start : i + 1])
+                        parsed = json.loads(stripped[start : i + 1])
+                        if isinstance(parsed, dict):
+                            return parsed
+                        break
                     except json.JSONDecodeError:
                         break
     print(
@@ -1347,7 +1356,13 @@ def extract_files_direct(
         user_msg,
         temperature=_resolve_temperature(cfg.get("temperature", 0), mdl),
         reasoning_effort=cfg.get("reasoning_effort"),
-        max_completion_tokens=_resolve_max_tokens(cfg.get("max_completion_tokens", 8192)),
+        # Honour max_completion_tokens (gemini) or the older max_tokens key
+        # (ollama/deepseek/kimi/openai) -- most openai-compat configs define the
+        # latter, so reading only max_completion_tokens silently capped their
+        # output at the 8192 fallback and truncated deep-mode JSON (#1365).
+        max_completion_tokens=_resolve_max_tokens(
+            cfg.get("max_completion_tokens") or cfg.get("max_tokens", 8192)
+        ),
         backend=backend,
         deep_mode=deep_mode,
         images=image_refs,

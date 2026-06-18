@@ -15,8 +15,8 @@
 import math
 import os
 import threading
+from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Optional, OrderedDict, Sequence, Tuple
 
 import pytest
 from PIL.Image import Image
@@ -41,10 +41,7 @@ from wsidicom.file.io import (
     WsiDicomWriter,
 )
 from wsidicom.file.io.frame_index.parser import FrameIndexParser
-from wsidicom.file.io.wsidicom_writer import (
-    WsiDicomEncapsulatedWriter,
-    WsiDicomNativeWriter,
-)
+from wsidicom.file.io.wsidicom_writer import EncapsulatedPixelDataWriter
 from wsidicom.geometry import Point, Size, SizeMm
 from wsidicom.instance import ImageData
 from wsidicom.instance.dataset import WsiDataset
@@ -79,8 +76,8 @@ class WsiDicomTestReader(WsiDicomReader):
         dataset.NumberOfFrames = frame_count
         dataset.ImageType = ["ORIGINAL", "PRIMARY", "VOLUME", "NONE"]
         self._dataset = WsiDataset(dataset)
-        self._frame_index_parser: Optional[FrameIndexParser] = None
-        self._frame_index: Optional[List[Tuple[int, int]]] = None
+        self._frame_index_parser: FrameIndexParser | None = None
+        self._frame_index: list[tuple[int, int]] | None = None
         self._lock = threading.Lock()
 
     @property
@@ -150,25 +147,25 @@ class WsiDicomTestImageData(ImageData):
         return "RGB"
 
     @property
-    def image_coordinate_system(self) -> Optional[ImageCoordinateSystem]:
+    def image_coordinate_system(self) -> ImageCoordinateSystem | None:
         return None
 
     @property
-    def lossy_compression(self) -> Optional[List[LossyCompression]]:
+    def lossy_compression(self) -> list[LossyCompression] | None:
         return None
 
     @property
-    def transcoder(self) -> Optional[Encoder]:
+    def transcoder(self) -> Encoder | None:
         return None
 
     @property
     def thread_safe(self) -> bool:
         return True
 
-    def _get_decoded_tile(self, tile_point: Point, z: float, path: str) -> Image:
+    def get_decoded_tile(self, tile_point: Point, z: float, path: str) -> Image:
         raise NotImplementedError()
 
-    def _get_encoded_tile(self, tile: Point, z: float, path: str) -> bytes:
+    def get_encoded_tile(self, tile: Point, z: float, path: str) -> bytes:
         return self._data[tile.x + tile.y * self.tiled_size.width]
 
 
@@ -236,7 +233,7 @@ class TestWsiDicomWriter:
         self,
         dataset: Dataset,
         image_data: ImageData,
-        frames: List[bytes],
+        frames: list[bytes],
         frame_count: int,
         writen_table_type: OffsetTableType,
         transfer_syntax: UID,
@@ -247,18 +244,24 @@ class TestWsiDicomWriter:
     ):
         # Arrange
         filepath = tmp_path.joinpath(str(writen_table_type))
+        wsi_dataset = WsiDataset(dataset)
 
         # Act
-        with WsiDicomEncapsulatedWriter.open(
+        with WsiDicomWriter.open(
             filepath, transfer_syntax, writen_table_type
         ) as writer:
-            writen_frame_positions = writer._write_pixel_data(
-                {(image_data.default_path, image_data.default_z): image_data},
-                WsiDataset(dataset),
-                (0, 0),
-                1,
-                100,
-                1,
+            pixels_start, offset_writer = (
+                writer._pixel_data_writer.write_pixel_data_start(wsi_dataset)
+            )
+            for frame in frames:
+                writer.write_tiles([frame])
+            writer._pixel_data_writer.write_pixel_data_end(
+                offset_writer,
+                pixels_start,
+                0,
+                0,
+                wsi_dataset,
+                writer.frame_positions,
                 None,
             )
 
@@ -271,13 +274,14 @@ class TestWsiDicomWriter:
         TAG_BYTES = 4
         LENGTH_BYTES = 4
         frame_offsets = [
-            position + TAG_BYTES + LENGTH_BYTES for position in writen_frame_positions
+            position + TAG_BYTES + LENGTH_BYTES for position in writer.frame_positions
         ]
         frame_lengths = [  # Lengths are divisible with 2
             2 * math.ceil(len(frame) / 2) for frame in frames
         ]
         expected_frame_positons = [
-            (offset, length) for offset, length in zip(frame_offsets, frame_lengths)
+            (offset, length)
+            for offset, length in zip(frame_offsets, frame_lengths, strict=True)
         ]
         assert expected_frame_positons == read_frame_positions
         assert writen_table_type == read_table_type
@@ -294,7 +298,7 @@ class TestWsiDicomWriter:
         self,
         dataset: Dataset,
         image_data: ImageData,
-        frames: List[bytes],
+        frames: list[bytes],
         frame_count: int,
         transfer_syntax: UID,
         tmp_path: Path,
@@ -304,18 +308,15 @@ class TestWsiDicomWriter:
     ):
         # Arrange
         filepath = tmp_path.joinpath(str(transfer_syntax))
+        wsi_dataset = WsiDataset(dataset)
 
         # Act
-        with WsiDicomNativeWriter.open(filepath, transfer_syntax) as writer:
-            writer._write_pixel_data(
-                {(image_data.default_path, image_data.default_z): image_data},
-                WsiDataset(dataset),
-                (0, 0),
-                1,
-                100,
-                1,
-                None,
-            )
+        with WsiDicomWriter.open(
+            filepath, transfer_syntax, OffsetTableType.NONE
+        ) as writer:
+            writer.start_pixel_data(wsi_dataset)
+            for frame in frames:
+                writer.write_tiles([frame])
 
         # Assert
         with WsiDicomTestReader.open(
@@ -324,10 +325,7 @@ class TestWsiDicomWriter:
             read_table_type = read_file.offset_table_type
             read_frame_positions = read_file.frame_index
         assert read_table_type == OffsetTableType.NONE
-        if transfer_syntax == ImplicitVRLittleEndian:
-            offset = 8
-        else:
-            offset = 12
+        offset = 8 if transfer_syntax == ImplicitVRLittleEndian else 12
         for index, frame_position in enumerate(read_frame_positions):
             assert (
                 frame_position[0]
@@ -340,10 +338,13 @@ class TestWsiDicomWriter:
         filepath = tmp_path.joinpath("1.dcm")
 
         # Act
-        with WsiDicomEncapsulatedWriter.open(
+        with WsiDicomWriter.open(
             filepath, JPEGBaseline8Bit, OffsetTableType.BASIC
         ) as writer:
-            writer._write_pixel_data_end_tag()
+            pixel_data_writer = writer._pixel_data_writer
+            assert isinstance(pixel_data_writer, EncapsulatedPixelDataWriter)
+            pixel_data_writer._file.write_tag(SequenceDelimiterTag)
+            pixel_data_writer._file.write_UL(0)
 
         # Assert
         with WsiDicomIO(
@@ -355,8 +356,12 @@ class TestWsiDicomWriter:
             assert length == 0
 
     @pytest.mark.parametrize("transfer_syntax", [JPEGBaseline8Bit])
-    def test_write_pixel_data(
-        self, image_data: ImageData, tmp_path: Path, transfer_syntax: UID
+    def test_write_tiles(
+        self,
+        image_data: ImageData,
+        frames: list[bytes],
+        tmp_path: Path,
+        transfer_syntax: UID,
     ):
         # Arrange
         filepath = tmp_path.joinpath("1.dcm")
@@ -365,18 +370,13 @@ class TestWsiDicomWriter:
         with WsiDicomWriter.open(
             filepath, transfer_syntax, OffsetTableType.EMPTY
         ) as writer:
-            positions = writer._write_tiles(
-                image_data=image_data,
-                z=image_data.default_z,
-                path=image_data.default_path,
-                workers=1,
-                chunk_size=10,
-            )
+            for frame in frames:
+                writer.write_tiles([frame])
 
         with WsiDicomIO(
             open(filepath, "rb"), JPEGBaseline8Bit, filepath, True
         ) as read_file:
-            for position in positions:
+            for position in writer.frame_positions:
                 read_file.seek(position)
                 tag = read_file.read_tag()
                 assert tag == ItemTag
@@ -392,35 +392,33 @@ class TestWsiDicomWriter:
             (ImplicitVRLittleEndian, OffsetTableType.NONE),
         ],
     )
-    def test_write(
+    def test_write_full_file(
         self,
         image_data: ImageData,
         dataset: Dataset,
-        frames: List[bytes],
+        frames: list[bytes],
         tmp_path: Path,
         table_type: OffsetTableType,
         transfer_syntax: UID,
     ):
         # Arrange
         filepath = tmp_path.joinpath(str(table_type))
+        uid = generate_uid()
+        wsi_dataset = WsiDataset(dataset)
 
         # Act
-        with WsiDicomWriter.open(filepath, transfer_syntax, table_type) as writer:
-            writer.write(
-                generate_uid(),
-                WsiDataset(dataset),
-                OrderedDict(
-                    {
-                        (
-                            image_data.default_path,
-                            image_data.default_z,
-                        ): image_data
-                    }
-                ),
-                1,
-                100,
-                0,
-            )
+        writer = WsiDicomWriter.open(filepath, transfer_syntax, table_type)
+        try:
+            wsi_dataset.SOPInstanceUID = uid
+            wsi_dataset.InstanceNumber = 0
+            writer.write_header(wsi_dataset)
+            writer.start_pixel_data(wsi_dataset)
+            for frame in frames:
+                writer.write_tiles([frame])
+            writer.finalize(wsi_dataset)
+        except BaseException:
+            writer.close()
+            raise
 
         # Assert
         with WsiDicomReader(
@@ -431,3 +429,61 @@ class TestWsiDicomWriter:
                 # Stored frame can be up to one byte longer
                 assert 0 <= len(read_frame) - len(frame) <= 1
                 assert read_frame[: len(frame)] == frame
+
+
+class _FakePixelDataWriter:
+    """Minimal PixelDataWriter for testing write_tiles/frame_positions."""
+
+    def __init__(self, positions: list[int]):
+        self._positions_iter = iter(positions)
+
+    def write_tile(self, tile: bytes) -> int:
+        return next(self._positions_iter)
+
+
+class _FakeWriter(WsiDicomWriter):
+    """Minimal concrete WsiDicomWriter for testing write_tiles/frame_positions."""
+
+    def __init__(self, positions: list[int]):
+        self._frame_positions: list[int] = []
+        self._pixel_data_writer = _FakePixelDataWriter(positions)
+
+    def close(self, force=False):
+        pass
+
+
+@pytest.mark.unittest
+class TestWsiDicomWriterWriteTiles:
+    """Tests for WsiDicomWriter.write_tiles()."""
+
+    def test_write_tiles_calls_write_tile(self):
+        """Test that write_tiles delegates to _write_tile for each tile."""
+        # Arrange
+        writer = _FakeWriter(positions=[100, 200, 300])
+
+        # Act
+        count = writer.write_tiles([b"tile_0", b"tile_1", b"tile_2"])
+
+        # Assert
+        assert count == 3
+        assert writer.frame_positions == [100, 200, 300]
+
+    def test_frame_positions_empty_initially(self):
+        """Test that frame_positions is empty before any writing."""
+        # Arrange
+        writer = _FakeWriter(positions=[])
+
+        # Act & Assert
+        assert writer.frame_positions == []
+
+    def test_frame_positions_accumulate(self):
+        """Test that frame_positions accumulate across multiple write_tiles calls."""
+        # Arrange
+        writer = _FakeWriter(positions=[10, 20, 30, 40])
+
+        # Act
+        writer.write_tiles([b"a", b"b"])
+        writer.write_tiles([b"c", b"d"])
+
+        # Assert
+        assert writer.frame_positions == [10, 20, 30, 40]

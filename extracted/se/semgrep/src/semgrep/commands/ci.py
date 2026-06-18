@@ -256,6 +256,16 @@ def fix_head_if_github_action(metadata: GitMeta) -> None:
     type=click.Path(allow_dash=True, path_type=Path),
     hidden=True,
 )
+@click.option(
+    # Used by Semgrep Managed Scanning to run fast supply-chain incident scans
+    # restricted to a small set of rules. The backend uses this list to filter
+    # the generated scan config. May be repeated.
+    "--x-partial-scan-rule-id",
+    "x_partial_scan_rule_ids",
+    multiple=True,
+    type=str,
+    hidden=True,
+)
 @handle_command_errors
 def ci(
     # coupling: we use the names/values of some of these args in telemetry.py for tagging traces
@@ -275,6 +285,7 @@ def ci(
     enable_version_check: bool,
     exclude: Optional[Tuple[str, ...]],
     exclude_rule: Optional[Tuple[str, ...]],
+    exclude_binary_files: bool,
     suppress_errors: bool,
     force_color: bool,
     include: Optional[Tuple[str, ...]],
@@ -347,6 +358,7 @@ def ci(
     x_computed_dependencies_dir: Optional[Path],
     x_dump_scan_config_path: Optional[Path],
     x_use_saved_scan_config_path: Optional[Path],
+    x_partial_scan_rule_ids: Tuple[str, ...],
 ) -> None:
     if x_dump_scan_config_path and x_use_saved_scan_config_path:
         raise click.UsageError(
@@ -494,6 +506,7 @@ def ci(
                 enable_mal_deps=enable_mal_deps,
                 dump_scan_config_path=x_dump_scan_config_path,
                 load_saved_scan_config_path=saved_scan_config_path,
+                partial_scan_rule_ids=x_partial_scan_rule_ids,
             )
         else:  # impossible state… until we break the code above
             raise RuntimeError("The token and/or config are misconfigured")
@@ -548,6 +561,7 @@ def ci(
                         contributions=contributions,
                         engine_requested=engine_type,
                         progress_bar=progress_bar,
+                        disable_nosem=(not enable_nosem),
                     )
                     sys.exit(0)
 
@@ -782,6 +796,17 @@ def ci(
             max_log_list_entries=max_log_list_entries,
             max_match_context_size=max_match_context_size,
         )
+        # Resolve nosemgrep handling. An explicit --enable-nosem/--disable-nosem
+        # on the command line always wins, so the config value is ignored. When
+        # neither flag was passed, honor the org-wide nosemgrep_disabled setting
+        # the app sent in the scan config.
+        nosem_flag_passed = (
+            ctx.get_parameter_source("enable_nosem")
+            != click.core.ParameterSource.DEFAULT
+        )
+        if not nosem_flag_passed and scan_handler and scan_handler.nosemgrep_disabled:
+            enable_nosem = False
+
         output_handler = OutputHandler(
             output_settings, disable_nosem=(not enable_nosem)
         )
@@ -863,6 +888,7 @@ def ci(
             "include": include,
             "exclude": per_product_excludes,
             "exclude_rule": exclude_rule,
+            "exclude_binary_files": exclude_binary_files,
             "max_target_bytes": max_target_bytes,
             "autofix": autofix_behavior,
             "write_to_tr_cache": not dry_run,
@@ -1194,6 +1220,7 @@ def ci(
                     contributions=contributions,
                     engine_requested=engine_type,
                     progress_bar=progress_bar,
+                    disable_nosem=(not enable_nosem),
                 )
             app_blocked_mids = set()
             if (

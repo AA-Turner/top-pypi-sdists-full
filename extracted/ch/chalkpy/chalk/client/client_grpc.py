@@ -4281,6 +4281,8 @@ class ChalkGRPCClient:
             If `True`, enable profiling while running the backfill jobs.
         resource_group : str, optional
             Resource group to use for the created backfill jobs.
+        input_sql : str, optional
+            Chalk SQL query to use to resolve event data. Mutually exclusive with `resolver`.
         """
         from chalk._gen.chalk.aggregate.v1.backfill_pb2 import AggregateBackfillUserParams
         from chalk._gen.chalk.aggregate.v1.service_pb2 import (

@@ -26,7 +26,7 @@ Usage::
    ## verbose curl output
    ### setup first
    import logging
-   import httpx
+   import httpx2
    logging.basicConfig(
       format="%(levelname)s [%(asctime)s] %(name)s - %(message)s",
       datefmt="%Y-%m-%d %H:%M:%S",
@@ -37,11 +37,11 @@ Usage::
 """
 
 __title__ = "habanero"
-__version__ = "2.4.0"
+__version__ = "2.9.2"
 __author__ = "Scott Chamberlain"
 __license__ = "MIT"
 
 from .cn import content_negotiation, csl_styles
 from .counts import citation_count
-from .crossref import Crossref, WorksContainer
+from .crossref import Crossref, WorksContainer, WorksQuery
 from .exceptions import Error, RequestError

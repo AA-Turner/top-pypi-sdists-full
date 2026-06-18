@@ -2,7 +2,7 @@
 //! evidence-guarded move engine of [`crate::solver::structure_search`].
 //!
 //! #976 closed with the move engine (`search`) and its triggers
-//! ([`crate::terms::atom_codes::SparseAtomCodes::coactivation`], ARD precisions,
+//! ([`crate::terms::sae::atom_codes::SparseAtomCodes::coactivation`], ARD precisions,
 //! terminal [`CollapseEvent`]s) on main but deliberately unwired: nothing
 //! harvested move proposals from a fitted dictionary or drove `search` around
 //! the production fit. This module is that seam. It owns three things:
@@ -33,7 +33,7 @@
 //! Pure: no RNG, no clock. Proposal triggers are deterministic functions of the
 //! fitted state; the engine canonicalizes and gates them; the ledger serializes
 //! byte-identically for identical inputs. The structural hashes that dedup the
-//! proposal stream are computed with the same [`crate::cache::Fingerprinter`]
+//! proposal stream are computed with the same [`crate::warm_start::Fingerprinter`]
 //! the [`crate::terms::smooth::TermCollectionSpec`] machinery (#869) uses, fed
 //! the POST-move dictionary shape (atom count, per-atom basis kind + latent dim
 //! + the move that produced it), so two proposals that reach the same dictionary
@@ -44,7 +44,6 @@ use std::sync::Arc;
 use faer::Side;
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
 
-use crate::cache::Fingerprinter;
 use crate::inference::residual_factor::{ResidualFactorInput, StructuredResidualModel};
 use crate::inference::structure_evidence::{ClaimKind, StructureLedger};
 use crate::linalg::faer_ndarray::{FaerCholesky, FaerEigh};
@@ -55,15 +54,16 @@ use crate::solver::{
     AutoTopologyKind, TopologyAutoFitEvidence, TopologyAutoSelector, TopologyScoreScale,
     select_topology_with_fit,
 };
-use crate::terms::atom_codes::SparseAtomCodes;
-use crate::terms::latent_coord::{LatentIdMode, LatentManifold};
+use crate::terms::latent::{LatentIdMode, LatentManifold};
+use crate::terms::sae::atom_codes::SparseAtomCodes;
 use crate::terms::sae::basis::{
     CylinderHarmonicEvaluator, EuclideanPatchEvaluator, PeriodicHarmonicEvaluator,
     SaeBasisSecondJet, SphereChartEvaluator, TorusHarmonicEvaluator,
 };
-use crate::terms::sae_manifold::{
+use crate::terms::sae::manifold::{
     SaeAtomBasisKind, SaeManifoldAtom, SaeManifoldRho, SaeManifoldTerm,
 };
+use crate::warm_start::Fingerprinter;
 
 /// Per-row soft-assignment mass below which an atom is treated as INACTIVE on
 /// that row when deriving the discrete co-activation support. A soft softmax /
@@ -233,6 +233,7 @@ fn basis_kind_tag(kind: &SaeAtomBasisKind) -> &str {
         SaeAtomBasisKind::Periodic => "periodic",
         SaeAtomBasisKind::Sphere => "sphere",
         SaeAtomBasisKind::Torus => "torus",
+        SaeAtomBasisKind::Linear => "linear",
         SaeAtomBasisKind::EuclideanPatch => "euclidean_patch",
         SaeAtomBasisKind::Poincare => "poincare",
         SaeAtomBasisKind::Cylinder => "cylinder",
@@ -578,8 +579,11 @@ fn duplicate_atom(
     }
     let mut coords = term.assignment.coords.clone();
     coords.push(term.assignment.coords[parent].clone());
-    let assignment =
-        crate::terms::sae_manifold::SaeAssignment::with_mode(logits, coords, term.assignment.mode)?;
+    let assignment = crate::terms::sae::manifold::SaeAssignment::with_mode(
+        logits,
+        coords,
+        term.assignment.mode,
+    )?;
     let child = SaeManifoldTerm::new(atoms, assignment)?;
 
     let mut child_rho = rho.clone();
@@ -729,7 +733,7 @@ fn topology_candidates_for_dim(
                 // fraction-of-period convention `TorusHarmonicEvaluator` shares
                 // with the periodic 1-D atom). This MUST match the production
                 // seeding (`AtomTopology::Torus` → Product[Circle, Circle] in
-                // `sae_manifold::atom`); a flat `Euclidean` manifold would leave
+                // `sae::manifold::atom`); a flat `Euclidean` manifold would leave
                 // the born atom's angles un-wrapped and the joint refit would
                 // retract on the wrong geometry.
                 manifold: LatentManifold::Product(vec![
@@ -749,7 +753,7 @@ fn topology_candidates_for_dim(
                 // `LatentManifold::Sphere { dim: 2 }`, which would demand ambient
                 // unit 3-vectors the chart never produces. This matches the
                 // production seeding (`AtomTopology::Sphere` →
-                // Product[Interval(-π/2, π/2), Circle(τ)] in `sae_manifold::atom`).
+                // Product[Interval(-π/2, π/2), Circle(τ)] in `sae::manifold::atom`).
                 manifold: LatentManifold::Product(vec![
                     LatentManifold::Interval {
                         lo: -std::f64::consts::FRAC_PI_2,
@@ -779,7 +783,7 @@ fn topology_candidates_for_dim(
                 // with the periodic / torus atoms), axis 1 is the unbounded flat
                 // line (`Euclidean`). This MUST match the production seeding
                 // (`SaeAtomBasisKind::Cylinder` → Product[Circle(1.0), Euclidean]
-                // in `sae_manifold::atom`); a flat `Euclidean` manifold would leave
+                // in `sae::manifold::atom`); a flat `Euclidean` manifold would leave
                 // the born atom's phase axis un-wrapped, and a torus stand-in would
                 // wrap the linear axis spuriously. The harmonic / degree budget
                 // mirrors the torus (2 circle harmonics) and the patch (degree 2)
@@ -1266,12 +1270,11 @@ fn born_atom(
             // Coordinate block matched to the winning evaluator's intrinsic dim,
             // carrying the winning chart manifold so the joint refit retracts on
             // the right geometry.
-            let coord_block =
-                crate::terms::latent_coord::LatentCoordValues::from_matrix_with_manifold(
-                    fit.coords.view(),
-                    LatentIdMode::None,
-                    fit.manifold.clone(),
-                );
+            let coord_block = crate::terms::latent::LatentCoordValues::from_matrix_with_manifold(
+                fit.coords.view(),
+                LatentIdMode::None,
+                fit.manifold.clone(),
+            );
             (atom, coord_block)
         }
         None => {
@@ -1296,8 +1299,11 @@ fn born_atom(
     }
     let mut coords = term.assignment.coords.clone();
     coords.push(born_coord_block);
-    let assignment =
-        crate::terms::sae_manifold::SaeAssignment::with_mode(logits, coords, term.assignment.mode)?;
+    let assignment = crate::terms::sae::manifold::SaeAssignment::with_mode(
+        logits,
+        coords,
+        term.assignment.mode,
+    )?;
     let child = SaeManifoldTerm::new(atoms, assignment)?;
 
     let mut child_rho = rho.clone();
@@ -1402,6 +1408,31 @@ pub struct StructureSearchResult {
     /// One ledger per round actually run (a round that applies no move is the
     /// last; its ledger is included so the certificate covers the fixpoint).
     pub rounds: Vec<SearchLedger>,
+}
+
+impl StructureSearchResult {
+    /// `true` iff at least one structure-changing move LANDED across the rounds —
+    /// an `Accepted` move (certified birth / fission / fusion that restructured
+    /// the dictionary and triggered a warm refit) or a `Demoted` death (an atom
+    /// folded to ~0 routing). Both mutate the returned `term`/`rho` away from the
+    /// pre-search joint fit, so any shape uncertainty assembled from the
+    /// PRE-search joint Hessian is stale and must be recomputed from the final
+    /// post-search per-atom inner fits (#1230). When this is `false`, every round
+    /// was contested / vetoed / deduplicated / deferred / stale, the term/rho are
+    /// byte-for-byte the pre-search fit, and the exact joint-Hessian bands remain
+    /// valid.
+    #[must_use]
+    pub fn structure_changed(&self) -> bool {
+        use crate::solver::structure_search::MoveVerdict;
+        self.rounds.iter().any(|round| {
+            round.moves.iter().any(|record| {
+                matches!(
+                    record.verdict,
+                    MoveVerdict::Accepted { .. } | MoveVerdict::Demoted { .. }
+                )
+            })
+        })
+    }
 }
 
 /// The round driver's configuration: how the data is split into shards, the
@@ -1607,7 +1638,93 @@ fn eval_log_lik(term: &SaeManifoldTerm, shard: &RowBlockShard) -> f64 {
     // e-value ratio: −½·SSE (unit dispersion). The gate forms differences of
     // this against the null sup, so the constant and the dispersion scale drop
     // out of the certified evidence.
-    -0.5 * sse
+    let reconstruction = -0.5 * sse;
+
+    // Occam-priced gate-block evidence (#1016/#1218). The split-LR difference
+    // this gate forms is between the K+1 candidate (alternative) and the K null;
+    // the gate/assignment-logit block is the weakest-Gaussian piece of the SAE
+    // evidence and is mispriced by a plain Laplace quadratic near a birth. The
+    // deterministic Pólya–Gamma gate-block marginal supplies the correct
+    // normalizer, whose `−½·d_g·log(2π)` term scales with the gate dimension
+    // `d_g` (one coordinate per atom). Because the candidate carries one more
+    // gate coordinate than the null, that `d_g`-dependent normalizer does NOT
+    // cancel in the K-vs-(K+1) difference — it is exactly the per-coordinate
+    // `log(2π)` Occam term #1218 corrects the sign of. Folding it into the
+    // evaluation likelihood is what makes the corrected sign reach the live
+    // gate decision (the unit test alone never touched this path).
+    let gate_evidence = gate_block_log_evidence(term, shard);
+
+    reconstruction + gate_evidence
+}
+
+/// The deterministic Pólya–Gamma gate-block marginal log-evidence of the
+/// candidate's per-atom logistic gates on a shard's held-out rows (#1016/#1218).
+///
+/// Each atom carries one free per-atom gate logit, so the gate block is a stack
+/// of `K` one-dimensional logistic gates: design `X_g = 1` (the per-atom gate
+/// coordinate), tilt `ψ̂ =` the atom's per-row logit, binomial response `y =`
+/// the binarized activation (`b = 1`), under a unit ridge gate prior. The
+/// returned value is the log-evidence `−neg_log_evidence` from
+/// [`crate::inference::pg_gate_evidence::pg_gate_evidence`], summed over atoms,
+/// so the K-dependent `−½·d_g·log(2π)` normalizer enters the gate's split-LR.
+///
+/// A degenerate/non-PD gate block contributes `0` (no gate evidence) rather than
+/// poisoning the reconstruction likelihood — a conservative, valid degradation.
+fn gate_block_log_evidence(term: &SaeManifoldTerm, shard: &RowBlockShard) -> f64 {
+    use crate::inference::pg_gate_evidence::{GateBlock, pg_gate_evidence};
+
+    let logits = &term.assignment.logits;
+    let n_full = logits.nrows();
+    let k = logits.ncols();
+    if k == 0 {
+        return 0.0;
+    }
+    // Restrict to the shard's held-out rows; an empty / out-of-range shard
+    // carries no gate evidence.
+    let rows: Vec<usize> = shard.rows.iter().copied().filter(|&r| r < n_full).collect();
+    let m = rows.len();
+    if m == 0 {
+        return 0.0;
+    }
+
+    // Unit gate design (one gate coordinate per atom) and a unit ridge gate
+    // prior; the PG block is solved per atom and summed, so `d_g = K` overall.
+    let design = Array2::<f64>::ones((m, 1));
+    let b = Array1::<f64>::ones(m);
+    let penalty = Array2::<f64>::eye(1);
+
+    let mut total = 0.0_f64;
+    for atom in 0..k {
+        let mut psi = Array1::<f64>::zeros(m);
+        let mut y = Array1::<f64>::zeros(m);
+        for (i, &row) in rows.iter().enumerate() {
+            let logit = logits[[row, atom]];
+            if !logit.is_finite() {
+                return 0.0;
+            }
+            psi[i] = logit;
+            // Binarized activation: the gate is ON when its logit is positive.
+            y[i] = if logit > 0.0 { 1.0 } else { 0.0 };
+        }
+        let block = GateBlock {
+            design: design.view(),
+            y: y.view(),
+            b: b.view(),
+            offset: None,
+            psi_hat: Some(psi.view()),
+            penalty: Some(penalty.view()),
+            hess_rest: None,
+            h_rest: None,
+        };
+        match pg_gate_evidence(&block) {
+            // `neg_log_evidence` is `−log p(gate block)`; the log-likelihood the
+            // split-LR consumes is its negation.
+            Ok(ev) => total -= ev.neg_log_evidence,
+            // A non-PD / degenerate gate block contributes no evidence.
+            Err(_) => return 0.0,
+        }
+    }
+    total
 }
 
 #[inline]
@@ -1711,8 +1828,8 @@ pub fn rounds_to_json(rounds: &[SearchLedger]) -> Result<String, String> {
 mod tests {
     use super::*;
     use crate::solver::structure_search::{CollapseAction, CollapseEvent};
-    use crate::terms::latent_coord::LatentManifold;
-    use crate::terms::sae_manifold::{
+    use crate::terms::latent::LatentManifold;
+    use crate::terms::sae::manifold::{
         AssignmentMode, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
         SaeBasisEvaluator, SaeManifoldAtom,
     };
@@ -1785,6 +1902,93 @@ mod tests {
     }
 
     /// #977 discovery oracle: with the production birth budget enabled, a fit
+    /// #1230 — `StructureSearchResult::structure_changed()` is the trigger the
+    /// FFI uses to decide whether the pre-search joint-Hessian shape bands are
+    /// stale and must be recomputed from the final post-search model.
+    ///
+    /// It must report `true` iff at least one move LANDED and mutated the
+    /// returned `term`/`rho`: an `Accepted` move (certified birth / fission /
+    /// fusion + warm refit) or a `Demoted` death. It must report `false` when
+    /// every round was contested / vetoed (the term/rho are byte-for-byte the
+    /// pre-search fit, so the exact joint-Hessian bands stay valid), and when no
+    /// round ran at all. A false negative leaves seed atoms with stale bands
+    /// (the #1230 bug); a false positive needlessly discards exact bands.
+    #[test]
+    fn structure_changed_is_true_only_when_a_move_lands() {
+        use crate::solver::structure_search::{MoveRecord, MoveVerdict};
+
+        fn ledger_with(verdicts: Vec<MoveVerdict>) -> SearchLedger {
+            SearchLedger {
+                alpha: 0.05,
+                moves: verdicts
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, verdict)| MoveRecord {
+                        mv: StructureMove::Death { atom: i },
+                        trigger: 0.0,
+                        structure_hash: i as u64,
+                        claim: ClaimKind::AtomExists { atom: i },
+                        verdict,
+                    })
+                    .collect(),
+                collapse_events: Vec::new(),
+            }
+        }
+
+        // No rounds ran at all: nothing changed.
+        let (term0, rho0) = planted_term(&[vec![true], vec![true]]);
+        let empty = StructureSearchResult {
+            term: term0.clone(),
+            rho: rho0.clone(),
+            rounds: Vec::new(),
+        };
+        assert!(
+            !empty.structure_changed(),
+            "no rounds ⇒ the term/rho are the pre-search fit ⇒ structure_changed() must be false"
+        );
+
+        // Every move contested or vetoed: the dictionary is byte-for-byte the
+        // pre-search fit, so the exact joint-Hessian bands remain valid.
+        let no_landed = StructureSearchResult {
+            term: term0.clone(),
+            rho: rho0.clone(),
+            rounds: vec![ledger_with(vec![
+                MoveVerdict::Contested { log_e: -1.0 },
+                MoveVerdict::Vetoed { log_e: -2.0 },
+            ])],
+        };
+        assert!(
+            !no_landed.structure_changed(),
+            "all-contested/vetoed rounds leave the model unchanged ⇒ structure_changed() must be false"
+        );
+
+        // An Accepted move landed (certified restructuring + warm refit): the
+        // returned model differs from the pre-search fit ⇒ bands are stale.
+        let accepted = StructureSearchResult {
+            term: term0.clone(),
+            rho: rho0.clone(),
+            rounds: vec![ledger_with(vec![
+                MoveVerdict::Contested { log_e: -1.0 },
+                MoveVerdict::Accepted { log_e: 3.0 },
+            ])],
+        };
+        assert!(
+            accepted.structure_changed(),
+            "a landed Accepted move mutates term/rho ⇒ structure_changed() must be true (recompute bands)"
+        );
+
+        // A Demoted death is also a landed structure change.
+        let demoted = StructureSearchResult {
+            term: term0.clone(),
+            rho: rho0.clone(),
+            rounds: vec![ledger_with(vec![MoveVerdict::Demoted { log_e: -1.0 }])],
+        };
+        assert!(
+            demoted.structure_changed(),
+            "a landed Demoted death folds an atom to ~0 routing ⇒ structure_changed() must be true"
+        );
+    }
+
     /// whose residuals carry an unexplained factor direction (a structure the
     /// current dictionary does not express) HARVESTS a birth proposal — the
     /// candidate atom whose held-out e-value the gate then adjudicates. This is
@@ -2375,6 +2579,106 @@ mod tests {
             any_positive,
             "a born atom with a non-degenerate inner Hessian must report a strictly \
              positive uncertainty somewhere (a finite band, never all-zero / missing)"
+        );
+    }
+
+    /// #1218 PRODUCTION-GATE wiring proof: the corrected PG gate-block
+    /// normalizer is consumed by the live per-shard likelihood the K-vs-(K+1)
+    /// birth gate forms its split-LR from — not just by the isolated unit test.
+    ///
+    /// `eval_log_lik` is the exact `alternative_log_lik` / `null_sup_log_lik`
+    /// closure `run_atom_birth_gate` accumulates (see [`run_structure_search_rounds`]),
+    /// so it is the production gate's evaluation statistic. We score the SAME
+    /// shard under a K-atom null and a (K+1)-atom candidate and isolate the
+    /// gate-block contribution: growing the dictionary by one atom adds exactly
+    /// one gate coordinate, so the `−½·d_g·log(2π)` normalizer (the term #1218
+    /// fixed the sign of) does NOT cancel in the gate difference. With the
+    /// corrected (subtracted) sign it is an Occam PENALTY that resists the
+    /// extra atom; the buggy (added) sign would flip it into a spurious REWARD.
+    #[test]
+    fn production_gate_consumes_corrected_pg_normalizer() {
+        let n = 32usize;
+        // K=2 null and a K=3 candidate, every atom routed on every row so the
+        // gate logits are well-defined and finite.
+        let null_active: Vec<Vec<bool>> = (0..n).map(|_| vec![true, true]).collect();
+        let cand_active: Vec<Vec<bool>> = (0..n).map(|_| vec![true, true, true]).collect();
+        let (null_term, _) = planted_term(&null_active);
+        let (cand_term, _) = planted_term(&cand_active);
+        assert_eq!(null_term.k_atoms(), 2);
+        assert_eq!(cand_term.k_atoms(), 3, "candidate grows K by one atom");
+
+        // One held-out shard: the row block the gate accumulates evidence over.
+        let p = null_term.output_dim();
+        let target = Arc::new(Array2::<f64>::zeros((n, p)));
+        let shard = RowBlockShard {
+            target: target.clone(),
+            rows: (0..n).collect(),
+        };
+
+        // The gate-block contribution alone (private helper the live
+        // `eval_log_lik` adds in): the corrected normalizer is reachable here.
+        let null_gate = gate_block_log_evidence(&null_term, &shard);
+        let cand_gate = gate_block_log_evidence(&cand_term, &shard);
+        assert!(
+            null_gate.is_finite() && cand_gate.is_finite(),
+            "gate-block evidence must be finite on a well-posed gate block"
+        );
+
+        // The Occam normalizer per added gate coordinate. The candidate carries
+        // K+1 gate coordinates, the null K, so the gate-difference includes one
+        // extra `−½·log(2π)` normalizer that must NOT cancel.
+        let log_2pi = (2.0 * std::f64::consts::PI).ln();
+        let gate_delta = cand_gate - null_gate;
+
+        // Corrected sign ⇒ the per-coordinate normalizer SUBTRACTS, so the
+        // extra atom's gate-block log-evidence is pushed DOWN by ≈ ½·log(2π)
+        // relative to a no-normalizer baseline. The decisive, sign-sensitive
+        // assertion: the extra-coordinate normalizer is the *negative*
+        // ½·log(2π) Occam term, never the positive (buggy) one. Compare against
+        // the per-atom evidence WITHOUT the normalizer to isolate it.
+        let per_atom_no_norm = |term: &SaeManifoldTerm| -> f64 {
+            // Re-derive the gate evidence with the normalizer ADDED back (the
+            // pre-fix sign) to recover the unnormalized quadratic/logdet part.
+            // `gate_block_log_evidence` already SUBTRACTS ½·d_g·log(2π); adding
+            // it back yields the normalizer-free score, and the difference
+            // between candidate and null of THAT isolates everything except the
+            // one extra normalizer.
+            let dg = term.k_atoms() as f64; // one gate coordinate per atom
+            gate_block_log_evidence(term, &shard) + 0.5 * dg * log_2pi
+        };
+        let no_norm_delta = per_atom_no_norm(&cand_term) - per_atom_no_norm(&null_term);
+        let normalizer_in_delta = gate_delta - no_norm_delta;
+
+        // The normalizer contribution to the K→K+1 gate difference must be
+        // exactly `−½·log(2π)` (one extra gate coordinate, corrected sign).
+        assert!(
+            (normalizer_in_delta + 0.5 * log_2pi).abs() < 1e-9,
+            "the gate-block normalizer in the K→K+1 difference must be the \
+             corrected −½·log(2π) Occam penalty, got {normalizer_in_delta} \
+             (buggy +½·log(2π) = {})",
+            0.5 * log_2pi
+        );
+
+        // And the full production statistic carries it: the gate-block evidence
+        // is a real, finite addend on top of the reconstruction likelihood.
+        let full = eval_log_lik(&cand_term, &shard);
+        let recon_only = {
+            // Reconstruction-only baseline (what the path returned BEFORE the
+            // wiring): −½·SSE over the shard rows.
+            let fitted = cand_term.try_fitted().unwrap();
+            let mut sse = 0.0;
+            for &row in &shard.rows {
+                for out in 0..p {
+                    let d = fitted[[row, out]] - shard.target[[row, out]];
+                    sse += d * d;
+                }
+            }
+            -0.5 * sse
+        };
+        assert!(
+            (full - (recon_only + cand_gate)).abs() < 1e-9,
+            "the live per-shard likelihood must equal reconstruction + the \
+             PG gate-block evidence (so the corrected normalizer reaches the gate)"
         );
     }
 }

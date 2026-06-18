@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-slim
-Version: 2.102.2
+Version: 2.103.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -64,6 +64,7 @@ Requires-Dist: polyfactory>=2.22.2; extra == 'all'
 Requires-Dist: pylatexenc<3.0,>=2.10; extra == 'all'
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'all'
 Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'all'
+Requires-Dist: python-dotenv~=1.0; extra == 'all'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'all'
 Requires-Dist: qwen-vl-utils>=0.0.11; extra == 'all'
 Requires-Dist: rapidocr<4.0.0,>=3.8; extra == 'all'
@@ -80,6 +81,7 @@ Requires-Dist: tritonclient[grpc]<3.0.0,>=2.65.0; extra == 'all'
 Requires-Dist: typer<0.27.0,>=0.12.5; extra == 'all'
 Requires-Dist: websockets<17.0,>=14.0; extra == 'all'
 Provides-Extra: cli
+Requires-Dist: python-dotenv~=1.0; extra == 'cli'
 Requires-Dist: rich>=13.0.0; extra == 'cli'
 Requires-Dist: typer<0.27.0,>=0.12.5; extra == 'cli'
 Provides-Extra: convert-core
@@ -170,6 +172,9 @@ Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,<5.9.0,>=4.42.0; (sys
 Requires-Dist: transformers!=5.0.*,!=5.1.*,!=5.2.*,!=5.3.*,<6.0.0,>=4.42.0; (sys_platform != 'darwin') and extra == 'models-vlm-inline'
 Provides-Extra: service-client
 Requires-Dist: httpx<1.0.0,>=0.28; extra == 'service-client'
+Requires-Dist: python-dotenv~=1.0; extra == 'service-client'
+Requires-Dist: rich>=13.0.0; extra == 'service-client'
+Requires-Dist: typer<0.27.0,>=0.12.5; extra == 'service-client'
 Requires-Dist: websockets<17.0,>=14.0; extra == 'service-client'
 Provides-Extra: standard
 Requires-Dist: accelerate<2,>=1.0.0; extra == 'standard'
@@ -190,6 +195,7 @@ Requires-Dist: polyfactory>=2.22.2; extra == 'standard'
 Requires-Dist: pylatexenc<3.0,>=2.10; extra == 'standard'
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'standard'
 Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'standard'
+Requires-Dist: python-dotenv~=1.0; extra == 'standard'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'standard'
 Requires-Dist: rapidocr<4.0.0,>=3.8; extra == 'standard'
 Requires-Dist: rich>=13.0.0; extra == 'standard'

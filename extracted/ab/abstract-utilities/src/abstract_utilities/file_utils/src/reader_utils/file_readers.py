@@ -1,3 +1,4 @@
+from __future__ import annotations  # keep heavy-proxy type hints lazy (PEP 563)
 # file_reader.py
 from .imports import *
 from .pdf_utils import *

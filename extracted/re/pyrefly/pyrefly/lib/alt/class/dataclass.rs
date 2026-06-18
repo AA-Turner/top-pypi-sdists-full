@@ -8,6 +8,9 @@
 use std::sync::Arc;
 
 use pyrefly_python::dunder;
+use pyrefly_types::typed_dict::AnonymousTypedDictInner;
+use pyrefly_types::typed_dict::TypedDict;
+use pyrefly_types::typed_dict::TypedDictField;
 use pyrefly_util::prelude::SliceExt;
 use ruff_python_ast::Arguments;
 use ruff_python_ast::Expr::EllipsisLiteral;
@@ -17,7 +20,6 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
-use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -39,7 +41,6 @@ use crate::binding::pydantic::LT;
 use crate::binding::pydantic::STRICT;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
-use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::types::callable::Callable;
@@ -72,7 +73,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         if let Some(class_fields) = self.get_class_fields(cls) {
-            for name in class_fields.names() {
+            for name in class_fields.class_body_fields() {
                 if class_fields.is_field_annotated(name) {
                     all_fields.insert(name.clone());
                 }
@@ -177,7 +178,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     cls.range(),
-                    ErrorInfo::Kind(ErrorKind::BadClassDefinition),
+                    ErrorKind::BadClassDefinition,
                     "Cannot specify both `slots=True` and `__slots__`".to_owned(),
                 );
             } else {
@@ -186,6 +187,40 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.get_dataclass_slots(cls, dataclass, &kw_only_by_class),
                 );
             }
+        }
+        if dataclass.kws.frozen {
+            // Only emit BadClassDefinition when no ancestor is already frozen.
+            // If an ancestor is frozen its synthesized `@final __setattr__`/`__delattr__`
+            // will trigger BadOverride, which gives a richer message naming the parent.
+            let has_frozen_ancestor = self
+                .get_mro_for_class(cls)
+                .ancestors_no_object()
+                .iter()
+                .any(|ancestor| {
+                    self.get_metadata_for_class(ancestor.class_object())
+                        .dataclass_metadata()
+                        .is_some_and(|dm| dm.kws.frozen)
+                });
+            if !has_frozen_ancestor && let Some(class_fields) = self.get_class_fields(cls) {
+                if let Some(range) = class_fields.field_decl_range(&dunder::SETATTR) {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::BadClassDefinition,
+                        "Cannot override `__setattr__` in a frozen dataclass".to_owned(),
+                    );
+                }
+                if let Some(range) = class_fields.field_decl_range(&dunder::DELATTR) {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::BadClassDefinition,
+                        "Cannot override `__delattr__` in a frozen dataclass".to_owned(),
+                    );
+                }
+            }
+            fields.insert(dunder::SETATTR, self.get_frozen_setattr(cls));
+            fields.insert(dunder::DELATTR, self.get_frozen_delattr(cls));
         }
         // See rules for `__hash__` creation under "unsafe_hash":
         // https://docs.python.org/3/library/dataclasses.html#module-contents
@@ -236,14 +271,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
 
                 let cls = descriptor_cls.name();
-                errors.add(
-                    range,
-                    ErrorInfo::Kind(ErrorKind::BadClassDefinition),
-                    vec1![
+                errors
+                    .error_builder(
+                        range,
+                        ErrorKind::BadClassDefinition,
                         format!("Cannot set field `{name}` to non-data descriptor `{cls}`"),
-                        format!("Hint: add a `__set__` method to make `{cls}` a data descriptor"),
-                    ],
-                );
+                    )
+                    .with_detail(format!(
+                        "Hint: add a `__set__` method to make `{cls}` a data descriptor"
+                    ))
+                    .emit();
             }
         }
     }
@@ -296,14 +333,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // Check if the __get__ return type is assignable to the __set__ value type.
                     if !self.is_subset_eq(&get_ty, &set_ty) {
                         let cls = descriptor_cls.name();
-                        errors.add(
-                            range,
-                            ErrorInfo::Kind(ErrorKind::BadClassDefinition),
-                            vec1![
+                        errors
+                            .error_builder(
+                                range,
+                                ErrorKind::BadClassDefinition,
                                 format!("Cannot set field `{name}` to data descriptor `{cls}` with inconsistent types"),
-                                format!("Return type `{get_ty}` of `{cls}.__get__` is not assignable to value type `{set_ty}` of `{cls}.__set__`"),
-                            ],
-                        );
+                            )
+                            .with_detail(format!(
+                                "Return type `{get_ty}` of `{cls}.__get__` is not assignable to value type `{set_ty}` of `{cls}.__set__`"
+                            ))
+                            .emit();
                     }
                 }
             }
@@ -375,6 +414,78 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ));
         }
         self.unions(rets)
+    }
+
+    pub fn call_dataclasses_asdict(
+        &self,
+        asdict_ty: &Type,
+        args: &[CallArg],
+        kws: &[CallKeyword],
+        callee_range: TextRange,
+        arg_range: TextRange,
+        hint: Option<HintRef>,
+        errors: &ErrorCollector,
+    ) -> Type {
+        const MAX_ASDICT_FIELDS: usize = 20;
+
+        if let [CallArg::Arg(obj_arg)] = args
+            && kws.is_empty()
+            && let Type::ClassType(cls) = &obj_arg.infer(self, errors)
+            && let Some(dataclass) = self
+                .get_metadata_for_class(cls.class_object())
+                .dataclass_metadata()
+        {
+            let kw_only = self.compute_kw_only_fields_by_class(cls.class_object());
+            // excludes InitVar (and ClassVar) members but keeps `init=False` ones.
+            let raw_fields = self.iter_fields(cls.class_object(), dataclass, false, &kw_only);
+            // Decide on field count before doing the per-field work: bail to the freeform
+            // path for wide dataclasses to bound the size of the synthesized TypedDict.
+            if raw_fields.len() <= MAX_ASDICT_FIELDS {
+                let sub = cls.targs().substitution();
+                // At runtime, asdict traverses the object recursively and converts any contained dataclasses into a dict.
+                // Here, we traverse the type & transform any dataclasses into dict[str, Any]
+                let dict_str_any = self.heap.mk_class_type(self.stdlib.dict(
+                    self.heap.mk_class_type(self.stdlib.str().clone()),
+                    self.heap.mk_any_explicit(),
+                ));
+                let fields: Vec<(Name, TypedDictField)> = raw_fields
+                    .into_iter()
+                    .map(|(name, field, _)| {
+                        let mut ty = sub.substitute_into(field.ty());
+                        ty.transform_mut(&mut |t| {
+                            if let Type::ClassType(c) = t
+                                && self
+                                    .get_metadata_for_class(c.class_object())
+                                    .dataclass_metadata()
+                                    .is_some()
+                            {
+                                *t = dict_str_any.clone();
+                            }
+                        });
+                        (
+                            name,
+                            TypedDictField {
+                                ty,
+                                required: true,
+                                read_only_reason: None,
+                            },
+                        )
+                    })
+                    .collect();
+                return self.heap.mk_typed_dict(TypedDict::Anonymous(Box::new(
+                    AnonymousTypedDictInner { fields },
+                )));
+            }
+        }
+        self.freeform_call_infer(
+            asdict_ty.clone(),
+            args,
+            kws,
+            callee_range,
+            arg_range,
+            hint,
+            errors,
+        )
     }
 
     fn get_dataclass_replace(
@@ -473,7 +584,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         cls.range(),
-                        ErrorInfo::Kind(ErrorKind::InvalidInheritance),
+                        ErrorKind::InvalidInheritance,
                         format!(
                             "Cannot inherit {} dataclass `{}` from {} dataclass `{}`",
                             current_status,
@@ -642,6 +753,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }))
                 .unwrap(),
                 &overload.metadata,
+                None, // no shape_transform for dataclass constructors
                 None,
                 &args.args.map(CallArg::expr_maybe_starred),
                 &args.keywords.map(CallKeyword::new),
@@ -869,7 +981,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             range,
-                            ErrorInfo::Kind(ErrorKind::BadClassDefinition),
+                            ErrorKind::BadClassDefinition,
                             format!(
                                 "Dataclass field `{name}` without a default may not follow dataclass field with a default"
                             ),
@@ -1012,6 +1124,49 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         ClassSynthesizedField::new(self.heap.mk_function(Function {
             signature: Callable::list(ParamList::new(params), ret),
             metadata: FuncMetadata::method(cls, dunder::HASH),
+        }))
+    }
+
+    fn get_frozen_setattr(&self, cls: &Class) -> ClassSynthesizedField {
+        // Match typeshed's `object.__setattr__(self, name: str, value: Any, /) -> None`
+        // — all parameters are positional-only.
+        let params = vec![
+            self.class_self_param(cls, true),
+            Param::PosOnly(
+                Some(Name::new_static("name")),
+                self.heap.mk_class_type(self.stdlib.str().clone()),
+                Required::Required,
+            ),
+            Param::PosOnly(
+                Some(Name::new_static("value")),
+                self.heap.mk_any_implicit(),
+                Required::Required,
+            ),
+        ];
+        let mut metadata = FuncMetadata::def(self.module(), Some(cls), dunder::SETATTR);
+        metadata.flags.has_final_decoration = true;
+        ClassSynthesizedField::new(self.heap.mk_function(Function {
+            signature: Callable::list(ParamList::new(params), self.heap.mk_none()),
+            metadata,
+        }))
+    }
+
+    fn get_frozen_delattr(&self, cls: &Class) -> ClassSynthesizedField {
+        // Match typeshed's `object.__delattr__(self, name: str, /) -> None`
+        // — all parameters are positional-only.
+        let params = vec![
+            self.class_self_param(cls, true),
+            Param::PosOnly(
+                Some(Name::new_static("name")),
+                self.heap.mk_class_type(self.stdlib.str().clone()),
+                Required::Required,
+            ),
+        ];
+        let mut metadata = FuncMetadata::def(self.module(), Some(cls), dunder::DELATTR);
+        metadata.flags.has_final_decoration = true;
+        ClassSynthesizedField::new(self.heap.mk_function(Function {
+            signature: Callable::list(ParamList::new(params), self.heap.mk_none()),
+            metadata,
         }))
     }
 }

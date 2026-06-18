@@ -26,14 +26,17 @@ from pathlib import Path
 from typing import Annotated
 
 from cyclopts import Parameter
+from fastmcp_extensions.cli import exit_with_error, print_success
+from rich.console import Console
 
 from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import console, exit_with_error, print_success
 from airbyte_ops_mcp.github_api import resolve_default_github_token
 from airbyte_ops_mcp.internal_team_roster import (
     generate_roster_to_file,
     summarize_roster,
 )
+
+console = Console()
 
 # Create the roster sub-app
 roster_app = App(name="roster", help="Internal team roster operations.")

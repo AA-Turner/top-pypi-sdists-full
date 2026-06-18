@@ -36,12 +36,12 @@ def listify(s: str) -> list:
     Args:
         s: String representation of a list.
 
+    Returns:
+        List of homogeneous basic types.
+
     Raises:
         ValueError: If string does not represent a list.
         TypeError: If string does not represent a list of homogeneous basic types.
-
-    Returns:
-        List of homogeneous basic types.
     """
     if "\n" in s:
         str_list = s.strip().split("\n")

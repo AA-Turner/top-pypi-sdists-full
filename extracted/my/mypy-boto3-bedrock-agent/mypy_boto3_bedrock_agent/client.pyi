@@ -88,6 +88,8 @@ from .type_defs import (
     DeleteKnowledgeBaseResponseTypeDef,
     DeletePromptRequestTypeDef,
     DeletePromptResponseTypeDef,
+    DeleteResourcePolicyRequestTypeDef,
+    DeleteResourcePolicyResponseTypeDef,
     DisassociateAgentCollaboratorRequestTypeDef,
     DisassociateAgentKnowledgeBaseRequestTypeDef,
     GetAgentActionGroupRequestTypeDef,
@@ -118,6 +120,8 @@ from .type_defs import (
     GetKnowledgeBaseResponseTypeDef,
     GetPromptRequestTypeDef,
     GetPromptResponseTypeDef,
+    GetResourcePolicyRequestTypeDef,
+    GetResourcePolicyResponseTypeDef,
     IngestKnowledgeBaseDocumentsRequestTypeDef,
     IngestKnowledgeBaseDocumentsResponseTypeDef,
     ListAgentActionGroupsRequestTypeDef,
@@ -154,6 +158,8 @@ from .type_defs import (
     PrepareAgentResponseTypeDef,
     PrepareFlowRequestTypeDef,
     PrepareFlowResponseTypeDef,
+    PutResourcePolicyRequestTypeDef,
+    PutResourcePolicyResponseTypeDef,
     StartIngestionJobRequestTypeDef,
     StartIngestionJobResponseTypeDef,
     StopIngestionJobRequestTypeDef,
@@ -467,6 +473,16 @@ class AgentsforBedrockClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/client/#delete_prompt)
         """
 
+    def delete_resource_policy(
+        self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
+    ) -> DeleteResourcePolicyResponseTypeDef:
+        """
+        Removes the resource policy associated with a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_resource_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/client/#delete_resource_policy)
+        """
+
     def disassociate_agent_collaborator(
         self, **kwargs: Unpack[DisassociateAgentCollaboratorRequestTypeDef]
     ) -> dict[str, Any]:
@@ -622,6 +638,16 @@ class AgentsforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_prompt.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/client/#get_prompt)
+        """
+
+    def get_resource_policy(
+        self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
+    ) -> GetResourcePolicyResponseTypeDef:
+        """
+        Retrieves the resource policy associated with a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_resource_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/client/#get_resource_policy)
         """
 
     def ingest_knowledge_base_documents(
@@ -804,6 +830,16 @@ class AgentsforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/prepare_flow.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/client/#prepare_flow)
+        """
+
+    def put_resource_policy(
+        self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
+    ) -> PutResourcePolicyResponseTypeDef:
+        """
+        Associates a resource policy with a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/put_resource_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/client/#put_resource_policy)
         """
 
     def start_ingestion_job(

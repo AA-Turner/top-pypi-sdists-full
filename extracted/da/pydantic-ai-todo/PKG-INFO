@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-todo
-Version: 0.2.5
+Version: 0.2.6
 Summary: Todo/task planning toolset for pydantic-ai agents
 Project-URL: Homepage, https://github.com/vstorm-co/pydantic-ai-todo
 Project-URL: Documentation, https://github.com/vstorm-co/pydantic-ai-todo#readme
@@ -43,10 +43,11 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: asyncpg>=0.29.0
 Requires-Dist: pydantic-ai-slim>=1.74.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: redis>=7.4.0
+Provides-Extra: postgres
+Requires-Dist: asyncpg>=0.29.0; extra == 'postgres'
 Description-Content-Type: text/markdown
 
 <h1 align="center">Todo Toolset for Pydantic AI</h1>
@@ -204,6 +205,8 @@ agent = Agent("openai:gpt-4.1", capabilities=[TodoCapability(async_storage=stora
 ```
 
 ### PostgreSQL
+
+> Requires the `postgres` extra: `pip install 'pydantic-ai-todo[postgres]'`
 
 ```python
 from pydantic_ai_todo import TodoCapability, create_storage

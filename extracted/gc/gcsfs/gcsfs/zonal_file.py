@@ -6,7 +6,7 @@ from google.cloud.storage.asyncio.async_appendable_object_writer import (
 )
 
 from gcsfs import zb_hns_utils
-from gcsfs.core import DEFAULT_BLOCK_SIZE, GCSFile
+from gcsfs.core import DEFAULT_BLOCK_SIZE, GCSFile, _coalesce_generation
 
 from .caching import (  # noqa: F401 Unused import to register GCS-Specific caches, Please do not remove it.
     ReadAheadChunked,
@@ -57,7 +57,8 @@ class ZonalFile(GCSFile):
         of `_MAX_CHUNK_SIZE_BYTES` (2 MiB). Note that this higher default value may
         increase memory usage.
         """
-        bucket, key, generation = gcsfs._split_path(path)
+        bucket, key, path_generation = gcsfs.split_path(path)
+        generation = _coalesce_generation(generation, path_generation)
         if not key:
             raise OSError("Attempt to open a bucket")
         self.aaow = None
@@ -69,10 +70,16 @@ class ZonalFile(GCSFile):
         self.pool_size = pool_size
         object_size = None
         if "r" in self.mode:
-            self.mrd_pool = zb_hns_utils.MRDPool(
-                self.gcsfs, bucket, key, generation, self.pool_size
+            self.mrd_pool = asyn.sync(
+                self.gcsfs.loop,
+                self.gcsfs._mrd_pool_cache.get,
+                bucket,
+                key,
+                generation,
+                self.pool_size,
             )
-            asyn.sync(self.gcsfs.loop, self.mrd_pool.initialize)
+            if getattr(self.mrd_pool, "details", None) is not None:
+                self._details = self.mrd_pool.details
             object_size = self.mrd_pool.persisted_size
 
             if object_size is None:
@@ -189,14 +196,14 @@ class ZonalFile(GCSFile):
 
             try:
                 if chunk_lengths is None:
-                    return self._prefetch_engine._fetch(start, end)
+                    return self._prefetch_engine.fetch(start, end)
 
                 # Fetch chunks sequentially through the prefetch engine
                 # Spawning concurrent task is worst here, because that would act as seek for prefetcher.
                 results = []
                 current_offset = start if start is not None else 0
                 for length in chunk_lengths:
-                    data = self._prefetch_engine._fetch(
+                    data = self._prefetch_engine.fetch(
                         current_offset, current_offset + length
                     )
                     results.append(data)

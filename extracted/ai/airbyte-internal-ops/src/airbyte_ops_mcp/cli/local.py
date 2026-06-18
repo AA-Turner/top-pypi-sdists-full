@@ -42,6 +42,7 @@ from typing import Annotated, Literal
 
 import yaml
 from cyclopts import Parameter
+from fastmcp_extensions.cli import exit_with_error, print_json
 from jinja2 import Environment, PackageLoader, select_autoescape
 from rich.console import Console
 
@@ -88,7 +89,6 @@ from airbyte_ops_mcp.airbyte_repo.release_block import (
     list_release_blocks,
 )
 from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import error_console, exit_with_error, print_json
 from airbyte_ops_mcp.connector_metadata import (
     ConnectorMetadataDpathError,
     ConnectorMetadataDpathNotFoundError,
@@ -128,6 +128,7 @@ from airbyte_ops_mcp.registry.store import resolve_registry_store
 from airbyte_ops_mcp.regression_tests.ci_output import write_github_summary
 
 console = Console()
+error_console = Console(stderr=True)
 
 OutputFormat = Literal["csv", "lines", "json-gh-matrix"]
 SortBy = Literal["name"]

@@ -144,6 +144,12 @@ def build_run_start_event(job_source_id: str, run_source_id: str, start_time: st
         start_time=start_time,
         trigger="SCHEDULE",
         attempt_number=1,
+        # Optional placement (group-instance) this run belongs to, by SOURCE id
+        # (same EtlGroup shape as EtlAsset.group). Set it to pin the run to a
+        # specific group when the same logical job is placed in multiple groups
+        # within one container; omit it and the backend resolves the placement
+        # automatically. The backend mints the internal group id from source_id.
+        group=EtlGroup(source_id="sample_dag", name="Sample DAG", group_type="DAG"),
         run_url=f"https://airflow.example/dags/sample_dag/runs/{run_source_id}",
     )
 
@@ -163,6 +169,8 @@ def build_run_complete_event(
         end_time=end,
         trigger="SCHEDULE",
         attempt_number=1,
+        # Keep group stable across every emission for the same run (like start_time).
+        group=EtlGroup(source_id="sample_dag", name="Sample DAG", group_type="DAG"),
         run_url=f"https://airflow.example/dags/sample_dag/runs/{run_source_id}",
         inputs=[
             AssetRef(

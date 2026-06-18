@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-theme
-Version: 4.8.0
+Version: 5.0.0
 Summary: "Invenio standard theme."
 Home-page: https://github.com/inveniosoftware/invenio-theme
 Author: Invenio Collaboration
@@ -15,7 +15,7 @@ License-File: AUTHORS.rst
 Requires-Dist: Flask-Menu>=1.0.0
 Requires-Dist: invenio-assets<5.0.0,>=4.0.0
 Requires-Dist: invenio-base<3.0.0,>=2.0.0
-Requires-Dist: invenio-i18n<4.0.0,>=3.0.0
+Requires-Dist: invenio-i18n<5.0.0,>=4.0.0
 Requires-Dist: jsmin>=3.0.0
 Provides-Extra: tests
 Requires-Dist: pytest-black-ng>=0.4.0; extra == "tests"
@@ -25,11 +25,8 @@ Provides-Extra: docs
 Dynamic: license-file
 
 ..
-    This file is part of Invenio.
-    Copyright (C) 2015-2018 CERN.
-
-    Invenio is free software; you can redistribute it and/or modify it
-    under the terms of the MIT License; see LICENSE file for more details.
+    SPDX-FileCopyrightText: 2015-2018 CERN.
+    SPDX-License-Identifier: MIT
 
 ===============
  Invenio Theme
@@ -61,16 +58,19 @@ Features:
 Further documentation available at https://invenio-theme.readthedocs.io/
 
 ..
-    This file is part of Invenio.
-    Copyright (C) 2015-2025 CERN.
-    Copyright (C) 2024-2025 Graz University of Technology.
-    Copyright (C) 2025 KTH Royal Institute of Technology.
-
-    Invenio is free software; you can redistribute it and/or modify it
-    under the terms of the MIT License; see LICENSE file for more details.
+    SPDX-FileCopyrightText: 2015-2025 CERN.
+    SPDX-FileCopyrightText: 2024-2026 Graz University of Technology.
+    SPDX-FileCopyrightText: 2025 KTH Royal Institute of Technology.
+    SPDX-License-Identifier: MIT
 
 Changes
 =======
+
+Version v5.0.0 (released 2026-06-16)
+
+- chore(setup): bump dependencies
+- chore(git-blame): ignore the SPDX license header commit
+- chore(licenses): update license headers to use SPDX
 
 Version v4.8.0 (released 2026-06-02)
 

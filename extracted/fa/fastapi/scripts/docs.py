@@ -155,7 +155,7 @@ def build_lang(
     """
     build_zensical_lang_to_stage(lang)
     copy_zensical_stage_to_site(lang)
-    typer.secho(f"Successfully built docs for: {lang}", color=typer.colors.GREEN)
+    typer.secho(f"Successfully built docs for: {lang}", fg=typer.colors.GREEN)
 
 
 def split_markdown_header(markdown: str) -> tuple[str, str]:
@@ -311,20 +311,24 @@ index_sponsors_template = """
 ### Keystone Sponsor
 
 {% for sponsor in sponsors.keystone -%}
-<a href="{{ sponsor.url }}" target="_blank" title="{{ sponsor.title }}"><img src="{{ sponsor.img }}"></a>
+<a href="{{ sponsor.url }}" target="_blank" title="{{ sponsor.title }}"><img src="{{ sponsor_img_url(sponsor.img) }}"></a>
 {% endfor %}
 ### Gold Sponsors
 
 {% for sponsor in sponsors.gold -%}
-<a href="{{ sponsor.url }}" target="_blank" title="{{ sponsor.title }}"><img src="{{ sponsor.img }}"></a>
+<a href="{{ sponsor.url }}" target="_blank" title="{{ sponsor.title }}"><img src="{{ sponsor_img_url(sponsor.img) }}"></a>
 {% endfor %}
 ### Silver Sponsors
 
 {% for sponsor in sponsors.silver -%}
-<a href="{{ sponsor.url }}" target="_blank" title="{{ sponsor.title }}"><img src="{{ sponsor.img }}"></a>
+<a href="{{ sponsor.url }}" target="_blank" title="{{ sponsor.title }}"><img src="{{ sponsor_img_url(sponsor.img) }}"></a>
 {% endfor %}
 
 """
+
+
+def sponsor_img_url(img: str) -> str:
+    return f"https://fastapi.tiangolo.com{img}"
 
 
 def remove_header_permalinks(content: str):
@@ -355,7 +359,7 @@ def generate_readme_content() -> str:
     pre_end = match_start.end()
     post_start = match_end.start()
     template = Template(index_sponsors_template)
-    message = template.render(sponsors=sponsors)
+    message = template.render(sponsors=sponsors, sponsor_img_url=sponsor_img_url)
     pre_content = content[frontmatter_end:pre_end]
     post_content = content[post_start:]
     new_content = pre_content + message + post_content
@@ -408,7 +412,7 @@ def build_all() -> None:
     for lang in langs:
         if lang != "en":
             copy_zensical_stage_to_site(lang)
-    typer.secho("Successfully built all docs", color=typer.colors.GREEN)
+    typer.secho("Successfully built all docs", fg=typer.colors.GREEN)
 
 
 @app.command()

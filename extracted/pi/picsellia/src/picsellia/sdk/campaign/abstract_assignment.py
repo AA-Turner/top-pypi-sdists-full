@@ -9,6 +9,7 @@ from picsellia.colors import Colors
 from picsellia.decorators import exception_handler
 from picsellia.sdk.connection import Connection
 from picsellia.sdk.dao import Dao
+from picsellia.sdk.downloadable import Downloadable
 from picsellia.types.enums import AssignmentStatus
 from picsellia.types.schemas import (
     AssignmentSchema,
@@ -17,11 +18,12 @@ from picsellia.types.schemas import (
 logger = logging.getLogger("picsellia")
 
 
-class AbstractAssignment(Dao, abc.ABC):
+class AbstractAssignment(Dao, Downloadable, abc.ABC):
     _base_path: ClassVar[str]
 
     def __init__(self, connexion: Connection, campaign_id: UUID, data: dict):
         Dao.__init__(self, connexion, data)
+        Downloadable.__init__(self)
         self._campaign_id = campaign_id
 
     @property
@@ -49,6 +51,38 @@ class AbstractAssignment(Dao, abc.ABC):
         """Status of this (Assignment)"""
         return self._status
 
+    @property
+    def data_id(self) -> UUID:
+        """UUID of (Data) of this (Assignment)"""
+        return self._data_id
+
+    @property
+    def object_name(self) -> str:
+        """Object name of this (Assignment)"""
+        return self._object_name
+
+    @property
+    def filename(self) -> str:
+        """Filename of this (Assignment)"""
+        return self._filename
+
+    @property
+    def large(self) -> bool:
+        """If true, this (Assignment) file is considered large"""
+        return True
+
+    @exception_handler
+    @beartype
+    def reset_url(self) -> str:
+        """Reset url property of this (Assignment) by calling platform.
+
+        Returns:
+            A url as a string of this (Assignment).
+        """
+        r = self.connection.get(f"/api/data/{self.data_id}/presigned-url")
+        self._url = r.json()["presigned_url"]
+        return self._url
+
     def __str__(self):
         return f"{Colors.YELLOW}Assignment {Colors.ENDC} (id: {self.id})"
 
@@ -60,6 +94,12 @@ class AbstractAssignment(Dao, abc.ABC):
         self._status = schema.status
         self._step_id = schema.step_id
         self._user_id = schema.user_id
+
+        # Data properties
+        self._data_id = schema.data.id
+        self._object_name = schema.data.object_name
+        self._filename = schema.data.filename
+        self._url = schema.data.url
         return schema
 
     @exception_handler

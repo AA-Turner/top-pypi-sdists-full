@@ -45,9 +45,14 @@ from .paginator import (
     GetTriggersPaginator,
     GetUserDefinedFunctionsPaginator,
     GetWorkflowRunsPaginator,
+    ListAssetTypesPaginator,
     ListBlueprintsPaginator,
     ListConnectionTypesPaginator,
     ListEntitiesPaginator,
+    ListFormTypesPaginator,
+    ListGlossariesPaginator,
+    ListGlossaryTermsPaginator,
+    ListIterableFormsPaginator,
     ListJobsPaginator,
     ListMaterializedViewRefreshTaskRunsPaginator,
     ListRegistriesPaginator,
@@ -57,8 +62,11 @@ from .paginator import (
     ListTriggersPaginator,
     ListUsageProfilesPaginator,
     ListWorkflowsPaginator,
+    SearchPaginator,
 )
 from .type_defs import (
+    AssociateGlossaryTermsRequestTypeDef,
+    AssociateGlossaryTermsResponseTypeDef,
     BatchCreatePartitionRequestTypeDef,
     BatchCreatePartitionResponseTypeDef,
     BatchDeleteConnectionRequestTypeDef,
@@ -79,6 +87,8 @@ from .type_defs import (
     BatchGetDataQualityResultResponseTypeDef,
     BatchGetDevEndpointsRequestTypeDef,
     BatchGetDevEndpointsResponseTypeDef,
+    BatchGetIterableFormsRequestTypeDef,
+    BatchGetIterableFormsResponseTypeDef,
     BatchGetJobsRequestTypeDef,
     BatchGetJobsResponseTypeDef,
     BatchGetPartitionRequestTypeDef,
@@ -117,6 +127,10 @@ from .type_defs import (
     CreateDataQualityRulesetResponseTypeDef,
     CreateDevEndpointRequestTypeDef,
     CreateDevEndpointResponseTypeDef,
+    CreateGlossaryRequestTypeDef,
+    CreateGlossaryResponseTypeDef,
+    CreateGlossaryTermRequestTypeDef,
+    CreateGlossaryTermResponseTypeDef,
     CreateGlueIdentityCenterConfigurationRequestTypeDef,
     CreateGlueIdentityCenterConfigurationResponseTypeDef,
     CreateIntegrationRequestTypeDef,
@@ -149,6 +163,10 @@ from .type_defs import (
     CreateUserDefinedFunctionRequestTypeDef,
     CreateWorkflowRequestTypeDef,
     CreateWorkflowResponseTypeDef,
+    DeleteAssetRequestTypeDef,
+    DeleteAssetTypeRequestTypeDef,
+    DeleteAttachmentRequestTypeDef,
+    DeleteAttachmentResponseTypeDef,
     DeleteBlueprintRequestTypeDef,
     DeleteBlueprintResponseTypeDef,
     DeleteCatalogRequestTypeDef,
@@ -164,6 +182,9 @@ from .type_defs import (
     DeleteDatabaseRequestTypeDef,
     DeleteDataQualityRulesetRequestTypeDef,
     DeleteDevEndpointRequestTypeDef,
+    DeleteFormTypeRequestTypeDef,
+    DeleteGlossaryRequestTypeDef,
+    DeleteGlossaryTermRequestTypeDef,
     DeleteIntegrationRequestTypeDef,
     DeleteIntegrationResourcePropertyRequestTypeDef,
     DeleteIntegrationResponseTypeDef,
@@ -201,6 +222,12 @@ from .type_defs import (
     DescribeInboundIntegrationsResponseTypeDef,
     DescribeIntegrationsRequestTypeDef,
     DescribeIntegrationsResponseTypeDef,
+    DisassociateGlossaryTermsRequestTypeDef,
+    DisassociateGlossaryTermsResponseTypeDef,
+    GetAssetInputTypeDef,
+    GetAssetOutputTypeDef,
+    GetAssetTypeRequestTypeDef,
+    GetAssetTypeResponseTypeDef,
     GetBlueprintRequestTypeDef,
     GetBlueprintResponseTypeDef,
     GetBlueprintRunRequestTypeDef,
@@ -267,6 +294,12 @@ from .type_defs import (
     GetDevEndpointsResponseTypeDef,
     GetEntityRecordsRequestTypeDef,
     GetEntityRecordsResponseTypeDef,
+    GetFormTypeRequestTypeDef,
+    GetFormTypeResponseTypeDef,
+    GetGlossaryRequestTypeDef,
+    GetGlossaryResponseTypeDef,
+    GetGlossaryTermRequestTypeDef,
+    GetGlossaryTermResponseTypeDef,
     GetGlueIdentityCenterConfigurationResponseTypeDef,
     GetIntegrationResourcePropertyRequestTypeDef,
     GetIntegrationResourcePropertyResponseTypeDef,
@@ -363,6 +396,8 @@ from .type_defs import (
     GetWorkflowRunsRequestTypeDef,
     GetWorkflowRunsResponseTypeDef,
     ImportCatalogToGlueRequestTypeDef,
+    ListAssetTypesRequestTypeDef,
+    ListAssetTypesResponseTypeDef,
     ListBlueprintsRequestTypeDef,
     ListBlueprintsResponseTypeDef,
     ListColumnStatisticsTaskRunsRequestTypeDef,
@@ -391,8 +426,16 @@ from .type_defs import (
     ListDevEndpointsResponseTypeDef,
     ListEntitiesRequestTypeDef,
     ListEntitiesResponseTypeDef,
+    ListFormTypesRequestTypeDef,
+    ListFormTypesResponseTypeDef,
+    ListGlossariesRequestTypeDef,
+    ListGlossariesResponseTypeDef,
+    ListGlossaryTermsRequestTypeDef,
+    ListGlossaryTermsResponseTypeDef,
     ListIntegrationResourcePropertiesRequestTypeDef,
     ListIntegrationResourcePropertiesResponseTypeDef,
+    ListIterableFormsRequestTypeDef,
+    ListIterableFormsResponseTypeDef,
     ListJobsRequestTypeDef,
     ListJobsResponseTypeDef,
     ListMaterializedViewRefreshTaskRunsRequestTypeDef,
@@ -419,8 +462,16 @@ from .type_defs import (
     ListWorkflowsResponseTypeDef,
     ModifyIntegrationRequestTypeDef,
     ModifyIntegrationResponseTypeDef,
+    PutAssetRequestTypeDef,
+    PutAssetResponseTypeDef,
+    PutAssetTypeRequestTypeDef,
+    PutAssetTypeResponseTypeDef,
+    PutAttachmentRequestTypeDef,
+    PutAttachmentResponseTypeDef,
     PutDataCatalogEncryptionSettingsRequestTypeDef,
     PutDataQualityProfileAnnotationRequestTypeDef,
+    PutFormTypeRequestTypeDef,
+    PutFormTypeResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
     PutSchemaVersionMetadataInputTypeDef,
@@ -440,6 +491,8 @@ from .type_defs import (
     ResumeWorkflowRunResponseTypeDef,
     RunStatementRequestTypeDef,
     RunStatementResponseTypeDef,
+    SearchInputTypeDef,
+    SearchOutputTypeDef,
     SearchTablesRequestTypeDef,
     SearchTablesResponseTypeDef,
     StartBlueprintRunRequestTypeDef,
@@ -498,6 +551,10 @@ from .type_defs import (
     UpdateDataQualityRulesetRequestTypeDef,
     UpdateDataQualityRulesetResponseTypeDef,
     UpdateDevEndpointRequestTypeDef,
+    UpdateGlossaryRequestTypeDef,
+    UpdateGlossaryResponseTypeDef,
+    UpdateGlossaryTermRequestTypeDef,
+    UpdateGlossaryTermResponseTypeDef,
     UpdateGlueIdentityCenterConfigurationRequestTypeDef,
     UpdateIntegrationResourcePropertyRequestTypeDef,
     UpdateIntegrationResourcePropertyResponseTypeDef,
@@ -623,6 +680,16 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#generate_presigned_url)
         """
 
+    def associate_glossary_terms(
+        self, **kwargs: Unpack[AssociateGlossaryTermsRequestTypeDef]
+    ) -> AssociateGlossaryTermsResponseTypeDef:
+        """
+        Associates one or more glossary terms with an asset in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/associate_glossary_terms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#associate_glossary_terms)
+        """
+
     def batch_create_partition(
         self, **kwargs: Unpack[BatchCreatePartitionRequestTypeDef]
     ) -> BatchCreatePartitionResponseTypeDef:
@@ -722,6 +789,17 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_dev_endpoints.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#batch_get_dev_endpoints)
+        """
+
+    def batch_get_iterable_forms(
+        self, **kwargs: Unpack[BatchGetIterableFormsRequestTypeDef]
+    ) -> BatchGetIterableFormsResponseTypeDef:
+        """
+        Retrieves multiple items from an iterable form on an asset in Glue Data Catalog
+        in a single request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/batch_get_iterable_forms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#batch_get_iterable_forms)
         """
 
     def batch_get_jobs(
@@ -947,6 +1025,26 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#create_dev_endpoint)
         """
 
+    def create_glossary(
+        self, **kwargs: Unpack[CreateGlossaryRequestTypeDef]
+    ) -> CreateGlossaryResponseTypeDef:
+        """
+        Creates a business glossary in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/create_glossary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#create_glossary)
+        """
+
+    def create_glossary_term(
+        self, **kwargs: Unpack[CreateGlossaryTermRequestTypeDef]
+    ) -> CreateGlossaryTermResponseTypeDef:
+        """
+        Creates a glossary term within a business glossary in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/create_glossary_term.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#create_glossary_term)
+        """
+
     def create_glue_identity_center_configuration(
         self, **kwargs: Unpack[CreateGlueIdentityCenterConfigurationRequestTypeDef]
     ) -> CreateGlueIdentityCenterConfigurationResponseTypeDef:
@@ -1137,6 +1235,32 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#create_workflow)
         """
 
+    def delete_asset(self, **kwargs: Unpack[DeleteAssetRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes an asset from Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_asset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_asset)
+        """
+
+    def delete_asset_type(self, **kwargs: Unpack[DeleteAssetTypeRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes an asset type from Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_asset_type.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_asset_type)
+        """
+
+    def delete_attachment(
+        self, **kwargs: Unpack[DeleteAttachmentRequestTypeDef]
+    ) -> DeleteAttachmentResponseTypeDef:
+        """
+        Deletes a form attachment from an asset in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_attachment)
+        """
+
     def delete_blueprint(
         self, **kwargs: Unpack[DeleteBlueprintRequestTypeDef]
     ) -> DeleteBlueprintResponseTypeDef:
@@ -1256,6 +1380,32 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_dev_endpoint.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_dev_endpoint)
+        """
+
+    def delete_form_type(self, **kwargs: Unpack[DeleteFormTypeRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a form type from Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_form_type.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_form_type)
+        """
+
+    def delete_glossary(self, **kwargs: Unpack[DeleteGlossaryRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a business glossary from Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_glossary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_glossary)
+        """
+
+    def delete_glossary_term(
+        self, **kwargs: Unpack[DeleteGlossaryTermRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a glossary term from Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/delete_glossary_term.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#delete_glossary_term)
         """
 
     def delete_glue_identity_center_configuration(self) -> dict[str, Any]:
@@ -1503,6 +1653,36 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/describe_integrations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#describe_integrations)
+        """
+
+    def disassociate_glossary_terms(
+        self, **kwargs: Unpack[DisassociateGlossaryTermsRequestTypeDef]
+    ) -> DisassociateGlossaryTermsResponseTypeDef:
+        """
+        Removes the association of one or more glossary terms from an asset in Glue
+        Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/disassociate_glossary_terms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#disassociate_glossary_terms)
+        """
+
+    def get_asset(self, **kwargs: Unpack[GetAssetInputTypeDef]) -> GetAssetOutputTypeDef:
+        """
+        Retrieves the metadata for an asset in Glue Data Catalog, including its forms,
+        additional attachments, and associated glossary terms.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_asset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_asset)
+        """
+
+    def get_asset_type(
+        self, **kwargs: Unpack[GetAssetTypeRequestTypeDef]
+    ) -> GetAssetTypeResponseTypeDef:
+        """
+        Retrieves an asset type in Glue Data Catalog by its identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_asset_type.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_asset_type)
         """
 
     def get_blueprint(
@@ -1831,6 +2011,36 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_entity_records.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_entity_records)
+        """
+
+    def get_form_type(
+        self, **kwargs: Unpack[GetFormTypeRequestTypeDef]
+    ) -> GetFormTypeResponseTypeDef:
+        """
+        Retrieves a form type in Glue Data Catalog by its identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_form_type.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_form_type)
+        """
+
+    def get_glossary(
+        self, **kwargs: Unpack[GetGlossaryRequestTypeDef]
+    ) -> GetGlossaryResponseTypeDef:
+        """
+        Retrieves a business glossary in Glue Data Catalog by its identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_glossary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_glossary)
+        """
+
+    def get_glossary_term(
+        self, **kwargs: Unpack[GetGlossaryTermRequestTypeDef]
+    ) -> GetGlossaryTermResponseTypeDef:
+        """
+        Retrieves a glossary term in Glue Data Catalog by its identifier.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_glossary_term.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_glossary_term)
         """
 
     def get_glue_identity_center_configuration(
@@ -2311,6 +2521,16 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#import_catalog_to_glue)
         """
 
+    def list_asset_types(
+        self, **kwargs: Unpack[ListAssetTypesRequestTypeDef]
+    ) -> ListAssetTypesResponseTypeDef:
+        """
+        Lists the asset types defined in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_asset_types.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_asset_types)
+        """
+
     def list_blueprints(
         self, **kwargs: Unpack[ListBlueprintsRequestTypeDef]
     ) -> ListBlueprintsResponseTypeDef:
@@ -2453,6 +2673,36 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_entities)
         """
 
+    def list_form_types(
+        self, **kwargs: Unpack[ListFormTypesRequestTypeDef]
+    ) -> ListFormTypesResponseTypeDef:
+        """
+        Lists the form types defined in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_form_types.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_form_types)
+        """
+
+    def list_glossaries(
+        self, **kwargs: Unpack[ListGlossariesRequestTypeDef]
+    ) -> ListGlossariesResponseTypeDef:
+        """
+        Lists business glossaries in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_glossaries.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_glossaries)
+        """
+
+    def list_glossary_terms(
+        self, **kwargs: Unpack[ListGlossaryTermsRequestTypeDef]
+    ) -> ListGlossaryTermsResponseTypeDef:
+        """
+        Lists glossary terms within a business glossary in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_glossary_terms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_glossary_terms)
+        """
+
     def list_integration_resource_properties(
         self, **kwargs: Unpack[ListIntegrationResourcePropertiesRequestTypeDef]
     ) -> ListIntegrationResourcePropertiesResponseTypeDef:
@@ -2461,6 +2711,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_integration_resource_properties.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_integration_resource_properties)
+        """
+
+    def list_iterable_forms(
+        self, **kwargs: Unpack[ListIterableFormsRequestTypeDef]
+    ) -> ListIterableFormsResponseTypeDef:
+        """
+        Lists the items in an iterable form on an asset in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/list_iterable_forms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#list_iterable_forms)
         """
 
     def list_jobs(self, **kwargs: Unpack[ListJobsRequestTypeDef]) -> ListJobsResponseTypeDef:
@@ -2595,6 +2855,34 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#modify_integration)
         """
 
+    def put_asset(self, **kwargs: Unpack[PutAssetRequestTypeDef]) -> PutAssetResponseTypeDef:
+        """
+        Creates or updates an asset in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_asset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_asset)
+        """
+
+    def put_asset_type(
+        self, **kwargs: Unpack[PutAssetTypeRequestTypeDef]
+    ) -> PutAssetTypeResponseTypeDef:
+        """
+        Creates or updates an asset type in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_asset_type.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_asset_type)
+        """
+
+    def put_attachment(
+        self, **kwargs: Unpack[PutAttachmentRequestTypeDef]
+    ) -> PutAttachmentResponseTypeDef:
+        """
+        Attaches a form to an asset or an iterable form item in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_attachment)
+        """
+
     def put_data_catalog_encryption_settings(
         self, **kwargs: Unpack[PutDataCatalogEncryptionSettingsRequestTypeDef]
     ) -> dict[str, Any]:
@@ -2613,6 +2901,16 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_data_quality_profile_annotation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_data_quality_profile_annotation)
+        """
+
+    def put_form_type(
+        self, **kwargs: Unpack[PutFormTypeRequestTypeDef]
+    ) -> PutFormTypeResponseTypeDef:
+        """
+        Creates or updates a form type in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/put_form_type.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#put_form_type)
         """
 
     def put_resource_policy(
@@ -2715,6 +3013,15 @@ class GlueClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/run_statement.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#run_statement)
+        """
+
+    def search(self, **kwargs: Unpack[SearchInputTypeDef]) -> SearchOutputTypeDef:
+        """
+        Searches for assets in Glue Data Catalog using full-text search, filters,
+        sorting, and aggregations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/search.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#search)
         """
 
     def search_tables(
@@ -3097,6 +3404,26 @@ class GlueClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#update_dev_endpoint)
         """
 
+    def update_glossary(
+        self, **kwargs: Unpack[UpdateGlossaryRequestTypeDef]
+    ) -> UpdateGlossaryResponseTypeDef:
+        """
+        Updates a business glossary in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/update_glossary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#update_glossary)
+        """
+
+    def update_glossary_term(
+        self, **kwargs: Unpack[UpdateGlossaryTermRequestTypeDef]
+    ) -> UpdateGlossaryTermResponseTypeDef:
+        """
+        Updates a glossary term in Glue Data Catalog.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/update_glossary_term.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#update_glossary_term)
+        """
+
     def update_glue_identity_center_configuration(
         self, **kwargs: Unpack[UpdateGlueIdentityCenterConfigurationRequestTypeDef]
     ) -> dict[str, Any]:
@@ -3455,6 +3782,17 @@ class GlueClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_asset_types"]
+    ) -> ListAssetTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_blueprints"]
     ) -> ListBlueprintsPaginator:
         """
@@ -3479,6 +3817,50 @@ class GlueClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_entities"]
     ) -> ListEntitiesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_form_types"]
+    ) -> ListFormTypesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_glossaries"]
+    ) -> ListGlossariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_glossary_terms"]
+    ) -> ListGlossaryTermsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_iterable_forms"]
+    ) -> ListIterableFormsPaginator:
         """
         Create a paginator for an operation.
 
@@ -3578,6 +3960,17 @@ class GlueClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_workflows"]
     ) -> ListWorkflowsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_glue/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search"]
+    ) -> SearchPaginator:
         """
         Create a paginator for an operation.
 

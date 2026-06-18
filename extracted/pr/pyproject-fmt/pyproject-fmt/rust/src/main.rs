@@ -157,6 +157,10 @@ fn format_toml_py(py: Python<'_>, content: &str, opt: &Settings) -> String {
 /// Format toml file
 #[must_use]
 pub fn format_toml(content: &str, opt: &Settings) -> String {
+    common::disabled::with_disabled_keys(content, opt.column_width, |content| format_core(content, opt))
+}
+
+fn format_core(content: &str, opt: &Settings) -> String {
     let root_ast = parse(content);
     common::string::normalize_key_quotes(&root_ast);
     let mut tables = Tables::from_ast(&root_ast);

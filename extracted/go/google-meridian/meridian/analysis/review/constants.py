@@ -14,7 +14,7 @@
 
 """Constants for model review."""
 
-from immutabledict import immutabledict
+import immutabledict
 
 RHAT = "rhat"
 PARAMETER = "parameter"
@@ -49,14 +49,24 @@ MEDIAN = "median"
 Q1 = "q1"
 Q3 = "q3"
 BAYESIAN_PPP = "bayesian_ppp"
+CHANNELS_STR = "channels_str"
+SPEND_SHARE = "spend_share"
+ROI_MEAN = "roi_mean"
+ROI_MEDIAN = "roi_median"
+SPEND_WEIGHTED_ROI = "spend_weighted_roi"
+CORRELATION_MATRIX = "correlation_matrix"
+PRIOR_RELATIVE_HDI_WIDTH_FOR_80_PERCENT = 2.0687
 
-CHECK_RESULT_NAME_MAP = immutabledict({
+CHECK_RESULT_NAME_MAP = immutabledict.immutabledict({
     "ConvergenceCheckResult": "Convergence",
     "BaselineCheckResult": "Baseline",
     "GoodnessOfFitCheckResult": "Goodness of fit",
     "BayesianPPPCheckResult": "Bayesian p-value",
     "PriorPosteriorShiftCheckResult": "Prior-posterior shift",
     "ROIConsistencyCheckResult": "ROI consistency",
+    "ImplausibleROICheckResult": "Implausible ROI",
+    "HighVarianceCheckResult": "High-variance ROI",
+    "PotentialBiasCheckResult": "Potential bias",
 })
 
 # Health score constants
@@ -68,3 +78,21 @@ HEALTH_SCORE_WEIGHT_BAYESIAN_PPP = 0.3
 HEALTH_SCORE_WEIGHT_GOF = 0.1
 HEALTH_SCORE_WEIGHT_PRIOR_POSTERIOR_SHIFT = 0.15
 HEALTH_SCORE_WEIGHT_ROI_CONSISTENCY = 0.15
+
+IMPLAUSIBLE_ROI_RECOMMENDATION = (
+    "Please review these channels to determine if the ROI estimates are "
+    "reasonable within your business context. Consider calibrating with an "
+    "incrementality experiment to improve accuracy."
+)
+
+HIGH_VARIANCE_ROI_RECOMMENDATION = (
+    "We recommend calibrating these channels using an incrementality experiment"
+    " to reduce posterior ROI uncertainty."
+)
+
+POTENTIAL_BIAS_RECOMMENDATION = (
+    "Some channels have low correlation with all controls. These channels might"
+    " have biased posterior estimates due to missing potential confounders."
+    " We recommend checking if important controls are missing or calibrating"
+    " these channels using an incrementality experiment to address this."
+)

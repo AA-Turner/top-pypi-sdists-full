@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from unitycatalog.client.models.column_info import ColumnInfo
 from unitycatalog.client.models.data_source_format import DataSourceFormat
+from unitycatalog.client.models.dependency_list import DependencyList
 from unitycatalog.client.models.table_type import TableType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -44,7 +45,9 @@ class TableInfo(BaseModel):
     updated_at: Optional[StrictInt] = Field(default=None, description="Time at which this table was last modified, in epoch milliseconds.")
     updated_by: Optional[StrictStr] = Field(default=None, description="Username of user who last modified the table.")
     table_id: Optional[StrictStr] = Field(default=None, description="Unique identifier for the table.")
-    __properties: ClassVar[List[str]] = ["name", "catalog_name", "schema_name", "table_type", "data_source_format", "columns", "storage_location", "comment", "properties", "owner", "created_at", "created_by", "updated_at", "updated_by", "table_id"]
+    view_definition: Optional[StrictStr] = Field(default=None, description="Definition text for view-like table types such as VIEW, MATERIALIZED_VIEW, STREAMING_TABLE, and METRIC_VIEW. The format depends on the table type (SQL for views, YAML for metric views).")
+    view_dependencies: Optional[DependencyList] = None
+    __properties: ClassVar[List[str]] = ["name", "catalog_name", "schema_name", "table_type", "data_source_format", "columns", "storage_location", "comment", "properties", "owner", "created_at", "created_by", "updated_at", "updated_by", "table_id", "view_definition", "view_dependencies"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +95,9 @@ class TableInfo(BaseModel):
                 if _item_columns:
                     _items.append(_item_columns.to_dict())
             _dict['columns'] = _items
+        # override the default output from pydantic by calling `to_dict()` of view_dependencies
+        if self.view_dependencies:
+            _dict['view_dependencies'] = self.view_dependencies.to_dict()
         return _dict
 
     @classmethod
@@ -118,7 +124,9 @@ class TableInfo(BaseModel):
             "created_by": obj.get("created_by"),
             "updated_at": obj.get("updated_at"),
             "updated_by": obj.get("updated_by"),
-            "table_id": obj.get("table_id")
+            "table_id": obj.get("table_id"),
+            "view_definition": obj.get("view_definition"),
+            "view_dependencies": DependencyList.from_dict(obj["view_dependencies"]) if obj.get("view_dependencies") is not None else None
         })
         return _obj
 

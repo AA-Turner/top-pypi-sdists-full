@@ -51,13 +51,18 @@ from airbyte_ops_webapp.pages.customer_billing.result_modal import (
 )
 from airbyte_ops_webapp.pages.shared_components.layout import (
     render_breadcrumb_nav,
-    render_mock_mode_banner,
+    render_environment_banners,
     render_page_hero,
 )
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     org_lookup_modal_state,
 )
-from airbyte_ops_webapp.state import mock_only_enabled
+from airbyte_ops_webapp.state import (
+    mock_only_enabled,
+    preview_deploy_enabled,
+    preview_pr_number,
+    preview_pr_url,
+)
 from airbyte_ops_webapp.theme import (
     AIRBYTE_PRIMARY,
     ERROR_CARD_CLASS,
@@ -93,6 +98,7 @@ def customer_billing() -> PrefabApp:
             onMount=[hydrate_oauth_action(), hydrate_google_oauth_action()],
         ):
             with Column(gap=5, css_class=PAGE_CLASS):
+                render_environment_banners()
                 render_breadcrumb_nav(
                     current_page=f"{CUSTOMER_BILLING_EMOJI} Customer Billing",
                 )
@@ -104,7 +110,6 @@ def customer_billing() -> PrefabApp:
                     ),
                     show_auth_controls=True,
                 )
-                render_mock_mode_banner()
                 _render_loading_banner()
                 _render_error_banner()
                 render_org_lookup()
@@ -189,6 +194,9 @@ def _build_initial_state(
         # Auth (Airbyte)
         "auth_bearer_token": "",
         "is_mock_only": mock_only_enabled(),
+        "is_preview_deploy": preview_deploy_enabled(),
+        "preview_pr_number": preview_pr_number(),
+        "preview_pr_url": preview_pr_url(),
         "oauth_config": current_oauth_config,
         "oauth_enabled": current_oauth_config["enabled"],
         "oauth_authenticated": False,

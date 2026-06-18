@@ -414,6 +414,7 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
                         | TokenKind::LtEq
                         | TokenKind::Gt
                         | TokenKind::GtEq
+                        | TokenKind::NullSafeEq
                         | TokenKind::RegexSingle
                         | TokenKind::RegexDouble
                         | TokenKind::IRegexSingle
@@ -2257,7 +2258,12 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
     }
 
     pub(crate) fn set_lexer_pos(&mut self, pos: usize) -> Result<(), ParseError> {
+        // Carry the HogQLX tag-mode flag across the re-seek — restores /
+        // text-boundary re-seeks happen mid-tag and must keep lexing
+        // `#` the tag-mode way.
+        let in_tag = self.lexer.in_hogqlx_tag();
         self.lexer = Lexer::with_pos(self.src, pos);
+        self.lexer.set_in_hogqlx_tag(in_tag);
         self.peek0 = self.lexer.next_token()?;
         self.peek1 = self.lexer.next_token()?;
         Ok(())
@@ -2414,6 +2420,7 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
             | TokenKind::LtEq
             | TokenKind::Gt
             | TokenKind::GtEq
+            | TokenKind::NullSafeEq
             | TokenKind::RegexSingle
             | TokenKind::RegexDouble
             | TokenKind::IRegexSingle
@@ -3246,9 +3253,16 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
         // all keep DISTINCT as a Field. The follow-set heuristic here
         // mirrors that: bail out when peek_next is Comma or any pure
         // infix/postfix op that can't start a fresh expression.
+        // `distinct()` with EMPTY parens is the zero-arg call `Call(distinct,
+        // [])`, not the args DISTINCT-marker: cpp reads `count(distinct())` as
+        // `count` over a nested `distinct()` call (cf. `SELECT distinct()`).
+        // `distinct(x)` keeps the marker, so only empty `()` triggers this.
+        let distinct_heads_empty_call =
+            self.peek_next() == TokenKind::LParen && self.peek_lparen_is_empty();
         let distinct = if self.peek() == TokenKind::Keyword(Kw::Distinct)
             && !matches!(self.peek_next(), TokenKind::Comma)
             && !is_pure_infix_op(self.peek_next())
+            && !distinct_heads_empty_call
         {
             self.bump()?;
             true
@@ -4218,6 +4232,7 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
                 | TokenKind::LtEq
                 | TokenKind::Gt
                 | TokenKind::GtEq
+                | TokenKind::NullSafeEq
                 | TokenKind::Arrow
                 | TokenKind::ColonEquals
                 | TokenKind::Concat
@@ -4341,6 +4356,50 @@ impl<'a, E: Emitter + Clone> Parser<'a, E> {
             }
         }
         Ok(args)
+    }
+
+    /// Table-function argument list (cpp's `tableArgList`): each arg is a plain
+    /// `columnExpr` or a named `ident := expr`. Unlike a general function call
+    /// (cpp's `ColumnExprCallSelect`), a *bare* `SELECT …` is not a valid table
+    /// arg — cpp rejects `FROM a(SELECT 1)` but accepts `FROM a((SELECT 1))` —
+    /// so this skips the bare-`selectSetStmt` alt that `parse_arg_list` allows.
+    pub(crate) fn parse_table_arg_list(
+        &mut self,
+        terminator: TokenKind,
+    ) -> Result<Vec<E::Value>, ParseError> {
+        let mut args = Vec::new();
+        if self.peek() == terminator {
+            return Ok(args);
+        }
+        loop {
+            args.push(self.parse_table_argument()?);
+            if !self.eat(TokenKind::Comma)? {
+                break;
+            }
+            if self.peek() == terminator {
+                break;
+            }
+        }
+        Ok(args)
+    }
+
+    /// One table-function argument: a named `ident := expr`, else a plain
+    /// `columnExpr` (no bare-`SELECT` alt — see `parse_table_arg_list`). The
+    /// named-arg gate mirrors `parse_call_argument_with` (cpp's
+    /// `ColumnExprNamedArg` admits the full `identifier` rule).
+    fn parse_table_argument(&mut self) -> Result<E::Value, ParseError> {
+        let name_kw_ok =
+            matches!(self.peek(), TokenKind::Keyword(kw) if kw_valid_as_identifier(kw));
+        if (matches!(self.peek(), TokenKind::Ident | TokenKind::QuotedIdent) || name_kw_ok)
+            && self.peek_next() == TokenKind::ColonEquals
+        {
+            let name_tok = self.bump()?;
+            let name = identifier_text(self.text(name_tok), name_tok.kind);
+            self.bump()?; // consume `:=`
+            let value = self.parse_expr_bp(0)?;
+            return Ok(self.emit.named_argument(&name, value));
+        }
+        self.parse_expr_bp(0)
     }
 
     /// One argument in a function call's argument list. Supports the named
@@ -5321,6 +5380,7 @@ pub(crate) fn is_pure_infix_op(tok: TokenKind) -> bool {
             | TokenKind::LtEq
             | TokenKind::Gt
             | TokenKind::GtEq
+            | TokenKind::NullSafeEq
             | TokenKind::Slash
             | TokenKind::Percent
             | TokenKind::RegexSingle

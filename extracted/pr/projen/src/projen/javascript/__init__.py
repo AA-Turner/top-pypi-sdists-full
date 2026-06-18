@@ -83,6 +83,7 @@ from .biome_config import (
     OverrideFormatterConfiguration as _OverrideFormatterConfiguration_7cf8b09f,
     OverrideLinterConfiguration as _OverrideLinterConfiguration_e2446699,
     OverridePattern as _OverridePattern_c64e7f03,
+    PresetConfig as _PresetConfig_ed2b5461,
     Rules as _Rules_f79679bb,
 )
 
@@ -307,7 +308,7 @@ class Biome(
         javascript: typing.Optional[typing.Union["_JsConfiguration_534ceb12", typing.Dict[builtins.str, typing.Any]]] = None,
         json: typing.Optional[typing.Union["_JsonConfiguration_dff59c39", typing.Dict[builtins.str, typing.Any]]] = None,
         linter: typing.Optional[typing.Union["_OverrideLinterConfiguration_e2446699", typing.Dict[builtins.str, typing.Any]]] = None,
-        plugins: typing.Optional[typing.Sequence[builtins.str]] = None,
+        plugins: typing.Optional[typing.Sequence[typing.Any]] = None,
     ) -> None:
         '''(experimental) Add a biome override to set rules for a specific file pattern.
 
@@ -353,6 +354,7 @@ class Biome(
         correctness: typing.Any = None,
         nursery: typing.Any = None,
         performance: typing.Any = None,
+        preset: typing.Optional["_PresetConfig_ed2b5461"] = None,
         recommended: typing.Optional[builtins.bool] = None,
         security: typing.Any = None,
         style: typing.Any = None,
@@ -367,6 +369,7 @@ class Biome(
         :param correctness: 
         :param nursery: 
         :param performance: 
+        :param preset: (experimental) The rule presets to use.
         :param recommended: (experimental) It enables the lint rules recommended by Biome. ``true`` by default.
         :param security: 
         :param style: 
@@ -391,6 +394,7 @@ class Biome(
             correctness=correctness,
             nursery=nursery,
             performance=performance,
+            preset=preset,
             recommended=recommended,
             security=security,
             style=style,

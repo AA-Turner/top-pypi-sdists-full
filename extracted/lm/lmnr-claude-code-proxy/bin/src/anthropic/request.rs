@@ -114,6 +114,8 @@ pub enum MessageRole {
     User,
     #[serde(rename = "assistant")]
     Assistant,
+    #[serde(rename = "system")]
+    System,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]

@@ -1,5 +1,7 @@
+from typing import no_type_check
+
 import pytest
-from httpx import HTTPError
+from httpx2 import HTTPError
 
 from habanero import Crossref, exceptions
 
@@ -12,7 +14,7 @@ def test_journals():
     res = cr.journals(limit=1)
     assert isinstance(res, dict)
     assert isinstance(res["message"], dict)
-    assert 1 == res["message"]["items-per-page"]
+    assert res["message"]["items-per-page"] == 1
 
 
 @pytest.mark.vcr
@@ -20,8 +22,8 @@ def test_journals_query():
     """journals - param: query"""
     res = cr.journals(query="ecology", limit=2)
     assert isinstance(res, dict)
-    assert 2 == res["message"]["items-per-page"]
-    assert "journal-list" == res["message-type"]
+    assert res["message"]["items-per-page"] == 2
+    assert res["message-type"] == "journal-list"
 
 
 @pytest.mark.vcr
@@ -30,7 +32,7 @@ def test_journals_ids():
     res = cr.journals(ids=["1803-2427", "2326-4225"])
     assert isinstance(res, list)
     assert isinstance(res[0], dict)
-    assert "journal" == res[0]["message-type"]
+    assert res[0]["message-type"] == "journal"
 
 
 @pytest.mark.vcr
@@ -45,7 +47,7 @@ def test_journals_works():
     )
     scores2 = [x["score"] for x in res2["message"]["items"]]
     assert isinstance(res1, dict)
-    assert "work-list" == res1["message-type"]
+    assert res1["message-type"] == "work-list"
     assert max(scores1) == scores1[-1]
     assert min(scores2) == scores2[-1]
 
@@ -62,6 +64,7 @@ def test_journals_filter_fails_noids():
         cr.journals(works=True, filter={"has_assertion": True})
 
 
+@no_type_check
 @pytest.mark.vcr
 def test_journals_fail_limit():
     with pytest.raises(exceptions.RequestError):
@@ -70,7 +73,7 @@ def test_journals_fail_limit():
 
 @pytest.mark.vcr
 def test_journals_fail_sort():
-    with pytest.raises(exceptions.RequestError):
+    with pytest.raises(ValueError, match="Invalid sort name: things"):
         cr.journals(sort="things")
 
 
@@ -85,7 +88,7 @@ def test_journals_field_queries():
     )
     titles = [x.get("title")[0] for x in res["message"]["items"]]
     assert isinstance(res, dict)
-    assert 5 == len(res["message"])
+    assert len(res["message"]) == 5
     assert isinstance(titles, list)
     assert isinstance(titles[0], str)
 

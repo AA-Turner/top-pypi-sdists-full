@@ -1,5 +1,6 @@
 import json
 import re
+import time
 import requests
 from datetime import datetime, timezone
 from typing import Dict, Iterator, List, Optional, Any, NamedTuple
@@ -25,6 +26,12 @@ class AssetInstance(NamedTuple):
     blobs: List[str]
     kind: str
     asset_kind: str
+
+
+class DeleteResult(NamedTuple):
+    """What an Asset delete_*_asset call actually changed."""
+    catalog_deleted: bool
+    metadata_updated: bool
 
 
 _RFC3339_RE = re.compile(
@@ -125,10 +132,13 @@ def _make_request(
     response = requests.request(method, url, headers=headers, json=data)
     try:
         response.raise_for_status()
-        return response.json()
-    except:
-        print("Asset error", response.text)
-        raise
+    except requests.HTTPError as e:
+        raise requests.HTTPError(
+            f"{e}\nbody: {response.text}", response=response
+        ) from e
+    if not response.content:
+        return {}
+    return response.json()
 
 
 def register_asset(
@@ -264,6 +274,34 @@ def consume_model_asset(
     return _make_request(
         base_url, service_headers, "PUT", endpoint, {"entity_ref": entity_ref}
     )
+
+
+def delete_data_asset(
+    base_url: str,
+    service_headers: Dict[str, str],
+    *,
+    perimeter: str,
+    project: str,
+    branch: str,
+    asset: str,
+) -> Dict[str, Any]:
+    """Hard delete a data asset and every instance attached to its name."""
+    endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/data/{asset}"
+    return _make_request(base_url, service_headers, "DELETE", endpoint)
+
+
+def delete_model_asset(
+    base_url: str,
+    service_headers: Dict[str, str],
+    *,
+    perimeter: str,
+    project: str,
+    branch: str,
+    asset: str,
+) -> Dict[str, Any]:
+    """Hard delete a model asset and every instance attached to its name."""
+    endpoint = f"/v1/perimeters/{perimeter}/projects/{project}/branches/{branch}/models/{asset}"
+    return _make_request(base_url, service_headers, "DELETE", endpoint)
 
 
 def list_model_assets(
@@ -440,6 +478,8 @@ class Asset:
             annotations=annotations,
             model_asset_kind=kind,
         )
+        if not self.read_only:
+            self._add_to_metadata("models", name, description=description)
 
     def register_data_asset(
         self, name, description=None, kind=None, blobs=None, annotations=None, tags=None
@@ -453,6 +493,8 @@ class Asset:
             annotations=annotations,
             data_asset_kind=kind,
         )
+        if not self.read_only:
+            self._add_to_metadata("data", name, description=description)
 
     def list_data_assets(self, tags=None):
         """
@@ -632,6 +674,146 @@ class Asset:
             return get_model_asset(*args, **common)
         else:
             return consume_model_asset(*args, **common, entity_ref=self.entity_ref)
+
+    def delete_data_asset(self, name):
+        """Hard delete a data asset from the catalog + flowproject metadata. Idempotent; raises on read_only or partial failure."""
+        if self.read_only:
+            raise RuntimeError(
+                f"refusing to delete data asset {name!r}: client is read_only"
+            )
+        catalog_deleted = self._catalog_delete_if_present("data", name)
+        metadata_updated = self._remove_from_metadata("data", name)
+        return DeleteResult(catalog_deleted=catalog_deleted, metadata_updated=metadata_updated)
+
+    def delete_model_asset(self, name):
+        """Hard delete a model asset from the catalog + flowproject metadata. Idempotent; raises on read_only or partial failure."""
+        if self.read_only:
+            raise RuntimeError(
+                f"refusing to delete model asset {name!r}: client is read_only"
+            )
+        catalog_deleted = self._catalog_delete_if_present("models", name)
+        metadata_updated = self._remove_from_metadata("models", name)
+        return DeleteResult(catalog_deleted=catalog_deleted, metadata_updated=metadata_updated)
+
+    def _add_to_metadata(self, kind, name, description=None):
+        """Add a named asset to flowproject metadata if not already present. Returns True if metadata changed.
+
+        No-op when metadata doesn't exist (404 on GET) — the project must be
+        deployed at least once before runtime registrations can sync to metadata.
+        """
+        endpoint = (
+            f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
+            f"/branches/{self.branch}/latestflowproject"
+        )
+        try:
+            spec = _make_request(
+                self.base_url, self.service_headers, "GET", endpoint,
+            )
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return False
+            raise RuntimeError(
+                f"catalog register succeeded but metadata GET failed for {kind}/{name}: {e}"
+            ) from e
+
+        entries = spec.get(kind, []) or []
+        if any(entry.get("id") == name for entry in entries):
+            return False
+        spec[kind] = entries + [{
+            "id": name,
+            "display_name": name,
+            "description": description or "",
+            "card_markdown": "",
+        }]
+
+        entity_id = self.entity_ref.get("entity_id", "sdk")
+        payload = {
+            "perimeter": self.perimeter,
+            "project": self.project,
+            "branch": self.branch,
+            "version_id": f"sdk-register-{int(time.time() * 1000)}-{entity_id}",
+            "spec": spec,
+        }
+        try:
+            _make_request(
+                self.base_url, self.service_headers, "POST",
+                f"/v1/perimeters/{self.perimeter}/flowprojects",
+                data=payload,
+            )
+        except requests.HTTPError as e:
+            raise RuntimeError(
+                f"catalog register succeeded but metadata POST failed for {kind}/{name}: {e}"
+            ) from e
+        return True
+
+    def _catalog_delete_if_present(self, kind, name):
+        """Probe with a summary GET then DELETE only if present. Returns True if a DELETE was issued."""
+        summary_fn = get_data_asset_summary if kind == "data" else get_model_asset_summary
+        try:
+            summary_fn(
+                self.base_url, self.service_headers,
+                perimeter=self.perimeter, project=self.project,
+                branch=self.branch, asset=name,
+            )
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return False
+            raise
+        delete_fn = delete_data_asset if kind == "data" else delete_model_asset
+        delete_fn(
+            self.base_url, self.service_headers,
+            perimeter=self.perimeter, project=self.project,
+            branch=self.branch, asset=name,
+        )
+        return True
+
+    def _remove_from_metadata(self, kind, name):
+        """Remove a named asset from the flowproject metadata spec. Returns True if metadata actually changed.
+
+        Round-trips GET → modify → POST. No-op if no metadata exists
+        (404) or if the name wasn't in the spec to begin with.
+        Best-effort against concurrent edits — backend has no CAS today.
+        """
+        endpoint = (
+            f"/v1/perimeters/{self.perimeter}/projects/{self.project}"
+            f"/branches/{self.branch}/latestflowproject"
+        )
+        try:
+            spec = _make_request(
+                self.base_url, self.service_headers, "GET", endpoint,
+            )
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return False
+            raise RuntimeError(
+                f"metadata GET failed for {kind}/{name}: {e}"
+            ) from e
+
+        original = spec.get(kind, [])
+        filtered = [a for a in original if a.get("id") != name]
+        if len(filtered) == len(original):
+            return False
+        spec[kind] = filtered
+
+        entity_id = self.entity_ref.get("entity_id", "sdk")
+        payload = {
+            "perimeter": self.perimeter,
+            "project": self.project,
+            "branch": self.branch,
+            "version_id": f"sdk-delete-{int(time.time() * 1000)}-{entity_id}",
+            "spec": spec,
+        }
+        try:
+            _make_request(
+                self.base_url, self.service_headers, "POST",
+                f"/v1/perimeters/{self.perimeter}/flowprojects",
+                data=payload,
+            )
+        except requests.HTTPError as e:
+            raise RuntimeError(
+                f"metadata POST failed for {kind}/{name}: {e}"
+            ) from e
+        return True
 
     def _set_alias(self, branch, name, kind, instance_id, alias):
         """Set an alias on a specific instance."""

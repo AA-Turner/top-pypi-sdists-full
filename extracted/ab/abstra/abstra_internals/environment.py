@@ -118,6 +118,18 @@ def web_editor_uses_db() -> bool:
     return WEB_EDITOR_DATABASE_URI is not None
 
 
+def linter_sidecar_enabled() -> bool:
+    """Kill-switch for running the editor's linter in a dedicated child
+    process (default ON). "0"/"false" falls back to the untouched in-process
+    LocalLinterRepository — temporary rollback path, slated for removal after
+    a couple of stable releases. Read at call time (factory build) so tests
+    and operators can flip it without re-importing."""
+    return os.getenv("ABSTRA_LINTER_SIDECAR", "true").strip().lower() not in (
+        "0",
+        "false",
+    )
+
+
 # NOTE on ABSTRA_WORKER_LOG_TO_QUEUE: it only ever made sense for queue-based
 # log streaming. On the DB backend the editor poller streams logs/events straight
 # from Postgres, so the queue path is bypassed and the env var is IGNORED. Sites

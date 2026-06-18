@@ -1,4 +1,3 @@
-
 #[pyfunction]
 fn poincare_distance<'py>(
     py: Python<'py>,
@@ -11,6 +10,67 @@ fn poincare_distance<'py>(
     detach_geometry_result(py, "poincare_distance", move || {
         poincare_distance_impl(a_owned.view(), b_owned.view(), curvature)
     })
+}
+
+#[pyfunction(signature = (points, mode = "kneedle", knee_slope_fraction = 0.10, complexity_penalty = 0.05, flat_span_tol = 1.0e-6))]
+fn sae_select_k(
+    py: Python<'_>,
+    points: Vec<(usize, f64)>,
+    mode: &str,
+    knee_slope_fraction: f64,
+    complexity_penalty: f64,
+    flat_span_tol: f64,
+) -> PyResult<PyObject> {
+    let curve = gam::terms::sae::k_selection::curve_from_pairs(&points).map_err(py_value_error)?;
+    let config = gam::terms::sae::k_selection::KSelectionConfig {
+        mode: gam::terms::sae::k_selection::KSelectionMode::parse(mode).map_err(py_value_error)?,
+        knee_slope_fraction,
+        complexity_penalty,
+        flat_span_tol,
+    };
+    let selected = gam::terms::sae::k_selection::select_k(&curve, &config);
+    let out = PyDict::new(py);
+    out.set_item("k", selected.k)?;
+    out.set_item("ev", selected.ev)?;
+    out.set_item("flag", selected.flag.as_str())?;
+    out.set_item("is_knee", selected.flag.is_knee())?;
+    out.set_item("score", selected.score)?;
+    Ok(out.into())
+}
+
+#[pyfunction(signature = (manifold_points, linear_points, mode = "kneedle", knee_slope_fraction = 0.10, complexity_penalty = 0.05, flat_span_tol = 1.0e-6))]
+fn sae_auto_k_recommendation(
+    py: Python<'_>,
+    manifold_points: Vec<(usize, f64)>,
+    linear_points: Vec<(usize, f64)>,
+    mode: &str,
+    knee_slope_fraction: f64,
+    complexity_penalty: f64,
+    flat_span_tol: f64,
+) -> PyResult<PyObject> {
+    let manifold =
+        gam::terms::sae::k_selection::curve_from_pairs(&manifold_points).map_err(py_value_error)?;
+    let linear =
+        gam::terms::sae::k_selection::curve_from_pairs(&linear_points).map_err(py_value_error)?;
+    let config = gam::terms::sae::k_selection::KSelectionConfig {
+        mode: gam::terms::sae::k_selection::KSelectionMode::parse(mode).map_err(py_value_error)?,
+        knee_slope_fraction,
+        complexity_penalty,
+        flat_span_tol,
+    };
+    let rec = gam::terms::sae::k_selection::recommend_auto_k(&manifold, &linear, &config);
+    let out = PyDict::new(py);
+    out.set_item("k", rec.selection.k)?;
+    out.set_item("ev", rec.selection.ev)?;
+    out.set_item("flag", rec.selection.flag.as_str())?;
+    out.set_item("is_knee", rec.selection.flag.is_knee())?;
+    out.set_item("score", rec.selection.score)?;
+    out.set_item("target_ev", rec.advantage.target_ev)?;
+    out.set_item("manifold_k", rec.advantage.k_manifold)?;
+    out.set_item("linear_k", rec.advantage.k_linear)?;
+    out.set_item("efficiency_ratio", rec.advantage.compression_ratio)?;
+    out.set_item("confirmed", rec.advantage.manifold_dominates())?;
+    Ok(out.into())
 }
 
 #[pyfunction]
@@ -444,8 +504,7 @@ fn response_geometry_fit_curvature<'py>(
             gam::geometry::response_geometry::ResponseManifold::parse(&geometry, arr.ncols())?;
         let dim = match manifold {
             gam::geometry::response_geometry::ResponseManifold::ConstantCurvature {
-                dim,
-                ..
+                dim, ..
             } => dim,
             other => {
                 return Err(format!(
@@ -705,7 +764,7 @@ fn equivariant_gauge_companion_loss<'py>(
     let aux_owned = aux_values.as_array().to_owned();
     let theta_owned = theta.as_array().to_owned();
     detach_py_result(py, "equivariant_gauge_companion_loss", move || {
-        gam::terms::equivariant_penalty::gauge_companion_loss(
+        gam::terms::analytic_penalties::equivariant_penalty::gauge_companion_loss(
             aux_owned.view(),
             theta_owned.view(),
             d_aux,
@@ -3599,7 +3658,7 @@ impl NuclearNormPenalty {
 
 /// Identifiability theorem precondition checks (Principle (f)).
 ///
-/// Caller serialises a `gam::inference::identifiability_diagnostics::FitSummary` as
+/// Caller serialises a `gam::inference::identifiability_precondition_checks::FitSummary` as
 /// JSON; Rust does all numerical work (min std, faer-SVD rank, decoder
 /// zero-fraction, activation variance bounds) and returns a JSON array of
 /// per-theorem results. This is the *single source of truth* — Python's
@@ -3607,8 +3666,7 @@ impl NuclearNormPenalty {
 /// all consume this same FFI.
 #[pyfunction]
 fn identifiability_check_json(input: &str) -> PyResult<String> {
-    gam::inference::identifiability_diagnostics::identifiability_check_json(input)
-        .map_err(py_value_error)
+    gam::identifiability::precondition::identifiability_check_json(input).map_err(py_value_error)
 }
 
 #[pymodule(name = "_rust", gil_used = false)]
@@ -3617,7 +3675,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     // Install the same stderr logger used by the CLI so long-running Rust
     // solver phases (including survival marginal-slope joint-Newton cycles)
     // are visible from Python without requiring a separate shell.
-    gam::visualizer::init_logging();
+    gam::solver::visualizer::init_logging();
     // Background process monitor: emits a `[process-monitor] elapsed=… rss=…`
     // line every 60s for the life of the process, so silent stretches
     // inside long PIRLS line-searches still surface a process-alive
@@ -4099,6 +4157,8 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(equivariant_rho_so3, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_rho_so3_jvp, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_gauge_companion_loss, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_select_k, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_auto_k_recommendation, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_ibp, module)?)?;
     module.add_function(wrap_pyfunction!(sae_manifold_fit_minimal, module)?)?;
@@ -4263,7 +4323,7 @@ fn mechanism_sparsity_jacobian<'py>(
     epsilon: f64,
     w: PyReadonlyArray2<'py, f64>,
 ) -> PyResult<(f64, Py<PyArray2<f64>>)> {
-    let pen = gam::sae_identifiability::MechanismSparsityJacobian::new(weight, epsilon)
+    let pen = gam::terms::sae::identifiability::MechanismSparsityJacobian::new(weight, epsilon)
         .map_err(py_value_error)?;
     let (value, grad) = pen.value_and_grad(w.as_array());
     Ok((value, grad.into_pyarray(py).unbind()))
@@ -4280,7 +4340,7 @@ fn conditional_prior_ivae<'py>(
     mean: PyReadonlyArray2<'py, f64>,
     scale: PyReadonlyArray2<'py, f64>,
 ) -> PyResult<(f64, Py<PyArray2<f64>>)> {
-    let pen = gam::sae_identifiability::ConditionalPriorIvae::new(
+    let pen = gam::terms::sae::identifiability::ConditionalPriorIvae::new(
         mean.as_array().to_owned(),
         scale.as_array().to_owned(),
         weight,
@@ -4303,8 +4363,7 @@ fn diagnostics_aux_richness<'py>(
     aux: PyReadonlyArray2<'py, f64>,
     latents: PyReadonlyArray2<'py, f64>,
 ) -> PyResult<Py<PyDict>> {
-    let m =
-        gam::identifiability_diagnostics::aux_richness_metrics(aux.as_array(), latents.as_array());
+    let m = gam::identifiability::kernel::aux_richness_metrics(aux.as_array(), latents.as_array());
     let dict = PyDict::new(py);
     dict.set_item("aux_observed", m.aux_observed)?;
     dict.set_item("n_nonfinite_aux", m.n_nonfinite_aux)?;
@@ -4348,7 +4407,7 @@ fn diagnostics_jacobian_sparsity<'py>(
             rows, n_samples
         )));
     }
-    let m = gam::identifiability_diagnostics::jacobian_sparsity_metrics(
+    let m = gam::identifiability::kernel::jacobian_sparsity_metrics(
         jacobians_flat.as_array(),
         n_samples,
         zero_threshold,
@@ -4379,7 +4438,7 @@ fn diagnostics_anchor_consistency<'py>(
             anchor_dominance
         )));
     }
-    let m = gam::identifiability_diagnostics::anchor_consistency_metrics(
+    let m = gam::identifiability::kernel::anchor_consistency_metrics(
         assignments.as_array(),
         anchor_dominance,
     );
@@ -4401,7 +4460,7 @@ fn diagnostics_concat_decoder_blocks<'py>(
 ) -> PyResult<Py<PyArray2<f64>>> {
     let views: Vec<_> = blocks.iter().map(|b| b.as_array()).collect();
     let out =
-        gam::identifiability_diagnostics::concat_decoder_blocks(&views).map_err(py_value_error)?;
+        gam::identifiability::kernel::concat_decoder_blocks(&views).map_err(py_value_error)?;
     Ok(out.into_pyarray(py).unbind())
 }
 
@@ -4429,7 +4488,7 @@ fn identifiable_factor_select_weights_array<'py>(
             "identifiable_factor_select_weights_array: n_obs must be > 0, got {n_obs}"
         )));
     }
-    let res = gam::sae_identifiability::identifiable_factor_select_weights(
+    let res = gam::terms::sae::identifiability::identifiable_factor_select_weights(
         rss_grid.as_array(),
         penalty_grid.as_array(),
         lam1_grid.as_array(),
@@ -4485,9 +4544,9 @@ fn partial_supervision_solve<'py>(
     free_constraint: &str,
 ) -> PyResult<Py<PyDict>> {
     let method_enum = match method {
-        "procrustes" => gam::sae_identifiability::PartialSupervisionSupMethod::Procrustes,
-        "anchor" => gam::sae_identifiability::PartialSupervisionSupMethod::Anchor,
-        "soft_l2" => gam::sae_identifiability::PartialSupervisionSupMethod::SoftL2,
+        "procrustes" => gam::terms::sae::identifiability::PartialSupervisionSupMethod::Procrustes,
+        "anchor" => gam::terms::sae::identifiability::PartialSupervisionSupMethod::Anchor,
+        "soft_l2" => gam::terms::sae::identifiability::PartialSupervisionSupMethod::SoftL2,
         other => {
             return Err(py_value_error(format!(
                 "partial_supervision_solve: method must be 'procrustes', 'anchor' or \
@@ -4497,9 +4556,9 @@ fn partial_supervision_solve<'py>(
     };
     let free_enum = match free_constraint {
         "orthogonal_to_sup" => {
-            gam::sae_identifiability::PartialSupervisionFreeConstraint::OrthogonalToSup
+            gam::terms::sae::identifiability::PartialSupervisionFreeConstraint::OrthogonalToSup
         }
-        "none" => gam::sae_identifiability::PartialSupervisionFreeConstraint::None,
+        "none" => gam::terms::sae::identifiability::PartialSupervisionFreeConstraint::None,
         other => {
             return Err(py_value_error(format!(
                 "partial_supervision_solve: free_constraint must be 'orthogonal_to_sup' or \
@@ -4516,7 +4575,7 @@ fn partial_supervision_solve<'py>(
         }
         anchor_usize.push(*idx as usize);
     }
-    let result = gam::sae_identifiability::partial_supervision_solve(
+    let result = gam::terms::sae::identifiability::partial_supervision_solve(
         t_sup.as_array(),
         aux.as_array(),
         t_free.as_array(),
@@ -4564,7 +4623,7 @@ fn thin_svd_scores<'py>(
             "thin_svd_scores: k must be non-negative, got {k}"
         )));
     }
-    let out = gam::sae_identifiability::thin_svd_scores(x.as_array(), k as usize)
+    let out = gam::terms::sae::identifiability::thin_svd_scores(x.as_array(), k as usize)
         .map_err(py_value_error)?;
     Ok(out.into_pyarray(py).unbind())
 }
@@ -4691,7 +4750,7 @@ fn fit_dataset_impl(
     // throttled stderr writes — safe for notebooks and batch scripts.
     // Session is owned by this function so its Drop runs (clearing the
     // static ACTIVE_FEED) before the result is handed back to Python.
-    let mut progress = gam::visualizer::VisualizerSession::new(true);
+    let mut progress = gam::solver::visualizer::VisualizerSession::new(true);
     progress.set_stage("fit", "optimizing penalized likelihood");
     progress.start_workflow_open_ended("Fit");
     let (mut fit_config, training_table_kind) = parse_fit_config(config_json)?;
@@ -4714,25 +4773,33 @@ fn fit_dataset_impl(
             // the smoother state instead of the dense fit. Detection is
             // structural; every other shape falls through to the dense fit
             // below. Mirrors the CLI run_fit path so CLI and FFI saves agree.
-            if let Some(inputs) = gam::spline_scan_fast_path(&standard_request) {
+            if let Some(inputs) =
+                gam::solver::fit_orchestration::spline_scan_fast_path(&standard_request)
+            {
                 let scan = gam::solver::spline_scan::fit_spline_scan(
                     &inputs.x,
                     &inputs.y,
                     &inputs.w,
                     inputs.order,
                 )
-                .map_err(|reason| gam::WorkflowError::IntegrationFailed { reason })?;
+                .map_err(|reason| {
+                    gam::solver::fit_orchestration::WorkflowError::IntegrationFailed { reason }
+                })?;
                 let feature_col = match &standard_request.spec.smooth_terms[0].basis {
-                    gam::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => *feature_col,
+                    gam::terms::smooth::SmoothBasisSpec::BSpline1D { feature_col, .. } => {
+                        *feature_col
+                    }
                     _ => {
-                        return Err(gam::WorkflowError::SchemaMismatch {
-                            reason: "spline-scan detection accepted a non-1D basis".to_string(),
-                        });
+                        return Err(
+                            gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
+                                reason: "spline-scan detection accepted a non-1D basis".to_string(),
+                            },
+                        );
                     }
                 };
                 let feature_column =
                     dataset.headers.get(feature_col).cloned().ok_or_else(|| {
-                        gam::WorkflowError::SchemaMismatch {
+                        gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                             reason: format!(
                                 "spline-scan feature column {feature_col} has no header"
                             ),
@@ -4751,7 +4818,7 @@ fn fit_dataset_impl(
                 scan_payload.training_table_kind = training_table_kind;
                 let model = FittedModel::from_payload(scan_payload);
                 return serde_json::to_vec(&model).map_err(|err| {
-                    gam::WorkflowError::IntegrationFailed {
+                    gam::solver::fit_orchestration::WorkflowError::IntegrationFailed {
                         reason: format!("failed to serialize model: {err}"),
                     }
                 });
@@ -4761,7 +4828,7 @@ fn fit_dataset_impl(
             let standard_result = match fit_result {
                 FitResult::Standard(standard_result) => standard_result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the standard workflow to return a standard fit result"
                             .to_string(),
                     });
@@ -4786,7 +4853,7 @@ fn fit_dataset_impl(
             let tn_result = match fit_result {
                 FitResult::TransformationNormal(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the transformation-normal workflow to return a transformation-normal fit result"
                             .to_string(),
                     });
@@ -4801,7 +4868,7 @@ fn fit_dataset_impl(
             let ms_result = match fit_result {
                 FitResult::BernoulliMarginalSlope(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the bernoulli marginal-slope workflow to return a marginal-slope fit result"
                             .to_string(),
                     });
@@ -4822,7 +4889,7 @@ fn fit_dataset_impl(
             let ms_result = match fit_result {
                 FitResult::SurvivalMarginalSlope(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the survival marginal-slope workflow to return a survival marginal-slope fit result"
                             .to_string(),
                     });
@@ -4841,7 +4908,7 @@ fn fit_dataset_impl(
             let ls_result = match fit_result {
                 FitResult::GaussianLocationScale(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the gaussian location-scale workflow to return a gaussian location-scale fit result"
                             .to_string(),
                     });
@@ -4869,7 +4936,7 @@ fn fit_dataset_impl(
             let ls_result = match fit_result {
                 FitResult::BinomialLocationScale(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the binomial location-scale workflow to return a binomial location-scale fit result"
                             .to_string(),
                     });
@@ -4890,7 +4957,7 @@ fn fit_dataset_impl(
             let ls_result = match fit_result {
                 FitResult::SurvivalLocationScale(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the survival location-scale workflow to return a survival location-scale fit result"
                             .to_string(),
                     });
@@ -4909,7 +4976,7 @@ fn fit_dataset_impl(
             let rp_result = match fit_result {
                 FitResult::SurvivalTransformation(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the survival transformation workflow to return a survival transformation fit result"
                             .to_string(),
                     });
@@ -4923,7 +4990,7 @@ fn fit_dataset_impl(
             let lat_result = match fit_result {
                 FitResult::LatentSurvival(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the latent survival workflow to return a latent survival fit result"
                             .to_string(),
                     });
@@ -4937,7 +5004,7 @@ fn fit_dataset_impl(
             let lat_result = match fit_result {
                 FitResult::LatentBinary(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the latent binary workflow to return a latent binary fit result"
                             .to_string(),
                     });
@@ -4957,7 +5024,7 @@ fn fit_dataset_impl(
             let ls_result = match fit_result {
                 FitResult::DispersionLocationScale(result) => result,
                 _ => {
-                    return Err(gam::WorkflowError::SchemaMismatch {
+                    return Err(gam::solver::fit_orchestration::WorkflowError::SchemaMismatch {
                         reason: "python binding expected the dispersion location-scale workflow to return a dispersion location-scale fit result"
                             .to_string(),
                     });
@@ -4975,8 +5042,10 @@ fn fit_dataset_impl(
     payload.group_metadata = fit_config.group_metadata.clone();
     payload.training_table_kind = training_table_kind;
     let model = FittedModel::from_payload(payload);
-    serde_json::to_vec(&model).map_err(|err| gam::WorkflowError::IntegrationFailed {
-        reason: format!("failed to serialize model: {err}"),
+    serde_json::to_vec(&model).map_err(|err| {
+        gam::solver::fit_orchestration::WorkflowError::IntegrationFailed {
+            reason: format!("failed to serialize model: {err}"),
+        }
     })
 }
 
@@ -5321,7 +5390,7 @@ fn extend_training_feature_range(
 }
 
 fn insert_coefficient_into_saved_fit(
-    fit: Option<&mut gam::estimate::UnifiedFitResult>,
+    fit: Option<&mut gam::solver::estimate::UnifiedFitResult>,
     index: usize,
     value: f64,
     variance: f64,
@@ -5726,7 +5795,9 @@ fn predict_columns(
         columns.insert("linear_predictor".to_string(), eta.clone());
         columns.insert("mean".to_string(), eta.clone());
         if let Some(confidence_level) = options.interval {
-            let z = gam::probability::standard_normal_quantile(0.5 + confidence_level * 0.5)?;
+            let z = gam::inference::probability::standard_normal_quantile(
+                0.5 + confidence_level * 0.5,
+            )?;
             let lower: Vec<f64> = eta.iter().zip(&se).map(|(m, s)| m - z * s).collect();
             let upper: Vec<f64> = eta.iter().zip(&se).map(|(m, s)| m + z * s).collect();
             // Observation (predictive) interval (#1047): the scan IS the exact
@@ -5815,9 +5886,9 @@ fn predict_columns(
             // mode (issue #398); only the reported uncertainty responds.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
                 .unwrap_or(
-                    gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-                );
-            let posterior_options = gam::predict::PosteriorMeanOptions {
+                gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+            );
+            let posterior_options = gam::inference::predict::PosteriorMeanOptions {
                 confidence_level: Some(confidence_level),
                 covariance_mode,
                 include_observation_interval: options.observation_interval.unwrap_or(false),
@@ -5869,16 +5940,16 @@ fn predict_columns(
             // engine's `includeobservation_interval` switch.
             let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
                 .unwrap_or(
-                    gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
-                );
+                gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+            );
             let includeobservation_interval = options.observation_interval.unwrap_or(false);
-            let uncertainty_options = gam::predict::PredictUncertaintyOptions {
+            let uncertainty_options = gam::inference::predict::PredictUncertaintyOptions {
                 confidence_level,
                 covariance_mode,
-                mean_interval_method: gam::predict::MeanIntervalMethod::TransformEta,
+                mean_interval_method: gam::inference::predict::MeanIntervalMethod::TransformEta,
                 includeobservation_interval,
                 apply_bias_correction: false,
-                ..gam::predict::PredictUncertaintyOptions::default()
+                ..gam::inference::predict::PredictUncertaintyOptions::default()
             };
             let prediction = predictor
                 .predict_full_uncertainty(&predict_input, &fit, &uncertainty_options)
@@ -5907,7 +5978,7 @@ fn predict_columns(
                 .predict_posterior_mean(
                     &predict_input,
                     &fit,
-                    &gam::predict::PosteriorMeanOptions::point_only(),
+                    &gam::inference::predict::PosteriorMeanOptions::point_only(),
                 )
                 .map_err(|err| format!("posterior-mean prediction failed: {err}"))?;
             columns.insert("linear_predictor".to_string(), prediction.eta.to_vec());
@@ -5952,9 +6023,9 @@ fn predict_columns(
 /// independent of the training set — it is never bound to the training rows.
 fn conformal_calibration_fold(
     model: &FittedModel,
-    fit: &gam::estimate::UnifiedFitResult,
+    fit: &gam::solver::estimate::UnifiedFitResult,
     calibration: EncodedDataset,
-) -> Result<(gam::predict::PredictInput, Array1<f64>), String> {
+) -> Result<(gam::inference::predict::PredictInput, Array1<f64>), String> {
     if !matches!(model.predict_model_class(), PredictModelClass::Standard) {
         return Err(format!(
             "conformal calibration currently supports only standard GAM models; got '{}'",
@@ -6038,24 +6109,25 @@ fn predict_columns_conformal(
     let fit = fit_result_from_saved_model_for_prediction(model)?;
     let family = model_likelihood_spec(model);
 
-    let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?
-        .unwrap_or(gam::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred);
-    let uncertainty_options = gam::predict::PredictUncertaintyOptions {
+    let covariance_mode = parse_covariance_mode(options.covariance_mode.as_deref())?.unwrap_or(
+        gam::inference::predict::InferenceCovarianceMode::ConditionalPlusSmoothingPreferred,
+    );
+    let uncertainty_options = gam::inference::predict::PredictUncertaintyOptions {
         confidence_level: level,
         covariance_mode,
-        mean_interval_method: gam::predict::MeanIntervalMethod::TransformEta,
+        mean_interval_method: gam::inference::predict::MeanIntervalMethod::TransformEta,
         includeobservation_interval: options.observation_interval.unwrap_or(false),
         apply_bias_correction: false,
         conformal_level: Some(level),
-        ..gam::predict::PredictUncertaintyOptions::default()
+        ..gam::inference::predict::PredictUncertaintyOptions::default()
     };
 
     let (cal_input, cal_y) = conformal_calibration_fold(model, &fit, calibration)?;
-    let calibration_fold = gam::predict::ConformalCalibrationFold {
+    let calibration_fold = gam::inference::predict::ConformalCalibrationFold {
         input: cal_input,
         y: cal_y.view(),
     };
-    let prediction = gam::predict::predict_full_uncertainty_conformal(
+    let prediction = gam::inference::predict::predict_full_uncertainty_conformal(
         predictor.as_ref(),
         &predict_input,
         &fit,
@@ -6160,10 +6232,7 @@ fn predict_table_jackknife_plus_impl(
     // Reject the scan path immediately — it never builds a dense design, so the
     // jackknife+ stats are absent and the termspec-based design reconstruction
     // below would not apply.
-    if scan_introspection(&model)
-        .map_err(String::from)?
-        .is_some()
-    {
+    if scan_introspection(&model).map_err(String::from)?.is_some() {
         return Err(
             "jackknife+ conformal intervals require a penalised-spline (B-spline) model; \
              this model was fit by the exact O(n) state-space scan. Refit with \
@@ -6190,13 +6259,13 @@ fn predict_table_jackknife_plus_impl(
     // computed from.
     let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
     let col_map = dataset.column_map();
-    let spec = gam::survival_predict::resolve_termspec_for_prediction(
+    let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
         &model.resolved_termspec,
         model.training_headers.as_ref(),
         &col_map,
         "resolved_termspec",
     )?;
-    let design = gam::smooth::build_term_collection_design(dataset.values.view(), &spec)
+    let design = gam::terms::smooth::build_term_collection_design(dataset.values.view(), &spec)
         .map_err(|err| format!("jackknife+ conformal: failed to build test design: {err}"))?;
     let x_test = design
         .design
@@ -6281,10 +6350,7 @@ fn predict_table_full_conformal_impl(
         ));
     }
     let model = load_model_impl(model_bytes)?;
-    if scan_introspection(&model)
-        .map_err(String::from)?
-        .is_some()
-    {
+    if scan_introspection(&model).map_err(String::from)?.is_some() {
         return Err(
             "exact full-conformal intervals require a penalised-spline (B-spline) model; \
              this model was fit by the exact O(n) state-space scan. Refit with \
@@ -6308,13 +6374,13 @@ fn predict_table_full_conformal_impl(
     }
     let dataset = dataset_with_model_schema(&model, &headers, &rows)?;
     let col_map = dataset.column_map();
-    let spec = gam::survival_predict::resolve_termspec_for_prediction(
+    let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
         &model.resolved_termspec,
         model.training_headers.as_ref(),
         &col_map,
         "resolved_termspec",
     )?;
-    let design = gam::smooth::build_term_collection_design(dataset.values.view(), &spec)
+    let design = gam::terms::smooth::build_term_collection_design(dataset.values.view(), &spec)
         .map_err(|err| format!("full conformal: failed to build test design: {err}"))?;
     let x_test = design
         .design
@@ -6447,9 +6513,8 @@ fn generative_replicates(
     n_draws: usize,
     seed: u64,
 ) -> PyResult<PyObject> {
-    let result = py.detach(|| {
-        generative_replicates_impl(&model_bytes, headers, rows, n_draws, seed)
-    });
+    let result =
+        py.detach(|| generative_replicates_impl(&model_bytes, headers, rows, n_draws, seed));
     match result {
         Ok((flat, n_rows)) => {
             let arr = ndarray::Array2::<f64>::from_shape_vec((n_draws, n_rows), flat)
@@ -6479,10 +6544,7 @@ fn generative_replicates_impl(
         ));
     }
     // Scan-routed models: no dense predictor, no family-based noise model.
-    if scan_introspection(&model)
-        .map_err(String::from)?
-        .is_some()
-    {
+    if scan_introspection(&model).map_err(String::from)?.is_some() {
         return Err(
             "sample_replicates is not yet supported for exact O(n) scan models; \
              refit with double_penalty=true to obtain the standard B-spline model."
@@ -6538,18 +6600,18 @@ fn generative_replicates_impl(
     // (`Some(*theta)`) instead of `likelihood_scale.negbin_theta()` — so
     // `Model.sample_replicates` drew Negative-Binomial counts at theta = 1
     // regardless of the fitted overdispersion (the live remnant of #1124 in the
-    // Python path). Routing through `gam::generative::family_noise_parameter`
+    // Python path). Routing through `gam::inference::generative::family_noise_parameter`
     // keeps the supported families and the interpretation of every dispersion
     // parameter identical across the CLI and Python front-ends — the whole point
     // of unifying the picker — so this class of bug cannot diverge again.
-    let gaussian_scale = gam::generative::family_noise_parameter(
+    let gaussian_scale = gam::inference::generative::family_noise_parameter(
         fit.likelihood_scale,
         fit.standard_deviation,
         &family,
     );
     // Build the generative specification (mean + noise model).
     let spec = generativespec_from_predict(prediction, family, gaussian_scale)
-    .map_err(|e| format!("generative_replicates: spec error: {e}"))?;
+        .map_err(|e| format!("generative_replicates: spec error: {e}"))?;
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     let draws = sampleobservation_replicates(&spec, n_draws, &mut rng)
         .map_err(|e| format!("generative_replicates: sampling failed: {e}"))?;
@@ -6745,13 +6807,13 @@ fn design_matrix_dense(
     }
     let col_map = dataset.column_map();
     let training_headers = model.training_headers.as_ref();
-    let spec = gam::survival_predict::resolve_termspec_for_prediction(
+    let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
         &model.resolved_termspec,
         training_headers,
         &col_map,
         "resolved_termspec",
     )?;
-    let design = gam::smooth::build_term_collection_design(dataset.values.view(), &spec)
+    let design = gam::terms::smooth::build_term_collection_design(dataset.values.view(), &spec)
         .map_err(|err| format!("failed to build design matrix: {err}"))?;
     let dense = design
         .design
@@ -6773,6 +6835,12 @@ struct PosteriorPredictPayload {
     n_rows: usize,
     model_class: String,
     family_kind: String,
+    /// Serialized parameterized `InverseLink` (JSON) carrying the per-fit state
+    /// the bare `family_kind` tag drops; consumed by `predict_draws` /
+    /// `posterior_predict_bands_table` to route the parameterized links'
+    /// response-scale draws (issue #1133). `None` falls back to the tag.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link_spec: Option<String>,
 }
 
 fn eta_bands_from_matrix(

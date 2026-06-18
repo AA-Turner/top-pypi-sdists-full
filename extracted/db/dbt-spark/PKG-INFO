@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-spark
-Version: 1.10.1
+Version: 1.10.2
 Summary: The Apache Spark adapter plugin for dbt
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-spark
 Project-URL: Documentation, https://docs.getdbt.com
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10.0
 Requires-Dist: dbt-adapters<2.0,>=1.7
 Requires-Dist: dbt-common<2.0,>=1.10
-Requires-Dist: dbt-core>=1.8.0
+Requires-Dist: dbt-core<2.0,>=1.8.0rc1
 Requires-Dist: sqlparams>=3.0.0
 Provides-Extra: all
 Requires-Dist: pyhive[hive-pure-sasl]~=0.7.0; extra == 'all'

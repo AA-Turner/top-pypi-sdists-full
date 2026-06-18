@@ -1,6 +1,6 @@
 //! Multi-GPU device pool.
 //!
-//! The runtime probe (`super::runtime`) already discovers every usable CUDA
+//! The runtime probe (`super::device_runtime`) already discovers every usable CUDA
 //! device into `GpuRuntime::devices` (sorted by [`GpuDeviceInfo::score`] desc),
 //! but every dispatch path historically pinned its work to the single primary
 //! `GpuRuntime::device`. This module turns that pool into usable parallelism:
@@ -26,7 +26,7 @@
 //! thread-local current context is correct for every kernel launched on it.
 
 use super::device::GpuDeviceInfo;
-use super::runtime::GpuRuntime;
+use super::device_runtime::GpuRuntime;
 
 impl GpuRuntime {
     /// Ordinals of all usable devices, highest-score first.
@@ -46,7 +46,7 @@ impl GpuRuntime {
     }
 
     /// Per-device byte budget: free memory capped at half of total, matching the
-    /// primary-device budget computed in `runtime::probe`. Falls back to the
+    /// primary-device budget computed in `device_runtime::probe`. Falls back to the
     /// primary `memory_budget_bytes` when the ordinal is not in the pool so a
     /// caller that passes a stale ordinal still gets a usable (conservative)
     /// budget rather than zero.
@@ -187,7 +187,7 @@ pub fn scatter_batched<T: Send>(
                 scope.spawn(move || {
                     // Bind this ordinal's cached context on this worker thread so
                     // every CUDA launch the closure issues targets `ordinal`.
-                    let ctx = super::runtime::cuda_context_for(ordinal)?;
+                    let ctx = super::device_runtime::cuda_context_for(ordinal)?;
                     ctx.bind_to_thread().ok()?;
                     f(ordinal, slice)
                 })
@@ -212,7 +212,7 @@ pub fn scatter_batched<T: Send>(
 ///
 /// This must exist on every target, not just Linux: not every caller is inside
 /// `#[cfg(target_os = "linux")]` — the SAE manifold per-atom Gram/smoothness
-/// scatters (`src/terms/sae_manifold.rs`) call it from platform-independent
+/// scatters (`src/terms/sae/manifold/mod.rs`) call it from platform-independent
 /// code. At runtime off Linux `GpuRuntime::global()` returns `None`, so the
 /// `Some(rt)` branch that reaches here is never taken; the body only needs to
 /// compile and honour the contract. `balanced_partition` yields no tiles when

@@ -292,6 +292,28 @@ pub fn build_periodic_bspline_basis_1d(
     Ok(out)
 }
 
+fn distinct_periodic_phase_count(u: ArrayView1<'_, f64>, origin: f64, period: f64) -> usize {
+    let mut phases = u
+        .iter()
+        .map(|&value| wrap_periodic_phase(value, origin, period))
+        .collect::<Vec<_>>();
+    phases.sort_by(f64::total_cmp);
+    let tol = 1.0e-12 * period.abs().max(1.0);
+    let mut count = 0usize;
+    let mut previous: Option<f64> = None;
+    for phase in phases {
+        if previous
+            .map(|prev| (phase - prev).abs() <= tol)
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        count += 1;
+        previous = Some(phase);
+    }
+    count
+}
+
 pub(crate) fn solve_spd_cholesky(
     a: Array2<f64>,
     b: &Array2<f64>,
@@ -411,22 +433,21 @@ pub fn fit_periodic_bspline_curve(
     if y.iter().any(|v| !v.is_finite()) {
         crate::bail_invalid_basis!("periodic curve outputs must all be finite");
     }
+    let distinct_phases = distinct_periodic_phase_count(u, spec.origin, spec.period);
+    if distinct_phases < spec.num_basis {
+        crate::bail_invalid_basis!(
+            "periodic curve fit needs at least {} distinct wrapped sample positions for {} basis functions; got {}",
+            spec.num_basis,
+            spec.num_basis,
+            distinct_phases
+        );
+    }
 
     let basis = build_periodic_bspline_basis_1d(u, spec)?;
     let mut lhs = basis.t().dot(&basis);
     if smoothing_lambda > 0.0 {
         let penalty = create_cyclic_difference_penalty_matrix(spec.num_basis, spec.penalty_order)?;
         lhs = lhs + smoothing_lambda * penalty;
-    }
-    // A tiny ridge selects a stable coefficient representative in the rare case
-    // of undersampled or exactly aliased parameter grids while leaving ordinary
-    // fits unchanged at test tolerances.
-    let diag_scale = (0..lhs.nrows())
-        .map(|i| lhs[[i, i]].abs())
-        .fold(0.0_f64, f64::max)
-        .max(1.0);
-    for i in 0..lhs.nrows() {
-        lhs[[i, i]] += 1e-12 * diag_scale;
     }
     let rhs = basis.t().dot(&y);
     let coefficients = solve_spd_cholesky(lhs, &rhs)?;
@@ -828,10 +849,17 @@ pub fn evaluate_bspline_derivative_scalar_into(
         *v = 0.0;
     }
 
-    let x_eval = one_sided_derivative_eval_point(x, knot_vector, degree);
+    let x_eval = one_sided_derivative_eval_point(
+        periodic_unclamped_derivative_eval_point(x, knot_vector, degree),
+        knot_vector,
+        degree,
+    );
 
-    // Evaluate lower-degree (k-1) basis functions
-    internal::evaluate_splines_at_point_into(
+    // Evaluate lower-degree (k-1) basis functions on the full knot support.
+    // Cyclic fold-back constructs intentionally use the exterior support spans
+    // of a uniform knot vector; clamping here collapses `x + period` onto the
+    // right modeling boundary and breaks derivative periodicity.
+    internal::evaluate_splines_at_point_full_support_into(
         x_eval,
         degree - 1,
         knot_vector,
@@ -1142,6 +1170,11 @@ pub(crate) fn evaluate_bspline_derivative_recurrence_into(
             minimum_degree: derivative_order,
         });
     }
+    let x = if depth == 0 {
+        periodic_unclamped_derivative_eval_point(x, knot_vector, degree)
+    } else {
+        x
+    };
 
     // Order 1 is the base case: it is computed directly from the plain
     // degree-`degree` basis rather than from a lower-order derivative.
@@ -1170,15 +1203,6 @@ pub(crate) fn evaluate_bspline_derivative_recurrence_into(
             num_basis
         )));
     }
-    if num_basis > 0 {
-        let left = knot_vector[degree];
-        let right = knot_vector[num_basis];
-        if x < left || x > right {
-            out.fill(0.0);
-            return Ok(());
-        }
-    }
-
     // Evaluate the order-(m-1) derivative on degree-1 into this level's buffer.
     // Length matches `num_basis` of the degree-(degree-1) basis:
     // `knot_vector.len() - (degree - 1) - 1 = knot_vector.len() - degree`.

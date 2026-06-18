@@ -50,15 +50,18 @@ pub struct ImplicitDesignPsiDerivative {
     pub(crate) streaming: Option<StreamingRadialState>,
 
     /// Identifiability/constraint transform Z: (n_knots x p_constrained).
-    /// Converts raw knot-space vectors to the identifiability-constrained
-    /// basis. For Duchon this is the kernel-constraint nullspace Z_kernel;
-    /// for Matern with identifiability constraints, it is the corresponding Z.
-    /// `None` means the identity (no constraint).
+    /// Gauge ownership is upstream; the implicit operator stores this frozen
+    /// section only so forward/transpose matvecs can apply the already-gauged
+    /// chart without materializing derivative matrices. For Duchon this is the
+    /// kernel-constraint nullspace Z_kernel; for Matern with identifiability
+    /// constraints, it is the corresponding Z. `None` means the identity.
     pub(crate) ident_transform: Option<Array2<f64>>,
 
     /// Optional full identifiability transform applied after Z_kernel + padding.
-    /// For Duchon terms that have an additional global identifiability transform,
-    /// this is applied after the kernel constraint and polynomial padding.
+    /// This is likewise replay/application metadata for the matrix-free
+    /// operator, not a second coefficient-coordinate owner. For Duchon terms
+    /// that have an additional global identifiability transform, this is applied
+    /// after the kernel constraint and polynomial padding.
     /// Shape: (p_constrained + n_poly, p_final).
     pub(crate) full_ident_transform: Option<Array2<f64>>,
 
@@ -96,7 +99,7 @@ pub struct LatentCoordDesignDerivative {
 
 #[derive(Debug, Clone)]
 pub(crate) struct RadialLatentCoordLocalDesignJacobian {
-    pub(crate) latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+    pub(crate) latent: Arc<crate::terms::latent::LatentCoordValues>,
     pub(crate) centers: Arc<Array2<f64>>,
     pub(crate) radial_kind: RadialScalarKind,
     pub(crate) ident_transform: Option<Array2<f64>>,
@@ -107,7 +110,7 @@ pub(crate) struct RadialLatentCoordLocalDesignJacobian {
 
 #[derive(Debug, Clone)]
 pub(crate) struct JetLatentCoordLocalDesignJacobian {
-    pub(crate) latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+    pub(crate) latent: Arc<crate::terms::latent::LatentCoordValues>,
     pub(crate) jet: Arc<Array3<f64>>,
     pub(crate) ident_transform: Option<Array2<f64>>,
 }
@@ -279,7 +282,7 @@ impl LatentCoordDesignDerivative {
     }
 
     pub(crate) fn new_matern(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         centers: Arc<Array2<f64>>,
         length_scale: f64,
         nu: MaternNu,
@@ -307,7 +310,7 @@ impl LatentCoordDesignDerivative {
     }
 
     pub(crate) fn new_duchon(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         centers: Arc<Array2<f64>>,
         length_scale: Option<f64>,
         power: f64,
@@ -362,7 +365,7 @@ impl LatentCoordDesignDerivative {
     }
 
     pub(crate) fn new_sphere(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         centers: Arc<Array2<f64>>,
         penalty_order: usize,
         ident_transform: Option<Array2<f64>>,
@@ -381,13 +384,13 @@ impl LatentCoordDesignDerivative {
             true,
         )?;
         let jet = latent.design_gradient_wrt_t_dispatch(
-            crate::terms::latent_coord::InputLocationDerivative::Jet(raw_jet.view()),
+            crate::terms::latent::InputLocationDerivative::Jet(raw_jet.view()),
         )?;
         Self::from_jet(latent, jet, ident_transform)
     }
 
     pub(crate) fn new_periodic_bspline(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         data_range: (f64, f64),
         degree: usize,
         num_basis: usize,
@@ -400,13 +403,13 @@ impl LatentCoordDesignDerivative {
             num_basis,
         )?;
         let jet = latent.design_gradient_wrt_t_dispatch(
-            crate::terms::latent_coord::InputLocationDerivative::Jet(raw_jet.view()),
+            crate::terms::latent::InputLocationDerivative::Jet(raw_jet.view()),
         )?;
         Self::from_jet(latent, jet, ident_transform)
     }
 
     pub(crate) fn new_tensor_bspline(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         knots_per_axis: Vec<Array1<f64>>,
         degrees: Vec<usize>,
         ident_transform: Option<Array2<f64>>,
@@ -418,13 +421,13 @@ impl LatentCoordDesignDerivative {
         let raw_jet =
             bspline_tensor_first_derivative(latent.as_matrix().view(), &knot_views, &degrees)?;
         let jet = latent.design_gradient_wrt_t_dispatch(
-            crate::terms::latent_coord::InputLocationDerivative::Jet(raw_jet.view()),
+            crate::terms::latent::InputLocationDerivative::Jet(raw_jet.view()),
         )?;
         Self::from_jet(latent, jet, ident_transform)
     }
 
     pub(crate) fn new_pca(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         basis_matrix: Arc<Array2<f64>>,
     ) -> Result<Self, BasisError> {
         if latent.latent_dim() != basis_matrix.nrows() {
@@ -447,7 +450,7 @@ impl LatentCoordDesignDerivative {
     }
 
     pub(crate) fn from_jet(
-        latent: Arc<crate::terms::latent_coord::LatentCoordValues>,
+        latent: Arc<crate::terms::latent::LatentCoordValues>,
         jet: Array3<f64>,
         ident_transform: Option<Array2<f64>>,
     ) -> Result<Self, BasisError> {
@@ -2585,7 +2588,7 @@ pub(crate) fn build_aniso_design_psi_derivatives_shared(
         );
     }
 
-    let policy = crate::resource::ResourcePolicy::default_library();
+    let policy = crate::solver::resource::ResourcePolicy::default_library();
     let force_operator = radial_kind.is_duchon_family();
     let dense_derivatives_exceed_budget =
         should_use_implicit_operators_with_policy(n, p_final, dim, &policy);
@@ -2821,7 +2824,7 @@ pub(crate) fn build_scalar_design_psi_derivatives_shared(
         );
     }
 
-    let policy = crate::resource::ResourcePolicy::default_library();
+    let policy = crate::solver::resource::ResourcePolicy::default_library();
     let force_operator = radial_kind.is_duchon_family();
     let dense_derivatives_exceed_budget =
         should_use_implicit_operators_with_policy(n, p_final, 1, &policy);

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyproject-fmt
-Version: 2.24.1
+Version: 2.25.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -34,10 +34,20 @@ Apply a consistent format to your ``pyproject.toml`` file with comment support. 
 Recent Changes
 ~~~~~~~~~~~~~~~~
 
-- ✨ feat(pyproject-fmt): drop redundant wheel from setuptools build requires by
-  `@gaborbernat <https://github.com/gaborbernat>`_ in `#373 <https://github.com/tox-dev/toml-fmt/pull/373>`_
+- 🐛 fix(common): keep empty table when sub-table stays expanded by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#385 <https://github.com/tox-dev/toml-fmt/pull/385>`_
+- ✨ feat(common): share disabled-key handling across formatters by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#383 <https://github.com/tox-dev/toml-fmt/pull/383>`_
+- uv direct tool install support by `@bn-andrew <https://github.com/bn-andrew>`_ in
+  `#382 <https://github.com/tox-dev/toml-fmt/pull/382>`_
+- ✨ feat(common): keep disabled keys anchored to their table by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#381 <https://github.com/tox-dev/toml-fmt/pull/381>`_
+- ✨ feat(common): add # Group: markers for scoped reordering by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#380 <https://github.com/tox-dev/toml-fmt/pull/380>`_
 - Update Python dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
-  `#368 <https://github.com/tox-dev/toml-fmt/pull/368>`_ <a id="2.23.0"></a>
+  `#377 <https://github.com/tox-dev/toml-fmt/pull/377>`_
+- Update Rust dependencies by `@gaborbernat <https://github.com/gaborbernat>`_ in
+  `#378 <https://github.com/tox-dev/toml-fmt/pull/378>`_ <a id="2.24.0"></a>
 
 Philosophy
 ----------
@@ -559,6 +569,75 @@ Inline comments within arrays are aligned independently per array, based on that
       "CPY",     # No copyright statements
       "ISC001",  # Another rule
     ]
+
+Disabled Keys
+~~~~~~~~~~~~~
+
+A commented-out line whose body is itself a single valid key-value (for example ``# default = true``) is treated as a
+temporarily *disabled* field rather than free text. The formatter enables it for the duration of the pass, so it is laid
+out and ordered together with the table it belongs to, then comments it out again on the way out. This keeps a disabled
+key anchored to its entry instead of drifting to the next table, and formats the line the same way the enabled key would
+be:
+
+.. code-block:: toml
+
+    # Before
+    [[tool.uv.index]]
+    name = "pypi"
+    authenticate = "never"
+    # default = true
+    # ignore-error-codes = [400,401,403]
+
+    # After
+    [[tool.uv.index]]
+    name = "pypi"
+    authenticate = "never"
+    # default = true
+    # ignore-error-codes = [ 400, 401, 403 ]
+
+Comments that are not a single valid key-value (prose, multi-line blocks, commented-out table headers like
+``# [tool.x]``) are left untouched and follow the usual comment-preservation rules above. The heuristic is purely
+structural, so a prose comment that *happens* to be valid TOML (such as a ``key = value`` example written in
+documentation) is reflowed too; if that matters, phrase the comment so it does not parse as a key-value. Keys that would
+not fit on a single line within ``column_width`` are left as plain comments.
+
+Group Markers
+~~~~~~~~~~~~~
+
+By default the formatter reorders each array, table, and section list as a single unit, so any entry can move to its
+sorted position. Mark a boundary with a standalone comment that starts with ``# Group:``: the formatter then sorts within
+each group, holds the groups in their original order, and keeps the marker at the top of its group. Reach for this when
+related entries belong together but should still be sorted.
+
+Files without a ``# Group:`` marker format the same as before, so the feature stays opt-in. Case does not matter, so
+``# group:`` works too. Only standalone comment lines count; the formatter ignores inline trailing comments.
+
+The formatter sorts the entries inside each group:
+
+.. code-block:: toml
+
+    # Before
+    dependencies = [
+      # Group: web
+      "flask",
+      "django",
+      # Group: db
+      "sqlalchemy",
+      "psycopg2",
+    ]
+
+    # After
+    dependencies = [
+      # Group: web
+      "django",
+      "flask",
+      # Group: db
+      "psycopg2",
+      "sqlalchemy",
+    ]
+
+A ``# Group:`` marker works the same way before a key in a table or before a ``[tool.*]`` header: the formatter sorts the
+keys or sections up to the next marker, and never moves them across the boundary.
 
 Table-Specific Handling
 -----------------------

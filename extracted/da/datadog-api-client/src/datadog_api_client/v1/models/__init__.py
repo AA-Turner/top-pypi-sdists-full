@@ -69,6 +69,9 @@ from datadog_api_client.v1.model.check_status_widget_definition import CheckStat
 from datadog_api_client.v1.model.check_status_widget_definition_type import CheckStatusWidgetDefinitionType
 from datadog_api_client.v1.model.cohort_widget_definition import CohortWidgetDefinition
 from datadog_api_client.v1.model.cohort_widget_definition_type import CohortWidgetDefinitionType
+from datadog_api_client.v1.model.comparison_custom_timeframe import ComparisonCustomTimeframe
+from datadog_api_client.v1.model.comparison_duration import ComparisonDuration
+from datadog_api_client.v1.model.comparison_duration_type import ComparisonDurationType
 from datadog_api_client.v1.model.content_encoding import ContentEncoding
 from datadog_api_client.v1.model.creator import Creator
 from datadog_api_client.v1.model.dashboard import Dashboard
@@ -257,6 +260,22 @@ from datadog_api_client.v1.model.host_map_widget_definition import HostMapWidget
 from datadog_api_client.v1.model.host_map_widget_definition_requests import HostMapWidgetDefinitionRequests
 from datadog_api_client.v1.model.host_map_widget_definition_style import HostMapWidgetDefinitionStyle
 from datadog_api_client.v1.model.host_map_widget_definition_type import HostMapWidgetDefinitionType
+from datadog_api_client.v1.model.host_map_widget_dimension import HostMapWidgetDimension
+from datadog_api_client.v1.model.host_map_widget_formula import HostMapWidgetFormula
+from datadog_api_client.v1.model.host_map_widget_group_by import HostMapWidgetGroupBy
+from datadog_api_client.v1.model.host_map_widget_infrastructure_request import HostMapWidgetInfrastructureRequest
+from datadog_api_client.v1.model.host_map_widget_infrastructure_request_leaf import (
+    HostMapWidgetInfrastructureRequestLeaf,
+)
+from datadog_api_client.v1.model.host_map_widget_infrastructure_request_request_type import (
+    HostMapWidgetInfrastructureRequestRequestType,
+)
+from datadog_api_client.v1.model.host_map_widget_infrastructure_style import HostMapWidgetInfrastructureStyle
+from datadog_api_client.v1.model.host_map_widget_node_type import HostMapWidgetNodeType
+from datadog_api_client.v1.model.host_map_widget_scalar_request import HostMapWidgetScalarRequest
+from datadog_api_client.v1.model.host_map_widget_scalar_request_response_format import (
+    HostMapWidgetScalarRequestResponseFormat,
+)
 from datadog_api_client.v1.model.host_meta import HostMeta
 from datadog_api_client.v1.model.host_meta_install_method import HostMetaInstallMethod
 from datadog_api_client.v1.model.host_metrics import HostMetrics
@@ -293,6 +312,8 @@ from datadog_api_client.v1.model.list_stream_column_width import ListStreamColum
 from datadog_api_client.v1.model.list_stream_compute_aggregation import ListStreamComputeAggregation
 from datadog_api_client.v1.model.list_stream_compute_items import ListStreamComputeItems
 from datadog_api_client.v1.model.list_stream_group_by_items import ListStreamGroupByItems
+from datadog_api_client.v1.model.list_stream_issue_persona import ListStreamIssuePersona
+from datadog_api_client.v1.model.list_stream_issue_state import ListStreamIssueState
 from datadog_api_client.v1.model.list_stream_query import ListStreamQuery
 from datadog_api_client.v1.model.list_stream_response_format import ListStreamResponseFormat
 from datadog_api_client.v1.model.list_stream_source import ListStreamSource
@@ -341,6 +362,8 @@ from datadog_api_client.v1.model.logs_decoder_processor_input_representation imp
     LogsDecoderProcessorInputRepresentation,
 )
 from datadog_api_client.v1.model.logs_decoder_processor_type import LogsDecoderProcessorType
+from datadog_api_client.v1.model.logs_exclude_attribute_processor import LogsExcludeAttributeProcessor
+from datadog_api_client.v1.model.logs_exclude_attribute_processor_type import LogsExcludeAttributeProcessorType
 from datadog_api_client.v1.model.logs_exclusion import LogsExclusion
 from datadog_api_client.v1.model.logs_exclusion_filter import LogsExclusionFilter
 from datadog_api_client.v1.model.logs_filter import LogsFilter
@@ -449,6 +472,9 @@ from datadog_api_client.v1.model.monitor_formula_and_function_cost_data_source i
 )
 from datadog_api_client.v1.model.monitor_formula_and_function_cost_query_definition import (
     MonitorFormulaAndFunctionCostQueryDefinition,
+)
+from datadog_api_client.v1.model.monitor_formula_and_function_data_jobs_query_definition import (
+    MonitorFormulaAndFunctionDataJobsQueryDefinition,
 )
 from datadog_api_client.v1.model.monitor_formula_and_function_data_quality_data_source import (
     MonitorFormulaAndFunctionDataQualityDataSource,
@@ -662,6 +688,11 @@ from datadog_api_client.v1.model.product_analytics_funnel_widget_definition impo
     ProductAnalyticsFunnelWidgetDefinition,
 )
 from datadog_api_client.v1.model.query_sort_order import QuerySortOrder
+from datadog_api_client.v1.model.query_value_widget_comparison import QueryValueWidgetComparison
+from datadog_api_client.v1.model.query_value_widget_comparison_directionality import (
+    QueryValueWidgetComparisonDirectionality,
+)
+from datadog_api_client.v1.model.query_value_widget_comparison_type import QueryValueWidgetComparisonType
 from datadog_api_client.v1.model.query_value_widget_definition import QueryValueWidgetDefinition
 from datadog_api_client.v1.model.query_value_widget_definition_type import QueryValueWidgetDefinitionType
 from datadog_api_client.v1.model.query_value_widget_request import QueryValueWidgetRequest
@@ -905,6 +936,18 @@ from datadog_api_client.v1.model.synthetics_assertion_json_schema_target_target 
 )
 from datadog_api_client.v1.model.synthetics_assertion_javascript import SyntheticsAssertionJavascript
 from datadog_api_client.v1.model.synthetics_assertion_javascript_type import SyntheticsAssertionJavascriptType
+from datadog_api_client.v1.model.synthetics_assertion_mcp_respects_specification import (
+    SyntheticsAssertionMCPRespectsSpecification,
+)
+from datadog_api_client.v1.model.synthetics_assertion_mcp_respects_specification_type import (
+    SyntheticsAssertionMCPRespectsSpecificationType,
+)
+from datadog_api_client.v1.model.synthetics_assertion_mcp_server_capabilities_target import (
+    SyntheticsAssertionMCPServerCapabilitiesTarget,
+)
+from datadog_api_client.v1.model.synthetics_assertion_mcp_server_capabilities_type import (
+    SyntheticsAssertionMCPServerCapabilitiesType,
+)
 from datadog_api_client.v1.model.synthetics_assertion_operator import SyntheticsAssertionOperator
 from datadog_api_client.v1.model.synthetics_assertion_target import SyntheticsAssertionTarget
 from datadog_api_client.v1.model.synthetics_assertion_target_value import SyntheticsAssertionTargetValue
@@ -916,6 +959,10 @@ from datadog_api_client.v1.model.synthetics_assertion_x_path_target_target impor
 from datadog_api_client.v1.model.synthetics_basic_auth import SyntheticsBasicAuth
 from datadog_api_client.v1.model.synthetics_basic_auth_digest import SyntheticsBasicAuthDigest
 from datadog_api_client.v1.model.synthetics_basic_auth_digest_type import SyntheticsBasicAuthDigestType
+from datadog_api_client.v1.model.synthetics_basic_auth_jwt import SyntheticsBasicAuthJWT
+from datadog_api_client.v1.model.synthetics_basic_auth_jwt_add_claims import SyntheticsBasicAuthJWTAddClaims
+from datadog_api_client.v1.model.synthetics_basic_auth_jwt_algorithm import SyntheticsBasicAuthJWTAlgorithm
+from datadog_api_client.v1.model.synthetics_basic_auth_jwt_type import SyntheticsBasicAuthJWTType
 from datadog_api_client.v1.model.synthetics_basic_auth_ntlm import SyntheticsBasicAuthNTLM
 from datadog_api_client.v1.model.synthetics_basic_auth_ntlm_type import SyntheticsBasicAuthNTLMType
 from datadog_api_client.v1.model.synthetics_basic_auth_oauth_client import SyntheticsBasicAuthOauthClient
@@ -994,6 +1041,8 @@ from datadog_api_client.v1.model.synthetics_local_variable_parsing_options_type 
 )
 from datadog_api_client.v1.model.synthetics_location import SyntheticsLocation
 from datadog_api_client.v1.model.synthetics_locations import SyntheticsLocations
+from datadog_api_client.v1.model.synthetics_mcp_protocol_version import SyntheticsMCPProtocolVersion
+from datadog_api_client.v1.model.synthetics_mcp_server_capability import SyntheticsMCPServerCapability
 from datadog_api_client.v1.model.synthetics_mobile_step import SyntheticsMobileStep
 from datadog_api_client.v1.model.synthetics_mobile_step_params import SyntheticsMobileStepParams
 from datadog_api_client.v1.model.synthetics_mobile_step_params_direction import SyntheticsMobileStepParamsDirection
@@ -1417,6 +1466,9 @@ __all__ = [
     "CheckStatusWidgetDefinitionType",
     "CohortWidgetDefinition",
     "CohortWidgetDefinitionType",
+    "ComparisonCustomTimeframe",
+    "ComparisonDuration",
+    "ComparisonDurationType",
     "ContentEncoding",
     "Creator",
     "Dashboard",
@@ -1555,6 +1607,16 @@ __all__ = [
     "HostMapWidgetDefinitionRequests",
     "HostMapWidgetDefinitionStyle",
     "HostMapWidgetDefinitionType",
+    "HostMapWidgetDimension",
+    "HostMapWidgetFormula",
+    "HostMapWidgetGroupBy",
+    "HostMapWidgetInfrastructureRequest",
+    "HostMapWidgetInfrastructureRequestLeaf",
+    "HostMapWidgetInfrastructureRequestRequestType",
+    "HostMapWidgetInfrastructureStyle",
+    "HostMapWidgetNodeType",
+    "HostMapWidgetScalarRequest",
+    "HostMapWidgetScalarRequestResponseFormat",
     "HostMeta",
     "HostMetaInstallMethod",
     "HostMetrics",
@@ -1591,6 +1653,8 @@ __all__ = [
     "ListStreamComputeAggregation",
     "ListStreamComputeItems",
     "ListStreamGroupByItems",
+    "ListStreamIssuePersona",
+    "ListStreamIssueState",
     "ListStreamQuery",
     "ListStreamResponseFormat",
     "ListStreamSource",
@@ -1635,6 +1699,8 @@ __all__ = [
     "LogsDecoderProcessorBinaryToTextEncoding",
     "LogsDecoderProcessorInputRepresentation",
     "LogsDecoderProcessorType",
+    "LogsExcludeAttributeProcessor",
+    "LogsExcludeAttributeProcessorType",
     "LogsExclusion",
     "LogsExclusionFilter",
     "LogsFilter",
@@ -1718,6 +1784,7 @@ __all__ = [
     "MonitorFormulaAndFunctionCostAggregator",
     "MonitorFormulaAndFunctionCostDataSource",
     "MonitorFormulaAndFunctionCostQueryDefinition",
+    "MonitorFormulaAndFunctionDataJobsQueryDefinition",
     "MonitorFormulaAndFunctionDataQualityDataSource",
     "MonitorFormulaAndFunctionDataQualityModelTypeOverride",
     "MonitorFormulaAndFunctionDataQualityMonitorOptions",
@@ -1874,6 +1941,9 @@ __all__ = [
     "ProductAnalyticsFunnelRequestType",
     "ProductAnalyticsFunnelWidgetDefinition",
     "QuerySortOrder",
+    "QueryValueWidgetComparison",
+    "QueryValueWidgetComparisonDirectionality",
+    "QueryValueWidgetComparisonType",
     "QueryValueWidgetDefinition",
     "QueryValueWidgetDefinitionType",
     "QueryValueWidgetRequest",
@@ -2089,6 +2159,10 @@ __all__ = [
     "SyntheticsAssertionJSONSchemaTargetTarget",
     "SyntheticsAssertionJavascript",
     "SyntheticsAssertionJavascriptType",
+    "SyntheticsAssertionMCPRespectsSpecification",
+    "SyntheticsAssertionMCPRespectsSpecificationType",
+    "SyntheticsAssertionMCPServerCapabilitiesTarget",
+    "SyntheticsAssertionMCPServerCapabilitiesType",
     "SyntheticsAssertionOperator",
     "SyntheticsAssertionTarget",
     "SyntheticsAssertionTargetValue",
@@ -2100,6 +2174,10 @@ __all__ = [
     "SyntheticsBasicAuth",
     "SyntheticsBasicAuthDigest",
     "SyntheticsBasicAuthDigestType",
+    "SyntheticsBasicAuthJWT",
+    "SyntheticsBasicAuthJWTAddClaims",
+    "SyntheticsBasicAuthJWTAlgorithm",
+    "SyntheticsBasicAuthJWTType",
     "SyntheticsBasicAuthNTLM",
     "SyntheticsBasicAuthNTLMType",
     "SyntheticsBasicAuthOauthClient",
@@ -2162,6 +2240,8 @@ __all__ = [
     "SyntheticsLocalVariableParsingOptionsType",
     "SyntheticsLocation",
     "SyntheticsLocations",
+    "SyntheticsMCPProtocolVersion",
+    "SyntheticsMCPServerCapability",
     "SyntheticsMobileStep",
     "SyntheticsMobileStepParams",
     "SyntheticsMobileStepParamsDirection",

@@ -814,3 +814,14 @@ SELECTED_MATRIX = 'selected_matrix'
 AIC = 'aic'
 BIC = 'bic'
 EBIC = 'ebic'
+
+# Posterior thinning constants.
+POSTERIOR_IS_THINNED = 'posterior_is_thinned'
+POSTERIOR_THINNING_METHOD = 'posterior_thinning_method'
+POSTERIOR_THINNING_SAMPLING_RATE = 'posterior_thinning_sampling_rate'
+POSTERIOR_ORIGINAL_CHAIN_COUNT = 'posterior_original_chain_count'
+POSTERIOR_ORIGINAL_DRAW_COUNT = 'posterior_original_draw_count'
+POSTERIOR_SELECTED_DRAW_COUNT_PER_CHAIN = (
+    'posterior_selected_draw_count_per_chain'
+)
+POSTERIOR_THINNING_SEED = 'posterior_thinning_seed'

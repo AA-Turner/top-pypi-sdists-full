@@ -67,17 +67,29 @@ AutomationRuleFilterNameType = Literal[
 ]
 ComparisonOperatorType = Literal[
     "NumericEquals",
+    "NumericEqualsIfExists",
     "NumericGreaterThan",
     "NumericGreaterThanEquals",
+    "NumericGreaterThanEqualsIfExists",
+    "NumericGreaterThanIfExists",
     "NumericLessThan",
     "NumericLessThanEquals",
+    "NumericLessThanEqualsIfExists",
+    "NumericLessThanIfExists",
     "NumericNotEquals",
+    "NumericNotEqualsIfExists",
     "StringEquals",
+    "StringEqualsIfExists",
     "StringEqualsIgnoreCase",
+    "StringEqualsIgnoreCaseIfExists",
     "StringLike",
+    "StringLikeIfExists",
     "StringNotEquals",
+    "StringNotEqualsIfExists",
     "StringNotEqualsIgnoreCase",
+    "StringNotEqualsIgnoreCaseIfExists",
     "StringNotLike",
+    "StringNotLikeIfExists",
 ]
 EnrollmentStatusType = Literal["Active", "Failed", "Inactive", "Pending"]
 EventStatusType = Literal[

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: assisted-service-client
-Version: 2.53.0.post76
+Version: 2.53.0.post82
 Summary: AssistedInstall
 Home-page: https://github.com/openshift/assisted-service
 Author: RedHat
@@ -310,6 +310,7 @@ Class | Method | HTTP request | Description
  - [InstallerArgsParams](docs/InstallerArgsParams.md)
  - [Interface](docs/Interface.md)
  - [Inventory](docs/Inventory.md)
+ - [InventoryTruncation](docs/InventoryTruncation.md)
  - [IoPerf](docs/IoPerf.md)
  - [Ip](docs/Ip.md)
  - [Iscsi](docs/Iscsi.md)

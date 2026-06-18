@@ -26,10 +26,6 @@ async def main() -> None:
 
     # or SmplClient for synchronous use
     async with AsyncSmplClient() as client:
-        # Start-of-run cleanup removes any residue from a prior run. The
-        # matching cleanup in the ``finally`` below guarantees we also tear
-        # down our resources even if an error occurs mid-showcase, so a failed
-        # run never leaves orphaned configs for the next run.
         await setup_management_showcase(client)
         try:
             # create a "parent" configuration that all other configs inherit from

@@ -38,6 +38,9 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.observability_pipeline_generate_metrics_processor import (
         ObservabilityPipelineGenerateMetricsProcessor,
     )
+    from datadog_api_client.v2.model.observability_pipeline_generate_metrics_v2_processor import (
+        ObservabilityPipelineGenerateMetricsV2Processor,
+    )
     from datadog_api_client.v2.model.observability_pipeline_ocsf_mapper_processor import (
         ObservabilityPipelineOcsfMapperProcessor,
     )
@@ -68,8 +71,20 @@ if TYPE_CHECKING:
     from datadog_api_client.v2.model.observability_pipeline_throttle_processor import (
         ObservabilityPipelineThrottleProcessor,
     )
+    from datadog_api_client.v2.model.observability_pipeline_add_metric_tags_processor import (
+        ObservabilityPipelineAddMetricTagsProcessor,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_aggregate_processor import (
+        ObservabilityPipelineAggregateProcessor,
+    )
     from datadog_api_client.v2.model.observability_pipeline_metric_tags_processor import (
         ObservabilityPipelineMetricTagsProcessor,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_rename_metric_tags_processor import (
+        ObservabilityPipelineRenameMetricTagsProcessor,
+    )
+    from datadog_api_client.v2.model.observability_pipeline_tag_cardinality_limit_processor import (
+        ObservabilityPipelineTagCardinalityLimitProcessor,
     )
 
 
@@ -116,6 +131,7 @@ class ObservabilityPipelineConfigProcessorGroup(ModelNormal):
                 ObservabilityPipelineDedupeProcessor,
                 ObservabilityPipelineEnrichmentTableProcessor,
                 ObservabilityPipelineGenerateMetricsProcessor,
+                ObservabilityPipelineGenerateMetricsV2Processor,
                 ObservabilityPipelineOcsfMapperProcessor,
                 ObservabilityPipelineParseGrokProcessor,
                 ObservabilityPipelineParseJSONProcessor,
@@ -128,7 +144,11 @@ class ObservabilityPipelineConfigProcessorGroup(ModelNormal):
                 ObservabilityPipelineSensitiveDataScannerProcessor,
                 ObservabilityPipelineSplitArrayProcessor,
                 ObservabilityPipelineThrottleProcessor,
+                ObservabilityPipelineAddMetricTagsProcessor,
+                ObservabilityPipelineAggregateProcessor,
                 ObservabilityPipelineMetricTagsProcessor,
+                ObservabilityPipelineRenameMetricTagsProcessor,
+                ObservabilityPipelineTagCardinalityLimitProcessor,
             ]
         ],
         display_name: Union[str, UnsetType] = unset,

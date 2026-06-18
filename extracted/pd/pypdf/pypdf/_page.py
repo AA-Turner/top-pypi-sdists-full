@@ -764,7 +764,15 @@ class PageObject(DictionaryObject):
                     )
                 else:
                     v = self._translate_value_inline_image(k, v)
-                k = NameObject(_INLINE_IMAGE_KEY_MAPPING[k])
+                if k in _INLINE_IMAGE_KEY_MAPPING:
+                    k = NameObject(_INLINE_IMAGE_KEY_MAPPING[k])
+                else:
+                    logger_warning(
+                        "Unknown inline image key %(key)s, keeping it as-is.",
+                        source=__name__,
+                        key=k,
+                    )
+                    k = NameObject(k)
                 if k not in init:
                     init[k] = v
             ii["object"] = EncodedStreamObject.initialize_from_dictionary(init)
@@ -1750,7 +1758,7 @@ class PageObject(DictionaryObject):
             if operator == b"'":
                 extractor.process_operation(b"T*", [])
                 extractor.process_operation(b"Tj", operands)
-            elif operator == b'"':
+            elif operator == b'"' and len(operands) >= 3:
                 extractor.process_operation(b"Tw", [operands[0]])
                 extractor.process_operation(b"Tc", [operands[1]])
                 extractor.process_operation(b"T*", [])
@@ -1768,7 +1776,7 @@ class PageObject(DictionaryObject):
                             and extractor.text[-1] != " "
                         ):
                             extractor.process_operation(b"Tj", [" "])
-            elif operator == b"TD":
+            elif operator == b"TD" and len(operands) >= 2:
                 extractor.process_operation(b"TL", [-operands[1]])
                 extractor.process_operation(b"Td", operands)
             elif operator == b"Do":

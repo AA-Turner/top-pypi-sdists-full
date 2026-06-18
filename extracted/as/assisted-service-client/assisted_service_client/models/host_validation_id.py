@@ -29,6 +29,8 @@ class HostValidationId(object):
     CONNECTED = "connected"
     MEDIA_CONNECTED = "media-connected"
     HAS_INVENTORY = "has-inventory"
+    INVENTORY_NOT_PARTIALLY_TRUNCATED = "inventory-not-partially-truncated"
+    INVENTORY_NOT_FULLY_TRUNCATED = "inventory-not-fully-truncated"
     HAS_MIN_CPU_CORES = "has-min-cpu-cores"
     HAS_MIN_VALID_DISKS = "has-min-valid-disks"
     HAS_MIN_MEMORY = "has-min-memory"

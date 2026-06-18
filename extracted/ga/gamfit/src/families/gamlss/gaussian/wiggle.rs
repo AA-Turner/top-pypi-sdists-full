@@ -60,7 +60,7 @@ pub struct GaussianLocationScaleWiggleFamily {
     /// per-call materialization decision) made during exact-Newton joint psi
     /// derivative evaluation. Defaults to `ResourcePolicy::default_library()`
     /// when the family is built without an explicit policy.
-    pub policy: crate::resource::ResourcePolicy,
+    pub policy: crate::solver::resource::ResourcePolicy,
     pub(crate) cached_row_scalars:
         std::sync::RwLock<Option<(f64, f64, f64, f64, f64, f64, Arc<GaussianJointRowScalars>)>>,
 }
@@ -299,7 +299,7 @@ impl GaussianLocationScaleWiggleFamily {
         specs: &[ParameterBlockSpec],
         block_idx: usize,
     ) -> Result<Box<dyn BlockEffectiveJacobian>, String> {
-        crate::util::block_jacobian::AdditiveWiggleBlockLayout {
+        crate::families::block_layout::block_jacobian::AdditiveWiggleBlockLayout {
             family: "GaussianLocationScaleWiggleFamily",
             n_outputs: 2,
             additive_blocks: &[Self::BLOCK_MU, Self::BLOCK_LOG_SIGMA],
@@ -489,7 +489,7 @@ impl GaussianLocationScaleWiggleFamily {
         psi_index: usize,
         xmu: &Array2<f64>,
         x_ls: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &crate::solver::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         let Some(parts) = locscale_joint_psi_direction_parts(
             block_states,
@@ -552,15 +552,11 @@ impl GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<GaussianLocationScaleWiggleHessianRowPieces, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let q0 = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
         let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
@@ -633,15 +629,11 @@ impl GaussianLocationScaleWiggleFamily {
         x_ls: &Array2<f64>,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let pmu = xmu.ncols();
         let p_ls = x_ls.ncols();
         let q0 = &block_states[Self::BLOCK_MU].eta;
@@ -722,17 +714,12 @@ impl GaussianLocationScaleWiggleFamily {
         xmu_arc: Arc<Array2<f64>>,
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let pmu = xmu_arc.ncols();
         let p_ls = x_ls_arc.ncols();
         let q0_eta = &block_states[Self::BLOCK_MU].eta;
@@ -846,17 +833,12 @@ impl GaussianLocationScaleWiggleFamily {
         x_ls_arc: Arc<Array2<f64>>,
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let pmu = xmu_arc.ncols();
         let p_ls = x_ls_arc.ncols();
         let q0_eta = &block_states[Self::BLOCK_MU].eta;
@@ -1025,15 +1007,11 @@ impl GaussianLocationScaleWiggleFamily {
         d_beta_u_flat: &Array1<f64>,
         d_beta_v_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let pmu = xmu.ncols();
         let p_ls = x_ls.ncols();
         let q0 = &block_states[Self::BLOCK_MU].eta;
@@ -2065,6 +2043,7 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         if block_idx != Self::BLOCK_WIGGLE {
             return Ok(beta);
         }
+        let beta = project_monotone_wiggle_beta_nonnegative(beta);
         validate_monotone_wiggle_beta_nonnegative(
             &beta,
             "GaussianLocationScaleWiggleFamily post-update",
@@ -2073,15 +2052,11 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
     }
 
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let n = self.y.len();
         let eta_mu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -2173,15 +2148,11 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
     }
 
     fn log_likelihood_only(&self, block_states: &[ParameterBlockState]) -> Result<f64, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let eta_mu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
         let etaw = &block_states[Self::BLOCK_WIGGLE].eta;
@@ -2225,15 +2196,11 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         let Some(subsample) = options.outer_score_subsample.as_ref() else {
             return self.log_likelihood_only(block_states);
         };
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let n = self.y.len();
         let eta_mu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -2274,15 +2241,11 @@ impl CustomFamily for GaussianLocationScaleWiggleFamily {
         block_idx: usize,
         d_beta: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let pmu = self
             .mu_design
             .as_ref()
@@ -2693,7 +2656,7 @@ impl GaussianLocationScaleWiggleHessianWorkspace {
     /// likelihood only through `q = η_μ + η_w` (no σ-chain).
     pub(crate) fn apply_outer_subsample(
         &mut self,
-        rows: &[crate::families::marginal_slope_shared::WeightedOuterRow],
+        rows: &[crate::solver::outer_subsample::WeightedOuterRow],
     ) {
         let n = self.pieces.coeff_mm.len();
         let mut mask_mm = Array1::<f64>::zeros(n);
@@ -2855,8 +2818,7 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleWiggleHessianWork
     fn directional_derivative_operator(
         &self,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
         self.family.gls_wiggle_directional_operator(
             &self.block_states,
             self.xmu.clone(),
@@ -2884,8 +2846,7 @@ impl ExactNewtonJointHessianWorkspace for GaussianLocationScaleWiggleHessianWork
         &self,
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
         self.family.gls_wiggle_second_directional_operator(
             &self.block_states,
             self.xmu.clone(),
@@ -2901,15 +2862,11 @@ impl CustomFamilyGenerative for GaussianLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<GenerativeSpec, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "GaussianLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let eta_mu = &block_states[Self::BLOCK_MU].eta;
         let eta_wiggle = &block_states[Self::BLOCK_WIGGLE].eta;
         let eta_log_sigma = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -2927,11 +2884,6 @@ pub(crate) fn expect_single_block<'a>(
     block_states: &'a [ParameterBlockState],
     family_name: &str,
 ) -> Result<&'a ParameterBlockState, String> {
-    if block_states.len() != 1 {
-        return Err(GamlssError::DimensionMismatch {
-            reason: format!("{family_name} expects 1 block, got {}", block_states.len()),
-        }
-        .into());
-    }
+    validate_block_count::<GamlssError>(family_name, 1, block_states.len())?;
     Ok(&block_states[0])
 }

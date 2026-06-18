@@ -383,16 +383,38 @@ def _load_dataset_inner(
             return final_df.collect().to_pandas()
 
 
+def _resolve_schema(df: "pl.DataFrame | pl.LazyFrame"):
+    """Return the schema of ``df`` without emitting a ``PerformanceWarning``.
+
+    Accessing ``LazyFrame.schema`` / ``LazyFrame.columns`` eagerly resolves the
+    schema and warns in newer Polars. ``collect_schema()`` does the same work
+    without the warning. Fall back to ``.schema`` for older Polars that lacks it.
+    """
+    try:
+        return df.collect_schema()
+    except AttributeError:
+        return df.schema
+
+
+def _resolve_column_names(df: "pl.LazyFrame") -> List[str]:
+    """Return the column names of ``df`` without emitting a ``PerformanceWarning``."""
+    try:
+        return df.collect_schema().names()
+    except AttributeError:
+        return df.columns
+
+
 def to_utc(df: pl.DataFrame | pl.LazyFrame, col: str, expr: pl.Expr):
     try:
         import polars as pl
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
-    if col not in df.schema:
+    schema = _resolve_schema(df)
+    if col not in schema:
         return expr
 
-    dtype = df.schema[col]
+    dtype = schema[col]
     if isinstance(dtype, pl.Datetime):
         if dtype.time_zone is not None:
             return expr.dt.convert_time_zone("UTC")
@@ -440,30 +462,33 @@ def _extract_df_columns(
             col_name_decoder = None
         else:
             col_name_decoder = ColNameDecoder()
-        decoded_col_names = _decode_column_names(df.columns, col_name_decoder)
+        decoded_col_names = _decode_column_names(_resolve_column_names(df), col_name_decoder)
         # Select only the columns in decoded_col_names
         df = df.select(list(decoded_col_names.keys()))
         df = df.rename(dict(decoded_col_names))
+        df_columns = _resolve_column_names(df)
         if column_metadata is not None:
             col_name_set = {x.feature_fqn for x in column_metadata}
             ordered_cols: list[str] = []
-            for c in df.columns:
+            for c in df_columns:
                 if c not in col_name_set:
                     ordered_cols.append(c)
             for x in column_metadata:
-                if x.feature_fqn not in ordered_cols and x.feature_fqn in df.columns:
+                if x.feature_fqn not in ordered_cols and x.feature_fqn in df_columns:
                     ordered_cols.append(x.feature_fqn)
             df = df.select(ordered_cols)
+            df_columns = ordered_cols
         elif version == DatasetVersion.NATIVE_COLUMN_NAMES:
             assert output_feature_fqns is not None, f"output_feature_fqns must be supplied with {version=}"
             ordered_cols: list[str] = []
-            for c in df.columns:
+            for c in df_columns:
                 if c not in output_feature_fqns:
                     ordered_cols.append(c)
             for x in output_feature_fqns:
-                if x not in ordered_cols and x in df.columns:
+                if x not in ordered_cols and x in df_columns:
                     ordered_cols.append(x)
             df = df.select(ordered_cols)
+            df_columns = ordered_cols
 
         # Using an OrderedDict so the order will match the order the user set in the
         # output argument
@@ -471,7 +496,7 @@ def _extract_df_columns(
         id_col = pl.col(str(ID_FEATURE))
         if output_id:
             # All dataframes have an ID_FEATURE column if they don't have a pkey column
-            if str(ID_FEATURE) in df.columns:
+            if str(ID_FEATURE) in df_columns:
                 expected_cols[str(ID_FEATURE)] = id_col.alias(str(ID_FEATURE))
 
         if output_ts:
@@ -482,7 +507,7 @@ def _extract_df_columns(
         if output_feature_fqns is None:
             # If not provided, return all columns, except for the OBSERVED_AT_FEATURE
             # (the REPLACED_OBSERVED_AT was already dropped in _decode_col_names)
-            for x in df.columns:
+            for x in df_columns:
                 if x not in expected_cols and not x.startswith(f"{PSEUDONAMESPACE}.") and "chalk_observed_at" not in x:
                     expected_cols[x] = pl.col(x)
 
@@ -491,7 +516,7 @@ def _extract_df_columns(
             # of the other features
 
             root_namespaces: "set[str]" = set()
-            for x in df.columns:
+            for x in df_columns:
                 if not x.startswith(f"{PSEUDONAMESPACE}.") and "." in x:
                     root_namespaces.add(x.split(".")[0])
 
@@ -521,18 +546,18 @@ def _extract_df_columns(
                 expected_cols[str(OBSERVED_AT_FEATURE)] = ts_col.alias(str(OBSERVED_AT_FEATURE))
             for x in output_feature_fqns:
                 if features_cls is not None and x in [f.fqn for f in features_cls.features if f.is_has_one]:
-                    for col in df.columns:
+                    for col in df_columns:
                         if col.startswith(f"{x}.") and not col.startswith("__"):
                             expected_cols[col] = pl.col(col)
                     continue
                 if x == root_ns:
-                    for col in df.columns:
+                    for col in df_columns:
                         if root_ns is not None and col.startswith(root_ns) and not col.startswith("__"):
                             expected_cols[col] = pl.col(col)
                     continue
                 if x in expected_cols:
                     continue
-                if x in df.columns:
+                if x in df_columns:
                     if x == str(CHALK_TS_FEATURE):
                         expected_cols[x] = ts_col.alias(x)
                     else:
@@ -565,7 +590,7 @@ def _extract_df_columns(
         else:
             df = df.groupby("pkey").agg(cols)  # pyright: ignore
         decoded_stmts: List[pl.Expr] = []
-        for col in df.columns:
+        for col in _resolve_column_names(df):
             if col == "pkey":
                 continue
             else:
@@ -577,20 +602,19 @@ def _extract_df_columns(
         df = df.select(decoded_stmts)
         # it might be a good idea to remember that we used to rename this __id__ column to the primary key
         # We also need to remove columns like feature.__oat__ and feature.__rat__
-        df = df.select([col for col in df.columns if not col.endswith("__")])
-        return df.select(sorted(df.columns))
+        df = df.select([col for col in _resolve_column_names(df) if not col.endswith("__")])
+        return df.select(sorted(_resolve_column_names(df)))
     elif version != DatasetVersion.DATASET_WRITER:
         raise ValueError(f"Unsupported version: {version}")
 
     decoded_stmts: List[pl.Expr] = []
     feature_name_to_metadata = None if column_metadata is None else {x.feature_fqn: x for x in column_metadata}
-    # Use collect_schema().dtypes() for newer Polars versions to avoid performance warning
-    # Fall back to df.dtypes for older versions
     try:
-        dtypes = df.collect_schema().dtypes()
+        schema = df.collect_schema()
+        col_names, dtypes = schema.names(), schema.dtypes()
     except AttributeError:
-        dtypes = df.dtypes
-    for col, dtype in zip(df.columns, dtypes):
+        col_names, dtypes = df.columns, df.dtypes
+    for col, dtype in zip(col_names, dtypes):
         if version in (
             DatasetVersion.BIGQUERY_JOB_WITH_B32_ENCODED_COLNAMES,
             DatasetVersion.BIGQUERY_JOB_WITH_B32_ENCODED_COLNAMES_V2,

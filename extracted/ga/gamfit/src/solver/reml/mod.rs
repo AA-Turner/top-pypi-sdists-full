@@ -1,33 +1,36 @@
 use self::inner_strategy::GeometryBackendKind;
 use super::*;
-use crate::linalg::sparse_exact::{
-    SparseExactFactor, SparsePenaltyBlock, assemble_and_factor_sparse_penalized_system,
-};
-use crate::solver::outer_strategy::OuterEval;
+use crate::linalg::sparse_exact::SparseExactFactor;
 use crate::solver::pirls::PIRLS_CACHE_BYTE_BUDGET;
+use crate::solver::pirls::assemble_and_factor_sparse_penalized_system;
+use crate::solver::rho_optimizer::OuterEval;
 use crate::terms::basis::LocalDesignJacobianProvider;
 use crate::types::SasLinkState;
 use ndarray::{Array1, Array2, s};
 use std::collections::{HashMap, VecDeque};
 use std::ops::Range;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
+use std::sync::{Arc, RwLock};
 
 pub(crate) mod assembly;
 pub(crate) mod atoms;
-mod cache;
 pub(crate) mod continuation;
 pub(crate) mod eval;
 mod firth;
 pub(super) mod hyper;
 mod inner_strategy;
 pub(crate) mod jeffreys_subspace;
+pub(crate) mod outer_eval;
 pub(crate) mod penalty_logdet;
 pub(crate) mod per_atom_efs;
-pub(crate) mod rho_prior_eval;
-pub(crate) mod runtime;
+pub(crate) mod reml_outer_engine;
+mod rho_key;
+mod sparse_exact_penalty;
 mod trace;
-pub(crate) mod unified;
+
+pub(crate) use sparse_exact_penalty::{
+    SparsePenaltyBlock, build_sparse_penalty_blocks_from_canonical,
+};
 
 pub(crate) const EXACT_TAU_TAU_HESSIAN_DENSE_CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
 pub(crate) const FIRTH_MAX_OBSERVATIONS: usize = 20_000;
@@ -229,7 +232,7 @@ pub(crate) fn exact_tau_tau_hessian_policy_with_firth(
             n_obs,
             p_coeff,
             implicit_n_axes,
-            &crate::resource::ResourcePolicy::default_library(),
+            &crate::solver::resource::ResourcePolicy::default_library(),
         );
     let dense_first_order_count = hyper_dirs
         .iter()
@@ -333,9 +336,9 @@ mod tests {
     };
     use crate::estimate::EstimationError;
     use crate::faer_ndarray::FaerCholesky;
-    use crate::linalg::utils::enforce_symmetry;
+    use crate::matrix::symmetrize_in_place;
     use crate::pirls::PirlsCoordinateFrame;
-    use crate::solver::outer_strategy::{HessianResult, OuterEval};
+    use crate::solver::rho_optimizer::{HessianResult, OuterEval};
     use crate::terms::basis::{ImplicitDesignPsiDerivative, RadialScalarKind};
     use crate::types::{
         GlmLikelihoodSpec, InverseLink, LikelihoodSpec, ResponseFamily, StandardLink,
@@ -776,7 +779,7 @@ mod tests {
             theta,
             rho_dim,
             hyper_dirs,
-            crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian,
+            crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian,
         )?;
         Ok((
             cost,
@@ -815,7 +818,7 @@ mod tests {
             &theta,
             rho.len(),
             &[hyper],
-            crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient,
+            crate::solver::rho_optimizer::OuterEvalOrder::ValueAndGradient,
         )?;
         Ok(gradient[rho.len()])
     }
@@ -888,7 +891,7 @@ mod tests {
                 h_ttfd[[i, j]] = (g_plus - g_minus) / (2.0 * h);
             }
         }
-        enforce_symmetry(&mut h_ttfd);
+        symmetrize_in_place(&mut h_ttfd);
         h_ttfd
     }
 
@@ -947,7 +950,7 @@ mod tests {
         state
             .compute_outer_eval_with_order(
                 &rho,
-                crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient,
+                crate::solver::rho_optimizer::OuterEvalOrder::ValueAndGradient,
             )
             .expect("outer eval should succeed");
 
@@ -1271,7 +1274,7 @@ mod tests {
         let outer = state
             .compute_outer_eval_with_order(
                 &rho,
-                crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian,
+                crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian,
             )
             .expect("outer Hessian eval should succeed");
         assert!(
@@ -1332,10 +1335,15 @@ mod tests {
         let eval = state
             .compute_outer_eval_with_order(
                 &rho,
-                crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian,
+                crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian,
             )
             .expect("analytic Hessian eval");
-        let h = eval.hessian.unwrap_analytic();
+        let h = match eval.hessian {
+            HessianResult::Analytic(hessian) => hessian,
+            HessianResult::Operator(_) | HessianResult::Unavailable => {
+                panic!("expected dense analytic Hessian")
+            }
+        };
         let delta = 2.0e-5;
         for col in 0..rho.len() {
             let mut rp = rho.clone();
@@ -1345,14 +1353,14 @@ mod tests {
             let gp = state
                 .compute_outer_eval_with_order(
                     &rp,
-                    crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient,
+                    crate::solver::rho_optimizer::OuterEvalOrder::ValueAndGradient,
                 )
                 .expect("plus grad")
                 .gradient;
             let gm = state
                 .compute_outer_eval_with_order(
                     &rm,
-                    crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient,
+                    crate::solver::rho_optimizer::OuterEvalOrder::ValueAndGradient,
                 )
                 .expect("minus grad")
                 .gradient;
@@ -1536,7 +1544,7 @@ mod tests {
             .evaluate_unified_with_psi_ext(
                 &rho,
                 None,
-                crate::solver::estimate::reml::unified::EvalMode::ValueAndGradient,
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient,
                 &hyper_dirs,
             )
             .expect("full Firth psi gradient should use analytic TK propagation");
@@ -2661,8 +2669,7 @@ pub(crate) enum DerivativeMatrixStorage {
 /// Mechanical surface every `DerivativeMatrixStorage` variant must expose so
 /// the `HyperDesignDerivative` / `HyperPenaltyDerivative` wrappers can dispatch
 /// with a single per-call `storage_dispatch!`. Each backend owns its variant's
-/// substantive math; the wrappers contain only one-line routing, the same way
-/// `FamilyFitRequest` collapses `FitRequest`'s per-variant case analysis.
+/// substantive math; the wrappers contain only one-line routing.
 ///
 /// `design_*` variants treat the backend as an X-style operator (rows index
 /// data, columns index coefficients); `penalty_*` variants treat the backend
@@ -2771,7 +2778,7 @@ pub(crate) struct ImplicitDerivativeOp {
     /// called concurrently from inside another rayon par_iter — racing workers
     /// would park on the OnceLock's OS condvar, leaving the leader's nested
     /// par_iter without workers. `RayonSafeOnce` runs init lock-free.
-    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<crate::solver::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 #[derive(Clone)]
@@ -2780,7 +2787,7 @@ pub(crate) struct LatentCoordDerivativeOp {
     pub(crate) flat_axis: usize,
     pub(crate) global_range: Range<usize>,
     pub(crate) total_dim: usize,
-    pub(crate) cached_dense: std::sync::Arc<crate::resource::RayonSafeOnce<Array2<f64>>>,
+    pub(crate) cached_dense: std::sync::Arc<crate::solver::resource::RayonSafeOnce<Array2<f64>>>,
 }
 
 impl LatentCoordDerivativeOp {
@@ -3453,7 +3460,7 @@ impl HyperDesignDerivative {
                 level,
                 global_range,
                 total_dim: total_cols,
-                cached_dense: std::sync::Arc::new(crate::resource::RayonSafeOnce::new()),
+                cached_dense: std::sync::Arc::new(crate::solver::resource::RayonSafeOnce::new()),
             }),
         }
     }
@@ -3470,7 +3477,7 @@ impl HyperDesignDerivative {
                 flat_axis,
                 global_range,
                 total_dim: total_cols,
-                cached_dense: std::sync::Arc::new(crate::resource::RayonSafeOnce::new()),
+                cached_dense: std::sync::Arc::new(crate::solver::resource::RayonSafeOnce::new()),
             }),
         }
     }
@@ -4122,6 +4129,25 @@ pub(crate) struct EvalShared {
     /// plain ndarray matvecs (no rayon inside the `OnceLock` closure — the
     /// `get_or_init`+`into_par_iter` deadlock trap does not apply).
     pub(crate) penalty_scores_at_mode: std::sync::OnceLock<Arc<Vec<Array1<f64>>>>,
+    /// Per-evaluation-point cache of the #784 block-local Laplace-to-sampling
+    /// correction `TkCorrectionTerms { value, gradient }`. The correction is a
+    /// deterministic function of ONLY this bundle's converged inner state
+    /// (`pirls_result`, `h_total`), the `RemlState`'s fixed
+    /// `canonical_penalties`, and the bundle's ρ — never of the eval `mode`:
+    /// the diagnostic eigendecomposition, the fixed-seed importance sampler,
+    /// and the (b)–(d) gradient channels all read mode-invariant fields, and
+    /// the term carries no Hessian, so the value+gradient are identical for the
+    /// value-only, value+gradient, and value+gradient+Hessian assemble calls
+    /// that share this bundle at a single ρ. The expensive path (eigendecomp +
+    /// O(draws·n·m) sampler) previously reran on every one of those 2–3 calls
+    /// per outer iteration; hoisting it onto the bundle computes it exactly
+    /// once per inner solution (exact hoist, identical values — #784, #1082).
+    /// Keyed only on the external-coordinate count `n_ext`: with no ψ
+    /// coordinates (`n_ext == 0`) the correction engages; with ψ present the
+    /// seam declines (returns the cheap zero), and n_ext is fixed for a fit, so
+    /// a single cell suffices.
+    pub(crate) block_local_correction:
+        std::sync::OnceLock<(usize, Arc<outer_eval::TkCorrectionTerms>)>,
 }
 
 impl EvalShared {
@@ -4279,7 +4305,7 @@ pub(crate) struct PenaltySubspaceCacheKey {
 }
 
 pub(crate) struct PenaltySubspaceCache {
-    pub(crate) entry: Option<(PenaltySubspaceCacheKey, Arc<runtime::PenaltySubspace>)>,
+    pub(crate) entry: Option<(PenaltySubspaceCacheKey, Arc<outer_eval::PenaltySubspace>)>,
 }
 
 impl PenaltySubspaceCache {
@@ -4290,7 +4316,7 @@ impl PenaltySubspaceCache {
     pub(crate) fn get(
         &self,
         key: &PenaltySubspaceCacheKey,
-    ) -> Option<Arc<runtime::PenaltySubspace>> {
+    ) -> Option<Arc<outer_eval::PenaltySubspace>> {
         self.entry
             .as_ref()
             .filter(|(cached_key, _)| cached_key == key)
@@ -4300,7 +4326,7 @@ impl PenaltySubspaceCache {
     pub(crate) fn insert(
         &mut self,
         key: PenaltySubspaceCacheKey,
-        value: Arc<runtime::PenaltySubspace>,
+        value: Arc<outer_eval::PenaltySubspace>,
     ) {
         self.entry = Some((key, value));
     }
@@ -4421,7 +4447,7 @@ impl EvalCacheManager {
     /// Returns None if any component is NaN, in which case caching is skipped.
     /// Maps -0.0 to 0.0 to ensure key stability.
     pub(crate) fn sanitized_rhokey(rho: &Array1<f64>) -> Option<Vec<u64>> {
-        self::cache::sanitized_rhokey(rho)
+        self::rho_key::sanitized_rhokey(rho)
     }
 
     /// Memoizing wrapper for `PenaltySubspace` construction.
@@ -4435,9 +4461,9 @@ impl EvalCacheManager {
         e_transformed: &ndarray::Array2<f64>,
         ridge_passport: &crate::types::RidgePassport,
         build: F,
-    ) -> Result<Arc<runtime::PenaltySubspace>, EstimationError>
+    ) -> Result<Arc<outer_eval::PenaltySubspace>, EstimationError>
     where
-        F: FnOnce() -> Result<runtime::PenaltySubspace, EstimationError>,
+        F: FnOnce() -> Result<outer_eval::PenaltySubspace, EstimationError>,
     {
         let key = PenaltySubspaceCacheKey::from_inputs(e_transformed, ridge_passport);
         if let Some(hit) = self.penalty_subspace_cache.read().unwrap().get(&key) {
@@ -4452,12 +4478,9 @@ impl EvalCacheManager {
     }
 
     pub(crate) fn cached_eval_bundle(&self, key: &Option<Vec<u64>>) -> Option<EvalShared> {
-        self.current_eval_bundle
-            .read()
-            .unwrap()
-            .as_ref()
-            .filter(|bundle| bundle.matches(key))
-            .cloned()
+        let guard = self.current_eval_bundle.read().unwrap();
+        let bundle: &EvalShared = guard.as_ref()?;
+        bundle.matches(key).then(|| bundle.clone())
     }
 
     pub(crate) fn store_eval_bundle(&self, bundle: EvalShared) {
@@ -4466,12 +4489,9 @@ impl EvalCacheManager {
 
     pub(crate) fn cached_outer_eval(&self, key: &Option<Vec<u64>>) -> Option<OuterEval> {
         let key = key.as_ref()?;
-        self.current_outer_eval
-            .read()
-            .unwrap()
-            .as_ref()
-            .filter(|(cached_key, _)| cached_key == key)
-            .map(|(_, eval)| eval.clone())
+        let guard = self.current_outer_eval.read().unwrap();
+        let (cached_key, eval): &(Vec<u64>, OuterEval) = guard.as_ref()?;
+        (cached_key == key).then(|| eval.clone())
     }
 
     pub(crate) fn store_outer_eval(&self, key: &Option<Vec<u64>>, eval: &OuterEval) {
@@ -4615,6 +4635,19 @@ pub(crate) struct RemlState<'a> {
     /// on failed solves.
     pub(crate) last_pirls_lm_lambda: Arc<AtomicU64>,
 
+    /// Negative-Binomial overdispersion `theta` frozen for the smoothing-
+    /// parameter (λ) search (#1082), bit-packed `f64` (`f64::to_bits`). `0`
+    /// (the default) signals "not yet frozen". On the first non-screening
+    /// λ-search inner solve of an estimated-θ NB fit, the seed's
+    /// maximum-likelihood θ is computed once and stored here; every subsequent
+    /// λ-search evaluation pins the inner solve to this value via
+    /// `GlmLikelihoodSpec::with_negbin_theta_frozen_for_search`, so the REML
+    /// criterion `F(ρ) = REML(ρ, θ_frozen)` is a stationary function of ρ and
+    /// the outer optimizer converges instead of chasing the per-eval θ drift
+    /// that the estimated path injects. The single final reported fit still
+    /// ML-refreshes θ at the converged η. Reset on `reset_surface`.
+    pub(crate) frozen_negbin_theta: Arc<AtomicU64>,
+
     /// Last observed IFT-prediction residual (`‖β_converged − β_predicted‖
     /// / ‖β_converged‖`) from the most recent non-screening solve where
     /// the predictor was actually consumed. Bit-packed `f64` (low 64
@@ -4754,6 +4787,16 @@ pub(crate) struct RemlState<'a> {
     /// evaluations. In-memory warm starts still update; only JSON/bin
     /// persistence and eviction sweeps are suppressed.
     pub(crate) persistent_warm_start_store_suppression: AtomicUsize,
+    /// Scoped counter disabling the Gaussian-identity ALO-stabilization
+    /// augmentation (#979). The leverage barrier `Σ_i (h_i − τ)₊²` is an OUTER
+    /// OPTIMIZER aid (#813/#821) that keeps the smoothing-parameter search off
+    /// pathological high-leverage λ regions. The marginal smoothing-parameter
+    /// posterior `π(ρ|y) ∝ exp(−LAML(ρ))` (#938) is a property of the genuine
+    /// model criterion, sampled against a Laplace proposal built from the BASE
+    /// REML Hessian, so the certificate / NUTS evaluations suppress the
+    /// augmentation (see `without_alo_stabilization`) — both for proposal↔target
+    /// consistency and to drop the per-leapfrog ALO diagnostic suite.
+    pub(crate) alo_stabilization_suppression: AtomicUsize,
     /// Whether the cross-process ON-DISK warm-start layer is engaged at all.
     ///
     /// Default `false`: the optimizer's IN-MEMORY warm start (the actual
@@ -4765,8 +4808,7 @@ pub(crate) struct RemlState<'a> {
     /// a single in-process fit (and a fortiori a loop of distinct throwaway
     /// fits, e.g. CI-coverage replicates each on different data, #1082/#1114)
     /// gets zero benefit from it and pays the per-fit open/scan/save in full.
-    /// The workflow dispatcher flips this to `true` only when the caller has
-    /// signalled cross-process intent by attaching a cache session — magic by
-    /// default, no flag: opt-in is the presence of a session.
+    /// `FitConfig::persist_warm_start_disk` flips this to `true` only when the
+    /// caller explicitly asks for cross-process / repeat-fit persistence.
     pub(crate) persistent_warm_start_disk_enabled: AtomicBool,
 }

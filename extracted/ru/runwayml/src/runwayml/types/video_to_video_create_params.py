@@ -28,12 +28,6 @@ __all__ = [
 class Variant0(TypedDict, total=False):
     model: Required[Literal["aleph2"]]
 
-    prompt_text: Required[Annotated[str, PropertyInfo(alias="promptText")]]
-    """
-    A non-empty string up to 1000 characters describing what should appear in the
-    output.
-    """
-
     video_uri: Required[Annotated[str, PropertyInfo(alias="videoUri")]]
     """A HTTPS URL."""
 
@@ -45,6 +39,14 @@ class Variant0(TypedDict, total=False):
 
     Up to 5 keyframes.
     """
+
+    prompt_text: Annotated[str, PropertyInfo(alias="promptText")]
+    """
+    An optional string up to 1000 characters describing what should appear in the
+    output.
+    """
+
+    ratio: str
 
     seed: int
     """If unspecified, a random number is chosen.

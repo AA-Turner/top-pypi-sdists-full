@@ -26,7 +26,7 @@ use fancy_regex::Regex;
 use serde::Deserialize;
 
 use crate::shake_rng::{seed_from_value, ShakeRng};
-use crate::validators::{gb11643_check_char, hkid_check_digit, luhn_check_digit, twid_check_digit};
+use crate::validators::{gb11643_check_char, hkid_check_digit, luhn_check_digit, twid_check_digit, AGE_DIGITS_RE};
 
 /// Max re-roll attempts in [`generate_unique_fake`] (mirrors `_MAX_REROLL_ATTEMPTS`).
 pub const MAX_REROLL_ATTEMPTS: usize = 10;
@@ -62,29 +62,20 @@ struct SharedFakerData {
     rfc7042_mac_prefix: String,
 }
 
-fn zh_data() -> &'static ZhFakerData {
-    static DATA: OnceLock<ZhFakerData> = OnceLock::new();
-    DATA.get_or_init(|| {
-        ron::from_str(include_str!("../data/fakers/zh.ron"))
-            .unwrap_or_else(|e| panic!("RON parse error in fakers/zh.ron: {e}"))
-    })
+macro_rules! embed_ron {
+    ($fn_name:ident, $ty:ty, $path:literal) => {
+        fn $fn_name() -> &'static $ty {
+            static CELL: std::sync::OnceLock<$ty> = std::sync::OnceLock::new();
+            CELL.get_or_init(|| {
+                ron::from_str(include_str!($path))
+                    .unwrap_or_else(|e| panic!(concat!("RON parse error in ", $path, ": {}"), e))
+            })
+        }
+    };
 }
-
-fn en_data() -> &'static EnFakerData {
-    static DATA: OnceLock<EnFakerData> = OnceLock::new();
-    DATA.get_or_init(|| {
-        ron::from_str(include_str!("../data/fakers/en.ron"))
-            .unwrap_or_else(|e| panic!("RON parse error in fakers/en.ron: {e}"))
-    })
-}
-
-fn shared_data() -> &'static SharedFakerData {
-    static DATA: OnceLock<SharedFakerData> = OnceLock::new();
-    DATA.get_or_init(|| {
-        ron::from_str(include_str!("../data/fakers/shared.ron"))
-            .unwrap_or_else(|e| panic!("RON parse error in fakers/shared.ron: {e}"))
-    })
-}
+embed_ron!(zh_data, ZhFakerData, "../data/fakers/zh.ron");
+embed_ron!(en_data, EnFakerData, "../data/fakers/en.ron");
+embed_ron!(shared_data, SharedFakerData, "../data/fakers/shared.ron");
 
 // ── Public pool accessors (used by reserved_range.rs scanner) ───────────────
 
@@ -126,6 +117,88 @@ pub fn macau_reserved_lead() -> &'static str {
 /// Taiwan ARC reserved prefix (e.g. `"WW"`).
 pub fn twarc_reserved_prefix() -> &'static str {
     &zh_data().twarc_reserved_prefix
+}
+
+/// Zh person-name aliases as an ordered `Vec<(name, aliases)>`.
+/// Order matches `reserved_person_names` (guaranteed by construction in RON).
+pub fn reserved_person_names_aliases_zh_ordered() -> Vec<(String, Vec<String>)> {
+    let data = zh_data();
+    data.reserved_person_names
+        .iter()
+        .map(|name| {
+            let aliases = data
+                .reserved_person_names_aliases
+                .get(name)
+                .cloned()
+                .unwrap_or_default();
+            (name.clone(), aliases)
+        })
+        .collect()
+}
+
+/// Zh address aliases as an ordered `Vec<((city, district, street), aliases)>`.
+/// Order matches `reserved_addresses_zh_aliases` in the RON (Vec, insertion-ordered).
+pub fn reserved_addresses_zh_aliases() -> &'static [((String, String, String), Vec<String>)] {
+    &zh_data().reserved_addresses_zh_aliases
+}
+
+/// Passport prefixes pool (e.g. `["E", "G"]`).
+pub fn passport_prefixes_zh() -> &'static [String] {
+    &zh_data().passport_prefixes
+}
+
+/// Plate special prefixes pool (e.g. `["测", "领"]`).
+pub fn plate_special_prefixes_zh() -> &'static [String] {
+    &zh_data().plate_special_prefixes
+}
+
+/// En person-name aliases as an ordered `Vec<(name, aliases)>`.
+/// Order matches `reserved_person_names_en`.
+pub fn reserved_person_names_aliases_en_ordered() -> Vec<(String, Vec<String>)> {
+    let data = en_data();
+    data.reserved_person_names_en
+        .iter()
+        .map(|name| {
+            let aliases = data
+                .reserved_person_names_en_aliases
+                .get(name)
+                .cloned()
+                .unwrap_or_default();
+            (name.clone(), aliases)
+        })
+        .collect()
+}
+
+/// En address aliases as an ordered `Vec<(address, aliases)>`.
+/// Order matches `reserved_addresses_en`.
+pub fn reserved_addresses_en_aliases() -> Vec<(String, Vec<String>)> {
+    let data = en_data();
+    data.reserved_addresses_en
+        .iter()
+        .map(|addr| {
+            let aliases = data
+                .reserved_addresses_en_aliases
+                .get(addr)
+                .cloned()
+                .unwrap_or_default();
+            (addr.clone(), aliases)
+        })
+        .collect()
+}
+
+/// RFC 2606 reserved email domains pool.
+pub fn rfc2606_domains() -> &'static [String] {
+    &shared_data().rfc2606_domains
+}
+
+/// RFC 5737 TEST-NET IPv4 prefix pool.
+pub fn rfc5737_prefixes() -> &'static [String] {
+    &shared_data().rfc5737_prefixes
+}
+
+/// RFC 7042 documentation MAC prefix (e.g. `"00:00:5E:00:53"`).
+pub fn rfc7042_mac_prefix() -> &'static str {
+    &shared_data().rfc7042_mac_prefix
 }
 
 /// The faker function signature: `(original_value, rng) -> (fake, aliases)`.
@@ -328,17 +401,12 @@ const AGE_FLOOR: i64 = 0;
 const AGE_CEILING: i64 = 149;
 const DOB_BAND_DAYS: i64 = 30;
 
-static AGE_DIGITS_RE: OnceLock<Regex> = OnceLock::new();
-fn age_digits_re() -> &'static Regex {
-    AGE_DIGITS_RE.get_or_init(|| Regex::new(r"\d+").unwrap())
-}
-
 /// `fake_age_noise` — shift the first embedded integer by `randint(-5, 5)` (re-rolled
 /// to ±1 when zero), clamped to `[0, 149]`. Returns the input unchanged if no digit.
 ///
 /// `delta == 0 -> choice((-1, 1))` = `(-1, 1)[choice_index(2)]`, matching `_ShakeRng.choice`.
 pub fn fake_age_noise(value: &str, rng: &mut ShakeRng) -> (String, Vec<String>) {
-    let m = match age_digits_re().find(value) {
+    let m = match AGE_DIGITS_RE.find(value) {
         Ok(Some(m)) => m,
         _ => return (value.to_string(), vec![]),
     };
@@ -521,8 +589,80 @@ pub fn resolve_faker(name: &str) -> Option<FakerFn> {
     })
 }
 
+/// `(type, lang)` → built-in faker function name. SSOT for built-in faker
+/// resolution: transcribed verbatim from the `register(PIITypeDef(name=…,
+/// lang=…, faker_reserved=…))` calls in `specs/{zh,en,shared}.py`. The returned
+/// name is a key into [`resolve_faker`].
+///
+/// Custom (`register_pii_type(faker_reserved=…)`) fakers are NOT here — their
+/// callable lives outside the four built-in modules and is invoked via the
+/// `PyFakerFactory` callback. A `(type, lang)` with no built-in faker → `None`.
+pub fn builtin_faker_name(type_: &str, lang: &str) -> Option<&'static str> {
+    Some(match (type_, lang) {
+        // zh (specs/zh.py)
+        ("phone", "zh") => "fake_phone_reserved",
+        ("phone_landline", "zh") => "fake_phone_landline_reserved",
+        ("id_number", "zh") => "fake_id_number_reserved",
+        ("hk_id", "zh") => "fake_hkid_reserved",
+        ("tw_id", "zh") => "fake_twid_reserved",
+        ("macau_id", "zh") => "fake_macau_id_reserved",
+        ("taiwan_arc", "zh") => "fake_taiwan_arc_reserved",
+        ("bank_card", "zh") => "fake_bank_card_reserved",
+        ("passport", "zh") => "fake_passport_reserved",
+        ("license_plate", "zh") => "fake_license_plate_reserved",
+        ("address", "zh") => "fake_address_reserved",
+        ("date_of_birth", "zh") => "fake_date_of_birth_noise",
+        ("person", "zh") => "fake_person_reserved",
+        ("age", "zh") => "fake_age_noise",
+        // en (specs/en.py)
+        ("phone", "en") => "fake_phone_en_reserved",
+        ("ssn", "en") => "fake_ssn_en_reserved",
+        ("credit_card", "en") => "fake_credit_card_en_reserved",
+        ("address", "en") => "fake_address_en_reserved",
+        ("person", "en") => "fake_person_en_reserved",
+        // shared (specs/shared.py)
+        ("email", "shared") => "fake_email_reserved",
+        ("ip_address", "shared") => "fake_ip_reserved",
+        ("mac_address", "shared") => "fake_mac_reserved",
+        _ => return None,
+    })
+}
+
+/// The set of built-in faker function names (the 22 unique values produced by
+/// [`builtin_faker_name`]). Phase C uses this to flag a registered
+/// `faker_reserved` as built-in (resolvable in Rust) vs custom (Python callback).
+pub fn builtin_faker_names() -> &'static [&'static str] {
+    &[
+        // zh
+        "fake_phone_reserved",
+        "fake_phone_landline_reserved",
+        "fake_id_number_reserved",
+        "fake_hkid_reserved",
+        "fake_twid_reserved",
+        "fake_macau_id_reserved",
+        "fake_taiwan_arc_reserved",
+        "fake_bank_card_reserved",
+        "fake_passport_reserved",
+        "fake_license_plate_reserved",
+        "fake_address_reserved",
+        "fake_date_of_birth_noise",
+        "fake_person_reserved",
+        "fake_age_noise",
+        // en
+        "fake_phone_en_reserved",
+        "fake_ssn_en_reserved",
+        "fake_credit_card_en_reserved",
+        "fake_address_en_reserved",
+        "fake_person_en_reserved",
+        // shared
+        "fake_email_reserved",
+        "fake_ip_reserved",
+        "fake_mac_reserved",
+    ]
+}
+
 /// Re-roll a fake until it is unique within `used ∪ {value}`, mirroring
-/// `_generate_unique_fake` (replacer.py:224–255).
+/// the Python `_generate_unique_fake` re-roll loop.
 ///
 /// Each attempt re-seeds with `seed_from_value(seed_input, type_, salt)` → a fresh
 /// [`ShakeRng`] → the faker. On collision the seed input is suffixed `#{attempt}`.
@@ -535,12 +675,41 @@ pub fn generate_unique_fake(
     salt: &[u8],
     used: &std::collections::HashSet<String>,
 ) -> Result<(String, Vec<String>), String> {
+    generate_unique_fake_with(
+        |master_key| {
+            let mut rng = ShakeRng::new(master_key);
+            Ok(faker(value, &mut rng))
+        },
+        value,
+        type_,
+        salt,
+        used,
+    )
+}
+
+/// Generic re-roll loop shared by the built-in [`generate_unique_fake`] and a
+/// custom-faker callback. `produce` receives the per-attempt `master_key` and
+/// returns `(fake, aliases)` (or an error string, propagated unchanged).
+///
+/// The collision/re-roll sequence is bit-identity-critical and mirrors
+/// the Python `_generate_unique_fake` re-roll loop: same seed derivation, same
+/// `fake != value && !used.contains(&fake)` predicate, same `#{attempt}` suffix,
+/// same [`MAX_REROLL_ATTEMPTS`] cap, same exhaustion error.
+pub(crate) fn generate_unique_fake_with<P>(
+    mut produce: P,
+    value: &str,
+    type_: &str,
+    salt: &[u8],
+    used: &std::collections::HashSet<String>,
+) -> Result<(String, Vec<String>), String>
+where
+    P: FnMut(&[u8]) -> Result<(String, Vec<String>), String>,
+{
     let mut seed_input = value.to_string();
     let mut last: Option<String> = None;
     for attempt in 0..MAX_REROLL_ATTEMPTS {
         let master_key = seed_from_value(&seed_input, type_, salt);
-        let mut rng = ShakeRng::new(&master_key);
-        let (fake, aliases) = faker(value, &mut rng);
+        let (fake, aliases) = produce(&master_key)?;
         // Reject identity-pass (fake == value) AND any already-used fake.
         if fake != value && !used.contains(&fake) {
             return Ok((fake, aliases));
@@ -653,12 +822,19 @@ mod tests {
         // Chinese numeral months are unmatched → unchanged
         let mut rng = ShakeRng::new(&seed_from_value("三月七号", "date_of_birth", &[0u8; 8]));
         assert_eq!(fake_date_of_birth_noise("三月七号", &mut rng), ("三月七号".into(), vec![]));
+        // Matched pattern but invalid calendar date (month 13) → identity passthrough
+        // (end-to-end at the faker level, not just the ymd_to_ordinal helper)
+        let mut rng = ShakeRng::new(&seed_from_value("1990-13-45", "date_of_birth", &[0u8; 8]));
+        assert_eq!(fake_date_of_birth_noise("1990-13-45", &mut rng), ("1990-13-45".into(), vec![]));
     }
 
     #[test]
     fn age_identity_when_no_digit() {
         let mut rng = ShakeRng::new(&seed_from_value("no age here", "age", &[0u8; 8]));
         assert_eq!(fake_age_noise("no age here", &mut rng), ("no age here".into(), vec![]));
+        // Empty string → identity (no digits to extract)
+        let mut rng = ShakeRng::new(&seed_from_value("", "age", &[0u8; 8]));
+        assert_eq!(fake_age_noise("", &mut rng), ("".to_string(), vec![]));
     }
 
     #[test]
@@ -687,6 +863,56 @@ mod tests {
         assert_eq!(s.rfc2606_domains.len(), 3);
         assert_eq!(s.rfc5737_prefixes.len(), 3);
         assert_eq!(s.rfc7042_mac_prefix, "00:00:5E:00:53");
+    }
+
+    #[test]
+    fn builtin_faker_association_self_consistent() {
+        // The (type,lang) table and the name-set must agree, and every value
+        // must be a resolvable faker. (The Python golden pins this against the
+        // live registry; this guards the Rust side standalone.)
+        let pairs: &[(&str, &str)] = &[
+            ("phone", "zh"),
+            ("phone_landline", "zh"),
+            ("id_number", "zh"),
+            ("hk_id", "zh"),
+            ("tw_id", "zh"),
+            ("macau_id", "zh"),
+            ("taiwan_arc", "zh"),
+            ("bank_card", "zh"),
+            ("passport", "zh"),
+            ("license_plate", "zh"),
+            ("address", "zh"),
+            ("date_of_birth", "zh"),
+            ("person", "zh"),
+            ("age", "zh"),
+            ("phone", "en"),
+            ("ssn", "en"),
+            ("credit_card", "en"),
+            ("address", "en"),
+            ("person", "en"),
+            ("email", "shared"),
+            ("ip_address", "shared"),
+            ("mac_address", "shared"),
+        ];
+        assert_eq!(pairs.len(), 22, "expected 22 built-in (type,lang) pairs");
+
+        let names: std::collections::HashSet<&str> = builtin_faker_names().iter().copied().collect();
+        assert_eq!(names.len(), 22, "name-set must have 22 unique entries");
+
+        let mut from_table: std::collections::HashSet<&str> = std::collections::HashSet::new();
+        for (type_, lang) in pairs {
+            let name = builtin_faker_name(type_, lang)
+                .unwrap_or_else(|| panic!("no built-in faker for ({type_}, {lang})"));
+            assert!(resolve_faker(name).is_some(), "{name} must resolve");
+            assert!(names.contains(name), "{name} must be in builtin_faker_names()");
+            from_table.insert(name);
+        }
+        // Every value in the name-set is reachable from some (type,lang) pair.
+        assert_eq!(from_table, names, "table values and name-set must match exactly");
+
+        // Unknown pair → None.
+        assert!(builtin_faker_name("nonexistent_type", "zh").is_none());
+        assert!(builtin_faker_name("phone", "fr").is_none());
     }
 
     #[test]

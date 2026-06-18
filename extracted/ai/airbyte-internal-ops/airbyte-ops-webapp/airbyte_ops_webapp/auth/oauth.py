@@ -15,11 +15,15 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from fastmcp import FastMCP
 from prefab_ui.actions import Fetch, SetState
-from prefab_ui.actions.custom import CallHandler
 from prefab_ui.rx import RESULT, STATE
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
+from airbyte_ops_webapp.auth.mock_session import (
+    mock_oauth_login,
+    mock_oauth_logout,
+    mock_oauth_session_state,
+)
 from airbyte_ops_webapp.state import (
     OAUTH_CLIENT_ID_ENV_VAR,
     OAUTH_CLIENT_SECRET_ENV_VAR,
@@ -27,6 +31,7 @@ from airbyte_ops_webapp.state import (
     OAUTH_ISSUER_ENV_VAR,
     OAUTH_PUBLIC_URL_ENV_VAR,
     OAUTH_REDIRECT_URI_ENV_VAR,
+    mock_only_enabled,
 )
 
 DEFAULT_OAUTH_CLIENT_ID = "airbyte-ops-webapp-client"
@@ -90,8 +95,49 @@ def hydrate_oauth_action() -> Fetch:
     )
 
 
-def logout_oauth_action() -> CallHandler:
-    return CallHandler("logoutOAuth")
+def mock_login_oauth_action() -> Fetch:
+    """Return a Fetch action that simulates OAuth login in mock mode."""
+    return Fetch.post(
+        OAUTH_SESSION_PATH,
+        body={"mock": True},
+        on_success=[
+            SetState("auth_bearer_token", RESULT.auth_bearer_token),
+            SetState("admin_user_email", RESULT.admin_user_email),
+            SetState("oauth_authenticated", RESULT.oauth_authenticated),
+            SetState("oauth_user_email", RESULT.oauth_user_email),
+            SetState("oauth_status", RESULT.oauth_status),
+        ],
+    )
+
+
+def mock_logout_oauth_action() -> Fetch:
+    """Return a Fetch action that simulates OAuth logout in mock mode."""
+    return Fetch.delete(
+        OAUTH_SESSION_PATH,
+        on_success=[
+            SetState("auth_bearer_token", RESULT.auth_bearer_token),
+            SetState("admin_user_email", RESULT.admin_user_email),
+            SetState("oauth_authenticated", RESULT.oauth_authenticated),
+            SetState("oauth_user_email", RESULT.oauth_user_email),
+            SetState("oauth_status", RESULT.oauth_status),
+        ],
+    )
+
+
+def logout_oauth_action() -> Fetch:
+    """Return a Fetch action that logs out of Airbyte and updates UI state."""
+    return Fetch.delete(
+        OAUTH_SESSION_PATH,
+        on_success=[
+            SetState("oauth_authenticated", False),
+            SetState("oauth_user_email", ""),
+            SetState("auth_bearer_token", ""),
+            SetState("oauth_status", "Signed out of Airbyte."),
+        ],
+        on_error=[
+            SetState("oauth_status", "Airbyte logout failed. Please try again."),
+        ],
+    )
 
 
 async def oauth_callback_response(_request: Request) -> HTMLResponse:
@@ -132,6 +178,8 @@ async def oauth_token_response(request: Request) -> JSONResponse:
 
 
 async def oauth_session_response(request: Request) -> JSONResponse:
+    if mock_only_enabled():
+        return _mock_oauth_session_response(request)
     if request.method == "DELETE":
         return _delete_session_response()
     if request.method == "GET":
@@ -147,6 +195,15 @@ async def oauth_session_response(request: Request) -> JSONResponse:
             status_code=400,
         )
     return _create_session_response(request, payload)
+
+
+def _mock_oauth_session_response(request: Request) -> JSONResponse:
+    """Handle OAuth session requests in mock mode using in-memory state."""
+    if request.method == "DELETE":
+        return _json_no_store_response(mock_oauth_logout())
+    if request.method == "POST":
+        return _json_no_store_response(mock_oauth_login())
+    return _json_no_store_response(mock_oauth_session_state())
 
 
 class OAuthTokenExchangeError(RuntimeError):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: runware
-Version: 0.5.18
+Version: 0.5.19
 Summary: The Python Runware SDK is used to interact with the Runware API, powered by the Runware inference platform. It supports image generation, video generation, image upscale, video upscale, image caption, video caption, image background removal, video background removal, audio generation, and more. It also allows the use of an existing gallery of models or selecting any model or LoRA from the CivitAI gallery. The API also supports inpainting, outpainting, and a series of other ControlNet models.
 Home-page: https://github.com/runware/sdk-python
 Author: Runware Inc.
@@ -958,6 +958,42 @@ The `IAudioInference` class supports the following parameters:
 - `numberResults`: Number of audio files to generate
 - `duration`: Duration of the generated audio in seconds
 - `includeCost`: Whether to include cost information in the response
+
+### Text inference with tools (function calling)
+
+Set **`tools`** on `ITextInference` to declare functions (`ITextInferenceTool` with `toolType="function"`, `name`, `description`, `schema`). Add assistant **`tools`** rows and **`role": "tool"`** messages using API field names **`id`** and **`input`** (or use `ITextInferenceMessage` / `ITextInferenceMessageTool` with **`toolId`** / **`toolInput`** on the Python side).
+
+```python
+import asyncio
+from runware import Runware, ITextInference, ITextInferenceTool
+
+async def main() -> None:
+    runware = Runware(api_key=RUNWARE_API_KEY)
+    await runware.connect()
+    req = ITextInference(
+        model="deepseek:v4@flash",
+        messages=[
+            {"role": "user", "content": "Weather in Tokyo?"},
+            {"role": "assistant", "tools": [{"id": "c1", "name": "get_weather", "input": {"city": "Tokyo"}}]},
+            {"role": "tool", "id": "c1", "content": "22°C, partly cloudy."},
+        ],
+        tools=[
+            ITextInferenceTool(
+                toolType="function",
+                name="get_weather",
+                description="Get weather for a city.",
+                schema={"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]},
+            ),
+        ],
+        settings={"maxTokens": 300},
+    )
+    for t in await runware.textInference(req):
+        print(t.text)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
 
 ### Text inference streaming
 

@@ -27,11 +27,15 @@ from airbyte.cloud.auth import resolve_cloud_client_id, resolve_cloud_client_sec
 from dotenv import load_dotenv
 from fastmcp import FastMCP
 from fastmcp.server.auth.oidc_proxy import OIDCProxy
-from fastmcp_extensions import MCPServerConfigArg, mcp_server
+from fastmcp_extensions import (
+    MCPServerConfigArg,
+    ToolCallTelemetryMiddleware,
+    mcp_server,
+)
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from airbyte_ops_mcp._sentry import init_sentry_tracking
+from airbyte_ops_mcp._sentry import _SENTRY_DSN, init_sentry_tracking
 from airbyte_ops_mcp.constants import (
     HEADER_AIRBYTE_CLOUD_CLIENT_ID,
     HEADER_AIRBYTE_CLOUD_CLIENT_SECRET,
@@ -69,6 +73,7 @@ from airbyte_ops_mcp.mcp.session_feedback import register_session_feedback_tools
 from airbyte_ops_mcp.mcp.session_namer import register_session_namer_tools
 from airbyte_ops_mcp.mcp.slack_messaging import register_slack_messaging_tools
 from airbyte_ops_mcp.mcp.tier_lookup import register_tier_lookup_tools
+from airbyte_ops_mcp.telemetry import _DEFAULT_SEGMENT_WRITE_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -212,6 +217,13 @@ def register_server_assets(app: FastMCP) -> None:
 
 
 register_server_assets(app)
+app.add_middleware(
+    ToolCallTelemetryMiddleware(
+        package_name="airbyte-internal-ops",
+        sentry_dsn=_SENTRY_DSN,
+        segment_write_key=_DEFAULT_SEGMENT_WRITE_KEY,
+    )
+)
 
 
 @app.custom_route("/health", methods=["GET"])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gov_uk_dashboards
-Version: 32.3.0
+Version: 32.5.0
 Summary: Provides access to functionality common to creating a data dashboard.
 Author: Ministry of Housing, Communities & Local Government
 Description-Content-Type: text/markdown
@@ -9,7 +9,7 @@ Requires-Dist: setuptools<83.0,>=59.8
 Requires-Dist: dash~=4.1
 Requires-Dist: numpy>=2.3.2
 Requires-Dist: dash_bootstrap_components~=2.0.3
-Requires-Dist: plotly<6.8,>=6.2
+Requires-Dist: plotly<6.9,>=6.2
 Requires-Dist: flask-basicauth~=0.2.0
 Dynamic: author
 Dynamic: description

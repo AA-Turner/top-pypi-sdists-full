@@ -1,4 +1,3 @@
-
 fn try_build_spatial_term_log_kappa_derivative(
     data: ArrayView2<'_, f64>,
     resolvedspec: &TermCollectionSpec,
@@ -220,7 +219,6 @@ fn try_build_spatial_term_log_kappa_derivative(
     )))
 }
 
-
 fn try_build_spatial_log_kappa_hyper_dirs(
     data: ArrayView2<'_, f64>,
     resolvedspec: &TermCollectionSpec,
@@ -241,9 +239,8 @@ fn try_build_spatial_log_kappa_hyper_dirs(
     Ok(Some(spatial_log_kappa_hyper_dirs_frominfo_list(info_list)?))
 }
 
-
 pub(crate) fn try_build_latent_coord_hyper_dirs(
-    latent: std::sync::Arc<crate::terms::latent_coord::LatentCoordValues>,
+    latent: std::sync::Arc<crate::terms::latent::LatentCoordValues>,
     resolvedspec: &TermCollectionSpec,
     design: &TermCollectionDesign,
     latent_terms: &[crate::types::SmoothTermIdx],
@@ -442,12 +439,11 @@ pub(crate) fn try_build_latent_coord_hyper_dirs(
     Ok(Some(hyper_dirs))
 }
 
-
 fn latent_coord_direct_hyper_count(
-    id_mode: &crate::terms::latent_coord::LatentIdMode,
+    id_mode: &crate::terms::latent::LatentIdMode,
     latent_dim: usize,
 ) -> usize {
-    use crate::terms::latent_coord::{AuxPriorStrength, LatentIdMode};
+    use crate::terms::latent::{AuxPriorStrength, LatentIdMode};
     match id_mode {
         LatentIdMode::AuxPrior { strength, .. } => match strength {
             AuxPriorStrength::Auto => 1,
@@ -468,12 +464,11 @@ fn latent_coord_direct_hyper_count(
     }
 }
 
-
 fn latent_coord_initial_direct_hypers(
-    id_mode: &crate::terms::latent_coord::LatentIdMode,
+    id_mode: &crate::terms::latent::LatentIdMode,
     latent_dim: usize,
 ) -> Result<Array1<f64>, EstimationError> {
-    use crate::terms::latent_coord::{AuxPriorStrength, LatentIdMode};
+    use crate::terms::latent::{AuxPriorStrength, LatentIdMode};
     let mut values = Vec::with_capacity(latent_coord_direct_hyper_count(id_mode, latent_dim));
     match id_mode {
         LatentIdMode::AuxPrior { strength, .. } => {
@@ -509,7 +504,6 @@ fn latent_coord_initial_direct_hypers(
     Ok(Array1::from_vec(values))
 }
 
-
 fn append_latent_ard_seed(
     values: &mut Vec<f64>,
     init: Option<&Array1<f64>>,
@@ -530,20 +524,18 @@ fn append_latent_ard_seed(
     Ok(())
 }
 
-
 struct LatentIdObjectiveContribution {
     cost: f64,
     gradient: Array1<f64>,
 }
 
-
 fn latent_id_objective_contribution(
     theta: &Array1<f64>,
     rho_dim: usize,
     analytic_rho_count: usize,
-    latent: &crate::terms::latent_coord::LatentCoordValues,
+    latent: &crate::terms::latent::LatentCoordValues,
 ) -> Result<LatentIdObjectiveContribution, EstimationError> {
-    use crate::terms::latent_coord::{AuxPriorStrength, LatentIdMode, aux_prior_targets};
+    use crate::terms::latent::{AuxPriorStrength, LatentIdMode, aux_prior_targets};
     let n_obs = latent.n_obs();
     let latent_dim = latent.latent_dim();
     let flat_len = latent.len();
@@ -660,16 +652,15 @@ fn latent_id_objective_contribution(
     Ok(LatentIdObjectiveContribution { cost, gradient })
 }
 
-
 fn add_latent_id_objective_to_eval(
     theta: &Array1<f64>,
     rho_dim: usize,
     analytic_rho_count: usize,
-    latent: &crate::terms::latent_coord::LatentCoordValues,
+    latent: &crate::terms::latent::LatentCoordValues,
     eval: &mut (
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     ),
 ) -> Result<(), EstimationError> {
     let contribution =
@@ -684,16 +675,15 @@ fn add_latent_id_objective_to_eval(
     }
     eval.1 += &contribution.gradient;
     if eval.2.is_analytic() {
-        eval.2 = crate::solver::outer_strategy::HessianResult::Unavailable;
+        eval.2 = crate::solver::rho_optimizer::HessianResult::Unavailable;
     }
     Ok(())
 }
 
-
 fn analytic_penalty_objective_contribution(
     theta: &Array1<f64>,
     rho_dim: usize,
-    latent: &crate::terms::latent_coord::LatentCoordValues,
+    latent: &crate::terms::latent::LatentCoordValues,
     registry: &crate::terms::AnalyticPenaltyRegistry,
 ) -> Result<LatentIdObjectiveContribution, EstimationError> {
     let flat_len = latent.len();
@@ -747,16 +737,15 @@ fn analytic_penalty_objective_contribution(
     Ok(LatentIdObjectiveContribution { cost, gradient })
 }
 
-
 fn add_analytic_penalty_hessian_to_eval(
     theta: &Array1<f64>,
     rho_dim: usize,
-    latent: &crate::terms::latent_coord::LatentCoordValues,
+    latent: &crate::terms::latent::LatentCoordValues,
     registry: &crate::terms::AnalyticPenaltyRegistry,
     eval: &mut (
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     ),
 ) -> Result<(), EstimationError> {
     let flat_len = latent.len();
@@ -771,9 +760,9 @@ fn add_analytic_penalty_hessian_to_eval(
             rho_end
         );
     }
-    let crate::solver::outer_strategy::HessianResult::Analytic(hessian) = &mut eval.2 else {
+    let crate::solver::rho_optimizer::HessianResult::Analytic(hessian) = &mut eval.2 else {
         if eval.2.is_analytic() {
-            eval.2 = crate::solver::outer_strategy::HessianResult::Unavailable;
+            eval.2 = crate::solver::rho_optimizer::HessianResult::Unavailable;
         }
         return Ok(());
     };
@@ -827,16 +816,15 @@ fn add_analytic_penalty_hessian_to_eval(
     Ok(())
 }
 
-
 fn add_analytic_penalty_objective_to_eval(
     theta: &Array1<f64>,
     rho_dim: usize,
-    latent: &crate::terms::latent_coord::LatentCoordValues,
+    latent: &crate::terms::latent::LatentCoordValues,
     registry: &crate::terms::AnalyticPenaltyRegistry,
     eval: &mut (
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     ),
 ) -> Result<(), EstimationError> {
     let contribution = analytic_penalty_objective_contribution(theta, rho_dim, latent, registry)?;
@@ -852,7 +840,6 @@ fn add_analytic_penalty_objective_to_eval(
     add_analytic_penalty_hessian_to_eval(theta, rho_dim, latent, registry, eval)?;
     Ok(())
 }
-
 
 fn spatial_log_kappa_hyper_dirs_frominfo_list(
     info_list: Vec<SpatialPsiDerivative>,
@@ -1073,7 +1060,6 @@ fn spatial_log_kappa_hyper_dirs_frominfo_list(
     Ok(hyper_dirs)
 }
 
-
 /// Whether a spatial term contributes per-axis ψ entries to the outer joint
 /// hyperparameter vector.
 ///
@@ -1116,7 +1102,6 @@ fn spatial_term_uses_per_axis_psi(resolvedspec: &TermCollectionSpec, term_idx: u
     )
 }
 
-
 /// Compute `dims_per_term` for a list of spatial term indices.
 ///
 /// Returns a vector where entry i is the number of stored ψ values for
@@ -1142,7 +1127,6 @@ pub(crate) fn spatial_dims_per_term(
         .collect()
 }
 
-
 /// Check whether any spatial terms enroll per-axis anisotropic ψ in the joint
 /// outer vector. Mirrors the hyper_dirs builder's enrollment predicate so the
 /// outer θ-layout cannot drift from the inner evaluator's ψ count.
@@ -1151,7 +1135,6 @@ fn has_aniso_terms(resolvedspec: &TermCollectionSpec, spatial_terms: &[usize]) -
         .iter()
         .any(|&term_idx| spatial_term_uses_per_axis_psi(resolvedspec, term_idx))
 }
-
 
 /// Emits the `theta`-keyed memoization accessors shared verbatim by the
 /// single-block and n-block exact-joint design caches. Both carry the same
@@ -1181,7 +1164,7 @@ macro_rules! impl_exact_joint_theta_memo {
         ) -> Option<(
             f64,
             Array1<f64>,
-            crate::solver::outer_strategy::HessianResult,
+            crate::solver::rho_optimizer::HessianResult,
         )> {
             if self
                 .current_theta
@@ -1199,7 +1182,7 @@ macro_rules! impl_exact_joint_theta_memo {
             eval: (
                 f64,
                 Array1<f64>,
-                crate::solver::outer_strategy::HessianResult,
+                crate::solver::rho_optimizer::HessianResult,
             ),
         ) {
             self.last_cost = Some(eval.0);
@@ -1208,22 +1191,38 @@ macro_rules! impl_exact_joint_theta_memo {
     };
 }
 
-
-#[derive(Debug)]
 struct SingleBlockExactJointDesignCache<'d> {
     realizer: FrozenTermCollectionIncrementalRealizer<'d>,
     current_theta: Option<Array1<f64>>,
+    // Memo key for `last_cost`/`last_eval`. Distinct from `current_theta` (which
+    // tracks the θ the n×k design is REALIZED at): on the #1033 certified
+    // Gaussian path `eval_full` evaluates a trial ψ WITHOUT re-realizing the
+    // design (the tensor serves value+gradient n-free), so the eval θ and the
+    // realized-design θ diverge. Keying the memo on a dedicated field keeps a
+    // ψ-skip from ever mis-associating one ψ's cost/eval with another ψ's key.
+    last_eval_theta: Option<Array1<f64>>,
     last_cost: Option<f64>,
     last_eval: Option<(
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     )>,
+    // #1033: ψ-invariant hyper-direction slab cache. The κ hyper_dirs (the n×k
+    // ∂X/∂ψ design-derivative slabs + their k×k penalty derivatives) are a pure
+    // function of (data, frozen spec, REALIZED column layout) — they do NOT
+    // depend on the trial ψ once the design is fixed. On the certified Gaussian
+    // n-free path `eval_full` evaluates trial ψ WITHOUT re-realizing the design,
+    // so the realized layout (and hence the hyper_dirs) is identical across an
+    // entire run of skip-path trials. Rebuilding them each trial re-runs the
+    // basis ψ-derivative over all n rows + an O(n·k²) `fast_ab` rotation — the
+    // last per-trial O(n) pass in the κ loop. Cache them keyed by the realizer
+    // `design_revision`: a skip-path trial (revision unchanged) reuses the
+    // build; a slow-path trial (revision advanced) rebuilds and re-keys.
+    cached_hyper_dirs: Option<(u64, Vec<DirectionalHyperParam>)>,
     spatial_terms: Vec<usize>,
     rho_dim: usize,
     dims_per_term: Vec<usize>,
 }
-
 
 impl<'d> SingleBlockExactJointDesignCache<'d> {
     fn new(
@@ -1237,8 +1236,10 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
         Ok(Self {
             realizer: FrozenTermCollectionIncrementalRealizer::new(data, spec, design)?,
             current_theta: None,
+            last_eval_theta: None,
             last_cost: None,
             last_eval: None,
+            cached_hyper_dirs: None,
             spatial_terms,
             rho_dim,
             dims_per_term,
@@ -1247,6 +1248,43 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
 
     fn design_revision(&self) -> u64 {
         self.realizer.design_revision()
+    }
+
+    /// Build the κ hyper-directions for the CURRENT realized design, reusing the
+    /// `cached_hyper_dirs` slab when the realizer revision has not advanced since
+    /// the last build (#1033). The slab is ψ-invariant at a fixed realized
+    /// layout, so a skip-path trial (which does not re-realize the design) gets a
+    /// bit-identical clone instead of re-running the per-row basis ψ-derivative +
+    /// O(n·k²) rotation. A revision change (slow-path re-realization) rebuilds and
+    /// re-keys. The clone is an O(n·k) memcpy — far cheaper than the O(n·k²)
+    /// rebuild, and the conditioning pass it feeds is itself skipped on the
+    /// certified path (see `prepare_eval_state`'s fast path).
+    fn hyper_dirs_for_current_design(
+        &mut self,
+        data: ArrayView2<'_, f64>,
+        kind: SpatialHyperKind,
+    ) -> Result<Vec<DirectionalHyperParam>, EstimationError> {
+        let revision = self.realizer.design_revision();
+        if let Some((cached_rev, dirs)) = self.cached_hyper_dirs.as_ref()
+            && *cached_rev == revision
+        {
+            return Ok(dirs.clone());
+        }
+        let dirs = try_build_spatial_log_kappa_hyper_dirs(
+            data,
+            self.realizer.spec(),
+            self.realizer.design(),
+            &self.spatial_terms,
+        )?
+        .ok_or_else(|| {
+            EstimationError::InvalidInput(format!(
+                "failed to build {} hyper_dirs at current {}",
+                kind.adjective(),
+                kind.coord_name(),
+            ))
+        })?;
+        self.cached_hyper_dirs = Some((revision, dirs.clone()));
+        Ok(dirs)
     }
 
     fn ensure_theta(&mut self, theta: &Array1<f64>) -> Result<(), String> {
@@ -1271,15 +1309,78 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
             t_ensure.elapsed().as_secs_f64(),
         );
         self.current_theta = Some(theta.clone());
+        self.last_eval_theta = None;
         self.last_cost = None;
         self.last_eval = None;
         Ok(())
     }
 
-    impl_exact_joint_theta_memo!();
+    // Memo methods keyed on `last_eval_theta` (NOT `current_theta`): the #1033
+    // certified Gaussian path evaluates a trial ψ without re-realizing the
+    // design, so the eval θ and the realized-design θ can differ. Keying the
+    // memo on the eval θ keeps a ψ-skip from mis-associating one ψ's result
+    // with another ψ's key. The other exact-joint caches still use the shared
+    // `impl_exact_joint_theta_memo!` macro (they always realize before eval).
+    fn memoized_cost(&self, theta: &Array1<f64>) -> Option<f64> {
+        if self
+            .last_eval_theta
+            .as_ref()
+            .is_some_and(|cached| theta_values_match(cached, theta))
+        {
+            self.last_eval
+                .as_ref()
+                .map(|cached| cached.0)
+                .or(self.last_cost)
+        } else {
+            None
+        }
+    }
 
-    fn store_cost(&mut self, cost: f64) {
+    fn memoized_eval(
+        &self,
+        theta: &Array1<f64>,
+    ) -> Option<(
+        f64,
+        Array1<f64>,
+        crate::solver::rho_optimizer::HessianResult,
+    )> {
+        if self
+            .last_eval_theta
+            .as_ref()
+            .is_some_and(|cached| theta_values_match(cached, theta))
+        {
+            self.last_eval.clone()
+        } else {
+            None
+        }
+    }
+
+    /// Record an eval result keyed to the θ it was computed at. Used in place of
+    /// the macro's `store_eval` so the memo key reflects the EVAL θ even when the
+    /// design was not re-realized at that θ (#1033 certified skip).
+    fn store_eval_at(
+        &mut self,
+        theta: &Array1<f64>,
+        eval: (
+            f64,
+            Array1<f64>,
+            crate::solver::rho_optimizer::HessianResult,
+        ),
+    ) {
+        self.last_eval_theta = Some(theta.clone());
+        self.last_cost = Some(eval.0);
+        self.last_eval = Some(eval);
+    }
+
+    /// Record a cost-only result keyed to the θ it was computed at, so
+    /// `memoized_cost` keys on the EVAL θ (matching `store_eval_at`).
+    fn store_cost_at(&mut self, theta: &Array1<f64>, cost: f64) {
+        self.last_eval_theta = Some(theta.clone());
         self.last_cost = Some(cost);
+        // A cost-only probe carries no gradient/Hessian, so drop any prior
+        // full eval: `memoized_cost` prefers `last_eval.0`, and a stale
+        // `last_eval` from a different θ must never answer for this θ.
+        self.last_eval = None;
     }
 
     fn spec(&self) -> &TermCollectionSpec {
@@ -1289,15 +1390,45 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
     fn design(&self) -> &TermCollectionDesign {
         self.realizer.design()
     }
-}
 
+    /// True when the single spatial term's frozen geometry admits an EXACT,
+    /// n-free penalty re-key at a new length-scale (#1033). The κ-loop fast path
+    /// gates its design-realization skip on this (replacing the old certified
+    /// `psi_penalty_tensor_covers` gate): the skip leaves `reset_surface`
+    /// un-run, so it is sound only when `S(ψ_new)` can be rebuilt n-free.
+    fn supports_nfree_penalty_rekey(&self) -> bool {
+        self.realizer
+            .supports_nfree_penalty_rekey(&self.spatial_terms)
+    }
+
+    /// Build the EXACT canonical penalty surface `S(ψ)` at the length-scale
+    /// implied by `theta`'s ψ tail, entirely n-free (#1033). Maps ψ→length-scale
+    /// with the IDENTICAL `spatial_term_psi_to_length_scale_and_aniso` the slow
+    /// path uses, reuses the frozen basis geometry, and runs the SAME
+    /// `canonicalize_penalty_specs` pipeline `reset_surface` runs — so the
+    /// returned canonical list is the one the kept reference surface must be
+    /// re-keyed with on the design-revision fast path. The caller (which holds
+    /// `cache`) computes this and hands the owned result to the evaluator via
+    /// `stage_fast_path_penalty`, avoiding a `&mut cache` borrow alias.
+    fn canonical_penalties_at(
+        &mut self,
+        theta: &Array1<f64>,
+    ) -> Result<(Vec<crate::construction::CanonicalPenalty>, Vec<usize>), String> {
+        let psi = &theta
+            .as_slice()
+            .ok_or_else(|| "canonical_penalties_at: theta is not contiguous".to_string())?
+            [self.rho_dim..];
+        self.realizer
+            .canonical_penalties_at_psi(&self.spatial_terms, psi)
+    }
+}
 
 struct SingleBlockLatentCoordDesignCache {
     data: Array2<f64>,
     spec: TermCollectionSpec,
     design: TermCollectionDesign,
     current_theta: Option<Array1<f64>>,
-    current_latent: Option<std::sync::Arc<crate::terms::latent_coord::LatentCoordValues>>,
+    current_latent: Option<std::sync::Arc<crate::terms::latent::LatentCoordValues>>,
     current_hyper_dirs: Option<Vec<crate::estimate::reml::DirectionalHyperParam>>,
     current_design_cache_id: Option<u64>,
     latent_design_cache: crate::solver::latent_cache::LatentDesignCache,
@@ -1305,15 +1436,15 @@ struct SingleBlockLatentCoordDesignCache {
     last_eval: Option<(
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     )>,
     term_index: crate::types::SmoothTermIdx,
     feature_cols: Vec<usize>,
     rho_dim: usize,
     n_obs: usize,
     latent_dim: usize,
-    id_mode: crate::terms::latent_coord::LatentIdMode,
-    manifold: crate::terms::latent_coord::LatentManifold,
+    id_mode: crate::terms::latent::LatentIdMode,
+    manifold: crate::terms::latent::LatentManifold,
     retraction_registry: crate::solver::latent_cache::LatentRetractionRegistry,
     latent_id: u64,
     analytic_penalties: Option<std::sync::Arc<crate::terms::AnalyticPenaltyRegistry>>,
@@ -1324,7 +1455,6 @@ struct SingleBlockLatentCoordDesignCache {
     // invalidates the memo even at unchanged θ.
     last_outer_iter: Option<u64>,
 }
-
 
 impl SingleBlockLatentCoordDesignCache {
     fn new(
@@ -1397,9 +1527,7 @@ impl SingleBlockLatentCoordDesignCache {
         &self.design
     }
 
-    fn latent(
-        &self,
-    ) -> Result<std::sync::Arc<crate::terms::latent_coord::LatentCoordValues>, String> {
+    fn latent(&self) -> Result<std::sync::Arc<crate::terms::latent::LatentCoordValues>, String> {
         self.current_latent
             .as_ref()
             .cloned()
@@ -1621,7 +1749,7 @@ impl SingleBlockLatentCoordDesignCache {
             .slice(s![self.rho_dim..self.rho_dim + latent_flat_len])
             .to_owned();
         let latent = std::sync::Arc::new(
-            crate::terms::latent_coord::LatentCoordValues::from_flat_with_manifold_and_retraction_and_id(
+            crate::terms::latent::LatentCoordValues::from_flat_with_manifold_and_retraction_and_id(
                 flat,
                 self.n_obs,
                 self.latent_dim,
@@ -1724,7 +1852,7 @@ impl SingleBlockLatentCoordDesignCache {
             .as_ref()
             .is_some_and(|cached| theta_values_match(cached, theta))
             && self.last_outer_iter
-                == Some(crate::solver::estimate::reml::runtime::current_outer_iter())
+                == Some(crate::solver::estimate::reml::outer_eval::current_outer_iter())
         {
             self.last_eval
                 .as_ref()
@@ -1741,14 +1869,14 @@ impl SingleBlockLatentCoordDesignCache {
     ) -> Option<(
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     )> {
         if self
             .current_theta
             .as_ref()
             .is_some_and(|cached| theta_values_match(cached, theta))
             && self.last_outer_iter
-                == Some(crate::solver::estimate::reml::runtime::current_outer_iter())
+                == Some(crate::solver::estimate::reml::outer_eval::current_outer_iter())
         {
             self.last_eval.clone()
         } else {
@@ -1761,17 +1889,19 @@ impl SingleBlockLatentCoordDesignCache {
         eval: (
             f64,
             Array1<f64>,
-            crate::solver::outer_strategy::HessianResult,
+            crate::solver::rho_optimizer::HessianResult,
         ),
     ) {
         self.last_cost = Some(eval.0);
         self.last_eval = Some(eval);
-        self.last_outer_iter = Some(crate::solver::estimate::reml::runtime::current_outer_iter());
+        self.last_outer_iter =
+            Some(crate::solver::estimate::reml::outer_eval::current_outer_iter());
     }
 
     fn store_cost(&mut self, cost: f64) {
         self.last_cost = Some(cost);
-        self.last_outer_iter = Some(crate::solver::estimate::reml::runtime::current_outer_iter());
+        self.last_outer_iter =
+            Some(crate::solver::estimate::reml::outer_eval::current_outer_iter());
     }
 
     fn reset(&mut self) {
@@ -1785,7 +1915,6 @@ impl SingleBlockLatentCoordDesignCache {
         self.last_outer_iter = None;
     }
 }
-
 
 fn try_exact_joint_spatial_length_scale_optimization(
     data: ArrayView2<'_, f64>,
@@ -2015,7 +2144,6 @@ fn try_exact_joint_spatial_length_scale_optimization(
     Ok(Some(optimized_result))
 }
 
-
 /// Re-fit at the frozen baseline geometry — the REML-seeded length scales and
 /// heuristic λ already certified in `best` — and stamp the certified baseline
 /// REML score onto the result.
@@ -2071,7 +2199,6 @@ fn fit_frozen_baseline_geometry(
     })
 }
 
-
 /// Coordinate kind for the exact joint spatial hyperparameter optimizer.
 ///
 /// Anisotropic and isotropic spatial terms drive the *same* joint `[ρ, ψ]`
@@ -2088,7 +2215,6 @@ enum SpatialHyperKind {
     Anisotropic,
     Isotropic,
 }
-
 
 impl SpatialHyperKind {
     /// Stable diagnostic prefix used in every `log::*` line and as the
@@ -2117,7 +2243,6 @@ impl SpatialHyperKind {
         }
     }
 }
-
 
 /// Shared context for the exact joint spatial optimizer's closures. Holds the
 /// realized-design cache and the joint REML evaluator, plus the coordinate
@@ -2158,7 +2283,6 @@ fn frozen_glm_tensor_eligible_family(family: &LikelihoodSpec) -> bool {
         )
 }
 
-
 struct SpatialJointContext<'d> {
     data: ArrayView2<'d, f64>,
     rho_dim: usize,
@@ -2170,7 +2294,6 @@ struct SpatialJointContext<'d> {
     frozen_glm_tensor: Option<crate::solver::glm_sufficient_lane::FrozenWeightGramTensor>,
     frozen_glm_tensor_attempted: bool,
 }
-
 
 impl<'d> SpatialJointContext<'d> {
     fn frozen_glm_working_state(
@@ -2277,17 +2400,17 @@ impl<'d> SpatialJointContext<'d> {
     fn eval_full(
         &mut self,
         theta: &Array1<f64>,
-        order: crate::solver::outer_strategy::OuterEvalOrder,
+        order: crate::solver::rho_optimizer::OuterEvalOrder,
         analytic_outer_hessian_available: bool,
     ) -> Result<
         (
             f64,
             Array1<f64>,
-            crate::solver::outer_strategy::HessianResult,
+            crate::solver::rho_optimizer::HessianResult,
         ),
         EstimationError,
     > {
-        use crate::solver::outer_strategy::OuterEvalOrder;
+        use crate::solver::rho_optimizer::OuterEvalOrder;
         let allow_second_order = matches!(order, OuterEvalOrder::ValueGradientHessian)
             && analytic_outer_hessian_available;
         if let Some(eval) = self.cache.memoized_eval(theta) {
@@ -2296,36 +2419,80 @@ impl<'d> SpatialJointContext<'d> {
                 return Ok(eval);
             }
         }
-        self.cache
-            .ensure_theta(theta)
-            .map_err(EstimationError::InvalidInput)?;
         let kind = self.kind;
+        // #1033: the per-trial n×k design re-realization (`ensure_theta` →
+        // `apply_log_kappa`) plus the downstream n-row reconditioning
+        // (`reset_surface`) are the LAST n-passes in the certified κ loop. They
+        // are redundant on the Gaussian-identity certified path: the inner
+        // Gaussian PLS reads its `XᵀWX(ψ)/XᵀW(y−offset)(ψ)` entirely from the
+        // ψ-keyed `GaussianFixedCache` the certified tensor installs (zero row
+        // access), and the ψ-gradient HyperCoord is served from the k-space
+        // `(∂G/∂ψ, ∂b/∂ψ)` tensor derivatives — never the n×k ∂X/∂ψ slab. So when
+        //   (a) this is the single design-moving ψ coordinate (`rho_dim + 1`),
+        //   (b) the certified ψ-Gram tensor covers ψ for BOTH the value lane
+        //       (`psi_gram_tensor_covers`) AND the gradient sub-window
+        //       (`psi_gram_tensor_covers_gradient`) — so neither channel reads
+        //       the realized rows,
+        //   (c) this eval is gradient-only (`!allow_second_order`) — the exact
+        //       outer-Hessian `B_j` path DOES read the slab, so a Hessian trial
+        //       must keep a faithful (freshly realized) design, and
+        //   (d) the evaluator's design-revision fast path is ARMED at the
+        //       current realizer revision (`design_revision_fast_path_armed`) —
+        //       i.e. a prior slow-path eval already pinned a faithful reference
+        //       surface at this revision, which `prepare_eval_state` will reuse
+        //       while re-installing the ψ-keyed cache,
+        // we SKIP `ensure_theta`. The realizer revision then does not advance, so
+        // `prepare_eval_state` takes its design-revision fast path: it skips
+        // `reset_surface` + the n×k `apply_to_design`, keeps the (intentionally
+        // stale) reference surface, and re-keys the `GaussianFixedCache` to this
+        // ψ. The hyper_dirs built below are a pure function of (data, frozen
+        // spec, column layout) — ψ-invariant — so they are bit-identical whether
+        // or not the design was re-realized, and the tensor branch never reads
+        // their n×k slab anyway. Net: criterion + gradient + inner solve come
+        // from k-space statistics only, with no per-trial O(n·k) pass.
+        //
+        // When ANY gate clause fails (non-Gaussian, off-window, off the gradient
+        // sub-window, a Hessian eval, or the fast path not yet armed) we realize
+        // the design as before so the slow path rebuilds a faithful surface — the
+        // existing exact lane runs UNCHANGED.
+        let skip_design_realization = !allow_second_order && theta.len() == self.rho_dim + 1 && {
+            let psi = theta[self.rho_dim];
+            self.evaluator.psi_gram_tensor_covers(psi)
+                    && self.evaluator.psi_gram_tensor_covers_gradient(psi)
+                    // #1264: the skip keeps the conditioned reduced /
+                    // null-space basis frozen at the revision-pinning ψ and only
+                    // re-keys the Gram + penalty. That is exact only inside the
+                    // RRQR-pivot-stable sub-window; on the wide standardized
+                    // window a far ψ move can change the radial-kernel pivot
+                    // frame, and skipping there pairs a stale basis with a
+                    // re-keyed Gram → a wrong β̂. Gate the skip on the stable
+                    // frame band; elsewhere the full `reset_surface` slow path
+                    // runs.
+                    && self.evaluator.psi_gram_tensor_covers_skip(psi)
+                    // #1033 penalty lane: ψ moves S(ψ) too, and the skip leaves
+                    // `reset_surface` un-run; only skip when the penalty can be
+                    // rebuilt EXACTLY and n-free on the fast path, else the inner
+                    // solve would pair XᵀWX(ψ_new) with the stale S(ψ_old).
+                    && self.evaluator.supports_nfree_penalty_rekey()
+                    && self
+                        .evaluator
+                        .design_revision_fast_path_armed(self.cache.design_revision())
+        };
+        if skip_design_realization {
+            log::debug!(
+                "[STAGE] {} eval_full at psi={:.6}: skipping n×k design re-realization \
+                 + reconditioning — criterion/gradient/inner-solve served n-free from \
+                 the certified ψ-gram tensor (GaussianFixedCache + k-space ψ-derivatives)",
+                kind.label(),
+                theta[self.rho_dim],
+            );
+        } else {
+            self.cache
+                .ensure_theta(theta)
+                .map_err(EstimationError::InvalidInput)?;
+        }
         let warm_beta = self.evaluator.current_beta();
         self.ensure_frozen_glm_tensor(theta, warm_beta.as_ref())?;
-        // #1033: when a certified ψ-Gram tensor covers this trial's ψ-window,
-        // the value and gradient channels can both be served n-free.  The value
-        // channel installs a `GaussianFixedCache` inside `prepare_eval_state`;
-        // the gradient channel assembles `(∂G/∂ψ, ∂b/∂ψ)` from k-space
-        // derivatives, making the n×k ∂X/∂ψ slabs below redundant.  Log both
-        // so the n-independence regression class is visible in the STAGE log
-        // instead of hiding in an unlogged per-trial design pass.
-        if theta.len() == self.rho_dim + 1 {
-            let psi = theta[self.rho_dim];
-            if self.evaluator.psi_gram_tensor_covers(psi) {
-                log::debug!(
-                    "[STAGE] {} eval_full at psi={psi:.6}: ψ-gram tensor covers the \
-                     value channel (GaussianFixedCache n-free)",
-                    kind.label(),
-                );
-            }
-            if self.evaluator.psi_gram_tensor_covers_gradient(psi) {
-                log::debug!(
-                    "[STAGE] {} eval_full at psi={psi:.6}: ψ-gram tensor serves the \
-                     gradient n-free (∂X/∂ψ slab redundant on this channel)",
-                    kind.label(),
-                );
-            }
-        }
         // #1111 / #1033 mechanism (c): when the certified frozen-weight GLM
         // ψ-tensor covers this trial's ψ AND the trial's converged working
         // weight has not drifted past tolerance from the frozen snapshot, the
@@ -2375,7 +2542,7 @@ impl<'d> SpatialJointContext<'d> {
         // gradient then runs.
         {
             let mut staged_deriv: Option<(Array2<f64>, Array1<f64>)> = None;
-            if theta.len() == self.rho_dim + 1 {
+            if !allow_second_order && theta.len() == self.rho_dim + 1 {
                 let psi = theta[self.rho_dim];
                 if let (Some(tensor), Some(beta)) =
                     (self.frozen_glm_tensor.as_ref(), warm_beta.as_ref())
@@ -2395,21 +2562,40 @@ impl<'d> SpatialJointContext<'d> {
             }
             self.evaluator.stage_glm_psi_gram_deriv(staged_deriv);
         }
-        let hyper_dirs = try_build_spatial_log_kappa_hyper_dirs(
-            self.data,
-            self.cache.spec(),
-            self.cache.design(),
-            &self.cache.spatial_terms,
-        )?
-        .ok_or_else(|| {
-            EstimationError::InvalidInput(format!(
-                "failed to build {} hyper_dirs at current {}",
-                kind.adjective(),
-                kind.coord_name(),
-            ))
-        })?;
+        // #1033: reuse the ψ-invariant hyper-direction slab when the realized
+        // design has not advanced (the certified Gaussian skip path never
+        // re-realizes it), retiring the per-trial basis ψ-derivative + O(n·k²)
+        // rotation rebuild. A slow-path trial advances the revision and rebuilds.
+        let hyper_dirs = self.cache.hyper_dirs_for_current_design(self.data, kind)?;
 
         let design_revision = Some(self.cache.design_revision());
+        // #1033 penalty lane: stage the EXACT n-free `S(ψ)` for this trial so the
+        // evaluator's design-revision fast path can re-key the kept reference
+        // surface without `reset_surface`. Built from the FROZEN basis geometry
+        // (centers + identifiability transform + operator collocation points) at
+        // the trial length-scale — no data rows — so it is valid even on the
+        // design-realization skip path (where the design was not re-realized). The
+        // caller (holding `cache`) computes it and hands the owned result to the
+        // evaluator, sidestepping a `&mut cache` borrow alias. On the slow path
+        // the evaluator ignores + clears the staged value (it rebuilds S from the
+        // realized design). A build error here clears the stage; if the skip
+        // already fired (fast path), the evaluator then hard-errors rather than
+        // pairing a stale S — the safe outcome, since a rebuild from frozen
+        // geometry should never fail in practice.
+        if self.evaluator.supports_nfree_penalty_rekey() {
+            match self.cache.canonical_penalties_at(theta) {
+                Ok(penalty) => self.evaluator.stage_fast_path_penalty(Some(penalty)),
+                Err(e) => {
+                    log::warn!(
+                        "[STAGE] {} eval_full at psi={:.6}: exact n-free S(ψ) rebuild failed \
+                         ({e}); clearing stage (eval falls to slow path)",
+                        kind.label(),
+                        theta[self.rho_dim],
+                    );
+                    self.evaluator.stage_fast_path_penalty(None);
+                }
+            }
+        }
         // Warm-start PIRLS from the previous outer step's converged β. This is
         // especially impactful for GLM families (Poisson, NB, Binomial) that
         // cannot use the Gaussian Gram tensor n-free shortcut: without the warm
@@ -2431,7 +2617,7 @@ impl<'d> SpatialJointContext<'d> {
             design_revision,
         );
         if let Ok(ref value) = eval {
-            self.cache.store_eval(value.clone());
+            self.cache.store_eval_at(theta, value.clone());
         }
         eval
     }
@@ -2439,7 +2625,7 @@ impl<'d> SpatialJointContext<'d> {
     fn eval_efs(
         &mut self,
         theta: &Array1<f64>,
-    ) -> Result<crate::solver::outer_strategy::EfsEval, EstimationError> {
+    ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
         self.cache
             .ensure_theta(theta)
             .map_err(EstimationError::InvalidInput)?;
@@ -2507,8 +2693,46 @@ impl<'d> SpatialJointContext<'d> {
                     .sqrt()
             })
             .unwrap_or(f64::NAN);
-        if self.cache.ensure_theta(theta).is_err() {
+        // #1033: a VALUE-only line-search probe needs only the certified ψ-Gram
+        // tensor's value lane (`XᵀWX(ψ)/XᵀW(y−offset)(ψ)`), which the inner
+        // Gaussian PLS reads n-free from the ψ-keyed `GaussianFixedCache`. So when
+        // the single design-moving ψ is covered for the VALUE lane and the
+        // evaluator's design-revision fast path is armed at the current realizer
+        // revision, skip the n×k design re-realization: the realizer revision
+        // stays pinned, `evaluate_cost_only` takes its `prepare_eval_state_cost_only`
+        // fast path (which skips `reset_surface` + the n×k `apply_to_design` and
+        // re-keys the cache to this probe's ψ), and the probe cost comes from
+        // k-space statistics only. Line-search probes are the bulk of the κ-loop
+        // per-trial work, so this is the dominant n-flat lever. Unlike the
+        // gradient path the value lane spans the FULL certified window, so only
+        // `psi_gram_tensor_covers` (not the narrower gradient sub-window) is
+        // required. Any miss (non-Gaussian, off-window, fast path not yet armed)
+        // realizes the design and runs the exact streamed probe unchanged.
+        let skip_value_realization = theta.len() == self.rho_dim + 1 && {
+            let psi = theta[self.rho_dim];
+            self.evaluator.psi_gram_tensor_covers(psi)
+                    // #1033 penalty lane: the value-probe fast path also skips
+                    // `reset_surface`, so the probe must be able to re-key S(ψ)
+                    // EXACTLY and n-free; otherwise its cost would use the stale
+                    // S(ψ_old) and mis-rank the line search.
+                    && self.evaluator.supports_nfree_penalty_rekey()
+                    && self
+                        .evaluator
+                        .design_revision_fast_path_armed(self.cache.design_revision())
+        };
+        if !skip_value_realization && self.cache.ensure_theta(theta).is_err() {
             return f64::INFINITY;
+        }
+        // #1033 penalty lane: stage the EXACT n-free `S(ψ)` for this probe's ψ so
+        // the cost-only fast path re-keys the kept surface without `reset_surface`
+        // (built from frozen geometry — valid even when the design was not
+        // re-realized). The slow path clears it. A rebuild failure clears the
+        // stage; the evaluator then takes the slow path or hard-errors (safe).
+        if self.evaluator.supports_nfree_penalty_rekey() {
+            match self.cache.canonical_penalties_at(theta) {
+                Ok(penalty) => self.evaluator.stage_fast_path_penalty(Some(penalty)),
+                Err(_) => self.evaluator.stage_fast_path_penalty(None),
+            }
         }
         let design_revision = Some(self.cache.design_revision());
         let cost_label = self.kind.label();
@@ -2534,7 +2758,7 @@ impl<'d> SpatialJointContext<'d> {
                      cost={cost:.6e} trial_theta_distance={psi_distance:.3e}",
                     probe_start.elapsed().as_secs_f64(),
                 );
-                self.cache.store_cost(cost);
+                self.cache.store_cost_at(theta, cost);
                 cost
             }
             Err(_) => f64::INFINITY,
@@ -2543,11 +2767,11 @@ impl<'d> SpatialJointContext<'d> {
 
     fn reset(&mut self) {
         self.cache.current_theta = None;
+        self.cache.last_eval_theta = None;
         self.cache.last_cost = None;
         self.cache.last_eval = None;
     }
 }
-
 
 /// Exact joint `[ρ, ψ]` optimization for spatial terms using analytic
 /// derivatives through the unified REML evaluator. This is the single shared
@@ -2599,7 +2823,6 @@ enum SpatialJointOutcome {
     },
 }
 
-
 fn run_exact_joint_spatial_optimization(
     kind: SpatialHyperKind,
     data: ArrayView2<'_, f64>,
@@ -2633,7 +2856,7 @@ fn run_exact_joint_spatial_optimization(
         baseline_design.smooth.terms.len(),
         spatial_terms.len()
     );
-    use crate::solver::outer_strategy::{
+    use crate::solver::rho_optimizer::{
         DeclaredHessianForm, Derivative, OuterEval, OuterEvalOrder,
     };
 
@@ -2758,6 +2981,44 @@ fn run_exact_joint_spatial_optimization(
                 "[{label}] certified ψ-gram tensor over [{psi_lo:.3}, {psi_hi:.3}]: \
                  in-window trials assemble Gaussian sufficient statistics n-free"
             );
+            // #1033 penalty lane: ψ also moves the penalty `S(ψ)` (the
+            // Duchon/Matérn Hilbert scale is an analytic function of the
+            // length-scale, built from the FROZEN basis CENTERS — not the data
+            // rows). The design-revision fast path that the Gram tensor enables
+            // SKIPS `reset_surface`, the only place the canonical penalty surface
+            // is rebuilt; without re-keying, the inner solve would pair
+            // `XᵀWX(ψ_new)` with the stale `S(ψ_old)` and converge to the wrong
+            // β̂ / κ-optimum. Rather than interpolate `S(ψ)`, the fast path rebuilds
+            // it EXACTLY and n-free per trial from the frozen geometry via
+            // `cache.canonical_penalties_at(theta)` (the SAME
+            // `canonicalize_penalty_specs` pipeline the slow `reset_surface` runs).
+            // Here we only DECLARE the capability to the evaluator; the per-trial
+            // staging happens in `eval_full` / `eval_cost`. The skip is enabled
+            // exactly when the single spatial term's frozen metadata
+            // (Duchon/Matérn/ThinPlate) admits the exact rebuild.
+            let nfree_penalty = cache.supports_nfree_penalty_rekey();
+            evaluator.set_supports_nfree_penalty_rekey(nfree_penalty);
+            if nfree_penalty {
+                log::info!(
+                    "[{label}] exact n-free ψ-penalty re-key enabled over [{psi_lo:.3}, \
+                     {psi_hi:.3}]: in-window fast-path trials rebuild S(ψ) n-free from frozen \
+                     geometry (no reset_surface)"
+                );
+            } else {
+                // The frozen geometry does not admit an exact n-free penalty
+                // rebuild (multi-term, or a non-spatial-kernel basis). The
+                // fast-path design-realization skip gates on
+                // `supports_nfree_penalty_rekey`, so it never fires and every
+                // trial keeps the slow `reset_surface` (faithful S). The Gram
+                // tensor still serves the streamed-Gram value lane on the slow
+                // path, so this only forgoes the design-realization skip — never
+                // correctness.
+                log::info!(
+                    "[{label}] exact n-free ψ-penalty re-key unavailable over [{psi_lo:.3}, \
+                     {psi_hi:.3}]; fast-path design-realization skip disabled (slow path re-keys \
+                     S exactly)"
+                );
+            }
         } else {
             log::info!(
                 "[{label}] ψ-gram tensor did not certify over [{psi_lo:.3}, {psi_hi:.3}]; \
@@ -2779,30 +3040,32 @@ fn run_exact_joint_spatial_optimization(
     // Gated strictly to diagnostic-sized problems (auto-derived from the
     // realized (n, θ_dim), no flag) so it never taxes a production fit. The
     // same gate the n-block driver uses.
-    const OUTER_FD_AUDIT_MAX_N: usize = 4_000;
-    const OUTER_FD_AUDIT_MAX_THETA_DIM: usize = 32;
+    // FD-OK: FD-audit of the analytic outer gradient (small-problem gate, never feeds the optimizer)
+    const OUTER_FD_AUDIT_MAX_N: usize = 4_000; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+    const OUTER_FD_AUDIT_MAX_THETA_DIM: usize = 32; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
     let n_total = data.nrows();
-    let outer_fd_audit_eligible = analytic_outer_hessian_available
-        && n_total <= OUTER_FD_AUDIT_MAX_N
-        && theta_dim <= OUTER_FD_AUDIT_MAX_THETA_DIM;
+    let outer_fd_audit_eligible = analytic_outer_hessian_available // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        && n_total <= OUTER_FD_AUDIT_MAX_N // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        && theta_dim <= OUTER_FD_AUDIT_MAX_THETA_DIM; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
     log::warn!(
         "[OUTER-FD-AUDIT/spatial-exact-joint] gate eligible={outer_fd_audit_eligible} \
          analytic_grad={analytic_outer_hessian_available} n_total={n_total} \
          theta_dim={theta_dim} rho_dim={rho_dim} psi_dim={coord_dim}"
     );
     if outer_fd_audit_eligible {
-        let audit = (|| -> Result<crate::solver::outer_strategy::OuterGradientFdAudit, String> {
+        // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        let audit = (|| -> Result<crate::solver::rho_optimizer::OuterGradientFdAudit, String> {
             let mut eval_at = |theta: &Array1<f64>,
-                               mode: crate::solver::estimate::reml::unified::EvalMode|
+                               mode: crate::solver::estimate::reml::reml_outer_engine::EvalMode|
              -> Result<
                 (
                     f64,
                     Array1<f64>,
-                    crate::solver::outer_strategy::HessianResult,
+                    crate::solver::rho_optimizer::HessianResult,
                 ),
                 String,
             > {
-                use crate::solver::estimate::reml::unified::EvalMode;
+                use crate::solver::estimate::reml::reml_outer_engine::EvalMode;
                 let order = if matches!(mode, EvalMode::ValueGradientHessian) {
                     OuterEvalOrder::ValueGradientHessian
                 } else {
@@ -2819,13 +3082,15 @@ fn run_exact_joint_spatial_optimization(
                     format!("psi_kappa[{}]", i - rho_dim_audit)
                 }
             };
-            crate::solver::outer_strategy::outer_gradient_fd_audit(
+            crate::solver::rho_optimizer::outer_gradient_fd_audit(
+                // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
                 theta0,
                 1e-4,
                 label_fn,
                 &mut eval_at,
             )
         })();
+        // END-FD-OK
         match audit {
             Ok(audit) => audit.log_verdict("spatial-exact-joint"),
             Err(e) => log::warn!("[OUTER-FD-AUDIT/spatial-exact-joint] skipped: {e}"),
@@ -3018,7 +3283,6 @@ fn run_exact_joint_spatial_optimization(
     })
 }
 
-
 fn set_spatial_length_scale(
     spec: &mut TermCollectionSpec,
     term_idx: usize,
@@ -3047,7 +3311,6 @@ fn set_spatial_length_scale(
     }
 }
 
-
 /// Apply a length scale to a single `SmoothTermSpec` (independent of any
 /// outer `TermCollectionSpec`). Mirrors `set_spatial_length_scale` but on a
 /// term in isolation; used by the incremental realizer's cached planned spec.
@@ -3075,7 +3338,6 @@ fn set_single_term_spatial_length_scale(
     }
 }
 
-
 /// Apply anisotropy contrasts to a single `SmoothTermSpec`. Mirrors
 /// `set_spatial_aniso_log_scales` but on a term in isolation; used by the
 /// incremental realizer's cached planned spec.
@@ -3100,7 +3362,6 @@ fn set_single_term_spatial_aniso_log_scales(
     }
 }
 
-
 pub fn get_spatial_length_scale(spec: &TermCollectionSpec, term_idx: usize) -> Option<f64> {
     spec.smooth_terms
         .get(term_idx)
@@ -3111,7 +3372,6 @@ pub fn get_spatial_length_scale(spec: &TermCollectionSpec, term_idx: usize) -> O
             _ => None,
         })
 }
-
 
 /// Freeze the design-moving representer length-scale dial on every measure-jet
 /// term in `spec` (sets `learn_length_scale = false`), so ℓ stays at its
@@ -3137,7 +3397,6 @@ pub fn freeze_measure_jet_length_scale_learning(spec: &mut TermCollectionSpec) -
     frozen
 }
 
-
 /// The signed sectional curvature κ of a constant-curvature smooth at
 /// `term_idx`, or `None` if that term is not a `curv(...)` smooth. After a fit
 /// with κ-optimization enabled this reads the **fitted κ̂** out of the resolved
@@ -3149,14 +3408,12 @@ pub fn get_constant_curvature_kappa(spec: &TermCollectionSpec, term_idx: usize) 
     constant_curvature_term_spec(spec, term_idx).map(|cc| cc.kappa)
 }
 
-
 /// Indices of every constant-curvature (`curv(...)`) smooth term in `spec`.
 pub fn constant_curvature_term_indices(spec: &TermCollectionSpec) -> Vec<usize> {
     (0..spec.smooth_terms.len())
         .filter(|&idx| constant_curvature_term_spec(spec, idx).is_some())
         .collect()
 }
-
 
 /// Freeze a `TermCollectionSpec` by baking in the concrete knots, centers,
 /// identifiability transforms, and random-effect levels that were resolved
@@ -3641,7 +3898,6 @@ fn freeze_smooth_basis_from_metadata(
     Ok(())
 }
 
-
 pub fn freeze_term_collection_from_design(
     spec: &TermCollectionSpec,
     design: &TermCollectionDesign,
@@ -3711,14 +3967,12 @@ pub fn freeze_term_collection_from_design(
     Ok(frozen)
 }
 
-
 #[derive(Debug, Clone)]
 struct SingleSmoothTermRealization {
     design_local: DesignMatrix,
     term: SmoothTerm,
     dropped_penaltyinfo: Vec<DroppedPenaltyBlockInfo>,
 }
-
 
 impl SingleSmoothTermRealization {
     fn active_penaltyinfo(&self) -> Vec<PenaltyInfo> {
@@ -3731,7 +3985,6 @@ impl SingleSmoothTermRealization {
     }
 }
 
-
 fn build_single_smooth_term_realization(
     data: ArrayView2<'_, f64>,
     termspec: &SmoothTermSpec,
@@ -3739,7 +3992,6 @@ fn build_single_smooth_term_realization(
     let raw = build_smooth_design(data, std::slice::from_ref(termspec))?;
     finish_single_smooth_term_realization(raw)
 }
-
 
 fn finish_single_smooth_term_realization(
     raw: RawSmoothDesign,
@@ -3763,7 +4015,6 @@ fn finish_single_smooth_term_realization(
         dropped_penaltyinfo,
     })
 }
-
 
 /// Wrap a fresh `LocalSmoothTermBuild` (produced by `build_single_local_smooth_term`)
 /// into a `SingleSmoothTermRealization`. Mirrors the single-term portion of
@@ -3866,7 +4117,6 @@ fn wrap_local_build_as_realization(
         dropped_penaltyinfo,
     })
 }
-
 
 /// Extract the κ-invariant pieces of a freshly-built spatial basis — center
 /// cloud (in standardized coords) and `input_scales` — and bake them into a
@@ -3975,7 +4225,6 @@ fn freeze_geometry_from_metadata(
     }
 }
 
-
 fn rebuild_smooth_auxiliary_state(
     smooth: &mut SmoothDesign,
     dropped_penaltyinfo_by_term: &[Vec<DroppedPenaltyBlockInfo>],
@@ -4054,7 +4303,6 @@ fn rebuild_smooth_auxiliary_state(
         .collect();
     Ok(())
 }
-
 
 fn rebuild_term_collection_auxiliary_state(
     spec: &TermCollectionSpec,
@@ -4167,7 +4415,6 @@ fn rebuild_term_collection_auxiliary_state(
     Ok(())
 }
 
-
 fn theta_values_match(left: &Array1<f64>, right: &Array1<f64>) -> bool {
     left.len() == right.len()
         && left
@@ -4176,11 +4423,9 @@ fn theta_values_match(left: &Array1<f64>, right: &Array1<f64>) -> bool {
             .all(|(&l, &r)| l.to_bits() == r.to_bits())
 }
 
-
 fn latent_values_match(left: &Array1<f64>, right: &Array1<f64>) -> bool {
     theta_values_match(left, right)
 }
-
 
 fn spatial_aniso_matches(left: Option<&[f64]>, right: Option<&[f64]>) -> bool {
     match (left, right) {
@@ -4195,7 +4440,6 @@ fn spatial_aniso_matches(left: Option<&[f64]>, right: Option<&[f64]>) -> bool {
     }
 }
 
-
 fn spatial_length_scale_matches(left: Option<f64>, right: Option<f64>) -> bool {
     match (left, right) {
         (None, None) => true,
@@ -4203,7 +4447,6 @@ fn spatial_length_scale_matches(left: Option<f64>, right: Option<f64>) -> bool {
         _ => false,
     }
 }
-
 
 struct FrozenTermCollectionIncrementalRealizer<'d> {
     data: ArrayView2<'d, f64>,
@@ -4238,7 +4481,6 @@ struct FrozenTermCollectionIncrementalRealizer<'d> {
     design_revision: u64,
 }
 
-
 impl<'d> std::fmt::Debug for FrozenTermCollectionIncrementalRealizer<'d> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FrozenTermCollectionIncrementalRealizer")
@@ -4247,7 +4489,6 @@ impl<'d> std::fmt::Debug for FrozenTermCollectionIncrementalRealizer<'d> {
             .finish_non_exhaustive()
     }
 }
-
 
 impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
     fn new(
@@ -4352,6 +4593,190 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
 
     fn design(&self) -> &TermCollectionDesign {
         &self.design
+    }
+
+    /// True when this realizer carries exactly ONE spatial smooth term whose
+    /// frozen basis geometry (`BasisMetadata::Duchon`/`Matern`/`ThinPlate`)
+    /// admits an EXACT, n-free penalty rebuild at a new length-scale (#1033).
+    /// The κ-loop fast path gates its design-realization skip on this: the skip
+    /// leaves `reset_surface` un-run, so it is only sound when `S(ψ_new)` can be
+    /// re-keyed n-free from the frozen geometry (centers + identifiability
+    /// transform + operator collocation points), never from the data rows.
+    fn supports_nfree_penalty_rekey(&self, spatial_terms: &[usize]) -> bool {
+        if spatial_terms.len() != 1 {
+            return false;
+        }
+        let term_idx = spatial_terms[0];
+        matches!(
+            self.design.smooth.terms.get(term_idx).map(|t| &t.metadata),
+            Some(
+                BasisMetadata::Duchon { .. }
+                    | BasisMetadata::Matern { .. }
+                    | BasisMetadata::ThinPlate { .. }
+            )
+        )
+    }
+
+    /// Rebuild the EXACT canonical penalty surface `S(ψ)` at the length-scale
+    /// implied by `psi`, entirely n-free (#1033). Reuses the FROZEN basis
+    /// geometry from the single spatial term's `BasisMetadata` (centers,
+    /// identifiability transform, operator collocation points — all `k × d`, no
+    /// data rows) and the spec's `(power, nullspace_order, operator_penalties,
+    /// nu, …)`; only the length-scale moves. The reconstructed term-local
+    /// penalty matrices replace the `local` of the FROZEN
+    /// `design.penalties` templates (whose `col_range` / `prior_mean` /
+    /// `structure_hint` / `op` are ψ-invariant), so the resulting
+    /// `PenaltySpec`s are bit-identical in topology to the slow path's; running
+    /// them through the SAME `canonicalize_penalty_specs` pipeline yields the
+    /// canonical list the kept reference surface must be re-keyed with.
+    fn canonical_penalties_at_psi(
+        &mut self,
+        spatial_terms: &[usize],
+        psi: &[f64],
+    ) -> Result<(Vec<crate::construction::CanonicalPenalty>, Vec<usize>), String> {
+        if spatial_terms.len() != 1 {
+            return Err(format!(
+                "n-free penalty re-key requires exactly one spatial term, found {}",
+                spatial_terms.len()
+            ));
+        }
+        let term_idx = spatial_terms[0];
+        // Decode ψ with the same chart used by the slow rebuild path. For
+        // Matérn, per-axis ψ entries are REML hyper-coordinates, so the n-free
+        // penalty rebuild must consume the trial η contrasts as well as the
+        // scalar length scale. Duchon keeps η as fixed geometry and continues
+        // to use frozen metadata below.
+        let (ls_opt, aniso_from_psi) = spatial_term_psi_to_length_scale_and_aniso(psi);
+        // Pull the spec-level penalty configuration (which operator orders are
+        // active / double_penalty) — ψ-invariant, frozen at construction.
+        let termspec =
+            self.spec.smooth_terms.get(term_idx).ok_or_else(|| {
+                format!("spatial term {term_idx} out of range for n-free penalty")
+            })?;
+        let term = self
+            .design
+            .smooth
+            .terms
+            .get(term_idx)
+            .ok_or_else(|| format!("realized smooth term {term_idx} out of range"))?;
+        // The per-term penalties live contiguously in the collection penalty
+        // list at the term's `coeff_range` (single-spatial-term collection).
+        let p_total = self.design.design.ncols();
+        let (locals, nullspace_dims): (Vec<Array2<f64>>, Vec<usize>) = match &term.metadata {
+            BasisMetadata::Duchon {
+                centers,
+                identifiability_transform,
+                operator_collocation_points,
+                power,
+                nullspace_order,
+                aniso_log_scales,
+                ..
+            } => {
+                let operator_penalties = match &termspec.basis {
+                    SmoothBasisSpec::Duchon { spec, .. } => spec.operator_penalties.clone(),
+                    _ => crate::basis::DuchonOperatorPenaltySpec::default(),
+                };
+                crate::basis::duchon_penalties_at_length_scale(
+                    centers.view(),
+                    identifiability_transform.as_ref(),
+                    operator_collocation_points.as_ref().map(|p| p.view()),
+                    &operator_penalties,
+                    *power,
+                    *nullspace_order,
+                    aniso_log_scales.as_deref(),
+                    ls_opt,
+                    &mut self.basisworkspace,
+                )
+                .map_err(|e| e.to_string())?
+            }
+            BasisMetadata::Matern {
+                centers,
+                nu,
+                include_intercept,
+                identifiability_transform,
+                aniso_log_scales,
+                nullspace_shrinkage_survived,
+                ..
+            } => {
+                let ls = ls_opt.ok_or_else(|| {
+                    "Matérn n-free penalty re-key requires a finite length-scale".to_string()
+                })?;
+                let double_penalty = match &termspec.basis {
+                    SmoothBasisSpec::Matern { spec, .. } => spec.double_penalty,
+                    _ => true,
+                };
+                let aniso_for_penalty = aniso_from_psi.as_deref().or(aniso_log_scales.as_deref());
+                crate::basis::matern_penalties_at_length_scale(
+                    centers.view(),
+                    identifiability_transform.as_ref(),
+                    *nu,
+                    *include_intercept,
+                    aniso_for_penalty,
+                    *nullspace_shrinkage_survived,
+                    double_penalty,
+                    ls,
+                )
+                .map_err(|e| e.to_string())?
+            }
+            BasisMetadata::ThinPlate {
+                centers,
+                identifiability_transform,
+                ..
+            } => {
+                let ls = ls_opt.ok_or_else(|| {
+                    "thin-plate n-free penalty re-key requires a finite length-scale".to_string()
+                })?;
+                let double_penalty = match &termspec.basis {
+                    SmoothBasisSpec::ThinPlate { spec, .. } => spec.double_penalty,
+                    _ => false,
+                };
+                crate::basis::thin_plate_penalties_at_length_scale(
+                    centers.view(),
+                    identifiability_transform.as_ref(),
+                    ls,
+                    double_penalty,
+                    &mut self.basisworkspace,
+                )
+                .map_err(|e| e.to_string())?
+            }
+            other => {
+                return Err(format!(
+                    "n-free penalty re-key unsupported for basis metadata {:?}",
+                    std::mem::discriminant(other)
+                ));
+            }
+        };
+        // The frozen collection penalties for THIS term are the templates whose
+        // ψ-invariant structure (col_range / prior_mean / structure_hint / op)
+        // we keep, swapping only the numeric `local`. For a single-spatial-term
+        // collection the term owns the whole penalty list.
+        let templates = &self.design.penalties;
+        if templates.len() != locals.len() {
+            return Err(format!(
+                "n-free penalty re-key produced {} blocks but the frozen design carries {} \
+                 — penalty topology is not ψ-stable",
+                locals.len(),
+                templates.len()
+            ));
+        }
+        let specs: Vec<crate::estimate::PenaltySpec> = templates
+            .iter()
+            .zip(locals.into_iter())
+            .map(|(tmpl, local)| crate::estimate::PenaltySpec::Block {
+                local,
+                col_range: tmpl.col_range.clone(),
+                prior_mean: tmpl.prior_mean.clone(),
+                structure_hint: tmpl.structure_hint.clone(),
+                op: tmpl.op.clone(),
+            })
+            .collect();
+        crate::construction::canonicalize_penalty_specs(
+            &specs,
+            &nullspace_dims,
+            p_total,
+            "nfree-psi-penalty",
+        )
+        .map_err(|e| e.to_string())
     }
 
     fn apply_log_kappa(
@@ -4516,7 +4941,9 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 SmoothBasisSpec::Matern {
                     spec: frozen_spec, ..
                 },
-                Some(SmoothBasisSpec::Matern { spec: live_spec, .. }),
+                Some(SmoothBasisSpec::Matern {
+                    spec: live_spec, ..
+                }),
             ) = (
                 &frozen.basis,
                 self.spec
@@ -4717,38 +5144,25 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
     }
 }
 
-
 fn build_term_collection_fixed_blocks(
     data: ArrayView2<'_, f64>,
     spec: &TermCollectionSpec,
 ) -> Result<Vec<DesignBlock>, BasisError> {
     let mut blocks = Vec::<DesignBlock>::new();
-    blocks.push(DesignBlock::Intercept(data.nrows()));
+    if !term_collection_has_one_sided_anchored_bspline(spec) {
+        blocks.push(DesignBlock::Intercept(data.nrows()));
+    }
 
     if !spec.linear_terms.is_empty() {
-        for linear in &spec.linear_terms {
-            for &col in &linear.effective_feature_cols() {
-                if col >= data.ncols() {
-                    crate::bail_dim_basis!(
-                        "linear term '{}' feature column {} out of bounds for {} columns",
-                        linear.name,
-                        col,
-                        data.ncols()
-                    );
-                }
-            }
-        }
         let mut linear_block = Array2::<f64>::zeros((data.nrows(), spec.linear_terms.len()));
         for (j, linear) in spec.linear_terms.iter().enumerate() {
-            let cols = linear.effective_feature_cols();
-            let mut col_view = linear_block.column_mut(j);
-            col_view.assign(&data.column(cols[0]));
-            for &c in cols.iter().skip(1) {
-                let factor = data.column(c);
-                for (out, &x) in col_view.iter_mut().zip(factor.iter()) {
-                    *out *= x;
-                }
-            }
+            // Single shared realizer: numeric product gated by any
+            // categorical-level indicators (factor-aware `:` interaction),
+            // mirroring `build_term_collection_design_inner`.
+            let column = linear
+                .realized_design_column(data)
+                .map_err(BasisError::InvalidInput)?;
+            linear_block.column_mut(j).assign(&column);
         }
         blocks.push(DesignBlock::Dense(crate::matrix::DenseDesignMatrix::from(
             linear_block,
@@ -4764,7 +5178,6 @@ fn build_term_collection_fixed_blocks(
     Ok(blocks)
 }
 
-
 // ---------------------------------------------------------------------------
 // N-block spatial length-scale optimizer.
 // ---------------------------------------------------------------------------
@@ -4774,7 +5187,6 @@ pub struct SpatialLengthScaleOptimizationResult<FitOut> {
     pub designs: Vec<TermCollectionDesign>,
     pub fit: FitOut,
 }
-
 
 /// Exact-joint hyper-parameter setup for N-block spatial length-scale optimization.
 #[derive(Debug, Clone)]
@@ -4789,7 +5201,6 @@ pub struct ExactJointHyperSetup {
     auxiliary_lower: Array1<f64>,
     auxiliary_upper: Array1<f64>,
 }
-
 
 impl ExactJointHyperSetup {
     fn sanitize_rho_seed(
@@ -4904,7 +5315,6 @@ impl ExactJointHyperSetup {
     }
 }
 
-
 /// N-block design cache for exact-joint spatial length-scale optimization.
 ///
 /// Each block owns a `FrozenTermCollectionIncrementalRealizer` and a list of
@@ -4918,14 +5328,13 @@ struct ExactJointDesignCache<'d> {
     last_eval: Option<(
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     )>,
     rho_dim: usize,
     all_dims: Vec<usize>,
     log_kappa_dim: usize,
     block_term_counts: Vec<usize>,
 }
-
 
 impl<'d> ExactJointDesignCache<'d> {
     fn new(
@@ -5060,7 +5469,6 @@ impl<'d> ExactJointDesignCache<'d> {
     }
 }
 
-
 pub(crate) fn seed_risk_profile_for_likelihood_family(
     family: &LikelihoodSpec,
 ) -> crate::seeding::SeedRiskProfile {
@@ -5076,7 +5484,6 @@ pub(crate) fn seed_risk_profile_for_likelihood_family(
     }
 }
 
-
 /// Joint-θ dimension above which the single-block exact-joint driver routes
 /// gradient-only (this doc owns the derivation; the routing site only
 /// compares against it). The exact outer Hessian builds θ(θ+1)/2 pairwise
@@ -5086,7 +5493,6 @@ pub(crate) fn seed_risk_profile_for_likelihood_family(
 /// (classic Matérn κ/η fits) keeps cheap exact second-order geometry.
 const EXACT_JOINT_SECOND_ORDER_THETA_CAP: usize = 8;
 
-
 pub(crate) fn exact_joint_multistart_outer_problem(
     theta0: &Array1<f64>,
     lower: &Array1<f64>,
@@ -5094,8 +5500,8 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     rho_dim: usize,
     auxiliary_dim: usize,
     n_params: usize,
-    gradient: crate::solver::outer_strategy::Derivative,
-    hessian: crate::solver::outer_strategy::DeclaredHessianForm,
+    gradient: crate::solver::rho_optimizer::Derivative,
+    hessian: crate::solver::rho_optimizer::DeclaredHessianForm,
     prefer_gradient_only: bool,
     disable_fixed_point: bool,
     risk_profile: crate::seeding::SeedRiskProfile,
@@ -5133,12 +5539,12 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     // scale-free *absolute* floor and the solver's curvature reference are
     // corrected. `None` preserves the prior scale-free calibration.
     profiled_objective_size: Option<(usize, usize)>,
-) -> crate::solver::outer_strategy::OuterProblem {
+) -> crate::solver::rho_optimizer::OuterProblem {
     let mut seed_heuristic = theta0.to_vec();
     for value in &mut seed_heuristic[..rho_dim] {
         *value = value.exp();
     }
-    let mut problem = crate::solver::outer_strategy::OuterProblem::new(n_params)
+    let mut problem = crate::solver::rho_optimizer::OuterProblem::new(n_params)
         .with_gradient(gradient)
         .with_hessian(hessian)
         .with_prefer_gradient_only(prefer_gradient_only)
@@ -5152,7 +5558,7 @@ pub(crate) fn exact_joint_multistart_outer_problem(
         // stationarity cannot be enforced, so the ladder routes correctly
         // to a joint gradient-based solver instead of grinding HybridEFS
         // for thousands of iterations.
-        .with_fallback_policy(crate::solver::outer_strategy::FallbackPolicy::Automatic)
+        .with_fallback_policy(crate::solver::rho_optimizer::FallbackPolicy::Automatic)
         .with_psi_dim(auxiliary_dim)
         .with_tolerance(tolerance)
         .with_max_iter(max_iter)
@@ -5191,7 +5597,6 @@ pub(crate) fn exact_joint_multistart_outer_problem(
     problem
 }
 
-
 /// True iff a κ-phase (`n-block exact-joint spatial`) optimizer failure is a
 /// NUMERICAL pathology of the length-scale search that the fixed-κ fallback can
 /// recover from (gam#787/#860), rather than a structural failure that must
@@ -5207,7 +5612,6 @@ fn kappa_phase_failure_is_fixed_kappa_recoverable(message: &str) -> bool {
         || message.contains("joint hyper rho dimension mismatch")
         || message.contains("objective returned a non-finite cost")
 }
-
 
 pub fn optimize_spatial_length_scale_exact_joint<FitOut, FitFn, ExactFn, ExactEfsFn, SeedFn>(
     data: ArrayView2<'_, f64>,
@@ -5237,13 +5641,13 @@ where
         &Array1<f64>,
         &[TermCollectionSpec],
         &[TermCollectionDesign],
-        crate::solver::estimate::reml::unified::EvalMode,
-        &crate::families::row_kernel::RowSet,
+        crate::solver::estimate::reml::reml_outer_engine::EvalMode,
+        &crate::outer_subsample::RowSet,
     ) -> Result<
         (
             f64,
             Array1<f64>,
-            crate::solver::outer_strategy::HessianResult,
+            crate::solver::rho_optimizer::HessianResult,
         ),
         String,
     >,
@@ -5251,10 +5655,9 @@ where
         &Array1<f64>,
         &[TermCollectionSpec],
         &[TermCollectionDesign],
-    ) -> Result<crate::solver::outer_strategy::EfsEval, String>,
-    SeedFn: FnMut(
-        &Array1<f64>,
-    ) -> Result<crate::solver::outer_strategy::SeedOutcome, EstimationError>,
+    ) -> Result<crate::solver::rho_optimizer::EfsEval, String>,
+    SeedFn:
+        FnMut(&Array1<f64>) -> Result<crate::solver::rho_optimizer::SeedOutcome, EstimationError>,
 {
     let n_blocks = block_specs.len();
     if block_term_indices.len() != n_blocks {
@@ -5345,9 +5748,9 @@ where
     let analytic_outer_hessian_available = analytic_joint_hessian_available
         && matches!(
             policy_hessian_form,
-            crate::solver::outer_strategy::DeclaredHessianForm::Either
-                | crate::solver::outer_strategy::DeclaredHessianForm::Dense
-                | crate::solver::outer_strategy::DeclaredHessianForm::Operator { .. }
+            crate::solver::rho_optimizer::DeclaredHessianForm::Either
+                | crate::solver::rho_optimizer::DeclaredHessianForm::Dense
+                | crate::solver::rho_optimizer::DeclaredHessianForm::Operator { .. }
         );
     let prefer_gradient_only = !analytic_outer_hessian_available;
 
@@ -5429,8 +5832,8 @@ where
         n_total: usize,
         k_target: usize,
         seed: u64,
-    ) -> crate::families::marginal_slope_shared::OuterScoreSubsample {
-        use crate::families::marginal_slope_shared::OuterScoreSubsample;
+    ) -> crate::solver::outer_subsample::OuterScoreSubsample {
+        use crate::solver::outer_subsample::OuterScoreSubsample;
         let k = k_target.min(n_total);
         if k == 0 || n_total == 0 {
             return OuterScoreSubsample::new(Vec::new(), n_total, seed);
@@ -5441,13 +5844,7 @@ where
         let mut mask: Vec<usize> = Vec::with_capacity(k);
         // Splitmix64-driven Floyd's sampler.
         let mut state = seed.wrapping_add(0x9E3779B97F4A7C15);
-        let splitmix = |s: &mut u64| -> u64 {
-            *s = s.wrapping_add(0x9E3779B97F4A7C15);
-            let mut z = *s;
-            z = (z ^ (z >> 30)).wrapping_mul(0xBF58476D1CE4E5B9);
-            z = (z ^ (z >> 27)).wrapping_mul(0x94D049BB133111EB);
-            z ^ (z >> 31)
-        };
+        let splitmix = |s: &mut u64| -> u64 { crate::linalg::utils::splitmix64(s) };
         let mut taken = std::collections::HashSet::with_capacity(k);
         for j in (n_total - k)..n_total {
             let r = (splitmix(&mut state) % (j as u64 + 1)) as usize;
@@ -5463,16 +5860,15 @@ where
         OuterScoreSubsample::new(mask, n_total, seed)
     }
 
-    let current_row_set: std::cell::RefCell<crate::families::row_kernel::RowSet> =
-        if use_staged_kappa {
-            let pilot = build_uniform_pilot_subsample(n_total, KAPPA_PILOT_K, n_total as u64);
-            std::cell::RefCell::new(crate::families::row_kernel::RowSet::Subsample {
-                rows: std::sync::Arc::clone(&pilot.rows),
-                n_full: n_total,
-            })
-        } else {
-            std::cell::RefCell::new(crate::families::row_kernel::RowSet::All)
-        };
+    let current_row_set: std::cell::RefCell<crate::outer_subsample::RowSet> = if use_staged_kappa {
+        let pilot = build_uniform_pilot_subsample(n_total, KAPPA_PILOT_K, n_total as u64);
+        std::cell::RefCell::new(crate::outer_subsample::RowSet::Subsample {
+            rows: std::sync::Arc::clone(&pilot.rows),
+            n_full: n_total,
+        })
+    } else {
+        std::cell::RefCell::new(crate::outer_subsample::RowSet::All)
+    };
 
     let exact_fn_cell = std::cell::RefCell::new(&mut exact_fn);
     let exact_efs_fn_cell = std::cell::RefCell::new(&mut exact_efs_fn);
@@ -5511,7 +5907,7 @@ where
         (theta_norm, log_kappa_norm)
     };
 
-    use crate::solver::outer_strategy::{
+    use crate::solver::rho_optimizer::{
         DeclaredHessianForm, Derivative, OuterEval, OuterEvalOrder,
     };
 
@@ -5578,23 +5974,25 @@ where
     // Gated strictly to small problems so it never taxes a production fit: the
     // failing large-scale fits skip it entirely. Auto-derived from the realized
     // (n, θ_dim) — no flag.
-    const OUTER_FD_AUDIT_MAX_N: usize = 4_000;
-    const OUTER_FD_AUDIT_MAX_THETA_DIM: usize = 32;
-    let outer_fd_audit_eligible = analytic_joint_gradient_available
-        && n_total <= OUTER_FD_AUDIT_MAX_N
-        && theta_dim <= OUTER_FD_AUDIT_MAX_THETA_DIM;
+    // FD-OK: FD-audit of the analytic outer gradient (small-problem gate, never feeds the optimizer)
+    const OUTER_FD_AUDIT_MAX_N: usize = 4_000; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+    const OUTER_FD_AUDIT_MAX_THETA_DIM: usize = 32; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+    let outer_fd_audit_eligible = analytic_joint_gradient_available // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        && n_total <= OUTER_FD_AUDIT_MAX_N // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        && theta_dim <= OUTER_FD_AUDIT_MAX_THETA_DIM; // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
     log::warn!(
         "[OUTER-FD-AUDIT/spatial-exact-joint] gate eligible={outer_fd_audit_eligible} analytic_grad={analytic_joint_gradient_available} n_total={n_total} theta_dim={theta_dim} rho_dim={rho_dim} psi_dim={psi_dim}"
     );
     if outer_fd_audit_eligible {
-        let audit = (|| -> Result<crate::solver::outer_strategy::OuterGradientFdAudit, String> {
+        // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
+        let audit = (|| -> Result<crate::solver::rho_optimizer::OuterGradientFdAudit, String> {
             let mut eval_at = |theta: &Array1<f64>,
-                               mode: crate::solver::estimate::reml::unified::EvalMode|
+                               mode: crate::solver::estimate::reml::reml_outer_engine::EvalMode|
              -> Result<
                 (
                     f64,
                     Array1<f64>,
-                    crate::solver::outer_strategy::HessianResult,
+                    crate::solver::rho_optimizer::HessianResult,
                 ),
                 String,
             > {
@@ -5622,13 +6020,15 @@ where
                     )
                 }
             };
-            crate::solver::outer_strategy::outer_gradient_fd_audit(
+            crate::solver::rho_optimizer::outer_gradient_fd_audit(
+                // fd-ok: FD-audit gate, runs diagnostic oracle only, not in fit math
                 &theta0,
                 1e-4,
                 label,
                 &mut eval_at,
             )
         })();
+        // END-FD-OK
         match audit {
             Ok(audit) => audit.log_verdict("spatial-exact-joint"),
             Err(e) => log::warn!("[OUTER-FD-AUDIT/spatial-exact-joint] skipped: {e}"),
@@ -5683,9 +6083,9 @@ where
             let need_hessian = matches!(clamped, OuterEvalOrder::ValueGradientHessian)
                 && analytic_outer_hessian_available;
             let eval_mode = if need_hessian {
-                crate::solver::estimate::reml::unified::EvalMode::ValueGradientHessian
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
             } else {
-                crate::solver::estimate::reml::unified::EvalMode::ValueAndGradient
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient
             };
             let t0 = std::time::Instant::now();
             let result = {
@@ -5760,7 +6160,7 @@ where
                         theta,
                         &specs,
                         &designs,
-                        crate::solver::estimate::reml::unified::EvalMode::ValueOnly,
+                        crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
                         &row_set_borrow,
                     )
                 };
@@ -5946,7 +6346,7 @@ where
             KAPPA_POLISH_K,
             (n_total as u64).wrapping_add(0xA5A5A5A5),
         );
-        *current_row_set.borrow_mut() = crate::families::row_kernel::RowSet::Subsample {
+        *current_row_set.borrow_mut() = crate::outer_subsample::RowSet::Subsample {
             rows: std::sync::Arc::clone(&polish.rows),
             n_full: n_total,
         };
@@ -5966,7 +6366,7 @@ where
                 &theta_star,
                 &specs,
                 &designs,
-                crate::solver::estimate::reml::unified::EvalMode::ValueAndGradient,
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient,
                 &row_set_borrow,
             )?
         };
@@ -5977,7 +6377,7 @@ where
             );
         }
     }
-    *current_row_set.borrow_mut() = crate::families::row_kernel::RowSet::All;
+    *current_row_set.borrow_mut() = crate::outer_subsample::RowSet::All;
     if use_staged_kappa {
         log::info!(
             "[KAPPA-STAGED] rotating to full data for final coefficient fit (n={})",
@@ -6003,7 +6403,6 @@ where
     })
 }
 
-
 fn try_exact_joint_latent_coord_optimization(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -6015,7 +6414,7 @@ fn try_exact_joint_latent_coord_optimization(
     options: &FitOptions,
     latent: &StandardLatentCoordConfig,
 ) -> Result<FittedTermCollectionWithSpec, EstimationError> {
-    use crate::solver::outer_strategy::{
+    use crate::solver::rho_optimizer::{
         DeclaredHessianForm, Derivative, OuterEval, OuterEvalOrder,
     };
 
@@ -6076,7 +6475,7 @@ fn try_exact_joint_latent_coord_optimization(
             (
                 f64,
                 Array1<f64>,
-                crate::solver::outer_strategy::HessianResult,
+                crate::solver::rho_optimizer::HessianResult,
             ),
             EstimationError,
         > {
@@ -6108,7 +6507,7 @@ fn try_exact_joint_latent_coord_optimization(
             if let Some(registry) = registry_for_key {
                 let mut registry = registry.as_ref().clone();
                 registry.apply_weight_schedules(
-                    crate::solver::estimate::reml::runtime::current_outer_iter() as usize,
+                    crate::solver::estimate::reml::outer_eval::current_outer_iter() as usize,
                 );
                 add_analytic_penalty_objective_to_eval(
                     theta,
@@ -6132,7 +6531,7 @@ fn try_exact_joint_latent_coord_optimization(
         fn eval_efs(
             &mut self,
             theta: &Array1<f64>,
-        ) -> Result<crate::solver::outer_strategy::EfsEval, EstimationError> {
+        ) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
             self.cache
                 .ensure_theta(theta)
                 .map_err(EstimationError::InvalidInput)?;
@@ -6155,7 +6554,7 @@ fn try_exact_joint_latent_coord_optimization(
             if let Some(registry) = registry_for_key {
                 let mut registry = registry.as_ref().clone();
                 registry.apply_weight_schedules(
-                    crate::solver::estimate::reml::runtime::current_outer_iter() as usize,
+                    crate::solver::estimate::reml::outer_eval::current_outer_iter() as usize,
                 );
                 let latent = self.cache.latent().map_err(EstimationError::InvalidInput)?;
                 let contribution = analytic_penalty_objective_contribution(
@@ -6227,7 +6626,8 @@ fn try_exact_joint_latent_coord_optimization(
                     let cost = if let Some(registry) = registry_for_key {
                         let mut registry = registry.as_ref().clone();
                         registry.apply_weight_schedules(
-                            crate::solver::estimate::reml::runtime::current_outer_iter() as usize,
+                            crate::solver::estimate::reml::outer_eval::current_outer_iter()
+                                as usize,
                         );
                         match analytic_penalty_objective_contribution(
                             theta,
@@ -6393,7 +6793,6 @@ fn try_exact_joint_latent_coord_optimization(
     })
 }
 
-
 pub fn fit_term_collectionwith_latent_coord_optimization(
     data: ArrayView2<'_, f64>,
     y: Array1<f64>,
@@ -6436,7 +6835,6 @@ pub fn fit_term_collectionwith_latent_coord_optimization(
         latent,
     )
 }
-
 
 pub fn fit_term_collectionwith_spatial_length_scale_optimization(
     data: ArrayView2<'_, f64>,
@@ -6596,7 +6994,6 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
     Ok(exact_joint)
 }
 
-
 /// The end-to-end curvature-as-an-estimand report for one `curv(...)` smooth:
 /// the fitted κ̂, its profile-likelihood confidence interval, the interior
 /// κ = 0 likelihood-ratio flatness test, and the topology-free geometry
@@ -6616,7 +7013,6 @@ pub struct CurvatureInference {
     /// `S^d ← ℝ^d → H^d` family).
     pub flatness: crate::geometry::curvature_estimand::FlatnessTest,
 }
-
 
 /// Compute the #944 curvature inference for the constant-curvature smooth at
 /// `term_idx`, given the already-fitted resolved spec (carrying κ̂) and the same
@@ -6662,9 +7058,24 @@ pub fn curvature_inference_forspec(
         enabled: false,
         ..SpatialLengthScaleOptimizationOptions::default()
     };
+    // Memoize V_p across κ probes. The CI walk's bracketing/bisection, the
+    // central-difference v_pp seed, and the flatness LR test all re-evaluate
+    // V_p at the SAME κ (κ̂ alone is fit ≥3×, and the bisection revisits its
+    // bracket endpoints), each a full fixed-κ inner fit. Identical κ ⇒
+    // identical fit ⇒ identical score, so caching by κ removes the redundant
+    // fits with no change to the statistical answer — the dominant cost in the
+    // otherwise-timing-out flat/hyperbolic e2e arms. The key is the raw bits of
+    // κ so only EXACT repeats hit the cache (no tolerance fuzz that could
+    // collapse distinct probes).
+    let v_p_cache: std::cell::RefCell<std::collections::HashMap<u64, f64>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
     let v_p = |kappa: f64| -> Result<f64, String> {
         if !kappa.is_finite() {
             return Err(format!("V_p probed a non-finite κ = {kappa}"));
+        }
+        let key = kappa.to_bits();
+        if let Some(&cached) = v_p_cache.borrow().get(&key) {
+            return Ok(cached);
         }
         let mut probe_spec = resolvedspec.clone();
         match probe_spec
@@ -6692,6 +7103,7 @@ pub fn curvature_inference_forspec(
         .map_err(|e| format!("V_p fixed-κ fit at κ={kappa} failed: {e}"))?;
         let score = fit_score(&fit.fit);
         if score.is_finite() {
+            v_p_cache.borrow_mut().insert(key, score);
             Ok(score)
         } else {
             Err(format!(
@@ -6724,32 +7136,35 @@ pub fn curvature_inference_forspec(
     })
 }
 
-
 /// Provenance tag for the smooth-term significance correction (#1063): which
 /// statistic the reported p-value is built from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SmoothLrCorrection {
+    /// A per-term LR statistic corrected by the full estimated-λ Lawley factor,
+    /// including the ρ̂-sampling-variation contribution from the regularized
+    /// inverse REML/LAML outer Hessian.
+    LawleyLrEstimatedLambda,
     /// A per-term likelihood-ratio statistic `W = 2(ℓ_full − ℓ_null)` that has
-    /// been Bartlett-corrected with the exact Lawley factor `c = E[W]/d`
-    /// (`W* = W/c`, referenced against `χ²_d`): second-order accurate.
-    LawleyLr,
+    /// been Bartlett-corrected with the fixed-λ Lawley factor `c = E[W|λ]/d`
+    /// (`W* = W/c`, referenced against `χ²_d`). This is used only when the
+    /// estimated-λ handoff is unavailable.
+    LawleyLrFixedLambda,
     /// No second-order correction was applied — either the family has no
     /// closed-form Lawley cumulant jets or the null refit did not converge — so
     /// the uncorrected `χ²_d` of the raw LR statistic stands.
     None,
 }
 
-
 impl SmoothLrCorrection {
     /// The serialized provenance label surfaced in the summary table.
     pub fn label(self) -> &'static str {
         match self {
-            SmoothLrCorrection::LawleyLr => "lawley_lr",
+            SmoothLrCorrection::LawleyLrEstimatedLambda => "lawley_lr_estimated_lambda",
+            SmoothLrCorrection::LawleyLrFixedLambda => "lawley_lr_fixed_lambda",
             SmoothLrCorrection::None => "none",
         }
     }
 }
-
 
 /// The Bartlett-corrected per-term significance report for one penalized smooth
 /// term (#1063). Unlike the summary table's Wood rank-truncated **Wald**
@@ -6771,6 +7186,13 @@ pub struct SmoothTermLrInference {
     /// Lawley LR Bartlett factor `c = E[W]/d = 1 + Δε/d` when computable, else
     /// `1.0` (no correction).
     pub bartlett_factor: f64,
+    /// Fixed-λ conditional factor `c_cond = 1 + Δε(ρ̂)/d` when the estimated-λ
+    /// correction was applied. `None` means the applied factor was either the
+    /// fixed-λ factor itself or no Lawley correction was available.
+    pub bartlett_factor_conditional: Option<f64>,
+    /// Increment in Lawley's LR mean shift due solely to ρ̂ sampling variation,
+    /// `0.5 * tr(H_Δε Cov(ρ̂))`, when estimated-λ correction was applied.
+    pub rho_variation_shift: Option<f64>,
     /// Bartlett-corrected statistic `W* = W / c`.
     pub statistic_corrected: f64,
     /// Uncorrected p-value `P(χ²_d > W)`.
@@ -6778,10 +7200,62 @@ pub struct SmoothTermLrInference {
     /// Corrected p-value `P(χ²_d > W*)`; equals the uncorrected value when no
     /// correction was applied.
     pub p_value_corrected: f64,
+    /// Whether the second-order correction is **material** (#939 deliverable 4):
+    /// the per-test diagnostic "is `n` too small for first-order inference
+    /// *here*?". `true` when a correction was applied and it moves the result by
+    /// more than [`SMOOTH_LR_MATERIAL_THRESHOLD`] — measured as the larger of the
+    /// relative Bartlett-factor distance from one `|c − 1|` and the relative
+    /// p-value change `|p* − p| / max(p, p*, ε)`. `false` when `correction` is
+    /// [`SmoothLrCorrection::None`] (no correction was applied).
+    pub material: bool,
     /// Which statistic the corrected p-value is built from.
     pub correction: SmoothLrCorrection,
 }
 
+/// The materiality threshold for [`SmoothTermLrInference::material`] (#939
+/// deliverable 4): a correction is flagged material when it changes the result
+/// by more than 10%.
+pub const SMOOTH_LR_MATERIAL_THRESHOLD: f64 = 0.10;
+
+/// Build `S_b = lambda_b * S_b^unit` as global `p_total x p_total` matrices in
+/// exactly the fitted rho/lambda ordering. This is the narrow handoff the
+/// estimated-lambda Lawley correction needs: the same `design.penalties` order
+/// already paired with `fit.lambdas`, without changing #740's outer-Hessian
+/// algebra or the production penalty assembly.
+fn fitted_rho_penalty_components(
+    penalties: &[BlockwisePenalty],
+    lambdas: &[f64],
+    p_total: usize,
+) -> Result<Vec<crate::inference::lawley::RhoPenaltyComponent>, EstimationError> {
+    if penalties.len() != lambdas.len() {
+        return Err(EstimationError::InvalidInput(format!(
+            "smooth_term_lr_inference: penalty/lambda count mismatch ({} penalties, {} lambdas)",
+            penalties.len(),
+            lambdas.len()
+        )));
+    }
+    let mut components = Vec::with_capacity(penalties.len());
+    for (idx, (penalty, &lambda)) in penalties.iter().zip(lambdas.iter()).enumerate() {
+        if !(lambda.is_finite() && lambda >= 0.0) {
+            return Err(EstimationError::InvalidInput(format!(
+                "smooth_term_lr_inference: lambda[{idx}] is invalid: {lambda}"
+            )));
+        }
+        let r = &penalty.col_range;
+        if r.end > p_total {
+            return Err(EstimationError::InvalidInput(format!(
+                "smooth_term_lr_inference: penalty[{idx}] range {:?} exceeds coefficient dimension {p_total}",
+                r
+            )));
+        }
+        let mut s_component = Array2::<f64>::zeros((p_total, p_total));
+        s_component
+            .slice_mut(s![r.start..r.end, r.start..r.end])
+            .scaled_add(lambda, &penalty.local);
+        components.push(crate::inference::lawley::RhoPenaltyComponent { s_component });
+    }
+    Ok(components)
+}
 
 /// The end-to-end per-term likelihood-ratio significance report for every
 /// penalized (shape-unconstrained) smooth term in a fitted model, magically
@@ -6835,7 +7309,7 @@ pub fn smooth_term_lr_inference_forspec(
 ) -> Result<Vec<SmoothTermLrInference>, EstimationError> {
     use crate::inference::lawley::{
         LAWLEY_PAIR_MATRIX_MAX_ROWS, known_scale_expected_jets_with_dispersion,
-        lawley_lr_bartlett_factor,
+        lawley_lr_bartlett_factor, lawley_lr_mean_shift_with_rho_variation,
     };
 
     let n = data.nrows();
@@ -6852,15 +7326,17 @@ pub fn smooth_term_lr_inference_forspec(
     )?;
     let ll_full = full.fit.log_likelihood;
     let p_total = full.design.design.ncols();
-    let s_lambda = weighted_blockwise_penalty_sum(
-        &full.design.penalties,
-        full.fit.lambdas.as_slice().ok_or_else(|| {
-            EstimationError::InvalidInput(
-                "smooth_term_lr_inference: non-contiguous lambda vector".to_string(),
-            )
-        })?,
-        p_total,
-    );
+    let lambdas = full.fit.lambdas.as_slice().ok_or_else(|| {
+        EstimationError::InvalidInput(
+            "smooth_term_lr_inference: non-contiguous lambda vector".to_string(),
+        )
+    })?;
+    let s_lambda = weighted_blockwise_penalty_sum(&full.design.penalties, lambdas, p_total);
+    let rho_penalty_components =
+        fitted_rho_penalty_components(&full.design.penalties, lambdas, p_total)?;
+    let rho_covariance = full.fit.artifacts.rho_covariance.as_ref().filter(|cov| {
+        cov.nrows() == rho_penalty_components.len() && cov.ncols() == rho_penalty_components.len()
+    });
     // Full design as a dense n×p array for the Lawley pair-matrix reduction.
     let full_design_dense = full.design.design.to_dense();
     let influence = full.fit.coefficient_influence();
@@ -6939,6 +7415,8 @@ pub fn smooth_term_lr_inference_forspec(
         // family has closed-form jets, n is in the resolvable regime, and the
         // factor is computable. Otherwise the uncorrected χ² stands.
         let mut bartlett_factor = 1.0;
+        let mut bartlett_factor_conditional = None;
+        let mut rho_variation_shift = None;
         let mut statistic_corrected = statistic_lr;
         let mut p_corrected = p_uncorrected;
         let mut correction = SmoothLrCorrection::None;
@@ -6954,23 +7432,71 @@ pub fn smooth_term_lr_inference_forspec(
                 })
                 .collect();
             if let (Some(kappas), Some(dist)) = (kappas, chi2.as_ref()) {
-                if let Ok(c) = lawley_lr_bartlett_factor(
+                let fixed_factor = lawley_lr_bartlett_factor(
                     full_design_dense.view(),
                     &kappas,
                     Some(s_lambda.view()),
                     coeff_range.clone(),
                     ref_df,
-                ) {
-                    if c.is_finite() && c > 0.0 {
-                        use statrs::distribution::ContinuousCDF;
-                        bartlett_factor = c;
-                        statistic_corrected = statistic_lr / c;
-                        p_corrected = (1.0 - dist.cdf(statistic_corrected)).clamp(0.0, 1.0);
-                        correction = SmoothLrCorrection::LawleyLr;
+                );
+                if let Ok(c_cond) = fixed_factor
+                    && c_cond.is_finite()
+                    && c_cond > 0.0
+                {
+                    let mut c_applied = c_cond;
+                    correction = SmoothLrCorrection::LawleyLrFixedLambda;
+                    if let Some(cov) = rho_covariance
+                        && let Ok(total_shift) = lawley_lr_mean_shift_with_rho_variation(
+                            full_design_dense.view(),
+                            &kappas,
+                            s_lambda.view(),
+                            coeff_range.clone(),
+                            &rho_penalty_components,
+                            cov.view(),
+                        )
+                    {
+                        let mean_w = ref_df + total_shift;
+                        if let Some(c_est) =
+                            crate::inference::higher_order::bartlett_factor_from_mean(
+                                mean_w, ref_df,
+                            )
+                            && c_est.is_finite()
+                            && c_est > 0.0
+                        {
+                            let conditional_shift = (c_cond - 1.0) * ref_df;
+                            c_applied = c_est;
+                            bartlett_factor_conditional = Some(c_cond);
+                            rho_variation_shift = Some(total_shift - conditional_shift);
+                            correction = SmoothLrCorrection::LawleyLrEstimatedLambda;
+                        }
                     }
+                    use statrs::distribution::ContinuousCDF;
+                    bartlett_factor = c_applied;
+                    statistic_corrected = statistic_lr / c_applied;
+                    p_corrected = (1.0 - dist.cdf(statistic_corrected)).clamp(0.0, 1.0);
                 }
             }
         }
+
+        // Materiality (#939 deliverable 4): only when a correction was actually
+        // applied, flagged when it moves the result by more than the 10%
+        // threshold — by the Bartlett factor's distance from one OR the relative
+        // p-value shift, whichever is larger (a factor near one can still flip a
+        // p-value sitting on the α boundary, and vice versa).
+        let material = match correction {
+            SmoothLrCorrection::LawleyLrEstimatedLambda
+            | SmoothLrCorrection::LawleyLrFixedLambda => {
+                let factor_move = (bartlett_factor - 1.0).abs();
+                let p_denom = p_uncorrected.max(p_corrected).max(f64::MIN_POSITIVE);
+                let p_move = if p_uncorrected.is_finite() && p_corrected.is_finite() {
+                    (p_corrected - p_uncorrected).abs() / p_denom
+                } else {
+                    0.0
+                };
+                factor_move > SMOOTH_LR_MATERIAL_THRESHOLD || p_move > SMOOTH_LR_MATERIAL_THRESHOLD
+            }
+            SmoothLrCorrection::None => false,
+        };
 
         out.push(SmoothTermLrInference {
             name: design_term.name.clone(),
@@ -6978,15 +7504,17 @@ pub fn smooth_term_lr_inference_forspec(
             statistic_lr,
             ref_df,
             bartlett_factor,
+            bartlett_factor_conditional,
+            rho_variation_shift,
             statistic_corrected,
             p_value_uncorrected: p_uncorrected,
             p_value_corrected: p_corrected,
+            material,
             correction,
         });
     }
     Ok(out)
 }
-
 
 /// The dispersion `φ` Lawley needs for the family's cumulant scaling: Gaussian
 /// `σ̂²`, Gamma `1/shape`, and `1` for the scale-free Poisson/Binomial.
@@ -7007,7 +7535,6 @@ fn lawley_dispersion_for_family(family: &LikelihoodSpec, fit: &UnifiedFitResult)
         _ => 1.0,
     }
 }
-
 
 /// Wood's rank-corrected reference d.f. `tr(F_jj)² / tr(F_jj²)` on the
 /// coefficient-influence block `F = H⁻¹ X'WX` restricted to `coeff_range`. This

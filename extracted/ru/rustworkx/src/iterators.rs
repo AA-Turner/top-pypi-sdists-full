@@ -34,7 +34,7 @@
 // don't store any python object, just use `impl PyGCProtocol for MyReadOnlyType {}`.
 //
 // Types `T, K, V` above should implement `PyHash`, `PyEq`, `PyDisplay` traits.
-// These are already implemented for many primitive rust types and `PyObject`.
+// These are already implemented for many primitive rust types and `Py<PyAny>`.
 
 #![allow(clippy::float_cmp, clippy::upper_case_acronyms)]
 
@@ -46,13 +46,13 @@ use rustworkx_core::dictmap::*;
 
 use ndarray::prelude::*;
 use numpy::IntoPyArray;
+use pyo3::IntoPyObjectExt;
+use pyo3::PyTraverseError;
 use pyo3::exceptions::{PyIndexError, PyKeyError, PyNotImplementedError, PyValueError};
 use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3::types::IntoPyDict;
 use pyo3::types::PySlice;
-use pyo3::IntoPyObjectExt;
-use pyo3::PyTraverseError;
 
 macro_rules! last_type {
      ($a:ident,) => { $a };
@@ -64,7 +64,7 @@ trait PyHash {
     fn hash<H: Hasher>(&self, py: Python, state: &mut H) -> PyResult<()>;
 }
 
-impl PyHash for PyObject {
+impl PyHash for Py<PyAny> {
     #[inline]
     fn hash<H: Hasher>(&self, py: Python, state: &mut H) -> PyResult<()> {
         state.write_isize(self.bind(py).hash()?);
@@ -183,7 +183,7 @@ trait PyEq<Rhs: ?Sized = Self> {
     fn eq(&self, other: &Rhs, py: Python) -> PyResult<bool>;
 }
 
-impl PyEq for PyObject {
+impl PyEq for Py<PyAny> {
     #[inline]
     fn eq(&self, other: &Self, py: Python) -> PyResult<bool> {
         Ok(self.bind(py).compare(other)? == std::cmp::Ordering::Equal)
@@ -285,7 +285,7 @@ where
 
 impl<T> PyEq<Bound<'_, PyAny>> for T
 where
-    for<'p> T: PyEq<T> + Clone + FromPyObject<'p>,
+    for<'a, 'p> T: PyEq<T> + Clone + FromPyObject<'a, 'p, Error = PyErr>,
 {
     #[inline]
     fn eq(&self, other: &Bound<PyAny>, py: Python) -> PyResult<bool> {
@@ -325,7 +325,7 @@ trait PyDisplay {
     fn str(&self, py: Python) -> PyResult<String>;
 }
 
-impl PyDisplay for PyObject {
+impl PyDisplay for Py<PyAny> {
     fn str(&self, py: Python) -> PyResult<String> {
         Ok(format!("{}", self.bind(py).str()?))
     }
@@ -419,14 +419,15 @@ pub enum PySequenceIndex<'py> {
     Slice(Bound<'py, PySlice>),
 }
 
-impl<'py> FromPyObject<'py> for PySequenceIndex<'py> {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for PySequenceIndex<'py> {
+    type Error = PyErr;
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
         // `slice` can't be subclassed in Python, so it's safe (and faster) to check for it exactly.
         // The `downcast_exact` check is just a pointer comparison, so while `slice` is the less
         // common input, doing that first has little-to-no impact on the speed of the `isize` path,
         // while the reverse makes `slice` inputs significantly slower.
-        if let Ok(slice) = ob.downcast_exact::<PySlice>() {
-            return Ok(Self::Slice(slice.clone()));
+        if let Ok(slice) = ob.cast_exact::<PySlice>() {
+            return Ok(Self::Slice(slice.to_owned()));
         }
         Ok(Self::Int(ob.extract()?))
     }
@@ -450,10 +451,10 @@ macro_rules! py_convert_to_py_array_obj_impl {
     ($t:ty) => {
         impl PyConvertToPyArray for Vec<$t> {
             fn convert_to_pyarray<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-                let pyobj_vec: Vec<PyObject> = self
+                let pyobj_vec: Vec<Py<PyAny>> = self
                     .iter()
                     .map(|x| x.clone().into_py_any(py))
-                    .collect::<PyResult<Vec<PyObject>>>()?;
+                    .collect::<PyResult<Vec<Py<PyAny>>>>()?;
                 Ok(pyobj_vec.into_pyarray(py).into_any())
             }
         }
@@ -463,7 +464,7 @@ macro_rules! py_convert_to_py_array_obj_impl {
 py_convert_to_py_array_impl! {usize u8 u16 u32 u64 isize i8 i16 i32 i64 f32 f64}
 
 py_convert_to_py_array_obj_impl! {EdgeList}
-py_convert_to_py_array_obj_impl! {(PyObject, Vec<PyObject>)}
+py_convert_to_py_array_obj_impl! {(Py<PyAny>, Vec<Py<PyAny>>)}
 
 impl PyConvertToPyArray for Vec<(usize, usize)> {
     fn convert_to_pyarray<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -478,9 +479,9 @@ impl PyConvertToPyArray for Vec<(usize, usize)> {
     }
 }
 
-impl PyConvertToPyArray for Vec<(usize, usize, PyObject)> {
+impl PyConvertToPyArray for Vec<(usize, usize, Py<PyAny>)> {
     fn convert_to_pyarray<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let mut mat = Array2::<PyObject>::from_elem((self.len(), 3), py.None());
+        let mut mat = Array2::<Py<PyAny>>::from_elem((self.len(), 3), py.None());
 
         for (index, element) in self.iter().enumerate() {
             mat[[index, 0]] = element.0.into_py_any(py)?;
@@ -495,7 +496,7 @@ impl PyConvertToPyArray for Vec<(usize, usize, PyObject)> {
 macro_rules! custom_vec_iter_impl {
     ($name:ident, $iter:ident, $reversed:ident, $data:ident, $T:ty, $doc:literal) => {
         #[doc = $doc]
-        #[pyclass(module = "rustworkx", sequence)]
+        #[pyclass(module = "rustworkx", sequence, from_py_object)]
         #[derive(Clone)]
         pub struct $name {
             pub $data: Vec<$T>,
@@ -522,7 +523,7 @@ macro_rules! custom_vec_iter_impl {
                 op: pyo3::basic::CompareOp,
             ) -> PyResult<bool> {
                 let compare = |other: &Bound<PyAny>| -> PyResult<bool> {
-                    Python::with_gil(|py| {
+                    Python::attach(|py| {
                         if other.len()? as usize != self.$data.len() {
                             return Ok(false);
                         }
@@ -547,7 +548,7 @@ macro_rules! custom_vec_iter_impl {
             }
 
             fn __str__(&self) -> PyResult<String> {
-                Python::with_gil(|py| Ok(format!("{}{}", stringify!($name), self.$data.str(py)?)))
+                Python::attach(|py| Ok(format!("{}{}", stringify!($name), self.$data.str(py)?)))
             }
 
             fn __repr__(&self) -> PyResult<String> {
@@ -556,7 +557,7 @@ macro_rules! custom_vec_iter_impl {
 
             fn __hash__(&self) -> PyResult<u64> {
                 let mut hasher = DefaultHasher::new();
-                Python::with_gil(|py| PyHash::hash(&self.$data, py, &mut hasher))?;
+                Python::attach(|py| PyHash::hash(&self.$data, py, &mut hasher))?;
 
                 Ok(hasher.finish())
             }
@@ -565,7 +566,7 @@ macro_rules! custom_vec_iter_impl {
                 Ok(self.$data.len())
             }
 
-            fn __getitem__(&self, py: Python, idx: PySequenceIndex) -> PyResult<PyObject> {
+            fn __getitem__(&self, py: Python, idx: PySequenceIndex) -> PyResult<Py<PyAny>> {
                 match idx {
                     PySequenceIndex::Slice(slc) => {
                         let len = self.$data.len().try_into().unwrap();
@@ -626,7 +627,7 @@ macro_rules! custom_vec_iter_impl {
             fn __array__<'py>(
                 &self,
                 py: Python<'py>,
-                dtype: Option<PyObject>,
+                dtype: Option<Py<PyAny>>,
                 copy: Option<bool>,
             ) -> PyResult<Bound<'py, PyAny>> {
                 if copy == Some(false) {
@@ -658,7 +659,7 @@ macro_rules! custom_vec_iter_impl {
         #[doc = concat!("Custom iterator class for :class:`.", stringify!($name), "`")]
         // No module because this isn't constructable from Python space, and is only exposed as an
         // implementation detail.
-        #[pyclass]
+        #[pyclass(skip_from_py_object)]
         pub struct $iter {
             inner: Option<Py<$name>>,
             index: usize,
@@ -708,7 +709,7 @@ macro_rules! custom_vec_iter_impl {
         #[doc = concat!("Custom reversed iterator class for :class:`.", stringify!($name), "`")]
         // No module because this isn't constructable from Python space, and is only exposed as an
         // implementation detail.
-        #[pyclass]
+        #[pyclass(skip_from_py_object)]
         pub struct $reversed {
             inner: Option<Py<$name>>,
             index: usize,
@@ -763,7 +764,7 @@ custom_vec_iter_impl!(
     BFSSuccessorsIter,
     BFSSuccessorsRev,
     bfs_successors,
-    (PyObject, Vec<PyObject>),
+    (Py<PyAny>, Vec<Py<PyAny>>),
     "A custom class for the return from :func:`rustworkx.bfs_successors`
 
     The class can is a read-only sequence of tuples of the form::
@@ -817,7 +818,7 @@ custom_vec_iter_impl!(
     BFSPredecessorsIter,
     BFSPredecessorsRev,
     bfs_predecessors,
-    (PyObject, Vec<PyObject>),
+    (Py<PyAny>, Vec<Py<PyAny>>),
     "A custom class for the return from :func:`rustworkx.bfs_predecessors`
 
     The class can is a read-only sequence of tuples of the form::
@@ -945,7 +946,7 @@ custom_vec_iter_impl!(
     WeightedEdgeListIter,
     WeightedEdgeListRev,
     edges,
-    (usize, usize, PyObject),
+    (usize, usize, Py<PyAny>),
     "A custom class for the return of edge lists with weights
 
     This class is a read-only sequence of tuples representing the edge
@@ -1171,7 +1172,7 @@ impl PyGCProtocol for RelationalCoarsestPartition {}
 
 macro_rules! py_iter_protocol_impl {
     ($name:ident, $data:ident, $T:ty) => {
-        #[pyclass(module = "rustworkx")]
+        #[pyclass(module = "rustworkx", skip_from_py_object)]
         pub struct $name {
             pub $data: Vec<$T>,
             iter_pos: usize,
@@ -1202,7 +1203,7 @@ macro_rules! custom_hash_map_iter_impl {
         $K:ty, $V:ty, $doc:literal
     ) => {
         #[doc = $doc]
-        #[pyclass(mapping, module = "rustworkx")]
+        #[pyclass(mapping, module = "rustworkx", from_py_object)]
         #[derive(Clone)]
         pub struct $name {
             pub $data: DictMap<$K, $V>,
@@ -1254,7 +1255,7 @@ macro_rules! custom_hash_map_iter_impl {
                 op: pyo3::basic::CompareOp,
             ) -> PyResult<bool> {
                 let compare = |other: &Bound<PyAny>| -> PyResult<bool> {
-                    Python::with_gil(|py| PyEq::eq(&self.$data, other, py))
+                    Python::attach(|py| PyEq::eq(&self.$data, other, py))
                 };
                 match op {
                     pyo3::basic::CompareOp::Eq => compare(other),
@@ -1267,12 +1268,12 @@ macro_rules! custom_hash_map_iter_impl {
             }
 
             fn __str__(&self) -> PyResult<String> {
-                Python::with_gil(|py| Ok(format!("{}{}", stringify!($name), self.$data.str(py)?)))
+                Python::attach(|py| Ok(format!("{}{}", stringify!($name), self.$data.str(py)?)))
             }
 
             fn __hash__(&self) -> PyResult<u64> {
                 let mut hasher = DefaultHasher::new();
-                Python::with_gil(|py| PyHash::hash(&self.$data, py, &mut hasher))?;
+                Python::attach(|py| PyHash::hash(&self.$data, py, &mut hasher))?;
 
                 Ok(hasher.finish())
             }
@@ -1347,7 +1348,7 @@ custom_hash_map_iter_impl!(
     edge_map_values,
     edge_map_items,
     usize,
-    (usize, usize, PyObject),
+    (usize, usize, Py<PyAny>),
     "A class representing a mapping of edge indices to a tuple of node indices
     and weight/data payload
 
@@ -1363,7 +1364,7 @@ custom_hash_map_iter_impl!(
 impl PyGCProtocol for EdgeIndexMap {
     fn __traverse__(&self, visit: PyVisit) -> Result<(), PyTraverseError> {
         for edge in &self.edge_map {
-            visit.call(&edge.1 .2)?;
+            visit.call(&edge.1.2)?;
         }
         Ok(())
     }
@@ -1404,7 +1405,7 @@ impl PyGCProtocol for EdgeIndexMap {
 ///     second_target = next(edges_iter)
 ///     second_path = edges[second_target]
 ///
-#[pyclass(mapping, module = "rustworkx")]
+#[pyclass(mapping, module = "rustworkx", from_py_object)]
 #[derive(Clone)]
 pub struct PathMapping {
     pub paths: DictMap<usize, Vec<usize>>,
@@ -1459,7 +1460,7 @@ impl PathMapping {
 
     fn __richcmp__(&self, other: &Bound<PyAny>, op: pyo3::basic::CompareOp) -> PyResult<bool> {
         let compare = |other: &Bound<PyAny>| -> PyResult<bool> {
-            Python::with_gil(|py| PyEq::eq(&self.paths, other, py))
+            Python::attach(|py| PyEq::eq(&self.paths, other, py))
         };
         match op {
             pyo3::basic::CompareOp::Eq => compare(other),
@@ -1472,12 +1473,12 @@ impl PathMapping {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Python::with_gil(|py| Ok(format!("PathMapping{}", self.paths.str(py)?)))
+        Python::attach(|py| Ok(format!("PathMapping{}", self.paths.str(py)?)))
     }
 
     fn __hash__(&self) -> PyResult<u64> {
         let mut hasher = DefaultHasher::new();
-        Python::with_gil(|py| PyHash::hash(&self.paths, py, &mut hasher))?;
+        Python::attach(|py| PyHash::hash(&self.paths, py, &mut hasher))?;
 
         Ok(hasher.finish())
     }
@@ -1550,7 +1551,7 @@ impl PyDisplay for PathMapping {
 /// return a mapping of target nodes and paths. It implements the Python
 /// mapping protocol. So you can treat the return as a read-only
 /// mapping/dict.
-#[pyclass(mapping, module = "rustworkx")]
+#[pyclass(mapping, module = "rustworkx", from_py_object)]
 #[derive(Clone)]
 pub struct MultiplePathMapping {
     pub paths: DictMap<usize, Vec<Vec<usize>>>,
@@ -1617,7 +1618,7 @@ impl MultiplePathMapping {
 
     fn __richcmp__(&self, other: &Bound<PyAny>, op: pyo3::basic::CompareOp) -> PyResult<bool> {
         let compare = |other: &Bound<PyAny>| -> PyResult<bool> {
-            Python::with_gil(|py| PyEq::eq(&self.paths, other, py))
+            Python::attach(|py| PyEq::eq(&self.paths, other, py))
         };
         match op {
             pyo3::basic::CompareOp::Eq => compare(other),
@@ -1630,12 +1631,12 @@ impl MultiplePathMapping {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        Python::with_gil(|py| Ok(format!("MultiplePathMapping{}", self.paths.str(py)?)))
+        Python::attach(|py| Ok(format!("MultiplePathMapping{}", self.paths.str(py)?)))
     }
 
     fn __hash__(&self) -> PyResult<u64> {
         let mut hasher = DefaultHasher::new();
-        Python::with_gil(|py| PyHash::hash(&self.paths, py, &mut hasher))?;
+        Python::attach(|py| PyHash::hash(&self.paths, py, &mut hasher))?;
 
         Ok(hasher.finish())
     }

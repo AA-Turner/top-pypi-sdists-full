@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import networkx as nx
 from networkx.readwrite import json_graph
-from graphify.build import build_from_json, build, build_merge, edge_data, edge_datas, dedupe_edges
+from graphify.build import build_from_json, build, build_merge, edge_data, edge_datas, dedupe_edges, dedupe_nodes
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -31,6 +31,21 @@ def test_dedupe_edges_is_idempotent():
     twice = dedupe_edges(once + edges)  # simulate a second `update` re-concatenating
     assert len(once) == 1
     assert len(twice) == 1
+
+
+def test_dedupe_nodes_collapses_by_id_last_wins():
+    # #1327: a shared module anchor is emitted once per importing file; the
+    # --no-cluster raw writer must collapse same-id node dicts (#1317).
+    nodes = [
+        {"id": "foundation", "label": "Foundation", "type": "module", "source_file": "A.swift"},
+        {"id": "akit", "label": "AKit", "file_type": "code"},
+        {"id": "foundation", "label": "Foundation", "type": "module", "source_file": "B.swift"},
+    ]
+    out = dedupe_nodes(nodes)
+    ids = [n["id"] for n in out]
+    assert ids == ["foundation", "akit"]  # first-appearance order
+    # last writer wins on attributes
+    assert next(n for n in out if n["id"] == "foundation")["source_file"] == "B.swift"
 
 def load_extraction():
     return json.loads((FIXTURES / "extraction.json").read_text())
@@ -91,6 +106,23 @@ def test_source_file_backslash_normalized():
     G = build_from_json(extraction)
     sources = {G.nodes[n]["source_file"] for n in G.nodes()}
     assert sources == {"src/middleware/auth.py"}
+
+
+def test_edge_missing_source_file_backfilled_from_node():
+    """#1279: a semantic/LLM edge lacking source_file must inherit it from its
+    source node rather than reach graph.json with no file reference."""
+    extraction = {
+        "nodes": [
+            {"id": "n1", "label": "A", "file_type": "concept", "source_file": "docs/a.md"},
+            {"id": "n2", "label": "B", "file_type": "concept", "source_file": "docs/b.md"},
+        ],
+        # No source_file on the edge (as LLM output sometimes omits it).
+        "edges": [{"source": "n1", "target": "n2", "relation": "relates_to", "confidence": "INFERRED"}],
+        "input_tokens": 0, "output_tokens": 0,
+    }
+    G = build_from_json(extraction)
+    sf = edge_data(G, "n1", "n2").get("source_file")
+    assert sf == "docs/a.md"  # backfilled from the source node
 
 
 def test_build_merges_multiple_extractions():
@@ -532,6 +564,58 @@ def test_build_merge_prune_windows_backslash_paths(tmp_path):
 
     node_labels = {d["label"] for _, d in G1.nodes(data=True)}
     assert "parse_date" not in node_labels, "node should be pruned even with backslash path"
+
+
+def test_build_merge_replaces_changed_file_stale_edges(tmp_path):
+    """Re-extracting a CHANGED file must REPLACE its prior nodes/edges, not
+    accumulate them. build_merge previously only grew the graph, so an edge that
+    disappeared from a file's new version survived forever (only exact-duplicate
+    edges collapsed). The new-chunk source_file may be an absolute win32 path
+    while the stored graph keeps relative posix — both forms must match."""
+    import networkx as nx
+
+    root = tmp_path / "corpus"
+    root.mkdir()
+    graph_path = tmp_path / "graph.json"
+
+    # First build: changed.md contributed A, B and edge A->B; keep.md is unrelated.
+    chunk0 = {"nodes": [
+        {"id": "A", "label": "A", "file_type": "document", "source_file": "changed.md"},
+        {"id": "B", "label": "B", "file_type": "document", "source_file": "changed.md"},
+        {"id": "K", "label": "K", "file_type": "document", "source_file": "keep.md"},
+    ], "edges": [
+        {"source": "A", "target": "B", "relation": "references", "confidence": "EXTRACTED",
+         "source_file": "changed.md", "weight": 1.0},
+        {"source": "K", "target": "A", "relation": "references", "confidence": "EXTRACTED",
+         "source_file": "keep.md", "weight": 1.0},
+    ]}
+    G0 = build([chunk0], dedup=False)
+    graph_path.write_text(json.dumps(nx.node_link_data(G0, edges="edges")), encoding="utf-8")
+
+    # changed.md edited: re-extraction now yields A, C and edge A->C (B dropped).
+    # source_file arrives as an absolute win32-style path (as detect emits on Windows).
+    abs_changed = str(root / "changed.md").replace("/", "\\")
+    new_chunk = {"nodes": [
+        {"id": "A", "label": "A", "file_type": "document", "source_file": abs_changed},
+        {"id": "C", "label": "C", "file_type": "document", "source_file": abs_changed},
+    ], "edges": [
+        {"source": "A", "target": "C", "relation": "references", "confidence": "EXTRACTED",
+         "source_file": abs_changed, "weight": 1.0},
+    ]}
+    G1 = build_merge([new_chunk], graph_path, dedup=False, root=root)
+
+    labels = {d["label"] for _, d in G1.nodes(data=True)}
+    edges = {(u, v) for u, v in G1.edges()}
+
+    # Stale contribution from the old version of changed.md is gone.
+    assert "B" not in labels, "stale node from changed file's old version must be dropped"
+    assert ("A", "B") not in edges and ("B", "A") not in edges, "stale edge must be dropped"
+    # Fresh contribution is present.
+    assert "C" in labels, "re-extracted node must be present"
+    assert ("A", "C") in edges, "re-extracted edge must be present"
+    # An unchanged file is untouched.
+    assert "K" in labels, "unchanged file's node must survive"
+    assert ("K", "A") in edges, "unchanged file's edge must survive"
 
 
 def test_build_merge_rejects_oversized_existing_graph(monkeypatch, tmp_path):

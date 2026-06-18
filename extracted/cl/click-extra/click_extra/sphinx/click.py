@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import re
 import shlex
 import subprocess
 import sys
@@ -560,12 +561,262 @@ class DeprecatedExampleDirective(SourceDirective):
 ClickDirective.runner_factory = ClickRunner
 
 
+class TreeDirective(SphinxDirective):
+    """Render a complete CLI reference for a Click command and all its subcommands.
+
+    Walks the Click command tree at build time and emits, in MyST syntax:
+
+    - A GFM summary table linking each command to its section anchor.
+    - A heading + ``click:run`` ``--help`` block for the root command.
+    - One heading + ``click:run`` ``--help`` block per subcommand, nested by
+      depth.
+
+    Designed to replace per-project hand-rolled generators (like repomatic's
+    ``docs_update.py::cli_reference()``) with a single declarative directive
+    that walks the live command tree on every build.
+
+    The required argument is a Python expression evaluated in the per-document
+    runner namespace; it must yield a :class:`click.Command`. The optional
+    directive body is Python preamble exec'd in the same namespace before
+    evaluation, so authors may either import the CLI in a prior
+    ``click:source :hide-source:`` block or inline the import here.
+
+    .. note::
+        Currently MyST-only. Use the directive in a ``.md`` document with
+        ``myst_parser`` enabled. An rST equivalent could be added later by
+        emitting ``.. _label:`` targets, list-tables, and ``.. click:run::``
+        blocks instead of their MyST counterparts.
+    """
+
+    has_content = True
+    required_arguments = 1
+    optional_arguments = 0
+    final_argument_whitespace = False
+
+    option_spec: ClassVar[OptionSpec] = {
+        "max-depth": directives.positive_int,
+        "heading-offset": directives.nonnegative_int,
+        "anchor-prefix": directives.unchanged,
+        "label-prefix": directives.unchanged,
+        "root-label": directives.unchanged,
+        "no-table": directives.flag,
+        "no-root": directives.flag,
+    }
+    """Recognized directive options.
+
+    ``max-depth`` caps the recursion into nested :class:`click.Group` commands
+    (default: ``10``). ``heading-offset`` shifts all generated headings down
+    by N levels. When unset, the directive reads
+    ``state.memo.section_level`` and uses the surrounding section depth so
+    the root nests one level below the enclosing section: inside the
+    document's ``h1`` title this yields ``1`` (root at ``h2``); inside an
+    ``h3`` section it yields ``3`` (root at ``h4``). Override only when the
+    auto-detected depth is wrong for the page layout. ``anchor-prefix`` and
+    ``label-prefix`` override the slug and display prefix used for anchors
+    and labels; both default to the CLI's :attr:`click.Command.name`.
+    ``root-label`` sets the heading text for the root help block
+    (default: ``"Help screen"``). ``no-table`` skips the summary table;
+    ``no-root`` skips the root ``--help`` block.
+    """
+
+    runner_attr: ClassVar[str] = "click_runner"
+    """The runner is shared with :class:`ClickDirective` so a ``click:source``
+    that ran earlier on the same document has already populated the namespace
+    with the CLI variable this directive expects to resolve.
+    """
+
+    @property
+    def runner(self) -> ClickRunner:
+        """Get or create the per-document Click runner.
+
+        Mirrors :attr:`ClickDirective.runner` so the runner namespace is
+        shared across ``click:source``, ``click:run``, and ``click:tree``
+        within a single document.
+        """
+        runner = getattr(self.state.document, self.runner_attr, None)
+        if runner is None:
+            runner = ClickRunner()
+            setattr(self.state.document, self.runner_attr, runner)
+        return runner
+
+    @cached_property
+    def is_myst_syntax(self) -> bool:
+        """Check if the current directive is written with MyST syntax."""
+        return bool(self.state.__module__.split(".", 1)[0] == "myst_parser")
+
+    @staticmethod
+    def _slug(value: str) -> str:
+        """Lower-case + non-alphanumeric → ``-``, mirroring docutils' ``make_id``."""
+        return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+    def _surrounding_section_depth(self) -> int:
+        """Return the heading level of the section wrapping this directive.
+
+        Drives the default :attr:`heading-offset` so generated headings nest
+        correctly under the surrounding section, regardless of how deep in
+        the document the directive is placed. A value of ``1`` means the
+        directive sits inside the document's top-level ``h1`` section (the
+        next legal heading is ``h2``); ``3`` means it sits inside an ``h3``
+        section (next legal heading is ``h4``).
+
+        Read from ``state.memo.section_level``, which docutils' ``RSTState``
+        and MyST's ``MockState`` both populate. Falls back to ``1`` if the
+        attribute is unavailable (preserves the historical default).
+        """
+        try:
+            level = self.state.memo.section_level
+        except AttributeError:
+            return 1
+        return max(int(level), 1)
+
+    def _walk(
+        self,
+        root: click.Command,
+        max_depth: int,
+    ) -> list[tuple[list[str], click.Command]]:
+        """Depth-first traversal of the command tree, sorted alphabetically.
+
+        Returns ``(path, command)`` tuples where ``path`` is the list of
+        subcommand names from the root (exclusive) down to ``command``. The
+        root itself is not included; callers that want a root entry add it
+        separately (see :meth:`run`).
+        """
+        entries: list[tuple[list[str], click.Command]] = []
+
+        def recurse(cmd: click.Command, path: list[str], depth: int) -> None:
+            if not isinstance(cmd, click.Group) or depth >= max_depth:
+                return
+            for name in sorted(cmd.commands):
+                sub_path = [*path, name]
+                entries.append((sub_path, cmd.commands[name]))
+                recurse(cmd.commands[name], sub_path, depth + 1)
+
+        recurse(root, [], 0)
+        return entries
+
+    def run(self) -> list[nodes.Node]:
+        # Hard errors (RuntimeError, not self.error()) so the build fails
+        # fast: a partially rendered reference page hides bugs in the CLI
+        # tree the directive was meant to document.
+        if not self.is_myst_syntax:
+            raise RuntimeError(
+                "click:tree currently only supports MyST syntax. "
+                "Place the directive in a .md document with myst_parser enabled.",
+            )
+
+        # Execute the optional body in the runner namespace so callers can
+        # inline `from mypkg.cli import mycli` instead of seeding the
+        # namespace with a separate `click:source :hide-source:` block.
+        if self.content:
+            self.runner.execute_source(self)
+
+        cli_expr = self.arguments[0].strip()
+        try:
+            cli = eval(cli_expr, self.runner.namespace)
+        except Exception as exc:
+            raise RuntimeError(
+                f"click:tree: failed to evaluate {cli_expr!r}: {exc}",
+            ) from exc
+        if not isinstance(cli, click.Command):
+            raise TypeError(
+                f"click:tree: {cli_expr!r} did not yield a click.Command "
+                f"(got {type(cli).__name__}).",
+            )
+
+        max_depth = self.options.get("max-depth", 10)
+        # Without an explicit override, nest the generated headings one
+        # level below the surrounding section so the document outline stays
+        # consistent regardless of where the directive is placed. At the
+        # document's top level this resolves to the historical default of 1
+        # (root rendered at h2 under a document title at h1).
+        heading_offset = self.options.get(
+            "heading-offset",
+            self._surrounding_section_depth(),
+        )
+        label_prefix = self.options.get("label-prefix") or cli.name or cli_expr
+        anchor_prefix = self.options.get("anchor-prefix") or self._slug(label_prefix)
+        root_label = self.options.get("root-label", "Help screen")
+        include_table = "no-table" not in self.options
+        include_root = "no-root" not in self.options
+
+        entries = self._walk(cli, max_depth)
+
+        # Local import to avoid a circular import: click_extra.table is part
+        # of the same package and pulls in optional rendering deps.
+        from ..table import TableFormat, render_table
+
+        lines: list[str] = []
+
+        # Summary table.
+        if include_table:
+            rows: list[list[str]] = []
+            if include_root:
+                desc = (cli.get_short_help_str() or "").rstrip(".")
+                rows.append([f"[`{label_prefix}`](#{anchor_prefix})", desc])
+            for path, cmd in entries:
+                label = f"{label_prefix} {' '.join(path)}".strip()
+                anchor = "-".join([anchor_prefix, *(self._slug(p) for p in path)])
+                desc = (cmd.get_short_help_str() or "").rstrip(".")
+                rows.append([f"[`{label}`](#{anchor})", desc])
+            if rows:
+                lines.append(
+                    render_table(
+                        rows,
+                        headers=["Command", "Description"],
+                        table_format=TableFormat.GITHUB,
+                    ),
+                )
+                lines.append("")
+
+        # Root help block. Placed at the same heading level as top-level
+        # commands so subcommands always nest one level deeper than their
+        # parent, matching the repomatic convention.
+        if include_root:
+            heading = "#" * (heading_offset + 1)
+            lines.append(f"({anchor_prefix})=")
+            lines.append(f"{heading} {root_label}")
+            lines.append("")
+            lines.append("```{click:run}")
+            lines.append(f"invoke({cli_expr}, args=['--help'])")
+            lines.append("```")
+            lines.append("")
+
+        # Per-command sections.
+        for path, _cmd in entries:
+            heading = "#" * (heading_offset + len(path))
+            anchor = "-".join([anchor_prefix, *(self._slug(p) for p in path)])
+            label = f"{label_prefix} {' '.join(path)}".strip()
+            args_repr = ", ".join(repr(a) for a in [*path, "--help"])
+
+            lines.append(f"({anchor})=")
+            lines.append(f"{heading} `{label}`")
+            lines.append("")
+            lines.append("```{click:run}")
+            lines.append(f"invoke({cli_expr}, args=[{args_repr}])")
+            lines.append("```")
+            lines.append("")
+
+        # Hand the generated MyST source back to the parser. Nested directives
+        # (`{click:run}`) execute during this pass and share the runner
+        # namespace, so the CLI variable resolves inside each generated block.
+        section = nodes.section()
+        source_file, _ = self.get_source_info()
+        self.state.nested_parse(
+            StringList(lines, source_file),
+            self.content_offset,
+            section,
+        )
+        return section.children
+
+
 class ClickDomain(StatelessDomain):
     """Setup new directives under the same ``click`` namespace:
 
     - ``click:source`` which renders a Click CLI source code
     - ``click:example``, an alias to ``click:source`` (deprecated)
     - ``click:run`` which renders the results of running a Click CLI
+    - ``click:tree`` which walks a Click command tree and renders the full
+      ``--help`` reference for every subcommand, with a summary table on top
     """
 
     name = "click"
@@ -574,6 +825,7 @@ class ClickDomain(StatelessDomain):
         "source": SourceDirective,
         "example": DeprecatedExampleDirective,
         "run": RunDirective,
+        "tree": TreeDirective,
     }
 
 

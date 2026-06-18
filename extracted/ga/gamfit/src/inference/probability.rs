@@ -2,6 +2,7 @@ use crate::estimate::EstimationError;
 use crate::mixture_link::inverse_link_jet_for_family_public;
 use crate::types::LikelihoodSpec;
 use ndarray::{Array1, ArrayView1};
+use statrs::function::beta::{beta_reg, inv_beta_reg};
 use statrs::function::erf::erfc;
 
 /// Standard normal PDF φ(x).
@@ -421,6 +422,570 @@ pub fn gamma_moment_matched_interval(
     let scale = total_var / mu;
     let q_lo = gamma_quantile(p_lo, shape, scale);
     let q_hi = gamma_quantile(p_hi, shape, scale);
+    if q_lo.is_finite() && q_hi.is_finite() && q_hi >= q_lo {
+        Some((q_lo, q_hi))
+    } else {
+        None
+    }
+}
+
+/// Quantile (inverse CDF) of a Beta distribution with shape parameters `a > 0`
+/// and `b > 0` at probability `p ∈ (0, 1)`: the value `x ∈ [0, 1]` with
+/// `I_x(a, b) = p`, where `I` is the regularized incomplete beta (the Beta CDF).
+///
+/// `p ≤ 0` maps to the `0` support floor and `p ≥ 1` to the `1` support ceiling;
+/// a non-finite or non-positive shape yields `NaN`. Built on the AS 64/109
+/// inverse-incomplete-beta routine.
+///
+/// This is the bounded-support analogue of [`gamma_quantile`]: a Beta response
+/// (a proportion modelled by the Beta family) is skewed toward whichever edge
+/// its mean is near, so a symmetric `μ ± z·σ` predictive band mis-covers *both*
+/// tails even when its width is correct. Equal-tailed Beta quantiles place the
+/// right mass in each tail (#1194).
+pub fn beta_quantile(p: f64, a: f64, b: f64) -> f64 {
+    if !(a.is_finite() && a > 0.0 && b.is_finite() && b > 0.0) {
+        return f64::NAN;
+    }
+    if !p.is_finite() || p <= 0.0 {
+        return 0.0;
+    }
+    if p >= 1.0 {
+        return 1.0;
+    }
+    inv_beta_reg(a, b, p)
+}
+
+/// Equal-tailed predictive interval for a `(0, 1)`-bounded response modelled as a
+/// Beta whose first two moments match a point prediction: mean `mu ∈ (0, 1)` and
+/// total predictive variance `total_var` (estimation + observation noise).
+/// Returns the pair of Beta quantiles at lower-tail probabilities `p_lo < p_hi` —
+/// the skew-correct replacement for a symmetric `mu ± z·σ` band, which for a
+/// skewed Beta lands *both* edges below the corresponding true quantile and so
+/// mis-covers each tail (#1194).
+///
+/// Moment matching fixes the precision `φ = a + b = μ(1−μ)/V − 1`, then
+/// `a = μφ`, `b = (1−μ)φ`, so the predictive carries exactly the requested mean
+/// and variance. When estimation uncertainty vanishes
+/// (`total_var → μ(1−μ)/(1+φ₀)`) this is *exact*: `φ → φ₀`, recovering the
+/// conditional `Beta(μφ₀, (1−μ)φ₀)`. With nonzero estimation variance it is the
+/// moment-matched Beta predictive — the minimal skew-correct widening.
+///
+/// Returns `None` when the inputs are degenerate (mean outside `(0, 1)`,
+/// non-positive variance, non-finite), or when the requested variance reaches
+/// the Bernoulli ceiling `μ(1−μ)` (no Beta has that much spread for the given
+/// mean) — in which case the caller falls back to the symmetric edges.
+pub fn beta_moment_matched_interval(
+    mu: f64,
+    total_var: f64,
+    p_lo: f64,
+    p_hi: f64,
+) -> Option<(f64, f64)> {
+    if !(mu.is_finite() && mu > 0.0 && mu < 1.0 && total_var.is_finite() && total_var > 0.0) {
+        return None;
+    }
+    // A Beta on (0,1) with mean μ can carry variance only up to the Bernoulli
+    // limit μ(1−μ); at or beyond it no Beta exists, so the moment match fails.
+    let max_var = mu * (1.0 - mu);
+    if total_var >= max_var {
+        return None;
+    }
+    let precision = max_var / total_var - 1.0; // = a + b > 0
+    let a = mu * precision;
+    let b = (1.0 - mu) * precision;
+    let q_lo = beta_quantile(p_lo, a, b);
+    let q_hi = beta_quantile(p_hi, a, b);
+    if q_lo.is_finite() && q_hi.is_finite() && q_hi >= q_lo {
+        Some((q_lo, q_hi))
+    } else {
+        None
+    }
+}
+
+/// CDF of a Negative-Binomial with mean `μ ≥ 0` and dispersion `θ > 0`
+/// (`Var = μ + μ²/θ`) at the integer count `k ≥ 0`:
+/// `P(Y ≤ k) = I_{θ/(θ+μ)}(θ, k+1)`, the regularized incomplete beta. Increasing
+/// in `k`; `P(Y ≤ 0) = (θ/(θ+μ))^θ` is the zero mass.
+#[inline]
+fn negative_binomial_cdf_at(k: f64, theta: f64, prob: f64) -> f64 {
+    // `prob ∈ (0, 1)`; `beta_reg` requires its last argument in [0, 1].
+    beta_reg(theta, k + 1.0, prob.clamp(0.0, 1.0))
+}
+
+/// Quantile (inverse CDF) of a Negative-Binomial with mean `μ ≥ 0` and
+/// dispersion `θ > 0` at probability `p ∈ (0, 1)`: the smallest integer count
+/// `k ≥ 0` with `P(Y ≤ k) ≥ p`, returned as an `f64`.
+///
+/// `p ≤ 0` maps to the `0` support floor and `p ≥ 1` to `+∞`; a non-finite or
+/// non-positive dispersion, or a non-finite / negative mean, yields `NaN`; a
+/// zero mean is the degenerate point mass at `0`.
+///
+/// Unlike the continuous Gamma/Beta quantiles, the NB is *discrete* with a real
+/// atom at zero, so its skew-correct predictive band must come from the genuine
+/// integer quantiles — a moment-matched *continuous* surrogate (e.g. a Gamma)
+/// has no zero atom and grossly over-covers the lower tail on low-mean counts
+/// (#1193). A normal-approximation seed brackets the root, then an exact
+/// bisection on the incomplete-beta CDF finds the smallest qualifying integer.
+pub fn negative_binomial_quantile(p: f64, mu: f64, theta: f64) -> f64 {
+    if !(mu.is_finite() && mu >= 0.0 && theta.is_finite() && theta > 0.0) {
+        return f64::NAN;
+    }
+    if !p.is_finite() || p <= 0.0 {
+        return 0.0;
+    }
+    if p >= 1.0 {
+        return f64::INFINITY;
+    }
+    if mu == 0.0 {
+        return 0.0;
+    }
+    let prob = theta / (theta + mu); // P(success) ∈ (0, 1); mean = θ(1−prob)/prob = μ
+    let cdf = |k: f64| negative_binomial_cdf_at(k, theta, prob);
+
+    // The zero atom already covers the requested lower-tail mass on low-mean
+    // counts (the common right-skewed case), so short-circuit before bracketing.
+    if cdf(0.0) >= p {
+        return 0.0;
+    }
+
+    // Normal-approximation seed on the NB moments, floored into the support.
+    let var = mu + mu * mu / theta;
+    let z = standard_normal_quantile(p).unwrap_or(0.0);
+    let seed = (mu + z * var.sqrt()).floor().max(1.0);
+
+    // Bracket the smallest integer with CDF ≥ p: `lo` always satisfies
+    // CDF(lo) < p (starts at 0, which failed the short-circuit) and `hi`
+    // satisfies CDF(hi) ≥ p. Grow geometrically from the seed in whichever
+    // direction is needed.
+    let mut lo: f64;
+    let mut hi: f64;
+    if cdf(seed) >= p {
+        hi = seed;
+        lo = 0.0;
+        // Tighten `lo` upward toward `hi` so the bisection starts narrow.
+        let mut step = 1.0;
+        let mut cand = seed - 1.0;
+        while cand > 0.0 && cdf(cand) >= p {
+            hi = cand;
+            step *= 2.0;
+            cand = seed - step;
+        }
+        if cand > 0.0 {
+            lo = cand; // CDF(cand) < p
+        }
+    } else {
+        lo = seed; // CDF(seed) < p
+        let mut step = 1.0;
+        let mut cand = seed + 1.0;
+        // CDF → 1 as k → ∞ and p < 1, so this terminates; the cap is a
+        // finite-arithmetic backstop (returns an effectively infinite edge).
+        while cdf(cand) < p {
+            lo = cand;
+            step *= 2.0;
+            cand = seed + step;
+            if cand > 1.0e18 {
+                return f64::INFINITY;
+            }
+        }
+        hi = cand;
+    }
+
+    // Bisection for the smallest integer k with CDF(k) ≥ p, maintaining the
+    // invariant CDF(lo) < p ≤ CDF(hi).
+    while hi - lo > 1.0 {
+        let mid = (lo + (hi - lo) / 2.0).floor();
+        if cdf(mid) >= p {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    hi
+}
+
+/// Equal-tailed predictive interval for a Negative-Binomial count response whose
+/// conditional law has mean `mu > 0` and dispersion `theta > 0`, widened for
+/// estimation uncertainty to a total predictive variance `total_var`
+/// (estimation + observation noise). Returns the pair of integer NB quantiles at
+/// lower-tail probabilities `p_lo < p_hi` — the skew-correct, zero-atom-aware
+/// replacement for a symmetric `mu ± z·σ` band, which on right-skewed counts
+/// sits below the true upper quantile and under-covers the upper tail (#1193).
+///
+/// Estimation uncertainty is folded in through an *effective dispersion*: an NB
+/// with mean `μ` has variance `μ + μ²/θ`, so the `θ_eff` matching the inflated
+/// total variance solves `μ + μ²/θ_eff = total_var`, i.e.
+/// `θ_eff = μ² / (total_var − μ)`. When estimation uncertainty vanishes
+/// (`total_var → μ + μ²/θ`) this is *exact*: `θ_eff → θ`, recovering the
+/// conditional `NB(μ, θ)`. With nonzero estimation variance `θ_eff < θ` widens
+/// the band — the minimal skew-correct widening that stays inside the NB family.
+///
+/// Returns `None` for degenerate inputs (non-positive mean / variance,
+/// non-finite), or a numerically mis-ordered pair, in which case the caller
+/// falls back to the symmetric edges.
+pub fn negative_binomial_moment_matched_interval(
+    mu: f64,
+    theta: f64,
+    total_var: f64,
+    p_lo: f64,
+    p_hi: f64,
+) -> Option<(f64, f64)> {
+    if !(mu.is_finite()
+        && mu > 0.0
+        && theta.is_finite()
+        && theta > 0.0
+        && total_var.is_finite()
+        && total_var > 0.0)
+    {
+        return None;
+    }
+    // `total_var = SE(μ̂)² + (μ + μ²/θ) > μ` always, so the excess is positive;
+    // fall back to the nominal dispersion only if a degenerate caller breaks it.
+    let excess = total_var - mu;
+    let theta_eff = if excess > 0.0 {
+        mu * mu / excess
+    } else {
+        theta
+    };
+    let q_lo = negative_binomial_quantile(p_lo, mu, theta_eff);
+    let q_hi = negative_binomial_quantile(p_hi, mu, theta_eff);
+    if q_lo.is_finite() && q_hi.is_finite() && q_hi >= q_lo {
+        Some((q_lo, q_hi))
+    } else {
+        None
+    }
+}
+
+/// CDF of a Poisson with mean `mu ≥ 0` at the integer count `k ≥ 0`:
+/// `P(Y ≤ k) = Q(k+1, μ)`, the regularized *upper* incomplete gamma (the standard
+/// Poisson↔gamma identity). Increasing in `k`; `P(Y ≤ 0) = e^{−μ}` is the zero mass.
+#[inline]
+fn poisson_cdf_at(k: f64, mu: f64) -> f64 {
+    // P(Y ≤ k) = Q(k+1, μ) = 1 − P(k+1, μ); `regularized_lower_gamma` is `P`.
+    (1.0 - regularized_lower_gamma(k + 1.0, mu)).clamp(0.0, 1.0)
+}
+
+/// Quantile (inverse CDF) of a Poisson with mean `mu ≥ 0` at probability
+/// `p ∈ (0, 1)`: the smallest integer count `k ≥ 0` with `P(Y ≤ k) ≥ p`,
+/// returned as an `f64`.
+///
+/// `p ≤ 0` maps to the `0` support floor and `p ≥ 1` to `+∞`; a non-finite or
+/// negative mean yields `NaN`; a zero mean is the degenerate point mass at `0`.
+///
+/// Like the Negative-Binomial, the Poisson is *discrete* with a real atom at
+/// zero, so its skew-correct predictive band must come from the genuine integer
+/// quantiles — a symmetric `μ ± z·σ` band sits below the true upper quantile on
+/// low-rate counts and under-covers the upper tail (the #817 defect, Poisson
+/// sibling of #1193). A normal-approximation seed brackets the root, then an
+/// exact bisection on the gamma-tail CDF finds the smallest qualifying integer.
+pub fn poisson_quantile(p: f64, mu: f64) -> f64 {
+    if !(mu.is_finite() && mu >= 0.0) {
+        return f64::NAN;
+    }
+    if !p.is_finite() || p <= 0.0 {
+        return 0.0;
+    }
+    if p >= 1.0 {
+        return f64::INFINITY;
+    }
+    if mu == 0.0 {
+        return 0.0;
+    }
+    let cdf = |k: f64| poisson_cdf_at(k, mu);
+
+    // The zero atom already covers the requested lower-tail mass on low-rate
+    // counts (the common right-skewed case), so short-circuit before bracketing.
+    if cdf(0.0) >= p {
+        return 0.0;
+    }
+
+    // Normal-approximation seed on the Poisson moments (Var = μ), floored into
+    // the support.
+    let z = standard_normal_quantile(p).unwrap_or(0.0);
+    let seed = (mu + z * mu.sqrt()).floor().max(1.0);
+
+    // Bracket the smallest integer with CDF ≥ p: `lo` always satisfies
+    // CDF(lo) < p (starts at 0, which failed the short-circuit) and `hi`
+    // satisfies CDF(hi) ≥ p. Grow geometrically from the seed in whichever
+    // direction is needed.
+    let mut lo: f64;
+    let mut hi: f64;
+    if cdf(seed) >= p {
+        hi = seed;
+        lo = 0.0;
+        let mut step = 1.0;
+        let mut cand = seed - 1.0;
+        while cand > 0.0 && cdf(cand) >= p {
+            hi = cand;
+            step *= 2.0;
+            cand = seed - step;
+        }
+        if cand > 0.0 {
+            lo = cand; // CDF(cand) < p
+        }
+    } else {
+        lo = seed; // CDF(seed) < p
+        let mut step = 1.0;
+        let mut cand = seed + 1.0;
+        // CDF → 1 as k → ∞ and p < 1, so this terminates; the cap is a
+        // finite-arithmetic backstop (returns an effectively infinite edge).
+        while cdf(cand) < p {
+            lo = cand;
+            step *= 2.0;
+            cand = seed + step;
+            if cand > 1.0e18 {
+                return f64::INFINITY;
+            }
+        }
+        hi = cand;
+    }
+
+    // Bisection for the smallest integer k with CDF(k) ≥ p, maintaining the
+    // invariant CDF(lo) < p ≤ CDF(hi).
+    while hi - lo > 1.0 {
+        let mid = (lo + (hi - lo) / 2.0).floor();
+        if cdf(mid) >= p {
+            hi = mid;
+        } else {
+            lo = mid;
+        }
+    }
+    hi
+}
+
+/// Equal-tailed predictive interval for a Poisson count response whose
+/// conditional law has mean `mu > 0` (so `Var(Y|μ) = μ`), widened for estimation
+/// uncertainty to a total predictive variance `total_var ≥ μ` (estimation +
+/// observation noise). Returns the pair of integer quantiles at lower-tail
+/// probabilities `p_lo < p_hi` — the skew-correct, zero-atom-aware replacement
+/// for a symmetric `mu ± z·σ` band, which on low-rate counts sits below the true
+/// upper quantile and under-covers the upper tail (the #817 defect, Poisson
+/// sibling of #1193).
+///
+/// A pure Poisson has no free dispersion parameter to absorb estimation
+/// uncertainty, so the widening is carried by the *conjugate over-dispersed count
+/// law*: if the point estimate `μ̂` carries (approximately) a Gamma sampling
+/// uncertainty with mean `μ` and variance `SE(μ̂)² = total_var − μ`, the posterior
+/// predictive for a *new* Poisson draw is exactly a Negative-Binomial — the
+/// Gamma–Poisson mixture — with mean `μ` and dispersion `θ_eff = μ² / (total_var − μ)`
+/// (matching the inflated variance `μ + μ²/θ_eff = total_var`). As estimation
+/// uncertainty vanishes (`total_var → μ`, `θ_eff → ∞`) the NB collapses to the
+/// *exact* conditional Poisson, which is then used directly — both because it is
+/// the correct limit and because an NB with `θ → ∞` is numerically degenerate.
+/// The two regimes agree (both are integer quantiles that coincide once `θ_eff`
+/// is large), so the switch introduces no discontinuity in the emitted edge.
+///
+/// Returns `None` for degenerate inputs (non-positive mean, non-finite, or a
+/// total variance below the Poisson floor `μ`), or a numerically mis-ordered
+/// pair, in which case the caller falls back to the symmetric edges.
+pub fn poisson_moment_matched_interval(
+    mu: f64,
+    total_var: f64,
+    p_lo: f64,
+    p_hi: f64,
+) -> Option<(f64, f64)> {
+    if !(mu.is_finite() && mu > 0.0 && total_var.is_finite() && total_var > 0.0) {
+        return None;
+    }
+    // Estimation uncertainty inflates the count variance beyond the Poisson
+    // floor `Var(Y|μ) = μ`; the excess is the (approximate) sampling variance of
+    // `μ̂`. A `total_var` below `μ` is degenerate (a caller broke the contract).
+    let excess = total_var - mu;
+    if excess < 0.0 {
+        return None;
+    }
+    // Above this effective dispersion the NB surrogate and the conditional
+    // Poisson agree to far more than the integer resolution of the quantile, and
+    // `negative_binomial_quantile`'s `I_{θ/(θ+μ)}(θ, k+1)` is better conditioned
+    // as the exact Poisson; below it the NB widening is genuine.
+    const THETA_EFF_MAX: f64 = 1.0e9;
+    let theta_eff = if excess > 0.0 {
+        mu * mu / excess
+    } else {
+        f64::INFINITY
+    };
+    let (q_lo, q_hi) = if theta_eff > THETA_EFF_MAX {
+        (poisson_quantile(p_lo, mu), poisson_quantile(p_hi, mu))
+    } else {
+        (
+            negative_binomial_quantile(p_lo, mu, theta_eff),
+            negative_binomial_quantile(p_hi, mu, theta_eff),
+        )
+    };
+    if q_lo.is_finite() && q_hi.is_finite() && q_hi >= q_lo {
+        Some((q_lo, q_hi))
+    } else {
+        None
+    }
+}
+
+/// CDF of a Tweedie compound Poisson–Gamma response (power `1 < p < 2`) with
+/// mean `mu > 0` and dispersion `phi > 0` at `y ≥ 0`:
+/// `P(Y ≤ y) = e^{−λ} + Σ_{k≥1} Poisson(k; λ)·GammaCDF(y; kα, γ)`, the mixture of
+/// a point mass at zero (no jumps) and `k` i.i.d. Gamma jumps. The Tweedie
+/// parameters map to `λ = μ^{2−p} / (φ(2−p))` (Poisson mean number of jumps),
+/// Gamma jump shape `α = (2−p)/(p−1)` and scale `γ = φ(p−1)μ^{p−1}`, which
+/// reproduce `E[Y] = μ` and `Var(Y) = φμ^p`.
+///
+/// The zero atom `e^{−λ}` is returned directly at `y = 0`. For `y > 0` the
+/// Poisson weights are accumulated in log-space and the series is truncated once
+/// the remaining Poisson mass beyond the current term is negligible — the Gamma
+/// CDF factor is ≤ 1, so the unsummed tail is bounded by the Poisson survival.
+#[inline]
+fn tweedie_cdf_at(y: f64, mu: f64, phi: f64, power: f64) -> f64 {
+    if !(y.is_finite() && y >= 0.0) {
+        return f64::NAN;
+    }
+    let lambda = mu.powf(2.0 - power) / (phi * (2.0 - power));
+    let alpha = (2.0 - power) / (power - 1.0);
+    let scale = phi * (power - 1.0) * mu.powf(power - 1.0);
+    let zero_mass = (-lambda).exp();
+    if y <= 0.0 {
+        return zero_mass;
+    }
+    let x = y / scale; // unit-scale Gamma argument
+    // Poisson(k; λ) weights via a log-space recurrence: w_k = w_{k-1}·λ/k.
+    // Sum k ≥ 1 only; the k = 0 term contributes the zero atom (GammaCDF = 1 at
+    // any y > 0 for shape 0 is the degenerate point mass already in `zero_mass`).
+    let mut acc = zero_mass; // P(Y ≤ y) includes the no-jump mass (Y = 0 ≤ y)
+    let mut ln_w = -lambda; // ln Poisson(0; λ)
+    // Centre the truncation window on the Poisson mode so very large λ stays cheap.
+    let k_max = (lambda + 10.0 * lambda.sqrt()).ceil() as usize + 50;
+    let mut remaining = 1.0 - zero_mass; // Poisson mass still unaccounted for (k ≥ 1)
+    for k in 1..=k_max {
+        ln_w += lambda.ln() - (k as f64).ln();
+        let w = ln_w.exp();
+        remaining -= w;
+        // GammaCDF(y; kα, γ) = P(kα, y/γ) on the unit scale.
+        acc += w * regularized_lower_gamma(alpha * k as f64, x);
+        if remaining <= 1e-15 && k as f64 > lambda {
+            break;
+        }
+    }
+    acc.clamp(0.0, 1.0)
+}
+
+/// Quantile (inverse CDF) of a Tweedie compound Poisson–Gamma response
+/// (power `1 < p < 2`) with mean `mu > 0` and dispersion `phi > 0` at
+/// probability `q ∈ (0, 1)`: the value `y ≥ 0` with `P(Y ≤ y) = q`.
+///
+/// `q ≤ 0` maps to the `0` support floor and `q ≥ 1` to `+∞`. If the requested
+/// lower-tail probability is at or below the zero atom `e^{−λ}` the quantile is
+/// exactly `0` (the common right-skewed lower-tail case). Otherwise a normal seed
+/// on the Tweedie moments brackets the root, which is then refined by bisection
+/// on [`tweedie_cdf_at`] — the continuous part above the atom is strictly
+/// increasing, so the bracket converges.
+pub fn tweedie_quantile(q: f64, mu: f64, phi: f64, power: f64) -> f64 {
+    if !(mu.is_finite()
+        && mu > 0.0
+        && phi.is_finite()
+        && phi > 0.0
+        && power.is_finite()
+        && power > 1.0
+        && power < 2.0)
+    {
+        return f64::NAN;
+    }
+    if !q.is_finite() || q <= 0.0 {
+        return 0.0;
+    }
+    if q >= 1.0 {
+        return f64::INFINITY;
+    }
+    let lambda = mu.powf(2.0 - power) / (phi * (2.0 - power));
+    let zero_mass = (-lambda).exp();
+    // The zero atom carries the lower-tail mass: q at or below it ⇒ quantile 0.
+    if q <= zero_mass {
+        return 0.0;
+    }
+
+    // Normal-approximation seed on the Tweedie moments, then geometric bracketing.
+    let var = phi * mu.powf(power);
+    let z = standard_normal_quantile(q).unwrap_or(0.0);
+    let mut hi = (mu + z * var.sqrt()).max(scale_floor(mu));
+    let cdf = |y: f64| tweedie_cdf_at(y, mu, phi, power);
+
+    // Grow `hi` until it covers `q`; `lo` stays below it. CDF → 1 as y → ∞.
+    let mut lo = 0.0_f64;
+    let mut guard = 0;
+    while cdf(hi) < q {
+        lo = hi;
+        hi *= 2.0;
+        guard += 1;
+        if guard > 200 || hi > 1.0e18 {
+            return f64::INFINITY;
+        }
+    }
+
+    // Bisection on the strictly-increasing continuous part above the atom.
+    for _ in 0..200 {
+        let mid = 0.5 * (lo + hi);
+        if cdf(mid) < q {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+        if hi - lo <= (hi.abs() + 1.0) * 1e-12 {
+            break;
+        }
+    }
+    0.5 * (lo + hi)
+}
+
+/// A strictly-positive starting scale for the Tweedie bracket: a small fraction
+/// of the mean keeps the initial `hi` inside the support when the normal seed
+/// underflows to or below zero on a heavily right-skewed row.
+#[inline]
+fn scale_floor(mu: f64) -> f64 {
+    (mu * 1e-3).max(f64::MIN_POSITIVE)
+}
+
+/// Equal-tailed predictive interval for a Tweedie compound Poisson–Gamma
+/// response (power `1 < p < 2`) whose conditional law has mean `mu > 0` and
+/// dispersion `phi > 0`, widened for estimation uncertainty to a total
+/// predictive variance `total_var` (estimation + observation noise). Returns the
+/// pair of Tweedie quantiles at lower-tail probabilities `p_lo < p_hi` — the
+/// skew-correct, zero-atom-aware replacement for a symmetric `mu ± z·σ` band,
+/// which on a right-skewed Tweedie sits below the true upper quantile and
+/// under-covers the upper tail (the #817 defect, Tweedie sibling of #1193).
+///
+/// Estimation uncertainty is folded in through an *effective dispersion*: a
+/// Tweedie with mean `μ` has variance `φμ^p`, so the `φ_eff` matching the
+/// inflated total variance solves `φ_eff·μ^p = total_var`, i.e.
+/// `φ_eff = total_var / μ^p`. When estimation uncertainty vanishes
+/// (`total_var → φμ^p`) this is *exact*: `φ_eff → φ`, recovering the conditional
+/// Tweedie. With nonzero estimation variance `φ_eff > φ` widens the band inside
+/// the Tweedie family — the minimal skew-correct widening. Unlike a moment-
+/// matched Gamma surrogate, this keeps the genuine zero atom, so it does not
+/// over-cover the lower tail on low-mean rows (#1193).
+///
+/// Returns `None` for degenerate inputs (non-positive mean / variance,
+/// non-finite, power outside `(1, 2)`) or a mis-ordered pair, in which case the
+/// caller falls back to the symmetric edges.
+pub fn tweedie_moment_matched_interval(
+    mu: f64,
+    phi: f64,
+    power: f64,
+    total_var: f64,
+    p_lo: f64,
+    p_hi: f64,
+) -> Option<(f64, f64)> {
+    if !(mu.is_finite()
+        && mu > 0.0
+        && phi.is_finite()
+        && phi > 0.0
+        && power.is_finite()
+        && power > 1.0
+        && power < 2.0
+        && total_var.is_finite()
+        && total_var > 0.0)
+    {
+        return None;
+    }
+    let phi_eff = total_var / mu.powf(power);
+    if !(phi_eff.is_finite() && phi_eff > 0.0) {
+        return None;
+    }
+    let q_lo = tweedie_quantile(p_lo, mu, phi_eff, power);
+    let q_hi = tweedie_quantile(p_hi, mu, phi_eff, power);
     if q_lo.is_finite() && q_hi.is_finite() && q_hi >= q_lo {
         Some((q_lo, q_hi))
     } else {
@@ -950,5 +1515,490 @@ mod tests {
         assert!(gamma_moment_matched_interval(1.0, f64::INFINITY, 0.025, 0.975).is_none());
         // A finite, well-conditioned case still returns Some.
         assert!(gamma_moment_matched_interval(3.0, 2.0, 0.025, 0.975).is_some());
+    }
+
+    #[test]
+    fn beta_quantile_matches_known_reference_values() {
+        // Reference Beta quantiles cross-checked against scipy `beta.ppf(p,a,b)`.
+        // Spans symmetric (a=b), left-skewed (a<b), right-skewed (a>b), and a
+        // high-precision case to exercise the inverse-incomplete-beta branches.
+        let cases: [(f64, f64, f64, f64); 8] = [
+            // (p, a, b, expected) — scipy `beta.ppf`.
+            (0.025, 2.0, 2.0, 0.094_299_3),
+            (0.975, 2.0, 2.0, 0.905_700_7),
+            (0.5, 2.0, 2.0, 0.5),
+            (0.025, 0.8, 4.0, 0.002_339_1),
+            (0.975, 0.8, 4.0, 0.564_717_3),
+            (0.025, 5.0, 1.5, 0.408_549_1),
+            (0.5, 20.0, 80.0, 0.197_994_8),
+            (0.975, 20.0, 80.0, 0.283_367_6),
+        ];
+        for (p, a, b, expected) in cases {
+            let got = beta_quantile(p, a, b);
+            let abs = (got - expected).abs();
+            assert!(
+                abs < 1e-5,
+                "beta_quantile(p={p}, a={a}, b={b}) = {got}, expected ≈ {expected} (abs err {abs})"
+            );
+        }
+    }
+
+    #[test]
+    fn beta_quantile_boundaries_and_degeneracy() {
+        // p at/over the support boundaries map to 0 / 1; bad shapes => NaN; and
+        // the quantile is strictly increasing in p.
+        assert_eq!(beta_quantile(0.0, 2.0, 3.0), 0.0);
+        assert_eq!(beta_quantile(-0.5, 2.0, 3.0), 0.0);
+        assert_eq!(beta_quantile(1.0, 2.0, 3.0), 1.0);
+        assert_eq!(beta_quantile(1.5, 2.0, 3.0), 1.0);
+        assert!(beta_quantile(0.5, -1.0, 3.0).is_nan());
+        assert!(beta_quantile(0.5, 2.0, 0.0).is_nan());
+        assert!(beta_quantile(0.5, f64::NAN, 3.0).is_nan());
+        let mut prev = 0.0;
+        for i in 1..100 {
+            let p = i as f64 / 100.0;
+            let q = beta_quantile(p, 3.0, 5.0);
+            assert!(
+                q > prev,
+                "beta quantile not increasing at p={p}: {q} <= {prev}"
+            );
+            prev = q;
+        }
+    }
+
+    #[test]
+    fn beta_moment_matched_interval_is_the_exact_conditional_beta_when_se_vanishes() {
+        // With no estimation uncertainty the total predictive variance is the
+        // pure observation noise `μ(1−μ)/(1+φ)`, and the moment-matched Beta must
+        // coincide *exactly* with the conditional `Beta(μφ, (1−μ)φ)` (#1194).
+        let phi = 8.0_f64;
+        let mu = 0.2_f64;
+        let total_var = mu * (1.0 - mu) / (1.0 + phi); // SE(μ̂) = 0
+        let (lo, hi) = beta_moment_matched_interval(mu, total_var, 0.025, 0.975)
+            .expect("non-degenerate moment-matched Beta interval");
+        let analytic_lo = beta_quantile(0.025, mu * phi, (1.0 - mu) * phi);
+        let analytic_hi = beta_quantile(0.975, mu * phi, (1.0 - mu) * phi);
+        assert!(
+            (lo - analytic_lo).abs() < 1e-9 && (hi - analytic_hi).abs() < 1e-9,
+            "moment-matched interval [{lo}, {hi}] != conditional Beta [{analytic_lo}, {analytic_hi}]"
+        );
+    }
+
+    #[test]
+    fn beta_moment_matched_interval_is_skewed_not_symmetric() {
+        // For a small-mean Beta the equal-tailed band is asymmetric about μ (the
+        // upper gap exceeds the lower gap) and the lower edge sits well above the
+        // symmetric edge `μ − z·σ`, which on this data dives below 0.
+        let phi = 8.0_f64;
+        let mu = 0.15_f64;
+        let total_var = mu * (1.0 - mu) / (1.0 + phi);
+        let z = 1.959_963_984_540_054_f64;
+        let (lo, hi) =
+            beta_moment_matched_interval(mu, total_var, normal_cdf(-z), normal_cdf(z)).unwrap();
+        assert!(
+            0.0 < lo && lo < mu && mu < hi && hi < 1.0,
+            "interval [{lo},{hi}] ∌ μ={mu}"
+        );
+        let lower_gap = mu - lo;
+        let upper_gap = hi - mu;
+        assert!(
+            upper_gap > 1.2 * lower_gap,
+            "expected a right-skewed band (upper gap > lower gap): lower={lower_gap}, upper={upper_gap}"
+        );
+        let symmetric_lower = mu - z * total_var.sqrt();
+        assert!(
+            symmetric_lower < 0.0 && lo > 0.0,
+            "skew-correct lower edge {lo} should stay positive where the symmetric edge {symmetric_lower} goes negative"
+        );
+    }
+
+    #[test]
+    fn beta_moment_matched_interval_rejects_degenerate_and_over_dispersed_inputs() {
+        // Mean outside (0,1), non-positive variance, non-finite => None.
+        assert!(beta_moment_matched_interval(0.0, 0.01, 0.025, 0.975).is_none());
+        assert!(beta_moment_matched_interval(1.0, 0.01, 0.025, 0.975).is_none());
+        assert!(beta_moment_matched_interval(-0.1, 0.01, 0.025, 0.975).is_none());
+        assert!(beta_moment_matched_interval(0.3, 0.0, 0.025, 0.975).is_none());
+        assert!(beta_moment_matched_interval(f64::NAN, 0.01, 0.025, 0.975).is_none());
+        // Variance at/over the Bernoulli ceiling μ(1−μ): no Beta matches => None.
+        assert!(beta_moment_matched_interval(0.5, 0.25, 0.025, 0.975).is_none());
+        assert!(beta_moment_matched_interval(0.5, 0.30, 0.025, 0.975).is_none());
+        // A well-conditioned case still returns Some.
+        assert!(beta_moment_matched_interval(0.4, 0.02, 0.025, 0.975).is_some());
+    }
+
+    #[test]
+    fn beta_moment_matched_interval_widens_with_estimation_uncertainty() {
+        let phi = 8.0_f64;
+        let mu = 0.3_f64;
+        let obs_var = mu * (1.0 - mu) / (1.0 + phi);
+        let (lo0, hi0) = beta_moment_matched_interval(mu, obs_var, 0.025, 0.975).unwrap();
+        let (lo1, hi1) = beta_moment_matched_interval(mu, obs_var + 0.01, 0.025, 0.975).unwrap();
+        assert!(
+            lo1 < lo0 && hi1 > hi0,
+            "estimation uncertainty must widen the band: [{lo0},{hi0}] -> [{lo1},{hi1}]"
+        );
+    }
+
+    #[test]
+    fn negative_binomial_quantile_matches_known_reference_values() {
+        // Reference NB quantiles cross-checked against scipy
+        // `nbinom.ppf(p, n=θ, prob=θ/(θ+μ))` — the integer count k with the
+        // smallest CDF ≥ p. Spans the zero-atom lower tail, the right-skewed
+        // upper tail, and a larger-mean near-Gaussian case.
+        let cases: [(f64, f64, f64, f64); 8] = [
+            // (p, μ, θ, expected integer quantile)
+            (0.025, 1.6, 1.5, 0.0), // zero mass ≈ 0.34 > 0.025 ⇒ lower edge 0
+            (0.5, 1.6, 1.5, 1.0),
+            (0.975, 1.6, 1.5, 6.0),
+            (0.99, 1.6, 1.5, 8.0),
+            (0.025, 20.0, 5.0, 5.0),
+            (0.975, 20.0, 5.0, 43.0),
+            (0.5, 20.0, 5.0, 19.0),
+            (0.975, 0.5, 2.0, 3.0),
+        ];
+        for (p, mu, theta, expected) in cases {
+            let got = negative_binomial_quantile(p, mu, theta);
+            assert_eq!(
+                got, expected,
+                "negative_binomial_quantile(p={p}, μ={mu}, θ={theta}) = {got}, expected {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn negative_binomial_quantile_is_a_valid_cdf_inverse() {
+        // The returned integer k must be the *smallest* with CDF(k) ≥ p:
+        // CDF(k) ≥ p and (for k ≥ 1) CDF(k−1) < p, across a grid of (μ, θ, p).
+        use statrs::function::beta::beta_reg;
+        for &mu in &[0.3_f64, 1.6, 5.0, 25.0, 120.0] {
+            for &theta in &[0.5_f64, 1.5, 5.0, 40.0] {
+                let prob = theta / (theta + mu);
+                for &p in &[0.01_f64, 0.025, 0.1, 0.5, 0.9, 0.975, 0.99] {
+                    let k = negative_binomial_quantile(p, mu, theta);
+                    assert!(
+                        k.is_finite() && k >= 0.0 && k.fract() == 0.0,
+                        "non-integer k={k}"
+                    );
+                    let cdf_k = beta_reg(theta, k + 1.0, prob);
+                    assert!(
+                        cdf_k + 1e-12 >= p,
+                        "CDF({k}) = {cdf_k} < p = {p} (μ={mu}, θ={theta})"
+                    );
+                    if k >= 1.0 {
+                        let cdf_below = beta_reg(theta, k, prob);
+                        assert!(
+                            cdf_below < p,
+                            "k={k} not minimal: CDF({}) = {cdf_below} ≥ p = {p} (μ={mu}, θ={theta})",
+                            k - 1.0
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn negative_binomial_quantile_boundaries_and_degeneracy() {
+        assert_eq!(negative_binomial_quantile(0.0, 2.0, 1.5), 0.0);
+        assert_eq!(negative_binomial_quantile(-0.1, 2.0, 1.5), 0.0);
+        assert!(negative_binomial_quantile(1.0, 2.0, 1.5).is_infinite());
+        assert_eq!(negative_binomial_quantile(0.5, 0.0, 1.5), 0.0); // point mass at 0
+        assert!(negative_binomial_quantile(0.5, -1.0, 1.5).is_nan());
+        assert!(negative_binomial_quantile(0.5, 2.0, 0.0).is_nan());
+        assert!(negative_binomial_quantile(0.5, 2.0, f64::NAN).is_nan());
+        // Monotone non-decreasing in p (discrete ⇒ plateaus allowed).
+        let mut prev = 0.0;
+        for i in 1..100 {
+            let p = i as f64 / 100.0;
+            let q = negative_binomial_quantile(p, 4.0, 2.0);
+            assert!(q >= prev, "NB quantile decreased at p={p}: {q} < {prev}");
+            prev = q;
+        }
+    }
+
+    #[test]
+    fn negative_binomial_moment_matched_interval_is_exact_conditional_when_se_vanishes() {
+        // SE(μ̂) = 0 ⇒ total_var = μ + μ²/θ ⇒ θ_eff = θ, recovering the exact
+        // conditional NB quantiles.
+        let mu = 1.6_f64;
+        let theta = 1.5_f64;
+        let total_var = mu + mu * mu / theta;
+        let (lo, hi) =
+            negative_binomial_moment_matched_interval(mu, theta, total_var, 0.025, 0.975).unwrap();
+        assert_eq!(lo, negative_binomial_quantile(0.025, mu, theta));
+        assert_eq!(hi, negative_binomial_quantile(0.975, mu, theta));
+    }
+
+    #[test]
+    fn negative_binomial_moment_matched_interval_widens_with_estimation_uncertainty() {
+        // Adding estimation variance lowers θ_eff (more overdispersion) and must
+        // not shrink the band; with enough added variance the upper edge grows.
+        let mu = 8.0_f64;
+        let theta = 4.0_f64;
+        let obs_var = mu + mu * mu / theta;
+        let (lo0, hi0) =
+            negative_binomial_moment_matched_interval(mu, theta, obs_var, 0.025, 0.975).unwrap();
+        let (lo1, hi1) =
+            negative_binomial_moment_matched_interval(mu, theta, obs_var + 40.0, 0.025, 0.975)
+                .unwrap();
+        assert!(
+            lo1 <= lo0 && hi1 > hi0,
+            "band did not widen: [{lo0},{hi0}] -> [{lo1},{hi1}]"
+        );
+    }
+
+    #[test]
+    fn negative_binomial_moment_matched_interval_rejects_degenerate_inputs() {
+        assert!(negative_binomial_moment_matched_interval(0.0, 1.5, 1.0, 0.025, 0.975).is_none());
+        assert!(negative_binomial_moment_matched_interval(-1.0, 1.5, 1.0, 0.025, 0.975).is_none());
+        assert!(negative_binomial_moment_matched_interval(2.0, 0.0, 1.0, 0.025, 0.975).is_none());
+        assert!(negative_binomial_moment_matched_interval(2.0, 1.5, 0.0, 0.025, 0.975).is_none());
+        assert!(
+            negative_binomial_moment_matched_interval(f64::NAN, 1.5, 1.0, 0.025, 0.975).is_none()
+        );
+        assert!(negative_binomial_moment_matched_interval(2.0, 1.5, 6.0, 0.025, 0.975).is_some());
+    }
+
+    #[test]
+    fn poisson_quantile_matches_known_reference_values() {
+        // Reference integer quantiles from scipy.stats.poisson.ppf.
+        let cases: [(f64, f64, f64); 9] = [
+            // (p, μ, expected integer quantile)
+            (0.025, 1.6, 0.0), // zero mass e^{−1.6} ≈ 0.20 < 0.025? no: 0.20 > 0.025 ⇒ 0
+            (0.5, 1.6, 1.0),
+            (0.975, 1.6, 4.0),
+            (0.99, 1.6, 5.0),
+            (0.025, 20.0, 12.0),
+            (0.975, 20.0, 29.0),
+            (0.5, 20.0, 20.0),
+            (0.975, 0.5, 2.0),
+            (0.025, 0.5, 0.0),
+        ];
+        for (p, mu, expected) in cases {
+            let got = poisson_quantile(p, mu);
+            assert_eq!(
+                got, expected,
+                "poisson_quantile(p={p}, μ={mu}) = {got}, expected {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn poisson_quantile_is_a_valid_cdf_inverse() {
+        // The returned integer k must be the *smallest* with CDF(k) ≥ p:
+        // CDF(k) ≥ p and (for k ≥ 1) CDF(k−1) < p, across a grid of (μ, p).
+        for &mu in &[0.3_f64, 1.6, 5.0, 25.0, 120.0] {
+            for &p in &[0.01_f64, 0.025, 0.1, 0.5, 0.9, 0.975, 0.99] {
+                let k = poisson_quantile(p, mu);
+                assert!(
+                    k.is_finite() && k >= 0.0 && k.fract() == 0.0,
+                    "non-integer k={k}"
+                );
+                let cdf_k = poisson_cdf_at(k, mu);
+                assert!(cdf_k + 1e-12 >= p, "CDF({k}) = {cdf_k} < p = {p} (μ={mu})");
+                if k >= 1.0 {
+                    let cdf_below = poisson_cdf_at(k - 1.0, mu);
+                    assert!(
+                        cdf_below < p,
+                        "k={k} not minimal: CDF({}) = {cdf_below} ≥ p = {p} (μ={mu})",
+                        k - 1.0
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn poisson_quantile_boundaries_and_degeneracy() {
+        assert_eq!(poisson_quantile(0.0, 2.0), 0.0);
+        assert_eq!(poisson_quantile(-0.1, 2.0), 0.0);
+        assert!(poisson_quantile(1.0, 2.0).is_infinite());
+        assert_eq!(poisson_quantile(0.5, 0.0), 0.0); // point mass at 0
+        assert!(poisson_quantile(0.5, -1.0).is_nan());
+        assert!(poisson_quantile(0.5, f64::NAN).is_nan());
+        // Monotone non-decreasing in p (discrete ⇒ plateaus allowed).
+        let mut prev = 0.0;
+        for i in 1..100 {
+            let p = i as f64 / 100.0;
+            let q = poisson_quantile(p, 4.0);
+            assert!(
+                q >= prev,
+                "Poisson quantile decreased at p={p}: {q} < {prev}"
+            );
+            prev = q;
+        }
+    }
+
+    #[test]
+    fn poisson_moment_matched_interval_is_exact_conditional_when_se_vanishes() {
+        // SE(μ̂) = 0 ⇒ total_var = μ ⇒ θ_eff = ∞, recovering the exact conditional
+        // Poisson quantiles directly (no NB widening).
+        for &mu in &[0.5_f64, 1.6, 20.0] {
+            let (lo, hi) = poisson_moment_matched_interval(mu, mu, 0.025, 0.975).unwrap();
+            assert_eq!(lo, poisson_quantile(0.025, mu));
+            assert_eq!(hi, poisson_quantile(0.975, mu));
+        }
+    }
+
+    #[test]
+    fn poisson_moment_matched_interval_widens_with_estimation_uncertainty() {
+        // Adding estimation variance lowers θ_eff (genuine overdispersion) and
+        // must not shrink the band; with enough added variance the upper edge
+        // grows beyond the conditional Poisson quantile.
+        let mu = 20.0_f64;
+        let (lo0, hi0) = poisson_moment_matched_interval(mu, mu, 0.025, 0.975).unwrap();
+        let (lo1, hi1) = poisson_moment_matched_interval(mu, mu + 40.0, 0.025, 0.975).unwrap();
+        assert!(
+            lo1 <= lo0 && hi1 > hi0,
+            "band did not widen: [{lo0},{hi0}] -> [{lo1},{hi1}]"
+        );
+        // A negligible excess (θ_eff above the switch threshold) must coincide
+        // with the exact conditional Poisson — no discontinuity at the boundary.
+        let (lo2, hi2) =
+            poisson_moment_matched_interval(mu, mu + mu * mu * 1.0e-12, 0.025, 0.975).unwrap();
+        assert_eq!((lo2, hi2), (lo0, hi0));
+    }
+
+    #[test]
+    fn poisson_moment_matched_interval_is_skewed_not_symmetric() {
+        // The whole point of #1193/#817: on a low-rate count the equal-tailed
+        // upper edge sits ABOVE the symmetric `μ + z·√μ` band that under-covers
+        // the upper tail, and the band is asymmetric about μ.
+        let mu = 2.0_f64;
+        let z = standard_normal_quantile(0.975).unwrap();
+        let (lo, hi) = poisson_moment_matched_interval(mu, mu, 0.025, 0.975).unwrap();
+        let sym_hi = mu + z * mu.sqrt();
+        assert!(
+            hi > sym_hi,
+            "equal-tailed upper {hi} should exceed symmetric upper {sym_hi}"
+        );
+        // Upper tail reaches further from μ than the lower tail (right skew).
+        assert!(
+            (hi - mu) > (mu - lo),
+            "band not right-skewed: lo={lo}, hi={hi}, μ={mu}"
+        );
+    }
+
+    #[test]
+    fn poisson_moment_matched_interval_rejects_degenerate_inputs() {
+        assert!(poisson_moment_matched_interval(0.0, 1.0, 0.025, 0.975).is_none());
+        assert!(poisson_moment_matched_interval(-1.0, 1.0, 0.025, 0.975).is_none());
+        assert!(poisson_moment_matched_interval(2.0, 0.0, 0.025, 0.975).is_none());
+        assert!(poisson_moment_matched_interval(2.0, 1.0, 0.025, 0.975).is_none()); // total_var < μ
+        assert!(poisson_moment_matched_interval(f64::NAN, 5.0, 0.025, 0.975).is_none());
+        assert!(poisson_moment_matched_interval(2.0, 5.0, 0.025, 0.975).is_some());
+    }
+
+    #[test]
+    fn tweedie_quantile_is_a_valid_cdf_inverse() {
+        // For a probability strictly above the zero atom the quantile `y` must
+        // satisfy `CDF(y) ≈ q`: the bisection inverts `tweedie_cdf_at` exactly.
+        let mu = 3.0_f64;
+        let phi = 1.2_f64;
+        let power = 1.5_f64;
+        let lambda = mu.powf(2.0 - power) / (phi * (2.0 - power));
+        let zero_mass = (-lambda).exp();
+        for &q in &[0.30_f64, 0.5, 0.75, 0.9, 0.975, 0.99] {
+            assert!(
+                q > zero_mass,
+                "test q must exceed the zero atom {zero_mass}"
+            );
+            let y = tweedie_quantile(q, mu, phi, power);
+            assert!(y.is_finite() && y > 0.0, "quantile out of support: {y}");
+            let cdf = tweedie_cdf_at(y, mu, phi, power);
+            assert!((cdf - q).abs() < 1e-6, "CDF(Q(q)) != q: q={q}, cdf={cdf}");
+        }
+    }
+
+    #[test]
+    fn tweedie_quantile_returns_zero_atom_for_low_tail() {
+        // When the requested lower-tail probability is at or below the point
+        // mass at zero `e^{−λ}`, the quantile is exactly 0 (right-skewed low
+        // means) — the zero-atom behaviour a continuous surrogate cannot mimic.
+        let mu = 0.4_f64; // small mean ⇒ large zero atom
+        let phi = 1.0_f64;
+        let power = 1.5_f64;
+        let lambda = mu.powf(2.0 - power) / (phi * (2.0 - power));
+        let zero_mass = (-lambda).exp();
+        assert!(
+            zero_mass > 0.025,
+            "fixture must have a fat zero atom: {zero_mass}"
+        );
+        assert_eq!(tweedie_quantile(0.025, mu, phi, power), 0.0);
+        assert_eq!(tweedie_quantile(0.5 * zero_mass, mu, phi, power), 0.0);
+    }
+
+    #[test]
+    fn tweedie_quantile_boundaries_and_degeneracy() {
+        let (mu, phi, power) = (2.0_f64, 1.0_f64, 1.6_f64);
+        assert_eq!(tweedie_quantile(0.0, mu, phi, power), 0.0);
+        assert_eq!(tweedie_quantile(-0.1, mu, phi, power), 0.0);
+        assert_eq!(tweedie_quantile(1.0, mu, phi, power), f64::INFINITY);
+        // Power outside (1, 2) or non-positive params are NaN.
+        assert!(tweedie_quantile(0.5, mu, phi, 2.0).is_nan());
+        assert!(tweedie_quantile(0.5, mu, phi, 1.0).is_nan());
+        assert!(tweedie_quantile(0.5, 0.0, phi, power).is_nan());
+        assert!(tweedie_quantile(0.5, mu, 0.0, power).is_nan());
+    }
+
+    #[test]
+    fn tweedie_moment_matched_interval_is_exact_conditional_when_se_vanishes() {
+        // total_var = φμ^p ⇒ φ_eff = φ, recovering the exact conditional Tweedie
+        // quantiles.
+        let mu = 3.0_f64;
+        let phi = 1.2_f64;
+        let power = 1.5_f64;
+        let total_var = phi * mu.powf(power);
+        let (lo, hi) =
+            tweedie_moment_matched_interval(mu, phi, power, total_var, 0.025, 0.975).unwrap();
+        assert_eq!(lo, tweedie_quantile(0.025, mu, phi, power));
+        assert_eq!(hi, tweedie_quantile(0.975, mu, phi, power));
+    }
+
+    #[test]
+    fn tweedie_moment_matched_interval_is_skewed_not_symmetric() {
+        // A right-skewed Tweedie has the upper edge farther from the mean than
+        // the lower edge — the symmetric `mu ± z·σ` band cannot reproduce this.
+        let mu = 2.0_f64;
+        let phi = 1.5_f64;
+        let power = 1.5_f64;
+        let total_var = phi * mu.powf(power);
+        let (lo, hi) =
+            tweedie_moment_matched_interval(mu, phi, power, total_var, 0.025, 0.975).unwrap();
+        assert!(lo >= 0.0 && hi > mu && lo < mu);
+        assert!(
+            hi - mu > mu - lo,
+            "interval is not right-skewed: lo={lo}, hi={hi}"
+        );
+    }
+
+    #[test]
+    fn tweedie_moment_matched_interval_widens_with_estimation_uncertainty() {
+        // Adding estimation variance raises φ_eff and must not shrink the band;
+        // the upper edge grows.
+        let mu = 4.0_f64;
+        let phi = 1.0_f64;
+        let power = 1.5_f64;
+        let obs_var = phi * mu.powf(power);
+        let (lo0, hi0) =
+            tweedie_moment_matched_interval(mu, phi, power, obs_var, 0.025, 0.975).unwrap();
+        let (lo1, hi1) =
+            tweedie_moment_matched_interval(mu, phi, power, obs_var + 30.0, 0.025, 0.975).unwrap();
+        assert!(
+            lo1 <= lo0 && hi1 > hi0,
+            "band did not widen: [{lo0},{hi0}] -> [{lo1},{hi1}]"
+        );
+    }
+
+    #[test]
+    fn tweedie_moment_matched_interval_rejects_degenerate_inputs() {
+        assert!(tweedie_moment_matched_interval(0.0, 1.0, 1.5, 1.0, 0.025, 0.975).is_none());
+        assert!(tweedie_moment_matched_interval(-1.0, 1.0, 1.5, 1.0, 0.025, 0.975).is_none());
+        assert!(tweedie_moment_matched_interval(2.0, 0.0, 1.5, 1.0, 0.025, 0.975).is_none());
+        assert!(tweedie_moment_matched_interval(2.0, 1.0, 2.0, 1.0, 0.025, 0.975).is_none());
+        assert!(tweedie_moment_matched_interval(2.0, 1.0, 1.5, 0.0, 0.025, 0.975).is_none());
+        assert!(tweedie_moment_matched_interval(f64::NAN, 1.0, 1.5, 1.0, 0.025, 0.975).is_none());
+        assert!(tweedie_moment_matched_interval(2.0, 1.0, 1.5, 6.0, 0.025, 0.975).is_some());
     }
 }

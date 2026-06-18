@@ -6,6 +6,8 @@ import json
 import pathlib
 from typing import Any, Callable, Union
 
+import puremagic
+
 from abstra_internals.contracts_generated import (
     CloudApiCliAgentsPostRequestBodyResponse,
     CloudApiCliAgentsPostRequestBodyStart,
@@ -88,6 +90,51 @@ class AiSDKController:
         except Exception:
             return None
 
+    @staticmethod
+    def _describe_unreadable(raw: bytes) -> str:
+        """Human-friendly label for bytes we can't send as an image, so the
+        error tells the user what they actually passed (e.g. an HTML error page
+        saved with a `.pdf` name) instead of a provider's opaque rejection."""
+        if not raw:
+            return "an empty file"
+        if raw[:5] == b"%PDF-":
+            return "a PDF that could not be rendered (it may be corrupt, truncated, or password-protected)"
+        if raw[:4] == b"PK\x03\x04":
+            return "a ZIP archive"
+        head = raw[:512].lstrip().lower()
+        if head.startswith(b"<!doctype html") or head.startswith(b"<html"):
+            return "an HTML page"
+        if head.startswith(b"<?xml"):
+            return "an XML document"
+        return "data that is not a supported image or readable PDF"
+
+    def _binary_file_messages(
+        self, file: io.IOBase, label: str
+    ) -> CloudApiCliAiV2PromptPostRequestMessages:
+        """Turn a binary file into image messages: render PDFs to page images,
+        pass through supported images, and raise a clear error for anything else
+        rather than silently shipping raw bytes the AI provider will reject."""
+        if images := self._try_extract_images(file):
+            return [
+                self._make_image_url_message(b64.encode_base_64(image))
+                for image in images
+            ]
+
+        file.seek(0)
+        raw = file.read()
+        try:
+            image_type = puremagic.what(None, h=raw)
+        except Exception:
+            image_type = None
+
+        if image_type in ("png", "jpeg", "gif", "webp"):
+            return [self._make_image_url_message(b64.encode_base_64(io.BytesIO(raw)))]
+
+        raise ValueError(
+            f"Cannot use '{label}' as an AI prompt: it is {self._describe_unreadable(raw)}. "
+            "Only images (PNG, JPEG, GIF, WebP) and readable PDFs are supported."
+        )
+
     def _make_messages(
         self, prompt: Prompt
     ) -> CloudApiCliAiV2PromptPostRequestMessages:
@@ -97,39 +144,17 @@ class AiSDKController:
                     return [self._make_text_message(f.read())]
 
             with prompt.open("rb") as f:
-                if images := self._try_extract_images(f):
-                    return [
-                        self._make_image_url_message(b64.encode_base_64(image))
-                        for image in images
-                    ]
-
-                encoded_str = b64.encode_base_64(f)
-                return [self._make_image_url_message(encoded_str)]
+                return self._binary_file_messages(f, str(prompt))
 
         if isinstance(prompt, (AbstractFileResponse, DeprecatedAbstractFileResponse)):
-            file = prompt.file
-
             if prompt.path.suffix[1:] == "txt":
                 return [self._make_text_message(prompt.content.decode("utf-8"))]
 
-            if images := self._try_extract_images(file):
-                return [
-                    self._make_image_url_message(b64.encode_base_64(image))
-                    for image in images
-                ]
-
-            encoded_str = b64.encode_base_64(file)
-            return [self._make_image_url_message(encoded_str)]
+            return self._binary_file_messages(prompt.file, str(prompt.path))
 
         if isinstance(prompt, io.IOBase):
             prompt.seek(0)
-            if images := self._try_extract_images(prompt):
-                return [
-                    self._make_image_url_message(b64.encode_base_64(image))
-                    for image in images
-                ]
-            encoded_str = b64.encode_base_64(prompt)
-            return [self._make_image_url_message(encoded_str)]
+            return self._binary_file_messages(prompt, "<file>")
 
         if isinstance(prompt, str) and (
             b64.is_base_64(prompt) or prompt.startswith("http")
@@ -140,17 +165,12 @@ class AiSDKController:
             return [self._make_image_url_message(prompt)]
 
         try:
-            if isinstance(prompt, str) and pathlib.Path(prompt).exists():
-                with open(prompt, "rb") as f:
-                    if images := self._try_extract_images(f):
-                        return [
-                            self._make_image_url_message(b64.encode_base_64(image))
-                            for image in images
-                        ]
-                    encoded_str = b64.encode_base_64(f)
-                    return [self._make_image_url_message(encoded_str)]
+            is_existing_path = isinstance(prompt, str) and pathlib.Path(prompt).exists()
         except OSError:  # Path contructor can raise OSError on long strings
-            pass
+            is_existing_path = False
+        if is_existing_path:
+            with open(prompt, "rb") as f:  # type: ignore[arg-type]
+                return self._binary_file_messages(f, str(prompt))
 
         try:
             from PIL.Image import Image as PILImage

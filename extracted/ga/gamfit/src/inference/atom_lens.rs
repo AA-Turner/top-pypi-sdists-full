@@ -1,5 +1,5 @@
 //! Two-score per-atom **lens** (#980, amended): an *additive* per-atom report on
-//! a fitted [`SaeManifoldTerm`](crate::terms::sae_manifold::SaeManifoldTerm).
+//! a fitted [`SaeManifoldTerm`](crate::terms::sae::manifold::SaeManifoldTerm).
 //!
 //! # The amendment this file encodes
 //!
@@ -49,10 +49,10 @@
 //! suppress the atom, because suppression would be the loss-replacement mistake
 //! the amendment removes.
 
-use ndarray::ArrayView1;
+use ndarray::{ArrayView1, ArrayView2};
 
 use crate::inference::row_metric::{MetricProvenance, RowMetric};
-use crate::terms::sae_manifold::SaeManifoldTerm;
+use crate::terms::sae::manifold::SaeManifoldTerm;
 
 /// Below this active mass a row is not "truly active" for an atom, so it
 /// contributes to neither the presence average nor the coupling average. The
@@ -65,7 +65,7 @@ pub const SAE_TRUST_ACTIVE_MASS_FLOOR: f64 = 1e-6;
 /// One atom's lens entry.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AtomLensEntry {
-    /// The atom's name (mirrors [`crate::terms::sae_manifold::SaeManifoldAtom::name`]).
+    /// The atom's name (mirrors [`crate::terms::sae::manifold::SaeManifoldAtom::name`]).
     pub name: String,
     /// **presence** (representational, activation-side, Fisher-free): mean active
     /// mass on truly-active rows × amplitude-weighted decoder norm. Always
@@ -170,7 +170,11 @@ fn metric_carries_behavior(p: MetricProvenance) -> bool {
 /// This function is a *pure read*: it never mutates the model, never touches a
 /// loss / criterion / penalty, and the only place the Fisher metric enters is the
 /// [`RowMetric::fisher_mass`] call that produces the (reported) coupling score.
-pub fn atom_two_lens(model: &SaeManifoldTerm, metric: &RowMetric) -> AtomTwoLensReport {
+pub fn atom_two_lens(
+    model: &SaeManifoldTerm,
+    metric: &RowMetric,
+    assignments_override: Option<ArrayView2<'_, f64>>,
+) -> AtomTwoLensReport {
     let n = model.n_obs();
     let k = model.k_atoms();
     let provenance = metric.provenance();
@@ -182,9 +186,17 @@ pub fn atom_two_lens(model: &SaeManifoldTerm, metric: &RowMetric) -> AtomTwoLens
         && metric.n_rows() == n
         && metric.p_out() == model.output_dim();
 
-    // Per-row assignment masses, computed once. `assignment` is a public field
-    // of the term; `assignments()` lives on `SaeAssignment`.
-    let assignments = model.assignment.assignments();
+    // Per-row assignment masses, computed once. When a hard top-k projection has
+    // been applied (#1232), the caller supplies the projected matrix so the lens
+    // matches the returned payload rather than the smooth optimization assignments.
+    let assignments_owned;
+    let assignments = match assignments_override {
+        Some(view) => view,
+        None => {
+            assignments_owned = model.assignment.assignments();
+            assignments_owned.view()
+        }
+    };
 
     let mut presence = vec![0.0_f64; k];
     let mut coupling_raw = vec![0.0_f64; k];

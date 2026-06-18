@@ -190,3 +190,76 @@ class PointPredictionFormat(PredictionFormat):
             )
 
         return data
+
+
+class KeypointPredictionFormat(PredictionFormat):
+    detection_scores: list[float]
+    keypoints: list[list[list[int]]]
+
+    @property
+    def model_type(cls) -> InferenceType:
+        return InferenceType.KEYPOINT
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_sizes(cls, data):
+        labels, scores, keypoints = (
+            data.get("detection_classes"),
+            data.get("detection_scores"),
+            data.get("keypoints"),
+        )
+
+        if (
+            labels is None
+            or scores is None
+            or keypoints is None
+            or len(labels) != len(scores)
+            or len(keypoints) != len(labels)
+        ):
+            raise ValueError("incoherent lists")
+
+        if any(len(point) != 3 for keypoint in keypoints for point in keypoint):
+            raise ValueError("keypoint's point must contains exactly 2 values")
+
+        texts = data.get("detection_texts")
+        if texts and len(texts) != len(labels):
+            raise ValueError(
+                "texts are not well defined, there must be exactly the same count of texts than classes"
+            )
+
+        return data
+
+
+class MaskPredictionFormat(PredictionFormat):
+    detection_scores: list[float]
+    detection_masks: list[str]
+
+    @property
+    def model_type(cls) -> InferenceType:
+        return InferenceType.MASK
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_sizes(cls, data):
+        labels, scores, masks = (
+            data.get("detection_classes"),
+            data.get("detection_scores"),
+            data.get("detection_masks"),
+        )
+
+        if (
+            labels is None
+            or scores is None
+            or masks is None
+            or len(labels) != len(scores)
+            or len(masks) != len(labels)
+        ):
+            raise ValueError("incoherent lists")
+
+        texts = data.get("detection_texts")
+        if texts and len(texts) != len(labels):
+            raise ValueError(
+                "texts are not well defined, there must be exactly the same count of texts than classes"
+            )
+
+        return data

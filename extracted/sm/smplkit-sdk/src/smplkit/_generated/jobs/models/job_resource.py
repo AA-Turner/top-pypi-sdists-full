@@ -25,14 +25,21 @@ class JobResource:
         {'attributes': {'concurrency_policy': 'ALLOW', 'configuration': {'body': '{"scope":"all"}', 'headers': [{'name':
             'Authorization', 'value': 'Bearer s3cr3t'}], 'method': 'POST', 'success_status': '2xx', 'timeout': 30,
             'tls_verify': True, 'url': 'https://api.example.com/cache/warm'}, 'description': 'Warms the product cache every
-            night at 02:00 UTC.', 'enabled': True, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type': 'http'},
-            'id': 'nightly-cache-warm', 'type': 'job'}
+            night at 02:00 UTC.', 'environments': {'production': {'enabled': True}, 'staging': {'configuration': {'body':
+            '{"scope":"all"}', 'headers': [{'name': 'Authorization', 'value': 'Bearer staging'}], 'method': 'POST',
+            'success_status': '2xx', 'timeout': 30, 'tls_verify': True, 'url': 'https://staging.example.com/cache/warm'},
+            'enabled': True}}, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type': 'http'}, 'id': 'nightly-cache-
+            warm', 'type': 'job'}
 
     Attributes:
         attributes (Job): A scheduled unit of work: an HTTP request run on a schedule.
 
             The job is the definition; each time it fires the service records a run
-            capturing the request, response, timing, and outcome.
+            capturing the request, response, timing, and outcome. A job is enabled per
+            environment: set `environments[<env>].enabled` to schedule runs there. A
+            recurring (cron) job may be enabled in several environments at once and
+            fires once per enabled environment; a one-off (`now` or future datetime)
+            job runs a single time in the environment it was created in.
         id (None | str | Unset):
         type_ (str | Unset):  Default: 'job'.
     """

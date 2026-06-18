@@ -257,9 +257,9 @@ impl OuterDerivativePolicy {
     ///   universal).
     pub fn order_for_evaluation(
         &self,
-        requested: crate::solver::outer_strategy::OuterEvalOrder,
-    ) -> crate::solver::outer_strategy::OuterEvalOrder {
-        use crate::solver::outer_strategy::OuterEvalOrder;
+        requested: crate::solver::rho_optimizer::OuterEvalOrder,
+    ) -> crate::solver::rho_optimizer::OuterEvalOrder {
+        use crate::solver::rho_optimizer::OuterEvalOrder;
         match requested {
             // Value-only is universal: every policy can evaluate the bare
             // objective, so the request passes through unclamped.
@@ -268,7 +268,7 @@ impl OuterDerivativePolicy {
             OuterEvalOrder::ValueGradientHessian => {
                 if matches!(
                     self.declared_hessian_form(),
-                    crate::solver::outer_strategy::DeclaredHessianForm::Unavailable
+                    crate::solver::rho_optimizer::DeclaredHessianForm::Unavailable
                 ) {
                     OuterEvalOrder::ValueAndGradient
                 } else {
@@ -283,8 +283,8 @@ impl OuterDerivativePolicy {
     /// `Either` ⇔ capability has Hessian. Work estimates select dense vs
     /// operator assembly later; they must not erase analytic second-order
     /// capability from the planner.
-    pub fn declared_hessian_form(&self) -> crate::solver::outer_strategy::DeclaredHessianForm {
-        use crate::solver::outer_strategy::DeclaredHessianForm;
+    pub fn declared_hessian_form(&self) -> crate::solver::rho_optimizer::DeclaredHessianForm {
+        use crate::solver::rho_optimizer::DeclaredHessianForm;
         if !self.capability.has_hessian() {
             return DeclaredHessianForm::Unavailable;
         }
@@ -528,8 +528,7 @@ pub struct BlockwiseFitOptions {
     /// consulted only by outer-only call sites. Default `None` preserves the
     /// full-data behavior. Wrapping in `Arc` keeps `Clone` cheap across the
     /// many places `BlockwiseFitOptions` is duplicated per-eval.
-    pub outer_score_subsample:
-        Option<Arc<crate::families::marginal_slope_shared::OuterScoreSubsample>>,
+    pub outer_score_subsample: Option<Arc<crate::solver::outer_subsample::OuterScoreSubsample>>,
     /// Gate for marginal-slope families to auto-derive a stratified
     /// outer-score subsample at large scale (see
     /// [`crate::families::marginal_slope_shared::auto_outer_score_subsample`]).
@@ -568,18 +567,16 @@ pub struct BlockwiseFitOptions {
     /// runs cold and writes nothing — the default for unit tests and
     /// any caller that pinned a deterministic optimum.
     ///
-    /// The session is opened at the workflow-level `fit_model`
-    /// dispatcher so every family flows through one chokepoint; family
-    /// code never has to remember to wire it. This mirrors the standard
-    /// REML cache wiring in `solver/estimate.rs:2701`.
-    pub cache_session: Option<Arc<crate::cache::Session>>,
+    /// Callers that need cross-process reuse must supply the session
+    /// explicitly; ordinary workflow fits leave this empty so refit-heavy
+    /// loops do not touch the shared on-disk store.
+    pub cache_session: Option<Arc<crate::warm_start::Session>>,
     /// Optional mirror sessions that receive a copy of the final-result
-    /// finalize() write. Used by the workflow dispatcher to broadcast a
-    /// converged ρ to additional keyspace(s) — notably the data-
-    /// independent seed prefix — so future fits with related structure
-    /// can warm-start from this run. Writes still pass through the session
-    /// rate limiter, so mirroring checkpoints does not add unbounded I/O.
-    pub cache_mirror_sessions: Vec<Arc<crate::cache::Session>>,
+    /// finalize() write. Callers can use this to broadcast a converged ρ to
+    /// additional keyspace(s) so future fits with related structure can
+    /// warm-start from this run. Writes still pass through the session rate
+    /// limiter, so mirroring checkpoints does not add unbounded I/O.
+    pub cache_mirror_sessions: Vec<Arc<crate::warm_start::Session>>,
     /// Optional bundle of cross-block (full-width) penalties, paired with
     /// their current `log λ` values from the outer ρ vector. When `Some`,
     /// the inner joint-Newton primitives add the contributions

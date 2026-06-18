@@ -35,7 +35,12 @@ def contains_pattern(search: re.Pattern, contents: str) -> bool:
     return False
 
 
-def log_changes(file_path: str, file_content_before: str, file_content_after: str, dry_run: bool = False) -> None:
+def log_changes(
+    file_path: str,
+    file_content_before: str,
+    file_content_after: str,
+    dry_run: bool = False,
+) -> None:
     """
     Log the changes that would be made to the file.
 
@@ -107,11 +112,11 @@ class ConfiguredFile:
         """
         Return the contents of the file.
 
-        Raises:
-            FileNotFoundError: if the file doesn't exist
-
         Returns:
             The contents of the file
+
+        Raises:
+            FileNotFoundError: if the file doesn't exist
         """
         if not os.path.exists(self.file_change.filename):
             raise FileNotFoundError(f"File not found: '{self.file_change.filename}'")  # pragma: no-coverage
@@ -130,7 +135,10 @@ class ConfiguredFile:
             f.write(contents)
 
     def _contains_change_pattern(
-        self, search_expression: re.Pattern, raw_search_expression: str, version: Version
+        self,
+        search_expression: re.Pattern,
+        raw_search_expression: str,
+        version: Version,
     ) -> bool:
         """
         Does the file contain the change pattern?
@@ -140,11 +148,11 @@ class ConfiguredFile:
             raw_search_expression: The raw search expression
             version: The version to check, in case it's not the same as the original
 
-        Raises:
-            VersionNotFoundError: if the version number isn't present in this file.
-
         Returns:
             True if the version number is in fact present.
+
+        Raises:
+            VersionNotFoundError: if the version number isn't present in this file.
         """
         file_contents = self.get_file_contents()
         if contains_pattern(search_expression, file_contents):
@@ -168,7 +176,11 @@ class ConfiguredFile:
         raise VersionNotFoundError(f"Did not find '{raw_search_expression}' in file: '{self.file_change.filename}'")
 
     def make_file_change(
-        self, current_version: Version, new_version: Version, context: MutableMapping, dry_run: bool = False
+        self,
+        current_version: Version,
+        new_version: Version,
+        context: MutableMapping,
+        dry_run: bool = False,
     ) -> None:
         """Make the change to the file."""
         logger.info(
@@ -230,7 +242,10 @@ class ConfiguredFile:
 
 
 def resolve_file_config(
-    files: List[FileChange], version_config: VersionConfig, search: Optional[str] = None, replace: Optional[str] = None
+    files: List[FileChange],
+    version_config: VersionConfig,
+    search: Optional[str] = None,
+    replace: Optional[str] = None,
 ) -> List[ConfiguredFile]:
     """
     Resolve the files, searching and replacing values according to the FileConfig.
@@ -301,7 +316,11 @@ class FileUpdater:
         self._newlines: Optional[str] = None
 
     def update_file(
-        self, current_version: Version, new_version: Version, context: MutableMapping, dry_run: bool = False
+        self,
+        current_version: Version,
+        new_version: Version,
+        context: MutableMapping,
+        dry_run: bool = False,
     ) -> None:
         """Update the files."""
         # TODO: Implement this
@@ -328,7 +347,11 @@ class DataFileUpdater:
         self._newlines: Optional[str] = None
 
     def update_file(
-        self, current_version: Version, new_version: Version, context: MutableMapping, dry_run: bool = False
+        self,
+        current_version: Version,
+        new_version: Version,
+        context: MutableMapping,
+        dry_run: bool = False,
     ) -> None:
         """Update the files."""
         new_context = deepcopy(context)
@@ -346,7 +369,11 @@ class DataFileUpdater:
                     raise e
 
     def _update_toml_file(
-        self, search_for: re.Pattern, raw_search_pattern: str, replace_with: str, dry_run: bool = False
+        self,
+        search_for: re.Pattern,
+        raw_search_pattern: str,
+        replace_with: str,
+        dry_run: bool = False,
     ) -> None:
         """Update a TOML file."""
         import tomlkit

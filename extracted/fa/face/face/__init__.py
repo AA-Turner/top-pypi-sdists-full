@@ -1,3 +1,5 @@
+__version__ = '26.0.1'
+
 from face.parser import (Flag,
                          FlagDisplay,
                          ERROR,
@@ -16,7 +18,7 @@ from face.errors import (FaceException,
                          UsageError)
 
 from face.parser import (ListParam, ChoicesParam)
-from face.command import Command
+from face.command import Command, CommandGroup
 from face.middleware import face_middleware
 from face.helpers import HelpHandler, StoutHelpFormatter
 from face.testing import CommandChecker, CheckError

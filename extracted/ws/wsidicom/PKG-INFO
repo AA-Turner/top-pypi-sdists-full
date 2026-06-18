@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wsidicom
-Version: 0.30.0
+Version: 0.31.0
 Summary: Tools for handling DICOM based whole scan images
 Project-URL: Repository, https://github.com/imi-bigpicture/wsidicom
 Author-email: Erik O Gabrielsson <erik.o.gabrielsson@sectra.com>
@@ -23,7 +23,7 @@ Requires-Dist: pillow>=9.1.1
 Requires-Dist: pydicom>=3.0.0
 Requires-Dist: universal-pathlib<0.3.0,>=0.2.1
 Provides-Extra: imagecodecs
-Requires-Dist: imagecodecs!=2024.9.22,<2025.0.0,>=2024.1.1; extra == 'imagecodecs'
+Requires-Dist: imagecodecs!=2024.9.22,>=2024.1.1; extra == 'imagecodecs'
 Provides-Extra: pyjpegls
 Requires-Dist: pyjpegls<2.0.0,>=1.2.0; extra == 'pyjpegls'
 Provides-Extra: pylibjpeg-openjpeg

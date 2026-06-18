@@ -49,7 +49,7 @@ pub struct PirlsStepStreamInput<'a> {
 ///
 /// Where the host-input form uploads `weights` + `gradient` per Newton
 /// step, this form reads them straight from the
-/// [`crate::gpu::pirls_row::RowOutputDevBuffers`] populated by the
+/// [`crate::gpu::kernels::pirls_row::RowOutputDevBuffers`] populated by the
 /// device-side row-reweight kernel — no host round-trip for the row
 /// state. Only the penalty matrix still crosses the host boundary
 /// because the outer REML loop updates Sλ + LM ridge between PIRLS
@@ -163,7 +163,7 @@ pub(crate) mod cuda {
         PirlsGpuInput, PirlsGpuSharedData, PirlsGpuStep, PirlsStepStreamDeviceInput,
         PirlsStepStreamInput, SigmaPirlsGpuWorkspace,
     };
-    use crate::gpu::common::PtxModuleCache;
+    use crate::gpu::device_cache::PtxModuleCache;
     use crate::gpu::driver::{from_col_major, to_col_major};
     use crate::gpu::solver::{
         check_deferred_potrf_info, check_deferred_potrs_info, context_and_stream, pinned_htod,
@@ -2008,11 +2008,11 @@ extern "C" __global__ void status_or(
         pub beta_dev: CudaSlice<f64>,
         pub eta_dev: CudaSlice<f64>,
         /// Solve-row buffers: `grad_eta`, `w_solver`, `deviance`, `status`.
-        pub row_solve: crate::gpu::pirls_row::SolveRowBuffers,
+        pub row_solve: crate::gpu::kernels::pirls_row::SolveRowBuffers,
         /// Alpha-ladder buffers: `objective[7]`, `status[7]`.
-        pub alpha_ladder: crate::gpu::pirls_row::AlphaLadderDevBuffers,
+        pub alpha_ladder: crate::gpu::kernels::pirls_row::AlphaLadderDevBuffers,
         /// Full final-row buffers: all 9 fields, written once at convergence.
-        pub row_final: crate::gpu::pirls_row::RowOutputDevBuffers,
+        pub row_final: crate::gpu::kernels::pirls_row::RowOutputDevBuffers,
         pub direction_dev: CudaSlice<f64>,
         pub xd_dev: CudaSlice<f64>,
         pub scalar_dev: CudaSlice<f64>,
@@ -2037,11 +2037,13 @@ extern "C" __global__ void status_or(
             Ok(Self {
                 beta_dev: alloc_f64("beta", p)?,
                 eta_dev: alloc_f64("eta", n)?,
-                row_solve: crate::gpu::pirls_row::SolveRowBuffers::allocate(stream, n)
+                row_solve: crate::gpu::kernels::pirls_row::SolveRowBuffers::allocate(stream, n)
                     .map_err(|e| format!("pirls loop alloc row_solve: {e}"))?,
-                alpha_ladder: crate::gpu::pirls_row::AlphaLadderDevBuffers::allocate(stream)
-                    .map_err(|e| format!("pirls loop alloc alpha_ladder: {e}"))?,
-                row_final: crate::gpu::pirls_row::RowOutputDevBuffers::allocate(stream, n)
+                alpha_ladder: crate::gpu::kernels::pirls_row::AlphaLadderDevBuffers::allocate(
+                    stream,
+                )
+                .map_err(|e| format!("pirls loop alloc alpha_ladder: {e}"))?,
+                row_final: crate::gpu::kernels::pirls_row::RowOutputDevBuffers::allocate(stream, n)
                     .map_err(|e| format!("pirls loop alloc row_final: {e}"))?,
                 direction_dev: alloc_f64("direction", p)?,
                 xd_dev: alloc_f64("xd", n)?,
@@ -2262,7 +2264,7 @@ extern "C" __global__ void status_or(
         pub max_abs_eta: f64,
         /// Bitwise-OR of all per-row status flags across the n rows at
         /// the final accepted PIRLS step. Carries
-        /// [`crate::gpu::pirls_row::status_flags`] bits so callers can
+        /// [`crate::gpu::kernels::pirls_row::status_flags`] bits so callers can
         /// distinguish saturation (`ETA_CLAMPED`), numerical floor
         /// (`MU_FLOORED`), or invalid input (`INVALID_RESPONSE`,
         /// `ZERO_PRIOR_WEIGHT`). A value of 0 means no per-row
@@ -2278,8 +2280,8 @@ extern "C" __global__ void status_or(
         shared: &PirlsGpuSharedData,
         ws: &mut SigmaPirlsGpuWorkspace,
         loop_ws: &mut PirlsLoopWorkspace,
-        family: crate::gpu::pirls_row::PirlsRowFamily,
-        curvature: crate::gpu::pirls_row::CurvatureMode,
+        family: crate::gpu::kernels::pirls_row::PirlsRowFamily,
+        curvature: crate::gpu::kernels::pirls_row::CurvatureMode,
         // Active Gamma dispersion shape (α > 0). Forwarded to every
         // `launch_row_reweight_on_stream` call. Pass `1.0` for non-Gamma fits.
         gamma_shape: f64,
@@ -2335,7 +2337,7 @@ extern "C" __global__ void status_or(
             )
             .map_err(|e| format!("upload beta0: {e}"))?;
 
-        let backend = crate::gpu::pirls_row::PirlsRowBackend::probe()
+        let backend = crate::gpu::kernels::pirls_row::PirlsRowBackend::probe()
             .map_err(|e| format!("pirls_row backend: {e}"))?;
         let loop_module = PIRLS_LOOP_CACHE
             .get_or_compile(&shared.ctx, "pirls_loop", PIRLS_LOOP_PTX_SOURCE)
@@ -2381,7 +2383,7 @@ extern "C" __global__ void status_or(
             n,
         )?;
         // Initial solve-row pass on the starting η (4-output kernel only).
-        crate::gpu::pirls_row::launch_solve_row_on_stream(
+        crate::gpu::kernels::pirls_row::launch_solve_row_on_stream(
             backend,
             family,
             curvature,
@@ -2494,7 +2496,7 @@ extern "C" __global__ void status_or(
                 .alpha_ladder
                 .zero(&ws.stream)
                 .map_err(|e| format!("ladder zero it={it}: {e}"))?;
-            crate::gpu::pirls_row::launch_alpha_ladder_on_stream(
+            crate::gpu::kernels::pirls_row::launch_alpha_ladder_on_stream(
                 backend,
                 family,
                 curvature,
@@ -2539,14 +2541,15 @@ extern "C" __global__ void status_or(
             let penalty_beta =
                 beta_host.dot(&s_beta) - 2.0 * beta_host.dot(&linear_shift) + constant_shift;
 
-            const FORBIDDEN_LINESEARCH: u32 = crate::gpu::pirls_row::status_flags::INVALID_RESPONSE
-                | crate::gpu::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
+            const FORBIDDEN_LINESEARCH: u32 =
+                crate::gpu::kernels::pirls_row::status_flags::INVALID_RESPONSE
+                    | crate::gpu::kernels::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
             let mut alpha = 0.0_f64;
             let mut accepted_dev = prev_deviance;
             let mut accepted_objective = prev_objective;
             let mut halving_count: usize = 0;
             for (k, (&dev_k, &st)) in obj_host.iter().zip(stat_host.iter()).enumerate() {
-                let a = crate::gpu::pirls_row::ALPHA_LADDER[k];
+                let a = crate::gpu::kernels::pirls_row::ALPHA_LADDER[k];
                 let pen_k = penalty_beta + a * linear_coeff + a * a * dtsd;
                 let obj_k = dev_k + pen_k;
                 // Match the CPU oracle's acceptance test (#263):
@@ -2613,7 +2616,7 @@ extern "C" __global__ void status_or(
                 *b += alpha * d;
             }
             // Refresh the 4-output solve-row buffers for the next Newton iter.
-            crate::gpu::pirls_row::launch_solve_row_on_stream(
+            crate::gpu::kernels::pirls_row::launch_solve_row_on_stream(
                 backend,
                 family,
                 curvature,
@@ -2645,7 +2648,7 @@ extern "C" __global__ void status_or(
             {
                 converged = true;
                 // Final-row mode: write all 9 output fields once at convergence.
-                crate::gpu::pirls_row::launch_row_reweight_on_stream(
+                crate::gpu::kernels::pirls_row::launch_row_reweight_on_stream(
                     backend,
                     family,
                     curvature,
@@ -2690,7 +2693,7 @@ extern "C" __global__ void status_or(
         }
 
         // Final-row mode: write all 9 output fields once at max-iter exit.
-        crate::gpu::pirls_row::launch_row_reweight_on_stream(
+        crate::gpu::kernels::pirls_row::launch_row_reweight_on_stream(
             backend,
             family,
             curvature,
@@ -2801,8 +2804,8 @@ extern "C" __global__ void status_or(
             &mut loop_ws.status_u32_dev,
             "final_row_status",
         )?;
-        const FORBIDDEN_FINAL: u32 = crate::gpu::pirls_row::status_flags::INVALID_RESPONSE
-            | crate::gpu::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
+        const FORBIDDEN_FINAL: u32 = crate::gpu::kernels::pirls_row::status_flags::INVALID_RESPONSE
+            | crate::gpu::kernels::pirls_row::status_flags::ZERO_PRIOR_WEIGHT;
 
         // Stability classification — Unstable supersedes both
         // converged and MaxIterationsReached because a non-finite η /
@@ -3248,7 +3251,7 @@ pub fn weighted_crossprod_gpu(
 
     #[cfg(target_os = "linux")]
     {
-        if crate::gpu::runtime::GpuRuntime::global().is_none() {
+        if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
             return cpu_fallback::weighted_crossprod_cpu(x, weights);
         }
         cuda::weighted_crossprod(x, weights)
@@ -3263,7 +3266,7 @@ pub fn solve_pirls_step_gpu(input: PirlsGpuInput<'_>) -> Result<PirlsGpuStep, St
 
     #[cfg(target_os = "linux")]
     {
-        if crate::gpu::runtime::GpuRuntime::global().is_none() {
+        if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
             return cpu_fallback::solve_step_cpu(input);
         }
         cuda::solve_step(input)
@@ -3282,7 +3285,7 @@ pub fn upload_shared_pirls_gpu(
     prior_w: ndarray::ArrayView1<'_, f64>,
     offset: ndarray::ArrayView1<'_, f64>,
 ) -> Result<PirlsGpuSharedData, String> {
-    if crate::gpu::runtime::GpuRuntime::global().is_none() {
+    if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
         return Err("cuda runtime unavailable; cannot upload shared GPU PIRLS data".to_string());
     }
     PirlsGpuSharedData::upload_impl(x, y, prior_w, offset)
@@ -3333,7 +3336,7 @@ pub fn solve_pirls_step_on_stream(
 
 /// Stage 3.2 device-input PIRLS step. Reads `w_solver` and `grad_eta`
 /// from caller-supplied device buffers (typically populated by
-/// [`crate::gpu::pirls_row::launch_row_reweight_on_stream`]) instead of
+/// [`crate::gpu::kernels::pirls_row::launch_row_reweight_on_stream`]) instead of
 /// uploading them from host arrays. Math is bit-identical to
 /// [`solve_pirls_step_on_stream`]; this entry differs only by skipping
 /// the per-iter `weights` and `gradient` host-to-device transfers — only
@@ -3361,8 +3364,8 @@ pub fn pirls_loop_on_stream(
     shared: &PirlsGpuSharedData,
     ws: &mut SigmaPirlsGpuWorkspace,
     loop_ws: &mut cuda::PirlsLoopWorkspace,
-    family: crate::gpu::pirls_row::PirlsRowFamily,
-    curvature: crate::gpu::pirls_row::CurvatureMode,
+    family: crate::gpu::kernels::pirls_row::PirlsRowFamily,
+    curvature: crate::gpu::kernels::pirls_row::CurvatureMode,
     // Active Gamma dispersion shape (α > 0). Pass `1.0` for non-Gamma fits.
     gamma_shape: f64,
     beta0: ndarray::ArrayView1<'_, f64>,
@@ -3580,16 +3583,17 @@ mod pcg_device {
             static BACKEND: OnceLock<Result<PcgBackend, String>> = OnceLock::new();
             BACKEND
                 .get_or_init(|| {
-                    let runtime = crate::gpu::runtime::GpuRuntime::global()
+                    let runtime = crate::gpu::device_runtime::GpuRuntime::global()
                         .ok_or_else(|| "pcg backend: no CUDA runtime available".to_string())?;
-                    let ctx =
-                        crate::gpu::runtime::cuda_context_for(runtime.selected_device().ordinal)
-                            .ok_or_else(|| {
-                                format!(
-                                    "pcg backend: failed to create CUDA context for device {}",
-                                    runtime.selected_device().ordinal
-                                )
-                            })?;
+                    let ctx = crate::gpu::device_runtime::cuda_context_for(
+                        runtime.selected_device().ordinal,
+                    )
+                    .ok_or_else(|| {
+                        format!(
+                            "pcg backend: failed to create CUDA context for device {}",
+                            runtime.selected_device().ordinal
+                        )
+                    })?;
                     let stream = ctx.default_stream();
                     let ptx = cudarc::nvrtc::compile_ptx(PCG_KERNEL_SOURCE)
                         .map_err(|err| format!("pcg NVRTC compile failed: {err}"))?;
@@ -4165,7 +4169,7 @@ mod stream_device_parity_tests {
 
     #[test]
     fn device_input_step_matches_host_input_step_on_v100() {
-        if crate::gpu::runtime::GpuRuntime::global().is_none() {
+        if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
             eprintln!("[stream_device_parity] no CUDA runtime — skipping");
             return;
         }
@@ -4277,9 +4281,11 @@ mod stream_device_parity_tests {
     /// 13k-line state machine.
     #[test]
     fn hill_climb_loop_beats_cpu_10x_on_large_scale_logit() {
-        use crate::gpu::pirls_row::{CurvatureMode, PirlsRowFamily, RowInput, row_reweight_cpu};
+        use crate::gpu::kernels::pirls_row::{
+            CurvatureMode, PirlsRowFamily, RowInput, row_reweight_cpu,
+        };
         use std::time::Instant;
-        if crate::gpu::runtime::GpuRuntime::global().is_none() {
+        if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
             eprintln!("[hill_climb] no CUDA runtime — skipping");
             return;
         }
@@ -4404,7 +4410,7 @@ mod stream_device_parity_tests {
     /// `(XᵀX + Sλ)⁻¹·Xᵀy` solution.
     #[test]
     fn pirls_loop_converges_to_ols_solution_on_gaussian_identity() {
-        if crate::gpu::runtime::GpuRuntime::global().is_none() {
+        if crate::gpu::device_runtime::GpuRuntime::global().is_none() {
             eprintln!("[stage_3_3] no CUDA runtime — skipping");
             return;
         }
@@ -4441,8 +4447,8 @@ mod stream_device_parity_tests {
             &shared,
             &mut ws,
             &mut loop_ws,
-            crate::gpu::pirls_row::PirlsRowFamily::GaussianIdentity,
-            crate::gpu::pirls_row::CurvatureMode::Fisher,
+            crate::gpu::kernels::pirls_row::PirlsRowFamily::GaussianIdentity,
+            crate::gpu::kernels::pirls_row::CurvatureMode::Fisher,
             1.0,
             beta0.view(),
             penalty.view(),
@@ -4600,7 +4606,7 @@ mod pcg_device_parity_tests {
 
     #[test]
     fn pcg_device_matches_dense_oracle_at_n64_r20_p44() {
-        let Some(_runtime) = crate::gpu::runtime::GpuRuntime::global() else {
+        let Some(_runtime) = crate::gpu::device_runtime::GpuRuntime::global() else {
             eprintln!("[pcg_device parity] no CUDA runtime — skipping");
             return;
         };
@@ -4681,15 +4687,16 @@ mod pcg_device_parity_tests {
         // kernels will use when `run_pcg_against_row_hessian_device` probes
         // its own backend. Going through the public runtime APIs keeps the
         // test independent of any private kernel-backend symbols.
-        let runtime = crate::gpu::runtime::GpuRuntime::global()
+        let runtime = crate::gpu::device_runtime::GpuRuntime::global()
             .expect("runtime must exist when probe succeeded above");
-        let ctx = match crate::gpu::runtime::cuda_context_for(runtime.selected_device().ordinal) {
-            Some(c) => c,
-            None => {
-                eprintln!("[pcg_device parity] cuda_context_for failed; skipping");
-                return;
-            }
-        };
+        let ctx =
+            match crate::gpu::device_runtime::cuda_context_for(runtime.selected_device().ordinal) {
+                Some(c) => c,
+                None => {
+                    eprintln!("[pcg_device parity] cuda_context_for failed; skipping");
+                    return;
+                }
+            };
         let stream = ctx.default_stream();
         let d_h = match stream.clone_htod(&row_hessians) {
             Ok(s) => s,

@@ -148,11 +148,20 @@ class VideoSchema(DataSchema):
     meta: VideoMetaSchema
 
 
+# It's a partial DataSchema
+class AssignmentDataSchema(DaoSchema):
+    id: UUID
+    filename: str
+    object_name: str
+    url: str | None = Field(alias="presigned_url", default=None)
+
+
 class AssignmentSchema(DaoSchema):
     asset_id: UUID
     user_id: UUID | None = Field(alias="assigned_user_id", default=None)
     step_id: UUID
     status: AssignmentStatus
+    data: AssignmentDataSchema
 
 
 class DataProjectionSchema(DaoSchema):

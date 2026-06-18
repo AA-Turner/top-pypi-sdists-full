@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistralai
-Version: 2.4.11
+Version: 2.4.12
 Summary: Python Client SDK for the Mistral AI API.
 Project-URL: Repository, https://github.com/mistralai/client-python.git
 Author: Mistral
@@ -717,8 +717,15 @@ print(res.choices[0].message.content)
 
 ### [Beta.Rag.SearchIndexes](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md)
 
-* [list](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#list) - Get Search Indexes
-* [register](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#register) - Register Search Index
+* [register](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#register) - Register (or re-register) a search index
+* [get_index_summaries](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#get_index_summaries) - Get Index Summaries
+* [unregister](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#unregister) - Unregister Search Index
+* [update_index_metrics](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#update_index_metrics) - Update Index Metrics
+* [get_index_detail](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#get_index_detail) - Get Index Details
+* [set_index_summary](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#set_index_summary) - Set Index Summary
+* [get_index_schema_detail](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#get_index_schema_detail) - Get Index Schema Detail
+* [set_schema_summary](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#set_schema_summary) - Set Schema Summary
+* [get_index_schema_file](https://github.com/mistralai/client-python/blob/main/docs/sdks/searchindexes/README.md#get_index_schema_file) - Get Index Schema File
 
 ### [Chat](https://github.com/mistralai/client-python/blob/main/docs/sdks/chat/README.md)
 
@@ -1050,8 +1057,8 @@ with Mistral(
 
 
 **Inherit from [`MistralError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/mistralerror.py)**:
-* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 134 of 216 methods.*
-* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 216 methods.*
+* [`HTTPValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/httpvalidationerror.py): Validation Error. Status code `422`. Applicable to 140 of 223 methods.*
+* [`ObservabilityError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/observabilityerror.py): Bad Request - Invalid request parameters or data. Applicable to 57 of 223 methods.*
 * [`ResponseValidationError`](https://github.com/mistralai/client-python/blob/main/src/mistralai/client/errors/responsevalidationerror.py): Type mismatch between the response data and the expected Pydantic model. Provides access to the Pydantic validation error via the `cause` attribute.
 
 </details>

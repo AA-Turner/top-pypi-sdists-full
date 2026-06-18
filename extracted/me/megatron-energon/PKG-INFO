@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: megatron-energon
-Version: 7.3.2
+Version: 7.4.0
 Summary: Megatron's multi-modal data loader
 Project-URL: Homepage, https://github.com/NVIDIA/Megatron-Energon
 Author-email: Lukas Vögtle <lvoegtle@nvidia.com>, Philipp Fischer <pfischer@nvidia.com>
@@ -16,7 +16,7 @@ Requires-Dist: braceexpand
 Requires-Dist: click
 Requires-Dist: filetype>=1.0.0
 Requires-Dist: mfusepy
-Requires-Dist: multi-storage-client>=0.33.0
+Requires-Dist: multi-storage-client>=0.40.0
 Requires-Dist: numpy
 Requires-Dist: pillow>=10.0.1
 Requires-Dist: pyyaml
@@ -27,12 +27,25 @@ Requires-Dist: tqdm
 Requires-Dist: webdataset
 Provides-Extra: aistore
 Requires-Dist: multi-storage-client[aistore]; extra == 'aistore'
+Provides-Extra: all
+Requires-Dist: av>=17.0.0; extra == 'all'
+Requires-Dist: multi-storage-client[aistore]; extra == 'all'
+Requires-Dist: multi-storage-client[azure-storage-blob]; extra == 'all'
+Requires-Dist: multi-storage-client[boto3]; extra == 'all'
+Requires-Dist: multi-storage-client[google-cloud-storage]; extra == 'all'
+Requires-Dist: multi-storage-client[huggingface]; extra == 'all'
+Requires-Dist: multi-storage-client[oci]; extra == 'all'
+Requires-Dist: myst-parser; extra == 'all'
+Requires-Dist: numba; extra == 'all'
+Requires-Dist: ruff; extra == 'all'
+Requires-Dist: soundfile; extra == 'all'
+Requires-Dist: sphinx; extra == 'all'
+Requires-Dist: sphinx-click; extra == 'all'
+Requires-Dist: sphinx-rtd-theme; extra == 'all'
+Requires-Dist: sphinxcontrib-napoleon; extra == 'all'
+Requires-Dist: torchvision; extra == 'all'
 Provides-Extra: av-decode
-Requires-Dist: av>=14.4.0; extra == 'av-decode'
-Requires-Dist: bitstring>=4.2.3; extra == 'av-decode'
-Requires-Dist: ebmlite>=3.3.1; extra == 'av-decode'
-Requires-Dist: filetype>=1.2.0; extra == 'av-decode'
-Requires-Dist: sortedcontainers>=2.4.0; extra == 'av-decode'
+Requires-Dist: av>=17.0.0; extra == 'av-decode'
 Provides-Extra: azure-storage-blob
 Requires-Dist: multi-storage-client[azure-storage-blob]; extra == 'azure-storage-blob'
 Provides-Extra: dev

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-records-resources
-Version: 10.1.0
+Version: 11.0.0
 Summary: Invenio resources module to create REST APIs.
 Home-page: https://github.com/inveniosoftware/invenio-records-resources
 Author: CERN
@@ -14,19 +14,19 @@ License-File: LICENSE
 License-File: AUTHORS.rst
 Requires-Dist: babel-edtf>=1.1.0
 Requires-Dist: flask-resources<2.0.0,>=1.0.0
-Requires-Dist: invenio-accounts<9.0.0,>=8.0.0
+Requires-Dist: invenio-accounts<10.0.0,>=9.0.0
 Requires-Dist: invenio-base<3.0.0,>=2.4.0
 Requires-Dist: invenio-db<3.0.0,>=2.2.0
-Requires-Dist: invenio-files-rest<6.0.0,>=5.0.0
-Requires-Dist: invenio-i18n<4.0.0,>=3.0.0
-Requires-Dist: invenio-indexer<6.0.0,>=5.0.0
+Requires-Dist: invenio-files-rest<7.0.0,>=6.0.0
+Requires-Dist: invenio-i18n<5.0.0,>=4.0.0
+Requires-Dist: invenio-indexer<7.0.0,>=6.0.0
 Requires-Dist: invenio-jsonschemas<3.0.0,>=2.0.0
-Requires-Dist: invenio-pidstore<4.0.0,>=3.0.0
-Requires-Dist: invenio-records-permissions<4.0.0,>=3.0.0
-Requires-Dist: invenio-records<6.0.0,>=5.0.0
-Requires-Dist: invenio-stats<7.0.0,>=6.0.0
+Requires-Dist: invenio-pidstore<5.0.0,>=4.0.0
+Requires-Dist: invenio-records-permissions<5.0.0,>=4.0.0
+Requires-Dist: invenio-records<7.0.0,>=6.0.0
+Requires-Dist: invenio-stats<8.0.0,>=7.0.0
 Requires-Dist: luqum>=0.11.0
-Requires-Dist: marshmallow-utils<1.0.0,>=0.14.1
+Requires-Dist: marshmallow-utils<1.0.0,>=0.15.0
 Requires-Dist: uritemplate>=3.0.1
 Requires-Dist: wand<0.7.0,>=0.6.6
 Requires-Dist: xmltodict~=0.12.0
@@ -35,7 +35,7 @@ Provides-Extra: tests
 Requires-Dist: pytest-black>=0.6.0; extra == "tests"
 Requires-Dist: invenio-app<4.0.0,>=3.0.0; extra == "tests"
 Requires-Dist: invenio-db[mysql,postgresql,versioning]<3.0.0,>=2.2.0; extra == "tests"
-Requires-Dist: invenio-s3<6.0.0,>=5.0.0; extra == "tests"
+Requires-Dist: invenio-s3<7.0.0,>=6.0.0; extra == "tests"
 Requires-Dist: pytest-invenio<5.0.0,>=4.0.0; extra == "tests"
 Requires-Dist: pytest-mock>=1.6.0; extra == "tests"
 Requires-Dist: sphinx<9,>=5; extra == "tests"
@@ -48,11 +48,8 @@ Requires-Dist: invenio-search[opensearch2]<4.0.0,>=3.0.0; extra == "opensearch2"
 Dynamic: license-file
 
 ..
-    Copyright (C) 2020 CERN.
-
-    Invenio-Records-Resources is free software; you can redistribute it and/or
-    modify it under the terms of the MIT License; see LICENSE file for more
-    details.
+    SPDX-FileCopyrightText: 2020 CERN.
+    SPDX-License-Identifier: MIT
 
 ==========================
  Invenio-Records-Resources
@@ -81,17 +78,21 @@ Further documentation is available on
 https://invenio-records-resources.readthedocs.io/
 
 ..
-    Copyright (C) 2020-2024 CERN.
-    Copyright (C) 2024-2026 Graz University of Technology.
-    Copyright (C) 2025 Northwestern University.
-    Copyright (C) 2025 KTH Royal Institute of Technology.
-
-    Invenio-Records-Resources is free software; you can redistribute it and/or
-    modify it under the terms of the MIT License; see LICENSE file for more
-    details.
+    SPDX-FileCopyrightText: 2020-2024 CERN.
+    SPDX-FileCopyrightText: 2024-2026 Graz University of Technology.
+    SPDX-FileCopyrightText: 2025 Northwestern University.
+    SPDX-FileCopyrightText: 2025 KTH Royal Institute of Technology.
+    SPDX-License-Identifier: MIT
 
 Changes
 =======
+
+Version v11.0.0 (released 2026-06-16)
+
+- chore(setup): bump dependencies
+- chore(git-blame): fix commit hash for SPDX header change
+- chore(git-blame): ignore the SPDX license header commit
+- chore(licenses): update license headers to use SPDX
 
 Version v10.1.0 (released 2026-06-03)
 

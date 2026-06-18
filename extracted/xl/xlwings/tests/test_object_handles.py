@@ -296,6 +296,41 @@ def test_superseded_eviction_is_scoped_to_the_session():
     assert Converter.read_value(key_b, {}) == "session b's object"
 
 
+def test_superseded_eviction_is_scoped_to_the_discriminator():
+    # Two handle-producing calls invoked from (and reporting) the same caller cell - e.g.
+    # the two MAKE calls in =CONSUME(MAKE("a"), MAKE("b")) - must not evict each other.
+    # The discriminator gives each producer its own superseded-generation scope.
+    addr = "Excel[Book1.xlsx]Sheet1!A1"
+    disc_a = oh.producer_discriminator("make", ["a"])
+    disc_b = oh.producer_discriminator("make", ["b"])
+    assert disc_a != disc_b
+
+    entity_a, key_a = _write("a")
+    oh.evict_superseded(addr, [[entity_a]], discriminator=disc_a)
+    entity_b, key_b = _write("b")
+    oh.evict_superseded(addr, [[entity_b]], discriminator=disc_b)
+
+    # Without discriminator scoping, MAKE("b") would have treated MAKE("a")'s object as a
+    # superseded previous generation and evicted it before CONSUME could run.
+    assert Converter.read_value(key_a, {}) == "a"
+    assert Converter.read_value(key_b, {}) == "b"
+
+
+def test_discriminator_is_stable_across_recalculation():
+    # A given producer recalculating (same name + args) reuses its scope, so it replaces
+    # its own previous generation instead of accumulating one orphan per recalc.
+    addr = "Excel[Book1.xlsx]Sheet1!A1"
+    disc = oh.producer_discriminator("make", ["a"])
+    entity1, key1 = _write("gen1")
+    oh.evict_superseded(addr, [[entity1]], discriminator=disc)
+    entity2, key2 = _write("gen2")
+    oh.evict_superseded(addr, [[entity2]], discriminator=disc)
+
+    with pytest.raises(xw.ObjectCacheMissError):
+        Converter.read_value(key1, {})
+    assert Converter.read_value(key2, {}) == "gen2"
+
+
 def test_scope_tolerates_non_string_and_falsy_user_ids():
     # custom_functions_call is a public API: custom backends may pass user objects with
     # non-string ids (e.g. integer database keys). They must not crash the scope
@@ -419,9 +454,48 @@ async def test_non_producing_functions_skip_producer_tracking():
     key = result[0][0]["properties"][oh.RESERVED_PROPERTY]["basicValue"]
     await custom_functions_call({**data, "func_name": "plain"}, module)
 
+    # The producer scope carries the per-call discriminator (func name + raw args) so that
+    # sibling producers in one caller cell don't evict each other; the plain call doesn't.
+    disc = oh.producer_discriminator("make", [])
+    scope = f"test-session:Excel[Book1.xlsx]Sheet1!A1:{disc}"
     # The plain call neither deleted the old generation nor touched the tracking.
     assert Converter.read_value(key, {}) is not None
-    assert oh._producer_cache_ids == {"test-session:Excel[Book1.xlsx]Sheet1!A1": {key}}
+    assert oh._producer_cache_ids == {scope: {key}}
+
+
+@pytest.mark.anyio
+async def test_sibling_producers_in_one_caller_do_not_evict_each_other():
+    # End-to-end regression for =CONSUME(MAKE("a"), MAKE("b")): both MAKE calls are invoked
+    # from (and report) the consuming cell, so they share a caller_address. Without the
+    # per-call discriminator, the second MAKE would evict the first's object before CONSUME
+    # could resolve it, surfacing as an "Expired object" on a freshly produced handle.
+    from xlwings.server import custom_functions_call, func
+
+    @func
+    async def make(x) -> object:
+        return pd.DataFrame({"a": [x]})
+
+    module = types.ModuleType("_oh_test_module_siblings")
+    module.make = make
+
+    data = {
+        "func_name": "make",
+        "version": xw.__version__,
+        "client": "Office.js",
+        "runtime": "1.4",
+        "caller_address": "Excel[Book1.xlsx]Sheet1!A1",
+        "session_id": "test-session",
+    }
+    result_a = await custom_functions_call({**data, "args": ["a"]}, module)
+    key_a = result_a[0][0]["properties"][oh.RESERVED_PROPERTY]["basicValue"]
+    result_b = await custom_functions_call({**data, "args": ["b"]}, module)
+    key_b = result_b[0][0]["properties"][oh.RESERVED_PROPERTY]["basicValue"]
+
+    # Both handles are live: the consumer can resolve either one.
+    assert key_a != key_b
+    assert Converter.read_value(key_a, {}) is not None
+    assert Converter.read_value(key_b, {}) is not None
+    assert len(oh.cache) == 2
 
 
 # Type hints (ObjectHandle[T] / CachedObject[T])

@@ -12,9 +12,15 @@ from airbyte_ops_webapp.pages.shared_components.auth import render_login_card
 from airbyte_ops_webapp.pages.shared_components.layout import (
     OPS_HOME_PATH,
     render_breadcrumb_nav,
+    render_environment_banners,
     render_page_hero,
 )
-from airbyte_ops_webapp.state import mock_only_enabled
+from airbyte_ops_webapp.state import (
+    mock_only_enabled,
+    preview_deploy_enabled,
+    preview_pr_number,
+    preview_pr_url,
+)
 from airbyte_ops_webapp.theme import PAGE_CLASS, _page_style, _primary_link_style
 
 OPS_LOGIN_PATH = "/login"
@@ -39,6 +45,9 @@ def open_ops_login() -> PrefabApp:
         "auth_bearer_token": "",
         "admin_user_email": "",
         "is_mock_only": mock_only_enabled(),
+        "is_preview_deploy": preview_deploy_enabled(),
+        "preview_pr_number": preview_pr_number(),
+        "preview_pr_url": preview_pr_url(),
         "oauth_config": current_oauth_config,
         "oauth_enabled": current_oauth_config["enabled"],
         "oauth_authenticated": False,
@@ -55,6 +64,7 @@ def open_ops_login() -> PrefabApp:
         Div(style=_page_style(), onMount=hydrate_oauth_action()),
         Column(gap=5, css_class=PAGE_CLASS),
     ):
+        render_environment_banners()
         render_breadcrumb_nav(current_page="Login")
         render_page_hero(
             title="Airbyte Ops",

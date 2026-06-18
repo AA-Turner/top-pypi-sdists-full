@@ -166,6 +166,13 @@ class TestAlignTestCasesSection(FormatterAcceptanceTest):
             configure=configure,
         )
 
+    def test_align_comments_does_not_align_variables_section(self):
+        """Comments outside test cases (e.g. in *** Variables ***) should not be aligned."""
+        self.compare(
+            source="align_comments_variables.robot",
+            configure=[f"{self.FORMATTER_NAME}.align_comments=True"],
+        )
+
     def test_templated_test_with_setting(self):
         """Tests with [Template]"""
         self.compare(
@@ -186,6 +193,36 @@ class TestAlignTestCasesSection(FormatterAcceptanceTest):
             expected="templated_with_settings_auto.robot",
             configure=configure,
             select=["NormalizeSeparators", "NormalizeComments"],
+        )
+
+    @pytest.mark.parametrize(
+        ("test_types", "expected"),
+        [
+            ("templated,non_templated", "test_types_all.robot"),
+            ("non_templated,templated", "test_types_all.robot"),
+            ("templated", "test_types_templated.robot"),
+            ("non_templated", "test_types_non_templated.robot"),
+        ],
+    )
+    def test_test_types(self, test_types, expected):
+        """Align only templated, only non-templated or both types of tests."""
+        configure = [
+            f"{self.FORMATTER_NAME}.align_comments=True",
+            f"{self.FORMATTER_NAME}.test_types={test_types}",
+        ]
+        self.compare(
+            source="test_types.robot",
+            expected=expected,
+            configure=configure,
+        )
+
+    @pytest.mark.parametrize("test_types", ["invalid", "", "templated,invalid"])
+    def test_test_types_invalid(self, test_types):
+        self.run_tidy(
+            select=[self.FORMATTER_NAME],
+            configure=[f"{self.FORMATTER_NAME}.test_types={test_types}"],
+            source="test_types.robot",
+            exit_code=2,
         )
 
     def test_groups(self):

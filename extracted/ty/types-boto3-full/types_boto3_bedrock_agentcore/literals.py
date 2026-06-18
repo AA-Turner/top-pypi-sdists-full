@@ -192,6 +192,7 @@ InsightsFailureCategoryType = Literal[
     "orchestration-related-errors-category-premature-termination",
     "orchestration-related-errors-category-reasoning-mismatch",
     "orchestration-related-errors-category-unaware-termination",
+    "other",
     "repetitive-behavior-category-repetition-info",
     "repetitive-behavior-category-repetition-tool",
     "repetitive-behavior-category-step-repetition",

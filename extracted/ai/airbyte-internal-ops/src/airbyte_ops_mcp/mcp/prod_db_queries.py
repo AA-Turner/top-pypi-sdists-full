@@ -43,6 +43,7 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_recent_syncs_for_connector,
     query_source_connection_stats,
     query_syncs_for_version_pinned_connector,
+    query_versions_with_pins_or_rollouts,
     query_workspace_info,
     query_workspaces_by_email_domain,
     search_organizations,
@@ -587,6 +588,19 @@ def query_prod_recent_syncs_for_connector(
             default=False,
         ),
     ],
+    enabled_schedules_only: Annotated[
+        bool,
+        Field(
+            description=(
+                "If True, only return syncs for connections that are both active "
+                "(not paused/inactive) and on an automated sync schedule "
+                "(not manual-trigger-only). Useful for canary workflows where "
+                "you need connections that will produce organic syncs during a "
+                "monitoring window. Default: False (include all connections)."
+            ),
+            default=False,
+        ),
+    ],
 ) -> list[dict[str, Any]]:
     """List recent sync jobs for ALL actors using a connector type.
 
@@ -602,9 +616,14 @@ def query_prod_recent_syncs_for_connector(
     - Investigate connector issues across all users (status_filter='failed')
     - Get an overview of all recent sync activity (status_filter='all')
 
-    Set exclude_pinned=True to filter out syncs for actors that are already pinned to a
+    Set `exclude_pinned=True` to filter out syncs for actors that are already pinned to a
     specific version. This is useful for 'prove fix' live connection testing workflows
     where you want to find unpinned connections to test against.
+
+    Set `enabled_schedules_only=True` to restrict results to connections that are both
+    enabled (status='active') and on an automated schedule (not manual-trigger-only).
+    This is useful for canary prerelease workflows where you need connections that
+    will run organically during the monitoring window.
 
     Supports both SOURCE and DESTINATION connectors. Provide exactly one of:
     source_definition_id, source_canonical_name, destination_definition_id,
@@ -668,6 +687,7 @@ def query_prod_recent_syncs_for_connector(
         days=lookback_days,
         limit=limit,
         exclude_pinned=exclude_pinned,
+        enabled_schedules_only=enabled_schedules_only,
     )
 
     enriched = enrich_rows_by_org(rows)
@@ -877,6 +897,19 @@ def query_prod_connections_by_connector(
             default=False,
         ),
     ],
+    enabled_schedules_only: Annotated[
+        bool,
+        Field(
+            description=(
+                "If True, only return connections that are both active "
+                "(not paused/inactive) and on an automated sync schedule "
+                "(not manual-trigger-only). Useful for canary workflows where "
+                "you need connections that will produce organic syncs during a "
+                "monitoring window. Default: False (include all connections)."
+            ),
+            default=False,
+        ),
+    ],
 ) -> list[dict[str, Any]]:
     """Search for all connections using a specific source or destination connector type.
 
@@ -890,9 +923,14 @@ def query_prod_connections_by_connector(
     Optionally filter by organization_id to limit results to a specific organization.
     Use '@airbyte-internal' as an alias for the Airbyte internal organization.
 
-    Set exclude_pinned=True to filter out connections that are already pinned to a
+    Set `exclude_pinned=True` to filter out connections that are already pinned to a
     specific version. This is useful for 'prove fix' live connection testing workflows
     where you want to find unpinned connections to test against.
+
+    Set `enabled_schedules_only=True` to restrict results to connections that are both
+    enabled (status='active') and on an automated schedule (not manual-trigger-only).
+    This is useful for canary prerelease workflows where you need connections that
+    will run organically during the monitoring window.
 
     Returns a list of connection dicts with workspace context and clickable Cloud UI URLs.
     For source queries, returns: connection_id, connection_name, connection_url, source_id,
@@ -973,6 +1011,7 @@ def query_prod_connections_by_connector(
                 organization_id=resolved_organization_id,
                 limit=limit,
                 exclude_pinned=exclude_pinned,
+                enabled_schedules_only=enabled_schedules_only,
             )
         ]
     else:
@@ -1003,6 +1042,7 @@ def query_prod_connections_by_connector(
                 organization_id=resolved_organization_id,
                 limit=limit,
                 exclude_pinned=exclude_pinned,
+                enabled_schedules_only=enabled_schedules_only,
             )
         ]
 
@@ -1842,6 +1882,100 @@ def query_prod_connection_sync_activity(
         limit=limit,
     )
     return enrich_rows_by_org(rows)
+
+
+# =============================================================================
+# Pinned Connector Versions Models and Tools
+# =============================================================================
+
+
+class PinnedConnectorVersionInfo(BaseModel):
+    """A connector version that has at least one pin or an active progressive rollout."""
+
+    version_id: str = Field(description="The actor_definition_version UUID")
+    connector_definition_id: str = Field(description="The connector definition UUID")
+    connector_name: str = Field(description="Human-readable connector name")
+    docker_repository: str = Field(description="Docker repository path")
+    docker_image_tag: str = Field(description="Docker image tag for this version")
+    last_published: str | None = Field(
+        default=None, description="ISO timestamp when this version was last published"
+    )
+    pin_count: int = Field(
+        description="Number of scoped_configuration rows pinning to this version"
+    )
+    rollout_state: str | None = Field(
+        default=None,
+        description="Active rollout state if this version is an RC, otherwise null",
+    )
+    rollout_id: str | None = Field(
+        default=None,
+        description="Active rollout UUID if present, otherwise null",
+    )
+
+
+@mcp_tool(
+    read_only=True,
+    idempotent=True,
+    open_world=True,
+)
+def query_connector_rollout_stats(
+    connector_definition_id: Annotated[
+        str | None,
+        Field(
+            description="Connector definition UUID to filter by (optional). "
+            "Mutually exclusive with `connector_canonical_name`."
+        ),
+    ] = None,
+    connector_canonical_name: Annotated[
+        str | None,
+        Field(
+            description="Connector canonical name (e.g. `source-postgres`) to filter by. "
+            "Resolved to a definition ID via the registry. "
+            "Mutually exclusive with `connector_definition_id`."
+        ),
+    ] = None,
+) -> list[PinnedConnectorVersionInfo]:
+    """Query connector versions that have at least one pin or an active rollout.
+
+    Returns versions from the prod DB that are referenced by at least one
+    `scoped_configuration` pin or by an active `connector_rollout` as the
+    release candidate. Includes aggregate pin count and rollout state per version.
+
+    If neither filter is provided, returns the global superset across all connectors.
+    """
+    if connector_definition_id and connector_canonical_name:
+        raise PyAirbyteInputError(
+            message=(
+                "Provide at most one of `connector_definition_id` or "
+                "`connector_canonical_name`, not both."
+            ),
+        )
+
+    resolved_id: str | None = None
+    if connector_canonical_name:
+        resolved_id = resolve_canonical_name_to_definition_id(
+            canonical_name=connector_canonical_name,
+        )
+    elif connector_definition_id:
+        resolved_id = connector_definition_id
+
+    rows = query_versions_with_pins_or_rollouts(actor_definition_id=resolved_id)
+    return [
+        PinnedConnectorVersionInfo(
+            version_id=str(row["version_id"]),
+            connector_definition_id=str(row["connector_definition_id"]),
+            connector_name=row["connector_name"],
+            docker_repository=row["docker_repository"],
+            docker_image_tag=row["docker_image_tag"],
+            last_published=(
+                row["last_published"].isoformat() if row.get("last_published") else None
+            ),
+            pin_count=row["pin_count"],
+            rollout_state=row["rollout_state"],
+            rollout_id=row["rollout_id"],
+        )
+        for row in rows
+    ]
 
 
 def register_prod_db_query_tools(app: FastMCP) -> None:

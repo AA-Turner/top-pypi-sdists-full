@@ -57,7 +57,8 @@ pub fn build_spherical_spline_basis(
             weighted_coefficient_sum_to_zero_transform(weights.view())?
         }
     };
-    let penalty = z.t().dot(&raw_penalty).dot(&z);
+    let gauge = crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]);
+    let penalty = gauge.restrict_penalty(&raw_penalty);
     // Prefer the device truncated-spectral kernel whenever
     // `sphere_kernel_decision` reports the (n, m, lmax) workload is
     // worth GPU dispatch — this short-circuits the CPU streaming
@@ -77,7 +78,9 @@ pub fn build_spherical_spline_basis(
         auto_streaming_chunk_size_for_dense(data.nrows(), z.ncols())
     };
     let design = if let Some(raw_design) = gpu_raw_design {
-        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(raw_design.dot(&z)))
+        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+            gauge.restrict_design(&raw_design),
+        ))
     } else if let Some(chunk) = sphere_auto_chunk {
         log::info!(
             "Sphere basis auto-streaming evaluator: n={} p={} chunk_size={}",
@@ -91,7 +94,7 @@ pub fn build_spherical_spline_basis(
             spec.penalty_order,
             spec.radians,
             spec.wahba_kernel,
-            Some(Arc::new(z.clone())),
+            Some(Arc::new(gauge.clone())),
             Some(chunk),
         )
         .map_err(BasisError::InvalidInput)?;
@@ -104,7 +107,9 @@ pub fn build_spherical_spline_basis(
             spec.radians,
             spec.wahba_kernel,
         )?;
-        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(raw_design.dot(&z)))
+        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+            gauge.restrict_design(&raw_design),
+        ))
     };
     let (penalty_norm, c_primary) = normalize_penalty(&((&penalty + &penalty.t()) * 0.5));
     let mut candidates = vec![PenaltyCandidate {
@@ -571,6 +576,11 @@ pub(crate) fn build_matern_basis_seeded(
         } else {
             None
         };
+        let kernel_gauge = z_opt.as_ref().map(|z| {
+            Arc::new(crate::solver::gauge::Gauge::from_block_transforms(&[
+                z.clone()
+            ]))
+        });
         let design = if let Some(eta) = aniso.as_ref() {
             let metric_weights = eta.iter().map(|&v| (2.0 * v).exp()).collect::<Vec<_>>();
             let kernel = move |data_row: &[f64], center_row: &[f64]| -> f64 {
@@ -586,7 +596,7 @@ pub(crate) fn build_matern_basis_seeded(
                 shared_data.clone(),
                 Arc::new(centers.clone()),
                 kernel,
-                z_opt.as_ref().map(|z| Arc::new(z.clone())),
+                kernel_gauge.clone(),
                 poly_basis.clone(),
             )
             .map_err(BasisError::InvalidInput)?;
@@ -601,7 +611,7 @@ pub(crate) fn build_matern_basis_seeded(
                 shared_data,
                 Arc::new(centers.clone()),
                 kernel,
-                z_opt.as_ref().map(|z| Arc::new(z.clone())),
+                kernel_gauge,
                 poly_basis,
             )
             .map_err(BasisError::InvalidInput)?;
@@ -1163,9 +1173,11 @@ pub(crate) fn build_matern_operator_penalty_psi_derivatives(
         }
     }
 
+    let coefficient_gauge =
+        z_opt.map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]));
     let project = |mat: Array2<f64>| {
-        if let Some(z) = z_opt {
-            fast_ab(&mat, z)
+        if let Some(gauge) = coefficient_gauge.as_ref() {
+            gauge.restrict_design(&mat)
         } else {
             mat
         }
@@ -1598,9 +1610,11 @@ pub(crate) fn build_duchon_operator_penalty_psi_derivatives(
     // coordinate system so identifiability transforms line up, but leave its
     // operator columns and psi-derivatives at zero so it remains unpenalized.
 
+    let coefficient_gauge = identifiability_transform
+        .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]));
     let project = |mat: Array2<f64>| {
-        if let Some(z) = identifiability_transform {
-            fast_ab(&mat, z)
+        if let Some(gauge) = coefficient_gauge.as_ref() {
+            gauge.restrict_design(&mat)
         } else {
             mat
         }
@@ -1794,16 +1808,22 @@ pub(crate) fn build_duchon_native_penalty_psi_derivatives(
     }
 
     let amp2 = kernel_amp * kernel_amp;
-    let project_kernel = |k: &Array2<f64>| fast_ab(&fast_atb(&z, k), &z).mapv(|v| v * amp2);
+    let kernel_gauge = crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]);
+    let project_kernel = |k: &Array2<f64>| kernel_gauge.restrict_penalty(k).mapv(|v| v * amp2);
     let omega = project_kernel(&kernel);
     let omega_psi = project_kernel(&kernel_psi);
     let omega_psi_psi = project_kernel(&kernel_psi_psi);
 
+    let outer_gauge = identifiability_transform
+        .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]));
     let embed = |block: Array2<f64>| {
         let mut out = Array2::<f64>::zeros((total_cols, total_cols));
         out.slice_mut(s![..kernel_cols, ..kernel_cols])
             .assign(&block);
-        symmetrize(&project_penalty_matrix(&out, identifiability_transform))
+        match outer_gauge.as_ref() {
+            Some(gauge) => symmetrize(&gauge.restrict_penalty(&out)),
+            None => symmetrize(&out),
+        }
     };
     let primary = embed(omega);
     let primary_psi = embed(omega_psi);
@@ -2059,17 +2079,21 @@ pub(crate) fn build_periodic_duchon_basis_log_kappa_derivativeswithworkspace(
     );
     let kernel_cols = z_kernel.ncols();
     let total_cols = kernel_cols + 1;
+    let kernel_gauge = crate::solver::gauge::Gauge::from_block_transforms(&[z_kernel.clone()]);
     let mut design_first = Array2::<f64>::zeros((data.nrows(), total_cols));
     let mut design_second = Array2::<f64>::zeros((data.nrows(), total_cols));
     design_first
         .slice_mut(s![.., 0..kernel_cols])
-        .assign(&(fast_ab(&data_kernel_psi, &z_kernel) * kernel_amp));
+        .assign(&(kernel_gauge.restrict_design(&data_kernel_psi) * kernel_amp));
     design_second
         .slice_mut(s![.., 0..kernel_cols])
-        .assign(&(fast_ab(&data_kernel_psi_psi, &z_kernel) * kernel_amp));
-    if let Some(transform) = identifiability_transform.as_ref() {
-        design_first = fast_ab(&design_first, transform);
-        design_second = fast_ab(&design_second, transform);
+        .assign(&(kernel_gauge.restrict_design(&data_kernel_psi_psi) * kernel_amp));
+    if let Some(gauge) = identifiability_transform
+        .as_ref()
+        .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]))
+    {
+        design_first = gauge.restrict_design(&design_first);
+        design_second = gauge.restrict_design(&design_second);
     }
 
     let (center_kernel, center_kernel_psi, center_kernel_psi_psi) =
@@ -2083,9 +2107,9 @@ pub(crate) fn build_periodic_duchon_basis_log_kappa_derivativeswithworkspace(
             s_order,
             &coeffs,
         )?;
-    let omega = fast_ab(&fast_atb(&z_kernel, &center_kernel), &z_kernel);
-    let omega_psi = fast_ab(&fast_atb(&z_kernel, &center_kernel_psi), &z_kernel);
-    let omega_psi_psi = fast_ab(&fast_atb(&z_kernel, &center_kernel_psi_psi), &z_kernel);
+    let omega = kernel_gauge.restrict_penalty(&center_kernel);
+    let omega_psi = kernel_gauge.restrict_penalty(&center_kernel_psi);
+    let omega_psi_psi = kernel_gauge.restrict_penalty(&center_kernel_psi_psi);
     let mut penalty = Array2::<f64>::zeros((total_cols, total_cols));
     let mut penalty_psi = Array2::<f64>::zeros((total_cols, total_cols));
     let mut penalty_psi_psi = Array2::<f64>::zeros((total_cols, total_cols));
@@ -2098,10 +2122,13 @@ pub(crate) fn build_periodic_duchon_basis_log_kappa_derivativeswithworkspace(
     penalty_psi_psi
         .slice_mut(s![0..kernel_cols, 0..kernel_cols])
         .assign(&omega_psi_psi);
-    if let Some(transform) = identifiability_transform.as_ref() {
-        penalty = fast_ab(&fast_atb(transform, &penalty), transform);
-        penalty_psi = fast_ab(&fast_atb(transform, &penalty_psi), transform);
-        penalty_psi_psi = fast_ab(&fast_atb(transform, &penalty_psi_psi), transform);
+    if let Some(gauge) = identifiability_transform
+        .as_ref()
+        .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]))
+    {
+        penalty = gauge.restrict_penalty(&penalty);
+        penalty_psi = gauge.restrict_penalty(&penalty_psi);
+        penalty_psi_psi = gauge.restrict_penalty(&penalty_psi_psi);
     }
     let (penalty_norm, penalty_norm_psi, penalty_norm_psi_psi, normalization_scale) =
         normalize_penaltywith_psi_derivatives(
@@ -2237,11 +2264,14 @@ pub(crate) fn build_matern_double_penalty_primarywith_psi_derivatives(
         }
     }
 
-    let (kernel, kernel_psi, kernel_psi_psi) = if let Some(z) = z_opt {
-        let zt_s = z.t().dot(&kernel);
-        let zt_d1 = z.t().dot(&kernel_psi);
-        let zt_d2 = z.t().dot(&kernel_psi_psi);
-        (zt_s.dot(z), zt_d1.dot(z), zt_d2.dot(z))
+    let (kernel, kernel_psi, kernel_psi_psi) = if let Some(gauge) =
+        z_opt.map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]))
+    {
+        (
+            gauge.restrict_penalty(&kernel),
+            gauge.restrict_penalty(&kernel_psi),
+            gauge.restrict_penalty(&kernel_psi_psi),
+        )
     } else {
         (kernel, kernel_psi, kernel_psi_psi)
     };
@@ -2758,6 +2788,9 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         let total_cols = kernel_cols + usize::from(spec.include_intercept);
         let mut primary_first = vec![Array2::<f64>::zeros((total_cols, total_cols)); dim];
         let mut primary_second_diag = vec![Array2::<f64>::zeros((total_cols, total_cols)); dim];
+        let coefficient_gauge = z_opt
+            .as_ref()
+            .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]));
         let (mut raw_first, mut raw_second_diag) =
             build_matern_aniso_primary_raw_derivative_matrices(
                 centers.view(),
@@ -2769,13 +2802,13 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
             // raw_first[a] / raw_second_diag[a] are dropped after this loop.
             // When there is no identifiability transform we previously cloned
             // them just to slice into primary_*; move them instead.
-            let projected_first = if let Some(z) = z_opt.as_ref() {
-                z.t().dot(&raw_first[a]).dot(z)
+            let projected_first = if let Some(gauge) = coefficient_gauge.as_ref() {
+                gauge.restrict_penalty(&raw_first[a])
             } else {
                 std::mem::take(&mut raw_first[a])
             };
-            let projected_second = if let Some(z) = z_opt.as_ref() {
-                z.t().dot(&raw_second_diag[a]).dot(z)
+            let projected_second = if let Some(gauge) = coefficient_gauge.as_ref() {
+                gauge.restrict_penalty(&raw_second_diag[a])
             } else {
                 std::mem::take(&mut raw_second_diag[a])
             };
@@ -2811,8 +2844,8 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
             )?;
             let kblock = kernel.slice(s![0..k, 0..k]).to_owned();
             let mut a_raw = Array2::<f64>::zeros((total_cols, total_cols));
-            let projected = if let Some(z) = z_opt.as_ref() {
-                z.t().dot(&kblock).dot(z)
+            let projected = if let Some(gauge) = coefficient_gauge.as_ref() {
+                gauge.restrict_penalty(&kblock)
             } else {
                 kblock
             };
@@ -2858,7 +2891,9 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         result.penalties_cross_pairs = dp_cross_pairs;
         let centers_owned = centers.to_owned();
         let eta_owned = eta.to_vec();
-        let z_owned = z_opt.clone();
+        let gauge_owned = z_opt
+            .as_ref()
+            .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]));
         let penaltyinfo = base.penaltyinfo.clone();
         let length_scale = spec.length_scale;
         let nu = spec.nu;
@@ -2885,8 +2920,8 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
                     a,
                     b,
                 )?;
-                let projected: Array2<f64> = if let Some(z) = z_owned.as_ref() {
-                    z.t().dot(&raw_cross).dot(z)
+                let projected: Array2<f64> = if let Some(gauge) = gauge_owned.as_ref() {
+                    gauge.restrict_penalty(&raw_cross)
                 } else {
                     raw_cross
                 };
@@ -2908,8 +2943,8 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
                     )?;
                     let k = centers_owned.nrows();
                     let kblock = kernel.slice(s![0..k, 0..k]).to_owned();
-                    let projected_a = if let Some(z) = z_owned.as_ref() {
-                        z.t().dot(&kblock).dot(z)
+                    let projected_a = if let Some(gauge) = gauge_owned.as_ref() {
+                        gauge.restrict_penalty(&kblock)
                     } else {
                         kblock
                     };

@@ -1143,7 +1143,25 @@ def f(x: int, y: int) -> int: ...
 def f(x: int, y: int = 0) -> int:
     return x + y
 
-f(0, 1, 2)  # E: (x: int, y: int) -> int [closest match]
+f(0, 1, 2)  # E: (x: int, y: int) -> int [closest match]\n  Expected at most 2 arguments, got 3
+    "#,
+);
+
+testcase!(
+    test_wrong_method_arity,
+    r#"
+from typing import overload
+
+class A:
+    @overload
+    def f(self, x: int, y: str = ..., /, *, z: float = ...) -> int: ...
+    @overload
+    def f(self, x: str, y: int = ..., /, *, z: float = ...) -> str: ...
+    def f(self, x: int | str, y: int | str = "", /, *, z: float = 0.0) -> int | str: ...
+
+A().f()  # E: Expected at least 1 argument, got 0
+A().f(0, "1", 0.0)  # E: Expected at most 2 positional arguments, got 3
+A().f(0, y="1", z=0.0)  # E: Expected at most 1 keyword argument, got 2
     "#,
 );
 
@@ -1420,6 +1438,21 @@ g(x=1, y="hello")  # E: No matching overload found for function `g` called with 
 );
 
 testcase!(
+    test_overload_error_shows_call_error,
+    r#"
+from typing import overload
+
+@overload
+def f(x: int) -> int: ...
+@overload
+def f(x: str) -> str: ...
+def f(x): return x
+
+f(3.14)  # E: `float` is not assignable to parameter `x` with type `int`
+    "#,
+);
+
+testcase!(
     test_varargs_materialization,
     r#"
 from typing import Any, assert_type, overload
@@ -1571,6 +1604,23 @@ def g(x: str, y: int):
         assert_type(x, str)
     if f(y):
         assert_type(y, bool)
+    "#,
+);
+
+testcase!(
+    test_filter_selects_typeis_overload,
+    r#"
+import ast
+from typing import TypeIs, assert_type
+
+type IsDef = ast.FunctionDef | ast.ClassDef
+
+def is_def(n: object) -> TypeIs[IsDef]:
+    return isinstance(n, ast.FunctionDef | ast.ClassDef)
+
+def f(node: ast.ClassDef):
+    for child in filter(is_def, node.body):
+        assert_type(child, ast.ClassDef | ast.FunctionDef)
     "#,
 );
 
@@ -1940,5 +1990,197 @@ def f(x):
 
 def g(x: float):
     f(x)  # E: No matching overload
+    "#,
+);
+
+testcase!(
+    test_callback_protocol_with_overloads_and_bounded_typevar,
+    r#"
+from typing import Callable, Protocol, overload
+
+class Base: ...
+
+class HasCall(Protocol):
+    @overload
+    def __call__[T: Base](self, arg: T) -> T: ...
+    @overload
+    def __call__(self, arg: float) -> float: ...
+
+def takes(f: Callable[[float], float]) -> None: ...
+
+def repro(p: HasCall):
+    takes(p)
+    "#,
+);
+
+testcase!(
+    test_overload_unpack_kwargs_with_explicit_impl_params,
+    r#"
+from typing import Literal, Protocol, Required, TypedDict, TypeVar, Unpack, overload
+
+class A: ...
+class B: ...
+class C(Protocol):
+    def member(self) -> str: ...
+
+T = TypeVar("T")
+
+class ExcludeC(TypedDict, closed=True, total=False):
+    pass_through: bool
+    only_a: bool
+    only_c: Literal[False]
+    include_c: Literal[False] | None
+
+class OnlyC(TypedDict, closed=True, total=False):
+    pass_through: bool
+    only_a: bool
+    only_c: Required[Literal[True]]
+    include_c: bool | None
+
+class IncludeC(TypedDict, closed=True, total=False):
+    pass_through: bool
+    only_a: bool
+    only_c: Literal[False]
+    include_c: Required[Literal[True]]
+
+class IncludeB(TypedDict, closed=True, total=False):
+    pass_through: bool
+    only_a: Literal[False]
+    only_c: Literal[False]
+    include_c: bool | None
+
+class IncludeABC(TypedDict, closed=True, total=False):
+    pass_through: bool
+    only_a: Literal[False]
+    only_c: Literal[False]
+    include_c: Required[Literal[True]]
+
+class PassThrough(TypedDict, closed=True, total=False):
+    pass_through: Required[Literal[True]]
+    only_a: bool
+    only_c: bool
+    include_c: bool | None
+
+# This typed dict is open, so it may contain unknown keys and is not safe to match
+# against an implementation signature without **kwargs
+class PassThroughOpen(TypedDict, total=False):
+    pass_through: Required[Literal[True]]
+    only_a: bool
+    only_c: bool
+    include_c: bool | None
+
+@overload
+def func(obj: A, **kwds: Unpack[ExcludeC]) -> A: ...
+@overload
+def func(obj: C, **kwds: Unpack[OnlyC]) -> C: ...
+@overload
+def func(obj: C, **kwds: Unpack[IncludeC]) -> C: ...
+@overload
+def func(obj: B, **kwds: Unpack[IncludeB]) -> B: ...
+@overload
+def func(obj: A | C, **kwds: Unpack[IncludeC]) -> A | C: ...
+@overload
+def func(obj: A | B | C, **kwds: Unpack[IncludeABC]) -> A | B | C: ...
+@overload
+def func(obj: T, **kwds: Unpack[PassThrough]) -> T: ...
+@overload
+def func(obj: T, **kwds: Unpack[PassThroughOpen]) -> T: ... # E:
+def func(
+    obj: A | B | C | T,
+    *,
+    pass_through: bool = False,
+    only_a: bool = False,
+    only_c: bool = False,
+    include_c: bool | None = None,
+) -> A | B | C | T:
+    raise NotImplementedError
+    "#,
+);
+
+testcase!(
+    test_overload_error_shows_relevant_signature_part,
+    r#"
+from typing import overload
+
+@overload
+def f(*args: int, **kwargs: str) -> int: ...
+@overload
+def f(*args: str, **kwargs: int) -> str: ...
+def f(*args, **kwargs):
+    return args[0]
+
+f(4.2)  # E: (*args: int, ...) -> int [closest match]\n    (*args: str, ...) -> str
+f(x=4.2)  # E: (..., **kwargs: str) -> int [closest match]\n    (..., **kwargs: int) -> str
+
+# When any arguments are unpacked, we conservatively fall back to showing full signatures
+f(*[4.2])  # E: (*args: int, **kwargs: str) -> int [closest match]\n    (*args: str, **kwargs: int) -> str
+f(**{"x": 4.2})  # E: (*args: int, **kwargs: str) -> int [closest match]\n    (*args: str, **kwargs: int) -> str
+    "#,
+);
+
+testcase!(
+    test_overload_error_shows_unpacked_kwargs,
+    r#"
+from typing import overload, TypedDict, Unpack
+
+class TD(TypedDict):
+    y: int
+
+@overload
+def f(x: int = ..., **kwargs: Unpack[TD]) -> int: ...
+@overload
+def f(x: str = ..., **kwargs: Unpack[TD]) -> str: ...
+def f(x=0, **kwargs):
+    return x
+
+f(y=4.2)  # E: (..., **kwargs: Unpack[TD]) -> int [closest match]\n    (..., **kwargs: Unpack[TD]) -> str
+    "#,
+);
+
+testcase!(
+    test_overload_error_does_not_truncate_on_different_param_names,
+    r#"
+from typing import overload
+
+@overload
+def f(x: int, /) -> int: ...
+@overload
+def f(y: str, /) -> str: ...
+def f(x, /): return x
+
+# Make sure we show 'y' in the second overload even though 'x' was matched in the first overload
+f(4.2)  # E: (x: int, /) -> int [closest match]\n    (y: str, /) -> str
+    "#,
+);
+
+testcase!(
+    test_overload_error_truncates_method_signatures,
+    r#"
+from typing import overload
+
+class A:
+    @overload
+    def f(self, x: str, y: int = ...) -> str: ...
+    @overload
+    def f(self, x: int, y: str = ...) -> int: ...
+    def f(self, x, y=0): return x
+
+A().f(4.2)  # E: (x: str, ...) -> str [closest match]\n    (x: int, ...) -> int
+    "#,
+);
+
+testcase!(
+    test_overload_error_shows_missing_parameter,
+    r#"
+from typing import Any, overload
+
+@overload
+def f(x: int, y: str = ..., z: float = ...) -> int: ...
+@overload
+def f(x: str, y: int = ..., z: float = ...) -> str: ...
+def f(x, y="", z=0.0): return x
+
+y: Any = ...
+f(y=y)  # E: (x: int, y: str = ..., ...) -> int [closest match]\n    (x: str, y: int = ..., ...) -> str
     "#,
 );

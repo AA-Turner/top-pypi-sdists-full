@@ -16,11 +16,12 @@ use crate::commands::check::CheckResult;
 use crate::commands::check::FullCheckArgs;
 use crate::commands::check::SnippetCheckArgs;
 use crate::commands::config_finder::ConfigConfigurerWrapper;
+use crate::commands::coverage::CoverageCommand;
+use crate::commands::coverage::report::ReportArgs;
 use crate::commands::dump_config::DumpConfigArgs;
 use crate::commands::infer::InferArgs;
 use crate::commands::init::InitArgs;
 use crate::commands::lsp::LspArgs;
-use crate::commands::report::ReportArgs;
 use crate::commands::stubgen::StubgenArgs;
 use crate::commands::suppress::SuppressArgs;
 use crate::commands::tsp::TspArgs;
@@ -54,7 +55,14 @@ pub enum Command {
     Tsp(TspArgs),
     /// Automatically add type annotations to a file or directory.
     Infer(InferArgs),
-    /// Generate reports from pyrefly type checking results.
+    /// Type coverage commands.
+    Coverage {
+        /// Coverage subcommand to run.
+        #[command(subcommand)]
+        command: CoverageCommand,
+    },
+    /// Deprecated alias for `pyrefly coverage report`. Use `pyrefly coverage report` instead.
+    #[command(hide = true)]
     Report(ReportArgs),
     /// Suppress type errors by adding ignore comments, or remove unused ignores.
     Suppress(SuppressArgs),
@@ -72,7 +80,7 @@ impl Command {
     ) -> anyhow::Result<(CommandExitStatus, Option<CheckResult>)> {
         match self {
             Command::Check(args) => args.run(config_configurer_wrapper, thread_count).await,
-            Command::Snippet(args) => args.run(config_configurer_wrapper, thread_count).await,
+            Command::Snippet(args) => args.run(thread_count).await,
             Command::BuckCheck(args) => Ok((args.run(thread_count)?, None)),
             Command::Lsp(args) => Ok((
                 args.run(
@@ -96,7 +104,15 @@ impl Command {
             )),
             Command::Infer(args) => Ok((args.run(config_configurer_wrapper, thread_count)?, None)),
             Command::DumpConfig(args) => Ok((args.run(config_configurer_wrapper)?, None)),
-            Command::Report(args) => Ok((args.run(config_configurer_wrapper, thread_count)?, None)),
+            Command::Coverage { command } => {
+                Ok((command.run(config_configurer_wrapper, thread_count)?, None))
+            }
+            Command::Report(args) => {
+                eprintln!(
+                    "warning: `pyrefly report` is deprecated; use `pyrefly coverage report` instead"
+                );
+                Ok((args.run(config_configurer_wrapper, thread_count)?, None))
+            }
             Command::Suppress(args) => {
                 Ok((args.run(config_configurer_wrapper, thread_count)?, None))
             }

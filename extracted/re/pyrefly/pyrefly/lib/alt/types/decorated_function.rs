@@ -98,6 +98,8 @@ pub enum SpecialDecorator<'a> {
     DataclassTransformCall(&'a TypeMap),
     EnumNonmember,
     AbstractMethod,
+    UsesShapeDsl,
+    DisjointBase,
 }
 
 impl UndecoratedFunction {

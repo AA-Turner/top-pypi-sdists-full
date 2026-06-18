@@ -780,6 +780,13 @@ def _run_ida_batch_script(idat_path: Path, src: str, env: dict[str, str] | None 
         raise RuntimeError("failed to invoke idat: could not find expected lines in log output")
 
 
+def _clean_env_for_idat() -> dict[str, str]:
+    env = os.environ.copy()
+    for key in ("VIRTUAL_ENV", "PYTHONHOME", "PYTHONPATH", "PATH"):
+        env.pop(key, None)
+    return env
+
+
 def run_py_in_current_idapython(src: str) -> dict:
     idat_path = find_current_idat_executable()
     if not idat_path.exists():
@@ -791,18 +798,32 @@ def run_py_in_current_idapython(src: str) -> dict:
         )
 
     idausr = get_ida_user_dir()
-    if not idausr.exists() or not idausr.is_dir():
-        env = os.environ.copy()
+
+    # First, try with the real IDAUSR so idapythonrc.py runs and activates any user venv.
+    # IDA_IS_INTERACTIVE=1 is needed because most idapythonrc.py scripts guard venv
+    # activation behind that flag.
+    # If this fails (e.g. a broken plugin crashes idat on startup), fall back to a
+    # minimal isolated IDAUSR that omits plugins and other user content.
+    if idausr.exists() and idausr.is_dir():
+        env = _clean_env_for_idat()
         env["IDAUSR"] = str(idausr)
-        return _run_ida_batch_script(idat_path, src, env=env)
+        env["IDA_IS_INTERACTIVE"] = "1"
+        try:
+            return _run_ida_batch_script(idat_path, src, env=env)
+        except RuntimeError:
+            logger.debug("idat probe with real IDAUSR failed, retrying with isolated IDAUSR")
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        isolated_idausr = Path(temp_dir) / "idausr"
-        _prepare_headless_ida_user_dir(idausr, isolated_idausr)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            isolated_idausr = Path(temp_dir) / "idausr"
+            _prepare_headless_ida_user_dir(idausr, isolated_idausr)
 
-        env = os.environ.copy()
-        env["IDAUSR"] = str(isolated_idausr)
-        return _run_ida_batch_script(idat_path, src, env=env)
+            env = _clean_env_for_idat()
+            env["IDAUSR"] = str(isolated_idausr)
+            return _run_ida_batch_script(idat_path, src, env=env)
+
+    env = _clean_env_for_idat()
+    env["IDAUSR"] = str(idausr)
+    return _run_ida_batch_script(idat_path, src, env=env)
 
 
 def detect_binary_arch(path: Path) -> str | None:

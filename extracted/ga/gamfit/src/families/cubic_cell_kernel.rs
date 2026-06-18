@@ -1,5 +1,5 @@
 use crate::probability::normal_cdf;
-use crate::resource::{ByteLruCache, ResidentBytes};
+use crate::solver::resource::{ByteLruCache, ResidentBytes};
 use smallvec::{SmallVec, smallvec};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -31,22 +31,12 @@ pub enum CubicCellKernelError {
     BivariateNormalDomain { reason: String },
 }
 
-impl std::fmt::Display for CubicCellKernelError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CubicCellKernelError::InvalidInterval { reason }
-            | CubicCellKernelError::InvalidCellShape { reason }
-            | CubicCellKernelError::InsufficientMoments { reason }
-            | CubicCellKernelError::BivariateNormalDomain { reason } => f.write_str(reason),
-        }
-    }
-}
-
-impl std::error::Error for CubicCellKernelError {}
-
-impl From<CubicCellKernelError> for String {
-    fn from(err: CubicCellKernelError) -> String {
-        err.to_string()
+crate::impl_reason_error_boilerplate! {
+    CubicCellKernelError {
+        InvalidInterval,
+        InvalidCellShape,
+        InsufficientMoments,
+        BivariateNormalDomain,
     }
 }
 
@@ -1564,7 +1554,7 @@ pub(crate) static CELL_MOMENT_REALLOCS: std::sync::atomic::AtomicUsize =
 /// bivariate normal CDF representation — 20 points give >30-digit accuracy for
 /// the smooth arcsin-transformed integrand, ensuring the BVN value is exact to
 /// f64 precision for all (h, k, ρ) — and shared with the cubic-cell B-spline
-/// moment parity gate in [`crate::gpu::cubic_bspline_moments`].
+/// moment parity gate in [`crate::gpu::kernels::cubic_bspline_moments`].
 pub(crate) const GL20_NODES: [f64; 20] = [
     -0.993_128_599_185_094_9,
     -0.963_971_927_277_913_8,
@@ -3370,7 +3360,7 @@ fn evaluate_affine_cell_derivative_state(
 fn accumulate_moments_unrolled4(moments: &mut [f64], mw: f64, z: f64) {
     let mut z_pow = 1.0_f64;
     for slot in moments.iter_mut() {
-        *slot += mw * z_pow;
+        *slot = mw.mul_add(z_pow, *slot);
         z_pow *= z;
     }
 }
@@ -3383,8 +3373,8 @@ fn accumulate_moments_unrolled4(moments: &mut [f64], mw: f64, z: f64) {
 //
 // Single source of truth for the moment SIMD lane ordering, the Horner-with-FMA
 // pattern for η(z), the `0.5 * (z² + η²)` quadratic-form evaluation order, the
-// `scaled_weight = weight * half_width` pre-fold, and the per-lane
-// `accumulate_moments_unrolled4` call. The previous duplicated code paths
+// unscaled per-node GL moment weights, the post-loop half-width fold, and the
+// per-lane `accumulate_moments_unrolled4` call. The previous duplicated code paths
 // drifted by 1 ULP whenever any of these details diverged; here both paths
 // share the same instructions, eliminating an entire class of regressions
 // where a tweak to the quadrature order or the FMA pattern would silently
@@ -3466,9 +3456,8 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
             .mul_add(z_v, c0_v);
         let z2_v = z_v * z_v;
         let neg_q_v = neg_half_v * (z2_v + eta_v * eta_v);
-        let scaled_weight_v = weight_v * half_width_v;
         let exp_negq_v = neg_q_v.exp();
-        let moment_weight_v = scaled_weight_v * exp_negq_v;
+        let moment_weight_v = weight_v * exp_negq_v;
         let z_arr = z_v.to_array();
         let mw_arr = moment_weight_v.to_array();
         if COMPUTE_VALUE {
@@ -3509,8 +3498,7 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
         let z = center + half_width * node;
         let eta = c3.mul_add(z, c2).mul_add(z, c1).mul_add(z, c0);
         let q = 0.5 * (z * z + eta * eta);
-        let scaled_weight = weight * half_width;
-        let moment_weight = scaled_weight * (-q).exp();
+        let moment_weight = weight * (-q).exp();
         accumulate_moments_unrolled4(moments_slice, moment_weight, z);
         if COMPUTE_VALUE {
             // Bit-for-bit the reference value structure (see SIMD branch): the
@@ -3522,10 +3510,12 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
         }
         i += 1;
     }
-    // Apply the cell half-width to the value integral ONCE at the end, mirroring
-    // the reference's `value_integral * half_width` (the per-node accumulation
-    // above uses the unscaled GL weight). Folding half_width per-term instead
-    // would change the f64 rounding and reintroduce the ~1e-13 value drift.
+    // Apply the cell half-width to both moment and value integrals ONCE at the
+    // end, mirroring the prefold reference. Folding half_width per-term changes
+    // f64 rounding enough to show up at the 1e-13 contract.
+    for moment in moments_slice.iter_mut() {
+        *moment *= half_width;
+    }
     let value = if COMPUTE_VALUE {
         value_integral * half_width
     } else {
@@ -3536,8 +3526,8 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
 
 /// Relative agreement threshold for the progressive non-affine quadrature
 /// ladder: two consecutive Gauss-Legendre rules must agree on every moment
-/// slot (and the value integral, when computed) to this tolerance relative
-/// to the moment vector's own max magnitude before the finer rule's result
+/// slot to this tolerance relative to the moment vector's own max magnitude
+/// before the finer rule's result
 /// is accepted. Gauss-Legendre error decays geometrically in the node count
 /// for the analytic integrand `exp(-q(z))`, so agreement between an n-node
 /// and a 2n-node rule certifies that both are converged: the coarse rule's
@@ -3553,15 +3543,13 @@ fn evaluate_non_affine_cell_with_rule<const COMPUTE_VALUE: bool>(
 /// reproduces the reference's erfc-noise realization, so any sub-384 rung
 /// drifts from the 384 value by `≈ 1e-13` — a drift that is NOT truncation,
 /// does NOT shrink with rung, and is NOT bounded by rung-to-rung agreement.
-/// Because the value- and derivative-only evaluators are contractually
-/// required to return *bit-identical* moments (so they must select the same
-/// rung), the value path cannot be split off to stay at 384 while the moment
-/// path certifies early. The `3e-15` test therefore stays tight: on these
-/// cells it does not certify, the value rides the bit-exact 384 rule, and the
-/// `non_affine_cell_state_matches_prefold_reference_to_1e_minus_13` accuracy
-/// contract holds. Any future early-certification must bound the value-vs-384
-/// error directly, not merely successive-moment agreement.
-const NON_AFFINE_LADDER_RTOL: f64 = 3e-15;
+/// The moment ladder remains independent of the value integral so value- and
+/// derivative-only evaluators keep returning bit-identical moments. The scalar
+/// value now evaluates on the terminal 384-node rule directly, preserving the
+/// `non_affine_cell_state_matches_prefold_reference_to_1e_minus_13` value
+/// contract without forcing every derivative-moment caller to use the terminal
+/// rung.
+const NON_AFFINE_LADDER_RTOL: f64 = 1e-15;
 
 /// Node counts of the progressive ladder below the 384-node terminal rung.
 /// All divisible by 4 so the SIMD sweep needs no scalar tail.
@@ -3631,9 +3619,9 @@ fn gauss_legendre_rule(n: usize) -> (Vec<f64>, Vec<f64>) {
 /// evaluators MUST select the same ladder rung so they accumulate the moment
 /// vector over the same nodes and return bit-identical moments (the
 /// `derivative_moment_evaluator_matches_value_evaluator_moments` invariant).
-/// The value integral converges at the same geometric Gauss-Legendre rate as
-/// the moments on the shared analytic integrand `exp(-q(z))`, so the
-/// moment-certified rung resolves the value to the same tolerance.
+/// Value-bearing callers evaluate the scalar cell probability separately on
+/// the terminal 384-node rule; this certificate governs only the reusable
+/// derivative moment vector.
 fn non_affine_ladder_converged(coarse: &CellMomentVec, fine: &CellMomentVec) -> bool {
     let mut scale = 0.0_f64;
     let mut err = 0.0_f64;
@@ -3701,12 +3689,20 @@ fn evaluate_non_affine_cell_simd<const COMPUTE_VALUE: bool>(
     evaluate_non_affine_cell_with_rule::<COMPUTE_VALUE>(cell, max_degree, &GL_NODES, &GL_WEIGHTS)
 }
 
+#[inline]
+fn evaluate_non_affine_cell_terminal_value(cell: DenestedCubicCell) -> f64 {
+    let (_, value_integral) =
+        evaluate_non_affine_cell_with_rule::<true>(cell, 0, &GL_NODES, &GL_WEIGHTS);
+    value_integral
+}
+
 fn evaluate_non_affine_cell_state(
     cell: DenestedCubicCell,
     branch: ExactCellBranch,
     max_degree: usize,
 ) -> Result<CellMomentState, String> {
-    let (moments, value_integral) = evaluate_non_affine_cell_simd::<true>(cell, max_degree);
+    let (moments, _) = evaluate_non_affine_cell_simd::<false>(cell, max_degree);
+    let value_integral = evaluate_non_affine_cell_terminal_value(cell);
     // Reference structure: `value_integral * half_width / sqrt(TAU)`. The
     // half_width factor is already applied inside the rule evaluator, so divide
     // by sqrt(TAU) here (a true division, NOT multiply-by-reciprocal) to
@@ -7041,5 +7037,121 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// DECISIVE: the third-derivative kernel must equal the FD of the
+    /// second-derivative kernel w.r.t. a parameter that perturbs `eta`,
+    /// RE-EVALUATING the moments at each step (the moments depend on `eta`
+    /// via the `exp(-q)` weight). This isolates the kernel from all survival
+    /// partition/cross machinery (gam#979 f_uv_dir localization).
+    #[test]
+    fn third_derivative_kernel_matches_fd_of_second_with_eta_perturbation() {
+        // A finite, non-affine cell.
+        let base = DenestedCubicCell {
+            left: -0.6,
+            right: 0.9,
+            c0: 0.30,
+            c1: 0.45,
+            c2: -0.20,
+            c3: 0.12,
+        };
+        // Synthetic parameter directions as cubic-in-z perturbations of eta:
+        //   eta_u = ∂eta/∂u, eta_v = ∂eta/∂v, eta_t = ∂eta/∂t (the dir).
+        let eta_u = [0.11_f64, -0.07, 0.05, 0.02];
+        let eta_v = [-0.09_f64, 0.13, -0.04, 0.03];
+        let eta_t = [0.17_f64, 0.06, -0.10, 0.04]; // the "b-like" direction
+        // Second crosses ∂²eta/∂{·}{·} (pick small non-zero cubics).
+        let eta_uv = [0.02_f64, 0.01, -0.015, 0.005];
+        let eta_ut = [-0.01_f64, 0.02, 0.007, -0.003];
+        let eta_vt = [0.015_f64, -0.008, 0.01, 0.004];
+        // Third cross ∂³eta/∂u∂v∂t.
+        let eta_uvt = [0.003_f64, -0.002, 0.001, 0.0005];
+
+        let neg = |a: &[f64; 4]| a.map(|v| -v);
+        let max_degree = 15usize;
+
+        // f_uv(s) where param s shifts eta by s·(eta_t + ½ s²... ) — here we
+        // build the cell at eta + s·eta_t + s²·eta_vt-style is NOT needed; we
+        // only need the t-direction to first order for ∂/∂t. To FD ∂(f_uv)/∂t
+        // we perturb eta along eta_t AND carry the s-dependence of the u,v
+        // crosses: eta_u(s)=eta_u + s·eta_ut, eta_v(s)=eta_v + s·eta_vt,
+        // eta_uv(s)=eta_uv + s·eta_uvt. The cell cubic shifts by s·eta_t.
+        let f_uv_at = |s: f64| -> f64 {
+            let cell_s = DenestedCubicCell {
+                c0: base.c0 + s * eta_t[0],
+                c1: base.c1 + s * eta_t[1],
+                c2: base.c2 + s * eta_t[2],
+                c3: base.c3 + s * eta_t[3],
+                ..base
+            };
+            // Moments MUST be recomputed at the perturbed eta.
+            let st = evaluate_cell_moments(cell_s, max_degree).unwrap();
+            let neg_cell = DenestedCubicCell {
+                c0: -cell_s.c0,
+                c1: -cell_s.c1,
+                c2: -cell_s.c2,
+                c3: -cell_s.c3,
+                ..cell_s
+            };
+            let u_s = [
+                eta_u[0] + s * eta_ut[0],
+                eta_u[1] + s * eta_ut[1],
+                eta_u[2] + s * eta_ut[2],
+                eta_u[3] + s * eta_ut[3],
+            ];
+            let v_s = [
+                eta_v[0] + s * eta_vt[0],
+                eta_v[1] + s * eta_vt[1],
+                eta_v[2] + s * eta_vt[2],
+                eta_v[3] + s * eta_vt[3],
+            ];
+            let uv_s = [
+                eta_uv[0] + s * eta_uvt[0],
+                eta_uv[1] + s * eta_uvt[1],
+                eta_uv[2] + s * eta_uvt[2],
+                eta_uv[3] + s * eta_uvt[3],
+            ];
+            cell_second_derivative_from_moments(
+                neg_cell,
+                &neg(&u_s),
+                &neg(&v_s),
+                &neg(&uv_s),
+                &st.moments,
+            )
+            .unwrap()
+        };
+
+        let h = 1e-5;
+        let fd = (f_uv_at(h) - f_uv_at(-h)) / (2.0 * h);
+
+        // Analytic third via the kernel (negated cell + negated crosses, as the
+        // survival path does).
+        let st0 = evaluate_cell_moments(base, max_degree).unwrap();
+        let neg_cell0 = DenestedCubicCell {
+            c0: -base.c0,
+            c1: -base.c1,
+            c2: -base.c2,
+            c3: -base.c3,
+            ..base
+        };
+        let analytic = cell_third_derivative_from_moments(
+            neg_cell0,
+            &neg(&eta_u),
+            &neg(&eta_v),
+            &neg(&eta_t),
+            &neg(&eta_uv),
+            &neg(&eta_ut),
+            &neg(&eta_vt),
+            &neg(&eta_uvt),
+            &st0.moments,
+        )
+        .unwrap();
+
+        let denom = fd.abs().max(1e-3);
+        let rel = (analytic - fd).abs() / denom;
+        assert!(
+            rel <= 1e-5,
+            "third kernel vs FD-of-second mismatch: analytic={analytic:.12e} fd={fd:.12e} rel={rel:.3e}"
+        );
     }
 }

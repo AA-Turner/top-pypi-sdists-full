@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-accounts
-Version: 8.1.0
+Version: 9.0.0
 Summary: Invenio user management and authentication.
 Home-page: https://github.com/inveniosoftware/invenio-accounts
 Author: CERN
@@ -16,10 +16,10 @@ Requires-Dist: cryptography>=3.0.0
 Requires-Dist: Flask-KVSession-Invenio<2.0.0,>=1.0.0
 Requires-Dist: Flask-Security-Invenio<5.0.0,>=4.0.0
 Requires-Dist: invenio-celery<3.0.0,>=2.0.0
-Requires-Dist: invenio-i18n<4.0.0,>=3.0.0
+Requires-Dist: invenio-i18n<5.0.0,>=4.0.0
 Requires-Dist: invenio-mail<3.0.0,>=1.0.2
-Requires-Dist: invenio-rest<4.0.0,>=3.0.0
-Requires-Dist: invenio-theme<5.0.0,>=4.0.0
+Requires-Dist: invenio-rest<5.0.0,>=4.0.0
+Requires-Dist: invenio-theme<6.0.0,>=5.0.0
 Requires-Dist: maxminddb-geolite2>=2017.404
 Requires-Dist: pyjwt>=1.5.0
 Requires-Dist: simplekv>=0.11.2
@@ -42,11 +42,8 @@ Requires-Dist: sphinx>=5; extra == "tests"
 Dynamic: license-file
 
 ..
-    This file is part of Invenio.
-    Copyright (C) 2015-2018 CERN.
-
-    Invenio is free software; you can redistribute it and/or modify it
-    under the terms of the MIT License; see LICENSE file for more details.
+    SPDX-FileCopyrightText: 2015-2018 CERN.
+    SPDX-License-Identifier: MIT
 
 ==================
  Invenio-Accounts
@@ -92,16 +89,19 @@ Further documentation is available on
 https://invenio-accounts.readthedocs.io/
 
 ..
-    This file is part of Invenio.
-    Copyright (C) 2015-2024 CERN.
-    Copyright (C) 2024-2026 Graz University of Technology.
-    Copyright (C) 2025 KTH Royal Institute of Technology.
-
-    Invenio is free software; you can redistribute it and/or modify it
-    under the terms of the MIT License; see LICENSE file for more details.
+    SPDX-FileCopyrightText: 2015-2024 CERN.
+    SPDX-FileCopyrightText: 2024-2026 Graz University of Technology.
+    SPDX-FileCopyrightText: 2025 KTH Royal Institute of Technology.
+    SPDX-License-Identifier: MIT
 
 Changes
 =======
+
+Version v9.0.0 (released 2026-06-16)
+
+- chore(setup): bump dependencies
+- chore(git-blame): ignore the SPDX license header commit
+- chore(licenses): update license headers to use SPDX
 
 Version v8.1.0 (released 2026-06-05)
 

@@ -1,13 +1,13 @@
 from ..cnrequest import CNRequest
-from .constants import cn_base_url
+from .constants import CN_BASE_URL
 
 
 def content_negotiation(
     ids: str,
-    format: str = "bibtex",
+    format: str = "bibtex", # noqa: A002
     style: str = "apa",
     locale: str = "en-US",
-    url: str = None,
+    url: str = "",
     **kwargs,
 ) -> str:
     """
@@ -25,7 +25,7 @@ def content_negotiation(
         you'll get a `(500) Internal Server Error`
     :param locale: Language locale. See `locale.locale_alias`
     :param url: Base URL for the content negotiation request. Default: `https://doi.org`
-    :param kwargs: any additional arguments will be passed on to `httpx.get`
+    :param kwargs: any additional arguments will be passed on to `httpx2.get`
     :rtype: str, which can be parsed to various formats depending on what
         format you request (e.g., JSON vs. XML vs. bibtex)
 
@@ -85,6 +85,7 @@ def content_negotiation(
         url = "http://dx.doi.org"
         cn.content_negotiation(ids = "10.1126/science.169.3946.635", url = url)
     """
-    if url is None:
-        url = cn_base_url
+    if not url:
+        url = CN_BASE_URL
+
     return CNRequest(url, ids, format, style, locale, **kwargs)

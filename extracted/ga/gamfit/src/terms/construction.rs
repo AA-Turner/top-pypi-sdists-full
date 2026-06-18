@@ -2,6 +2,7 @@ use crate::basis::analyze_penalty_block;
 use crate::estimate::EstimationError;
 use crate::faer_ndarray::{FaerEigh, FaerLinalgError, FaerSvd};
 use crate::linalg::utils::KahanSum;
+use crate::matrix::symmetrize_in_place;
 use crate::smooth::PenaltyStructureHint;
 use faer::linalg::matmul::matmul;
 use faer::{Accum, Mat, MatRef, Par, Side};
@@ -837,7 +838,7 @@ pub struct CanonicalPenalty {
     /// Optional operator-form handle bit-equivalent to `local`. Propagated
     /// from `PenaltySpec::Block.op`. Downstream PIRLS and REML exact operator
     /// algebra route through this for dense-Gram-free matvec when present.
-    pub op: Option<std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>>,
+    pub op: Option<std::sync::Arc<dyn crate::terms::analytic_penalties::PenaltyOp>>,
 }
 
 impl std::fmt::Debug for CanonicalPenalty {
@@ -998,8 +999,8 @@ impl CanonicalPenalty {
     /// Convert to a PenaltyCoordinate for the unified REML evaluator.
     pub fn to_penalty_coordinate(
         &self,
-    ) -> crate::solver::estimate::reml::unified::PenaltyCoordinate {
-        use crate::solver::estimate::reml::unified::PenaltyCoordinate;
+    ) -> crate::solver::estimate::reml::reml_outer_engine::PenaltyCoordinate {
+        use crate::solver::estimate::reml::reml_outer_engine::PenaltyCoordinate;
         if self.is_block_local() {
             PenaltyCoordinate::from_block_root_with_mean(
                 self.root.clone(),
@@ -1176,10 +1177,11 @@ pub fn canonicalize_penalty_spec(
         for i in 0..block_dim {
             root[[i, i]] = sqrt_scale;
         }
-        // Ridge penalties are diagonal ⟹ already symmetric, but symmetrize
-        // for consistency with the generic path.
-        let local_owned = local_matrix.to_owned();
-        let local_sym = (&local_owned + &local_owned.t()) * 0.5;
+        // Ridge penalties are diagonal by construction, but still route through
+        // the crate-wide ndarray symmetrizer so every construction variant uses
+        // the same "average the transpose" cleanup instead of a local copy.
+        let mut local_sym = local_matrix.to_owned();
+        symmetrize_in_place(&mut local_sym);
         return Ok(Some(CanonicalPenalty {
             root,
             col_range,
@@ -1204,8 +1206,8 @@ pub fn canonicalize_penalty_spec(
             return Ok(None);
         }
         let root = assemble_kronecker_root_local(&decomps);
-        let local_owned = local_matrix.to_owned();
-        let local_sym = (&local_owned + &local_owned.t()) * 0.5;
+        let mut local_sym = local_matrix.to_owned();
+        symmetrize_in_place(&mut local_sym);
         return Ok(Some(CanonicalPenalty {
             root,
             col_range,
@@ -2408,38 +2410,27 @@ impl KroneckerReparamResult {
         let p: usize = self.marginal_dims.iter().copied().product();
         let mut s = Array2::<f64>::zeros((p, p));
 
+        // Delegate the per-cell tensor-penalty accumulation to the shared
+        // `kronecker_cell_sigma` (#1172/#1185 single source of truth). Fold the
+        // `lambdas.len() > d` guard into `has_double` to preserve exact gating.
+        let eigenvalue_views: Vec<ArrayView1<'_, f64>> =
+            self.marginal_eigenvalues.iter().map(|m| m.view()).collect();
+        let has_double = self.has_double_penalty && lambdas.len() > d;
         let mut multi_idx = vec![0usize; d];
         let mut flat = 0usize;
         loop {
-            let mut sigma = 0.0;
-            let mut structural_sigma = 0.0;
-            for k in 0..d {
-                let marginal_eigenvalue = self.marginal_eigenvalues[k][multi_idx[k]];
-                structural_sigma += marginal_eigenvalue;
-                sigma += lambdas[k] * marginal_eigenvalue;
-            }
-            if self.has_double_penalty && lambdas.len() > d {
-                structural_sigma += 1.0;
-                sigma += lambdas[d];
-            }
-            if structural_sigma > KRONECKER_STRUCTURAL_ZERO_TOL {
-                sigma += self.penalty_shrinkage_ridge;
-            }
+            let (sigma, _structural_sigma, _joint_null) = kronecker_cell_sigma(
+                &eigenvalue_views,
+                &multi_idx,
+                lambdas,
+                d,
+                has_double,
+                self.penalty_shrinkage_ridge,
+            );
             s[[flat, flat]] = sigma;
             flat += 1;
 
-            let mut carry = true;
-            for dim in (0..d).rev() {
-                if carry {
-                    multi_idx[dim] += 1;
-                    if multi_idx[dim] < self.marginal_dims[dim] {
-                        carry = false;
-                    } else {
-                        multi_idx[dim] = 0;
-                    }
-                }
-            }
-            if carry {
+            if kronecker_multi_index_advance(&mut multi_idx, &self.marginal_dims) {
                 break;
             }
         }
@@ -2485,38 +2476,30 @@ impl KroneckerReparamResult {
         // For Kronecker structure, the penalty is diagonal in the eigenbasis.
         // e_transformed rows are the nonzero rows of sqrt(Σ_k λ_k S_k)^{1/2}.
         let d = self.marginal_dims.len();
+        // Delegate the per-cell tensor-penalty accumulation to the shared
+        // `kronecker_cell_sigma` (the #1172/#1185 single source of truth). The
+        // double-penalty term is only valid when `lambdas` actually carries the
+        // λ_d entry, so fold the original `lambdas.len() > d` guard into the
+        // `has_double_penalty` flag passed to the helper — preserving the exact
+        // gating behavior.
+        let eigenvalue_views: Vec<ArrayView1<'_, f64>> =
+            self.marginal_eigenvalues.iter().map(|m| m.view()).collect();
+        let has_double = self.has_double_penalty && lambdas.len() > d;
         let diag_vals: Vec<f64> = {
             let mut vals = Vec::with_capacity(p);
             let mut multi_idx = vec![0usize; d];
             loop {
-                let mut sigma = 0.0;
-                let mut structural_sigma = 0.0;
-                for k in 0..d {
-                    let marginal_eigenvalue = self.marginal_eigenvalues[k][multi_idx[k]];
-                    structural_sigma += marginal_eigenvalue;
-                    sigma += lambdas[k] * marginal_eigenvalue;
-                }
-                if self.has_double_penalty && lambdas.len() > d {
-                    structural_sigma += 1.0;
-                    sigma += lambdas[d];
-                }
-                if structural_sigma > KRONECKER_STRUCTURAL_ZERO_TOL {
-                    sigma += self.penalty_shrinkage_ridge;
-                }
+                let (sigma, _structural_sigma, _joint_null) = kronecker_cell_sigma(
+                    &eigenvalue_views,
+                    &multi_idx,
+                    lambdas,
+                    d,
+                    has_double,
+                    self.penalty_shrinkage_ridge,
+                );
                 vals.push(if sigma > 0.0 { sigma.sqrt() } else { 0.0 });
 
-                let mut carry = true;
-                for dim in (0..d).rev() {
-                    if carry {
-                        multi_idx[dim] += 1;
-                        if multi_idx[dim] < self.marginal_dims[dim] {
-                            carry = false;
-                        } else {
-                            multi_idx[dim] = 0;
-                        }
-                    }
-                }
-                if carry {
+                if kronecker_multi_index_advance(&mut multi_idx, &self.marginal_dims) {
                     break;
                 }
             }
@@ -2568,6 +2551,63 @@ impl KroneckerReparamResult {
 /// multi-index grid in O(d · ∏q_j) time with no O(p²) storage.
 const KRONECKER_STRUCTURAL_ZERO_TOL: f64 = 1e-12;
 
+/// Per-cell Kronecker eigenvalue accumulation — the single source of truth for
+/// the #1172/#1185 tensor-penalty math.
+///
+/// For the multi-index cell `multi_idx`, accumulates:
+///   - `sigma`            = Σ_k λ_k · μ_k  (+ joint-null double-penalty term + ridge)
+///   - `structural_sigma` = Σ_k μ_k        (unweighted; classifies joint-null cells)
+///   - `joint_null`       = whether the cell lies in the joint null space
+///
+/// `marginal_eigenvalues[k][multi_idx[k]]` is the k-th marginal eigenvalue μ_k.
+/// The double-penalty (global ridge) term `λ_d` is added only on joint-null
+/// cells; the structural shrinkage `ridge` is added only on structurally
+/// penalized cells. This mirrors the gated logic fixed in #1172/#1185 and MUST
+/// be kept identical across every caller.
+#[inline]
+fn kronecker_cell_sigma(
+    marginal_eigenvalues: &[ArrayView1<'_, f64>],
+    multi_idx: &[usize],
+    lambdas: &[f64],
+    d: usize,
+    has_double_penalty: bool,
+    ridge: f64,
+) -> (f64, f64, bool) {
+    let mut sigma = 0.0;
+    let mut structural_sigma = 0.0;
+    for k in 0..d {
+        let marginal_eigenvalue = marginal_eigenvalues[k][multi_idx[k]];
+        structural_sigma += marginal_eigenvalue;
+        sigma += lambdas[k] * marginal_eigenvalue;
+    }
+    let joint_null = structural_sigma <= KRONECKER_STRUCTURAL_ZERO_TOL;
+    if has_double_penalty && joint_null {
+        sigma += lambdas[d];
+    }
+    if structural_sigma > KRONECKER_STRUCTURAL_ZERO_TOL {
+        sigma += ridge;
+    }
+    (sigma, structural_sigma, joint_null)
+}
+
+/// Advance a row-major multi-index over the `dims` grid in place.
+/// Returns `true` when the grid is exhausted (the index wrapped back to all-zero).
+#[inline]
+fn kronecker_multi_index_advance(multi_idx: &mut [usize], dims: &[usize]) -> bool {
+    let mut carry = true;
+    for dim in (0..dims.len()).rev() {
+        if carry {
+            multi_idx[dim] += 1;
+            if multi_idx[dim] < dims[dim] {
+                carry = false;
+            } else {
+                multi_idx[dim] = 0;
+            }
+        }
+    }
+    carry
+}
+
 pub fn kronecker_logdet_and_derivatives(
     marginal_eigenvalues: &[ArrayView1<'_, f64>],
     marginal_dims: &[usize],
@@ -2585,20 +2625,14 @@ pub fn kronecker_logdet_and_derivatives(
 
     let mut multi_idx = vec![0usize; d];
     loop {
-        let mut sigma = 0.0;
-        let mut structural_sigma = 0.0;
-        for k in 0..d {
-            let marginal_eigenvalue = marginal_eigenvalues[k][multi_idx[k]];
-            structural_sigma += marginal_eigenvalue;
-            sigma += lambdas[k] * marginal_eigenvalue;
-        }
-        if has_double_penalty {
-            structural_sigma += 1.0;
-            sigma += lambdas[d];
-        }
-        if structural_sigma > KRONECKER_STRUCTURAL_ZERO_TOL {
-            sigma += ridge;
-        }
+        let (sigma, _structural_sigma, joint_null) = kronecker_cell_sigma(
+            marginal_eigenvalues,
+            &multi_idx,
+            lambdas,
+            d,
+            has_double_penalty,
+            ridge,
+        );
 
         if sigma > tol {
             logdet += sigma.ln();
@@ -2609,22 +2643,26 @@ pub fn kronecker_logdet_and_derivatives(
                 let ck = lambdas[k] * marginal_eigenvalues[k][multi_idx[k]];
                 grad[k] += ck * inv_sigma;
             }
-            if has_double_penalty {
+            if has_double_penalty && joint_null {
                 grad[d] += lambdas[d] * inv_sigma;
             }
 
             for k in 0..n_pen {
                 let ck = if k < d {
                     lambdas[k] * marginal_eigenvalues[k][multi_idx[k]]
-                } else {
+                } else if joint_null {
                     lambdas[d]
+                } else {
+                    0.0
                 };
                 hess[[k, k]] += ck * inv_sigma - ck * ck * inv_sigma2;
                 for l in (k + 1)..n_pen {
                     let cl = if l < d {
                         lambdas[l] * marginal_eigenvalues[l][multi_idx[l]]
-                    } else {
+                    } else if joint_null {
                         lambdas[d]
+                    } else {
+                        0.0
                     };
                     let off = -ck * cl * inv_sigma2;
                     hess[[k, l]] += off;
@@ -2633,18 +2671,7 @@ pub fn kronecker_logdet_and_derivatives(
             }
         }
 
-        let mut carry = true;
-        for dim in (0..d).rev() {
-            if carry {
-                multi_idx[dim] += 1;
-                if multi_idx[dim] < marginal_dims[dim] {
-                    carry = false;
-                } else {
-                    multi_idx[dim] = 0;
-                }
-            }
-        }
-        if carry {
+        if kronecker_multi_index_advance(&mut multi_idx, marginal_dims) {
             break;
         }
     }
@@ -2711,18 +2738,7 @@ pub fn kronecker_reparameterization_engine(
             }
             max_bal = max_bal.max(sigma);
 
-            let mut carry = true;
-            for dim in (0..d).rev() {
-                if carry {
-                    multi_idx[dim] += 1;
-                    if multi_idx[dim] < marginal_dims[dim] {
-                        carry = false;
-                    } else {
-                        multi_idx[dim] = 0;
-                    }
-                }
-            }
-            if carry {
+            if kronecker_multi_index_advance(&mut multi_idx, marginal_dims) {
                 break;
             }
         }
@@ -3009,6 +3025,67 @@ mod tests {
             .expect("dense artifact materialization");
         assert_eq!(dense.e_transformed.nrows(), 3);
         assert_eq!(dense.u_truncated.ncols(), 1);
+    }
+
+    #[test]
+    fn kronecker_double_penalty_shrinks_only_joint_null_space() {
+        let marginal_designs = vec![Array2::<f64>::eye(2), Array2::<f64>::eye(2)];
+        let marginal_penalties = vec![
+            array![[0.0, 0.0], [0.0, 2.0]],
+            array![[0.0, 0.0], [0.0, 3.0]],
+        ];
+        let marginal_dims = vec![2usize, 2usize];
+        let lambdas = vec![5.0, 7.0, 11.0];
+
+        let rep = super::kronecker_reparameterization_engine(
+            &marginal_designs,
+            &marginal_penalties,
+            &marginal_dims,
+            &lambdas,
+            true,
+            None,
+        )
+        .expect("kronecker reparameterization");
+
+        let s = rep.materialize_s_transformed(&lambdas);
+        let expected = [11.0, 21.0, 10.0, 31.0];
+        for (idx, expected_diag) in expected.iter().copied().enumerate() {
+            assert!(
+                (s[[idx, idx]] - expected_diag).abs() <= 1e-12,
+                "diagonal {idx} got {}, expected {expected_diag}",
+                s[[idx, idx]]
+            );
+        }
+
+        let expected_logdet: f64 = expected.iter().map(|v| f64::ln(*v)).sum();
+        assert!((rep.log_det - expected_logdet).abs() <= 1e-12);
+        assert!(
+            (rep.det1[2] - 1.0).abs() <= 1e-12,
+            "double-penalty derivative must come only from the joint null mode, got {}",
+            rep.det1[2]
+        );
+        assert!(rep.det2[[2, 2]].abs() <= 1e-12);
+
+        let tensor_roots = vec![
+            array![
+                [0.0, 0.0, 2.0_f64.sqrt(), 0.0],
+                [0.0, 0.0, 0.0, 2.0_f64.sqrt()]
+            ],
+            array![
+                [0.0, 3.0_f64.sqrt(), 0.0, 0.0],
+                [0.0, 0.0, 0.0, 3.0_f64.sqrt()]
+            ],
+        ];
+        let dense = rep
+            .materialize_dense_artifact_result(&tensor_roots, &lambdas, 4)
+            .expect("dense artifact materialization");
+        for (idx, expected_diag) in expected.iter().copied().enumerate() {
+            assert!(
+                (dense.s_transformed[[idx, idx]] - expected_diag).abs() <= 1e-12,
+                "dense artifact diagonal {idx} got {}, expected {expected_diag}",
+                dense.s_transformed[[idx, idx]]
+            );
+        }
     }
 
     #[test]

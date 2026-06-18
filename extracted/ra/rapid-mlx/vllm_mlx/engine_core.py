@@ -607,6 +607,8 @@ class EngineCore:
         images: list[Any] | None = None,
         videos: list[Any] | None = None,
         prefix_boundary: int = 0,
+        has_tools: bool = False,
+        requires_prompt_integrity: bool = False,
     ) -> str:
         """
         Add a request for processing.
@@ -618,6 +620,10 @@ class EngineCore:
             images: Optional images for multimodal
             videos: Optional videos for multimodal
             prefix_boundary: Token count for shared prefix (for cache)
+            has_tools: Whether the request includes tool definitions
+                (used by PFlash to skip compression — #287)
+            requires_prompt_integrity: Whether lossy prompt transforms
+                (PFlash) must be skipped for this request
 
         Returns:
             The request ID
@@ -635,6 +641,8 @@ class EngineCore:
             images=images,
             videos=videos,
             prefix_boundary=prefix_boundary,
+            has_tools=has_tools,
+            requires_prompt_integrity=requires_prompt_integrity,
         )
 
         # Throttle requests for hybrid models (GatedDeltaNet + Transformer).
@@ -985,15 +993,28 @@ class EngineCore:
         """Get prefix cache statistics."""
         return self.scheduler.get_cache_stats()
 
-    def save_cache_to_disk(self, cache_dir: str) -> bool:
+    def save_cache_to_disk(self, cache_dir: str, should_abort=None) -> bool:
         """Save prefix cache to disk.
 
         Routed through the mlx-step worker thread because the KV-cache
         arrays are tagged with that thread's generation_stream; trying to
         materialize them from the asyncio loop thread raises
         "There is no Stream(gpu, N) in current thread."
+
+        ``should_abort`` is a ``Callable[[float], bool]`` evaluated
+        between entries inside ``MemoryAwarePrefixCache.save_to_disk``.
+        The ``float`` arg is the predicted write duration of the NEXT
+        entry — the predicate answers "would starting that write push
+        us past the deadline?" so a single uninterruptible
+        ``save_prompt_cache`` call can't straddle the deadline and
+        still get SIGKILLed mid-write (the round-1 at-now check could).
+        Zero-arg predicates are accepted for backwards compatibility
+        via auto-detection; the deadline-backed predicate the lifespan
+        plumbs through is one-arg.
         """
-        return self._run_on_step_thread(self.scheduler.save_cache_to_disk, cache_dir)
+        return self._run_on_step_thread(
+            self.scheduler.save_cache_to_disk, cache_dir, should_abort=should_abort
+        )
 
     def load_cache_from_disk(self, cache_dir: str) -> int:
         """Load prefix cache from disk.
@@ -1145,9 +1166,9 @@ class AsyncEngineCore:
         """Get prefix cache statistics."""
         return self.engine.get_cache_stats()
 
-    def save_cache_to_disk(self, cache_dir: str) -> bool:
+    def save_cache_to_disk(self, cache_dir: str, should_abort=None) -> bool:
         """Save prefix cache to disk."""
-        return self.engine.save_cache_to_disk(cache_dir)
+        return self.engine.save_cache_to_disk(cache_dir, should_abort=should_abort)
 
     def load_cache_from_disk(self, cache_dir: str) -> int:
         """Load prefix cache from disk."""

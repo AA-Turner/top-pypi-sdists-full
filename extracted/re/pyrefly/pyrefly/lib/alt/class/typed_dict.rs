@@ -26,6 +26,7 @@ use vec1::vec1;
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
 use crate::alt::class::class_field::ClassField;
+use crate::alt::expr::ExprOptions;
 use crate::alt::types::class_metadata::ClassMetadata;
 use crate::alt::types::class_metadata::ClassSynthesizedField;
 use crate::alt::types::class_metadata::ClassSynthesizedFields;
@@ -33,7 +34,6 @@ use crate::alt::unwrap::HintRef;
 use crate::binding::binding::ClassFieldDefinition;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
-use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::solver::solver::SubsetError;
@@ -99,47 +99,61 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 check_errors,
                                 key.range(),
-                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                ErrorKind::BadTypedDictKey,
                                 format!("Cannot update read-only field `{key_name}`"),
                             );
                         }
                         Some(field) => {
-                            self.expr_with_separate_check_errors(
+                            self.expr_with_options(
                                 &x.value,
-                                Some((&field.ty, check_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(Some(
-                                        key_name.clone(),
-                                    )))
-                                })),
-                                item_errors,
+                                ExprOptions::check(
+                                    &field.ty,
+                                    item_errors,
+                                    check_errors,
+                                    &|| {
+                                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                            Some(key_name.clone()),
+                                            false,
+                                        ))
+                                    },
+                                    None,
+                                ),
                             );
                         }
                         None if let ExtraItems::Extra(extra) = &extra_items => {
-                            self.expr_with_separate_check_errors(
+                            self.expr_with_options(
                                 &x.value,
-                                Some((&extra.ty, check_errors, &|| {
-                                    TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(None))
-                                })),
-                                item_errors,
+                                ExprOptions::check(
+                                    &extra.ty,
+                                    item_errors,
+                                    check_errors,
+                                    &|| {
+                                        TypeCheckContext::of_kind(TypeCheckKind::TypedDictKey(
+                                            None, false,
+                                        ))
+                                    },
+                                    None,
+                                ),
                             );
                         }
                         None => {
-                            let mut msg = vec1![format!(
-                                "Key `{}` is not defined in TypedDict `{}`",
-                                key_name,
-                                typed_dict.name()
-                            )];
+                            let mut builder = check_errors.error_builder(
+                                key.range(),
+                                ErrorKind::BadTypedDictKey,
+                                format!(
+                                    "Key `{}` is not defined in TypedDict `{}`",
+                                    key_name,
+                                    typed_dict.name()
+                                ),
+                            );
                             if let Some(suggestion) = best_suggestion(
                                 &key_name,
                                 fields.keys().map(|candidate| (candidate, 0usize)),
                             ) {
-                                msg.push(format!("Did you mean `{suggestion}`?"));
+                                builder =
+                                    builder.with_detail(format!("Did you mean `{suggestion}`?"));
                             }
-                            check_errors.add(
-                                key.range(),
-                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
-                                msg,
-                            );
+                            builder.emit();
                         }
                     }
                     keys.insert(key_name);
@@ -147,7 +161,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         check_errors,
                         key.range(),
-                        ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                        ErrorKind::BadTypedDictKey,
                         format!(
                             "Expected string literal key, got `{}`",
                             self.for_display(key_type)
@@ -176,16 +190,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         } else {
                             &|| TypeCheckContext::of_kind(TypeCheckKind::TypedDictUnpacking)
                         };
-                    self.solver().error(
-                        &item_ty,
-                        &partial_td_ty,
-                        check_errors,
-                        range,
-                        tcc,
-                        subset_error,
-                        None,
-                        Vec::new(),
-                    );
+                    self.solver()
+                        .error_builder(
+                            &item_ty,
+                            &partial_td_ty,
+                            check_errors,
+                            range,
+                            tcc,
+                            subset_error,
+                        )
+                        .emit();
                 }
             }
         });
@@ -196,7 +210,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         check_errors,
                         range,
-                        ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                        ErrorKind::BadTypedDictKey,
                         format!(
                             "Missing required key `{}` for TypedDict `{}`",
                             key,
@@ -935,7 +949,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 range,
-                ErrorInfo::Kind(ErrorKind::BadClassDefinition),
+                ErrorKind::BadClassDefinition,
                 "TypedDict members must be declared in the form `field: Annotation` with no assignment".to_owned(),
             );
         }
@@ -952,7 +966,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                    ErrorKind::InvalidAnnotation,
                     format!("`{q}` may not be used for TypedDict members",),
                 );
             }
@@ -972,7 +986,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         range,
-                        ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                        ErrorKind::BadTypedDictKey,
                         format!(
                             "Cannot extend closed TypedDict `{}` with extra item `{}`",
                             base.name(),
@@ -986,7 +1000,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         // The field type needs to be assignable to the extra_items type.
                         if !self.is_subset_eq(field_ty, &ty) {
                             self.error(
-                                errors, range, ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                errors, range, ErrorKind::BadTypedDictKey,
                             format!(
                                 "`{}` is not assignable to `extra_items` type `{}` of TypedDict `{}`",
                                 self.for_display(field_ty.clone()), self.for_display(ty), base.name()));
@@ -999,14 +1013,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             self.error(
                                 errors,
                                 range,
-                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                ErrorKind::BadTypedDictKey,
                                 format!("Cannot add required field `{}` to TypedDict `{}` with non-read-only `extra_items`", name, base.name()),
                             );
                         } else if !self.is_consistent(field_ty, &ty) {
                             self.error(
                                 errors,
                                 range,
-                                ErrorInfo::Kind(ErrorKind::BadTypedDictKey),
+                                ErrorKind::BadTypedDictKey,
                                 format!(
                                     "`{}` is not consistent with `extra_items` type `{}` of TypedDict `{}`",
                                     self.for_display(field_ty.clone()), self.for_display(ty), base.name()),
@@ -1036,7 +1050,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
         // Pin any vars in the type: leaking a var in a class field is particularly
         // likely to lead to data races where downstream uses can pin inconsistently.
-        let ty = self.solver().deep_force(ty);
+        let ty = self.solver().force(ty);
 
         ClassField::typed_dict_field(ty, annotation, read_only_reason)
     }
@@ -1044,4 +1058,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
 
 fn name_to_literal_type(name: &Name) -> Type {
     Lit::Str(name.as_str().into()).to_implicit_type()
+}
+
+pub trait TypedDictErrorKind {
+    fn key_error_kind(&self) -> ErrorKind;
+}
+
+impl TypedDictErrorKind for pyrefly_types::typed_dict::TypedDict {
+    fn key_error_kind(&self) -> ErrorKind {
+        if self.is_anonymous() {
+            ErrorKind::BadIndex
+        } else {
+            ErrorKind::BadTypedDictKey
+        }
+    }
 }

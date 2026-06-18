@@ -9,6 +9,7 @@ transport ownership, and the close/context-manager paths.
 from __future__ import annotations
 
 import asyncio
+import json
 
 import httpx
 import pytest
@@ -16,50 +17,75 @@ import pytest
 from smplkit import AsyncJobsClient, JobsClient
 from smplkit.errors import ConflictError, NotFoundError
 from smplkit._generated.jobs.client import AuthenticatedClient
-from smplkit.jobs import AsyncJob, HttpConfig, Job, Run, Usage
+from smplkit.jobs import AsyncJob, AsyncRun, HttpConfig, Job, JobEnvironment, Run, Usage
 
 BASE = "https://jobs.example.com"
 RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
 _CFG = HttpConfig(url="https://api.example.com/hook", method="POST", headers=[("X-Api-Key", "secret")], body="{}")
 
-
-def _job_resource(job_id="my-job", *, created=True, version=1, enabled=True):
-    return {
-        "id": job_id,
-        "type": "job",
-        "attributes": {
-            "name": "My Job",
-            "description": "does a thing",
-            "enabled": enabled,
-            "type": "http",
-            "schedule": "0 * * * *",
-            "configuration": {
-                "method": "POST",
-                "url": "https://api.example.com/hook",
-                "headers": [{"name": "X-Api-Key", "value": "secret"}],
-                "body": "{}",
-                "success_status": "2xx",
-                "timeout": 30,
-                "tls_verify": True,
-                "ca_cert": None,
-            },
-            "concurrency_policy": "ALLOW",
-            "next_run_at": "2026-06-05T00:00:00Z",
-            "created_at": "2026-06-04T00:00:00Z" if created else None,
-            "updated_at": "2026-06-04T00:00:00Z" if created else None,
-            "deleted_at": None,
-            "version": version,
+# Default environments map: ``production`` enabled with no override (inherits
+# base config), ``staging`` disabled with a per-env configuration override.
+# Exercises both JobEnvironment._from_dict branches (config absent / present).
+_DEFAULT_ENVIRONMENTS = {
+    "production": {"enabled": True},
+    "staging": {
+        "enabled": False,
+        "configuration": {
+            "method": "POST",
+            "url": "https://staging.example.com/hook",
+            "headers": [],
+            "body": "{}",
+            "success_status": "2xx",
+            "timeout": 30,
+            "tls_verify": True,
+            "ca_cert": None,
         },
+    },
+}
+
+
+def _job_resource(job_id="my-job", *, created=True, version=1, enabled=True, environments="default"):
+    if environments == "default":
+        environments = _DEFAULT_ENVIRONMENTS
+    attributes = {
+        "name": "My Job",
+        "description": "does a thing",
+        "enabled": enabled,
+        "recurring": True,
+        "type": "http",
+        "schedule": "0 * * * *",
+        "configuration": {
+            "method": "POST",
+            "url": "https://api.example.com/hook",
+            "headers": [{"name": "X-Api-Key", "value": "secret"}],
+            "body": "{}",
+            "success_status": "2xx",
+            "timeout": 30,
+            "tls_verify": True,
+            "ca_cert": None,
+        },
+        "concurrency_policy": "ALLOW",
+        "next_run_at": "2026-06-05T00:00:00Z",
+        "created_at": "2026-06-04T00:00:00Z" if created else None,
+        "updated_at": "2026-06-04T00:00:00Z" if created else None,
+        "deleted_at": None,
+        "version": version,
     }
+    # The server always returns a map (NOT NULL default {}); ``environments=None``
+    # here models the key being absent, exercising the wrapper's None-guard.
+    if environments is not None:
+        attributes["environments"] = environments
+    return {"id": job_id, "type": "job", "attributes": attributes}
 
 
-def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_of=None):
+def _run_resource(run_id=RUN_ID, status="SUCCEEDED", trigger="SCHEDULE", rerun_of=None, environment="production"):
     return {
         "id": run_id,
         "type": "run",
         "attributes": {
             "job": "my-job",
             "job_version": 1,
+            "environment": environment,
             "trigger": trigger,
             "rerun_of": rerun_of,
             "scheduled_for": "2026-06-05T00:00:00Z",
@@ -149,8 +175,9 @@ class TestModels:
         assert "HttpConfig" in repr(_CFG)
 
     def test_run_and_usage_parse(self):
-        run = Run._from_resource(_run_resource())
+        run = Run._from_resource(_run_resource(environment="staging"))
         assert run.status == "SUCCEEDED" and run.total_duration_ms == 400 and "Run(" in repr(run)
+        assert run.environment == "staging"
         usage = Usage._from_resource(_USAGE)
         assert usage.runs_used == 12 and "Usage(" in repr(usage)
 
@@ -306,5 +333,325 @@ class TestStandaloneConstructionAndClose:
         async def _run():
             async with AsyncJobsClient(api_key="sk_test", base_domain="example.com") as c:
                 assert isinstance(c, AsyncJobsClient)
+
+        asyncio.run(_run())
+
+
+def _recording(captures: list[dict]):
+    """A handler that records each request's env header / filter / body, then
+    delegates to the shared ``_handler`` for the response."""
+
+    def h(req: httpx.Request) -> httpx.Response:
+        captures.append(
+            {
+                "method": req.method,
+                "path": req.url.path,
+                "env_header": req.headers.get("X-Smplkit-Environment"),
+                "filter_env": req.url.params.get("filter[environment]"),
+                "body": json.loads(req.content) if req.content else None,
+            }
+        )
+        return _handler(req)
+
+    return h
+
+
+class TestEnvironmentModelsAndHelpers:
+    def test_job_environment_from_dict_branches(self):
+        bare = JobEnvironment._from_dict({"enabled": True})
+        assert bare.enabled is True and bare.configuration is None
+        with_cfg = JobEnvironment._from_dict({"enabled": False, "configuration": {"url": "https://e.com"}})
+        assert with_cfg.enabled is False
+        assert isinstance(with_cfg.configuration, HttpConfig)
+        assert with_cfg.configuration.url == "https://e.com"
+
+    def test_join_environments(self):
+        from smplkit.jobs.clients import UNSET, _join_environments
+
+        assert _join_environments(None) is UNSET
+        assert _join_environments([]) is UNSET
+        assert _join_environments(["production", "staging"]) == "production,staging"
+
+    def test_normalize_environments(self):
+        from smplkit.jobs.clients import _normalize_environments
+
+        assert _normalize_environments(None) == {}
+        assert _normalize_environments({}) == {}
+        out = _normalize_environments(
+            {
+                "production": JobEnvironment(enabled=True),  # passthrough instance
+                "staging": {"enabled": True, "configuration": _CFG},  # dict w/ HttpConfig instance
+                "dev": {"enabled": False, "configuration": {"url": "https://dev.example.com"}},  # dict w/ dict cfg
+                "qa": {"enabled": True},  # dict, no configuration
+            }
+        )
+        assert out["production"].enabled is True
+        assert out["staging"].configuration is _CFG  # instance passed through unchanged
+        # a dict-form configuration is coerced to HttpConfig so it serializes on save
+        assert isinstance(out["dev"].configuration, HttpConfig)
+        assert out["dev"].configuration.url == "https://dev.example.com"
+        assert out["qa"].configuration is None
+
+    def test_create_sends_dict_form_environment_configuration(self):
+        # The documented plain-dict form (incl. a dict configuration override)
+        # must round-trip through new().save() without crashing.
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new(
+            "my-job",
+            name="My Job",
+            schedule="0 * * * *",
+            configuration=_CFG,
+            environments={"staging": {"enabled": True, "configuration": {"url": "https://staging.example.com/x"}}},
+        )
+        job.save()
+        post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
+        staging = post["body"]["data"]["attributes"]["environments"]["staging"]
+        assert staging["enabled"] is True
+        assert staging["configuration"]["url"] == "https://staging.example.com/x"
+
+    def test_set_enabled_and_set_configuration(self):
+        job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
+        # create-new-entry branch
+        job.set_enabled(True, environment="production")
+        assert job.environments["production"].enabled is True
+        # existing-entry branch
+        job.set_enabled(False, environment="production")
+        assert job.environments["production"].enabled is False
+        # per-env configuration override
+        job.set_configuration(_CFG, environment="staging")
+        assert job.environments["staging"].configuration is _CFG
+        # base configuration (environment=None)
+        new_cfg = HttpConfig(url="https://base.example.com")
+        job.set_configuration(new_cfg)
+        assert job.configuration is new_cfg
+
+    def test_repr_lists_enabled_environments(self):
+        job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
+        job.set_enabled(True, environment="production")
+        job.set_enabled(False, environment="staging")
+        assert "enabled_in=['production']" in repr(job)
+
+    def test_from_resource_parses_environments(self):
+        c = _sync()
+        job = c.get("my-job")
+        assert job.enabled is True  # derived roll-up
+        assert job.recurring is True
+        assert job.environments["production"].enabled is True
+        assert job.environments["production"].configuration is None  # inherits base
+        assert job.environments["staging"].configuration.url == "https://staging.example.com/hook"
+
+    def test_from_resource_without_environments(self):
+        def h(req):
+            if req.url.path.startswith("/api/v1/jobs/") and req.method == "GET":
+                return httpx.Response(200, json={"data": _job_resource(environments=None)})
+            return _handler(req)
+
+        job = _sync(h).get("my-job")
+        assert job.environments == {}
+
+
+class TestEnvironmentsSync:
+    def test_create_sends_environments_map(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new(
+            "my-job",
+            name="My Job",
+            schedule="0 * * * *",
+            configuration=_CFG,
+            environments={
+                "production": JobEnvironment(enabled=True),
+                "staging": JobEnvironment(enabled=True, configuration=_CFG),
+            },
+        )
+        job.save()
+        body = next(c for c in caps if c["method"] == "POST" and c["path"] == "/api/v1/jobs")
+        envs = body["body"]["data"]["attributes"]["environments"]
+        assert envs["production"] == {"enabled": True}  # _to_payload config-absent branch
+        assert envs["staging"]["enabled"] is True
+        assert envs["staging"]["configuration"]["url"] == "https://api.example.com/hook"  # config-present branch
+        # base 'enabled' is never written
+        assert "enabled" not in body["body"]["data"]["attributes"]
+
+    def test_runs_list_explicit_environments_filter(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.runs.list(environments=["production", "staging"])
+        assert caps[-1]["filter_env"] == "production,staging"
+
+    def test_runs_list_uses_client_default_environment(self):
+        caps: list[dict] = []
+        c = JobsClient(auth_client=_auth(_recording(caps)), environment="production")
+        c.runs.list()
+        assert caps[-1]["filter_env"] == "production"
+
+    def test_runs_list_no_environment_omits_filter(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.runs.list()
+        assert caps[-1]["filter_env"] is None
+
+    def test_run_now_environment_header(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.run("my-job", environment="staging")
+        assert caps[-1]["env_header"] == "staging"
+        # client default applies when no explicit arg
+        caps2: list[dict] = []
+        c2 = JobsClient(auth_client=_auth(_recording(caps2)), environment="production")
+        c2.run("my-job")
+        assert caps2[-1]["env_header"] == "production"
+        # neither → no header
+        caps3: list[dict] = []
+        _sync(_recording(caps3)).run("my-job")
+        assert caps3[-1]["env_header"] is None
+
+    def test_one_off_birth_environment_header_on_create(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new("one-off", name="One", schedule="now", configuration=_CFG, environment="staging")
+        job.save()
+        post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
+        assert post["env_header"] == "staging"
+
+    def test_update_sends_client_default_environment_header(self):
+        caps: list[dict] = []
+        c = JobsClient(auth_client=_auth(_recording(caps)), environment="production")
+        job = c.get("my-job")  # created_at set → save() updates
+        job.name = "renamed"
+        job.save()
+        put = next(x for x in caps if x["method"] == "PUT")
+        assert put["env_header"] == "production"
+
+
+class TestEnvironmentsAsync:
+    def test_async_environments_and_headers(self):
+        async def _run():
+            caps: list[dict] = []
+            c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True), environment="production")
+            # create with environments map (async _create header = client default)
+            job = c.new(
+                "my-job",
+                name="My Job",
+                schedule="0 * * * *",
+                configuration=_CFG,
+                environments={"production": JobEnvironment(enabled=True)},
+            )
+            await job.save()
+            post = next(x for x in caps if x["method"] == "POST" and x["path"] == "/api/v1/jobs")
+            assert post["env_header"] == "production"
+            assert post["body"]["data"]["attributes"]["environments"]["production"] == {"enabled": True}
+            # run-now with explicit environment header
+            await c.run("my-job", environment="staging")
+            assert caps[-1]["env_header"] == "staging"
+            # runs.list explicit environments filter
+            await c.runs.list(environments=["staging"])
+            assert caps[-1]["filter_env"] == "staging"
+            # parsed run carries its environment
+            run = await c.run("my-job")
+            assert run.environment == "production"
+
+        asyncio.run(_run())
+
+
+class TestConvenienceGettersSetters:
+    def test_is_enabled(self):
+        job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
+        assert job.is_enabled() is False  # roll-up default (no envs)
+        job.set_enabled(True, environment="production")
+        assert job.is_enabled(environment="production") is True  # per-env present
+        assert job.is_enabled(environment="staging") is False  # env absent from map
+        job.enabled = True  # simulate the server roll-up
+        assert job.is_enabled() is True
+
+    def test_get_configuration(self):
+        base = HttpConfig(url="https://base.example.com")
+        job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=base)
+        assert job.get_configuration() is base  # base
+        assert job.get_configuration(environment="production") is base  # no override -> base
+        override = HttpConfig(url="https://prod.example.com")
+        job.set_configuration(override, environment="production")
+        assert job.get_configuration(environment="production") is override  # override wins
+        # an env entry with no configuration still falls back to base
+        job.set_enabled(True, environment="staging")
+        assert job.get_configuration(environment="staging") is base
+
+    def test_set_schedule(self):
+        job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
+        job.set_schedule("0 2 * * *")
+        assert job.schedule == "0 2 * * *"
+
+
+class TestActiveRecordSync:
+    def test_job_trigger_and_list_runs(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.get("my-job")
+        run = job.trigger(environment="production")
+        assert run.trigger == "MANUAL"
+        assert caps[-1]["env_header"] == "production"
+        runs = job.list_runs(environment="production")
+        assert len(runs) == 1
+        assert caps[-1]["filter_env"] == "production"
+        # no-environment list omits the filter
+        job.list_runs()
+        assert caps[-1]["filter_env"] is None
+
+    def test_job_active_record_requires_client(self):
+        job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
+        with pytest.raises(RuntimeError):
+            job.trigger()
+        with pytest.raises(RuntimeError):
+            job.list_runs()
+
+    def test_run_rerun_and_cancel(self):
+        c = _sync()
+        run = c.runs.get(RUN_ID)
+        assert run.rerun().trigger == "RERUN"
+        assert run.cancel().status == "CANCELED"
+        # a run trigger()'d off a Job is also bound and can rerun
+        triggered = c.get("my-job").trigger()
+        assert triggered.rerun().trigger == "RERUN"
+
+    def test_run_active_record_requires_client(self):
+        run = Run._from_resource(_run_resource())  # no runs backref
+        with pytest.raises(RuntimeError):
+            run.rerun()
+        with pytest.raises(RuntimeError):
+            run.cancel()
+
+
+class TestActiveRecordAsync:
+    def test_async_job_trigger_and_list_runs(self):
+        async def _run():
+            caps: list[dict] = []
+            c = AsyncJobsClient(auth_client=_auth(_recording(caps), is_async=True), environment="production")
+            job = await c.get("my-job")
+            run = await job.trigger(environment="development")
+            assert run.trigger == "MANUAL"
+            assert caps[-1]["env_header"] == "development"
+            runs = await job.list_runs(environment="development")
+            assert len(runs) == 1
+            assert caps[-1]["filter_env"] == "development"
+            unbound = AsyncJob(None, id="x", name="X", schedule="now", configuration=_CFG)
+            with pytest.raises(RuntimeError):
+                await unbound.trigger()
+            with pytest.raises(RuntimeError):
+                await unbound.list_runs()
+
+        asyncio.run(_run())
+
+    def test_async_run_rerun_and_cancel(self):
+        async def _run():
+            c = _async()
+            run = await c.runs.get(RUN_ID)
+            assert (await run.rerun()).trigger == "RERUN"
+            assert (await run.cancel()).status == "CANCELED"
+            unbound = AsyncRun._from_resource(_run_resource())
+            with pytest.raises(RuntimeError):
+                await unbound.rerun()
+            with pytest.raises(RuntimeError):
+                await unbound.cancel()
 
         asyncio.run(_run())

@@ -17,9 +17,11 @@ import os
 from oslo_service import service
 import setproctitle
 
+from neutron_lib._i18n import _
 from neutron_lib.callbacks import events
 from neutron_lib.callbacks import registry
 from neutron_lib.callbacks import resources
+from neutron_lib import constants
 
 
 class BaseWorker(service.ServiceBase):
@@ -49,7 +51,7 @@ class BaseWorker(service.ServiceBase):
     _default_process_count = 1
 
     def __init__(self, worker_process_count=_default_process_count,
-                 set_proctitle='on', desc=None):
+                 set_proctitle=constants.SETPROCTITLE_ON, desc=None):
         """Initialize a worker instance.
 
         :param worker_process_count: Defines how many processes to spawn for
@@ -63,10 +65,13 @@ class BaseWorker(service.ServiceBase):
             desc:
                 process descriptive string
         """
+        if worker_process_count < 0:
+            raise RuntimeError(_(
+                'Neutron worker classes `worker_process_count` must be >= 0'))
         self._worker_process_count = worker_process_count
         self._my_pid = os.getpid()
         self._set_proctitle = set_proctitle
-        if set_proctitle == 'on':
+        if set_proctitle == constants.SETPROCTITLE_ON:
             self._parent_proctitle = setproctitle.getproctitle()
         self.desc = desc
 
@@ -87,14 +92,15 @@ class BaseWorker(service.ServiceBase):
         self._set_proctitle = value
 
     def setproctitle(self, name="neutron-server", desc=None):
-        if self._set_proctitle == "off" or os.getpid() == self._my_pid:
+        if (self._set_proctitle == constants.SETPROCTITLE_OFF or
+                os.getpid() == self._my_pid):
             return
 
         if not desc:
             desc = self.__class__.__name__
 
         proctitle = f"{name}: {desc}"
-        if self._set_proctitle == "on":
+        if self._set_proctitle == constants.SETPROCTITLE_ON:
             proctitle += f" ({self._parent_proctitle})"
 
         setproctitle.setproctitle(proctitle)

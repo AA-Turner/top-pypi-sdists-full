@@ -1,7 +1,8 @@
 use super::inner_strategy::GeometryBackendKind;
 use super::penalty_logdet::PenaltyPseudologdet;
 use super::*;
-use crate::linalg::utils::enforce_symmetry;
+use crate::matrix::symmetrize_in_place;
+use std::sync::atomic::Ordering;
 
 // Relative scale of the diagonal ridge added to the ρ-Hessian before
 // inverting it for sigma-point construction. Matches the analogous IFT
@@ -57,6 +58,7 @@ pub enum SmoothingCorrectionOutcome {
     /// Cubature upgrade succeeded.
     Cubature {
         correction: Array2<f64>,
+        rho_covariance: Option<Array2<f64>>,
         rank: usize,
         n_points: usize,
         near_boundary: bool,
@@ -66,6 +68,7 @@ pub enum SmoothingCorrectionOutcome {
     /// Principled first-order linearization was returned.
     FirstOrder {
         correction: Option<Array2<f64>>,
+        rho_covariance: Option<Array2<f64>>,
         reason: &'static str,
         severity: SmoothingCorrectionFallbackSeverity,
     },
@@ -81,6 +84,18 @@ impl SmoothingCorrectionOutcome {
         match self {
             SmoothingCorrectionOutcome::Cubature { correction, .. } => Some(correction),
             SmoothingCorrectionOutcome::FirstOrder { correction, .. } => correction,
+        }
+    }
+
+    /// Read the regularized inverse outer Hessian `Cov(rho_hat)`, when the
+    /// selected path produced one. This is consumed by higher-order LR
+    /// inference and does not affect the covariance correction matrix.
+    pub fn rho_covariance(&self) -> Option<&Array2<f64>> {
+        match self {
+            SmoothingCorrectionOutcome::Cubature { rho_covariance, .. }
+            | SmoothingCorrectionOutcome::FirstOrder { rho_covariance, .. } => {
+                rho_covariance.as_ref()
+            }
         }
     }
 
@@ -120,7 +135,7 @@ pub(crate) type SigmaPointResult = Option<(Array2<f64>, Array1<f64>)>;
 ///
 /// Returns `true` when both of the following hold:
 ///   * The global GPU policy selects CUDA (`cuda_selected()`).
-///   * A live [`crate::gpu::runtime::GpuRuntime`] is present, confirming
+///   * A live [`crate::gpu::device_runtime::GpuRuntime`] is present, confirming
 ///     that CUDA is initialised and the JIT row-kernel cache is warm.
 ///
 /// The full Stage 3.3 device-resident PIRLS loop (`pirls_loop_on_stream`)
@@ -134,7 +149,7 @@ pub(crate) type SigmaPointResult = Option<(Array2<f64>, Array1<f64>)>;
 /// properties that determine correctness.
 #[inline]
 pub(crate) fn device_pirls_stage3_ready() -> bool {
-    crate::gpu::cuda_selected() && crate::gpu::runtime::GpuRuntime::global().is_some()
+    crate::gpu::cuda_selected() && crate::gpu::device_runtime::GpuRuntime::global().is_some()
 }
 
 /// Sigma-cubature executor dispatch — the swap site between the CPU Rayon
@@ -186,7 +201,7 @@ pub(crate) fn sigma_cubature_dispatch(
 ///   2. Materialises `x_transformed = X_original · Qs` on the host
 ///      (dense-only; sparse design returns `Ok(None)`).
 ///   3. Passes the per-sigma inputs to
-///      [`crate::gpu::sigma_cubature::try_gpu_sigma_stream_pool_eval`]
+///      [`crate::gpu::kernels::sigma_cubature::try_gpu_sigma_stream_pool_eval`]
 ///      which allocates a stream pool (N_streams = min(8, M)), rotates
 ///      sigma points across streams, runs `pirls_loop_on_stream` on each,
 ///      and returns one `(H_original⁻¹, β_original)` pair per point.
@@ -201,8 +216,8 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
     sigma_points: &[Array1<f64>],
 ) -> Result<Option<Vec<SigmaPointResult>>, crate::gpu::GpuError> {
     use crate::construction::{EngineDims, stable_reparameterization_engine_canonical};
-    use crate::gpu::runtime::GpuRuntime;
-    use crate::gpu::sigma_cubature::try_gpu_sigma_stream_pool_eval;
+    use crate::gpu::device_runtime::GpuRuntime;
+    use crate::gpu::kernels::sigma_cubature::try_gpu_sigma_stream_pool_eval;
     use crate::solver::gpu::pirls_dispatch_wire::admission_for;
 
     if sigma_points.is_empty() {
@@ -235,7 +250,7 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
     // This is a moderate-cost eigendecomposition (O(p³) per point); it
     // runs sequentially here because the downstream GPU launches dominate.
     let engine_dims = EngineDims::new(p, state.canonical_penalties.len());
-    let mut per_sigma: Vec<crate::gpu::sigma_cubature::SigmaPointGpuInput> =
+    let mut per_sigma: Vec<crate::gpu::kernels::sigma_cubature::SigmaPointGpuInput> =
         Vec::with_capacity(sigma_points.len());
 
     for rho in sigma_points {
@@ -256,7 +271,7 @@ pub(crate) fn sigma_cubature_evaluate_gpu_stream_pool(
         // for the standard sigma-cubature path (no explicit prior-mean offset).
         let linear_shift = ndarray::Array1::<f64>::zeros(p);
 
-        per_sigma.push(crate::gpu::sigma_cubature::SigmaPointGpuInput {
+        per_sigma.push(crate::gpu::kernels::sigma_cubature::SigmaPointGpuInput {
             s_transformed: reparam.s_transformed,
             qs: reparam.qs,
             linear_shift,
@@ -495,7 +510,7 @@ impl<'a> RemlState<'a> {
         rho: &Array1<f64>,
         bundle: &EvalShared,
     ) -> Result<Array2<f64>, EstimationError> {
-        let mode = super::unified::EvalMode::ValueGradientHessian;
+        let mode = super::reml_outer_engine::EvalMode::ValueGradientHessian;
         let result = if bundle.backend_kind() == GeometryBackendKind::SparseExactSpd {
             self.evaluate_unified_sparse(rho, bundle, mode)?
         } else {
@@ -568,30 +583,47 @@ impl<'a> RemlState<'a> {
         if final_rho.is_empty() {
             return (None, None);
         }
-        let Ok(outer_hessian) = self.compute_lamlhessian_consistent(final_rho) else {
+        // The Laplace proposal Hessian must be the same base-criterion curvature
+        // the suppressed sampling target uses (#979); the ALO-stabilization term
+        // contributes no curvature anyway (dropped as dead), so this only keeps
+        // the proposal and target derived from one consistent criterion.
+        let Ok(outer_hessian) =
+            self.without_alo_stabilization(|| self.compute_lamlhessian_consistent(final_rho))
+        else {
             return (None, None);
         };
-        let certificate = rho_posterior_certificate(
-            final_rho,
-            &outer_hessian,
-            |rho| self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok()),
-            n_samples,
-        );
-        let escalation = match certificate.as_ref().map(|c| c.certificate) {
-            Some(RhoCertificate::Escalate) => Some(escalate_rho_posterior(
+        // The certificate and the Tier-2 NUTS escalation both sample the genuine
+        // marginal criterion `π(ρ|y) ∝ exp(−LAML(ρ))`. The Gaussian-identity
+        // ALO-stabilization augmentation is suppressed throughout (#979): it is
+        // an outer-optimizer leverage barrier (#813/#821), not part of the
+        // marginal posterior — whose Laplace proposal here (`outer_hessian`) is
+        // the BASE REML Hessian — and its full per-evaluation ALO diagnostic
+        // suite would otherwise dominate the thousands of leapfrog evaluations.
+        let certificate = self.without_alo_stabilization(|| {
+            rho_posterior_certificate(
                 final_rho,
                 &outer_hessian,
                 |rho| self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok()),
-                |rho| {
-                    self.without_persistent_warm_start_store(|| {
-                        // NUTS leapfrog gradients need the criterion value and
-                        // gradient at the same rho; compute them through one
-                        // value+gradient outer evaluation so the inner PIRLS
-                        // solve and IFT state are shared by construction.
-                        self.compute_cost_and_gradient(rho).ok()
-                    })
-                },
-            )),
+                n_samples,
+            )
+        });
+        let escalation = match certificate.as_ref().map(|c| c.certificate) {
+            Some(RhoCertificate::Escalate) => self.without_alo_stabilization(|| {
+                Some(escalate_rho_posterior(
+                    final_rho,
+                    &outer_hessian,
+                    |rho| self.without_persistent_warm_start_store(|| self.compute_cost(rho).ok()),
+                    |rho| {
+                        self.without_persistent_warm_start_store(|| {
+                            // NUTS leapfrog gradients need the criterion value and
+                            // gradient at the same rho; compute them through one
+                            // value+gradient outer evaluation so the inner PIRLS
+                            // solve and IFT state are shared by construction.
+                            self.compute_cost_and_gradient(rho).ok()
+                        })
+                    },
+                ))
+            }),
             _ => None,
         };
         (certificate, escalation)
@@ -607,9 +639,14 @@ impl<'a> RemlState<'a> {
     ) -> SmoothingCorrectionOutcome {
         use SmoothingCorrectionFallbackSeverity::{NumericalFailure, Routine};
 
+        // Always compute the fast first-order correction first.
+        let first_order = super::compute_smoothing_correction(self, final_rho, final_fit);
+        let first_order_correction = first_order.correction.clone();
+        let first_order_rho_covariance = first_order.rho_covariance.clone();
         let first_order_routine = |correction: Option<Array2<f64>>, reason: &'static str| {
             SmoothingCorrectionOutcome::FirstOrder {
                 correction,
+                rho_covariance: first_order_rho_covariance.clone(),
                 reason,
                 severity: Routine,
             }
@@ -617,24 +654,26 @@ impl<'a> RemlState<'a> {
         let first_order_numerical = |correction: Option<Array2<f64>>, reason: &'static str| {
             SmoothingCorrectionOutcome::FirstOrder {
                 correction,
+                rho_covariance: first_order_rho_covariance.clone(),
                 reason,
                 severity: NumericalFailure,
             }
         };
-
-        // Always compute the fast first-order correction first.
-        let first_order = super::compute_smoothing_correction(self, final_rho, final_fit);
-        let first_order_correction = first_order.correction.clone();
         let n_rho = final_rho.len();
         if n_rho == 0 {
             // No hyperparameters: the unified corrected covariance equals H^{-1}.
             // Validate the unified path using the spectral operator.
             if let Some(base_cov) = base_covariance
-                && let Ok(hop) = super::unified::DenseSpectralOperator::from_symmetric(base_cov)
+                && let Ok(hop) =
+                    super::reml_outer_engine::DenseSpectralOperator::from_symmetric(base_cov)
             {
                 let outer = Array2::<f64>::zeros((0, 0));
-                let unified_diag =
-                    super::unified::compute_corrected_covariance_diagonal(&[], &[], &outer, &hop);
+                let unified_diag = super::reml_outer_engine::compute_corrected_covariance_diagonal(
+                    &[],
+                    &[],
+                    &outer,
+                    &hop,
+                );
                 if let Ok(diag) = unified_diag {
                     let p = base_cov.nrows();
                     let max_dev = (0..p)
@@ -646,7 +685,7 @@ impl<'a> RemlState<'a> {
                     );
                 }
                 let unified_full =
-                    super::unified::compute_corrected_covariance(&[], &[], &outer, &hop);
+                    super::reml_outer_engine::compute_corrected_covariance(&[], &[], &outer, &hop);
                 if let Ok(full) = unified_full {
                     log::trace!(
                         "[corrected-cov] unified full norm: {:.4e}",
@@ -733,7 +772,7 @@ impl<'a> RemlState<'a> {
                 }
             }
         };
-        enforce_symmetry(&mut hessian_rho);
+        symmetrize_in_place(&mut hessian_rho);
         let ridge = AUTO_CUBATURE_HESSIAN_RIDGE_REL
             * hessian_rho
                 .diag()
@@ -912,7 +951,7 @@ impl<'a> RemlState<'a> {
                 "assembled total covariance contains non-finite entries",
             ));
         }
-        enforce_symmetry(&mut total_cov);
+        symmetrize_in_place(&mut total_cov);
 
         // `total_cov = φ̂·E_ρ[H(ρ)⁻¹] + Cov_ρ[β̂]`. The consumer adds this
         // correction onto the SCALED conditional covariance `Vb = φ̂·H_opt⁻¹`
@@ -924,10 +963,11 @@ impl<'a> RemlState<'a> {
         //      = φ̂·E_ρ[H(ρ)⁻¹] + Cov_ρ[β̂],
         // which scales by exactly c², consistent with Vb (#582).
         let mut corr = total_cov - base_cov.mapv(|v| dispersion_phi * v);
-        enforce_symmetry(&mut corr);
+        symmetrize_in_place(&mut corr);
 
         self.finalize_smoothing_outcome(SmoothingCorrectionOutcome::Cubature {
             correction: corr,
+            rho_covariance: Some(hessian_rho_inv),
             rank,
             n_points: sigma_points.len(),
             near_boundary,
@@ -968,6 +1008,7 @@ impl<'a> RemlState<'a> {
                 reason,
                 severity,
                 correction,
+                ..
             } => {
                 let has_matrix = correction.is_some();
                 match severity {
@@ -1112,7 +1153,7 @@ mod sigma_cubature_accumulation_tests {
             .collect();
 
         // Expected: V̂_p = A_0 + J · V_ρ,r · Jᵀ. Symmetric by
-        // construction, so no enforce_symmetry needed for the oracle.
+        // construction, so no symmetrize_in_place needed for the oracle.
         let jvjt = jacobian.dot(&v_rho_r).dot(&jacobian.t());
         let expected = &a0 + &jvjt;
 
@@ -2015,7 +2056,7 @@ mod sigma_cubature_accumulation_tests {
     ///     symmetric and PSD
     /// So the output should be symmetric to f64 round-off for any
     /// symmetric A_m. Pins this invariant since the production caller
-    /// passes the output to `enforce_symmetry` and any drift here is a
+    /// passes the output to `symmetrize_in_place` and any drift here is a
     /// silent bug masked by that downstream cleanup.
     #[test]
     pub(crate) fn cubature_output_is_symmetric_for_symmetric_inputs() {
@@ -2145,6 +2186,7 @@ mod smoothing_correction_outcome_tests {
         };
         SmoothingCorrectionOutcome::FirstOrder {
             correction,
+            rho_covariance: None,
             reason,
             severity,
         }
@@ -2154,6 +2196,7 @@ mod smoothing_correction_outcome_tests {
     pub(crate) fn cubature_branch_label_and_extraction() {
         let outcome = SmoothingCorrectionOutcome::Cubature {
             correction: array![[2.0, 0.0], [0.0, 2.0]],
+            rho_covariance: None,
             rank: 2,
             n_points: 4,
             near_boundary: true,

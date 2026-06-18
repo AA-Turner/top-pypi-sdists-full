@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -15,18 +16,24 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::dunder;
 use pyrefly_python::module_path::ModuleStyle;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use pyrefly_types::callable::FuncId;
+use pyrefly_types::callable::IdentityIgnored;
 use pyrefly_types::callable::Params;
 use pyrefly_types::callable::PlaceholderBodyKind;
 use pyrefly_types::class::Class;
 use pyrefly_types::class::ClassType;
-use pyrefly_types::dimension::SizeExpr;
+use pyrefly_types::literal::LitStyle;
+use pyrefly_types::meta_shape_dsl::ShapeDslFunction;
+use pyrefly_types::meta_shape_dsl::ShapeTransform;
+use pyrefly_types::meta_shape_dsl::validate_shape_dsl_functions;
 use pyrefly_types::quantified::Quantified;
+use pyrefly_types::quantified::QuantifiedOrigin;
+use pyrefly_types::type_var::Restriction;
 use pyrefly_types::types::AnyStyle;
 use pyrefly_types::types::BoundMethod;
 use pyrefly_types::types::BoundMethodType;
 use pyrefly_types::types::TParams;
 use pyrefly_types::types::TParamsSource;
-use pyrefly_types::types::Union;
 use pyrefly_util::display::pluralize;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::SliceExt;
@@ -40,7 +47,6 @@ use ruff_text_size::TextRange;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
-use vec1::vec1;
 
 use crate::alt::answers::LookupAnswer;
 use crate::alt::answers_solver::AnswersSolver;
@@ -51,6 +57,7 @@ use crate::alt::types::decorated_function::DecoratedFunction;
 use crate::alt::types::decorated_function::Decorator;
 use crate::alt::types::decorated_function::SpecialDecorator;
 use crate::alt::types::decorated_function::UndecoratedFunction;
+use crate::alt::unwrap::HintRef;
 use crate::binding::binding::Binding;
 use crate::binding::binding::FunctionDefData;
 use crate::binding::binding::FunctionParameter;
@@ -62,7 +69,6 @@ use crate::binding::binding::KeyDecorator;
 use crate::binding::binding::KeyLegacyTypeParam;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
-use crate::error::context::ErrorInfo;
 use crate::error::context::TypeCheckContext;
 use crate::error::context::TypeCheckKind;
 use crate::solver::solver::QuantifiedHandle;
@@ -297,7 +303,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             range,
-                            ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                            ErrorKind::InvalidOverload,
                             "@overload declarations must come before function implementation"
                                 .to_owned(),
                         );
@@ -305,7 +311,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             last_range,
-                            ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                            ErrorKind::InvalidOverload,
                             "@overload decorator should not be used on function implementation"
                                 .to_owned(),
                         );
@@ -313,7 +319,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             first_range,
-                            ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                            ErrorKind::InvalidOverload,
                             "Overloaded function must have an implementation".to_owned(),
                         );
                     }
@@ -322,7 +328,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         first_range,
-                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        ErrorKind::InvalidOverload,
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     acc.split_off_first().0.1
@@ -355,7 +361,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         defs.first().0,
-                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        ErrorKind::InvalidOverload,
                         "Overloaded function needs at least two @overload declarations".to_owned(),
                     );
                     defs.split_off_first().0.1
@@ -436,6 +442,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         legacy_tparams: &[Idx<KeyLegacyTypeParam>],
         module_style: ModuleStyle,
         outer_funcs: Option<Name>,
+        shape_dsl_def: Option<Arc<ShapeDslFunction>>,
+        uses_shape_dsl_ir_name: Option<ShortIdentifier>,
         errors: &ErrorCollector,
     ) -> Arc<UndecoratedFunction> {
         let defining_cls = class_key.and_then(|k| self.get_idx(*k).0.dupe());
@@ -463,16 +471,30 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let decorators = Box::from_iter(decorators.iter().filter_map(|k| {
             let decorator = self.get_idx(*k);
             let range = self.bindings().idx_to_key(*k).range();
-            let keep = if let Some(special_decorator) = self.get_special_decorator(&decorator) {
-                if is_top_level_function {
-                    self.check_top_level_function_decorator(&special_decorator, range, errors);
+            let keep = match self.get_special_decorator(&decorator) {
+                // Filter `@disjoint_base` out before generic decorator application,
+                // otherwise it would produce a misleading bad-specialization error.
+                Some(SpecialDecorator::DisjointBase) => {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorKind::BadFunctionDefinition,
+                        "`@disjoint_base` cannot be applied to a function".to_owned(),
+                    );
+                    false
                 }
-                !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
-            } else {
-                if is_class_property_decorator_type(&decorator.ty) {
-                    found_class_property = true;
+                Some(special_decorator) => {
+                    if is_top_level_function {
+                        self.check_top_level_function_decorator(&special_decorator, range, errors);
+                    }
+                    !self.set_flag_from_special_decorator(&mut flags, &special_decorator)
                 }
-                true
+                None => {
+                    if is_class_property_decorator_type(&decorator.ty) {
+                        found_class_property = true;
+                    }
+                    true
+                }
             };
             if keep {
                 Some((decorator.ty.clone(), range))
@@ -537,13 +559,71 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         tparams.extend(legacy_tparams);
         let tparams = self.validated_tparams(def.range, tparams, TParamsSource::Function, errors);
 
-        let kind = FunctionKind::from_name(
-            self.module().dupe(),
-            defining_cls.clone(),
-            &def.name.id,
-            Some(def_index),
-            outer_funcs,
-        );
+        let kind = if let Some(dsl_fn) = shape_dsl_def {
+            // Build the transitive closure of helper functions this DSL function calls,
+            // then validate cross-function call signatures.
+            let module_dsl_fns = self.bindings().metadata().shape_dsl_functions();
+            let fn_closure = compute_transitive_helpers(&dsl_fn, module_dsl_fns);
+            if let Err(type_errors) = validate_shape_dsl_functions(&fn_closure) {
+                for err in &type_errors {
+                    self.error(
+                        errors,
+                        err.range,
+                        ErrorKind::InvalidArgument,
+                        format!("@shape_dsl_function type error: {}", err.message),
+                    );
+                }
+                // Fall back to a normal function — the DSL evaluator must
+                // never run on a program that failed type checking.
+                FunctionKind::from_name(
+                    self.module().dupe(),
+                    defining_cls.clone(),
+                    &def.name.id,
+                    Some(def_index),
+                    outer_funcs,
+                )
+            } else {
+                let func_id = Arc::new(FuncId {
+                    module: self.module().dupe(),
+                    cls: defining_cls.clone(),
+                    name: def.name.id.clone(),
+                    def_index: Some(def_index),
+                    outer_funcs,
+                });
+                FunctionKind::ShapeDsl(func_id, dsl_fn, IdentityIgnored(fn_closure))
+            }
+        } else {
+            FunctionKind::from_name(
+                self.module().dupe(),
+                defining_cls.clone(),
+                &def.name.id,
+                Some(def_index),
+                outer_funcs,
+            )
+        };
+
+        // Resolve the IR function reference from @uses_shape_dsl(ir_fn) and
+        // populate `flags.shape_transform` with the DSL function it points to.
+        if let Some(ir_identifier) = uses_shape_dsl_ir_name {
+            let ir_type = self.get(&Key::BoundName(ir_identifier)).arc_clone_ty();
+            if let Type::Function(func) = &ir_type
+                && let FunctionKind::ShapeDsl(_, dsl_fn, fn_closure) = &func.metadata.kind
+            {
+                flags.shape_transform = Some(Arc::new(ShapeTransform {
+                    dsl_fn: dsl_fn.clone(),
+                    fn_closure: fn_closure.clone(),
+                }));
+            } else {
+                self.error(
+                    errors,
+                    ir_identifier.range(),
+                    ErrorKind::InvalidArgument,
+                    "`@uses_shape_dsl` argument does not resolve to a `@shape_dsl_function`"
+                        .to_owned(),
+                );
+            }
+        }
+
         let metadata = FuncMetadata { kind, flags };
 
         Arc::new(UndecoratedFunction {
@@ -575,7 +655,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 stmt.name.range(),
-                ErrorInfo::Kind(ErrorKind::UnannotatedReturn),
+                ErrorKind::UnannotatedReturn,
                 format!("`{}` is missing a return annotation", stmt.name),
             );
         }
@@ -594,15 +674,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             if p.annotation().is_none() {
                 let name = p.name().as_str();
-                self.error(
-                    errors,
-                    p.name().range(),
-                    ErrorInfo::Kind(ErrorKind::ImplicitAnyParameter),
-                    format!(
-                        "`{}` is missing an annotation for parameter `{name}`",
-                        stmt.name
-                    ),
-                );
+                if !Ast::is_intentionally_unused(name) {
+                    self.error(
+                        errors,
+                        p.name().range(),
+                        ErrorKind::ImplicitAnyParameter,
+                        format!(
+                            "`{}` is missing an annotation for parameter `{name}`",
+                            stmt.name
+                        ),
+                    );
+                }
             }
         }
         // Only validate TypeGuard/TypeIs functions when they have an explicit return annotation.
@@ -641,7 +723,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     stmt.name.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                    ErrorKind::InvalidAnnotation,
                     "`Self` cannot be used in a static method".to_owned(),
                 );
             }
@@ -670,7 +752,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     stmt.name.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
+                    ErrorKind::InvalidAnnotation,
                     format!(
                         "`Self` cannot be used when `{}` has an explicit TypeVar annotation",
                         first_param.name().map_or("self", |n| n.as_str())
@@ -785,11 +867,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             {
                 Some(SpecialDecorator::DataclassTransformCall(&call.keywords))
             }
+            _ if let Type::KwCall(call) = &decorator.ty
+                && call.has_function_kind(FunctionKind::UsesShapeDsl) =>
+            {
+                Some(SpecialDecorator::UsesShapeDsl)
+            }
             Some(CalleeKind::Class(ClassKind::EnumNonmember)) => {
                 Some(SpecialDecorator::EnumNonmember)
             }
             Some(CalleeKind::Function(FunctionKind::AbstractMethod)) => {
                 Some(SpecialDecorator::AbstractMethod)
+            }
+            Some(CalleeKind::Function(FunctionKind::DisjointBase)) => {
+                Some(SpecialDecorator::DisjointBase)
             }
             _ => None,
         }
@@ -873,6 +963,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 flags.is_abstract_method = true;
                 true
             }
+            SpecialDecorator::UsesShapeDsl => {
+                // The actual shape_transform flag is populated after the decorator
+                // loop in undecorated_function, where uses_shape_dsl_ir_name is
+                // available. Returning true here just filters the decorator out of
+                // the list so it doesn't go through the generic decorator pipeline.
+                true
+            }
             _ => false,
         }
     }
@@ -895,7 +992,43 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Some(default) => {
                 let display =
                     default_display_for_expr(default, self.module().code_at(default.range()));
-                let ty = self.expr(default, check, errors);
+                let ty = match check {
+                    Some((expected_ty, tcc)) => {
+                        let mut qs = SmallSet::new();
+                        expected_ty.collect_quantifieds(&mut qs);
+                        if qs.is_empty() {
+                            self.expr_check(default, check, errors)
+                        } else {
+                            let owner = Owner::new();
+                            let upper_mp = qs
+                                .iter()
+                                .map(|q| (*q, owner.push(q.upper_bound(self.stdlib, self.heap))))
+                                .collect();
+                            let upper_ty = expected_ty.clone().subst(&upper_mp);
+                            // Check if the default is compatible with the parameter type.
+                            let default_errors = self.error_collector();
+                            self.expr_check(default, Some((&upper_ty, tcc)), &default_errors);
+                            if default_errors.is_empty() {
+                                // The default is compatible; re-infer using the original expected
+                                // type so that Quantifieds (which will be freshened on each call)
+                                // end up in the default.
+                                self.expr_infer_with_hint(
+                                    default,
+                                    Some(HintRef::soft(expected_ty)),
+                                    errors,
+                                )
+                            } else {
+                                errors.extend(default_errors);
+                                // The default is not compatible; use the parameter type to avoid
+                                // cascading errors on calls.
+                                expected_ty.clone()
+                            }
+                        }
+                    }
+                    None => self.expr_check(default, None, errors),
+                };
+                // Mark literals as explicit so we don't promote them.
+                let ty = ty.with_literal_style(LitStyle::Explicit);
                 Required::Optional(Some(match display {
                     Some(d) => DefaultValue::with_display(ty, d),
                     None => DefaultValue::new(ty),
@@ -917,7 +1050,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> ParamTypeResult {
         // We only want to use self for the first param, so take & replace with None
         let self_type = std::mem::take(self_type);
-        let (ty, mut required, is_unannotated) = match self.bindings().get_function_param(name) {
+        let (ty, required, is_unannotated) = match self.bindings().get_function_param(name) {
             FunctionParameter::Annotated(idx) => {
                 let param_ty = self.get_idx(*idx).annotation.get_type().clone();
                 let annot_range = self.annotation_range(*idx);
@@ -927,11 +1060,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ))
                     .with_annotation(annot_range, "declared type".to_owned())
                 };
-                // When the parameter type is Dim[S] where S is a TypeVar with a
-                // Size(Literal(n)) default, and the default expression is the same
-                // integer literal n, skip the type check. At definition time S is
-                // unresolved so `int <: Dim[S]` would fail spuriously. At call time
-                // S will be bound from the explicit argument or the PEP 696 default.
+                // Integer literal defaults are valid for `Dim[...]` parameters: at
+                // call time the dimension variable is bound from that default value.
                 let skip_check = matches!(
                     (&param_ty, default),
                     (
@@ -940,13 +1070,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             value: ruff_python_ast::Number::Int(i),
                             ..
                         }))
-                    ) if matches!(
-                        inner.as_ref(),
-                        Type::Quantified(q) if matches!(
-                            &q.default,
-                            Some(Type::Size(SizeExpr::Literal(n))) if i.as_i64() == Some(*n)
-                        )
-                    )
+                    ) if i.as_i64().is_some() && matches!(inner.as_ref(), Type::Quantified(_))
                 );
                 let check: Option<(&Type, &dyn Fn() -> TypeCheckContext)> = if skip_check {
                     None
@@ -972,6 +1096,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         default_val
                             .ty
                             .clone()
+                            .with_literal_style(LitStyle::Implicit)
                             .promote_implicit_literals(self.stdlib),
                     )
                 } else {
@@ -980,15 +1105,6 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 (ty, required, true)
             }
         };
-        if let Required::Optional(Some(default_val)) = required {
-            // Mark literals as explicit so we don't promote them.
-            // This has to happen after the param type has been computed because we do
-            // want to promote literals while inferring the type.
-            required = Required::Optional(Some(DefaultValue {
-                ty: default_val.ty.explicit_literals(),
-                ..default_val
-            }));
-        }
         ParamTypeResult {
             ty,
             required,
@@ -1080,7 +1196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.error(
                         errors,
                         x.parameter.name.range,
-                        ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                        ErrorKind::BadFunctionDefinition,
                         format!(
                             "Positional-only parameter `{}` cannot appear after keyword parameters",
                             x.parameter.name
@@ -1127,7 +1243,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 param.range,
-                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                ErrorKind::BadFunctionDefinition,
                 format!(
                     "Keyword-only parameter `{}` may not appear after ParamSpec args parameter",
                     param.parameter.name
@@ -1190,7 +1306,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                             errors,
                             x.range,
-                            ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                            ErrorKind::BadFunctionDefinition,
                             format!(
                                 "TypedDict key '{name}' in **kwargs overlaps with parameter '{name}'"
                             ),
@@ -1211,14 +1327,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     def.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
+                    ErrorKind::InvalidParamSpec,
                     "`ParamSpec` *args and **kwargs must be used together".to_owned(),
                 );
             } else {
                 self.error(
                     errors,
                     def.range,
-                    ErrorInfo::Kind(ErrorKind::InvalidParamSpec),
+                    ErrorKind::InvalidParamSpec,
                     "*args and **kwargs must come from the same `ParamSpec`".to_owned(),
                 );
             }
@@ -1274,7 +1390,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.error(
             errors,
             range,
-            ErrorInfo::Kind(ErrorKind::InvalidDecorator),
+            ErrorKind::InvalidDecorator,
             format!("Decorator `@{name}` can only be used on methods."),
         );
     }
@@ -1287,10 +1403,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ///   [T1](x: T1, y: T1) -> ([T2](T2) -> T2)
     fn move_return_tparams_of_type(&self, ty: Type) -> Type {
         match ty {
-            Type::Forall(box Forall {
-                tparams,
-                body: Forallable::Function(func),
-            }) => {
+            Type::Forall(f) if let Forallable::Function(_) = &f.body => {
+                let Forall {
+                    tparams,
+                    body: Forallable::Function(func),
+                } = *f
+                else {
+                    unreachable!("guarded above")
+                };
                 let (tparams, signature) =
                     self.move_return_tparams_of_signature(tparams, func.signature);
                 Forallable::Function(Function {
@@ -1299,10 +1419,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 })
                 .forall(tparams)
             }
-            Type::Forall(box Forall {
-                tparams,
-                body: Forallable::Callable(signature),
-            }) => {
+            Type::Forall(f) if let Forallable::Callable(_) = &f.body => {
+                let Forall {
+                    tparams,
+                    body: Forallable::Callable(signature),
+                } = *f
+                else {
+                    unreachable!("guarded above")
+                };
                 let (tparams, signature) =
                     self.move_return_tparams_of_signature(tparams, signature);
                 Forallable::Callable(signature).forall(tparams)
@@ -1318,9 +1442,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> (Arc<TParams>, Callable) {
         let returns_callable = match &signature.ret {
             Type::Callable(_) => true,
-            Type::Union(box Union { members: ts, .. }) => {
-                ts.iter().any(|t| matches!(t, Type::Callable(_)))
-            }
+            Type::Union(f) => f.members.iter().any(|t| matches!(t, Type::Callable(_))),
             _ => false,
         };
         if !returns_callable {
@@ -1390,6 +1512,64 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Returns a copy of `decoratee` with a leading `Self` receiver in its first positional
+    /// parameter replaced by its bound class type, or `None` if no such rewrite applies.
+    /// Decorators that accept the concrete class but not `Self` can then type-check against
+    /// the rewritten signature without weakening general callable subtyping.
+    fn decorator_compatible_decoratee_arg(&self, decoratee: &Type) -> Option<Type> {
+        let bound_receiver_type = |ty: &Type| match ty {
+            Type::SelfType(cls) => Some(self.heap.mk_class_type(cls.clone())),
+            Type::Quantified(q)
+                if q.identity().origin == QuantifiedOrigin::SyntheticSelf
+                    && let Restriction::Bound(bound) = q.restriction() =>
+            {
+                Some(bound.clone())
+            }
+            _ => None,
+        };
+
+        // `*args`/keyword-only/`**kwargs` can never be the `self` receiver, so don't try.
+        let normalize_first_param = |params: &Params| -> Option<Params> {
+            let Params::List(param_list) = params else {
+                return None;
+            };
+            let first = param_list.items().first()?;
+            let new_first = match first {
+                Param::PosOnly(name, ty, required) => {
+                    Param::PosOnly(name.clone(), bound_receiver_type(ty)?, required.clone())
+                }
+                Param::Pos(name, ty, required) => {
+                    Param::Pos(name.clone(), bound_receiver_type(ty)?, required.clone())
+                }
+                Param::Varargs(..) | Param::KwOnly(..) | Param::Kwargs(..) => return None,
+            };
+            let mut items = param_list.items().to_vec();
+            items[0] = new_first;
+            Some(Params::List(ParamList::new(items)))
+        };
+
+        match decoratee {
+            Type::Function(func) => {
+                let params = normalize_first_param(&func.signature.params)?;
+                Some(self.heap.mk_function(Function {
+                    signature: Callable {
+                        params,
+                        ret: func.signature.ret.clone(),
+                    },
+                    metadata: func.metadata.clone(),
+                }))
+            }
+            Type::Callable(callable) => {
+                let params = normalize_first_param(&callable.params)?;
+                Some(self.heap.mk_callable_from(Callable {
+                    params,
+                    ret: callable.ret.clone(),
+                }))
+            }
+            _ => None,
+        }
+    }
+
     fn decorate_returned_callable(
         &self,
         returned_ty: Type,
@@ -1401,14 +1581,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 signature: *c,
                 metadata: metadata.clone(),
             }),
-            Type::Forall(box Forall {
-                tparams,
-                body: Forallable::Callable(c),
-            }) => Forallable::Function(Function {
-                signature: c,
-                metadata: metadata.clone(),
-            })
-            .forall(tparams),
+            Type::Forall(f) if let Forallable::Callable(_) = &f.body => {
+                let Forall {
+                    tparams,
+                    body: Forallable::Callable(c),
+                } = *f
+                else {
+                    unreachable!("guarded above")
+                };
+                Forallable::Function(Function {
+                    signature: c,
+                    metadata: metadata.clone(),
+                })
+                .forall(tparams)
+            }
             // Callback protocol. We convert it to a function so we can add function metadata.
             Type::ClassType(cls)
                 if self
@@ -1507,7 +1693,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let new_tparams = Arc::new(TParams::new(relevant_tparams_vec));
         match inferred_ty {
             // Merge tparams from decoratee and inferred_ty.
-            Type::Forall(box forall) => {
+            Type::Forall(forall) => {
                 let mut merged_tparams = (*new_tparams).clone();
                 merged_tparams.extend(&forall.tparams);
                 forall.body.forall(Arc::new(merged_tparams))
@@ -1542,16 +1728,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             return decoratee;
         }
         let application = self.prepare_decorator_application(decorator, decoratee, range, errors);
-        let raw_return = self.call_infer(
-            application.call_target.clone(),
-            &[CallArg::ty(&application.decoratee_arg, range)],
-            &[],
-            range,
-            errors,
-            None,
-            None,
-            None,
-        );
+        // Run a decorator call, buffering errors so we can decide between the primary
+        // and Self-rewritten fallback without double-reporting.
+        let try_call = |arg: &Type| {
+            let call_errors = ErrorCollector::new(errors.module().dupe(), errors.style());
+            let ret = self.call_infer(
+                application.call_target.clone(),
+                &[CallArg::ty(arg, range)],
+                &[],
+                range,
+                &call_errors,
+                None,
+                None,
+                None,
+            );
+            (ret, call_errors)
+        };
+        let (primary_return, primary_errors) = try_call(&application.decoratee_arg);
+        // Many decorators can't accept Self but are semantically valid on the method;
+        // retry with the receiver normalized to its bound class.
+        let raw_return = if primary_errors.is_empty() {
+            primary_return
+        } else if let Some(rewritten) =
+            self.decorator_compatible_decoratee_arg(&application.decoratee_arg)
+            && let (fallback_return, fallback_errors) = try_call(&rewritten)
+            && fallback_errors.is_empty()
+        {
+            fallback_return
+        } else {
+            errors.extend(primary_errors);
+            primary_return
+        };
         let decorated_value =
             self.decorate_returned_callable(raw_return, metadata, &application.original_decoratee);
         // Given the raw `decorated_value`, which may include `Type::Quantified` type variables
@@ -1601,7 +1808,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // since it includes the decorators, which does not match
                 // the conformance testsuite.
                 id_range,
-                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                ErrorKind::BadFunctionDefinition,
                 "Type guard functions must accept at least one positional argument".to_owned(),
             );
         }
@@ -1634,7 +1841,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                 errors,
                 def.name.range,
-                ErrorInfo::Kind(ErrorKind::BadFunctionDefinition),
+                ErrorKind::BadFunctionDefinition,
                 format!(
                     "Return type `{}` must be assignable to the first argument type `{}`",
                     self.for_display(ty_narrow.clone()),
@@ -1676,23 +1883,37 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         metadata,
                     }),
                     Type::Function(function) => OverloadType::Function(*function),
-                    Type::Forall(box Forall {
-                        tparams,
-                        body: Forallable::Callable(callable),
-                    }) => OverloadType::Forall(Forall {
-                        tparams,
-                        body: Function {
-                            signature: callable,
-                            metadata,
-                        },
-                    }),
-                    Type::Forall(box Forall {
-                        tparams,
-                        body: Forallable::Function(func),
-                    }) => OverloadType::Forall(Forall {
-                        tparams,
-                        body: func,
-                    }),
+                    Type::Forall(f) if matches!(f.body, Forallable::Callable(_)) => {
+                        // Repeated match because pattern guards cannot move out of bindings.
+                        let Forall {
+                            tparams,
+                            body: Forallable::Callable(callable),
+                        } = *f
+                        else {
+                            unreachable!("guarded by matches! above")
+                        };
+                        OverloadType::Forall(Forall {
+                            tparams,
+                            body: Function {
+                                signature: callable,
+                                metadata,
+                            },
+                        })
+                    }
+                    Type::Forall(f) if matches!(f.body, Forallable::Function(_)) => {
+                        // Repeated match because pattern guards cannot move out of bindings.
+                        let Forall {
+                            tparams,
+                            body: Forallable::Function(func),
+                        } = *f
+                        else {
+                            unreachable!("guarded by matches! above")
+                        };
+                        OverloadType::Forall(Forall {
+                            tparams,
+                            body: func,
+                        })
+                    }
                     Type::Any(any_style) => OverloadType::Function(Function {
                         signature: Callable::ellipsis(any_style.propagate()),
                         metadata,
@@ -1701,7 +1922,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.error(
                     errors,
                     range,
-                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    ErrorKind::InvalidOverload,
                     format!(
                         "`{}` has type `{}` after decorator application, which is not callable",
                         func,
@@ -1759,7 +1980,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn subst_function(&self, tparams: &TParams, func: Function) -> Function {
         let mp = tparams
             .as_vec()
-            .map(|p| (p, p.bound_type(self.stdlib, self.heap)));
+            .map(|p| (p, p.upper_bound(self.stdlib, self.heap)));
         match self
             .heap
             .mk_function(func)
@@ -1806,11 +2027,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // Set the return type to `Any` so that we check just the input signature.
             sig.ret = self.heap.mk_any_implicit();
             // Skip self/cls to avoid false positive overload errors on narrowed self types.
-            if has_self_param {
-                let mut owner = Owner::new();
-                if let Some((_, rest)) = sig.split_first_param(&mut owner) {
-                    sig = rest;
-                }
+            if has_self_param && let Some(rest) = sig.strip_first_param() {
+                sig = rest;
             }
             sig
         };
@@ -1877,23 +2095,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     ))
                 },
             );
-            if let Err(specialization_errors) = self.solver().finish_quantified(vs, false) {
-                let mut msg = vec1![format!(
-                    "Overload signature `{}` is not consistent with implementation signature `{}`",
-                    self.for_display(
-                        self.heap
-                            .mk_callable_from(original_overload_func.signature.clone())
-                    ),
-                    self.for_display(self.heap.mk_callable_from(impl_sig.clone())),
-                )];
-                for e in specialization_errors {
-                    msg.push(e.to_error_msg(self));
-                }
-                errors.add(
+            if let Err(specialization_errors) = self.finish_quantified(vs, false) {
+                let mut builder = errors.error_builder(
                     *range,
-                    ErrorInfo::Kind(ErrorKind::InconsistentOverload),
-                    msg,
+                    ErrorKind::InconsistentOverload,
+                    format!(
+                        "Overload signature `{}` is not consistent with implementation signature `{}`",
+                        self.for_display(
+                            self.heap
+                                .mk_callable_from(original_overload_func.signature.clone())
+                        ),
+                        self.for_display(self.heap.mk_callable_from(impl_sig.clone())),
+                    ),
                 );
+                for e in specialization_errors {
+                    builder = builder.with_detail(e.to_error_msg(self));
+                }
+                builder.emit();
             }
             let impl_ret = impl_func.signature.ret.clone();
             self.check_type(
@@ -1949,7 +2167,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                                 errors,
                                 *overload_range,
-                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                ErrorKind::InvalidOverload,
                                 "If an overloaded function has no implementation, `@final` should be applied to the first overload only.".to_owned(),
                             );
             }
@@ -1957,7 +2175,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                                 errors,
                                 *overload_range,
-                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                ErrorKind::InvalidOverload,
                                 "If an overloaded function has no implementation, `@override` should be applied to the first overload only.".to_owned(),
                             );
             }
@@ -1967,7 +2185,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                                 errors,
                                 *overload_range,
-                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                ErrorKind::InvalidOverload,
                                 "If `@staticmethod` is present on one overload, all overloads must have that decorator.".to_owned(),
                             );
             }
@@ -1975,7 +2193,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                                 errors,
                                 *overload_range,
-                                ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                                ErrorKind::InvalidOverload,
                                 "If `@classmethod` is present on one overload, all overloads must have that decorator.".to_owned(),
                             );
             }
@@ -1997,7 +2215,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                         errors,
                         *overload_range,
-                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        ErrorKind::InvalidOverload,
                         "`@final` should only be applied to the implementation of an overloaded function.".to_owned(),
                     );
             }
@@ -2005,7 +2223,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                         errors,
                         *overload_range,
-                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        ErrorKind::InvalidOverload,
                         "`@override` should only be applied to the implementation of an overloaded function.".to_owned(),
                     );
             }
@@ -2013,7 +2231,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                         errors,
                         *overload_range,
-                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        ErrorKind::InvalidOverload,
                         "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
                     );
             }
@@ -2021,7 +2239,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                         errors,
                         *overload_range,
-                        ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                        ErrorKind::InvalidOverload,
                         "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
                     );
             }
@@ -2030,7 +2248,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                     errors,
                     def.id_range(),
-                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    ErrorKind::InvalidOverload,
                     "If `@staticmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
                 );
         }
@@ -2038,7 +2256,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.error(
                     errors,
                     def.id_range(),
-                    ErrorInfo::Kind(ErrorKind::InvalidOverload),
+                    ErrorKind::InvalidOverload,
                     "If `@classmethod` is present on any overload or the implementation, it should be on every overload and the implementation.".to_owned(),
                 );
         }
@@ -2051,7 +2269,28 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         m: &BoundMethod,
         is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
     ) -> Option<Type> {
-        self.bind_bound_method_type(&m.func, &m.obj, false, is_subset)
+        // Skip instantiation when binding a classmethod whose tparams reference the class's own
+        // tparams, otherwise those class tparams would be erased to `Unknown` in the resulting callable.
+        let skip_instantiation = if let Type::ClassDef(cls) = &m.obj {
+            let class_tparams = self.get_class_tparams(cls);
+            let class_tparams = class_tparams.iter().collect::<SmallSet<_>>();
+            let uses_class_tparam =
+                |tparams: &TParams| tparams.iter().any(|tp| class_tparams.contains(tp));
+            !class_tparams.is_empty()
+                && match &m.func {
+                    BoundMethodType::Function(_) => false,
+                    BoundMethodType::Forall(forall) => uses_class_tparam(&forall.tparams),
+                    BoundMethodType::Overload(overload) => {
+                        overload.signatures.iter().any(|sig| match sig {
+                            OverloadType::Function(_) => false,
+                            OverloadType::Forall(forall) => uses_class_tparam(&forall.tparams),
+                        })
+                    }
+                }
+        } else {
+            false
+        };
+        self.bind_bound_method_type(&m.func, &m.obj, skip_instantiation, is_subset)
     }
 
     pub fn bind_dunder_new(&self, t: &Type, cls: ClassType) -> Option<Type> {
@@ -2089,14 +2328,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Option<Type> {
         let mut owner = Owner::new();
         match func {
-            BoundMethodType::Function(func) => {
-                func.signature.split_first_param(&mut owner).map(|(_, c)| {
-                    self.heap.mk_function(Function {
-                        signature: c,
-                        metadata: func.metadata.clone(),
-                    })
+            BoundMethodType::Function(func) => func.signature.strip_first_param().map(|c| {
+                self.heap.mk_function(Function {
+                    signature: c,
+                    metadata: func.metadata.clone(),
                 })
-            }
+            }),
             BoundMethodType::Forall(forall) => forall
                 .body
                 .signature
@@ -2120,8 +2357,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .try_mapped_ref(|x| match x {
                     OverloadType::Function(f) => f
                         .signature
-                        .split_first_param(&mut owner)
-                        .map(|(_, c)| {
+                        .strip_first_param()
+                        .map(|c| {
                             OverloadType::Function(Function {
                                 signature: c,
                                 metadata: f.metadata.clone(),
@@ -2203,8 +2440,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 Forallable::TypeAlias(_) => None,
             },
             Type::Callable(callable) => callable
-                .split_first_param(&mut owner)
-                .map(|(_, c)| self.heap.mk_callable_from(c)),
+                .strip_first_param()
+                .map(|c| self.heap.mk_callable_from(c)),
             // Function/Overload variants delegate to the shared implementation.
             Type::Function(func) => self.bind_bound_method_type(
                 &BoundMethodType::Function((**func).clone()),
@@ -2265,14 +2502,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if !self.type_order().has_superclass(cls, cls_ty.class_object())
                         && !self.type_order().is_protocol(cls_ty.class_object())
                     {
-                        errors.add(
-                            range,
-                            ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                            vec1![format!(
-                                "`{method_name}` method self type `{}` is not a superclass of class `{cls_name}`",
-                                self.for_display(self_ty.clone()),
-                            )],
-                        );
+                        errors
+                            .error_builder(
+                                range,
+                                ErrorKind::InvalidAnnotation,
+                                format!(
+                                    "`{method_name}` method self type `{}` is not a superclass of class `{cls_name}`",
+                                    self.for_display(self_ty.clone()),
+                                ),
+                            )
+                            .emit();
                         return;
                     }
                     // Class-scoped type variables check (only for __init__).
@@ -2293,14 +2532,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 .map(|q| format!("`{}`", q.name()))
                                 .collect::<Vec<_>>()
                                 .join(", ");
-                            errors.add(
-                                range,
-                                ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                                vec1![format!(
-                                    "`__init__` method self type cannot reference class {} {targs}",
-                                    pluralize(class_scoped_tvars.len(), "type parameter")
-                                )],
-                            );
+                            errors
+                                .error_builder(
+                                    range,
+                                    ErrorKind::InvalidAnnotation,
+                                    format!(
+                                        "`__init__` method self type cannot reference class {} {targs}",
+                                        pluralize(class_scoped_tvars.len(), "type parameter")
+                                    ),
+                                )
+                                .emit();
                         }
                     }
                 }
@@ -2311,14 +2552,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         && !self.type_order().has_superclass(cls, cls_ty.class_object())
                         && !self.type_order().is_protocol(cls_ty.class_object())
                     {
-                        errors.add(
-                            range,
-                            ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                            vec1![format!(
-                                "`{method_name}` method self type `{}` is not a superclass of class `{cls_name}`",
-                                self.for_display(self_ty.clone()),
-                            )],
-                        );
+                        errors
+                            .error_builder(
+                                range,
+                                ErrorKind::InvalidAnnotation,
+                                format!(
+                                    "`{method_name}` method self type `{}` is not a superclass of class `{cls_name}`",
+                                    self.for_display(self_ty.clone()),
+                                ),
+                            )
+                            .emit();
                     }
                 }
                 _ => {}
@@ -2342,7 +2585,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         {
             let cls_name = cls.name();
             match cls_ty {
-                Type::Type(box Type::ClassType(inner_cls)) => {
+                Type::Type(f) if let Type::ClassType(inner_cls) = &**f => {
                     // Skipping validation for protocols is on par with Pyright's behavior.
                     // TODO: we could consider checking structural subtyping here.
                     if inner_cls.name() != cls_name
@@ -2351,33 +2594,68 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .has_superclass(cls, inner_cls.class_object())
                         && !self.type_order().is_protocol(inner_cls.class_object())
                     {
-                        errors.add(
-                            range,
-                            ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                            vec1![format!(
-                                "`{method_name}` method cls type `{}` is not a superclass of class `{cls_name}`",
-                                self.for_display(cls_ty.clone()),
-                            )],
-                        );
+                        errors
+                            .error_builder(
+                                range,
+                                ErrorKind::InvalidAnnotation,
+                                format!(
+                                    "`{method_name}` method cls type `{}` is not a superclass of class `{cls_name}`",
+                                    self.for_display(cls_ty.clone()),
+                                ),
+                            )
+                            .emit();
                     }
                 }
                 // allow Any, type[Any], type[Self], type[TypeVar], and bare TypeVar
                 // (bare TypeVar is allowed because it may have a `type[X]` bound,
                 // e.g. `TCls = TypeVar("TCls", bound=type["Foo"])`)
-                Type::Type(box Type::SelfType(_) | box Type::Quantified(_) | box Type::Any(_))
-                | Type::Any(_)
-                | Type::Quantified(_) => {}
+                Type::Type(f)
+                    if matches!(&**f, Type::SelfType(_) | Type::Quantified(_) | Type::Any(_)) => {}
+                Type::Any(_) | Type::Quantified(_) => {}
                 _ => {
-                    errors.add(
-                        range,
-                        ErrorInfo::Kind(ErrorKind::InvalidAnnotation),
-                        vec1![format!(
-                            "`{method_name}` method cls type `{}` is not a valid `type[...]` annotation",
-                            self.for_display(cls_ty.clone()),
-                        )],
-                    );
+                    errors
+                        .error_builder(
+                            range,
+                            ErrorKind::InvalidAnnotation,
+                            format!(
+                                "`{method_name}` method cls type `{}` is not a valid `type[...]` annotation",
+                                self.for_display(cls_ty.clone()),
+                            ),
+                        )
+                        .emit();
                 }
             }
         }
     }
+}
+
+/// Compute the transitive closure of DSL helper functions called by `root`.
+///
+/// Starting from `root`, follows `call_targets()` through `module_dsl_fns`
+/// to collect every user-defined function reachable from `root`. The result
+/// always includes `root` itself as the first element.
+fn compute_transitive_helpers(
+    root: &Arc<ShapeDslFunction>,
+    module_dsl_fns: &[(Name, Arc<ShapeDslFunction>)],
+) -> Arc<Vec<Arc<ShapeDslFunction>>> {
+    let mut closure: Vec<Arc<ShapeDslFunction>> = vec![Arc::clone(root)];
+    let mut visited: HashSet<String> = HashSet::new();
+    visited.insert(root.name().to_owned());
+
+    let mut queue: Vec<String> = root.call_targets().into_iter().collect();
+    while let Some(name) = queue.pop() {
+        if !visited.insert(name.clone()) {
+            continue;
+        }
+        if let Some((_, dsl_fn)) = module_dsl_fns.iter().find(|(n, _)| n.as_str() == name) {
+            closure.push(Arc::clone(dsl_fn));
+            for target in dsl_fn.call_targets() {
+                if !visited.contains(&target) {
+                    queue.push(target);
+                }
+            }
+        }
+    }
+
+    Arc::new(closure)
 }

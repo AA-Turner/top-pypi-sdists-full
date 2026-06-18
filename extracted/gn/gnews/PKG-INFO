@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gnews
-Version: 0.8.0
+Version: 0.8.1
 Summary: Provide an API to search for articles on Google News and returns a usable JSON response.
 Home-page: https://github.com/ranahaani/GNews/
 Author: Muhammad Abdullah

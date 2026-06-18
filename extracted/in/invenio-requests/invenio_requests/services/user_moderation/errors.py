@@ -1,9 +1,5 @@
-# -*- coding: utf-8 -*-
-#
-# Copyright (C) 2023 CERN.
-#
-# Invenio-Requests is free software; you can redistribute it and/or modify
-# it under the terms of the MIT License; see LICENSE file for more details.
+# SPDX-FileCopyrightText: 2023 CERN.
+# SPDX-License-Identifier: MIT
 """User moderation requests service errors."""
 
 from invenio_i18n import lazy_gettext as _

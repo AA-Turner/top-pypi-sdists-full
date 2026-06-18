@@ -92,6 +92,7 @@ from ._api import (
     validate_formula,
 )
 from ._binding import RustExtensionUnavailableError
+from ._rust import adjudicate_atom_shape  # cross-class atom-shape adjudicator (Rust)
 from ._compare import compare_models
 from ._linear_dictionary import LinearDictionaryFit, linear_dictionary_fit
 from ._penalties import (
@@ -320,7 +321,7 @@ from .structure_discovery import (
     select_probe_by_expected_evidence,
     split_likelihood_log_e,
 )
-from .bartlett import lawley_bartlett_factor
+from .bartlett import lawley_bartlett_factor, lawley_bartlett_factor_estimated_lambda
 from .full_conformal import glm_full_conformal
 from .layer_transport import layer_transport_fit, layer_transport_ladder
 from .checkpoint_dynamics import sae_checkpoint_dynamics

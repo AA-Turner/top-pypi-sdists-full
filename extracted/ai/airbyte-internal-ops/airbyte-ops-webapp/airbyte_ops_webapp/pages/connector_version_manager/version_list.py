@@ -25,12 +25,20 @@ from prefab_ui.components.control_flow import If
 from prefab_ui.rx import EVENT, RESULT, STATE
 
 from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
+    context_error_toast_actions,
+    context_success_actions,
+    fail_context_actions,
     fail_tool_call,
     finish_tool_call,
     start_tool_call,
 )
 from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
+    load_connector_context,
     load_version_pins,
+)
+from airbyte_ops_webapp.pages.connector_version_manager.pin_context_pane import (
+    render_locate_pin_modal,
+    render_pin_context_pane,
 )
 from airbyte_ops_webapp.theme import (
     BUTTON_INFO_CLASS,
@@ -165,6 +173,24 @@ def _render_pin_table() -> None:
             pageSize=10,
             on_row_click=[
                 SetState("selected_pin", EVENT),
+                SetState("context_guid", EVENT.scope_id),
+                *start_tool_call("Loading pin context\u2026"),
+                CallTool(
+                    load_connector_context,
+                    arguments={
+                        "connector_id": STATE.selected_connector_id,
+                        "scope_type": STATE.scope_type,
+                        "scope_id": STATE.scope_id,
+                        "actor_workspace_id": STATE.actor_workspace_id,
+                        "context_guid": EVENT.scope_id,
+                        "auth_bearer_token": STATE.auth_bearer_token,
+                    },
+                    on_success=[
+                        *context_success_actions(),
+                        *context_error_toast_actions(),
+                    ],
+                    on_error=fail_context_actions(),
+                ),
             ],
         )
     with If(STATE.version_pins_total.__eq__(0)):
@@ -216,6 +242,8 @@ def _render_selected_pin_audit() -> None:
                 href=STATE.selected_pin.scope_url,
                 target="_blank",
             )
+        # Inline pin context pane (auto-loaded from pin row click)
+        render_pin_context_pane(show_input=False)
         with Row(gap=2, style={"marginTop": "0.5rem"}):
             Button(
                 "Unset Pin",
@@ -262,12 +290,7 @@ def _render_pin_action_buttons() -> None:
                 ],
             )
         with If(STATE.version_pins_total):
-            Button(
-                "Locate Pin",
-                variant="outline",
-                size="sm",
-                css_class=BUTTON_OUTLINE_CLASS,
-            )
+            render_locate_pin_modal()
         Button(
             "Create New Pin",
             variant="default",

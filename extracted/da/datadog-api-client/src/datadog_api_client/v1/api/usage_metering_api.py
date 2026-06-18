@@ -2170,6 +2170,13 @@ class UsageMeteringApi:
 
         Get all usage across your account.
 
+        For SDK users only: all fields on ``UsageSummaryResponse`` , ``UsageSummaryDate`` , and
+        ``UsageSummaryDateOrg`` are accessible through each object's ``additionalProperties`` map.
+        Existing typed-field getters are unchanged. New billing dimensions will not have
+        typed-field getters. Use
+        `Get available fields for usage summary <https://docs.datadoghq.com/api/latest/usage-metering/#get-usage-summary-available-fields>`_
+        to enumerate every available key at each response level.
+
         This endpoint is only accessible for `parent-level organizations <https://docs.datadoghq.com/account_management/multi_organization/>`_.
 
         :param start_month: Datetime in ISO-8601 format, UTC, precise to month: ``[YYYY-MM]`` for usage beginning in this month.

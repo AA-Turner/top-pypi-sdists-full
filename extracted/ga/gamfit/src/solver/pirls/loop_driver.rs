@@ -10,7 +10,6 @@
 //! - The two GPU dispatch blocks (Stage 3.3) that call into
 //!   `crate::solver::gpu::pirls_dispatch_wire`.
 
-use super::gpu_dispatch::{try_gaussian_pls_gpu, try_pirls_loop_gpu};
 use super::{
     // state re-exports
     AdaptiveKktTolerance,
@@ -61,6 +60,7 @@ use crate::matrix::{DesignMatrix, LinearOperator, ReparamOperator, SymmetricMatr
 use crate::mixture_link::inverse_link_has_fisher_weight_jet;
 use crate::probability::standard_normal_quantile;
 use crate::solver::active_set;
+use crate::solver::gpu::pirls_host_dispatch::{try_gaussian_pls_gpu, try_pirls_loop_gpu};
 use crate::types::{
     Coefficients, GlmLikelihoodSpec, InverseLink, LinearPredictor, LinkFunction,
     LogSmoothingParamsView, MixtureLinkState, ResponseFamily, RidgePassport, RidgePolicy,
@@ -344,6 +344,7 @@ pub(super) fn assemble_pirls_result(
         reparam_result,
         x_transformed,
         coordinate_frame,
+        used_device: false,
         cache_compacted: false,
         min_penalized_deviance: working_summary.min_penalized_deviance,
     }
@@ -551,8 +552,8 @@ pub(super) fn build_diagonal_penalty_from_kronecker(
             structural_sigma += marginal_eigenvalue;
             sigma += lambdas[k] * marginal_eigenvalue;
         }
-        if kron_result.has_double_penalty && lambdas.len() > d {
-            structural_sigma += 1.0;
+        let joint_null = structural_sigma <= KRONECKER_STRUCTURAL_ZERO_TOL;
+        if kron_result.has_double_penalty && lambdas.len() > d && joint_null {
             sigma += lambdas[d];
         }
         if structural_sigma > KRONECKER_STRUCTURAL_ZERO_TOL {
@@ -1013,7 +1014,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         }
     };
 
-    // Stage 3.3-GI: GPU exact PLS dispatch — see gpu_dispatch::try_gaussian_pls_gpu.
+    // Stage 3.3-GI: GPU exact PLS dispatch — see pirls_host_dispatch::try_gaussian_pls_gpu.
     if let Some(result) = try_gaussian_pls_gpu(
         link_function,
         config,
@@ -1235,6 +1236,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
             reparam_result,
             x_transformed: make_reparam_operator(&x_original, &qs_arc_final, use_sparse_native),
             coordinate_frame,
+            used_device: false,
             cache_compacted: false,
             min_penalized_deviance: working_summary.min_penalized_deviance,
         };
@@ -1413,7 +1415,7 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
         );
     };
 
-    // Stage 3.3 GPU PIRLS-loop dispatch — see gpu_dispatch::try_pirls_loop_gpu.
+    // Stage 3.3 GPU PIRLS-loop dispatch — see pirls_host_dispatch::try_pirls_loop_gpu.
     if let Some(result) = try_pirls_loop_gpu(
         config,
         &penalty_active,
@@ -1831,7 +1833,23 @@ pub(crate) fn fit_model_for_fixed_rho_with_adaptive_kkt<'a, X: Into<DesignMatrix
     // Same logic for non-Firth and Firth paths; firth_active just gates
     // the second pass.
     let stalled_at_valid_minimum = |summary: &WorkingModelPirlsResult| -> bool {
-        let dev_scale = summary.state.deviance.abs().max(1.0);
+        // Scale-equivariant deviance plateau band (issue #1127). The
+        // `last_deviance_change` compared below and the deviance both scale as
+        // `O(a²)` under a response rescaling `y → a·y` (the penalized normal
+        // equations are linear in `y`, so `β → a·β` and the RSS-deviance
+        // scales by `a²`). Keying the plateau band to the deviance's own
+        // magnitude `+ |penalty|` makes the ratio `Δdev / dev_scale`
+        // scale-invariant. The previous `.max(1.0)` absolute floor broke this:
+        // for a micro-unit response (`a = 1e-6`) the deviance is `O(1e-12)`, so
+        // the floor pinned the band at `1.0` — ~1e9× too loose — and this
+        // max-iteration rescue declared `progress_stopped` at an over-smoothed
+        // iterate, propagating an inflated `λ̂` to the outer REML loop. For a
+        // well-scaled (`a ≳ 1`) or up-scaled (`a = 1e6`) objective the floor was
+        // already a no-op, so those directions are byte-identical. A perfect
+        // interpolating fit gives a `0` band, so the relative `Δdev` test cannot
+        // fire spuriously and the scale-invariant `near_stationary_kkt`
+        // certificate then governs acceptance.
+        let dev_scale = summary.state.deviance.abs() + summary.state.penalty_term.abs();
         // Progress plateau uses the fixed solver tolerance; only the KKT band below adapts.
         let dev_tol = options.convergence_tolerance * dev_scale;
         let step_floor = options.min_step_size * 2.0;
@@ -1971,7 +1989,7 @@ pub(super) fn assert_symmetric_tol(matrix: &Array2<f64>, label: &str, tol: f64) 
 }
 
 /// Build a DesignMatrix wrapping a lazy ReparamOperator (or the original for sparse-native).
-pub(super) fn make_reparam_operator(
+pub(crate) fn make_reparam_operator(
     x_original: &DesignMatrix,
     qs_arc: &Arc<Array2<f64>>,
     use_sparse_native: bool,
@@ -2139,4 +2157,45 @@ pub(super) fn sparse_from_denseview(x: ArrayView2<f64>) -> Option<DesignMatrix> 
     SparseColMat::try_new_from_triplets(nrows, ncols, &triplets)
         .ok()
         .map(DesignMatrix::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PirlsPenalty, build_diagonal_penalty_from_kronecker};
+    use crate::construction::KroneckerReparamResult;
+    use ndarray::{Array1, Array2, array};
+
+    #[test]
+    fn kronecker_diagonal_double_penalty_hits_only_joint_null_space() {
+        let kron_result = KroneckerReparamResult {
+            reparameterized_marginals: Vec::new(),
+            marginal_eigenvalues: vec![array![0.0, 2.0], array![0.0, 3.0]],
+            marginal_qs: Vec::new(),
+            log_det: 0.0,
+            det1: Array1::zeros(3),
+            det2: Array2::zeros((3, 3)),
+            penalty_shrinkage_ridge: 0.5,
+            has_double_penalty: true,
+            marginal_dims: vec![2usize, 2usize],
+        };
+        let penalty = build_diagonal_penalty_from_kronecker(&kron_result, &[5.0, 7.0, 11.0]);
+
+        let PirlsPenalty::Diagonal {
+            diag,
+            positive_indices,
+            ..
+        } = penalty
+        else {
+            panic!("expected diagonal Kronecker PIRLS penalty");
+        };
+        let expected = [11.0, 21.5, 10.5, 31.5];
+        for (idx, expected_diag) in expected.iter().copied().enumerate() {
+            assert!(
+                (diag[idx] - expected_diag).abs() <= 1e-12,
+                "diagonal {idx} got {}, expected {expected_diag}",
+                diag[idx]
+            );
+        }
+        assert_eq!(positive_indices, vec![0, 1, 2, 3]);
+    }
 }

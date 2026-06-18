@@ -34,8 +34,10 @@ import math
 import xml.etree.ElementTree as ET
 from copy import copy
 from enum import Enum, auto
+from io import BytesIO
 from os import PathLike, fsdecode
 from typing import Any, TypeAlias
+from typing import cast as tcast
 from warnings import warn
 
 from collections.abc import Callable, Iterable
@@ -47,7 +49,7 @@ from ezdxf.colors import RGB, aci2rgb
 from ezdxf.math import Vec2
 from OCP.BRepLib import BRepLib
 from OCP.BRepTools import BRepTools_WireExplorer
-from OCP.Geom import Geom_BezierCurve
+from OCP.Geom import Geom_BezierCurve, Geom_BSplineCurve
 from OCP.GeomConvert import GeomConvert
 from OCP.GeomConvert import GeomConvert_BSplineCurveToBezierCurve
 from OCP.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Vec, gp_XYZ
@@ -636,13 +638,13 @@ class ExportDXF(Export2D):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def write(self, file_name: PathLike | str | bytes):
+    def write(self, file_name: PathLike | str | bytes | BytesIO):
         """write
 
         Writes the DXF data to the specified file name.
 
         Args:
-            file_name (PathLike |  str |  bytes): The file name (including path) where
+            file_name (PathLike |  str |  bytes | BytesIO): The file name (including path) where
                 the DXF data will be written.
         """
         # Reset the main CAD viewport of the model space to the
@@ -650,7 +652,12 @@ class ExportDXF(Export2D):
         # https://github.com/gumyr/build123d/issues/382 tracks
         # exposing viewport control to the user.
         zoom.extents(self._modelspace)
-        self._document.saveas(fsdecode(file_name))
+
+        if not isinstance(file_name, BytesIO):
+            file_name = fsdecode(file_name)
+            self._document.saveas(file_name)
+        else:
+            self._document.write(file_name, fmt="bin")
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -751,14 +758,14 @@ class ExportDXF(Export2D):
 
         # Extract the relevant segment of the curve.
         spline = GeomConvert.SplitBSplineCurve_s(
-            curve,
+            tcast(Geom_BSplineCurve, curve),
             u1,
             u2,
             Export2D.PARAMETRIC_TOLERANCE,
         )
 
         # need to apply the transform on the geometry level
-        if edge.wrapped is None or edge.location is None:
+        if not edge or edge.location is None:
             raise ValueError(f"Edge is empty {edge}.")
         t = edge.location.wrapped.Transformation()
         spline.Transform(t)
@@ -886,16 +893,20 @@ class ExportSVG(Export2D):
                 """
                 Convert various color representations into a `Color` object.
 
-                This function takes an input color, which can be of type `ColorIndex`, `RGB`,
-                `Color`, `tuple`, or `None`, and converts it into a `Color` object. If the input
-                is `None`, the function returns `None`. It handles specific cases for `ColorIndex.BLACK`
-                and other `ColorIndex` values using the `aci2rgb` function.
+                This function takes an input color, which can be of type
+                `ColorIndex`, `RGB`, `Color`, `tuple`, or `None`, and converts
+                it into a `Color` object. If the input is `None`, the function
+                returns `None`. It handles specific cases for
+                `ColorIndex.BLACK` and other `ColorIndex` values using the
+                `aci2rgb` function.
 
                 Args:
-                    input_color (ColorIndex | RGB | Color | tuple | None): The input color to be converted.
-                        - `ColorIndex`: A predefined color index from `easydxf`. Special handling for
-                        `ColorIndex.BLACK` ensures it maps to `RGB(0, 0, 0)` instead of the default
-                        `aci2rgb` mapping to `RGB(255, 255, 255)`.
+                    input_color (ColorIndex | RGB | Color | tuple | None):
+                        The input color to be converted.
+                        - `ColorIndex`: A predefined color index from
+                          `easydxf`. Special handling for `ColorIndex.BLACK`
+                          ensures it maps to `RGB(0, 0, 0)` instead of the
+                          default `aci2rgb` mapping to `RGB(255, 255, 255)`.
                         - `RGB`: A direct representation of red, green, and blue components.
                         - `Color`: An existing `Color` object.
                         - `tuple`: A tuple of RGB values (e.g., `(255, 0, 0)` for red).
@@ -1111,7 +1122,7 @@ class ExportSVG(Export2D):
         )
         while explorer.More():
             topo_wire = explorer.Current()
-            loose_wires.append(Wire(TopoDS.Wire_s(topo_wire)))
+            loose_wires.append(Wire(TopoDS.Wire(topo_wire)))
             explorer.Next()
         # print(f"{len(loose_wires)} loose wires")
         for wire in loose_wires:
@@ -1130,7 +1141,7 @@ class ExportSVG(Export2D):
         )
         while explorer.More():
             topo_edge = explorer.Current()
-            loose_edges.append(Edge(topo_edge))
+            loose_edges.append(Edge(TopoDS.Edge(topo_edge)))
             explorer.Next()
         # print(f"{len(loose_edges)} loose edges")
         loose_edge_elements = [self._edge_element(edge) for edge in loose_edges]
@@ -1257,7 +1268,7 @@ class ExportSVG(Export2D):
         (u0, u1) = (lp, fp) if reverse else (fp, lp)
         start = self._path_point(curve.Value(u0))
         end = self._path_point(curve.Value(u1))
-        radius = complex(radius, radius)
+        radius = complex(radius, radius)  # type: ignore[assignment]
         rotation = math.degrees(gp_Dir(1, 0, 0).AngleWithRef(x_axis, gp_Dir(0, 0, 1)))
         if curve.IsClosed():
             midway = self._path_point(curve.Value((u0 + u1) / 2))
@@ -1310,7 +1321,7 @@ class ExportSVG(Export2D):
         (u0, u1) = (lp, fp) if reverse else (fp, lp)
         start = self._path_point(curve.Value(u0))
         end = self._path_point(curve.Value(u1))
-        radius = complex(major_radius, minor_radius)
+        radius = complex(major_radius, minor_radius)  # type: ignore[assignment]
         rotation = math.degrees(gp_Dir(1, 0, 0).AngleWithRef(x_axis, gp_Dir(0, 0, 1)))
         if curve.IsClosed():
             midway = self._path_point(curve.Value((u0 + u1) / 2))
@@ -1340,12 +1351,12 @@ class ExportSVG(Export2D):
         # This pulls the underlying Geom_BSplineCurve out of the Edge.
         # The adaptor also supplies a parameter range for the curve.
         adaptor = edge.geom_adaptor()
-        spline = adaptor.Curve().Curve()
+        spline = adaptor.Curve().Curve().Copy()
         u1 = adaptor.FirstParameter()
         u2 = adaptor.LastParameter()
 
         # Apply the shape location to the geometry.
-        if edge.wrapped is None or edge.location is None:
+        if not edge or edge.location is None:
             raise ValueError(f"Edge is empty {edge}.")
         t = edge.location.wrapped.Transformation()
         spline.Transform(t)
@@ -1355,7 +1366,7 @@ class ExportSVG(Export2D):
         # According to the OCCT 7.6.0 documentation,
         # "ParametricTolerance is not used."
         converter = GeomConvert_BSplineCurveToBezierCurve(
-            spline, u1, u2, Export2D.PARAMETRIC_TOLERANCE
+            tcast(Geom_BSplineCurve, spline), u1, u2, Export2D.PARAMETRIC_TOLERANCE
         )
 
         def make_segment(bezier: Geom_BezierCurve, reverse: bool) -> PathSegment:
@@ -1411,7 +1422,7 @@ class ExportSVG(Export2D):
     }
 
     def _edge_segments(self, edge: Edge, reverse: bool) -> list[PathSegment]:
-        if edge.wrapped is None:
+        if not edge:
             raise ValueError(f"Edge is empty {edge}.")
         edge_reversed = edge.wrapped.Orientation() == TopAbs_Orientation.TopAbs_REVERSED
         geom_type = edge.geom_type
@@ -1497,13 +1508,14 @@ class ExportSVG(Export2D):
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-    def write(self, path: PathLike | str | bytes):
+    def write(self, path: PathLike | str | bytes | BytesIO):
         """write
 
         Writes the SVG data to the specified file path.
 
         Args:
-            path (PathLike |  str |  bytes): The file path where the SVG data will be written.
+            path (PathLike | str | bytes | BytesIO): The file path where the
+                SVG data will be written.
         """
         # pylint: disable=too-many-locals
         bb = self._bounds
@@ -1549,5 +1561,9 @@ class ExportSVG(Export2D):
 
         xml = ET.ElementTree(svg)
         ET.indent(xml, "  ")
+
+        if not isinstance(path, BytesIO):
+            path = fsdecode(path)
+
         # xml.write(path, encoding="utf-8", xml_declaration=True, default_namespace=False)
         xml.write(path, encoding="utf-8", xml_declaration=True, default_namespace=None)

@@ -79,8 +79,11 @@ pub enum Preset {
     /// left at their defaults. Useful when Pyrefly is running only for IDE
     /// features like hover and go-to-definition, without diagnostics.
     Off,
-    /// Minimal checking for LSP users. Raises clear/obvious type errors but
-    /// disables stricter checks like override validation and unannotated def checking.
+    /// Minimal checking preset for unconfigured projects and LSP users.
+    /// Enables diagnostics covering parse errors and a small set of
+    /// high-confidence, locally-fixable checks. Stricter checks like
+    /// override validation, annotation completeness, and broader call-shape
+    /// or assignment validation are disabled.
     Basic,
     /// A looser, less-strict preset useful for codebases migrating from mypy.
     /// Pyrefly does not aim to mimic mypy's behavior precisely — this preset
@@ -91,6 +94,9 @@ pub enum Preset {
     Default,
     /// Enables additional error codes on top of the default for stricter checking.
     Strict,
+    /// Enables every error kind at `Error` severity. Directives like
+    /// `reveal-type` keep their default severity.
+    All,
 }
 
 impl Preset {
@@ -114,19 +120,27 @@ impl Preset {
                 }
             }
             Preset::Basic => {
-                // Basic is an opt-in preset: only a small set of high-confidence
-                // diagnostics — crashes and clearly broken code — fire. Every
-                // other error kind is silenced so unconfigured projects and
-                // LSP users see a low-noise baseline.
+                // Basic is an opt-in preset: a small set of high-confidence,
+                // locally-fixable diagnostics fire. Every other error kind is
+                // silenced so unconfigured projects and LSP users see a
+                // low-noise baseline.
                 let mut errors = HashMap::from([
+                    (ErrorKind::BadClassDefinition, Severity::Error),
+                    (ErrorKind::BadInstantiation, Severity::Error),
+                    (ErrorKind::BadKeywordArgument, Severity::Error),
+                    (ErrorKind::BadRaise, Severity::Error),
+                    (ErrorKind::BadUnpacking, Severity::Error),
                     (ErrorKind::DivisionByZero, Severity::Error),
+                    (ErrorKind::InvalidAnnotation, Severity::Error),
+                    (ErrorKind::InvalidLiteral, Severity::Error),
+                    (ErrorKind::InvalidSuperCall, Severity::Error),
                     (ErrorKind::InvalidSyntax, Severity::Error),
                     (ErrorKind::MissingImport, Severity::Error),
+                    (ErrorKind::NotAsync, Severity::Error),
                     (ErrorKind::ParseError, Severity::Error),
                     (ErrorKind::UnexpectedKeyword, Severity::Error),
+                    (ErrorKind::UnexpectedPositionalArgument, Severity::Error),
                     (ErrorKind::UnknownName, Severity::Error),
-                    (ErrorKind::InvalidAnnotation, Severity::Error),
-                    (ErrorKind::NotAsync, Severity::Error),
                     (ErrorKind::UnusedCoroutine, Severity::Error),
                 ]);
                 // Silence every other error kind. Explicitly setting each one
@@ -163,8 +177,25 @@ impl Preset {
                 let errors = HashMap::from([
                     (ErrorKind::ImplicitAny, Severity::Error),
                     (ErrorKind::MissingOverrideDecorator, Severity::Error),
+                    (ErrorKind::PotentialBadKeywordArgument, Severity::Error),
                     (ErrorKind::UnusedIgnore, Severity::Error),
                 ]);
+                ConfigBase {
+                    errors: Some(ErrorDisplayConfig::new(errors)),
+                    strict_callable_subtyping: Some(true),
+                    ..Default::default()
+                }
+            }
+            Preset::All => {
+                // Promote every non-Error kind to Error. Directives (e.g.
+                // RevealType) are left at their default severity so they
+                // remain informational rather than becoming hard errors.
+                let errors: HashMap<ErrorKind, Severity> = all::<ErrorKind>()
+                    .filter_map(|kind| {
+                        (!kind.is_directive() && kind.default_severity() != Severity::Error)
+                            .then_some((kind, Severity::Error))
+                    })
+                    .collect();
                 ConfigBase {
                     errors: Some(ErrorDisplayConfig::new(errors)),
                     strict_callable_subtyping: Some(true),
@@ -251,10 +282,11 @@ pub struct ConfigBase {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub infer_with_first_use: Option<bool>,
 
-    /// (Experimental) Enable tensor shape type inference.
-    /// Supports both native (Tensor[N, M]) and jaxtyping (Float[Tensor, "batch channels"]) syntax.
+    /// Enable PyTorch efficiency lints that detect common GPU performance anti-patterns.
+    /// When true, all `pytorch-efficiency-lint-*` error kinds are set to `Warn` severity
+    /// unless individually overridden in `[errors]`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tensor_shapes: Option<bool>,
+    pub pytorch_efficiency_lints: Option<bool>,
 
     /// Maximum recursion depth before triggering overflow protection.
     /// Set to 0 to disable (default). This helps detect potential stack overflow situations.
@@ -357,10 +389,6 @@ impl ConfigBase {
 
     pub fn get_infer_with_first_use(base: &Self) -> Option<bool> {
         base.infer_with_first_use
-    }
-
-    pub fn get_tensor_shapes(base: &Self) -> Option<bool> {
-        base.tensor_shapes
     }
 
     pub fn get_enabled_ignores(base: &Self) -> Option<&SmallSet<Tool>> {
@@ -545,20 +573,24 @@ mod tests {
                 })
                 .unwrap_or_default();
             let documented_codes = preset_error_codes.get(&name).cloned().unwrap_or_default();
-
-            for code in &documented_codes {
-                assert!(
-                    all_codes.contains(code),
-                    "Preset `{name}`: error code `{code}` is documented in {doc_path} \
-                     but not in Preset::apply()."
-                );
-            }
-            for code in &enabled_codes {
-                assert!(
-                    documented_codes.contains(code),
-                    "Preset `{name}`: error code `{code}` is enabled by Preset::apply() \
-                     but not documented in {doc_path}."
-                );
+            if preset == Preset::All {
+                // `All` turns everything on; we don't document the individual errors
+                assert!(documented_codes.is_empty());
+            } else {
+                for code in &documented_codes {
+                    assert!(
+                        all_codes.contains(code),
+                        "Preset `{name}`: error code `{code}` is documented in {doc_path} \
+                        but not in Preset::apply()."
+                    );
+                }
+                for code in &enabled_codes {
+                    assert!(
+                        documented_codes.contains(code),
+                        "Preset `{name}`: error code `{code}` is enabled by Preset::apply() \
+                        but not documented in {doc_path}."
+                    );
+                }
             }
         }
     }

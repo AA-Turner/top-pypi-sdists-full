@@ -24,6 +24,7 @@ from typing import FrozenSet
 from typing import List
 from typing import Optional
 from typing import Set
+from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import Union
 
@@ -102,6 +103,7 @@ class ScanHandler:
         enable_mal_deps: bool = False,
         dump_scan_config_path: Path | None = None,
         load_saved_scan_config_path: Path | None = None,
+        partial_scan_rule_ids: Tuple[str, ...] = (),
     ) -> None:
         """
         When dry_run is True, semgrep ci would get the config from the app,
@@ -131,6 +133,11 @@ class ScanHandler:
             dry_run=dry_run,
             sms_scan_id=state.env.sms_scan_id,
             enable_mal_deps=enable_mal_deps if enable_mal_deps else None,
+            partial_scan_rule_ids=(
+                [out.RuleId(rid) for rid in partial_scan_rule_ids]
+                if partial_scan_rule_ids
+                else None
+            ),
         )
         self.scan_response: Optional[out.ScanResponse] = None
         self.dry_run = dry_run
@@ -223,6 +230,15 @@ class ScanHandler:
         """
         if self.scan_response:
             return self.scan_response.config.fips_mode
+        return False
+
+    @property
+    def nosemgrep_disabled(self) -> bool:
+        """
+        Has the org disabled 'nosemgrep' inline ignore comments for this scan?
+        """
+        if self.scan_response:
+            return self.scan_response.config.nosemgrep_disabled
         return False
 
     @property
@@ -680,6 +696,7 @@ class ScanHandler:
         contributions: out.Contributions,
         engine_requested: "EngineType",
         progress_bar: "Progress",
+        disable_nosem: bool,
     ) -> out.CiScanCompleteResponse:
         """
         commit_date here for legacy reasons. epoch time of latest commit
@@ -688,20 +705,27 @@ class ScanHandler:
         """
         state = get_state()
         rule_ids = [out.RuleId(r.id) for r in rules]
-        all_matches = prepare_matches_for_app(
-            [
-                match
-                for matches_of_rule in matches_by_rule.kept.values()
-                for match in matches_of_rule
+        # Re-partition by is_ignored: the .kept/.removed split isn't
+        # authoritative — under --sarif (or --disable-nosem) suppressed
+        # matches land in .kept.
+        all_matches_in_scan = [
+            match
+            for ms_by_rule in (matches_by_rule.kept, matches_by_rule.removed)
+            for matches_of_rule in ms_by_rule.values()
+            for match in matches_of_rule
+        ]
+        if disable_nosem:
+            findings_matches = all_matches_in_scan
+            ignored_matches: List[RuleMatch] = []
+        else:
+            findings_matches = [
+                m for m in all_matches_in_scan if not m.match.extra.is_ignored
             ]
-        )
-        all_ignored_matches = prepare_matches_for_app(
-            [
-                match
-                for matches_of_rule in matches_by_rule.removed.values()
-                for match in matches_of_rule
+            ignored_matches = [
+                m for m in all_matches_in_scan if m.match.extra.is_ignored
             ]
-        )
+        all_matches = prepare_matches_for_app(findings_matches)
+        all_ignored_matches = prepare_matches_for_app(ignored_matches)
 
         # Autofix is currently the only toggle in the App that
         # indicates we are going to store your code. Until we

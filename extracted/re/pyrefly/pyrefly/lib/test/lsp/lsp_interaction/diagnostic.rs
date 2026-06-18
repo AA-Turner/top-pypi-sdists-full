@@ -286,7 +286,7 @@ fn test_stream_diagnostics_no_flicker_after_undo_edit() {
 /// Test opening a file while a recheck for another file is happening.
 /// Start with only b open, then open file d while a recheck for b is happening.
 // TODO: Flaky on GitHub CI — disabled until stabilized.
-// https://github.com/facebook/pyrefly/actions/runs/23870936742/job/69602458839
+// https://github.com/facebook/pyrefly/actions/runs/26119243466/job/76816531108
 #[test]
 #[ignore]
 fn test_open_file_during_recheck() {
@@ -324,23 +324,18 @@ fn test_open_file_during_recheck() {
     interaction.do_not_commit_next_recheck();
     let new_contents = b_contents.replace("1", "''");
     interaction.client.edit_file("b.py", &new_contents);
-    // Streamed diagnostic for first recheck
-    interaction
-        .client
-        .expect_publish_diagnostics_eventual_error_count(b_path.clone(), 0)
-        .expect("Failed to receive streamed diagnostics for first edit");
     // While recheck is blocked, open file d
     interaction.client.did_open("d.py");
     // Expect initial diagnostic for d to show no errors since it's based on old state
     interaction
         .client
-        .expect_publish_diagnostics_must_have_error_count(d_path.clone(), 0)
+        .expect_publish_diagnostics_eventual_error_count(d_path.clone(), 0)
         .expect("Failed to receive diagnostics for d after opening during recheck");
     // After recheck completes, error count reflects new state
     interaction.continue_recheck();
     interaction
         .client
-        .expect_publish_diagnostics_must_have_error_count(d_path.clone(), 1)
+        .expect_publish_diagnostics_eventual_error_count(d_path.clone(), 1)
         .expect("Failed to receive transaction complete diagnostics for second edit");
 
     interaction.shutdown().unwrap();
@@ -438,6 +433,41 @@ fn test_cycle_class() {
             "items": [],
             "kind": "full"
         }))
+        .unwrap();
+
+    interaction.shutdown().unwrap();
+}
+
+/// Regression test for <https://github.com/facebook/pyrefly/issues/3789>.
+///
+/// Opening `expr.py` — part of a 3-module import cycle
+/// (`expr` -> `add` -> `operations` -> `expr`) whose `expr` module contains a
+/// lambda — used to panic with "a variable has leaked from one module to
+/// another". The lambda parameter's Unwrap `Var` is cached in thread-local
+/// state that is shared across `Solver` instances while a cross-module SCC is
+/// driven iteratively, so a stale `Var` allocated in one module's solver was
+/// returned while solving another module. This reproduces only on the
+/// incremental LSP open path, not on a uniform batch `check`. We only assert
+/// that the server stays alive (does not panic) and answers the diagnostic
+/// request.
+#[test]
+fn test_var_leak_cycle_no_panic() {
+    let test_files_root = get_test_files_root();
+    let mut interaction = LspInteraction::new();
+    interaction.set_root(test_files_root.path().to_path_buf());
+    interaction
+        .initialize(InitializeSettings {
+            configuration: Some(None),
+            ..Default::default()
+        })
+        .unwrap();
+
+    interaction.client.did_open("var_leak_cycle_3789/expr.py");
+
+    interaction
+        .client
+        .diagnostic("var_leak_cycle_3789/expr.py")
+        .expect_response_with(|_| true)
         .unwrap();
 
     interaction.shutdown().unwrap();

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder-frontend
-Version: 0.1.160
+Version: 0.1.168
 Summary: Prebuilt web frontend for the ESPHome Device Builder Dashboard
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 License: Apache-2.0
@@ -52,7 +52,7 @@ Create-device wizard's board picker — searchable, filterable by chip family, w
 
 ## Backlog
 
-Before filing anything, take a look at the **[shared backlog](https://github.com/orgs/esphome/projects/7/views/1?filterQuery=project%3A%22device-builder-dashboard%22)** — it lists everything that's already planned, in progress, or shipped for the dashboard. Saves duplicates and gives you a feel for where the project is heading.
+Before filing anything, take a look at the **[shared backlog](https://github.com/orgs/esphome/projects/7/views/1?filterQuery=project%3A%22device-builder%22)** — it lists everything that's already planned, in progress, or shipped for the dashboard. Saves duplicates and gives you a feel for where the project is heading.
 
 ## Issues and feature requests
 

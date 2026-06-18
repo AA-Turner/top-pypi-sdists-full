@@ -26,6 +26,7 @@ from datadog_api_client.v2.model.hourly_usage_response import HourlyUsageRespons
 from datadog_api_client.v2.model.usage_lambda_traced_invocations_response import UsageLambdaTracedInvocationsResponse
 from datadog_api_client.v2.model.usage_observability_pipelines_response import UsageObservabilityPipelinesResponse
 from datadog_api_client.v2.model.projected_cost_response import ProjectedCostResponse
+from datadog_api_client.v2.model.usage_summary_available_fields_response import UsageSummaryAvailableFieldsResponse
 from datadog_api_client.v2.model.usage_attribution_types_response import UsageAttributionTypesResponse
 
 
@@ -463,6 +464,22 @@ class UsageMeteringApi:
             api_client=api_client,
         )
 
+        self._get_usage_summary_available_fields_endpoint = _Endpoint(
+            settings={
+                "response_type": (UsageSummaryAvailableFieldsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/usage/summary/available_fields",
+                "operation_id": "get_usage_summary_available_fields",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json;datetime-format=rfc3339"],
+            },
+            api_client=api_client,
+        )
+
     def get_active_billing_dimensions(
         self,
     ) -> ActiveBillingDimensionsResponse:
@@ -652,13 +669,15 @@ class UsageMeteringApi:
 
         :param filter_timestamp_start: Datetime in ISO-8601 format, UTC, precise to hour: [YYYY-MM-DDThh] for usage beginning at this hour.
         :type filter_timestamp_start: datetime
-        :param filter_product_families: Comma separated list of product families to retrieve. Available families are ``all`` , ``analyzed_logs`` ,
-            ``application_security`` , ``audit_trail`` , ``bits_ai`` , ``serverless`` , ``ci_app`` , ``cloud_cost_management`` , ``cloud_siem`` ,
-            ``csm_container_enterprise`` , ``csm_host_enterprise`` , ``cspm`` , ``custom_events`` , ``cws`` , ``dbm`` , ``error_tracking`` ,
-            ``fargate`` , ``infra_hosts`` , ``incident_management`` , ``indexed_logs`` , ``indexed_spans`` , ``ingested_spans`` , ``iot`` ,
-            ``lambda_traced_invocations`` , ``llm_observability`` , ``logs`` , ``network_flows`` , ``network_hosts`` , ``network_monitoring`` ,
-            ``observability_pipelines`` , ``online_archive`` , ``profiling`` , ``product_analytics`` , ``rum`` , ``rum_browser_sessions`` ,
-            ``rum_mobile_sessions`` , ``sds`` , ``snmp`` , ``software_delivery`` , ``synthetics_api`` , ``synthetics_browser`` ,
+        :param filter_product_families: Comma separated list of product families to retrieve. Available families are ``all`` , ``ai`` , ``analyzed_logs`` ,
+            ``application_performance_monitoring`` , ``application_security`` , ``audit_trail`` , ``bits_ai`` , ``serverless`` , ``ci_app`` ,
+            ``cloud_cost_management`` , ``cloud_siem`` , ``csm_container_enterprise`` , ``csm_host_enterprise`` , ``csm_host_pro`` , ``cspm`` ,
+            ``custom_events`` , ``cws`` , ``data_observability`` , ``dbm`` , ``digital_experience_management`` , ``error_tracking`` ,
+            ``fargate`` , ``infra_hosts`` , ``incident_management`` , ``indexed_logs`` , ``indexed_spans`` , ``infrastructure_monitoring`` ,
+            ``ingested_spans`` , ``iot`` , ``lambda_traced_invocations`` , ``llm_observability`` , ``log_management`` , ``logs`` ,
+            ``network_flows`` , ``network_hosts`` , ``network_monitoring`` , ``observability_pipelines`` , ``online_archive`` ,
+            ``platform_capabilities`` , ``product_analytics`` , ``profiling`` , ``rum`` , ``rum_browser_sessions`` , ``rum_mobile_sessions`` ,
+            ``sds`` , ``security`` , ``snmp`` , ``software_delivery`` , ``synthetics_api`` , ``synthetics_browser`` ,
             ``synthetics_mobile`` , ``synthetics_parallel_testing`` , ``timeseries`` , ``vuln_management`` and ``workflow_executions``.
             The following product family has been **deprecated** : ``audit_logs``.
         :type filter_product_families: str
@@ -908,3 +927,52 @@ class UsageMeteringApi:
 
         warnings.warn("get_usage_observability_pipelines is deprecated", DeprecationWarning, stacklevel=2)
         return self._get_usage_observability_pipelines_endpoint.call_with_http_info(**kwargs)
+
+    def get_usage_summary_available_fields(
+        self,
+    ) -> UsageSummaryAvailableFieldsResponse:
+        """Get available fields for usage summary.
+
+        List the field names returned by ``GET /api/v1/usage/summary`` at each of its
+        three response levels. Each list contains every key the data endpoint
+        emits—both typed fields declared in the OpenAPI spec and untyped keys
+        exposed through ``additionalProperties`` (the latter used for billing
+        dimensions and usage types added after the v1 schema freeze).
+
+        This endpoint is only accessible for `parent-level organizations <https://docs.datadoghq.com/account_management/multi_organization/>`_.
+
+        Go example:
+
+        .. code-block:: go
+
+           fields, _, err := api.GetUsageSummaryAvailableFields(ctx)
+           attr := fields.Data.GetAttributes()
+
+           // resp is the *UsageSummaryResponse returned by api.GetUsageSummary(ctx, ...)
+           // Layer 1: UsageSummaryResponse
+           for _, key := range attr.GetResponseFields() {
+               if val, ok := resp.AdditionalProperties[key]; ok {
+                   fmt.Println(key, val.(json.Number))
+               }
+           }
+           // Layer 2: UsageSummaryDate (per month)
+           for _, date := range resp.GetUsage() {
+               for _, key := range attr.GetDateFields() {
+                   if val, ok := date.AdditionalProperties[key]; ok {
+                       fmt.Println(key, val.(json.Number))
+                   }
+               }
+               // Layer 3: UsageSummaryDateOrg (per org per month)
+               for _, org := range date.GetOrgs() {
+                   for _, key := range attr.GetDateOrgFields() {
+                       if val, ok := org.AdditionalProperties[key]; ok {
+                           fmt.Println(key, val.(json.Number))
+                       }
+                   }
+               }
+           }
+
+        :rtype: UsageSummaryAvailableFieldsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._get_usage_summary_available_fields_endpoint.call_with_http_info(**kwargs)

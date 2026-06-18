@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::RwLock;
 
 impl<'a> RemlState<'a> {
     pub(crate) const POLISH_NORM_RATIO: f64 = 0.25;
@@ -66,7 +67,7 @@ impl<'a> RemlState<'a> {
 
     pub(crate) fn hypergradient_trace_state(
         &self,
-    ) -> Arc<Mutex<super::unified::StochasticTraceState>> {
+    ) -> Arc<Mutex<super::reml_outer_engine::StochasticTraceState>> {
         let mut budgets = hypergradient_budgets().lock().unwrap();
         let state = budgets
             .entry(self.hypergradient_owner_key())
@@ -75,7 +76,7 @@ impl<'a> RemlState<'a> {
     }
 
     pub(crate) fn reset_hypergradient_trace_telemetry(
-        trace_state: &Arc<Mutex<super::unified::StochasticTraceState>>,
+        trace_state: &Arc<Mutex<super::reml_outer_engine::StochasticTraceState>>,
     ) {
         let mut trace = match trace_state.lock() {
             Ok(guard) => guard,
@@ -338,7 +339,7 @@ impl<'a> RemlState<'a> {
     pub(crate) fn record_efs_single_loop_bias(
         &self,
         rho: &Array1<f64>,
-        diagnostics: super::unified::EfsSingleLoopDiagnostics,
+        diagnostics: super::reml_outer_engine::EfsSingleLoopDiagnostics,
     ) -> Result<(), EstimationError> {
         if !self.efs_single_loop_cap_active() {
             return Ok(());
@@ -379,7 +380,7 @@ impl<'a> RemlState<'a> {
             return Err(EstimationError::RemlOptimizationFailed(format!(
                 "{} EFS single-loop bias guard fired: bias_proxy={:.3e} \
                  threshold={:.3e} consecutive_limit={} rho_dim={}",
-                crate::solver::outer_strategy::EFS_FIRST_ORDER_FALLBACK_MARKER,
+                crate::solver::rho_optimizer::EFS_FIRST_ORDER_FALLBACK_MARKER,
                 diagnostics.bias_proxy,
                 EFS_SINGLE_LOOP_BIAS_THRESHOLD,
                 EFS_SINGLE_LOOP_BIAS_CONSECUTIVE_LIMIT,
@@ -420,7 +421,7 @@ impl<'a> RemlState<'a> {
         let p_dim = self.x.ncols();
         let k_outer = self.canonical_penalties.len();
         let operator_path_available =
-            super::unified::prefer_outer_hessian_operator(n_obs, p_dim, k_outer);
+            super::reml_outer_engine::prefer_outer_hessian_operator(n_obs, p_dim, k_outer);
         if n_obs > 50_000 && !operator_path_available {
             log::info!(
                 "[standard-GAM] declining analytic outer Hessian for \
@@ -502,8 +503,8 @@ impl<'a> RemlState<'a> {
         ridge_passport: RidgePassport,
         penalty_subspace: Option<&PenaltySubspace>,
         bundle: &EvalShared,
-        mode: super::unified::EvalMode,
-    ) -> Result<(usize, super::unified::PenaltyLogdetDerivs), EstimationError> {
+        mode: super::reml_outer_engine::EvalMode,
+    ) -> Result<(usize, super::reml_outer_engine::PenaltyLogdetDerivs), EstimationError> {
         let logdet_s_start = std::time::Instant::now();
         let lambdas = rho.mapv(f64::exp);
         let ridge = ridge_passport.penalty_logdet_ridge();
@@ -603,14 +604,14 @@ impl<'a> RemlState<'a> {
             logdet_s_start.elapsed().as_secs_f64(),
         );
 
-        let det2 = if mode == super::unified::EvalMode::ValueGradientHessian {
+        let det2 = if mode == super::reml_outer_engine::EvalMode::ValueGradientHessian {
             Some(det2_full)
         } else {
             None
         };
         Ok((
             penalty_rank,
-            super::unified::PenaltyLogdetDerivs {
+            super::reml_outer_engine::PenaltyLogdetDerivs {
                 value: log_det_s,
                 first: det1,
                 second: det2,
@@ -1302,7 +1303,7 @@ impl<'a> RemlState<'a> {
             let sol = h_inv_solve(&rhs)?;
             k_mat.column_mut(col).assign(&sol);
         }
-        enforce_symmetry(&mut k_mat);
+        crate::matrix::symmetrize_in_place(&mut k_mat);
 
         let mut a_mats = Vec::with_capacity(k);
         let mut v = Vec::with_capacity(k);
@@ -1326,7 +1327,7 @@ impl<'a> RemlState<'a> {
                 let dir = op.direction_from_deta(eta_i[idx].clone());
                 h -= &op.hphi_direction(&dir);
             }
-            enforce_symmetry(&mut h);
+            crate::matrix::symmetrize_in_place(&mut h);
             h_i.push(h);
         }
 
@@ -1364,7 +1365,7 @@ impl<'a> RemlState<'a> {
                     let eye = Array2::<f64>::eye(p);
                     h -= &op.hphisecond_direction_apply(&dir_i, &dir_j, &eye);
                 }
-                enforce_symmetry(&mut h);
+                crate::matrix::symmetrize_in_place(&mut h);
                 h_ij[i][j] = h.clone();
                 h_ij[j][i] = h;
             }
@@ -1538,13 +1539,13 @@ impl<'a> RemlState<'a> {
         f_array: &Array1<f64>,
         tk_penalties: &[crate::construction::CanonicalPenalty],
         lambdas: &[f64],
-        ext_coords: &[super::unified::HyperCoord],
+        ext_coords: &[super::reml_outer_engine::HyperCoord],
         beta: &Array1<f64>,
         firth_op: Option<&super::FirthDenseOperator>,
         compute_gradient: bool,
         compute_hessian: bool,
         h_inv_solve: &S,
-    ) -> Result<TkCorrectionTerms, EstimationError>
+    ) -> Result<super::atoms::TierneyKadaneAtom, EstimationError>
     where
         S: Fn(&Array1<f64>) -> Result<Array1<f64>, EstimationError>,
     {
@@ -1561,11 +1562,13 @@ impl<'a> RemlState<'a> {
         let mut gram = Array2::<f64>::zeros((TK_BLOCK_SIZE, TK_BLOCK_SIZE));
         let value = Self::tk_scalar_from_shared(x_dense, z, d_array, &shared, &mut gram)?;
         if !compute_gradient {
-            return Ok(TkCorrectionTerms {
-                value,
-                gradient: None,
-                hessian: None,
-            });
+            return Ok(super::atoms::TierneyKadaneAtom::from_terms(
+                TkCorrectionTerms {
+                    value,
+                    gradient: None,
+                    hessian: None,
+                },
+            ));
         }
 
         let mut x_vks: Vec<Array1<f64>> = Vec::with_capacity(k + ext_coords.len());
@@ -1649,33 +1652,39 @@ impl<'a> RemlState<'a> {
         } else {
             None
         };
-        Ok(TkCorrectionTerms {
-            value,
-            gradient: Some(gradient),
-            hessian,
-        })
+        Ok(super::atoms::TierneyKadaneAtom::from_terms(
+            TkCorrectionTerms {
+                value,
+                gradient: Some(gradient),
+                hessian,
+            },
+        ))
     }
 
     pub(crate) fn tierney_kadane_terms(
         &self,
         rho: &Array1<f64>,
         bundle: &EvalShared,
-        mode: super::unified::EvalMode,
-        ext_coords: &[super::unified::HyperCoord],
-    ) -> Result<TkCorrectionTerms, EstimationError> {
+        mode: super::reml_outer_engine::EvalMode,
+        ext_coords: &[super::reml_outer_engine::HyperCoord],
+    ) -> Result<super::atoms::TierneyKadaneAtom, EstimationError> {
         if reml_is_gaussian_identity(&self.config.likelihood) {
-            return Ok(TkCorrectionTerms {
-                value: 0.0,
-                gradient: None,
-                hessian: None,
-            });
+            return Ok(super::atoms::TierneyKadaneAtom::from_terms(
+                TkCorrectionTerms {
+                    value: 0.0,
+                    gradient: None,
+                    hessian: None,
+                },
+            ));
         }
         if reml_robust_jeffreys_link(&self.config).is_none() {
-            return Ok(TkCorrectionTerms {
-                value: 0.0,
-                gradient: None,
-                hessian: None,
-            });
+            return Ok(super::atoms::TierneyKadaneAtom::from_terms(
+                TkCorrectionTerms {
+                    value: 0.0,
+                    gradient: None,
+                    hessian: None,
+                },
+            ));
         }
         // The TK correction's c/d/e/f derivative arrays use the logit
         // 5th-derivative jet and are implemented only for canonical Binomial
@@ -1686,29 +1695,33 @@ impl<'a> RemlState<'a> {
         // the inner PIRLS solve, so it is fully retained — only the outer
         // marginal-likelihood refinement is dropped for non-logit links.
         if !self.tk_correction_is_canonical_logit() {
-            return Ok(TkCorrectionTerms {
-                value: 0.0,
-                gradient: None,
-                hessian: None,
-            });
+            return Ok(super::atoms::TierneyKadaneAtom::from_terms(
+                TkCorrectionTerms {
+                    value: 0.0,
+                    gradient: None,
+                    hessian: None,
+                },
+            ));
         }
 
         let compute_gradient = compute_gradient_for_tk(mode);
-        let zero_correction = || TkCorrectionTerms {
-            value: 0.0,
-            gradient: if compute_gradient {
-                Some(Array1::zeros(rho.len() + ext_coords.len()))
-            } else {
-                None
-            },
-            hessian: if mode == super::unified::EvalMode::ValueGradientHessian {
-                Some(Array2::zeros((
-                    rho.len() + ext_coords.len(),
-                    rho.len() + ext_coords.len(),
-                )))
-            } else {
-                None
-            },
+        let zero_correction = || {
+            super::atoms::TierneyKadaneAtom::from_terms(TkCorrectionTerms {
+                value: 0.0,
+                gradient: if compute_gradient {
+                    Some(Array1::zeros(rho.len() + ext_coords.len()))
+                } else {
+                    None
+                },
+                hessian: if mode == super::reml_outer_engine::EvalMode::ValueGradientHessian {
+                    Some(Array2::zeros((
+                        rho.len() + ext_coords.len(),
+                        rho.len() + ext_coords.len(),
+                    )))
+                } else {
+                    None
+                },
+            })
         };
 
         // The outer Firth gate (`firth_problem_scale_allows`) disables the dense
@@ -1760,7 +1773,10 @@ impl<'a> RemlState<'a> {
                 crate::linalg::sparse_exact::solve_sparse_spdmulti(sparse.factor.as_ref(), &xt)?;
             let factor_ref = sparse.factor.clone();
             let h_inv_solve = |rhs: &Array1<f64>| -> Result<Array1<f64>, EstimationError> {
-                crate::linalg::sparse_exact::solve_sparse_spd(&factor_ref, rhs)
+                Ok(crate::linalg::sparse_exact::solve_sparse_spd(
+                    &factor_ref,
+                    rhs,
+                )?)
             };
             let lambdas: Vec<f64> = rho.iter().map(|r| r.exp()).collect();
             let beta = self.sparse_exact_beta_original(pirls_result);
@@ -1793,7 +1809,7 @@ impl<'a> RemlState<'a> {
                 &beta,
                 firth_op.as_deref(),
                 compute_gradient,
-                mode == super::unified::EvalMode::ValueGradientHessian,
+                mode == super::reml_outer_engine::EvalMode::ValueGradientHessian,
                 &h_inv_solve,
             );
         }
@@ -1947,15 +1963,15 @@ impl<'a> RemlState<'a> {
             &beta,
             firth_op.as_deref(),
             compute_gradient,
-            mode == super::unified::EvalMode::ValueGradientHessian,
+            mode == super::reml_outer_engine::EvalMode::ValueGradientHessian,
             &h_inv_solve,
         )
     }
 
     pub(crate) fn validate_tk_ext_coords(
         &self,
-        mode: super::unified::EvalMode,
-        ext_coords: &[super::unified::HyperCoord],
+        mode: super::reml_outer_engine::EvalMode,
+        ext_coords: &[super::reml_outer_engine::HyperCoord],
     ) -> Result<(), EstimationError> {
         if reml_is_gaussian_identity(&self.config.likelihood)
             || reml_robust_jeffreys_link(&self.config).is_none()
@@ -1973,35 +1989,39 @@ impl<'a> RemlState<'a> {
         Ok(())
     }
 
-    pub(crate) fn apply_tk_to_result(
+    pub(crate) fn apply_theta_correction_atom_to_result<A>(
         &self,
-        mut result: super::unified::RemlLamlResult,
-        tk_terms: TkCorrectionTerms,
-    ) -> Result<super::unified::RemlLamlResult, EstimationError> {
-        result.cost += tk_terms.value;
-        if let Some(tk_hess) = tk_terms.hessian.as_ref() {
+        mut result: super::reml_outer_engine::RemlLamlResult,
+        correction: &A,
+    ) -> Result<super::reml_outer_engine::RemlLamlResult, EstimationError>
+    where
+        A: super::atoms::ThetaCorrectionProjection + ?Sized,
+    {
+        result.cost += correction.cost();
+        if let Some(correction_hess) = correction.hessian() {
             result
                 .hessian
-                .add_rho_block_dense(tk_hess)
+                .add_rho_block_dense(correction_hess)
                 .map_err(EstimationError::InvalidInput)?;
         }
-        if let (Some(ref mut grad), Some(tk_grad)) = (result.gradient.as_mut(), tk_terms.gradient) {
-            if tk_grad.len() == grad.len() {
-                **grad += &tk_grad;
+        if let (Some(ref mut grad), Some(correction_grad)) =
+            (result.gradient.as_mut(), correction.gradient())
+        {
+            if correction_grad.len() == grad.len() {
+                **grad += correction_grad;
             } else {
                 // The unified evaluator returns one gradient entry per
-                // (ρ, ext_coord) coordinate; the analytic Tierney–Kadane
-                // propagation in `tk_gradient_from_shared` produces exactly
-                // the same per-coordinate layout (`tk_penalties.len() +
-                // ext_drifts.len()`).  An arity mismatch means the two
-                // sides were assembled against different coordinate sets,
-                // which would yield a structurally inconsistent total
-                // gradient and is therefore rejected outright instead of
-                // silently zero-padding or truncating.
+                // (ρ, ext_coord) coordinate; theta-only correction atoms must
+                // emit exactly the same coordinate layout. An arity mismatch
+                // means the correction and evaluator were assembled against
+                // different coordinate sets, which would yield a structurally
+                // inconsistent total gradient and is therefore rejected
+                // outright instead of silently zero-padding or truncating.
                 crate::bail_invalid_estim!(
-                    "Tierney-Kadane gradient coordinate count mismatch: evaluator produced {} entries, analytic c/d propagation produced {}; this indicates the TK term and the unified evaluator were assembled against different coordinate sets",
+                    "{} gradient coordinate count mismatch: evaluator produced {} entries, correction atom produced {}; this indicates the correction term and the unified evaluator were assembled against different coordinate sets",
+                    correction.name(),
                     grad.len(),
-                    tk_grad.len()
+                    correction_grad.len()
                 );
             }
         }
@@ -2072,7 +2092,44 @@ impl<'a> RemlState<'a> {
     /// band. The correction value therefore vanishes continuously as a
     /// direction approaches the threshold, so the spliced objective is
     /// continuous to leading order and does not bias ρ selection.
+    /// Per-bundle-cached wrapper around [`Self::block_local_sampled_correction_compute`].
+    ///
+    /// The block-local correction is a deterministic function of this bundle's
+    /// converged inner state and ρ alone (mode-invariant, Hessian-free), but the
+    /// outer loop evaluates the objective at one ρ up to three times (value,
+    /// value+gradient, value+gradient+Hessian) sharing the SAME `bundle`. The
+    /// expensive engaged path (dense O(p³) eigendecomposition plus the
+    /// fixed-seed O(draws·n·m) importance sampler) therefore reran 2–3× per
+    /// outer iteration. Hoist it onto `bundle.block_local_correction` so it is
+    /// computed exactly once per inner solution and every consumer at that ρ
+    /// reads the identical value+gradient (exact hoist — #784, #1082). Keyed on
+    /// `n_ext`, which is fixed for a fit, so one cell suffices.
     pub(crate) fn block_local_sampled_correction(
+        &self,
+        rho: &Array1<f64>,
+        bundle: &EvalShared,
+        n_ext: usize,
+    ) -> Result<TkCorrectionTerms, EstimationError> {
+        if let Some((cached_ext, terms)) = bundle.block_local_correction.get()
+            && *cached_ext == n_ext
+        {
+            return Ok((**terms).clone());
+        }
+        let terms = self.block_local_sampled_correction_compute(rho, bundle, n_ext)?;
+        // First writer wins; a racing writer built from identical inputs, so
+        // either stored object is correct. A `set` that loses the race (cell
+        // already filled) is fine — both terms are equal — so the `Err` is
+        // discarded by returning the freshly computed `terms` either way.
+        match bundle
+            .block_local_correction
+            .set((n_ext, std::sync::Arc::new(terms.clone())))
+        {
+            Ok(()) => Ok(terms),
+            Err(_) => Ok(terms),
+        }
+    }
+
+    fn block_local_sampled_correction_compute(
         &self,
         rho: &Array1<f64>,
         bundle: &EvalShared,
@@ -2128,7 +2185,7 @@ impl<'a> RemlState<'a> {
 
         // Step 1: per-direction skewness diagnostic γ_r.
         let (max_abs, directional) =
-            laplace_directional_cubic_diagnostic(h_total, x_design, c_weights)
+            laplace_directional_cubic_diagnostic(h_total, x_design, c_weights, false)
                 .map_err(EstimationError::InvalidInput)?;
         if !max_abs.is_finite() || max_abs == 0.0 {
             return Ok(zero());
@@ -2541,7 +2598,7 @@ impl<'a> RemlState<'a> {
         &self,
         rho: &Array1<f64>,
         bundle: &EvalShared,
-        result: &super::unified::RemlLamlResult,
+        result: &super::reml_outer_engine::RemlLamlResult,
     ) {
         let rho_cols = result
             .rho_mode_response_cols
@@ -3098,91 +3155,31 @@ impl<'a> RemlState<'a> {
     /// barrier's view ρ̃ — hence its cost, gradient and curvature — is identical
     /// at the rescaled optimum. With all weights 1 the anchor is exactly 0, so
     /// unweighted fits stay byte-identical.
-    pub(super) fn compute_soft_priorcost(&self, rho: &Array1<f64>) -> f64 {
-        let len = rho.len();
-        if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
-            return 0.0;
-        }
-
-        let anchor = self.rho_weight_anchor();
-        let inv_bound = 1.0 / RHO_BOUND;
-        let sharp = RHO_SOFT_PRIOR_SHARPNESS;
-        let mut cost = 0.0;
-        for &ri in rho.iter() {
-            let scaled = sharp * (ri - anchor) * inv_bound;
-            cost += scaled.cosh().ln();
-        }
-
-        cost * RHO_SOFT_PRIOR_WEIGHT
-    }
-
-    /// Compute soft prior gradient without workspace mutation.
-    pub(super) fn compute_soft_priorgrad(&self, rho: &Array1<f64>) -> Array1<f64> {
-        let len = rho.len();
-        let mut grad = Array1::<f64>::zeros(len);
-        if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
-            return grad;
-        }
-        // Anchored at `ρ̃ = ρ − log g(w)` for weight-scale invariance (issue
-        // #877); the anchor is ρ-independent so `d/dρ = d/dρ̃` and the gradient
-        // form is unchanged — only the argument shifts.
-        let anchor = self.rho_weight_anchor();
-        let inv_bound = 1.0 / RHO_BOUND;
-        let sharp = RHO_SOFT_PRIOR_SHARPNESS;
-        for (g, &ri) in grad.iter_mut().zip(rho.iter()) {
-            let scaled = sharp * (ri - anchor) * inv_bound;
-            *g = sharp * inv_bound * scaled.tanh() * RHO_SOFT_PRIOR_WEIGHT;
-        }
-        grad
-    }
-
-    /// Add the exact Hessian of the soft rho prior in place.
+    /// Build the soft numerical-guard ρ prior as a single atom (#931).
     ///
-    /// Prior definition per coordinate:
-    ///   C_i(rho_i) = w * log(cosh(a * rho_i)),
-    ///   a = rho_soft_prior_sharpness / rho_bound,
-    ///   w = rho_soft_prior_weight.
+    /// The `log cosh` barrier's value, gradient, and diagonal Hessian were
+    /// previously three separate `compute_soft_prior{cost,grad,hess}` functions
+    /// that each independently re-derived the anchor, the `a = sharpness/bound`
+    /// scale, and the `tanh` argument — the canonical objective↔gradient desync
+    /// surface. [`SoftRhoGuardPriorAtom::evaluate_anchored`] evaluates the
+    /// antiderivative chain (`log cosh → tanh → 1 − tanh²`) ONCE per coordinate,
+    /// so cost, gradient, and curvature are projections of one computation and
+    /// cannot drift.
     ///
-    /// Then:
-    ///   dC_i/drho_i   = w * a * tanh(a * rho_i),
-    ///   d²C_i/drho_i² = w * a² * sech²(a * rho_i)
-    ///                = w * a² * (1 - tanh²(a * rho_i)).
-    ///
-    /// The prior is separable across coordinates, so off-diagonals are zero.
-    ///
-    /// Evaluated at the weight-anchored coordinate `ρ̃ = ρ − log g(w)` for
-    /// weight-scale invariance (issue #877); the anchor is ρ-independent so the
-    /// curvature form is unchanged — only the argument shifts.
-    pub(super) fn add_soft_priorhessian_in_place(&self, rho: &Array1<f64>, hess: &mut Array2<f64>) {
-        let len = rho.len();
-        if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
-            return;
-        }
-        let anchor = self.rho_weight_anchor();
-        let a = RHO_SOFT_PRIOR_SHARPNESS / RHO_BOUND;
-        let prefactor = RHO_SOFT_PRIOR_WEIGHT * a * a;
-        for i in 0..len {
-            let t = (a * (rho[i] - anchor)).tanh();
-            hess[[i, i]] += prefactor * (1.0 - t * t);
-        }
-    }
-
-    /// Compute the soft prior Hessian as a standalone matrix.
-    ///
-    /// This is the diagonal matrix of second derivatives of the soft prior penalty.
-    /// Returns `None` when the prior contributes zero curvature (empty ρ or zero weight).
-    pub(super) fn compute_soft_priorhess(&self, rho: &Array1<f64>) -> Option<Array2<f64>> {
-        let len = rho.len();
-        if len == 0 || RHO_SOFT_PRIOR_WEIGHT == 0.0 {
-            return None;
-        }
-        let mut hess = Array2::<f64>::zeros((len, len));
-        self.add_soft_priorhessian_in_place(rho, &mut hess);
-        if hess.iter().any(|&v| v != 0.0) {
-            Some(hess)
-        } else {
-            None
-        }
+    /// Evaluated at the weight-anchored coordinate `ρ̃ = ρ − rho_weight_anchor`
+    /// (issue #877): the anchor is ρ-independent, so `d/dρ = d/dρ̃` and only the
+    /// argument shifts.
+    pub(crate) fn soft_rho_guard_prior_atom(
+        &self,
+        rho: &Array1<f64>,
+    ) -> super::atoms::SoftRhoGuardPriorAtom {
+        super::atoms::SoftRhoGuardPriorAtom::evaluate_anchored(
+            rho,
+            RHO_SOFT_PRIOR_WEIGHT,
+            RHO_SOFT_PRIOR_SHARPNESS,
+            RHO_BOUND,
+            self.rho_weight_anchor(),
+        )
     }
 
     // Gamma(a, b) precision hyperprior identity.
@@ -3208,16 +3205,16 @@ impl<'a> RemlState<'a> {
     //     / (b + (beta-mu_p)' S_p (beta-mu_p)/2), reducing to the existing
     // MacKay/Tipping fixed point when (a, b) = (1, 0).
     /// Evaluate the configured ρ prior through the shared
-    /// [`rho_prior_eval`](super::rho_prior_eval) engine under the REML/LAML
+    /// [`rho_prior_eval`](crate::rho_prior_eval) engine under the REML/LAML
     /// invalid-prior policy
-    /// ([`Saturate`](super::rho_prior_eval::InvalidPriorPolicy::Saturate)): a
+    /// ([`Saturate`](crate::rho_prior_eval::InvalidPriorPolicy::Saturate)): a
     /// malformed prior folds into the objective as `+inf` cost (and `NaN`
     /// gradient/Hessian) so the outer optimizer steps away from it. The math
     /// itself is shared with custom-family handling.
     pub(crate) fn evaluate_configured_rho_prior(
         &self,
         rho: &Array1<f64>,
-    ) -> super::rho_prior_eval::RhoPriorEval {
+    ) -> crate::rho_prior_eval::RhoPriorEval {
         let effective = self.effective_rho_prior();
         // Evaluate the prior at the weight-anchored coordinate `ρ̃ = ρ − log g(w)`
         // (see [`rho_weight_anchor`](Self::rho_weight_anchor)) so the selected λ̂
@@ -3228,10 +3225,10 @@ impl<'a> RemlState<'a> {
         let anchor = self.rho_weight_anchor();
         let rho_anchored = (anchor != 0.0).then(|| rho.mapv(|r| r - anchor));
         let rho_eff: &Array1<f64> = rho_anchored.as_ref().unwrap_or(rho);
-        let mut eval = super::rho_prior_eval::evaluate(
+        let mut eval = crate::rho_prior_eval::evaluate(
             effective.as_ref(),
             rho_eff,
-            super::rho_prior_eval::InvalidPriorPolicy::Saturate,
+            crate::rho_prior_eval::InvalidPriorPolicy::Saturate,
         )
         .expect("Saturate policy never errors");
         // FIRTH-DEFAULT SELF-GATE (strict zero-downside). The shared engine
@@ -3249,7 +3246,7 @@ impl<'a> RemlState<'a> {
         if eval.cost.is_finite() {
             let mask = firth_default_coord_mask(&self.rho_prior, rho.len());
             if mask.iter().any(|&d| d) {
-                let theta = super::rho_prior_eval::pc_prior_rate(
+                let theta = crate::rho_prior_eval::pc_prior_rate(
                     FIRTH_DEFAULT_PC_UPPER,
                     FIRTH_DEFAULT_PC_TAIL_PROB,
                 );
@@ -3264,8 +3261,8 @@ impl<'a> RemlState<'a> {
                     let r = rho_eff[idx];
                     // Remove the plain PC contribution the engine added for this
                     // defaulted coordinate, then add the self-gated barrier.
-                    let (pc_c, pc_g, pc_h) = super::rho_prior_eval::pc_prior_terms(theta, r);
-                    let (b_c, b_g, b_h) = super::rho_prior_eval::firth_default_barrier_terms(
+                    let (pc_c, pc_g, pc_h) = crate::rho_prior_eval::pc_prior_terms(theta, r);
+                    let (b_c, b_g, b_h) = crate::rho_prior_eval::firth_default_barrier_terms(
                         theta,
                         FIRTH_DEFAULT_PC_UPPER,
                         r,
@@ -3278,6 +3275,18 @@ impl<'a> RemlState<'a> {
             }
         }
         eval
+    }
+
+    /// Emit the configured ρ-prior as a criterion atom after every REML/LAML
+    /// prior policy has been applied. Callers project cost, gradient, and
+    /// Hessian from this one object instead of making separate evaluator calls.
+    pub(crate) fn configured_rho_prior_atom(
+        &self,
+        rho: &Array1<f64>,
+    ) -> super::atoms::ConfiguredRhoPriorAtom {
+        super::atoms::ConfiguredRhoPriorAtom {
+            eval: self.evaluate_configured_rho_prior(rho),
+        }
     }
 
     /// Resolve the *effective* outer prior on the log-precision ρ, applying the
@@ -3439,21 +3448,6 @@ impl<'a> RemlState<'a> {
         if count == 0 { 0.0 } else { sum / count as f64 }
     }
 
-    pub(crate) fn compute_configured_rho_prior_cost(&self, rho: &Array1<f64>) -> f64 {
-        self.evaluate_configured_rho_prior(rho).cost
-    }
-
-    pub(crate) fn compute_configured_rho_prior_grad(&self, rho: &Array1<f64>) -> Array1<f64> {
-        self.evaluate_configured_rho_prior(rho).gradient
-    }
-
-    pub(crate) fn compute_configured_rho_prior_hess(
-        &self,
-        rho: &Array1<f64>,
-    ) -> Option<Array2<f64>> {
-        self.evaluate_configured_rho_prior(rho).hessian
-    }
-
     /// Returns the effective Hessian and the ridge value used (if any).
     /// Uses the same Hessian matrix in both cost and gradient calculations.
     ///
@@ -3600,6 +3594,7 @@ impl<'a> RemlState<'a> {
             last_inner_converged: Arc::new(AtomicBool::new(false)),
             ift_warm_start_cache: RwLock::new(None),
             last_pirls_lm_lambda: Arc::new(AtomicU64::new(0)),
+            frozen_negbin_theta: Arc::new(AtomicU64::new(0)),
             last_ift_prediction_residual: Arc::new(AtomicU64::new(IFT_RESIDUAL_NO_SIGNAL_BITS)),
             last_pirls_accept_rho: Arc::new(AtomicU64::new(IFT_RESIDUAL_NO_SIGNAL_BITS)),
             ift_cached_factor: RwLock::new(None),
@@ -3616,6 +3611,7 @@ impl<'a> RemlState<'a> {
             analytic_penalty_registry_fingerprint: 0,
             persistent_warm_start_loaded: AtomicBool::new(false),
             persistent_warm_start_store_suppression: AtomicUsize::new(0),
+            alo_stabilization_suppression: AtomicUsize::new(0),
             persistent_warm_start_disk_enabled: AtomicBool::new(false),
         })
     }
@@ -3690,6 +3686,76 @@ impl<'a> RemlState<'a> {
         self.clear_warm_start_predictor_state();
         self.clear_warm_start_adaptive_signals();
         self.reset_hypergradient_budget_controller();
+        // The λ-search frozen NB θ (#1082) is computed from the seed fit on the
+        // PREVIOUS design; a new surface (different X / penalties) must re-freeze
+        // it from its own seed. `0` = "not yet frozen".
+        self.frozen_negbin_theta.store(0, Ordering::Relaxed);
+        Ok(())
+    }
+
+    /// #1033: refresh ONLY the canonical-penalty surface in k-space, keeping the
+    /// realized n×k design `self.x` (and the externally-installed Gaussian Gram
+    /// cache) untouched.
+    ///
+    /// On the certified κ-loop fast path the design coordinate ψ does NOT move
+    /// the rows we re-stream — the n-free `PsiGramTensor` serves `XᵀWX(ψ)/XᵀWz(ψ)`
+    /// — but for a spatial smooth ψ ALSO moves the penalty matrix `S(ψ)` (the
+    /// Duchon/Matérn Hilbert scale is built as a function of the length scale).
+    /// `reset_surface` is the only place the canonical penalty surface
+    /// (`balanced_penalty_root` / `reparam_invariant` / `sparse_penalty_blocks`)
+    /// is rebuilt, and the fast path skips it — so without this the inner solve
+    /// would pair `XᵀWX(ψ_new)` with the STALE `S(ψ_old)` and converge to the
+    /// wrong β̂ / κ-optimum. This re-keys `S(ψ_new)` from the supplied canonical
+    /// penalties (a k×k object built from the basis centers, not the data rows,
+    /// so the refresh stays n-free) and re-runs exactly the three k-space penalty
+    /// derivations `reset_surface` runs — nothing design- or n-shaped.
+    ///
+    /// It does NOT touch `self.x`, the Gaussian-fixed Gram cache, or the
+    /// conditioned-frame ψ-gram derivative: those are re-keyed to ψ_new by the
+    /// tensor lane independently. It DOES invalidate the eval/factor/PIRLS caches
+    /// (the penalized Hessian `H_λ = QsᵀXᵀWXQs + S(ψ)` changed), so the next inner
+    /// solve refactors against the correct penalty.
+    pub(crate) fn refresh_canonical_penalty_surface(
+        &mut self,
+        canonical_penalties: Arc<Vec<crate::construction::CanonicalPenalty>>,
+        nullspace_dims: Vec<usize>,
+    ) -> Result<(), EstimationError> {
+        if canonical_penalties.len() != self.canonical_penalties.len() {
+            crate::bail_invalid_estim!(
+                "refresh_canonical_penalty_surface: penalty count changed ({} → {}) — the \
+                 fast path requires a fixed penalty topology",
+                self.canonical_penalties.len(),
+                canonical_penalties.len()
+            );
+        }
+        if nullspace_dims.len() != canonical_penalties.len() {
+            crate::bail_invalid_estim!(
+                "refresh_canonical_penalty_surface: nullspace_dims length {} does not match \
+                 penalties {}",
+                nullspace_dims.len(),
+                canonical_penalties.len()
+            );
+        }
+        let p = self.p;
+        let balanced_penalty_root =
+            create_balanced_penalty_root_from_canonical(&canonical_penalties, p)?;
+        let reparam_invariant =
+            precompute_reparam_invariant_from_canonical(&canonical_penalties, p)?;
+        let sparse_penalty_blocks =
+            build_sparse_penalty_blocks_from_canonical(canonical_penalties.as_ref(), p)?
+                .map(Arc::new);
+
+        self.canonical_penalties = canonical_penalties;
+        self.balanced_penalty_root = balanced_penalty_root;
+        self.reparam_invariant = reparam_invariant;
+        self.sparse_penalty_blocks = sparse_penalty_blocks;
+        self.nullspace_dims = nullspace_dims;
+        // The penalized Hessian / logdet depend on S(ψ); a new penalty
+        // invalidates every memoized factorization and eval. The design-keyed
+        // Gaussian Gram cache and its ψ-derivative are NOT cleared here: those
+        // are re-keyed to ψ_new by the tensor lane (`install_psi_gram_statistics`).
+        self.cache_manager.clear_eval_and_factor_caches();
+        self.cache_manager.pirls_cache.write().unwrap().clear();
         Ok(())
     }
 
@@ -3862,33 +3928,6 @@ impl<'a> RemlState<'a> {
         (norm.is_finite() && norm >= 0.0).then_some(norm)
     }
 
-    // The test diagnostic `objective_logdet_h_proj` lives below in
-    // the `tests_diagnostics` impl block. It returns the *projected*
-    // Hessian log-determinant `log|U_Sᵀ H U_S|_+` on the identified
-    // `range(S_+)` subspace evaluated at the PIRLS state driven to
-    // convergence at this `rho`. Production REML/LAML cost reads the
-    // same sum via `hop.logdet() + hessian_logdet_correction` (the
-    // latter carries the `log|H_proj| − hop.logdet()` correction
-    // from the dense_assembly rank-deficiency fix), so centered
-    // finite-differencing the projected logdet across nearby `theta`
-    // gives the analytic `d/dψ log|H_proj|` that the production
-    // trace formula computes — *not* the full-space
-    // `d/dψ log|H_full|`, which differs by the `null(S)` directions'
-    // contribution and is the wrong FD reference for the projected
-    // LAML cost identity. Used by
-    // `iso_kappa_duchon_penalty_subspace_projection_pins_trace`'s
-    // INVARIANT 2. The `cfg(test)`-gated method lives in the child
-    // mod so production builds carry no test-only inherent methods
-    // on this type.
-
-    // Test diagnostic `debug_eta_w_c` (returning
-    // `(final_eta, finalweights, solve_c_array)` at the PIRLS state
-    // produced by driving the solver to convergence at this `rho`)
-    // lives in the `tests_diagnostics` impl block below. Used by
-    // the iso-κ Duchon FD probe to test whether the analytic
-    // `c · dη/dψ_total` per-row diagonal matches FD
-    // `c · (η_+ − η_−) / 2h`.
-
     pub(crate) fn active_constraint_free_basis(&self, pr: &PirlsResult) -> Option<Array2<f64>> {
         let lin = pr.linear_constraints_transformed.as_ref()?;
         let beta_t = pr.beta_transformed.as_ref();
@@ -3955,8 +3994,8 @@ impl<'a> RemlState<'a> {
     /// barrier-curvature check at a test point near the bounds.
     pub(crate) fn barrier_config_from_constraints(
         constraints: &crate::pirls::LinearInequalityConstraints,
-    ) -> Option<super::unified::BarrierConfig> {
-        let config = super::unified::BarrierConfig::from_constraints(Some(constraints))?;
+    ) -> Option<super::reml_outer_engine::BarrierConfig> {
+        let config = super::reml_outer_engine::BarrierConfig::from_constraints(Some(constraints))?;
         // Diagnostic: check curvature significance at a test point near bounds.
         {
             // Place the diagnostic test point a small slack inside the feasible
@@ -4216,7 +4255,8 @@ impl<'a> RemlState<'a> {
     /// of constant-rank strata and FD probes are only meaningful within one.
     pub(super) fn intrinsic_hessian_pseudo_logdet_parts(
         h_total: &Array2<f64>,
-    ) -> Result<(f64, Option<super::unified::PenaltySubspaceTrace>), EstimationError> {
+    ) -> Result<(f64, Option<super::reml_outer_engine::PenaltySubspaceTrace>), EstimationError>
+    {
         let p = h_total.ncols();
         if p == 0 {
             return Ok((0.0, None));
@@ -4232,12 +4272,14 @@ impl<'a> RemlState<'a> {
         // Symmetrize before eigh: H_pen is symmetric in exact arithmetic and
         // faer rejects visibly asymmetric input.
         let mut h_sym = h_total.clone();
-        enforce_symmetry(&mut h_sym);
+        crate::matrix::symmetrize_in_place(&mut h_sym);
         let (h_evals, h_evecs) = h_sym
             .eigh(Side::Lower)
             .map_err(EstimationError::EigendecompositionFailed)?;
-        let h_thr = super::unified::positive_eigenvalue_threshold(h_evals.as_slice().unwrap());
-        let log_det = super::unified::exact_pseudo_logdet(h_evals.as_slice().unwrap(), h_thr);
+        let h_thr =
+            super::reml_outer_engine::positive_eigenvalue_threshold(h_evals.as_slice().unwrap());
+        let log_det =
+            super::reml_outer_engine::exact_pseudo_logdet(h_evals.as_slice().unwrap(), h_thr);
         let kept: Vec<usize> = (0..p).filter(|&j| h_evals[j] > h_thr).collect();
         if kept.is_empty() {
             // No positive curvature anywhere: nothing identified, nothing to
@@ -4264,7 +4306,7 @@ impl<'a> RemlState<'a> {
 
         Ok((
             log_det,
-            Some(super::unified::PenaltySubspaceTrace {
+            Some(super::reml_outer_engine::PenaltySubspaceTrace {
                 u_s,
                 h_proj_inverse,
             }),
@@ -4394,19 +4436,19 @@ impl<'a> RemlState<'a> {
         }
     }
 
-    /// Outer-loop [`crate::cache::Session`] for this fit, derived from the
+    /// Outer-loop [`crate::warm_start::Session`] for this fit, derived from the
     /// same realized-fit-context key as the inner beta record. Disjoint
     /// keyspace, so inner and outer payloads don't collide.
     ///
     /// Returns `None` if no platform cache directory is discoverable.
-    pub(crate) fn outer_cache_session(&self) -> Option<std::sync::Arc<crate::cache::Session>> {
+    pub(crate) fn outer_cache_session(&self) -> Option<std::sync::Arc<crate::warm_start::Session>> {
         if !self.warm_start_enabled.load(Ordering::Relaxed) {
             return None;
         }
         // Opt-in only: opening the cross-process outer-iterate session also
         // opens the shared on-disk `WarmStartStore` (dir/eviction scan). Skip
-        // it for in-process fits that never attached a cache session
-        // (#1082/#1114).
+        // it unless `FitConfig::persist_warm_start_disk` enabled disk
+        // persistence (#1082/#1114).
         if !self
             .persistent_warm_start_disk_enabled
             .load(Ordering::Relaxed)
@@ -4418,10 +4460,10 @@ impl<'a> RemlState<'a> {
     }
 
     /// Engage the cross-process ON-DISK warm-start layer. Called from the
-    /// estimate constructor when a cache session is attached (the
-    /// magic-by-default opt-in signal for cross-process / repeat-fit
-    /// persistence). Until this is set the disk load/store/eviction-scan path
-    /// is skipped entirely and only the in-memory warm start is used.
+    /// estimate constructor when `FitConfig::persist_warm_start_disk` requests
+    /// cross-process / repeat-fit persistence. Until this is set the disk
+    /// load/store/eviction-scan path is skipped entirely and only the
+    /// in-memory warm start is used.
     pub(crate) fn enable_persistent_warm_start_disk(&self) {
         self.persistent_warm_start_disk_enabled
             .store(true, Ordering::Relaxed);
@@ -4532,10 +4574,9 @@ impl<'a> RemlState<'a> {
         if !self.warm_start_enabled.load(Ordering::Relaxed) {
             return;
         }
-        // Cross-process disk restore is opt-in (a cache session was attached).
-        // Without it, skip the `persistent_store()` open + dir/eviction scan
-        // entirely — the in-memory warm start fully serves an in-process fit
-        // (#1082/#1114).
+        // Cross-process disk restore is opt-in. Without it, skip the
+        // `persistent_store()` open + dir/eviction scan entirely — the
+        // in-memory warm start fully serves an in-process fit (#1082/#1114).
         if !self
             .persistent_warm_start_disk_enabled
             .load(Ordering::Relaxed)
@@ -4641,7 +4682,8 @@ impl<'a> RemlState<'a> {
         let Some(beta) = self.warm_start_beta.read().unwrap().as_ref().cloned() else {
             return;
         };
-        let Some(rho) = self.warm_start_rho.read().unwrap().clone() else {
+        let rho_opt: Option<Array1<f64>> = self.warm_start_rho.read().unwrap().clone();
+        let Some(rho) = rho_opt else {
             return;
         };
         if beta.0.len() != self.p || rho.len() != self.canonical_penalties.len() {
@@ -4656,7 +4698,7 @@ impl<'a> RemlState<'a> {
             .read()
             .unwrap()
             .as_ref()
-            .map(|rho| rho.to_vec());
+            .map(|rho: &Array1<f64>| rho.to_vec());
         record.prev_beta = self
             .prev_warm_start_beta
             .read()
@@ -4687,6 +4729,30 @@ impl<'a> RemlState<'a> {
         self.persistent_warm_start_store_suppression
             .fetch_add(1, Ordering::Relaxed);
         let guard = StoreSuppressionGuard(&self.persistent_warm_start_store_suppression);
+        let out = f();
+        drop(guard);
+        out
+    }
+
+    /// Run `f` with the Gaussian-identity ALO-stabilization augmentation
+    /// disabled (#979). Used to evaluate the genuine LAML criterion during
+    /// ρ-posterior certificate / NUTS sampling, where the optimizer-stability
+    /// leverage barrier (#813/#821) is both inappropriate (it is not part of the
+    /// marginal posterior, whose Laplace proposal uses the base REML Hessian)
+    /// and ruinously expensive (its full ALO diagnostic suite would run on every
+    /// leapfrog step). Re-entrant via a counter, like
+    /// [`Self::without_persistent_warm_start_store`].
+    pub(crate) fn without_alo_stabilization<T>(&self, f: impl FnOnce() -> T) -> T {
+        struct AloSuppressionGuard<'a>(&'a AtomicUsize);
+        impl Drop for AloSuppressionGuard<'_> {
+            fn drop(&mut self) {
+                self.0.fetch_sub(1, Ordering::Relaxed);
+            }
+        }
+
+        self.alo_stabilization_suppression
+            .fetch_add(1, Ordering::Relaxed);
+        let guard = AloSuppressionGuard(&self.alo_stabilization_suppression);
         let out = f();
         drop(guard);
         out
@@ -4946,17 +5012,18 @@ impl<'a> RemlState<'a> {
             return Some((predicted, source));
         }
         let cur_beta = self.warm_start_beta.read().unwrap().clone()?;
-        let cur_rho = self.warm_start_rho.read().unwrap().clone();
-        let prev_beta = self.prev_warm_start_beta.read().unwrap().clone();
-        let prev_rho = self.prev_warm_start_rho.read().unwrap().clone();
-        let (cur_rho, prev_beta, prev_rho) = match (cur_rho, prev_beta, prev_rho) {
-            (Some(cr), Some(pb), Some(pr)) => (cr, pb, pr),
-            // No history yet — first call after a fresh successful
-            // solve (only one (ρ, β) pair stashed). Silent fallback
-            // is the right behavior; emitting a marker here would
-            // just be noise on every first call.
-            _ => return Some((cur_beta, WarmStartPredictionSource::Flat)),
-        };
+        let cur_rho: Option<Array1<f64>> = self.warm_start_rho.read().unwrap().clone();
+        let prev_beta: Option<Coefficients> = self.prev_warm_start_beta.read().unwrap().clone();
+        let prev_rho: Option<Array1<f64>> = self.prev_warm_start_rho.read().unwrap().clone();
+        let (cur_rho, prev_beta, prev_rho): (Array1<f64>, Coefficients, Array1<f64>) =
+            match (cur_rho, prev_beta, prev_rho) {
+                (Some(cr), Some(pb), Some(pr)) => (cr, pb, pr),
+                // No history yet — first call after a fresh successful
+                // solve (only one (ρ, β) pair stashed). Silent fallback
+                // is the right behavior; emitting a marker here would
+                // just be noise on every first call.
+                _ => return Some((cur_beta, WarmStartPredictionSource::Flat)),
+            };
         // Dimension mismatch paths below are bug signals: state-machine
         // inconsistency between (β, ρ) cache and current state. Emit
         // structured markers so the bench runner can detect non-zero
@@ -5176,7 +5243,7 @@ impl<'a> RemlState<'a> {
     pub(crate) fn current_original_basis_beta(&self) -> Option<Array1<f64>> {
         let beta_guard = self.warm_start_beta.read().ok()?;
         let beta = beta_guard.as_ref()?;
-        if beta.0.len() == self.p && beta.0.iter().all(|v| v.is_finite()) {
+        if beta.0.len() == self.p && beta.0.iter().all(|v: &f64| v.is_finite()) {
             Some(beta.0.clone())
         } else {
             None
@@ -5325,6 +5392,33 @@ impl<'a> RemlState<'a> {
         }
         *self.gaussian_psi_gram_deriv.write().unwrap() = Some(deriv);
         true
+    }
+
+    /// Clear the ψ-keyed Gaussian sufficient-statistics cache (`XᵀWX(ψ)`,
+    /// `XᵀW(y−offset)(ψ)`) and its conditioned-frame ψ-derivative pair (#1033).
+    ///
+    /// Both slots are keyed to a SPECIFIC trial ψ from the certified ψ-Gram
+    /// tensor. The slow path nulls them inside [`Self::reset_surface`], but the
+    /// design-revision fast path skips `reset_surface`, so a trial that lands
+    /// OFF the certified ψ-window (or otherwise cannot re-install) must clear
+    /// the previous in-window ψ's Gram explicitly — otherwise the inner
+    /// Gaussian PLS would read a STALE Gram keyed to the wrong ψ. With the slot
+    /// cleared the inner solver restreams the exact Gram for this trial's
+    /// design, as it does whenever no tensor is installed.
+    pub(crate) fn clear_gaussian_fixed_cache(&self) {
+        *self.gaussian_fixed_cache.write().unwrap() = None;
+        *self.gaussian_psi_gram_deriv.write().unwrap() = None;
+    }
+
+    /// Clear ONLY the conditioned-frame Gaussian ψ-derivative pair (#1033),
+    /// keeping the value-lane `gaussian_fixed_cache` intact. Used when a trial's
+    /// ψ lies inside the certified VALUE window (so the n-free Gram is sound)
+    /// but OUTSIDE the narrower certified GRADIENT sub-window: the value cache
+    /// stays, but a derivative pair keyed to a prior in-sub-window ψ must be
+    /// dropped so the gradient lane falls back to the exact ∂X/∂ψ slab for this
+    /// trial instead of reading a stale derivative on the fast path.
+    pub(crate) fn clear_gaussian_psi_gram_deriv(&self) {
+        *self.gaussian_psi_gram_deriv.write().unwrap() = None;
     }
 
     /// Conditioned-frame exact ψ-derivative pair, when installed for the
@@ -5571,7 +5665,7 @@ impl<'a> RemlState<'a> {
                 let bpb = crate::faer_ndarray::fast_atb(&firth_op.b_base, &firth_op.p_b_base);
                 let mut hphi = 0.5 * (diag_term - bpb);
                 // Numerical symmetry guard.
-                enforce_symmetry(&mut hphi);
+                crate::matrix::symmetrize_in_place(&mut hphi);
                 // Keep tiny numerical noise from making the solve surface less stable.
                 if hphi.iter().all(|v| v.is_finite()) {
                     h_total -= &hphi;
@@ -5603,6 +5697,7 @@ impl<'a> RemlState<'a> {
             firth_dense_operator_original: None,
             penalty_pseudologdet: std::sync::OnceLock::new(),
             penalty_scores_at_mode: std::sync::OnceLock::new(),
+            block_local_correction: std::sync::OnceLock::new(),
         })
     }
 
@@ -5736,6 +5831,7 @@ impl<'a> RemlState<'a> {
             firth_dense_operator_original,
             penalty_pseudologdet: std::sync::OnceLock::new(),
             penalty_scores_at_mode: std::sync::OnceLock::new(),
+            block_local_correction: std::sync::OnceLock::new(),
         })
     }
 
@@ -5873,6 +5969,31 @@ impl<'a> RemlState<'a> {
                         .expect("state-bearing link without runtime state"),
                 )
             };
+            // Negative-Binomial λ-search θ freeze (#1082). With θ estimated,
+            // the inner solver re-derives θ from each outer iterate's warm-start
+            // η, so the NB working response / deviance / penalty-logdet — and
+            // thus the REML criterion — drift every outer evaluation, defeating
+            // the projected-gradient convergence test and grinding the loop to
+            // max_iter. Once the first non-screening solve has fixed a
+            // data-driven θ (captured below into `frozen_negbin_theta`), pin
+            // every subsequent λ-search inner solve to that value so
+            // `F(ρ) = REML(ρ, θ_frozen)` is a stationary function of ρ. θ is
+            // still ML-refreshed at the single final reported fit (the
+            // `refine_dispersion_at_converged_eta = true` accept-fit in
+            // `optimizer.rs`), exactly as the dispersion-at-converged-η contract
+            // requires. No effect on non-NB or user-fixed-θ specs.
+            if pirls_config.likelihood.negbin_theta_is_estimated() {
+                let frozen_bits = self.frozen_negbin_theta.load(Ordering::Relaxed);
+                if frozen_bits != 0 {
+                    let frozen_theta = f64::from_bits(frozen_bits);
+                    if frozen_theta.is_finite() && frozen_theta > 0.0 {
+                        pirls_config.likelihood = pirls_config
+                            .likelihood
+                            .clone()
+                            .with_negbin_theta_frozen_for_search(frozen_theta);
+                    }
+                }
+            }
             // Levenberg-Marquardt damping warm-start. Read the cached
             // λ from the previous successful PIRLS solve at this
             // surface (0 = no hint), and seed the inner solver. The
@@ -6007,6 +6128,32 @@ impl<'a> RemlState<'a> {
 
         let (pirls_result, _) = pirls_result?; // Propagate error if it occurred
         let pirls_result = Arc::new(pirls_result);
+        // Capture the data-driven NB θ from the first converged non-screening
+        // λ-search solve and freeze it for the rest of the search (#1082). The
+        // first solve still estimated θ from the seed η (this branch only runs
+        // when no frozen value exists yet), so the captured value is the same
+        // ML θ the legacy estimated path would have used at the seed — we simply
+        // stop letting it drift on subsequent outer evaluations. Screening
+        // solves use a tiny inner budget and a partial mode, so they are never
+        // the source of the frozen value.
+        if !in_screening
+            && pirls_result.likelihood.negbin_theta_is_estimated()
+            && self.frozen_negbin_theta.load(Ordering::Relaxed) == 0
+            && matches!(
+                pirls_result.status,
+                pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum
+            )
+            && let Some(theta) = pirls_result.likelihood.negbin_theta()
+            && theta.is_finite()
+            && theta > 0.0
+        {
+            self.frozen_negbin_theta
+                .store(theta.to_bits(), Ordering::Relaxed);
+            log::info!(
+                "[OUTER] negative-binomial λ-search θ frozen at {theta:.6e} (#1082); \
+                 outer REML criterion now stationary in ρ"
+            );
+        }
         // Under seed screening the inner solver is intentionally given a tiny
         // iteration budget, so KKT stationarity will not be satisfied at the
         // partial mode. Skip the certificate so the seed can still be ranked
@@ -6300,6 +6447,22 @@ impl<'a> RemlState<'a> {
                     .expect("state-bearing link without runtime state"),
             )
         };
+        // Pin the same λ-search-frozen NB θ the outer loop converged under
+        // (#1082), so the rho-uncertainty sigma-point criterion is evaluated on
+        // the identical stationary surface F(ρ) = REML(ρ, θ_frozen) rather than
+        // re-estimating θ at each off-trajectory σ-point.
+        if pirls_config.likelihood.negbin_theta_is_estimated() {
+            let frozen_bits = self.frozen_negbin_theta.load(Ordering::Relaxed);
+            if frozen_bits != 0 {
+                let frozen_theta = f64::from_bits(frozen_bits);
+                if frozen_theta.is_finite() && frozen_theta > 0.0 {
+                    pirls_config.likelihood = pirls_config
+                        .likelihood
+                        .clone()
+                        .with_negbin_theta_frozen_for_search(frozen_theta);
+                }
+            }
+        }
 
         // Gaussian + Identity outer REML reuses a precomputed XᵀWX and
         // XᵀW(y − offset) across every inner solve; for other families /
@@ -6558,7 +6721,7 @@ pub(crate) const IFT_WARM_START_DRHO_EPS: f64 = 1e-12;
 /// canonicalizes to (mantissa MSB = 1, sign = 0, exponent = all 1s).
 ///
 /// `pub(crate)` so the bridge's `InnerProgressFeedback::snapshot` (in
-/// `crate::solver::outer_strategy`) can reference the same constant —
+/// `crate::solver::rho_optimizer`) can reference the same constant —
 /// both ends of this atomic must use the same sentinel discipline,
 /// otherwise a residual-of-zero round-trips correctly through the
 /// writer but the reader treats it as "no signal" and silently

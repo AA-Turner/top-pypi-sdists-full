@@ -10,16 +10,15 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 use pyrefly_python::dunder;
-use pyrefly_types::literal::Literal;
+use pyrefly_types::literal::LitStyle;
+use pyrefly_types::meta_shape_dsl::ShapeTransform;
 use pyrefly_types::quantified::Quantified;
 use pyrefly_types::special_form::SpecialForm;
-use pyrefly_types::tensor_ops_registry::TensorOpsRegistry;
 use pyrefly_types::typed_dict::TypedDictInner;
 use pyrefly_types::types::CalleeKind;
 use pyrefly_types::types::NNModuleType;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
-use pyrefly_types::types::Union;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::Arguments;
@@ -30,6 +29,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
 use starlark_map::small_map::SmallMap;
+use starlark_map::small_set::SmallSet;
 use vec1::Vec1;
 
 use crate::alt::answers::LookupAnswer;
@@ -46,7 +46,6 @@ use crate::binding::binding::Key;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
-use crate::error::context::ErrorInfo;
 use crate::solver::solver::QuantifiedHandle;
 use crate::solver::solver::TypeVarSpecializationError;
 use crate::types::callable::Callable;
@@ -63,7 +62,6 @@ use crate::types::type_var::Restriction;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::AnyStyle;
 use crate::types::types::BoundMethod;
-use crate::types::types::CallableResidualKind;
 use crate::types::types::OverloadType;
 use crate::types::types::Type;
 
@@ -178,16 +176,6 @@ impl ConstructedInstance {
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
-    fn type_contains_overload_callable_residual(&self, ty: &Type) -> bool {
-        ty.any(|inner| {
-            matches!(
-                inner,
-                Type::CallableResidual(residual)
-                    if matches!(&residual.kind, CallableResidualKind::Overload { .. })
-            )
-        })
-    }
-
     fn error_call_target(
         &self,
         errors: &ErrorCollector,
@@ -196,7 +184,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         error_kind: ErrorKind,
         context: Option<&dyn Fn() -> ErrorContext>,
     ) -> CallTarget {
-        self.error(errors, range, ErrorInfo::new(error_kind, context), msg);
+        self.error_with_context(errors, range, error_kind, msg, context);
         CallTarget::Any(AnyStyle::Error)
     }
 
@@ -255,7 +243,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::BoundMethod(bm) => {
                 let bound_method = *bm;
-                if self.type_contains_overload_callable_residual(&bound_method.obj) {
+                if bound_method.obj.contains_overload_callable_residual() {
                     let mut is_subset = |got: &Type, want: &Type| self.is_subset_eq(got, want);
                     if let Some(bound) = self.bind_boundmethod(&bound_method, &mut is_subset) {
                         return self.as_call_target_impl(bound, quantified);
@@ -263,10 +251,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 let BoundMethod { obj, func } = bound_method;
                 match self.as_call_target_impl(func.as_type(), quantified) {
-                    CallTargetLookup::Ok(box CallTarget::Function(func)) => {
+                    CallTargetLookup::Ok(f) if matches!(&*f, CallTarget::Function(_)) => {
+                        // Repeated match because pattern guards cannot move out of bindings.
+                        let CallTarget::Function(func) = *f else {
+                            unreachable!("guarded by matches! above")
+                        };
                         CallTargetLookup::Ok(Box::new(CallTarget::BoundMethod(obj, func)))
                     }
-                    CallTargetLookup::Ok(box CallTarget::FunctionOverload(overloads, meta)) => {
+                    CallTargetLookup::Ok(f) if matches!(&*f, CallTarget::FunctionOverload(..)) => {
+                        // Repeated match because pattern guards cannot move out of bindings.
+                        let CallTarget::FunctionOverload(overloads, meta) = *f else {
+                            unreachable!("guarded by matches! above")
+                        };
                         CallTargetLookup::Ok(Box::new(CallTarget::BoundMethodOverload(
                             obj, overloads, meta,
                         )))
@@ -286,28 +282,54 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 _ => unreachable!(),
             },
-            Type::Type(box Type::ClassType(cls)) => CallTargetLookup::Ok(Box::new(
-                CallTarget::Class(cls, ConstructorKind::TypeOfClass, None),
-            )),
+            Type::Type(f) if matches!(&*f, Type::ClassType(_)) => {
+                let Type::ClassType(cls) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
+                CallTargetLookup::Ok(Box::new(CallTarget::Class(
+                    cls,
+                    ConstructorKind::TypeOfClass,
+                    None,
+                )))
+            }
             // `type[A | B]` is equivalent to `type[A] | type[B]` for call target resolution.
             // Distribute `type[...]` over union members and resolve as a union.
-            Type::Type(box Type::Union(box Union { members: xs, .. })) => {
-                let union_of_types = self
-                    .heap
-                    .mk_union(xs.into_iter().map(|x| self.heap.mk_type_of(x)).collect());
+            Type::Type(f) if matches!(&*f, Type::Union(_)) => {
+                let Type::Union(u) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
+                let union_of_types = self.heap.mk_union(
+                    u.members
+                        .into_iter()
+                        .map(|x| self.heap.mk_type_of(x))
+                        .collect(),
+                );
                 self.as_call_target_impl(union_of_types, quantified)
             }
-            Type::Type(box Type::SelfType(cls)) => CallTargetLookup::Ok(Box::new(
-                CallTarget::Class(cls, ConstructorKind::TypeOfSelf, None),
-            )),
-            Type::Type(box Type::Tuple(tuple)) => {
+            Type::Type(f) if matches!(&*f, Type::SelfType(_)) => {
+                let Type::SelfType(cls) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
+                CallTargetLookup::Ok(Box::new(CallTarget::Class(
+                    cls,
+                    ConstructorKind::TypeOfSelf,
+                    None,
+                )))
+            }
+            Type::Type(f) if matches!(&*f, Type::Tuple(_)) => {
+                let Type::Tuple(tuple) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
                 CallTargetLookup::Ok(Box::new(CallTarget::Class(
                     self.erase_tuple_type(tuple),
                     ConstructorKind::TypeOfClass,
                     None,
                 )))
             }
-            Type::Type(box Type::Quantified(quantified)) => {
+            Type::Type(f) if matches!(&*f, Type::Quantified(_)) => {
+                let Type::Quantified(quantified) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
                 let call_target = match quantified.restriction() {
                     Restriction::Unrestricted => {
                         // Assume this is object.__init__, reject any argument
@@ -350,23 +372,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Type::Forall(forall) => {
                 let mut target = self.as_call_target_impl(forall.body.as_type(), quantified);
-                match &mut target {
-                    CallTargetLookup::Ok(
-                        box (CallTarget::Callable(TargetWithTParams(x, _))
-                        | CallTarget::Function(TargetWithTParams(x, _))),
-                    ) => {
-                        *x = Some(forall.tparams);
+                if let CallTargetLookup::Ok(f) = &mut target {
+                    match &mut **f {
+                        CallTarget::Callable(TargetWithTParams(x, _))
+                        | CallTarget::Function(TargetWithTParams(x, _)) => {
+                            *x = Some(forall.tparams);
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
                 target
             }
             Type::Var(v) if let Some(_guard) = self.recurse(v) => {
                 self.as_call_target_impl(self.solver().force_var(v), quantified)
             }
-            Type::Union(box Union { members: xs, .. }) => {
-                let xs_length = xs.len();
-                let targets = xs
+            Type::Union(f) => {
+                let xs_length = f.members.len();
+                let targets = f
+                    .members
                     .into_iter()
                     .filter_map(|x| match self.as_call_target_impl(x, quantified.clone()) {
                         CallTargetLookup::Ok(target) => Some(*target),
@@ -392,7 +415,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let body = self.get_type_alias(&ta).as_value(self.stdlib);
                 match body {
                     // This comes from an expression like `int | str`, which is not callable.
-                    Type::Type(box Type::Union(_)) => CallTargetLookup::Error(vec![]),
+                    Type::Type(f) if matches!(&*f, Type::Union(_)) => {
+                        CallTargetLookup::Error(vec![])
+                    }
                     _ => self.as_call_target_impl(body, quantified),
                 }
             }
@@ -451,11 +476,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.as_call_target_impl(ty, None)
                     })
             }
-            Type::Type(box Type::TypedDict(TypedDict::TypedDict(typed_dict))) => {
+            Type::Type(f) if matches!(&*f, Type::TypedDict(TypedDict::TypedDict(_))) => {
+                let Type::TypedDict(TypedDict::TypedDict(typed_dict)) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
                 CallTargetLookup::Ok(Box::new(CallTarget::TypedDict(typed_dict)))
             }
-            Type::Type(box Type::TypedDict(td @ TypedDict::Anonymous(_))) => {
-                let value_ty = self.get_typed_dict_value_type(&td);
+            Type::Type(ref f) if let Type::TypedDict(td @ TypedDict::Anonymous(_)) = &**f => {
+                let value_ty = self.get_typed_dict_value_type(td);
                 let cls = self
                     .stdlib
                     .dict(self.heap.mk_class_type(self.stdlib.str().clone()), value_ty);
@@ -465,14 +493,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     None,
                 )))
             }
-            Type::Type(box Type::Intersect(box (_, fallback))) => {
+            Type::Type(f) if matches!(&*f, Type::Intersect(_)) => {
                 // TODO(rechen): implement calling `type[A & B]`
+                let Type::Intersect(intersect) = *f else {
+                    unreachable!("guarded by matches! above")
+                };
+                let (_, fallback) = *intersect;
                 self.as_call_target_impl(self.heap.mk_type_of(fallback), quantified)
             }
             Type::Quantified(q) if q.is_type_var() => match q.restriction() {
                 Restriction::Unrestricted => CallTargetLookup::Error(vec![]),
                 Restriction::Bound(bound) => match bound {
-                    Type::Union(box Union { members, .. }) => {
+                    Type::Union(f) => {
+                        let members = &f.members;
                         let mut targets = Vec::new();
                         for member in members {
                             if let CallTargetLookup::Ok(target) = self.as_call_target_impl(
@@ -509,10 +542,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             },
             Type::KwCall(call) => self.as_call_target_impl(call.return_ty, quantified),
-            Type::Literal(box Literal {
-                value: Lit::Enum(enum_),
-                ..
-            }) => {
+            Type::Literal(ref f) if let Lit::Enum(enum_) = &f.value => {
                 self.as_call_target_impl(self.heap.mk_class_type(enum_.class.clone()), quantified)
             }
             _ => CallTargetLookup::Error(vec![]),
@@ -536,14 +566,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // We manually construct an error using the message from the context but a
                     // Deprecated error kind so that the error is shown at the Deprecated severity
                     // (default: WARN) rather than the severity of the context's error kind.
-                    let mut msg = deprecation.as_error_message(format!(
+                    let header = format!(
                         "`{}` is deprecated",
                         m.kind.format(self.module().name())
-                    ));
-                    if let Some(ctx) = context {
-                        msg.insert(0, ctx().format());
+                    );
+                    let detail = deprecation.as_error_detail();
+                    let mut builder = if let Some(ctx) = context {
+                        errors
+                            .error_builder(range, ErrorKind::Deprecated, ctx().format())
+                            .with_detail(header)
+                    } else {
+                        errors.error_builder(range, ErrorKind::Deprecated, header)
+                    };
+                    if let Some(detail) = detail {
+                        builder = builder.with_detail(detail);
                     }
-                    errors.add(range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
+                    builder.emit();
                 }
                 *target
             }
@@ -630,7 +668,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             true,
         )?;
         // Record the method type for hover support
-        self.record_resolved_trace(range, callee_ty.clone());
+        self.record_resolved_trace(range, &callee_ty);
         Some(self.make_call_target_and_call(
             callee_ty,
             method_name,
@@ -656,7 +694,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) -> Type {
         let callee_ty =
             self.type_of_attr_get(ty, method_name, range, errors, context, "Expr::call_method");
-        self.record_resolved_trace(range, callee_ty.clone());
+        self.record_resolved_trace(range, &callee_ty);
         self.make_call_target_and_call(
             callee_ty,
             method_name,
@@ -714,12 +752,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     ) {
         for e in specialization_errors {
             let kind = e.error_kind();
-            self.error(
-                errors,
-                range,
-                ErrorInfo::new(kind, context),
-                e.to_error_msg(self),
-            );
+            self.error_with_context(errors, range, kind, e.to_error_msg(self), context);
         }
     }
 
@@ -811,7 +844,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .freshen_class_targs(cls.targs_mut(), self.uniques);
 
             let matched_hint = self.is_subset_eq(&self.heap.mk_class_type(cls.clone()), hint);
-            self.solver().generalize_class_targs(cls.targs_mut());
+            self.solver()
+                .generalize_class_targs(cls.targs_mut(), &SmallSet::new());
             (vs, matched_hint)
         } else {
             (QuantifiedHandle::empty(), false)
@@ -841,23 +875,23 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         callee_range,
                     );
                 }
-                self.record_resolved_trace(arguments_range, metaclass_dunder_call);
+                self.record_resolved_trace(arguments_range, &metaclass_dunder_call);
                 recorded_trace = true;
             }
             // Enum construction is routed through EnumMeta.__call__, which performs
             // member lookup by value. A custom enum __new__ is used for member creation
             // during class definition and should not be re-applied at call sites.
             if class_metadata.is_enum() {
+                let ty = if constructor_kind == ConstructorKind::TypeOfSelf {
+                    self.heap.mk_self_type(cls)
+                } else {
+                    ret
+                };
                 let specialization_errors = self
-                    .solver()
-                    .finish_quantified_with_type_order(
-                        vs,
-                        self.solver().infer_with_first_use,
-                        self.type_order(),
-                    )
+                    .finish_quantified(vs, self.solver().infer_with_first_use)
                     .err();
                 return ConstructedInstance {
-                    ty: ret,
+                    ty,
                     matched_hint,
                     errors,
                     specialization_errors,
@@ -866,12 +900,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if !self.is_compatible_constructor_return(&ret, cls.class_object()) {
                 // Got something other than an instance of the class under construction.
                 let specialization_errors = self
-                    .solver()
-                    .finish_quantified_with_type_order(
-                        vs,
-                        self.solver().infer_with_first_use,
-                        self.type_order(),
-                    )
+                    .finish_quantified(vs, self.solver().infer_with_first_use)
                     .err();
                 return ConstructedInstance {
                     ty: ret,
@@ -920,10 +949,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     );
                 }
                 if !recorded_trace {
-                    self.record_resolved_trace(arguments_range, new_method);
+                    self.record_resolved_trace(arguments_range, &new_method);
                     recorded_trace = true;
                 }
-                if self.is_compatible_constructor_return(&ret, cls.class_object()) {
+                if constructor_kind == ConstructorKind::TypeOfSelf {
+                    // Pyright, mypy, and ty all infer `Self` for `type[Self]` construction
+                    // regardless of the resolved `__new__` return annotation.
+                    // TODO: flag incompatible `__new__` return annotations at the method definition.
+                } else if self.is_compatible_constructor_return(&ret, cls.class_object()) {
                     dunder_new_ret = Some(ret);
                 } else if !matches!(ret, Type::Any(AnyStyle::Error | AnyStyle::Implicit)) {
                     // Got something other than an instance of the class under construction.
@@ -933,12 +966,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.solver()
                         .finish_class_targs(cls.targs_mut(), self.uniques);
                     let specialization_errors = self
-                        .solver()
-                        .finish_quantified_with_type_order(
-                            vs,
-                            self.solver().infer_with_first_use,
-                            self.type_order(),
-                        )
+                        .finish_quantified(vs, self.solver().infer_with_first_use)
                         .err();
                     return ConstructedInstance {
                         ty: ret.subst(&cls.targs().substitution_map()),
@@ -985,7 +1013,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 );
             }
             if !recorded_trace {
-                self.record_resolved_trace(arguments_range, init_method);
+                self.record_resolved_trace(arguments_range, &init_method);
             }
         }
         if class_metadata.is_pydantic_model()
@@ -1002,12 +1030,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver()
             .finish_class_targs(cls.targs_mut(), self.uniques);
         let specialization_errors = self
-            .solver()
-            .finish_quantified_with_type_order(
-                vs,
-                self.solver().infer_with_first_use,
-                self.type_order(),
-            )
+            .finish_quantified(vs, self.solver().infer_with_first_use)
             .err();
         let result = if let Some(mut ret) = dunder_new_ret {
             ret.subst_mut(&cls.targs().substitution_map());
@@ -1069,36 +1092,35 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
         result: Type,
     ) -> Type {
-        use std::sync::OnceLock;
-        static TENSOR_OPS_REGISTRY: OnceLock<TensorOpsRegistry> = OnceLock::new();
-
-        let class_name = format!("{}.{}", ct.class_object().module_name(), ct.name());
-        let registry = TENSOR_OPS_REGISTRY.get_or_init(TensorOpsRegistry::new);
-        let capture_names = match registry.get_init_capture(&class_name) {
-            Some(names) => names,
-            None => return result,
+        let class_metadata = self.get_metadata_for_class(ct.class_object());
+        let capture_names: &[Name] = if let Some(names) = class_metadata.capture_init() {
+            names
+        } else {
+            return result;
         };
 
         let infer_type_or_expr = |toe: TypeOrExpr, errors: &ErrorCollector| -> Type {
-            match toe {
+            let ty = match toe {
                 TypeOrExpr::Type(ty, _) => ty.clone(),
                 TypeOrExpr::Expr(e) => self.expr_infer(e, errors),
-            }
+            };
+            // NNModule fields carry captured constructor args (e.g., padding=Literal[1]) that DSL
+            // forward functions need as literals to compute output shapes.
+            ty.with_literal_style(LitStyle::Explicit)
         };
 
         let mut fields = SmallMap::new();
         for (i, param_name) in capture_names.iter().enumerate() {
-            let name = Name::new(param_name);
             // First check keyword args.
             if let Some(kw) = keywords.iter().find(|k| {
                 k.arg
                     .is_some_and(|id| id.id.as_str() == param_name.as_str())
             }) {
-                fields.insert(name, infer_type_or_expr(kw.value, errors));
+                fields.insert(param_name.clone(), infer_type_or_expr(kw.value, errors));
             } else if i < args.len() {
                 // Map positional arg by index to the capture param name.
                 if let CallArg::Arg(toe) = &args[i] {
-                    fields.insert(name, infer_type_or_expr(*toe, errors));
+                    fields.insert(param_name.clone(), infer_type_or_expr(*toe, errors));
                 }
             }
             // If neither keyword nor positional, the param uses its default.
@@ -1146,7 +1168,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .solver()
                 .freshen_class_targs(typed_dict.targs_mut(), self.uniques);
             let matched_hint = self.is_subset_eq(&typed_dict.clone().to_type(self.heap), hint);
-            self.solver().generalize_class_targs(typed_dict.targs_mut());
+            self.solver()
+                .generalize_class_targs(typed_dict.targs_mut(), &SmallSet::new());
             (vs, matched_hint)
         } else {
             (QuantifiedHandle::empty(), false)
@@ -1173,12 +1196,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         self.solver()
             .finish_class_targs(typed_dict.targs_mut(), self.uniques);
         let specialization_errors = self
-            .solver()
-            .finish_quantified_with_type_order(
-                vs,
-                self.solver().infer_with_first_use,
-                self.type_order(),
-            )
+            .finish_quantified(vs, self.solver().infer_with_first_use)
             .err();
         ConstructedInstance {
             ty: Type::TypedDict(TypedDict::TypedDict(typed_dict)),
@@ -1219,7 +1237,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.error(
                     errors,
                     range,
-                    ErrorInfo::Kind(ErrorKind::UnnecessaryTypeConversion),
+                    ErrorKind::UnnecessaryTypeConversion,
                     format!(
                         "Unnecessary `{}()` call; argument is already of type `{}`",
                         cls.name(),
@@ -1249,11 +1267,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && self.should_error_for_abstract_call(&call_target)
         {
             let method_name = meta.kind.format(self.module().name());
-            self.error(
+            self.error_with_context(
                 errors,
                 arguments_range,
-                ErrorInfo::new(ErrorKind::AbstractMethodCall, context),
+                ErrorKind::AbstractMethodCall,
                 format!("Cannot call abstract method `{method_name}`"),
+                context,
             );
         }
         // Does this call target correspond to a function whose keyword arguments we should save?
@@ -1261,7 +1280,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             if let Some(m) = metadata
                 && (matches!(
                     m.kind,
-                    FunctionKind::Dataclass | FunctionKind::DataclassTransform
+                    FunctionKind::Dataclass
+                        | FunctionKind::DataclassTransform
+                        | FunctionKind::UsesShapeDsl
                 ) || m.kind.is_signature_preserving_decorator()
                     || m.flags.dataclass_transform_metadata.is_some())
             {
@@ -1273,23 +1294,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let res = match call_target {
             CallTarget::Class(cls, constructor_kind, as_quantified_bound) => {
                 if cls.has_qname("typing", "Any") {
-                    return self.error(
+                    return self.error_with_context(
                         errors,
                         arguments_range,
-                        ErrorInfo::new(ErrorKind::BadInstantiation, context),
+                        ErrorKind::BadInstantiation,
                         format!("`{}` cannot be instantiated", cls.name()),
+                        context,
                     );
                 }
                 let metadata = self.get_metadata_for_class(cls.class_object());
                 if metadata.is_protocol() && constructor_kind == ConstructorKind::BareClassName {
-                    self.error(
+                    self.error_with_context(
                         errors,
                         arguments_range,
-                        ErrorInfo::new(ErrorKind::BadInstantiation, context),
+                        ErrorKind::BadInstantiation,
                         format!(
                             "Cannot instantiate `{}` because it is a protocol",
                             cls.name()
                         ),
+                        context,
                     );
                 } else {
                     let abstract_members = self.get_abstract_members_for_class(cls.class_object());
@@ -1298,10 +1321,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     if constructor_kind == ConstructorKind::BareClassName
                         && !unimplemented_abstract_methods.is_empty()
                     {
-                        self.error(
+                        self.error_with_context(
                             errors,
                             arguments_range,
-                            ErrorInfo::new(ErrorKind::BadInstantiation, context),
+                            ErrorKind::BadInstantiation,
                             format!(
                                 "Cannot instantiate `{}` because the following members are abstract: {}",
                                 cls.name(),
@@ -1311,6 +1334,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     .collect::<Vec<_>>()
                                     .join(", ")
                             ),
+                            context,
                         );
                     }
                 }
@@ -1365,6 +1389,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ) => self.call_infer_inner(
                 signature,
                 Some(&metadata.kind),
+                metadata.flags.shape_transform.as_deref(),
                 tparams.as_deref(),
                 Some(obj),
                 args,
@@ -1378,6 +1403,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             ),
             CallTarget::Callable(TargetWithTParams(tparams, callable)) => self.call_infer_inner(
                 callable,
+                None,
                 None,
                 tparams.as_deref(),
                 None,
@@ -1399,6 +1425,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             )) => self.call_infer_inner(
                 callable,
                 Some(&metadata.kind),
+                metadata.flags.shape_transform.as_deref(),
                 tparams.as_deref(),
                 None,
                 args,
@@ -1414,6 +1441,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_overloads(
                     overloads,
                     &metadata,
+                    metadata.flags.shape_transform.as_deref(),
                     None,
                     args,
                     keywords,
@@ -1429,6 +1457,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_overloads(
                     overloads,
                     &meta,
+                    meta.flags.shape_transform.as_deref(),
                     Some(obj),
                     args,
                     keywords,
@@ -1496,6 +1525,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         callable: Callable,
         callable_name: Option<&FunctionKind>,
+        shape_transform: Option<&ShapeTransform>,
         tparams: Option<&TParams>,
         self_obj: Option<Type>,
         args: &[CallArg],
@@ -1513,6 +1543,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let res_no_hint = self.callable_infer(
             callable.clone(),
             callable_name,
+            shape_transform,
             tparams,
             self_obj.clone(),
             args,
@@ -1532,6 +1563,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 let res_with_hint = self.callable_infer(
                     callable,
                     callable_name,
+                    shape_transform,
                     tparams,
                     self_obj,
                     args,
@@ -1844,7 +1876,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     |type_info| type_info.arc_clone_ty(),
                 )
         } else {
-            self.expand_vars_mut(&mut callee_ty);
+            self.expand_mut(&mut callee_ty);
 
             let args;
             let kws;
@@ -1871,7 +1903,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     return self.error(
                         errors,
                         x.func.range(),
-                        ErrorInfo::Kind(ErrorKind::NotCallable),
+                        ErrorKind::NotCallable,
                         "`NotImplemented` is not callable. Did you mean `NotImplementedError`?".to_owned(),
                     );
                 }
@@ -1913,9 +1945,20 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         errors,
                     )
                 }
+                Some(CalleeKind::Function(FunctionKind::DataclassAsdict)) => {
+                    self.call_dataclasses_asdict(
+                        ty,
+                        &args,
+                        &kws,
+                        x.func.range(),
+                        x.arguments.range,
+                        hint,
+                        errors,
+                    )
+                }
                 None if matches!(
-                    ty,
-                    Type::Type(box Type::SpecialForm(SpecialForm::TypeForm))
+                    &ty,
+                    Type::Type(f) if matches!(&**f, Type::SpecialForm(SpecialForm::TypeForm))
                 ) =>
                 {
                     self.call_typeform(

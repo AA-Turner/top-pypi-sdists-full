@@ -20,7 +20,6 @@ use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
 use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
-use pyrefly_types::types::Union;
 use pyrefly_util::visit::Visit;
 use regex::RegexBuilder;
 use ruff_python_ast::Decorator;
@@ -43,6 +42,7 @@ use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
 use starlark_map::small_set::SmallSet;
+use thin_vec::ThinVec;
 use vec1::Vec1;
 
 use crate::module::module_info::ModuleInfo;
@@ -128,11 +128,11 @@ fn all_modules_with_range(
 }
 
 fn range_without_decorators(range: TextRange, decorators: &[Decorator]) -> TextRange {
-    let decorators_range = decorators
-        .first()
-        .map(|first| first.range().cover(decorators.last().unwrap().range()));
-
-    decorators_range.map_or(range, |x| range.add_start(x.len() + TextSize::from(1)))
+    let Some(last) = decorators.last() else {
+        return range;
+    };
+    let new_start = (last.range().end() + TextSize::from(1)).min(range.end());
+    TextRange::new(new_start, range.end())
 }
 
 fn to_span(range: TextRange) -> src::ByteSpan {
@@ -755,8 +755,8 @@ impl GleanState<'_> {
                     let completions = |ty| solver.completions(ty, Some(attr_name), false);
 
                     let tys = match base_type.clone() {
-                        Type::Union(box Union { members: tys, .. })
-                        | Type::Intersect(box (tys, _)) => tys,
+                        Type::Union(u) => u.members,
+                        Type::Intersect(i) => i.0,
                         ty => vec![ty],
                     };
 
@@ -1513,7 +1513,7 @@ impl GleanState<'_> {
         node.visit(&mut |expr| self.visit_expr(expr, container));
     }
 
-    fn generate_facts(&mut self, ast: &Vec<Stmt>, range: TextRange) {
+    fn generate_facts(&mut self, ast: &ThinVec<Stmt>, range: TextRange) {
         self.module_facts(range);
         let mut nodes = VecDeque::new();
 

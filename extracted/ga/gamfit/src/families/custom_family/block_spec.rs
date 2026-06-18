@@ -4,6 +4,8 @@
 
 use super::*;
 
+use crate::types::CoefficientGroupPrior;
+
 /// Per-subject channel Hessian provider for multi-output families.
 ///
 /// The Fisher information decomposition for multi-output families is
@@ -356,6 +358,241 @@ pub(crate) fn clamp_jacobian_rows(rows: Range<usize>, n: usize) -> Range<usize> 
     start..end.max(start)
 }
 
+/// A [`BlockEffectiveJacobian`] that composes an inner callback's raw-width
+/// effective Jacobian with a fixed reduced→raw block transform `T_b`
+/// (`p_raw × r_reduced`), so the family sees the **reduced** coordinates by
+/// construction (#933).
+///
+/// The inner callback emits its row Jacobian in the raw coordinate system
+/// (`(rows · k) × p_raw`), the layout every `BlockEffectiveJacobian` impl
+/// produces — channel-major rows, raw columns. Post-multiplying each row by
+/// `T_b` rotates those raw columns into the reduced section: the effective
+/// reduced Jacobian is `J_raw · T_b`, with `r_reduced` columns. On the model
+/// `η = J_raw · β_raw = (J_raw · T_b) · θ` this is the exact reduced operator
+/// for the reduced coefficient θ, and the family lifts θ back to β_raw through
+/// the SAME `T_b` via the one [`crate::solver::gauge::Gauge`].
+///
+/// This is the inversion #933 calls for: instead of forwarding a raw-width
+/// callback alongside a column-selection `T_i` (which leaves the family
+/// asserting raw column counts on a reduced spec and panicking), the callback
+/// is wrapped so its output already has the reduced width — the family captures
+/// the reduced design and its row-Hessian column-count assertions hold by
+/// construction. A column-selection `T_b` (zero/one entries) makes this exactly
+/// the audit's drop; a general orthonormal `T_b` makes it any gauge section.
+pub struct GaugeComposedJacobian {
+    inner: Arc<dyn BlockEffectiveJacobian>,
+    /// Reduced→raw block transform `T_b`, shape `(p_raw × r_reduced)`.
+    t_block: Arc<Array2<f64>>,
+}
+
+impl GaugeComposedJacobian {
+    /// Wrap `inner` so its effective Jacobian is post-multiplied by `t_block`
+    /// (`p_raw × r_reduced`). `t_block.nrows()` must equal the inner callback's
+    /// raw column count.
+    pub fn new(inner: Arc<dyn BlockEffectiveJacobian>, t_block: Arc<Array2<f64>>) -> Self {
+        Self { inner, t_block }
+    }
+}
+
+impl BlockEffectiveJacobian for GaugeComposedJacobian {
+    fn effective_jacobian_rows(
+        &self,
+        state: &FamilyLinearizationState<'_>,
+        rows: Range<usize>,
+    ) -> Result<Array2<f64>, String> {
+        let raw_width = self.t_block.nrows();
+        let reduced_width = self.t_block.ncols();
+        let lifted_beta;
+        let lifted_state;
+        let zero_raw_beta;
+        let delegate_state = if state.beta.len() == raw_width {
+            state
+        } else if state.beta.len() == reduced_width {
+            lifted_beta = self.t_block.dot(&ndarray::ArrayView1::from(state.beta));
+            lifted_state = FamilyLinearizationState {
+                beta: lifted_beta
+                    .as_slice()
+                    .expect("GaugeComposedJacobian lifted beta is contiguous"),
+                family_scalars: state.family_scalars.clone(),
+                channel_hessian: state.channel_hessian.clone(),
+                probit_frailty_scale: state.probit_frailty_scale,
+            };
+            &lifted_state
+        } else if state.beta.is_empty() {
+            zero_raw_beta = ndarray::Array1::<f64>::zeros(raw_width);
+            lifted_state = FamilyLinearizationState {
+                beta: zero_raw_beta
+                    .as_slice()
+                    .expect("GaugeComposedJacobian zero raw beta is contiguous"),
+                family_scalars: state.family_scalars.clone(),
+                channel_hessian: state.channel_hessian.clone(),
+                probit_frailty_scale: state.probit_frailty_scale,
+            };
+            &lifted_state
+        } else {
+            return Err(format!(
+                "GaugeComposedJacobian: beta has length {}, expected raw width {} \
+                 or reduced width {}; this wrapper cannot infer a block slice from a joint \
+                 coefficient vector",
+                state.beta.len(),
+                raw_width,
+                reduced_width,
+            ));
+        };
+        let j_raw = self.inner.effective_jacobian_rows(delegate_state, rows)?;
+        if j_raw.ncols() != self.t_block.nrows() {
+            return Err(format!(
+                "GaugeComposedJacobian: inner Jacobian has {} columns but T_b has {} rows",
+                j_raw.ncols(),
+                self.t_block.nrows(),
+            ));
+        }
+        // (rows·k × p_raw) · (p_raw × r_reduced) = (rows·k × r_reduced).
+        Ok(j_raw.dot(self.t_block.as_ref()))
+    }
+
+    fn n_outputs(&self) -> usize {
+        self.inner.n_outputs()
+    }
+
+    // Skewness scaling is a raw-row property; reducing the column space does not
+    // change the per-row scaling, so it is forwarded unchanged when present.
+    fn eta_row_scaling_for_skewness(&self) -> Option<Arc<[f64]>> {
+        self.inner.eta_row_scaling_for_skewness()
+    }
+}
+
+#[cfg(test)]
+mod gauge_composed_jacobian_tests {
+    use super::*;
+    use ndarray::array;
+
+    struct BetaScaledJacobian {
+        design: Array2<f64>,
+    }
+
+    impl BlockEffectiveJacobian for BetaScaledJacobian {
+        fn effective_jacobian_rows(
+            &self,
+            state: &FamilyLinearizationState<'_>,
+            rows: Range<usize>,
+        ) -> Result<Array2<f64>, String> {
+            let n = self.design.nrows();
+            let rows = rows.start.min(n)..rows.end.min(n);
+            let mut out = self.design.slice(ndarray::s![rows, ..]).to_owned();
+            for col in 0..out.ncols() {
+                let scale = 1.0 + state.beta.get(col).copied().unwrap_or(0.0);
+                out.column_mut(col).mapv_inplace(|v| v * scale);
+            }
+            Ok(out)
+        }
+
+        fn n_outputs(&self) -> usize {
+            1
+        }
+    }
+
+    #[test]
+    fn gauge_composed_jacobian_lifts_reduced_block_beta_before_delegating() {
+        let inner: Arc<dyn BlockEffectiveJacobian> = Arc::new(BetaScaledJacobian {
+            design: array![[2.0, 3.0], [5.0, 7.0]],
+        });
+        let t_block = Arc::new(array![[0.0], [1.0]]);
+        let wrapped = GaugeComposedJacobian::new(inner, Arc::clone(&t_block));
+
+        let theta = [4.0];
+        let reduced_state = FamilyLinearizationState {
+            beta: &theta,
+            family_scalars: None,
+            channel_hessian: None,
+            probit_frailty_scale: 1.0,
+        };
+        let reduced = wrapped
+            .effective_jacobian_rows(&reduced_state, 0..2)
+            .expect("reduced beta should be lifted through T before inner callback");
+
+        let raw_beta = [0.0, 4.0];
+        let raw_state = FamilyLinearizationState {
+            beta: &raw_beta,
+            family_scalars: None,
+            channel_hessian: None,
+            probit_frailty_scale: 1.0,
+        };
+        let raw = wrapped
+            .effective_jacobian_rows(&raw_state, 0..2)
+            .expect("raw beta state remains valid");
+
+        assert_eq!(reduced, raw);
+        assert_eq!(reduced, array![[15.0], [35.0]]);
+    }
+
+    struct StrictRawWidthJacobian {
+        design: Array2<f64>,
+    }
+
+    impl BlockEffectiveJacobian for StrictRawWidthJacobian {
+        fn effective_jacobian_rows(
+            &self,
+            state: &FamilyLinearizationState<'_>,
+            rows: Range<usize>,
+        ) -> Result<Array2<f64>, String> {
+            if state.beta.len() != self.design.ncols() {
+                return Err(format!(
+                    "StrictRawWidthJacobian expected raw beta len {}, got {}",
+                    self.design.ncols(),
+                    state.beta.len(),
+                ));
+            }
+            Ok(self.design.slice(ndarray::s![rows, ..]).to_owned())
+        }
+    }
+
+    #[test]
+    fn gauge_composed_jacobian_lifts_zero_reduced_beta_before_delegating() {
+        let inner: Arc<dyn BlockEffectiveJacobian> = Arc::new(StrictRawWidthJacobian {
+            design: array![[2.0, 3.0], [5.0, 7.0]],
+        });
+        let wrapped = GaugeComposedJacobian::new(inner, Arc::new(array![[0.0], [1.0]]));
+
+        let theta = [0.0];
+        let reduced_state = FamilyLinearizationState {
+            beta: &theta,
+            family_scalars: None,
+            channel_hessian: None,
+            probit_frailty_scale: 1.0,
+        };
+
+        let reduced = wrapped
+            .effective_jacobian_rows(&reduced_state, 0..2)
+            .expect("zero reduced beta must still be lifted to raw width");
+
+        assert_eq!(reduced, array![[3.0], [7.0]]);
+    }
+
+    #[test]
+    fn gauge_composed_jacobian_rejects_nonzero_unknown_beta_layout() {
+        let inner: Arc<dyn BlockEffectiveJacobian> = Arc::new(BetaScaledJacobian {
+            design: array![[2.0, 3.0]],
+        });
+        let wrapped = GaugeComposedJacobian::new(inner, Arc::new(array![[0.0], [1.0]]));
+        let joint_like_beta = [1.0, 0.0, 0.0];
+        let state = FamilyLinearizationState {
+            beta: &joint_like_beta,
+            family_scalars: None,
+            channel_hessian: None,
+            probit_frailty_scale: 1.0,
+        };
+
+        let err = wrapped
+            .effective_jacobian_rows(&state, 0..1)
+            .expect_err("nonzero joint-layout beta cannot be inferred from one block T");
+        assert!(
+            err.contains("cannot infer a block slice"),
+            "unexpected error: {err}"
+        );
+    }
+}
+
 /// Static specification for one parameter block in a custom family.
 ///
 /// `design` and `stacked_design` are two structurally distinct operators:
@@ -566,78 +803,6 @@ pub fn coefficient_label(block: impl Into<String>, column: usize) -> Coefficient
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum CoefficientGroupPrior {
-    Flat,
-    NormalLogPrecision {
-        mean: f64,
-        sd: f64,
-    },
-    GammaPrecision {
-        shape: f64,
-        rate: f64,
-    },
-    /// Penalized-complexity prior calibrated by `P(exp(-ρ/2) > upper) =
-    /// tail_prob`; see [`crate::types::RhoPrior::PenalizedComplexity`].
-    PenalizedComplexity {
-        upper: f64,
-        tail_prob: f64,
-    },
-}
-
-impl CoefficientGroupPrior {
-    pub fn to_rho_prior(&self) -> crate::types::RhoPrior {
-        match *self {
-            Self::Flat => crate::types::RhoPrior::Flat,
-            Self::NormalLogPrecision { mean, sd } => crate::types::RhoPrior::Normal { mean, sd },
-            Self::GammaPrecision { shape, rate } => {
-                crate::types::RhoPrior::GammaPrecision { shape, rate }
-            }
-            Self::PenalizedComplexity { upper, tail_prob } => {
-                crate::types::RhoPrior::PenalizedComplexity { upper, tail_prob }
-            }
-        }
-    }
-
-    pub(crate) fn validate(&self, context: &str) -> Result<(), String> {
-        match *self {
-            Self::Flat => Ok(()),
-            Self::NormalLogPrecision { mean, sd } => {
-                if !mean.is_finite() {
-                    return Err(format!(
-                        "{context} Normal log-precision prior requires finite mean, got {mean}"
-                    ));
-                }
-                if !sd.is_finite() || sd <= 0.0 {
-                    return Err(format!(
-                        "{context} Normal log-precision prior requires sd > 0, got {sd}"
-                    ));
-                }
-                Ok(())
-            }
-            Self::PenalizedComplexity { upper, tail_prob } => {
-                validate_penalized_complexity_prior(context, upper, tail_prob)
-            }
-            Self::GammaPrecision { shape, rate } => {
-                if !shape.is_finite() || shape <= 0.0 {
-                    return Err(CustomFamilyError::DimensionMismatch {
-                        reason: format!(
-                            "{context} Gamma precision prior requires shape > 0, got {shape}"
-                        ),
-                    }
-                    .into());
-                }
-                if !rate.is_finite() || rate < 0.0 {
-                    return Err(format!(
-                        "{context} Gamma precision prior requires rate >= 0, got {rate}"
-                    ));
-                }
-                Ok(())
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct CoefficientGroupSpec {
     pub label: String,
     pub coefficients: Vec<CoefficientLabel>,
@@ -695,8 +860,8 @@ pub(crate) fn custom_family_block_role(
     name: &str,
     index: usize,
     n_blocks: usize,
-) -> crate::solver::estimate::BlockRole {
-    use crate::solver::estimate::BlockRole;
+) -> crate::model_types::BlockRole {
+    use crate::model_types::BlockRole;
 
     if n_blocks == 1 {
         return BlockRole::Mean;

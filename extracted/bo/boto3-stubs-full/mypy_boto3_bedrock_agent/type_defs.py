@@ -24,6 +24,7 @@ from typing import IO, Any, Union
 from botocore.response import StreamingBody
 
 from .literals import (
+    AccessControlAccessType,
     ActionGroupSignatureType,
     ActionGroupStateType,
     AgentAliasStatusType,
@@ -42,6 +43,8 @@ from .literals import (
     DataSourceTypeType,
     DocumentStatusType,
     EmbeddingDataTypeType,
+    EmbeddingModelTypeType,
+    EnabledOrDisabledStateType,
     FlowConnectionTypeType,
     FlowNodeInputCategoryType,
     FlowNodeIODataTypeType,
@@ -109,6 +112,7 @@ __all__ = (
     "AssociateAgentKnowledgeBaseRequestTypeDef",
     "AssociateAgentKnowledgeBaseResponseTypeDef",
     "AudioConfigurationTypeDef",
+    "AudioExtractionConfigurationTypeDef",
     "AudioSegmentationConfigurationTypeDef",
     "BedrockDataAutomationConfigurationTypeDef",
     "BedrockEmbeddingModelConfigurationOutputTypeDef",
@@ -188,8 +192,12 @@ __all__ = (
     "DeleteKnowledgeBaseResponseTypeDef",
     "DeletePromptRequestTypeDef",
     "DeletePromptResponseTypeDef",
+    "DeleteResourcePolicyRequestTypeDef",
+    "DeleteResourcePolicyResponseTypeDef",
+    "DeletionProtectionConfigurationTypeDef",
     "DisassociateAgentCollaboratorRequestTypeDef",
     "DisassociateAgentKnowledgeBaseRequestTypeDef",
+    "DocumentAccessControlEntryTypeDef",
     "DocumentContentTypeDef",
     "DocumentIdentifierTypeDef",
     "DocumentMetadataTypeDef",
@@ -254,10 +262,13 @@ __all__ = (
     "GetKnowledgeBaseResponseTypeDef",
     "GetPromptRequestTypeDef",
     "GetPromptResponseTypeDef",
+    "GetResourcePolicyRequestTypeDef",
+    "GetResourcePolicyResponseTypeDef",
     "GuardrailConfigurationTypeDef",
     "HierarchicalChunkingConfigurationOutputTypeDef",
     "HierarchicalChunkingConfigurationTypeDef",
     "HierarchicalChunkingLevelConfigurationTypeDef",
+    "ImageExtractionConfigurationTypeDef",
     "IncompatibleConnectionDataTypeFlowValidationDetailsTypeDef",
     "InferenceConfigurationOutputTypeDef",
     "InferenceConfigurationTypeDef",
@@ -337,6 +348,11 @@ __all__ = (
     "LoopIncompatibleNodeTypeFlowValidationDetailsTypeDef",
     "MalformedConditionExpressionFlowValidationDetailsTypeDef",
     "MalformedNodeInputExpressionFlowValidationDetailsTypeDef",
+    "ManagedKnowledgeBaseConfigurationOutputTypeDef",
+    "ManagedKnowledgeBaseConfigurationTypeDef",
+    "ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef",
+    "ManagedKnowledgeBaseConnectorConfigurationTypeDef",
+    "MediaExtractionConfigurationTypeDef",
     "MemoryConfigurationOutputTypeDef",
     "MemoryConfigurationTypeDef",
     "MemoryConfigurationUnionTypeDef",
@@ -412,6 +428,8 @@ __all__ = (
     "PromptVariantOutputTypeDef",
     "PromptVariantTypeDef",
     "PromptVariantUnionTypeDef",
+    "PutResourcePolicyRequestTypeDef",
+    "PutResourcePolicyResponseTypeDef",
     "QueryGenerationColumnTypeDef",
     "QueryGenerationConfigurationOutputTypeDef",
     "QueryGenerationConfigurationTypeDef",
@@ -547,6 +565,7 @@ __all__ = (
     "VectorSearchRerankingConfigurationOutputTypeDef",
     "VectorSearchRerankingConfigurationTypeDef",
     "VideoConfigurationTypeDef",
+    "VideoExtractionConfigurationTypeDef",
     "VideoSegmentationConfigurationTypeDef",
     "WebCrawlerConfigurationOutputTypeDef",
     "WebCrawlerConfigurationTypeDef",
@@ -633,6 +652,10 @@ class AssociateAgentKnowledgeBaseRequestTypeDef(TypedDict):
 
 class AudioSegmentationConfigurationTypeDef(TypedDict):
     fixedLengthDuration: int
+
+
+class AudioExtractionConfigurationTypeDef(TypedDict):
+    audioExtractionStatus: EnabledOrDisabledStateType
 
 
 class BedrockDataAutomationConfigurationTypeDef(TypedDict):
@@ -817,6 +840,16 @@ class DeletePromptRequestTypeDef(TypedDict):
     promptVersion: NotRequired[str]
 
 
+class DeleteResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+    expectedRevisionId: NotRequired[str]
+
+
+class DeletionProtectionConfigurationTypeDef(TypedDict):
+    deletionProtectionStatus: EnabledOrDisabledStateType
+    deletionProtectionThreshold: NotRequired[int]
+
+
 class DisassociateAgentCollaboratorRequestTypeDef(TypedDict):
     agentId: str
     agentVersion: str
@@ -827,6 +860,16 @@ class DisassociateAgentKnowledgeBaseRequestTypeDef(TypedDict):
     agentId: str
     agentVersion: str
     knowledgeBaseId: str
+
+
+DocumentAccessControlEntryTypeDef = TypedDict(
+    "DocumentAccessControlEntryTypeDef",
+    {
+        "name": str,
+        "type": Literal["USER"],
+        "access": AccessControlAccessType,
+    },
+)
 
 
 class S3LocationTypeDef(TypedDict):
@@ -1141,8 +1184,16 @@ class GetPromptRequestTypeDef(TypedDict):
     promptVersion: NotRequired[str]
 
 
+class GetResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+
+
 class HierarchicalChunkingLevelConfigurationTypeDef(TypedDict):
     maxTokens: int
+
+
+class ImageExtractionConfigurationTypeDef(TypedDict):
+    imageExtractionStatus: EnabledOrDisabledStateType
 
 
 class InferenceConfigurationOutputTypeDef(TypedDict):
@@ -1184,6 +1235,7 @@ class IngestionJobStatisticsTypeDef(TypedDict):
     numberOfMetadataDocumentsModified: NotRequired[int]
     numberOfDocumentsDeleted: NotRequired[int]
     numberOfDocumentsFailed: NotRequired[int]
+    numberOfDocumentsSkipped: NotRequired[int]
 
 
 class TextContentDocTypeDef(TypedDict):
@@ -1313,6 +1365,10 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
 
+class VideoExtractionConfigurationTypeDef(TypedDict):
+    videoExtractionStatus: EnabledOrDisabledStateType
+
+
 class SessionSummaryConfigurationTypeDef(TypedDict):
     maxRecentSessions: NotRequired[int]
 
@@ -1402,6 +1458,12 @@ class PromptModelInferenceConfigurationTypeDef(TypedDict):
     topP: NotRequired[float]
     maxTokens: NotRequired[int]
     stopSequences: NotRequired[Sequence[str]]
+
+
+class PutResourcePolicyRequestTypeDef(TypedDict):
+    resourceArn: str
+    policy: str
+    expectedRevisionId: NotRequired[str]
 
 
 class QueryGenerationColumnTypeDef(TypedDict):
@@ -1741,8 +1803,21 @@ DeletePromptResponseTypeDef = TypedDict(
 )
 
 
+class DeleteResourcePolicyResponseTypeDef(TypedDict):
+    resourceArn: str
+    revisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class GetAgentKnowledgeBaseResponseTypeDef(TypedDict):
     agentKnowledgeBase: AgentKnowledgeBaseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetResourcePolicyResponseTypeDef(TypedDict):
+    resourceArn: str
+    policy: str
+    revisionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1779,6 +1854,12 @@ PrepareFlowResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+
+
+class PutResourcePolicyResponseTypeDef(TypedDict):
+    resourceArn: str
+    revisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateAgentKnowledgeBaseResponseTypeDef(TypedDict):
@@ -2201,6 +2282,12 @@ class ListPromptsResponseTypeDef(TypedDict):
     promptSummaries: list[PromptSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class MediaExtractionConfigurationTypeDef(TypedDict):
+    imageExtractionConfiguration: NotRequired[ImageExtractionConfigurationTypeDef]
+    audioExtractionConfiguration: NotRequired[AudioExtractionConfigurationTypeDef]
+    videoExtractionConfiguration: NotRequired[VideoExtractionConfigurationTypeDef]
 
 
 class MemoryConfigurationOutputTypeDef(TypedDict):
@@ -2629,6 +2716,18 @@ class StopIngestionJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef(TypedDict):
+    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
+    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    connectorParameters: NotRequired[dict[str, Any]]
+
+
+class ManagedKnowledgeBaseConnectorConfigurationTypeDef(TypedDict):
+    deletionProtectionConfiguration: NotRequired[DeletionProtectionConfigurationTypeDef]
+    mediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    connectorParameters: NotRequired[Mapping[str, Any]]
+
+
 MemoryConfigurationUnionTypeDef = Union[
     MemoryConfigurationTypeDef, MemoryConfigurationOutputTypeDef
 ]
@@ -2638,6 +2737,7 @@ DocumentMetadataTypeDef = TypedDict(
         "type": MetadataSourceTypeType,
         "inlineAttributes": NotRequired[Sequence[MetadataAttributeTypeDef]],
         "s3Location": NotRequired[CustomS3LocationTypeDef],
+        "accessControlList": NotRequired[Sequence[DocumentAccessControlEntryTypeDef]],
     },
 )
 CrawlFilterConfigurationOutputTypeDef = TypedDict(
@@ -3163,12 +3263,26 @@ class VectorIngestionConfigurationTypeDef(TypedDict):
     contextEnrichmentConfiguration: NotRequired[ContextEnrichmentConfigurationTypeDef]
 
 
+class ManagedKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
+    embeddingModelType: NotRequired[EmbeddingModelTypeType]
+    embeddingModelArn: NotRequired[str]
+    embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationOutputTypeDef]
+    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
+
+
 class VectorKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
     embeddingModelArn: str
     embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationOutputTypeDef]
     supplementalDataStorageConfiguration: NotRequired[
         SupplementalDataStorageConfigurationOutputTypeDef
     ]
+
+
+class ManagedKnowledgeBaseConfigurationTypeDef(TypedDict):
+    embeddingModelType: NotRequired[EmbeddingModelTypeType]
+    embeddingModelArn: NotRequired[str]
+    embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationTypeDef]
+    serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
 
 
 class VectorKnowledgeBaseConfigurationTypeDef(TypedDict):
@@ -3208,6 +3322,9 @@ DataSourceConfigurationOutputTypeDef = TypedDict(
     "DataSourceConfigurationOutputTypeDef",
     {
         "type": DataSourceTypeType,
+        "managedKnowledgeBaseConnectorConfiguration": NotRequired[
+            ManagedKnowledgeBaseConnectorConfigurationOutputTypeDef
+        ],
         "s3Configuration": NotRequired[S3DataSourceConfigurationOutputTypeDef],
         "webConfiguration": NotRequired[WebDataSourceConfigurationOutputTypeDef],
         "confluenceConfiguration": NotRequired[ConfluenceDataSourceConfigurationOutputTypeDef],
@@ -3219,6 +3336,9 @@ DataSourceConfigurationTypeDef = TypedDict(
     "DataSourceConfigurationTypeDef",
     {
         "type": DataSourceTypeType,
+        "managedKnowledgeBaseConnectorConfiguration": NotRequired[
+            ManagedKnowledgeBaseConnectorConfigurationTypeDef
+        ],
         "s3Configuration": NotRequired[S3DataSourceConfigurationTypeDef],
         "webConfiguration": NotRequired[WebDataSourceConfigurationTypeDef],
         "confluenceConfiguration": NotRequired[ConfluenceDataSourceConfigurationTypeDef],
@@ -3285,6 +3405,9 @@ KnowledgeBaseConfigurationOutputTypeDef = TypedDict(
         "vectorKnowledgeBaseConfiguration": NotRequired[
             VectorKnowledgeBaseConfigurationOutputTypeDef
         ],
+        "managedKnowledgeBaseConfiguration": NotRequired[
+            ManagedKnowledgeBaseConfigurationOutputTypeDef
+        ],
         "kendraKnowledgeBaseConfiguration": NotRequired[KendraKnowledgeBaseConfigurationTypeDef],
         "sqlKnowledgeBaseConfiguration": NotRequired[SqlKnowledgeBaseConfigurationOutputTypeDef],
     },
@@ -3294,6 +3417,7 @@ KnowledgeBaseConfigurationTypeDef = TypedDict(
     {
         "type": KnowledgeBaseTypeType,
         "vectorKnowledgeBaseConfiguration": NotRequired[VectorKnowledgeBaseConfigurationTypeDef],
+        "managedKnowledgeBaseConfiguration": NotRequired[ManagedKnowledgeBaseConfigurationTypeDef],
         "kendraKnowledgeBaseConfiguration": NotRequired[KendraKnowledgeBaseConfigurationTypeDef],
         "sqlKnowledgeBaseConfiguration": NotRequired[SqlKnowledgeBaseConfigurationTypeDef],
     },

@@ -55,24 +55,15 @@ license:
 from __future__ import annotations
 
 import copy
-import os
-import sys
 import warnings
-from itertools import combinations
-from typing import Type, Union
-
 from collections.abc import Iterable, Iterator, Sequence
+from itertools import combinations
+from os import PathLike, fspath
+from typing import overload
+from typing_extensions import Self
 
 import OCP.TopAbs as ta
-from OCP.BRepAlgoAPI import BRepAlgoAPI_Fuse
-from OCP.Font import (
-    Font_FA_Bold,
-    Font_FA_BoldItalic,
-    Font_FA_Italic,
-    Font_FA_Regular,
-    Font_FontMgr,
-    Font_SystemFont,
-)
+from OCP.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Fuse, BRepAlgoAPI_Section
 from OCP.gp import gp_Ax3
 from OCP.Graphic3d import (
     Graphic3d_HTA_LEFT,
@@ -86,7 +77,6 @@ from OCP.Graphic3d import (
 from OCP.GProp import GProp_GProps
 from OCP.NCollection import NCollection_Utf8String
 from OCP.StdPrs import StdPrs_BRepTextBuilder as Font_BRepTextBuilder, StdPrs_BRepFont
-from OCP.TCollection import TCollection_AsciiString
 from OCP.TopAbs import TopAbs_ShapeEnum
 from OCP.TopoDS import (
     TopoDS,
@@ -107,30 +97,29 @@ from build123d.geometry import (
     VectorLike,
     logger,
 )
-from typing_extensions import Self
+from build123d.text import FONT_ASPECT, FontManager
 
 from .one_d import Edge, Wire, Mixin1D
 from .shape_core import (
     Shape,
     ShapeList,
-    SkipClean,
     Joint,
     downcast,
     shapetype,
     topods_dim,
+    _make_topods_compound_from_shapes,
 )
 from .three_d import Mixin3D, Solid
 from .two_d import Face, Shell
 from .utils import (
     _extrude_topods_shape,
-    _make_topods_compound_from_shapes,
     tuplify,
     unwrapped_shapetype,
 )
 from .zero_d import Vertex
 
 
-class Compound(Mixin3D, Shape[TopoDS_Compound]):
+class Compound(Mixin3D[TopoDS_Compound]):
     """A Compound in build123d is a topological entity representing a collection of
     geometric shapes grouped together within a single structure. It serves as a
     container for organizing diverse shapes like edges, faces, or solids. This
@@ -142,7 +131,6 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
 
     order = 4.0
 
-    project_to_viewport = Mixin1D.project_to_viewport
     # ---- Constructor ----
 
     def __init__(
@@ -166,7 +154,7 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
             parent (Compound, optional): assembly parent. Defaults to None.
             children (Sequence[Shape], optional): assembly children. Defaults to None.
         """
-
+        topods_compound: TopoDS_Compound | None
         if isinstance(obj, Iterable):
             topods_compound = _make_topods_compound_from_shapes(
                 [s.wrapped for s in obj]
@@ -237,9 +225,7 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         Returns:
             Edge: extruded shape
         """
-        return Compound(
-            TopoDS.Compound_s(_extrude_topods_shape(obj.wrapped, direction))
-        )
+        return Compound(TopoDS.Compound(_extrude_topods_shape(obj.wrapped, direction)))
 
     @classmethod
     def make_text(
@@ -247,37 +233,39 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         txt: str,
         font_size: float,
         font: str = "Arial",
-        font_path: str | None = None,
+        font_path: PathLike[str] | str | None = None,
         font_style: FontStyle = FontStyle.REGULAR,
         text_align: tuple[TextAlign, TextAlign] = (TextAlign.CENTER, TextAlign.CENTER),
         align: Align | tuple[Align, Align] | None = None,
         position_on_path: float = 0.0,
         text_path: Edge | Wire | None = None,
+        single_line_width: float = 0.0,
     ) -> Compound:
-        """2D Text that optionally follows a path.
+        """Text that optionally follows a path.
 
         The text that is created can be combined as with other sketch features by specifying
-        a mode or rotated by the given angle.  In addition, edges have been previously created
+        a mode or rotated by the given angle. In addition, edges have been previously created
         with arc or segment, the text will follow the path defined by these edges. The start
         parameter can be used to shift the text along the path to achieve precise positioning.
 
         Args:
-            txt: text to be rendered
-            font_size: size of the font in model units
-            font: font name
-            font_path: path to font file
-            font_style: text style. Defaults to FontStyle.REGULAR
+            txt (str): text to render
+            font_size (float): size of the font in model units
+            font (str, optional): font name. Defaults to "Arial"
+            font_path (PathLike | str, optional): system path to font file. Defaults to None
+            font_style (Font_Style, optional): font style, REGULAR, BOLD, BOLDITALIC, or
+                ITALIC. Defaults to Font_Style.REGULAR
             text_align (tuple[TextAlign, TextAlign], optional): horizontal text align
                 LEFT, CENTER, or RIGHT. Vertical text align BOTTOM, CENTER, TOP, or
                 TOPFIRSTLINE. Defaults to (TextAlign.CENTER, TextAlign.CENTER)
-            align (Union[Align, tuple[Align, Align]], optional): align min, center, or max
-                of object. Defaults to None
-            position_on_path: the relative location on path to position the text,
-                between 0.0 and 1.0. Defaults to 0.0
-            text_path: a path for the text to follows. Defaults to None (linear text)
-
-        Returns:
-            a Compound object containing multiple Faces representing the text
+            align (Align | tuple[Align, Align], optional): align MIN, CENTER, or MAX of
+                object. Defaults to None
+            position_on_path (float, optional): the relative location on path to position
+                the text, values must be between 0.0 and 1.0. Defaults to 0.0
+            text_path: (Edge | Wire, optional): path for text to follow. Defaults to None
+                Compound object containing multiple Shapes representing the text
+            single_line_width (float): width of outlined single line font.
+                Defaults to 0.0
 
         Examples::
 
@@ -291,39 +279,37 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         """
         # pylint: disable=too-many-locals
 
-        def position_face(orig_face: Face) -> Face:
-            """
-            Reposition a face to the provided path
+        def position_glyph(glyph: Shape, path: Edge | Wire, position: float) -> Shape:
+            """Reposition a glyph shape on provided path
 
-            Local coordinates are used to calculate the position of the face
-            relative to the path. Global coordinates to position the face.
+            Local coordinates are used to calculate the position of the shape
+            relative to the path. Global coordinates to position the shape.
             """
-            assert text_path is not None
-            bbox = orig_face.bounding_box()
+
+            bbox = glyph.bounding_box()
             face_bottom_center = Vector((bbox.min.X + bbox.max.X) / 2, 0, 0)
-            relative_position_on_wire = (
-                position_on_path + face_bottom_center.X / path_length
-            )
-            wire_tangent = text_path.tangent_at(relative_position_on_wire)
+            relative_position_on_wire = position + face_bottom_center.X / path.length
+            wire_tangent = path.tangent_at(relative_position_on_wire)
             wire_angle = Vector(1, 0, 0).get_signed_angle(wire_tangent)
-            wire_position = text_path.position_at(relative_position_on_wire)
+            wire_position = path.position_at(relative_position_on_wire)
 
-            return orig_face.translate(wire_position - face_bottom_center).rotate(
+            return glyph.translate(wire_position - face_bottom_center).rotate(
                 Axis(wire_position, (0, 0, 1)),
                 -wire_angle,
             )
 
-        if sys.platform.startswith("linux"):
-            os.environ["FONTCONFIG_FILE"] = "/etc/fonts/fonts.conf"
-            os.environ["FONTCONFIG_PATH"] = "/etc/fonts/"
+        font_path_str = fspath(font_path) if font_path is not None else None
 
-        font_kind = {
-            FontStyle.REGULAR: Font_FA_Regular,
-            FontStyle.BOLD: Font_FA_Bold,
-            FontStyle.ITALIC: Font_FA_Italic,
-            FontStyle.BOLDITALIC: Font_FA_BoldItalic,
-        }[font_style]
+        manager = FontManager()
+        if font_path_str and manager.check_font(font_path_str):  # pragma: no cover
+            face_names = manager.register_font(font_path_str, True, False)
+            # Check if font (name) is in face names and not bad or default (Arial)
+            font_name = font if font in face_names else face_names[0]
+            system_font = manager.find_font(font_name, font_style)
+        else:
+            system_font = manager.find_font(font, font_style)
 
+        # Validate TextAlign parameters
         if text_align[0] not in [TextAlign.LEFT, TextAlign.CENTER, TextAlign.RIGHT]:
             raise ValueError(
                 "Horizontal TextAlign must be LEFT, CENTER, or RIGHT. "
@@ -354,32 +340,32 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
             TextAlign.TOPFIRSTLINE: Graphic3d_VTA_TOPFIRSTLINE,
         }[text_align[1]]
 
-        mgr = Font_FontMgr.GetInstance_s()
-
-        if font_path and mgr.CheckFont(TCollection_AsciiString(font_path).ToCString()):
-            font_t = Font_SystemFont(TCollection_AsciiString(font_path))
-            font_t.SetFontPath(font_kind, TCollection_AsciiString(font_path))
-            mgr.RegisterFont(font_t, True)
-
-        else:
-            font_t = mgr.FindFont(TCollection_AsciiString(font), font_kind)
-
         logger.info(
             "Creating text with font %s located at %s",
-            font_t.FontName().ToCString(),
-            font_t.FontPath(font_kind).ToCString(),
+            system_font.FontName().ToCString(),
+            system_font.FontPath(FONT_ASPECT[font_style]).ToCString(),
         )
 
+        # Write text to shape
         builder = Font_BRepTextBuilder()
-        font_i = StdPrs_BRepFont(
-            NCollection_Utf8String(font_t.FontName().ToCString()),
-            font_kind,
+        brep_font = StdPrs_BRepFont(
+            NCollection_Utf8String(system_font.FontName().ToCString()),
+            FONT_ASPECT[font_style],
             float(font_size),
         )
 
+        if system_font.IsSingleStrokeFont():
+            brep_font.SetCompositeCurveMode(False)
+
         text_flat = Compound(
-            builder.Perform(
-                font_i, NCollection_Utf8String(txt), gp_Ax3(), horiz_align, vert_align
+            TopoDS.Compound(
+                builder.Perform(
+                    brep_font,
+                    NCollection_Utf8String(txt),
+                    gp_Ax3(),
+                    horiz_align,
+                    vert_align,
+                )
             )
         )
 
@@ -389,9 +375,31 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
             Vector(*text_flat.bounding_box().to_align_offset(align_text))
         )
 
-        if text_path is not None:
-            path_length = text_path.length
-            text_flat = Compound([position_face(f) for f in text_flat.faces()])
+        # Place text on path
+        if text_path:
+            glyphs = text_flat.get_top_level_shapes()
+            text_flat = Compound(
+                [position_glyph(g, text_path, position_on_path) for g in glyphs]
+            )
+
+        def _make_face(edges: Iterable[Edge]) -> Face:
+            face = Face(Wire.combine(edges)[0])
+            if face.normal_at().Z < 0:  # flip up-side-down faces
+                face = -face  # pylint: disable=E1130
+            return face
+
+        # Outline single line text
+        # offset_2d distance is radius, treat single_line_width as diameter/overall height
+        if system_font.IsSingleStrokeFont() and single_line_width > 0:
+            outline = [e.offset_2d(single_line_width / 2) for e in text_flat.edges()]
+            outline = [_make_face(o.edges()) for o in outline]
+            text_flat = Compound([]) + outline
+            if any([not f.is_valid for f in text_flat.get_top_level_shapes()]):
+                raise ValueError(
+                    "single_line_width "
+                    f"({single_line_width}) is too large for the text and "
+                    "produces invalid faces. Try a smaller width"
+                )
 
         return text_flat
 
@@ -408,14 +416,14 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         arrow = Wire([arrow_arc, copy.copy(arrow_arc).mirror(Plane.XZ)])
         x_label = (
             Compound.make_text(
-                "X", font_size=axes_scale / 4, align=(Align.MIN, Align.CENTER)
+                "X", axes_scale / 4, "singleline", align=(Align.MIN, Align.CENTER)
             )
             .move(Location(x_axis @ 1))
             .edges()
         )
         y_label = (
             Compound.make_text(
-                "Y", font_size=axes_scale / 4, align=(Align.MIN, Align.CENTER)
+                "Y", axes_scale / 4, "singleline", align=(Align.MIN, Align.CENTER)
             )
             .rotate(Axis.Z, 90)
             .move(Location(y_axis @ 1))
@@ -423,7 +431,7 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         )
         z_label = (
             Compound.make_text(
-                "Z", font_size=axes_scale / 4, align=(Align.CENTER, Align.MIN)
+                "Z", axes_scale / 4, "singleline", align=(Align.CENTER, Align.MIN)
             )
             .rotate(Axis.Y, 90)
             .rotate(Axis.X, 90)
@@ -455,13 +463,11 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         will be a Wire, otherwise a Shape.
         """
         if self._dim == 1:
-            curve = Curve() if self.wrapped is None else Curve(self.wrapped)
-            sum1d: Edge | Wire | ShapeList[Edge] = curve + other
-            if isinstance(sum1d, ShapeList):
-                result1d: Curve | Wire = Curve(sum1d)
-            elif isinstance(sum1d, Edge):
+            curve = Curve() if self._wrapped is None else Curve(self.wrapped)
+            sum1d = curve + other
+            if isinstance(sum1d, Edge):
                 result1d = Curve([sum1d])
-            else:  # Wire
+            else:
                 result1d = sum1d
             self.copy_attributes_to(result1d, ["wrapped", "_NodeMixin__children"])
             return result1d
@@ -484,31 +490,25 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
             s for s in self.get_top_level_shapes() + summands if s is not None
         )
 
-        # Only fuse the parts if necessary
         if len(summands) <= 1:
             result: Shape = Compound(summands[0:1])
         else:
             fuse_op = BRepAlgoAPI_Fuse()
             fuse_op.SetFuzzyValue(TOLERANCE)
             self.copy_attributes_to(summands[0], ["wrapped", "_NodeMixin__children"])
-            bool_result = self._bool_op(summands[:1], summands[1:], fuse_op)
-            if isinstance(bool_result, list):
-                result = Compound(bool_result)
-                self.copy_attributes_to(result, ["wrapped", "_NodeMixin__children"])
-            else:
-                result = bool_result
-
-        if SkipClean.clean:
-            result = result.clean()
+            result = self._bool_op(summands[:1], summands[1:], fuse_op)
 
         return result
 
     def __and__(self, other: Shape | Iterable[Shape]) -> Compound:
         """Intersect other to self `&` operator"""
         intersection = Shape.__and__(self, other)
-        intersection = Compound(
-            intersection if isinstance(intersection, list) else [intersection]
-        )
+        if intersection is None:
+            return Compound()
+        if isinstance(intersection, list):
+            intersection = Compound(intersection)
+        elif not isinstance(intersection, Compound):
+            intersection = Compound([intersection])
         self.copy_attributes_to(intersection, ["wrapped", "_NodeMixin__children"])
         return intersection
 
@@ -517,7 +517,7 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
         Check if empty.
         """
 
-        return TopoDS_Iterator(self.wrapped).More()
+        return self._wrapped is not None and TopoDS_Iterator(self.wrapped).More()
 
     def __iter__(self) -> Iterator[Shape]:
         """
@@ -534,7 +534,7 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
     def __len__(self) -> int:
         """Return the number of subshapes"""
         count = 0
-        if self.wrapped is not None:
+        if self._wrapped is not None:
             for _ in self:
                 count += 1
         return count
@@ -553,9 +553,8 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
     def __sub__(self, other: None | Shape | Iterable[Shape]) -> Compound:
         """Cut other to self `-` operator"""
         difference = Shape.__sub__(self, other)
-        difference = Compound(
-            difference if isinstance(difference, list) else [difference]
-        )
+        if not isinstance(difference, Compound):
+            difference = Compound([difference])
         self.copy_attributes_to(difference, ["wrapped", "_NodeMixin__children"])
 
         return difference
@@ -585,24 +584,21 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
                 middle = Vector(properties.CentreOfMass())
             else:
                 raise NotImplementedError
-        elif center_of == CenterOf.BOUNDING_BOX:
+        else:  # center_of == CenterOf.BOUNDING_BOX:
             middle = self.bounding_box().center()
         return middle
 
-    def compound(self) -> Compound | None:
+    def compound(self) -> Compound:
         """Return the Compound"""
         shape_list = self.compounds()
         entity_count = len(shape_list)
         if entity_count != 1:
-            warnings.warn(
-                f"Found {entity_count} compounds, returning first",
-                stacklevel=2,
-            )
-        return shape_list[0] if shape_list else None
+            raise ValueError(f"Expected exactly one compound, found {entity_count}")
+        return shape_list[0]
 
     def compounds(self) -> ShapeList[Compound]:
         """compounds - all the compounds in this Shape"""
-        if self.wrapped is None:
+        if self._wrapped is None:
             return ShapeList()
         if isinstance(self.wrapped, TopoDS_Compound):
             # pylint: disable=not-an-iterable
@@ -651,11 +647,7 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
                     children[child_index_pair[1]]
                 )
                 if obj_intersection is not None:
-                    common_volume = (
-                        0.0
-                        if isinstance(obj_intersection, list)
-                        else obj_intersection.volume
-                    )
+                    common_volume = sum(s.volume for s in obj_intersection.solids())
                     if common_volume > tolerance:
                         return (
                             True,
@@ -706,10 +698,120 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
             while iterator.More():
                 child = iterator.Value()
                 if child.ShapeType() == type_map[obj_type]:
-                    results.append(obj_type(downcast(child)))
+                    results.append(obj_type(downcast(child)))  # type: ignore
                 iterator.Next()
 
         return results
+
+    def _intersect(
+        self,
+        other: Shape | Vector | Location | Axis | Plane,
+        tolerance: float = 1e-6,
+        include_touched: bool = False,
+    ) -> ShapeList | None:
+        """Single-object intersection for Compound (OR semantics).
+
+        Distributes intersection over elements, collecting all results:
+            Compound([a, b]).intersect(s) = (a ∩ s) ∪ (b ∩ s)
+            Compound([a, b]).intersect(Compound([c, d])) = (a ∩ c) ∪ (a ∩ d) ∪ (b ∩ c) ∪ (b ∩ d)
+
+        Handles both build123d assemblies (children) and OCCT Compounds (list()).
+        Nested Compounds are handled by recursion.
+
+        Args:
+            other: Shape or geometry object to intersect with
+            tolerance: tolerance for intersection detection
+            include_touched: if True, include boundary contacts
+                (only relevant when Solids are involved)
+        """
+        # Convert geometry objects
+        if isinstance(other, Vector):
+            other = Vertex(other)
+        elif isinstance(other, Location):
+            other = Vertex(other.position)
+        elif isinstance(other, Axis):
+            other = Edge(other)
+        elif isinstance(other, Plane):
+            other = Face(other)
+
+        # Get self elements: assembly children or OCCT direct children
+        self_elements = self.children if self.children else list(self)
+
+        if not self_elements:
+            return None
+
+        results: ShapeList = ShapeList()
+
+        # Distribute over elements (OR semantics for Compound arguments)
+        if isinstance(other, Compound):
+            other_elements = other.children if other.children else list(other)
+        else:
+            other_elements = [other]
+
+        for self_elem in self_elements:
+            for other_elem in other_elements:
+                intersection = self_elem._intersect(
+                    other_elem, tolerance, include_touched
+                )
+                if intersection:
+                    results.extend(intersection)
+
+        # Remove duplicates using Shape's __hash__
+        unique = ShapeList(set(results))
+
+        return unique if unique else None
+
+    def touch(
+        self, other: Shape, tolerance: float = 1e-6
+    ) -> ShapeList[Vertex | Edge | Face]:
+        """Distribute touch over compound elements.
+
+        Iterates over elements and collects touch results. Only Solid and
+        Face elements produce boundary contacts; other shapes return empty.
+
+        Args:
+            other: Shape to check boundary contacts with
+            tolerance: tolerance for contact detection
+
+        Returns:
+            ShapeList of boundary contact geometry (empty if no contact)
+        """
+        results: ShapeList = ShapeList()
+
+        # Get elements: assembly children or OCCT direct children
+        elements = self.children if self.children else list(self)
+
+        for elem in elements:
+            results.extend(elem.touch(other, tolerance))
+
+        return ShapeList(set(results))
+
+    def project_to_viewport(
+        self,
+        viewport_origin: VectorLike,
+        viewport_up: VectorLike = (0, 0, 1),
+        look_at: VectorLike | None = None,
+        focus: float | None = None,
+    ) -> tuple[ShapeList[Edge], ShapeList[Edge]]:
+        """project_to_viewport
+
+        Project a shape onto a viewport returning visible and hidden Edges.
+
+        Args:
+            viewport_origin (VectorLike): location of viewport
+            viewport_up (VectorLike, optional): direction of the viewport y axis.
+                Defaults to (0, 0, 1).
+            look_at (VectorLike, optional): point to look at.
+                Defaults to None (center of shape).
+            focus (float, optional): the focal length for perspective projection
+                Defaults to None (orthographic projection)
+
+        Returns:
+            tuple[ShapeList[Edge],ShapeList[Edge]]: visible & hidden Edges
+        """
+        return Mixin1D.project_to_viewport(
+            self, viewport_origin, viewport_up, look_at, focus
+        )
 
     def unwrap(self, fully: bool = True) -> Self | Shape:
         """Strip unnecessary Compound wrappers
@@ -764,8 +866,8 @@ class Compound(Mixin3D, Shape[TopoDS_Compound]):
             parent.wrapped = _make_topods_compound_from_shapes(
                 [c.wrapped for c in parent.children]
             )
-        else:
-            parent.wrapped = None
+        # else:
+        #     parent.wrapped = None
 
     def _post_detach_children(self, children):
         """Method call before detaching `children`."""
@@ -837,6 +939,9 @@ class Sketch(Compound):
     def _dim(self) -> int:
         return 2
 
+    def __iadd__(self, other: None | Shape | Iterable[Shape]) -> Sketch:
+        return self + other
+
 
 class Part(Compound):
     """A Compound containing 3D objects - aka Solids"""
@@ -846,3 +951,12 @@ class Part(Compound):
     @property
     def _dim(self) -> int:
         return 3
+
+    def __iadd__(self, other: None | Shape | Iterable[Shape]) -> Part:
+        return self + other
+
+
+Shape.register_composite_factory(None, Compound)
+Shape.register_composite_factory(1, Curve)
+Shape.register_composite_factory(2, Sketch)
+Shape.register_composite_factory(3, Part)

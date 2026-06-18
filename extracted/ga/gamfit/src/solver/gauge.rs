@@ -7,26 +7,27 @@
 // coordinates β. This module owns that act once.
 //
 // A `Gauge` is the affine section itself: the lift matrix
-// `T : reduced → raw` (`β_raw = T · θ`) together with the per-block
-// partitions of both coordinate systems. Block-diagonal `T`
+// `T : reduced → raw` plus an affine shift `a`
+// (`β_raw = T · θ + a`) together with the per-block partitions
+// of both coordinate systems. Block-diagonal `T`
 // (independent per-block reductions, the canonical-audit case) and
 // block-upper-triangular `T` (cross-block residualisation, the
 // survival V+M-exact compile) are the same object — the partitions
 // record where each block's rows/columns live.
 //
 // Lift conventions (the whole point — there is exactly one):
-//   - point estimate:   β_raw = T · θ
+//   - point estimate:   β_raw = T · θ + a
 //   - covariance / any symmetric bilinear form: Σ_raw = T · Σ_θ · Tᵀ
-//   - η is invariant:   X_raw · T · θ = X_reduced · θ
+//   - η is invariant:   X_raw · (T · θ + a) = X_reduced · θ + offset_reduced
 //
 // Raw directions outside the section (zero rows of `T`) receive exactly
 // zero estimate, zero variance, and zero covariance with every other
 // coordinate: a coordinate the reduced fit cannot move carries no
 // posterior uncertainty in raw space.
 
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayBase, Data, Ix2};
 
-use crate::linalg::faer_ndarray::{fast_ab, fast_abt};
+use crate::linalg::faer_ndarray::{fast_ab, fast_abt, fast_atb};
 
 /// The lift `T : reduced → raw` plus the per-block partitions of both
 /// coordinate systems. See the module docs for the lift conventions.
@@ -34,6 +35,8 @@ use crate::linalg::faer_ndarray::{fast_ab, fast_abt};
 pub struct Gauge {
     /// Global lift matrix, shape `(Σ p_b_raw) × (Σ r_b_reduced)`.
     pub t_full: Array2<f64>,
+    /// Global affine shift in raw coordinates, length `Σ p_b_raw`.
+    pub affine_shift: Array1<f64>,
     /// Raw-coordinate block partition: `block_starts_raw[b]..block_starts_raw[b+1]`
     /// is block `b`'s raw row range in `t_full`. Length `n_blocks + 1`, starts at 0.
     pub block_starts_raw: Vec<usize>,
@@ -148,8 +151,35 @@ impl Gauge {
     /// `T_b : reduced_b → raw_b` (selection matrices from the canonical
     /// audit, orthogonalisation `V_b`s, or their compositions).
     pub fn from_block_transforms(transforms: &[Array2<f64>]) -> Self {
+        let raw_total: usize = transforms.iter().map(|t| t.nrows()).sum();
+        Self::from_block_transforms_with_shift(transforms, Array1::zeros(raw_total))
+    }
+
+    /// Block-diagonal affine section from independent per-block lifts
+    /// plus one concatenated raw-coordinate shift.
+    pub fn from_block_transforms_with_shift(
+        transforms: &[Array2<f64>],
+        affine_shift: Array1<f64>,
+    ) -> Self {
         let r_none: Vec<Option<Array2<f64>>> = transforms.iter().map(|_| None).collect();
-        Self::from_v_and_r(transforms, &r_none)
+        let mut gauge = Self::from_v_and_r(transforms, &r_none);
+        assert_eq!(
+            affine_shift.len(),
+            gauge.raw_total(),
+            "Gauge::from_block_transforms_with_shift: affine shift len {} != raw width {}",
+            affine_shift.len(),
+            gauge.raw_total(),
+        );
+        gauge.affine_shift = affine_shift;
+        gauge
+    }
+
+    /// Single-block affine section.
+    pub fn from_block_transform_with_shift(
+        transform: Array2<f64>,
+        affine_shift: Array1<f64>,
+    ) -> Self {
+        Self::from_block_transforms_with_shift(&[transform], affine_shift)
     }
 
     /// Block-upper-triangular section from per-block `V_b` plus
@@ -160,14 +190,58 @@ impl Gauge {
         let reduced_widths: Vec<usize> = v_per_term.iter().map(|v| v.ncols()).collect();
         Self {
             t_full: assemble_block_triangular_t(v_per_term, r_per_term),
+            affine_shift: Array1::zeros(raw_widths.iter().sum::<usize>()),
             block_starts_raw: starts_from_widths(&raw_widths),
             block_starts_reduced: starts_from_widths(&reduced_widths),
         }
     }
 
+    /// The sum-to-zero (centering) section as a first-class single-block
+    /// gauge. `z` is the `(k × (k−1))` reparametrisation matrix returned by
+    /// [`crate::terms::basis::duchon_thinplate::apply_sum_to_zero_constraint`]
+    /// (an orthonormal basis for `null(cᵀ)`, `c = Bᵀw` the weighted column
+    /// sums): the constrained design is `B_c = B · z`, so on the model
+    /// `η = B · β_raw = B_c · θ = B · z · θ` the raw coefficients lift back
+    /// from the reduced (centred) coefficients by exactly `β_raw = z · θ`.
+    ///
+    /// That is the one Gauge convention with `T = z` over a single block, so
+    /// the centring constraint stops being a special-cased outside-the-object
+    /// transform and becomes a `Gauge` section like every other reduction:
+    /// the covariance / penalised-Hessian of the centred fit pushes forward to
+    /// the raw basis through the SAME `z` via [`Gauge::lift_covariance`].
+    ///
+    /// `z` is taken as the section itself (rather than recomputed from a basis)
+    /// because the constraint matrix is the only gauge-relevant artifact — the
+    /// basis the column sums were taken over is irrelevant to the lift. The
+    /// only requirement is the structural one of a centring section:
+    /// `z.ncols() < z.nrows()` (at least one direction is removed); an identity
+    /// `z` would be `Gauge::identity` and is rejected so callers do not silently
+    /// treat an unconstrained block as centred.
+    pub fn sum_to_zero(z: Array2<f64>) -> Self {
+        let (k, r) = z.dim();
+        assert!(
+            k > 0 && r < k,
+            "Gauge::sum_to_zero: z must be a tall reparametrisation ({k}×{r}); \
+             a centring section removes at least one direction (r < k)",
+        );
+        Self::from_block_transforms(&[z])
+    }
+
     /// Wrap an already-assembled global `T` given the per-block raw and
     /// reduced width partitions.
     pub fn from_t(t_full: Array2<f64>, raw_widths: &[usize], reduced_widths: &[usize]) -> Self {
+        let total_raw: usize = raw_widths.iter().sum();
+        Self::from_t_with_shift(t_full, raw_widths, reduced_widths, Array1::zeros(total_raw))
+    }
+
+    /// Wrap an already-assembled global affine section `β = Tθ + a` given the
+    /// per-block raw and reduced width partitions.
+    pub fn from_t_with_shift(
+        t_full: Array2<f64>,
+        raw_widths: &[usize],
+        reduced_widths: &[usize],
+        affine_shift: Array1<f64>,
+    ) -> Self {
         assert_eq!(
             raw_widths.len(),
             reduced_widths.len(),
@@ -183,23 +257,30 @@ impl Gauge {
             "Gauge::from_t: T has shape {:?}, expected ({total_raw}, {total_reduced})",
             t_full.dim(),
         );
+        assert_eq!(
+            affine_shift.len(),
+            total_raw,
+            "Gauge::from_t_with_shift: affine shift len {} != raw width {total_raw}",
+            affine_shift.len(),
+        );
         Self {
             t_full,
+            affine_shift,
             block_starts_raw: starts_from_widths(raw_widths),
             block_starts_reduced: starts_from_widths(reduced_widths),
         }
     }
 
     /// Build from a [`CompiledMap`] emitted by
-    /// [`crate::families::identifiability_compiler::compile_from_raw_grams`]:
+    /// [`crate::identifiability::families::compiler::compile_from_raw_grams`]:
     /// `map.raw_from_compiled` IS the global triangular `T`, and the
     /// block ranges give both partitions. `ordering` is accepted purely
     /// as a length sanity check.
     ///
-    /// [`CompiledMap`]: crate::families::identifiability_compiler::CompiledMap
+    /// [`CompiledMap`]: crate::identifiability::families::compiler::CompiledMap
     pub fn from_compiled_map(
-        map: &crate::families::identifiability_compiler::CompiledMap,
-        ordering: &[crate::families::identifiability_compiler::BlockOrder],
+        map: &crate::identifiability::families::compiler::CompiledMap,
+        ordering: &[crate::identifiability::families::compiler::BlockOrder],
     ) -> Self {
         assert_eq!(
             map.raw_block_ranges.len(),
@@ -226,8 +307,10 @@ impl Gauge {
         for r in &map.compiled_block_ranges {
             block_starts_reduced.push(r.end);
         }
+        let total_raw = block_starts_raw.last().copied().unwrap_or(0);
         Self {
             t_full: map.raw_from_compiled.clone(),
+            affine_shift: Array1::zeros(total_raw),
             block_starts_raw,
             block_starts_reduced,
         }
@@ -281,6 +364,57 @@ impl Gauge {
             .to_owned()
     }
 
+    /// Compose a raw design with the section: `X_reduced = X_raw · T`.
+    pub fn restrict_design<S: Data<Elem = f64>>(
+        &self,
+        raw_design: &ArrayBase<S, Ix2>,
+    ) -> Array2<f64> {
+        let raw_total = self.raw_total();
+        assert_eq!(
+            raw_design.ncols(),
+            raw_total,
+            "Gauge::restrict_design: design has {} columns, expected raw width {raw_total}",
+            raw_design.ncols(),
+        );
+        fast_ab(raw_design, &self.t_full)
+    }
+
+    /// Compose a raw design and offset with the affine section:
+    /// `X_raw · (Tθ + a) + o_raw = (X_raw · T)θ + (o_raw + X_raw · a)`.
+    pub fn restrict_design_and_offset<S: Data<Elem = f64>>(
+        &self,
+        raw_design: &ArrayBase<S, Ix2>,
+        raw_offset: &Array1<f64>,
+    ) -> (Array2<f64>, Array1<f64>) {
+        assert_eq!(
+            raw_design.nrows(),
+            raw_offset.len(),
+            "Gauge::restrict_design_and_offset: design rows {} != offset len {}",
+            raw_design.nrows(),
+            raw_offset.len(),
+        );
+        let reduced_design = self.restrict_design(raw_design);
+        let reduced_offset = raw_offset + &raw_design.dot(&self.affine_shift);
+        (reduced_design, reduced_offset)
+    }
+
+    /// Pull a raw-coordinate quadratic form back to reduced coordinates:
+    /// `S_reduced = Tᵀ · S_raw · T`.
+    pub fn restrict_penalty<S: Data<Elem = f64>>(
+        &self,
+        raw_penalty: &ArrayBase<S, Ix2>,
+    ) -> Array2<f64> {
+        let raw_total = self.raw_total();
+        assert_eq!(
+            raw_penalty.dim(),
+            (raw_total, raw_total),
+            "Gauge::restrict_penalty: matrix has shape {:?}, expected ({raw_total}, {raw_total})",
+            raw_penalty.dim(),
+        );
+        let t_s = fast_atb(&self.t_full, raw_penalty);
+        fast_ab(&t_s, &self.t_full)
+    }
+
     /// Append blocks that were never reduced (raw == reduced, identity
     /// lift). Used to lift joint objects that span both gauged blocks
     /// and untouched ones (e.g. the survival flex blocks alongside the
@@ -301,15 +435,20 @@ impl Gauge {
             block_starts_raw.push(block_starts_raw.last().copied().unwrap() + w);
             block_starts_reduced.push(block_starts_reduced.last().copied().unwrap() + w);
         }
+        let mut affine_shift = Array1::<f64>::zeros(raw_total + extra_total);
+        affine_shift
+            .slice_mut(ndarray::s![0..raw_total])
+            .assign(&self.affine_shift);
         Self {
             t_full: t,
+            affine_shift,
             block_starts_raw,
             block_starts_reduced,
         }
     }
 
     /// Lift per-block reduced coefficients to per-block raw
-    /// coefficients: concatenate into θ, apply `β = T · θ`, split at
+    /// coefficients: concatenate into θ, apply `β = T · θ + a`, split at
     /// the raw partition.
     pub fn lift_block_betas(&self, reduced_block_betas: &[Array1<f64>]) -> Vec<Array1<f64>> {
         let n_blocks = self.n_blocks();
@@ -336,7 +475,7 @@ impl Gauge {
             let c1 = self.block_starts_reduced[b + 1];
             theta_full.slice_mut(ndarray::s![c0..c1]).assign(beta);
         }
-        let beta_full = self.t_full.dot(&theta_full);
+        let beta_full = self.t_full.dot(&theta_full) + &self.affine_shift;
         let mut out = Vec::with_capacity(n_blocks);
         for b in 0..n_blocks {
             let r0 = self.block_starts_raw[b];
@@ -409,6 +548,139 @@ mod tests {
     }
 
     #[test]
+    fn affine_gauge_lifts_betas_and_restricts_offsets() {
+        let t = Array2::from_shape_vec((3, 1), vec![2.0, -1.0, 0.5]).unwrap();
+        let shift = Array1::from(vec![0.25, 1.5, -0.75]);
+        let gauge = Gauge::from_block_transform_with_shift(t.clone(), shift.clone());
+        let theta = Array1::from(vec![4.0]);
+
+        let raw = gauge.lift_block_betas(&[theta.clone()]);
+        let expected_raw = t.dot(&theta) + &shift;
+        assert_eq!(raw[0], expected_raw);
+
+        let x = Array2::from_shape_vec((2, 3), vec![1.0, 0.0, 2.0, -1.0, 3.0, 0.5]).unwrap();
+        let offset = Array1::from(vec![0.1, -0.2]);
+        let (x_reduced, offset_reduced) = gauge.restrict_design_and_offset(&x, &offset);
+        assert_eq!(x_reduced, x.dot(&t));
+        assert_eq!(offset_reduced, &offset + &x.dot(&shift));
+
+        let eta_raw = x.dot(&expected_raw) + &offset;
+        let eta_reduced = x_reduced.dot(&theta) + &offset_reduced;
+        for i in 0..eta_raw.len() {
+            assert!((eta_raw[i] - eta_reduced[i]).abs() < 1e-14);
+        }
+
+        let cov_reduced = Array2::from_elem((1, 1), 3.0);
+        let lifted_cov = gauge.lift_covariance(&cov_reduced);
+        let expected_cov = t.dot(&cov_reduced).dot(&t.t());
+        assert_eq!(lifted_cov, expected_cov);
+    }
+
+    /// The covariance pushforward of an affine section `β = T·θ + a` must be
+    /// EXACTLY independent of the affine shift `a` — `Cov(T·θ + a) = T·Cov(θ)·Tᵀ`
+    /// for any constant `a`, because a deterministic offset adds no variance. The
+    /// b≡1 unit-log-t pin (#892) folds the warp into `a`; this is the property
+    /// that guarantees reporting the pinned coefficients carries the same
+    /// posterior uncertainty as the unpinned linear section. We assert it two
+    /// ways: (1) the analytic lift is bit-identical across a sweep of shift
+    /// magnitudes spanning the zero-shift linear case up to 1e7; and (2) an
+    /// empirical check — the sample covariance of `T·θ_k + a` over reduced draws
+    /// `θ_k` is unchanged when `a` is replaced by a 1e6-scale offset (the offset
+    /// cancels under centering).
+    #[test]
+    fn affine_shift_leaves_lifted_covariance_invariant() {
+        // A non-trivial 4-raw × 2-reduced section (so T mixes coordinates).
+        let t =
+            Array2::from_shape_vec((4, 2), vec![1.0, 0.0, 0.5, -1.0, 2.0, 0.3, -0.4, 1.5]).unwrap();
+        let raw_widths = [4usize];
+        let reduced_widths = [2usize];
+
+        // A non-diagonal reduced covariance.
+        let cov_reduced = Array2::from_shape_vec((2, 2), vec![2.0, -0.7, -0.7, 1.3]).unwrap();
+
+        // The reference lift is the zero-shift (purely linear) section.
+        let base =
+            Gauge::from_t_with_shift(t.clone(), &raw_widths, &reduced_widths, Array1::zeros(4));
+        let reference = base.lift_covariance(&cov_reduced);
+
+        // (1) Bit-identical across a wide sweep of shift magnitudes.
+        for &mag in &[0.0, 1e-7, 1.0, 1e3, 1e7] {
+            let shift = Array1::from(vec![mag, -mag, 0.5 * mag, -2.0 * mag]);
+            let gauge = Gauge::from_t_with_shift(t.clone(), &raw_widths, &reduced_widths, shift);
+            let lifted = gauge.lift_covariance(&cov_reduced);
+            for i in 0..4 {
+                for j in 0..4 {
+                    assert_eq!(
+                        lifted[[i, j]],
+                        reference[[i, j]],
+                        "affine shift magnitude {mag} must not perturb the lifted covariance \
+                         at ({i},{j}) — covariance is offset-invariant",
+                    );
+                }
+            }
+        }
+
+        // (2) Empirical check: draw reduced samples, push them through
+        // β = T·θ + a for two very different shifts, and confirm the sample
+        // covariance is the same for both shifts. Draws use a fixed Cholesky
+        // colouring of cov_reduced so the test is deterministic (no RNG).
+        let chol = {
+            let l00 = cov_reduced[[0, 0]].sqrt();
+            let l10 = cov_reduced[[1, 0]] / l00;
+            let l11 = (cov_reduced[[1, 1]] - l10 * l10).sqrt();
+            Array2::from_shape_vec((2, 2), vec![l00, 0.0, l10, l11]).unwrap()
+        };
+        let z_raw = [
+            [1.2, -0.4],
+            [-0.8, 0.9],
+            [0.3, 1.7],
+            [-1.5, -0.6],
+            [0.6, -1.1],
+            [-0.2, 0.3],
+            [1.9, 0.2],
+            [-1.4, -0.9],
+        ];
+        let sample_cov_for_shift = |shift: &Array1<f64>| -> Array2<f64> {
+            let n = z_raw.len();
+            let betas: Vec<Array1<f64>> = z_raw
+                .iter()
+                .map(|z| {
+                    let theta = chol.dot(&Array1::from(vec![z[0], z[1]]));
+                    t.dot(&theta) + shift
+                })
+                .collect();
+            let mut mean = Array1::<f64>::zeros(4);
+            for b in &betas {
+                mean = &mean + b;
+            }
+            mean /= n as f64;
+            let mut cov = Array2::<f64>::zeros((4, 4));
+            for b in &betas {
+                let c = b - &mean;
+                for i in 0..4 {
+                    for j in 0..4 {
+                        cov[[i, j]] += c[i] * c[j] / n as f64;
+                    }
+                }
+            }
+            cov
+        };
+        let cov_small = sample_cov_for_shift(&Array1::zeros(4));
+        let cov_big = sample_cov_for_shift(&Array1::from(vec![1e6, -1e6, 5e5, -2e6]));
+        for i in 0..4 {
+            for j in 0..4 {
+                assert!(
+                    (cov_small[[i, j]] - cov_big[[i, j]]).abs() < 1e-6,
+                    "empirical sample covariance must be offset-invariant at ({i},{j}): \
+                     small-shift {} vs big-shift {}",
+                    cov_small[[i, j]],
+                    cov_big[[i, j]],
+                );
+            }
+        }
+    }
+
+    #[test]
     fn block_diagonal_gauge_matches_per_block_lift() {
         // Block 0: selection keeping raw cols {0, 2} of width 3.
         let mut t0 = Array2::<f64>::zeros((3, 2));
@@ -452,8 +724,8 @@ mod tests {
         assert!((raw[1][1] - 0.0).abs() < 1e-14);
     }
 
-    /// The covariance lift must be the exact pushforward of the SAME
-    /// `T` the β lift applies: for a rank-1 `Σ_θ = θθᵀ`, the lifted
+    /// For a zero-shift gauge, covariance lift must be the exact pushforward of
+    /// the SAME `T` the β lift applies: for a rank-1 `Σ_θ = θθᵀ`, the lifted
     /// covariance must equal `(Tθ)(Tθ)ᵀ` built from the lifted β.
     #[test]
     fn covariance_lift_is_rank1_consistent_with_beta_lift() {
@@ -487,6 +759,104 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// `Gauge::sum_to_zero(z)` must lift exactly as `β_raw = z · θ`, and the
+    /// lift must preserve the linear predictor: for any centred design
+    /// `B_c = B · z` and any reduced coefficient `θ`, the raw prediction
+    /// `B · (z · θ)` equals the reduced prediction `B_c · θ`. This is the
+    /// invariant that makes `z` the correct section — a wrong gauge would
+    /// preserve coefficients but break η.
+    #[test]
+    fn sum_to_zero_gauge_lifts_via_z_and_preserves_eta() {
+        // A concrete orthonormal centring section: null space of c = [1,1,1]ᵀ
+        // (the unweighted sum-to-zero constraint on a width-3 block), built as
+        // two orthonormal columns each summing to zero.
+        let s = 1.0 / 2.0_f64.sqrt();
+        let s6 = 1.0 / 6.0_f64.sqrt();
+        let mut z = Array2::<f64>::zeros((3, 2));
+        z[[0, 0]] = s;
+        z[[1, 0]] = -s;
+        z[[2, 0]] = 0.0;
+        z[[0, 1]] = s6;
+        z[[1, 1]] = s6;
+        z[[2, 1]] = -2.0 * s6;
+        // The columns are orthonormal and sum to zero (cᵀz = 0).
+        for j in 0..2 {
+            assert!(
+                (z.column(j).sum()).abs() < 1e-14,
+                "column {j} must sum to 0"
+            );
+            assert!(
+                (z.column(j).dot(&z.column(j)) - 1.0).abs() < 1e-14,
+                "column {j} must be unit norm"
+            );
+        }
+
+        let gauge = Gauge::sum_to_zero(z.clone());
+        assert_eq!(gauge.n_blocks(), 1);
+        assert_eq!(gauge.raw_widths(), vec![3]);
+        assert_eq!(gauge.reduced_widths(), vec![2]);
+        assert_eq!(gauge.block_transform(0), z);
+
+        // Lift β_raw = z · θ exactly.
+        let theta = Array1::from(vec![1.3, -0.7]);
+        let raw = gauge.lift_block_betas(&[theta.clone()]);
+        let expected_raw = z.dot(&theta);
+        for i in 0..3 {
+            assert!((raw[0][i] - expected_raw[i]).abs() < 1e-14);
+        }
+        // Centring is satisfied: the raw coefficients sum to zero.
+        assert!(raw[0].sum().abs() < 1e-14, "lifted β must be centred");
+
+        // η preservation: B · (z · θ) == (B · z) · θ for an arbitrary B.
+        let b = Array2::from_shape_vec(
+            (4, 3),
+            vec![
+                1.0, 2.0, -1.0, 0.5, -0.5, 3.0, 2.0, 1.0, 1.0, -1.0, 0.0, 4.0,
+            ],
+        )
+        .unwrap();
+        let b_c = fast_ab(&b, &z); // the constrained design B_c
+        assert_eq!(gauge.restrict_design(&b), b_c);
+        let eta_reduced = b_c.dot(&theta);
+        let eta_raw = b.dot(&expected_raw);
+        for i in 0..4 {
+            assert!(
+                (eta_reduced[i] - eta_raw[i]).abs() < 1e-13,
+                "η must be invariant under the centring lift at row {i}",
+            );
+        }
+
+        // Covariance pushforward through the SAME z (rank-1 consistency).
+        let cov_rank1 = Array2::from_shape_fn((2, 2), |(i, j)| theta[i] * theta[j]);
+        let lifted = gauge.lift_covariance(&cov_rank1);
+        assert_eq!(lifted.dim(), (3, 3));
+        for i in 0..3 {
+            for j in 0..3 {
+                let expect = expected_raw[i] * expected_raw[j];
+                assert!(
+                    (lifted[[i, j]] - expect).abs() < 1e-13,
+                    "centring covariance lift must equal (zθ)(zθ)ᵀ at ({i},{j})",
+                );
+            }
+        }
+
+        let raw_penalty = Array2::from_shape_vec(
+            (3, 3),
+            vec![2.0, 0.5, 0.0, 0.5, 3.0, -0.25, 0.0, -0.25, 4.0],
+        )
+        .unwrap();
+        let reduced_penalty = gauge.restrict_penalty(&raw_penalty);
+        let expected_reduced_penalty = fast_ab(&fast_atb(&z, &raw_penalty), &z);
+        assert_eq!(reduced_penalty, expected_reduced_penalty);
+    }
+
+    #[test]
+    #[should_panic(expected = "removes at least one direction")]
+    fn sum_to_zero_rejects_identity_section() {
+        // A square z removes no direction — that is not a centring section.
+        let _ = Gauge::sum_to_zero(Array2::<f64>::eye(3));
     }
 
     #[test]

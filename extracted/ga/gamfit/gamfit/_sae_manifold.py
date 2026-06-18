@@ -30,6 +30,23 @@ _PUBLIC_ASSIGNMENT_KINDS: dict[str, str] = {
 }
 
 
+def _penalized_loss_score(payload: Mapping[str, Any]) -> float:
+    """Read the SAE fit's penalized-loss score honestly (#1231).
+
+    The Rust FFI surfaces the negative penalized loss under
+    ``penalized_loss_score`` (in-sample) / ``oos_penalized_loss`` (fixed-decoder
+    OOS), with the legacy misleading ``reml_score`` retained only as a
+    back-compat alias. Prefer the honest keys; fall back to the alias.
+    """
+    for key in ("penalized_loss_score", "oos_penalized_loss", "reml_score"):
+        if key in payload:
+            return float(payload[key])
+    raise KeyError(
+        "SAE fit payload is missing a penalized-loss score "
+        "(penalized_loss_score / oos_penalized_loss / reml_score)"
+    )
+
+
 def _e_benjamini_hochberg(log_e_values: list[float], alpha: float) -> list[int]:
     """e-BH confirmed set, mirroring `inference::structure_evidence::e_benjamini_hochberg`.
 
@@ -100,6 +117,71 @@ def _canonical_assignment(value: str, label: str) -> str:
             f"expected one of {sorted(set(_ASSIGNMENT_KINDS))}"
         )
     return canon
+
+
+def _coerce_atom_inference(raw: Any) -> list[dict[str, Any]] | None:
+    """Normalize the Rust ``atom_inference`` payload list (#1097 / #1103).
+
+    Each Rust entry is a per-atom dict carrying ``atom_index`` / ``atom_name``,
+    an optional ``functionals`` block, and an optional ``smooth_significance``
+    block whose ``log_e_nonconstant`` is the #1103 any-n-valid split-LRT e-value.
+    We pass the report through as plain Python containers (a shallow copy so the
+    accessor never aliases the raw FFI object), coercing the e-value to ``float``
+    when present. ``None`` for payloads predating the report.
+    """
+    if raw is None:
+        return None
+    reports: list[dict[str, Any]] = []
+    for entry in raw:
+        report = dict(entry)
+        sig = report.get("smooth_significance")
+        if sig is not None:
+            sig = dict(sig)
+            log_e = sig.get("log_e_nonconstant")
+            sig["log_e_nonconstant"] = None if log_e is None else float(log_e)
+            report["smooth_significance"] = sig
+        if report.get("functionals") is not None:
+            report["functionals"] = dict(report["functionals"])
+        reports.append(report)
+    return reports
+
+
+def _coerce_cotrain_report(raw: Any) -> dict[str, Any] | None:
+    """Normalize the Rust co-trained amortized-encoder report (#1154)."""
+    if raw is None:
+        return None
+    report = dict(raw)
+    required = (
+        "recon_consistency",
+        "uncertified_fraction",
+        "n_uncertified",
+        "n_encodes",
+    )
+    missing = [key for key in required if key not in report]
+    if missing:
+        raise ValueError(f"SAE cotrain report missing keys: {missing}")
+    recon = float(report["recon_consistency"])
+    uncert = float(report["uncertified_fraction"])
+    n_uncert = int(report["n_uncertified"])
+    n_encodes = int(report["n_encodes"])
+    if not np.isfinite(recon) or recon < 0.0:
+        raise ValueError(f"SAE cotrain recon_consistency must be finite >= 0, got {recon}")
+    if not np.isfinite(uncert) or uncert < 0.0 or uncert > 1.0:
+        raise ValueError(
+            "SAE cotrain uncertified_fraction must be finite in [0, 1], "
+            f"got {uncert}"
+        )
+    if n_uncert < 0 or n_encodes < 0 or n_uncert > n_encodes:
+        raise ValueError(
+            "SAE cotrain counts must satisfy 0 <= n_uncertified <= n_encodes; "
+            f"got {n_uncert} / {n_encodes}"
+        )
+    return {
+        "recon_consistency": recon,
+        "uncertified_fraction": uncert,
+        "n_uncertified": n_uncert,
+        "n_encodes": n_encodes,
+    }
 
 
 def _canonical_public_assignment(value: str) -> str:
@@ -291,9 +373,7 @@ def _functional_basis_params(plan: Mapping[str, Any]) -> dict[str, Any] | None:
         if n_harmonics <= 0:
             basis_size = int(plan.get("basis_size", 0))
             n_harmonics = (basis_size - 1) // 2
-        if n_harmonics <= 0:
-            return None
-        return {"n_harmonics": n_harmonics}
+        return {"n_harmonics": max(1, n_harmonics)}
     if kind in {"duchon", "euclidean", "euclidean_patch"}:
         centers = plan.get("duchon_centers")
         if centers is None:
@@ -302,6 +382,192 @@ def _functional_basis_params(plan: Mapping[str, Any]) -> dict[str, Any] | None:
     if kind == "sphere":
         return {}
     return None
+
+
+def activation_statistics(X: Any) -> dict[str, float]:
+    """Cheap, scale-free statistics of an activation matrix `X` (n, p) that key
+    the adaptive hyperparameter default (#977 measure→improve). All three are
+    properties of the centred spectrum, so they transfer across datasets rather
+    than overfitting one corpus:
+
+      * ``effective_rank`` — the spectral entropy rank
+        ``exp(-Σ pᵢ log pᵢ)`` with ``pᵢ = sᵢ² / Σ sⱼ²`` (participation ratio of
+        the singular spectrum). Low ⇒ the signal lives in few directions ⇒ a
+        low-dimensional / low intrinsic-rank atom suffices; high ⇒ richer.
+      * ``spectral_decay`` — ``s₀ / s_{k}`` at ``k = min(8, p-1)`` (how fast the
+        spectrum falls). Sharp decay ⇒ a clean low-harmonic ring; slow decay ⇒
+        the curve carries higher harmonics.
+      * ``snr`` — ``(Σ top-d² ) / (Σ tail²)`` with ``d = 2`` (signal vs residual
+        energy), a proxy for assignment sharpness ⇒ the gate temperature.
+    """
+    x = np.asarray(X, dtype=float)
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+    x = x - x.mean(axis=0, keepdims=True)
+    n, p = x.shape
+    if n < 2 or p < 1:
+        return {"effective_rank": 1.0, "spectral_decay": 1.0, "snr": 1.0}
+    s = np.linalg.svd(x, compute_uv=False)
+    s2 = s ** 2
+    total = float(s2.sum())
+    if total <= 0.0:
+        return {"effective_rank": 1.0, "spectral_decay": 1.0, "snr": 1.0}
+    probs = s2 / total
+    nz = probs[probs > 0]
+    eff_rank = float(np.exp(-np.sum(nz * np.log(nz))))
+    k = min(8, len(s) - 1)
+    decay = float(s[0] / max(s[k], 1e-12)) if k >= 1 else 1.0
+    d = min(2, len(s2))
+    tail = float(s2[d:].sum())
+    snr = float(s2[:d].sum() / tail) if tail > 1e-12 else float("inf")
+    return {"effective_rank": eff_rank, "spectral_decay": decay, "snr": snr}
+
+
+def recommend_sae_hyperparams(X: Any) -> dict[str, Any]:
+    """Activation-statistics-keyed adaptive default for the manifold-SAE
+    hyperparameters `(tau, n_harmonics, intrinsic_rank)` (#977 measure→improve).
+
+    Calibrated against the held-out-EV optimum the on-corpus hillclimb
+    (`tests/sae/olmo_research_battery.py`) finds on REAL OLMo L25 activations:
+    the OLMo-fixture statistics must map to the measured optimum (asserted in
+    `tests/test_sae_adaptive_defaults.py`). The mapping is monotone in the
+    spectrum statistics so it generalises off that single corpus instead of
+    hard-coding one dataset's argmax.
+
+    The map (intentionally simple, each axis keyed by one statistic):
+      * ``intrinsic_rank`` from ``effective_rank``: a higher participation ratio
+        of the spectrum buys an extra intrinsic dimension (1 ⇒ low, 2 ⇒ high).
+      * ``n_harmonics`` from ``spectral_decay``: sharp decay ⇒ a clean ring at
+        1 harmonic; slow decay ⇒ admit a 2nd/3rd harmonic.
+      * ``tau`` from ``snr``: high SNR ⇒ sharper gate (lower temperature).
+    """
+    stats = activation_statistics(X)
+    eff = stats["effective_rank"]
+    decay = stats["spectral_decay"]
+    snr = stats["snr"]
+
+    intrinsic_rank = 2 if eff >= 6.0 else 1
+    if decay >= 12.0:
+        n_harmonics = 1
+    elif decay >= 4.0:
+        n_harmonics = 2
+    else:
+        n_harmonics = 3
+    # Sharper assignment when the signal stands well clear of the residual.
+    if snr >= 8.0:
+        tau = 0.25
+    elif snr >= 2.0:
+        tau = 0.5
+    else:
+        tau = 0.7
+
+    return {
+        "tau": tau,
+        "n_harmonics": n_harmonics,
+        "intrinsic_rank": intrinsic_rank,
+        "statistics": stats,
+    }
+
+
+def ev_knee_k(
+    ev_by_k: Mapping[int, float] | list[tuple[int, float]],
+    *,
+    mode: str = "kneedle",
+    knee_slope_fraction: float = 0.10,
+    complexity_penalty: float = 0.05,
+    flat_span_tol: float = 1.0e-6,
+    return_details: bool = False,
+) -> int | dict[str, Any]:
+    """Auto-K from an explained-variance-vs-K frontier (#977/#1026).
+
+    This Python helper delegates to Rust ``gam::terms::sae::k_selection``, the
+    single source of truth for knee/MDL selection and the endpoint flags
+    (``knee``, ``no_knee``, ``linear``, ``flat``).
+    """
+    from gamfit._binding import rust_module
+
+    items = sorted(
+        (ev_by_k.items() if isinstance(ev_by_k, Mapping) else ev_by_k),
+        key=lambda kv: kv[0],
+    )
+    result = dict(
+        rust_module().sae_select_k(
+            [(int(k), float(v)) for k, v in items],
+            mode,
+            float(knee_slope_fraction),
+            float(complexity_penalty),
+            float(flat_span_tol),
+        )
+    )
+    result["k"] = int(result["k"])
+    result["ev"] = float(result["ev"])
+    result["score"] = float(result["score"])
+    return result if return_details else result["k"]
+
+
+def wager_verdict(
+    manifold_ev_by_k: Mapping[int, float],
+    linear_ev_by_k: Mapping[int, float],
+    *,
+    mode: str = "kneedle",
+    knee_slope_fraction: float = 0.10,
+    complexity_penalty: float = 0.05,
+    flat_span_tol: float = 1.0e-6,
+) -> dict[str, Any]:
+    """The #977 wager, adjudicated on a real manifold-vs-linear EV-vs-K frontier
+    (#1026): are curved manifold atoms parameter-efficient relative to a linear
+    SAE — do they reach a target EV at strictly lower K?
+
+    Returns a dict with:
+      * ``confirmed`` — True iff at some K the manifold EV meets-or-beats the
+        BEST linear EV achieved at any (>=) K (i.e. manifold ties the linear
+        ceiling at fewer atoms).
+      * ``manifold_k`` / ``linear_k`` — the parameter-efficiency statement
+        "manifold K=manifold_k EV >= linear K=linear_k EV".
+      * ``efficiency_ratio`` — linear_k / manifold_k (>1 ⇒ manifold wins).
+      * ``best_linear_ev`` — the linear ceiling used as the bar.
+
+    Honest both ways: if no manifold K reaches the linear ceiling, ``confirmed``
+    is False and the verdict reports the EV gap — the wager loses measurably,
+    which is itself a finding (structured minority is small; hybrid-with-linear-
+    tail is the end state).
+    """
+    from gamfit._binding import rust_module
+
+    manifold = sorted(manifold_ev_by_k.items(), key=lambda kv: kv[0])
+    linear = sorted(linear_ev_by_k.items(), key=lambda kv: kv[0])
+    result = dict(
+        rust_module().sae_auto_k_recommendation(
+            [(int(k), float(v)) for k, v in manifold],
+            [(int(k), float(v)) for k, v in linear],
+            mode,
+            float(knee_slope_fraction),
+            float(complexity_penalty),
+            float(flat_span_tol),
+        )
+    )
+    best_linear_ev = max(float(v) for _, v in linear)
+    best_manifold_ev = max(float(v) for _, v in manifold)
+    result.update(
+        {
+            "k": int(result["k"]),
+            "ev": float(result["ev"]),
+            "score": float(result["score"]),
+            "target_ev": float(result["target_ev"]),
+            "manifold_k": None if result["manifold_k"] is None else int(result["manifold_k"]),
+            "linear_k": None if result["linear_k"] is None else int(result["linear_k"]),
+            "efficiency_ratio": (
+                None
+                if result["efficiency_ratio"] is None
+                else float(result["efficiency_ratio"])
+            ),
+            "confirmed": bool(result["confirmed"]),
+            "best_linear_ev": best_linear_ev,
+            "best_manifold_ev": best_manifold_ev,
+            "ev_gap": max(0.0, best_linear_ev - best_manifold_ev),
+        }
+    )
+    return result
 
 
 def _weighted_row_mean(rows: np.ndarray, weights: np.ndarray | None) -> np.ndarray | None:
@@ -589,6 +855,8 @@ class ManifoldSAE:
     max_iter: int = 50
     random_state: int = 0
     top_k: int | None = None
+    top_k_projection: dict[str, Any] | None = None
+    pre_topk: dict[str, Any] | None = None
     jumprelu_threshold: float = 0.0
     solver_plan: dict[str, Any] | None = None
     # Gaussian reconstruction scale phi-hat that scales every per-atom decoder
@@ -630,6 +898,15 @@ class ManifoldSAE:
     # geometry summary. A curvature bound is not an estimand with a profiled
     # criterion, so no SE/CI/flatness fields are carried.
     curvature_report: dict[str, Any] | None = None
+    # Per-atom smooth-functional inference (#1097 / #1103): one entry per fitted
+    # atom, ``{"atom_index": int, "atom_name": str, "functionals": {...} | None,
+    # "smooth_significance": {"log_e_nonconstant": float | None} | None}``. The
+    # #1103 ``smooth_significance.log_e_nonconstant`` is the any-n-valid split-LRT
+    # e-value for "the atom's inner decoder smooth is non-constant" (null =
+    # constant), with ``E_{H0}[E] <= 1`` — a large positive ``log_e_nonconstant``
+    # is honest evidence the atom carries structure. Surfaced via
+    # :meth:`atom_inference`. ``None`` only for payloads predating the report.
+    atom_inference_reports: list[dict[str, Any]] | None = None
     # The unified certificate ledger (#16): ONE coherent block consolidating every
     # certificate this fit produced under a shared claim+evidence+verdict shape.
     # ``{"overall": str, "overall_certified": bool, "claims": {claim_id: {"claim":
@@ -647,6 +924,10 @@ class ManifoldSAE:
     # Surfaced via :meth:`structure_certificate`. ``None`` only for payloads
     # predating the certificate.
     structure_certificate_json: str | None = None
+    # Co-trained amortized-encoder diagnostics (#1154), emitted by the Rust
+    # fit payload when the Design-A REML + encoder-consistency fold is active.
+    # Keys: recon_consistency, uncertified_fraction, n_uncertified, n_encodes.
+    cotrain: dict[str, Any] | None = None
     # WP-D output-Fisher shard the fit installed (#980), retained so a follow-up
     # :meth:`steer` call can re-install ``RowMetric::OutputFisher`` and report the
     # path-integrated KL dose. The ``(n, p, r)`` factor stack ``U`` exactly as
@@ -661,6 +942,37 @@ class ManifoldSAE:
     # follow-up :meth:`steer` re-installs the matching ``RowMetric`` so the dose
     # is measured in the same geometry the fit's gauge used.
     fisher_provenance: str = "output_fisher"
+    # Per-atom curved-vs-linear hybrid-split report (#1202/#1204), the structured
+    # EV-vs-Θ frontier the FFI emits under the payload ``hybrid_split`` key. Keys:
+    # ``curved_atom_count``, ``linear_atom_count``, ``total_negative_log_evidence``,
+    # ``total_parameters``, ``is_pure_linear``, ``is_pure_curved``, and ``atoms``
+    # (one entry per eligible d=1 atom, each ``{"atom": str, "kept_curved": bool,
+    # "parameterization": str, "negative_log_evidence": float, "num_parameters":
+    # int, "curved_evidence_margin": float, "fitted_turning": float | None,
+    # "train_loao_delta_ev": float | None}``). NOTE (#1226): ``train_loao_delta_ev``
+    # is the per-atom IN-SAMPLE leave-one-atom-out ΔEV (computed on the training
+    # matrix during the fit), NOT a held-out generalization number; the legacy
+    # ``held_out_delta_ev`` key carries the SAME in-sample value and is retained
+    # only as a deprecated alias. This is a common-data curved-vs-linear evidence
+    # comparison (#1202): both candidates fit the atom's response residual, with
+    # the line as the curved family's Θ=0 sub-model. Previously the FFI
+    # emitted this block but the public class dropped it, forcing callers to
+    # monkey-patch ``from_payload`` (see examples/structural_truth_ledger.py);
+    # surfaced here so the (Θ, ΔEV) frontier is queryable per atom off the normal
+    # object. ``None`` when no eligible d=1 atom existed (nothing to adjudicate) or
+    # for payloads predating the report.
+    hybrid_split: dict[str, Any] | None = None
+
+    @property
+    def chosen_k(self) -> int:
+        """The number of atoms the structure search settled on (#1205).
+
+        Convenience forwarder to ``self.low_level.chosen_k`` so callers can read
+        the discovered K directly off the high-level model. ``slots=True`` blocks
+        a same-named instance attribute, but a class-level property is fine and
+        always equals ``len(self.atoms)`` for a resolved fit.
+        """
+        return int(self.low_level.chosen_k)
 
     def __repr__(self) -> str:
         d_atom = int(self.coords[0].shape[1]) if self.coords else 0
@@ -725,11 +1037,17 @@ class ManifoldSAE:
             order = np.argsort(coords[:, 0], kind="mergesort")
             coords = np.ascontiguousarray(coords[order])
             decoder = np.asarray(atom["decoder_B"], dtype=float)
+            # #1132 bug 1: a periodic atom is intrinsically at least one harmonic
+            # (basis width 2H+1 with H>=1). A plan field that collapsed to 0 (a
+            # degenerate constant-only width recovered from a born/fissioned atom
+            # at K>=4) must be floored to the harmonic count implied by the
+            # trained decoder width `M = 2H+1`, mirroring `_functional_basis_params`
+            # — never raised. Otherwise the curved (n_harmonics=0) EV-vs-K curve at
+            # K>=4 dies here instead of reconstructing the shape band.
             n_harmonics = int(plan["n_harmonics"])
             if n_harmonics <= 0:
-                raise ValueError(
-                    f"periodic atom requires positive n_harmonics; got {n_harmonics}"
-                )
+                n_harmonics = (int(decoder.shape[0]) - 1) // 2
+            n_harmonics = max(1, n_harmonics)
             phi, _jet, _penalty = rust_module().basis_with_jet(
                 "periodic",
                 coords,
@@ -737,21 +1055,25 @@ class ManifoldSAE:
             )
             phi = np.asarray(phi, dtype=float)
             if phi.shape[1] != decoder.shape[0]:
-                raise ValueError(
-                    "periodic shape band basis width does not match decoder: "
-                    f"Phi has {phi.shape[1]} columns, decoder has {decoder.shape[0]} rows"
-                )
+                # The posterior shape band is an OPTIONAL diagnostic, not part of
+                # reconstruction (which uses `decoder_blocks` via predict_oos). A
+                # periodic atom whose decoder collapsed to a non-`2H+1` width
+                # (e.g. the hybrid-split linear collapse replacing the curved
+                # decoder with a 1-row straight image, or a degenerate
+                # born/fissioned atom) cannot present a periodic shape band — but
+                # that must NOT abort the whole fit. Skip the band gracefully.
+                return None, None, None
             mean = phi @ decoder
             sd = _opt_arr(atom, "shape_band_sd")
             cov = _opt_arr(atom, "decoder_covariance")
+            p = int(decoder.shape[1])
+            m = int(decoder.shape[0])
+            if cov is not None and cov.shape != (m * p, m * p):
+                # A collapsed/degenerate periodic atom can carry a covariance
+                # sized for its pre-collapse (linear) decoder. The posterior sd
+                # band is optional; drop it rather than abort the whole fit.
+                cov = None
             if cov is not None:
-                p = int(decoder.shape[1])
-                m = int(decoder.shape[0])
-                if cov.shape != (m * p, m * p):
-                    raise ValueError(
-                        "periodic decoder_covariance shape mismatch: "
-                        f"expected {(m * p, m * p)}, got {cov.shape}"
-                    )
                 sd = np.zeros((coords.shape[0], p), dtype=float)
                 for channel in range(p):
                     idx = np.arange(channel, m * p, p)
@@ -786,7 +1108,7 @@ class ManifoldSAE:
                 decoder_coefficients=np.asarray(atom["decoder_B"], dtype=float),
                 assignments=np.asarray(atom["assignments_z"], dtype=float),
                 coords=np.asarray(atom["on_atom_coords_t"], dtype=float),
-                evidence=float(payload["reml_score"]),
+                evidence=_penalized_loss_score(payload),
                 active_dim=int(atom["active_dim"]),
                 decoder_covariance=_opt_arr(atom, "decoder_covariance"),
                 shape_band_coords=shape_band_coords,
@@ -799,7 +1121,7 @@ class ManifoldSAE:
         logits = np.asarray(payload["logits"], dtype=float)
         diagnostics = coerce_sae_trust_diagnostics(payload)
         coords = [atom.coords.copy() for atom in atoms]
-        score = float(payload["reml_score"])
+        score = _penalized_loss_score(payload)
         chosen_k = int(payload["chosen_k"])
         low = SaeManifoldFitResult(atoms, chosen_k, {chosen_k: score}, {"winner": f"K={chosen_k}"}, fitted, assigns, coords, score)
         kinds = [str(p["kind"]) for p in plans]
@@ -823,6 +1145,8 @@ class ManifoldSAE:
         # for an empty dictionary.
         atom_topologies = _topologies_for_bases(kinds)
         scalar_topology = _topology_for_bases(kinds) if kinds else str(topology)
+        atom_inference_reports = _coerce_atom_inference(payload.get("atom_inference"))
+        cotrain = _coerce_cotrain_report(payload.get("cotrain"))
         return cls(
             atoms=atoms, atom_topology=scalar_topology,
             atom_topologies=atom_topologies,
@@ -844,6 +1168,16 @@ class ManifoldSAE:
             smoothness=float(smoothness), learning_rate=float(learning_rate),
             max_iter=int(max_iter), random_state=int(random_state),
             top_k=None if top_k is None else int(top_k),
+            top_k_projection=(
+                None
+                if payload.get("top_k_projection") is None
+                else dict(payload["top_k_projection"])
+            ),
+            pre_topk=(
+                None
+                if payload.get("pre_topk") is None
+                else dict(payload["pre_topk"])
+            ),
             jumprelu_threshold=float(jumprelu_threshold),
             solver_plan=None if payload.get("solver_plan") is None else dict(payload["solver_plan"]),
             dispersion=float(payload["dispersion"]),
@@ -880,6 +1214,7 @@ class ManifoldSAE:
                 if payload.get("curvature_report") is None
                 else dict(payload["curvature_report"])
             ),
+            atom_inference_reports=atom_inference_reports,
             certificates=(
                 None
                 if payload.get("certificates") is None
@@ -889,6 +1224,16 @@ class ManifoldSAE:
                 None
                 if payload.get("structure_certificate") is None
                 else str(payload["structure_certificate"])
+            ),
+            cotrain=cotrain,
+            # #1204: the per-atom curved-vs-linear hybrid-split frontier the FFI
+            # emits under ``hybrid_split``. Read it through verbatim so callers can
+            # query the (Θ, ΔEV) frontier off the public object rather than
+            # monkey-patching this method. ``None`` when the FFI emitted no report.
+            hybrid_split=(
+                None
+                if payload.get("hybrid_split") is None
+                else dict(payload["hybrid_split"])
             ),
         )
 
@@ -958,6 +1303,33 @@ class ManifoldSAE:
             "n_confirmed": len(confirmed_idx),
             "claims": claims,
         }
+
+    def atom_inference(self) -> list[dict[str, Any]]:
+        """Per-atom smooth-functional inference reports (#1097 / #1103).
+
+        One entry per fitted atom, in atom order, each
+        ``{"atom_index": int, "atom_name": str, "functionals": {...} | None,
+        "smooth_significance": {"log_e_nonconstant": float | None} | None}``.
+
+        The #1103 ``smooth_significance.log_e_nonconstant`` is the any-n-valid
+        split-likelihood-ratio e-value for "the atom's inner decoder smooth is
+        non-constant" (null = constant), the same universal-inference instrument
+        the atom-birth gate uses. With ``E_{H0}[E] <= 1`` it is finite-sample
+        honest at the ``df ≈ n`` regime: a large positive ``log_e_nonconstant``
+        is real evidence the atom carries smooth structure, ``<= 0`` does not
+        favor non-constancy. An atom whose inner-decoder smooth was not harvested
+        (no active rows / non-SPD inner Hessian / constant-only design) reports
+        ``None`` fields rather than a fabricated value.
+
+        Returns
+        -------
+        list of dict
+            One report per atom. Empty list only for payloads predating the
+            report (#1097 / #1103).
+        """
+        if self.atom_inference_reports is None:
+            return []
+        return [dict(report) for report in self.atom_inference_reports]
 
     def contested_claims(self, *, alpha: float | None = None) -> list[dict[str, Any]]:
         """The structure claims the held-out data did NOT confirm (#1058).
@@ -1374,18 +1746,67 @@ class ManifoldSAE:
             [np.ascontiguousarray(b) for b in self.decoder_blocks],
             [None if c is None else np.ascontiguousarray(c) for c in self._duchon_centers],
             [(int(h) if k in {"periodic", "torus"} else None) for k, h in zip(self._basis_kinds, self._n_harmonics)],
+            [int(s) for s in self._basis_sizes],
             alpha=float(self.alpha), tau=float(self.tau), assignment_kind=str(kind),
             sparsity_strength=float(self.sparsity_strength), smoothness=float(self.smoothness),
             max_iter=int(self.max_iter), learning_rate=float(self.learning_rate),
             initial_logits=logits_init, initial_coords=coords_init,
             top_k=self.top_k,
             jumprelu_threshold=float(self.jumprelu_threshold),
+            # #1228 — thread the trained dictionary's hybrid-collapsed straight
+            # sub-models so the held-out reconstruction decodes verdict-linear
+            # d=1 slots by the SAME linear image the training reconstruction used.
+            hybrid_linear_images=self._hybrid_linear_images_for_oos(),
         )
         return dict(payload)
 
+    def _hybrid_linear_images_for_oos(
+        self,
+    ) -> "list[tuple[int, float, np.ndarray, np.ndarray]] | None":
+        """Extract the per-slot collapsed straight sub-models from the stored
+        ``hybrid_split`` report as ``(atom_idx, t_bar, b0, b1)`` tuples for the
+        OOS reconstruction (#1228). ``None`` when no report is attached or no
+        slot collapsed to linear (an all-curved OOS reconstruction)."""
+        hs = self.hybrid_split
+        if not hs:
+            return None
+        atoms = hs.get("atoms") if isinstance(hs, Mapping) else None
+        if not atoms:
+            return None
+        images: "list[tuple[int, float, np.ndarray, np.ndarray]]" = []
+        for entry in atoms:
+            li = entry.get("linear_image") if isinstance(entry, Mapping) else None
+            if not li:
+                continue
+            images.append((
+                int(li["atom_idx"]),
+                float(li["t_bar"]),
+                np.ascontiguousarray(np.asarray(li["b0"], dtype=float)),
+                np.ascontiguousarray(np.asarray(li["b1"], dtype=float)),
+            ))
+        return images or None
+
+    def _is_training_data(self, x: np.ndarray) -> bool:
+        """True only for an input that is bit-exactly the training matrix.
+
+        Reconstruction / encoding is a function of the EXACT input, so the
+        cached-training shortcut must require exact equality — a near-duplicate
+        input must take the OOS solve path. Identity is the fast path; otherwise
+        compare shape, dtype, and every byte via :func:`np.array_equal`. Never
+        use tolerance equality (``np.allclose``) for model semantics.
+        """
+        td = self.training_data
+        if x is td:
+            return True
+        return (
+            x.shape == td.shape
+            and x.dtype == td.dtype
+            and np.array_equal(x, td)
+        )
+
     def reconstruct(self, X: Any, *, t_init: Any = None, a_init: Any = None) -> np.ndarray:
         x = _as_2d_float(X, "X")
-        if t_init is None and a_init is None and x.shape == self.training_data.shape and np.allclose(x, self.training_data):
+        if t_init is None and a_init is None and self._is_training_data(x):
             return self.fitted.copy()
         payload = self._oos_payload(x, t_init=t_init, a_init=a_init)
         return np.asarray(payload["fitted"], dtype=float)
@@ -1431,7 +1852,7 @@ class ManifoldSAE:
             if return_stats:
                 return encoded, stats.to_dict()
             return encoded
-        if t_init is None and a_init is None and x.shape == self.training_data.shape and np.allclose(x, self.training_data):
+        if t_init is None and a_init is None and self._is_training_data(x):
             encoded = self.assignments.copy()
             if return_stats:
                 return encoded, {
@@ -1467,7 +1888,7 @@ class ManifoldSAE:
         x = None if X is None else _as_2d_float(X, "X")
         use_training = (
             t_init is None and a_init is None
-            and (x is None or (x.shape == self.training_data.shape and np.allclose(x, self.training_data)))
+            and (x is None or self._is_training_data(x))
         )
         if use_training:
             return {
@@ -1495,7 +1916,7 @@ class ManifoldSAE:
         if k < 0 or k >= len(self.atoms):
             raise IndexError(f"atom_k={atom_k} out of range for K={len(self.atoms)} atoms")
         x = _as_2d_float(X, "X")
-        if x.shape == self.training_data.shape and np.allclose(x, self.training_data):
+        if self._is_training_data(x):
             return self.coords[k].copy()
         payload = self._oos_payload(x)
         return np.asarray(payload["atoms"][k]["on_atom_coords_t"], dtype=float)
@@ -1568,6 +1989,7 @@ class ManifoldSAE:
                 (int(h) if bk in {"periodic", "torus"} else None)
                 for bk, h in zip(self._basis_kinds, self._n_harmonics)
             ],
+            [int(s) for s in self._basis_sizes],
             [np.ascontiguousarray(c) for c in self.coords],
             np.ascontiguousarray(np.asarray(self.low_level_logits, dtype=np.float64)),
             str(kind),
@@ -1589,7 +2011,7 @@ class ManifoldSAE:
         is run on ``X`` and its converged assignments are thresholded."""
         x = _as_2d_float(X, "X")
         cut = 0.5 if threshold is None else float(threshold)
-        if x.shape == self.training_data.shape and np.allclose(x, self.training_data):
+        if self._is_training_data(x):
             return self.assignments >= cut
         payload = self._oos_payload(x)
         return np.asarray(payload["assignments_z"], dtype=float) >= cut
@@ -1601,7 +2023,7 @@ class ManifoldSAE:
         returned; otherwise the frozen-decoder OOS solve is run on ``X`` and its
         converged per-atom coordinates are returned."""
         x = _as_2d_float(X, "X")
-        if x.shape == self.training_data.shape and np.allclose(x, self.training_data):
+        if self._is_training_data(x):
             return [c.copy() for c in self.coords]
         payload = self._oos_payload(x)
         return [np.asarray(atom["on_atom_coords_t"], dtype=float) for atom in payload["atoms"]]
@@ -1650,6 +2072,7 @@ class ManifoldSAE:
             "avg_active_atoms": float(avg_active), "mean_assignment_mass": float(mean_mass),
             "active_dims": [a.active_dim for a in self.atoms],
             "atom_functionals": [_json_ready(a.functional_evidence) for a in self.atoms],
+            "cotrain": None if self.cotrain is None else dict(self.cotrain),
             "primitives": list(self.primitive_names),
         }
 
@@ -1687,6 +2110,10 @@ class ManifoldSAE:
             "max_iter": int(self.max_iter),
             "random_state": int(self.random_state),
             "top_k": self.top_k,
+            "top_k_projection": (
+                None if self.top_k_projection is None else _jsonable(self.top_k_projection)
+            ),
+            "pre_topk": None if self.pre_topk is None else _jsonable(self.pre_topk),
             "jumprelu_threshold": float(self.jumprelu_threshold),
             "oos_projection_top1": bool(self._oos_projection_top1),
             "dispersion": float(self.dispersion),
@@ -1735,10 +2162,17 @@ class ManifoldSAE:
             "curvature_report": (
                 None if self.curvature_report is None else _jsonable(self.curvature_report)
             ),
+            "atom_inference": (
+                None
+                if self.atom_inference_reports is None
+                else _jsonable(self.atom_inference_reports)
+            ),
             "certificates": (
                 None if self.certificates is None else _jsonable(self.certificates)
             ),
             "structure_certificate": self.structure_certificate_json,
+            "cotrain": None if self.cotrain is None else _jsonable(self.cotrain),
+            "hybrid_split": None if self.hybrid_split is None else _jsonable(self.hybrid_split),
         }
 
     def save(self, path: str | Path) -> None:
@@ -1823,6 +2257,16 @@ class ManifoldSAE:
             max_iter=int(payload["max_iter"]),
             random_state=int(payload["random_state"]),
             top_k=None if payload["top_k"] is None else int(payload["top_k"]),
+            top_k_projection=(
+                None
+                if payload.get("top_k_projection") is None
+                else dict(payload["top_k_projection"])
+            ),
+            pre_topk=(
+                None
+                if payload.get("pre_topk") is None
+                else dict(payload["pre_topk"])
+            ),
             jumprelu_threshold=float(payload["jumprelu_threshold"]),
             solver_plan=None if payload.get("solver_plan") is None else dict(payload["solver_plan"]),
             _oos_projection_top1=bool(payload["oos_projection_top1"]),
@@ -1843,10 +2287,18 @@ class ManifoldSAE:
                 if payload.get("curvature_report") is None
                 else dict(payload["curvature_report"])
             ),
+            atom_inference_reports=_coerce_atom_inference(payload.get("atom_inference")),
             structure_certificate_json=(
                 None
                 if payload.get("structure_certificate") is None
                 else str(payload["structure_certificate"])
+            ),
+            cotrain=_coerce_cotrain_report(payload.get("cotrain")),
+            # #1204: round-trip the hybrid-split frontier through save/load.
+            hybrid_split=(
+                None
+                if payload.get("hybrid_split") is None
+                else dict(payload["hybrid_split"])
             ),
         )
 
@@ -1903,6 +2355,13 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         Shared topology label used when ``atom_basis`` is not supplied. Common
         values are ``"circle"``, ``"periodic"``, ``"sphere"``, ``"torus"``,
         and ``"euclidean"``. If omitted, the default is ``"circle"``.
+
+        NOTE (#1201): ``"euclidean"`` is a degree-2 QUADRATIC monomial patch
+        (``{1, t, t²}`` at ``d_atom=1``), NOT a single straight decoder direction
+        ``γ(t)=t·b``. Do not treat ``atom_topology="euclidean"`` as the "linear"
+        SAE baseline — a curved-vs-``"euclidean"`` comparison is curved-vs-
+        quadratic. The genuinely linear per-atom secant is the hybrid-split LINEAR
+        candidate (see :attr:`ManifoldSAE.hybrid_split`).
     assignment
         Assignment/gating family. ``"ibp_map"`` uses the IBP-MAP gate path,
         ``"softmax"`` uses soft mixture masses, and ``"jumprelu"`` uses the
@@ -2703,9 +3162,7 @@ def _trust_scores(model: ManifoldSAE, activations: np.ndarray | None = None) -> 
     n_rows = int(x.shape[0])
     atom_trust = atom_trust_scores(model.diagnostics)
     n_atoms = int(atom_trust.shape[0])
-    if activations is None or (
-        x.shape == model.training_data.shape and np.allclose(x, model.training_data)
-    ):
+    if activations is None or model._is_training_data(x):
         assignments = np.asarray(model.assignments, dtype=float)
     else:
         assignments = np.asarray(model.encode(x), dtype=float)

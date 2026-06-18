@@ -1,7 +1,7 @@
 from typing import Any
 from xml.dom import minidom
 
-import httpx
+import httpx2
 
 from ..habanero_utils import make_ua
 
@@ -31,8 +31,8 @@ def citation_count(
         counts.citation_count(doi = "10.1016/j.fbr.2012")
     """
     args = {"id": "doi:" + doi, "pid": key, "noredirect": True}
-    new_args: dict[str, Any] = dict((k, v) for k, v in args.items() if v)
-    res = httpx.get(url, params=new_args, headers=make_ua(), **kwargs)
+    new_args: dict[str, Any] = {k: v for k, v in args.items() if v}
+    res = httpx2.get(url, params=new_args, headers=make_ua(), **kwargs)
     xmldoc = minidom.parseString(res.content)
     val = xmldoc.getElementsByTagName("query")[0].attributes["fl_count"].value
     return int(str(val))

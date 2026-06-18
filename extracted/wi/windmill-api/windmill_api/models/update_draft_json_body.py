@@ -21,12 +21,16 @@ class UpdateDraftJsonBody:
         force (Union[Unset, bool]): Skip the conflict check and overwrite the server copy.
         legacy (Union[Unset, bool]): Delete-only. Target the legacy workspace-level row (email NULL) instead of the
             current user's row. Used to discard a legacy draft from the review page.
+        created_at (Union[Unset, datetime.datetime]): Upsert-only override for the stored creation timestamp. Normal
+            saves omit it (stamped server-side); the localStorage→DB migration passes the draft's original write time so
+            migrated drafts keep their age.
     """
 
     value: Union[Unset, Any] = UNSET
     last_sync: Union[Unset, datetime.datetime] = UNSET
     force: Union[Unset, bool] = UNSET
     legacy: Union[Unset, bool] = UNSET
+    created_at: Union[Unset, datetime.datetime] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -37,6 +41,9 @@ class UpdateDraftJsonBody:
 
         force = self.force
         legacy = self.legacy
+        created_at: Union[Unset, str] = UNSET
+        if not isinstance(self.created_at, Unset):
+            created_at = self.created_at.isoformat()
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -49,6 +56,8 @@ class UpdateDraftJsonBody:
             field_dict["force"] = force
         if legacy is not UNSET:
             field_dict["legacy"] = legacy
+        if created_at is not UNSET:
+            field_dict["created_at"] = created_at
 
         return field_dict
 
@@ -68,11 +77,19 @@ class UpdateDraftJsonBody:
 
         legacy = d.pop("legacy", UNSET)
 
+        _created_at = d.pop("created_at", UNSET)
+        created_at: Union[Unset, datetime.datetime]
+        if isinstance(_created_at, Unset):
+            created_at = UNSET
+        else:
+            created_at = isoparse(_created_at)
+
         update_draft_json_body = cls(
             value=value,
             last_sync=last_sync,
             force=force,
             legacy=legacy,
+            created_at=created_at,
         )
 
         update_draft_json_body.additional_properties = d

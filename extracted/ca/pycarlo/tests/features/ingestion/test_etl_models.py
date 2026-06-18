@@ -476,6 +476,39 @@ class TestEtlRunEvent(TestCase):
             "event_time": "2026-05-15T10:00:00Z",
         }
 
+    def test_to_dict_omits_none_group(self):
+        e = EtlRunEvent(
+            job_source_id="j",
+            run_source_id="r",
+            status="in_progress",
+            event_time="2026-05-15T10:00:00Z",
+        )
+        assert "group" not in e.to_dict()
+
+    def test_to_dict_emits_nested_group_source_id(self):
+        # saas-serverless reads wire_event["group"]["source_id"] and mints the
+        # internal group_global_id itself — the wire must carry the SOURCE id.
+        e = EtlRunEvent(
+            job_source_id="j",
+            run_source_id="r",
+            status="in_progress",
+            event_time="2026-05-15T10:00:00Z",
+            group=EtlGroup(source_id="dag1"),
+        )
+        assert e.to_dict()["group"] == {"source_id": "dag1"}
+
+    def test_round_trip_with_group(self):
+        e = EtlRunEvent(
+            job_source_id="j",
+            run_source_id="r",
+            status="success",
+            event_time="2026-05-15T10:00:00Z",
+            group=EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG"),
+        )
+        restored = EtlRunEvent.from_dict(e.to_dict())
+        assert restored == e
+        assert restored.group == EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG")
+
     def test_to_dict_full(self):
         e = EtlRunEvent(
             job_source_id="j",
@@ -483,6 +516,7 @@ class TestEtlRunEvent(TestCase):
             status="success",
             event_time="2026-05-15T10:00:00Z",
             job_run_id="jr-1",
+            group=EtlGroup(source_id="dag1", name="Daily DAG", group_type="DAG"),
             task_source_id="t1",
             start_time="2026-05-15T09:55:00Z",
             end_time="2026-05-15T10:00:00Z",
@@ -502,6 +536,7 @@ class TestEtlRunEvent(TestCase):
         )
         result: dict[str, Any] = e.to_dict()
         assert result["job_run_id"] == "jr-1"
+        assert result["group"] == {"source_id": "dag1", "name": "Daily DAG", "group_type": "DAG"}
         assert result["task_source_id"] == "t1"
         assert result["start_time"] == "2026-05-15T09:55:00Z"
         assert result["end_time"] == "2026-05-15T10:00:00Z"

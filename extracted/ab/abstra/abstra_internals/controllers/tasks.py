@@ -212,30 +212,6 @@ class TasksController:
                 - 'completed': Mark task as completed without execution
                 - 'pending': Reset task to pending status for re-execution
 
-        Raises:
-            TaskInvalidStatus: If an invalid status value is provided.
-
-        Example:
-            ```python
-            controller = TasksController(repositories)
-
-            # Mark a task as completed (skip execution)
-            try:
-                controller.update_task_status("task-123", "completed")
-                print("Task marked as completed")
-            except Exception as e:
-                print(f"Failed to update task: {e}")
-
-            # Reset a task to pending status
-            controller.update_task_status("task-456", "pending")
-            print("Task reset to pending - will be re-executed")
-
-            # Invalid status will raise an exception
-            try:
-                controller.update_task_status("task-789", "invalid_status")
-            except TaskInvalidStatus as e:
-                print(f"Invalid status: {e}")
-            ```
 
         Note:
             - Completed tasks will not trigger stage execution
@@ -289,32 +265,6 @@ class TasksController:
                 this task. Used for workflow tracking and debugging.
             execution_id (Optional[str], optional): ID of the execution context that
                 is creating this task. Used for tracking task relationships.
-
-        Returns:
-            TaskDTO: The created task object containing all task metadata including
-                assigned ID, creation timestamp, and status.
-
-        Example:
-            ```python
-            controller = TasksController(repositories)
-
-            # Create a simple task directly to a stage
-            task = controller.create_task(
-                name="user_signup",
-                stage_id="welcome-form",
-                payload={"user_email": "user@example.com", "signup_date": "2024-01-15"}
-            )
-            print(f"Created task {task.id} with status {task.status}")
-
-            # Create task with source tracking
-            task_with_source = controller.create_task(
-                name="process_order",
-                stage_id="order-processor",
-                payload={"order_id": 12345, "items": ["item1", "item2"]},
-                source_stage_id="order-form",
-                execution_id="exec-789"
-            )
-            ```
 
         Note:
             - Tasks are created in 'pending' status and will be picked up for execution
@@ -378,11 +328,6 @@ class TasksController:
             end_date: Optional ISO date string for latest creation date.
             limit: Page size when paginated. Defaults to 10.
             offset: Pagination offset. Defaults to 0.
-
-        Returns:
-            dict: {'tasks': list of ListTasksItem, 'total': int}. For the
-                'sent_to' / 'sent_by' modes `total` equals the length of the
-                returned list (no pagination is applied).
 
         Copywritings:
             List tasks

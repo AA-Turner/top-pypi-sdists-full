@@ -1,4 +1,4 @@
-//! Joint `(t, β)` inner Newton driver for [`crate::terms::latent_coord::LatentCoordValues`]
+//! Joint `(t, β)` inner Newton driver for [`crate::terms::latent::LatentCoordValues`]
 //! blocks.
 //!
 //! The arrow-Schur inner step is `O(N d³ + K³)`; the REML outer
@@ -9,7 +9,7 @@
 //!
 //! This module wires together:
 //!
-//! * [`crate::terms::latent_coord::LatentCoordValues`] — the per-row
+//! * [`crate::terms::latent::LatentCoordValues`] — the per-row
 //!   latent field;
 //! * [`crate::solver::arrow_schur::ArrowSchurSystem`] — the bordered
 //!   `(t, β)` Newton system with arrow structure;
@@ -50,7 +50,7 @@ use crate::solver::arrow_schur::{
     ArrowFactorCache, ArrowSchurError, ArrowSchurSystem, ArrowSolveOptions, ArrowSolverMode,
     arrow_bare_quadratic_model_reduction, solve_arrow_newton_step_with_options,
 };
-use crate::terms::latent_coord::LatentCoordValues;
+use crate::terms::latent::LatentCoordValues;
 
 /// Configuration for [`LatentInnerSolver::solve`].
 #[derive(Debug, Clone)]
@@ -132,7 +132,7 @@ pub struct LatentInnerOutcome {
 ///
 /// The driver owns the basis evaluation (`Φ(t)`), the radial jet
 /// (`∂Φ/∂t` via
-/// [`crate::terms::latent_coord::LatentCoordValues::design_gradient_wrt_t`]),
+/// [`crate::terms::latent::LatentCoordValues::design_gradient_wrt_t`]),
 /// the Gauss–Newton block assembly
 /// (`H_tt^(i) ← (g_i β)(g_i β)^T`, `H_tβ^(i) ← (g_i β) ⊗ Φ_i`,
 /// `H_ββ ← Φ^T W Φ + Σ_k λ_k S_k`), and the analytic-penalty fold-in via
@@ -313,7 +313,19 @@ impl<'a, A: ArrowSystemAssembler> LatentInnerSolver<'a, A> {
                         .map_err(|e| {
                         format!("LatentInnerSolver: objective failed at trial iter {iter}: {e}")
                     })?;
-                    let objective_scale = current_objective.abs().max(1.0);
+                    // Trust-region gain-ratio noise floor, keyed to the
+                    // objective's own magnitude so it is equivariant under a
+                    // response rescaling `y → a·y` (the penalized objective and
+                    // both the predicted and actual reductions all scale as
+                    // `O(a²)`). The previous `.max(1.0)` absolute floor broke
+                    // this for a micro-unit response: it pinned the floor at
+                    // `1e-14` while genuine reductions were `O(a²)`, treating a
+                    // real step as numerical noise and stalling the inner solve
+                    // at an over-smoothed iterate (issue #1127). A perfectly
+                    // converged objective (`current_objective == 0`) yields a
+                    // `0` floor, so the `predicted_reduction > 0` branch still
+                    // governs and no step is misclassified.
+                    let objective_scale = current_objective.abs();
                     let noise_floor = objective_scale * 1e-14;
                     let actual_reduction = current_objective - trial_objective;
                     let rho = if predicted_reduction > noise_floor {
@@ -471,7 +483,7 @@ fn iterate_norm(beta: ArrayView1<'_, f64>, t: ArrayView1<'_, f64>) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::terms::latent_coord::{LatentCoordValues, LatentIdMode};
+    use crate::terms::latent::{LatentCoordValues, LatentIdMode};
     use ndarray::array;
 
     struct ZeroAssembler {

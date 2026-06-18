@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: CurrencyConverter
-Version: 0.18.18
+Version: 0.18.19
 Summary: A currency converter using the European Central Bank data.
 Home-page: https://github.com/alexprengere/currencyconverter
 Author: Alex Prengère

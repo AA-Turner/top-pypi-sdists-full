@@ -25,13 +25,13 @@ __all__: list[str] = []
 from typing import Annotated
 
 from cyclopts import Parameter
-
-from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import (
+from fastmcp_extensions.cli import (
     print_error,
     print_json,
     print_success,
 )
+
+from airbyte_ops_mcp.cli._base import App, app
 from airbyte_ops_mcp.mcp.github_actions import get_docker_image_info
 
 # Create the dockerhub sub-app

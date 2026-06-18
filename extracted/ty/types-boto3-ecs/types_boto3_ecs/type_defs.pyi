@@ -2475,6 +2475,7 @@ class ExpressGatewayServiceConfigurationTypeDef(TypedDict):
     serviceRevisionArn: NotRequired[str]
     executionRoleArn: NotRequired[str]
     taskRoleArn: NotRequired[str]
+    taskDefinitionArn: NotRequired[str]
     cpu: NotRequired[str]
     memory: NotRequired[str]
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationOutputTypeDef]
@@ -2818,18 +2819,19 @@ class UpdatedExpressGatewayServiceTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
 
 class CreateExpressGatewayServiceRequestTypeDef(TypedDict):
-    executionRoleArn: str
     infrastructureRoleArn: str
-    primaryContainer: ExpressGatewayContainerUnionTypeDef
+    executionRoleArn: NotRequired[str]
     serviceName: NotRequired[str]
     cluster: NotRequired[str]
     healthCheckPath: NotRequired[str]
+    primaryContainer: NotRequired[ExpressGatewayContainerUnionTypeDef]
     taskRoleArn: NotRequired[str]
     networkConfiguration: NotRequired[ExpressGatewayServiceNetworkConfigurationUnionTypeDef]
     cpu: NotRequired[str]
     memory: NotRequired[str]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
+    taskDefinitionArn: NotRequired[str]
 
 class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     serviceArn: str
@@ -2841,6 +2843,7 @@ class UpdateExpressGatewayServiceRequestTypeDef(TypedDict):
     cpu: NotRequired[str]
     memory: NotRequired[str]
     scalingTarget: NotRequired[ExpressGatewayScalingTargetTypeDef]
+    taskDefinitionArn: NotRequired[str]
 
 class TaskDefinitionTypeDef(TypedDict):
     taskDefinitionArn: NotRequired[str]

@@ -1,49 +1,43 @@
-//! GPU acceleration hardware-abstraction layer.
+//! GPU acceleration support.
 //!
-//! The module is intentionally callable from CPU-only builds: all public entry
-//! points are available without CUDA, and the runtime reports an unavailable
-//! backend instead of changing numerical results. CUDA-specific code is
-//! compiled only for Linux builds that enable the `cuda` feature, so cudarc is
-//! never loaded by default CPU-only builds.
+//! Infrastructure modules live at this level and are intentionally callable
+//! from CPU-only builds: all public entry points are available without CUDA,
+//! and the runtime reports an unavailable backend instead of changing
+//! numerical results. CUDA-specific code is compiled only for Linux builds that
+//! enable the `cuda` feature, so cudarc is never loaded by default CPU-only
+//! builds.
 
-pub mod arrow_schur;
-pub mod arrow_schur_nvrtc;
 pub mod backend_probe;
 pub mod blas;
 #[cfg(target_os = "linux")]
 pub mod calibration;
-pub mod common;
 pub mod cpu_traits;
-pub mod cubic_bspline_moments;
-pub mod cubic_cell;
 pub mod device;
+pub mod device_cache;
 pub mod driver;
 #[macro_use]
-pub mod error;
-pub mod linalg;
+pub mod gpu_error;
+pub mod device_runtime;
+pub mod linalg_dispatch;
 pub mod memory;
 pub mod numerics_device;
 pub mod numerics_host;
-pub mod pirls_row;
 pub mod policy;
-pub mod polya_gamma;
 pub mod pool;
 pub mod profile;
-pub mod reml_trace;
-pub mod row_hessian_ops;
-pub mod runtime;
-pub mod sae_resident;
-pub(crate) mod sigma_cubature;
 pub mod solver;
+
+// Domain-specific GPU kernels are isolated from the infrastructure modules.
+pub mod kernels;
 
 pub use cpu_traits::{ExecutionTarget, MatrixLocation};
 pub use device::GpuDeviceInfo;
-pub use error::GpuError;
+pub use device_runtime::GpuRuntime;
+pub use gpu_error::GpuError;
 pub use memory::{DeviceBuffer, DeviceCsrMatrix, DeviceMatrix, DeviceVector};
-pub use policy::{GpuDispatchPolicy, MixedPrecisionPolicy};
+pub use policy::{GpuDispatchPolicy, GpuMixedPrecisionPolicy};
 pub use pool::{balanced_partition, scatter_batched};
 pub use profile::{KernelStat, KernelStatsSnapshot};
-pub use runtime::GpuRuntime;
 
 // ---------------------------------------------------------------------------
 // User-facing policy and instrumentation hooks (formerly src/gpu.rs).
@@ -60,6 +54,21 @@ pub use runtime::GpuRuntime;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::OnceLock;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CudaBackendStatus {
+    CudaUnavailable,
+    CudaReady,
+}
+
+#[inline]
+pub(crate) fn cuda_backend_status() -> CudaBackendStatus {
+    if device_runtime::GpuRuntime::global().is_some() {
+        CudaBackendStatus::CudaReady
+    } else {
+        CudaBackendStatus::CudaUnavailable
+    }
+}
 
 /// User-facing GPU backend policy.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -184,7 +193,7 @@ pub fn configure_global_policy(policy: GpuPolicy) {
 #[inline]
 pub fn cuda_selected() -> bool {
     match global_policy() {
-        GpuPolicy::Auto => runtime::GpuRuntime::is_available(),
+        GpuPolicy::Auto => device_runtime::GpuRuntime::is_available(),
         GpuPolicy::Off => false,
         GpuPolicy::Force => true,
     }
@@ -235,7 +244,7 @@ pub fn decide(kernel: GpuKernel, eligibility: GpuEligibility) -> GpuDecision {
     // GPU when the kernel is "compiled in" even though `GpuRuntime::global()`
     // observed no device — silently producing CPU work via failed dispatch
     // and hiding the cpu_reason from callers wanting to log fallback cause.
-    let runtime_available = runtime::GpuRuntime::is_available();
+    let runtime_available = device_runtime::GpuRuntime::is_available();
     let (use_gpu, reason) = match (policy, eligibility) {
         (GpuPolicy::Off, _) => (false, "cpu-gpu-policy-off"),
         (GpuPolicy::Auto, GpuEligibility::BackendNotCompiled) => {
@@ -310,7 +319,7 @@ pub fn try_fast_ab(
     a: ndarray::ArrayView2<'_, f64>,
     b: ndarray::ArrayView2<'_, f64>,
 ) -> Option<ndarray::Array2<f64>> {
-    linalg::try_fast_ab(a, b)
+    linalg_dispatch::try_fast_ab(a, b)
 }
 #[inline]
 pub fn try_fast_atb_on_ordinal(
@@ -318,57 +327,57 @@ pub fn try_fast_atb_on_ordinal(
     a: ndarray::ArrayView2<'_, f64>,
     b: ndarray::ArrayView2<'_, f64>,
 ) -> Option<ndarray::Array2<f64>> {
-    linalg::try_fast_atb_on_ordinal(ordinal, a, b)
+    linalg_dispatch::try_fast_atb_on_ordinal(ordinal, a, b)
 }
 #[inline]
 pub fn try_fast_av(
     a: ndarray::ArrayView2<'_, f64>,
     v: ndarray::ArrayView1<'_, f64>,
 ) -> Option<ndarray::Array1<f64>> {
-    linalg::try_fast_av(a, v)
+    linalg_dispatch::try_fast_av(a, v)
 }
 #[inline]
 pub fn try_fast_atv(
     a: ndarray::ArrayView2<'_, f64>,
     v: ndarray::ArrayView1<'_, f64>,
 ) -> Option<ndarray::Array1<f64>> {
-    linalg::try_fast_atv(a, v)
+    linalg_dispatch::try_fast_atv(a, v)
 }
 #[inline]
 pub fn try_fast_ab_broadcast_b_batched(
     a: ndarray::ArrayView3<'_, f64>,
     b: ndarray::ArrayView2<'_, f64>,
 ) -> Option<ndarray::Array3<f64>> {
-    linalg::try_fast_ab_broadcast_b_batched(a, b)
+    linalg_dispatch::try_fast_ab_broadcast_b_batched(a, b)
 }
 #[inline]
 pub fn try_fast_abt_strided_batched(
     a: ndarray::ArrayView3<'_, f64>,
     b: ndarray::ArrayView3<'_, f64>,
 ) -> Option<ndarray::Array3<f64>> {
-    linalg::try_fast_abt_strided_batched(a, b)
+    linalg_dispatch::try_fast_abt_strided_batched(a, b)
 }
 #[inline]
 pub fn try_cholesky_lower_inplace(a: &mut ndarray::Array2<f64>) -> Option<()> {
-    linalg::try_cholesky_lower_inplace(a)
+    linalg_dispatch::try_cholesky_lower_inplace(a)
 }
 #[inline]
 pub fn try_cholesky_batched_lower_inplace(matrices: &mut [ndarray::Array2<f64>]) -> Option<()> {
-    linalg::try_cholesky_batched_lower_inplace(matrices)
+    linalg_dispatch::try_cholesky_batched_lower_inplace(matrices)
 }
 #[inline]
 pub fn try_solve_lower_triangular_matrix(
     lower: ndarray::ArrayView2<'_, f64>,
     rhs: ndarray::ArrayView2<'_, f64>,
 ) -> Option<ndarray::Array2<f64>> {
-    linalg::try_solve_lower_triangular_matrix(lower, rhs)
+    linalg_dispatch::try_solve_lower_triangular_matrix(lower, rhs)
 }
 #[inline]
 pub fn try_solve_upper_triangular_matrix(
     upper: ndarray::ArrayView2<'_, f64>,
     rhs: ndarray::ArrayView2<'_, f64>,
 ) -> Option<ndarray::Array2<f64>> {
-    linalg::try_solve_upper_triangular_matrix(upper, rhs)
+    linalg_dispatch::try_solve_upper_triangular_matrix(upper, rhs)
 }
 #[cfg(test)]
 mod policy_tests {

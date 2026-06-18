@@ -37,7 +37,7 @@ class WorksContainer:
             x.abstract
     """
 
-    def __init__(self, input) -> None:
+    def __init__(self, input) -> None: # noqa: A002 (TODO: fix at next major version)
         super(WorksContainer, self).__init__()
         if not input:
             raise ValueError("input len must be > zero")
@@ -56,7 +56,7 @@ class WorksContainer:
 
     def works_handler(self, x: list | dict) -> list:
         message_type = (
-            [w["message-type"] for w in x][0]
+            next(w["message-type"] for w in x)
             if isinstance(x, list)
             else x["message-type"]
         )

@@ -1630,19 +1630,16 @@ pub(crate) fn ctn_inner_and_outer_hvp_capabilities_are_advertised() {
         ..BlockwiseFitOptions::default()
     };
     let (gradient, hessian) = custom_family_outer_derivatives(&family, specs, &options);
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either
     );
 
     let rho_dim = spec.initial_log_lambdas.len();
     let psi_dim = derivative_blocks[0].len();
     let outer_plan =
-        crate::solver::outer_strategy::plan(&crate::solver::outer_strategy::OuterCapability {
+        crate::solver::rho_optimizer::plan(&crate::solver::rho_optimizer::OuterCapability {
             gradient,
             hessian,
             n_params: rho_dim + psi_dim,
@@ -1652,13 +1649,10 @@ pub(crate) fn ctn_inner_and_outer_hvp_capabilities_are_advertised() {
             prefer_gradient_only: false,
             disable_fixed_point: true,
         });
-    assert_eq!(
-        outer_plan.solver,
-        crate::solver::outer_strategy::Solver::Arc
-    );
+    assert_eq!(outer_plan.solver, crate::solver::rho_optimizer::Solver::Arc);
     assert_eq!(
         outer_plan.hessian_source,
-        crate::solver::outer_strategy::HessianSource::Analytic
+        crate::solver::rho_optimizer::HessianSource::Analytic
     );
 }
 
@@ -1686,9 +1680,9 @@ pub(crate) fn ctn_large_n_outer_hvp_capability_selects_operator_path() {
     // a future regression that broke the cost crossover (e.g. flipped
     // a `>=` to `>`) would still be caught here.
     assert!(
-        crate::solver::estimate::reml::unified::outer_hessian_route_plan(
-            crate::solver::estimate::reml::unified::MATRIX_FREE_OUTER_HESSIAN_LARGE_N_THRESHOLD,
-            crate::solver::estimate::reml::unified::MATRIX_FREE_OUTER_HESSIAN_DIM_AT_LARGE_N,
+        crate::solver::estimate::reml::reml_outer_engine::outer_hessian_route_plan(
+            crate::solver::estimate::reml::reml_outer_engine::MATRIX_FREE_OUTER_HESSIAN_LARGE_N_THRESHOLD,
+            crate::solver::estimate::reml::reml_outer_engine::MATRIX_FREE_OUTER_HESSIAN_DIM_AT_LARGE_N,
             k_outer,
             true,
             false,
@@ -1703,13 +1697,10 @@ pub(crate) fn ctn_large_n_outer_hvp_capability_selects_operator_path() {
         ..BlockwiseFitOptions::default()
     };
     let (gradient, hessian) = custom_family_outer_derivatives(&family, specs, &options);
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either
     );
 }
 

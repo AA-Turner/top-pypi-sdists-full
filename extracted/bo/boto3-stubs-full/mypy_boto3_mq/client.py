@@ -20,13 +20,13 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListBrokersPaginator
+from .paginator import DescribeSharedResourcesPaginator, ListBrokersPaginator
 from .type_defs import (
     CreateBrokerRequestTypeDef,
     CreateBrokerResponseTypeDef,
@@ -50,6 +50,8 @@ from .type_defs import (
     DescribeConfigurationResponseTypeDef,
     DescribeConfigurationRevisionRequestTypeDef,
     DescribeConfigurationRevisionResponseTypeDef,
+    DescribeSharedResourcesRequestTypeDef,
+    DescribeSharedResourcesResponseTypeDef,
     DescribeUserRequestTypeDef,
     DescribeUserResponseTypeDef,
     EmptyResponseMetadataTypeDef,
@@ -253,6 +255,16 @@ class MQClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#describe_configuration_revision)
         """
 
+    def describe_shared_resources(
+        self, **kwargs: Unpack[DescribeSharedResourcesRequestTypeDef]
+    ) -> DescribeSharedResourcesResponseTypeDef:
+        """
+        Returns the resources shared to a broker.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mq/client/describe_shared_resources.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#describe_shared_resources)
+        """
+
     def describe_user(
         self, **kwargs: Unpack[DescribeUserRequestTypeDef]
     ) -> DescribeUserResponseTypeDef:
@@ -353,6 +365,18 @@ class MQClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#update_user)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_shared_resources"]
+    ) -> DescribeSharedResourcesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mq/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mq/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_brokers"]
     ) -> ListBrokersPaginator:

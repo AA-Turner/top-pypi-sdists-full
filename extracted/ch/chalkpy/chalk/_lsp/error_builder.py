@@ -272,12 +272,13 @@ class FeatureClassErrorBuilder:
             return None
         start_line, start_char, end_line, end_char = range_tuple
         return RangeGQL(
+            # Rust AST tuple locations are already 0-based LSP lines.
             start=PositionGQL(
-                line=start_line + 1,
+                line=start_line,
                 character=start_char,
             ),
             end=PositionGQL(
-                line=end_line + 1,
+                line=end_line,
                 character=end_char,
             ),
         )
@@ -355,12 +356,13 @@ class FeatureClassErrorBuilder:
             if node.end_lineno is None or node.end_col_offset is None:
                 raise AttributeError(message)
             node = RangeGQL(
+                # Python AST lines are 1-based; LSP positions are 0-based.
                 start=PositionGQL(
-                    line=node.end_lineno,
+                    line=node.end_lineno - 1,
                     character=node.end_col_offset - len(node.attr),
                 ),
                 end=PositionGQL(
-                    line=node.end_lineno,
+                    line=node.end_lineno - 1,
                     character=node.end_col_offset,
                 ),
             )
@@ -524,12 +526,13 @@ class ResolverErrorBuilder:
             return None
         start_line, start_char, end_line, end_char = range_tuple
         return RangeGQL(
+            # Rust AST tuple locations are already 0-based LSP lines.
             start=PositionGQL(
-                line=start_line + 1,
+                line=start_line,
                 character=start_char,
             ),
             end=PositionGQL(
-                line=end_line + 1,
+                line=end_line,
                 character=end_char,
             ),
         )
@@ -744,11 +747,12 @@ class ResolverErrorBuilder:
             starting_index = line.find(string, start_char, end_char)
             if starting_index != -1:
                 return RangeGQL(
+                    # Line indexes are 0-based LSP lines.
                     start=PositionGQL(
-                        line=i + 1,
+                        line=i,
                         character=starting_index,
                     ),
-                    end=PositionGQL(line=i + 1, character=starting_index + len(string)),
+                    end=PositionGQL(line=i, character=starting_index + len(string)),
                 )
         return None
 
@@ -853,13 +857,15 @@ class SQLFileResolverErrorBuilder:
 
     def custom_range(self, line_no: int, col: int, length: int | None = None) -> RangeGQL:
         length = length or 1
+        # SQL/YAML parser metadata callers pass 1-based source lines.
+        line = line_no - 1
         return RangeGQL(
             start=PositionGQL(
-                line=line_no,
+                line=line,
                 character=col,
             ),
             end=PositionGQL(
-                line=line_no,
+                line=line,
                 character=col + length,
             ),
         )
@@ -1061,13 +1067,20 @@ class FunctionCallErrorBuilder:
 
 
 def build_diagnostic_from_message(
-    message: str, code: str, source_line_start: int, source_line_end: int
+    message: str, code: str, source_line_start: int | None, source_line_end: int | None
 ) -> DiagnosticGQL:
+    if source_line_start is None or source_line_start <= 0 or source_line_end is None or source_line_end <= 0:
+        start_line = 0
+        end_line = 0
+    else:
+        # Source spans are 1-based inclusive; LSP lines are 0-based with exclusive ends.
+        start_line = source_line_start - 1
+        end_line = source_line_end
     return DiagnosticGQL(
         message=message,
         range=RangeGQL(
-            start=PositionGQL(line=source_line_start, character=0),
-            end=PositionGQL(line=source_line_end + 1, character=0),
+            start=PositionGQL(line=start_line, character=0),
+            end=PositionGQL(line=end_line, character=0),
         ),
         severity=DiagnosticSeverityGQL.Error,
         code=code,
@@ -1084,7 +1097,7 @@ The character offsets are 1 indexed and non-inclusive
 
 def range_or_node_to_start_line(range_or_node: RangeGQL | ast.AST) -> int | None:
     if isinstance(range_or_node, RangeGQL):
-        i = range_or_node.start.line
+        return range_or_node.start.line
     else:
         i = getattr(range_or_node, "lineno", None)
         if i is None:
@@ -1094,7 +1107,7 @@ def range_or_node_to_start_line(range_or_node: RangeGQL | ast.AST) -> int | None
 
 def range_or_node_to_end_line(range_or_node: RangeGQL | ast.AST) -> int | None:
     if isinstance(range_or_node, RangeGQL):
-        i = range_or_node.end.line
+        return range_or_node.end.line
     else:
         i = getattr(range_or_node, "end_lineno", None)
         if i is None:

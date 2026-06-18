@@ -4,6 +4,8 @@ from .http_header import HttpHeader
 from .job import Job
 from .job_create_request import JobCreateRequest
 from .job_create_resource import JobCreateResource
+from .job_environment import JobEnvironment
+from .job_environments import JobEnvironments
 from .job_http_configuration import JobHttpConfiguration
 from .job_http_configuration_method import JobHttpConfigurationMethod
 from .job_list_response import JobListResponse
@@ -34,6 +36,8 @@ __all__ = (
     "Job",
     "JobCreateRequest",
     "JobCreateResource",
+    "JobEnvironment",
+    "JobEnvironments",
     "JobHttpConfiguration",
     "JobHttpConfigurationMethod",
     "JobListResponse",

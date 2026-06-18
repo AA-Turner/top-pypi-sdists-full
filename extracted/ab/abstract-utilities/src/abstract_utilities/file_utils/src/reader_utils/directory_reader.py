@@ -1,3 +1,4 @@
+from __future__ import annotations  # keep heavy-proxy type hints lazy (PEP 563)
 from .imports import *
 from .file_readers import *
 # ─── Example walker ──────────────────────────────────────────────────────────

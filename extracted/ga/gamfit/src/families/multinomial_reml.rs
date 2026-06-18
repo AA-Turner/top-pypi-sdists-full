@@ -60,6 +60,7 @@
 //! all share the same column span; the canonicaliser assigns ownership
 //! deterministically via the per-block `gauge_priority` listed below.
 
+use crate::families::block_layout::block_count::validate_block_count;
 use crate::families::custom_family::{
     AdditiveBlockJacobian, BlockWorkingSet, CustomFamily, ExactNewtonJointGradientEvaluation,
     ExactNewtonJointHessianWorkspace, FamilyEvaluation, JointHessianSourcePreference,
@@ -401,12 +402,7 @@ impl MultinomialFamily {
         block_states: &[ParameterBlockState],
     ) -> Result<Array2<f64>, String> {
         let m = self.active_classes();
-        if block_states.len() != m {
-            return Err(format!(
-                "MultinomialFamily expects {m} blocks (K-1), got {}",
-                block_states.len()
-            ));
-        }
+        validate_block_count::<String>("MultinomialFamily", m, block_states.len())?;
         let n = self.weights.len();
         let mut eta = Array2::<f64>::zeros((n, m));
         for (a, state) in block_states.iter().enumerate() {
@@ -1032,6 +1028,170 @@ impl MultinomialFamily {
         out
     }
 
+    /// Assemble the FULL set of second-directional joint-Hessian derivatives
+    /// `{ H²dot[δ, e_a] }` for a FIXED first direction `δ = d_beta_u` and every
+    /// canonical second axis `a = a0·P + i0`, in a SINGLE shared softmax pass and
+    /// one fused parallel row sweep — the value the Tier-B Jeffreys drift needs
+    /// (it requests every canonical second axis at the same `β` and `δ`).
+    ///
+    /// EXACTNESS / FACTORISATION. For the canonical second axis `e_{(a0,i0)}` the
+    /// design-projected v-direction is `d_η_v[row,b] = X[row,i0]·δ_{b,a0}`, so the
+    /// per-row second-directional Fisher jet from
+    /// [`Self::second_directional_fisher_jet`] factors as
+    /// `X[row,i0]·Ĵ²_{a0,δ}[row]`, where the `X[row,i0]`-free per-row `M×M` jet
+    /// `Ĵ²_{a0,δ}` is built from the SAME closed form with the `X[row,i0]` factor
+    /// pulled out of the v-side quantities:
+    /// ```text
+    ///   s_u       = Σ_c p_c d_η^u_c                           (shared, δ-only)
+    ///   dp_u[c]   = p_c (d_η^u_c − s_u)                        (shared, δ-only)
+    ///   dp̂_v[c]   = p_c (δ_{c,a0} − p_{a0})                    (a0-only, X-free)
+    ///   dŝ_u_dv   = Σ_c dp̂_v[c] d_η^u_c                        (a0,δ)
+    ///   ddp̂[c]    = dp̂_v[c] (d_η^u_c − s_u) − p_c · dŝ_u_dv     (a0,δ)
+    ///   Ĵ²[a,a]   = w ( ddp̂[a](1 − 2p_a) − 2 dp_u[a] dp̂_v[a] )
+    ///   Ĵ²[a,b]   = −w ( ddp̂[a] p_b + dp_u[a] dp̂_v[b] + dp̂_v[a] dp_u[b] + p_a ddp̂[b] )
+    /// ```
+    /// Contracting through [`dense_block_xtwx`]'s `Σ_row J[c,d] X[row,i] X[row,j]`
+    /// then gives
+    /// ```text
+    ///   H²dot[δ, e_{(a0,i0)}][(c,i),(d,j)] = Σ_row Ĵ²_{a0,δ}[row,c,d] · X[row,i0] X[row,i] X[row,j].
+    /// ```
+    /// This is BIT-FAITHFUL to the per-axis `second_directional_fisher_jet` →
+    /// `dense_block_xtwx` path the trait default runs, up to row-sum
+    /// associativity, computed once for all `p = (M·P)` axes instead of `p` times
+    /// with `p` redundant softmax passes and `p` generic `(M·P)²` Gram
+    /// allocations — the #1082 / #979 outer-Jeffreys-drift Gram rebuild the
+    /// profile pins on `dense_block_xtwx` (≈half the smooth-by-factor wall-clock).
+    fn assemble_all_axis_second_directional_derivatives(
+        &self,
+        eta: ArrayView2<'_, f64>,
+        d_beta_u: &Array1<f64>,
+    ) -> Result<Vec<Array2<f64>>, String> {
+        use rayon::iter::{IntoParallelIterator, ParallelIterator};
+        let n = self.weights.len();
+        let p = self.design.ncols();
+        let m = self.active_classes();
+        let dim = m * p;
+        let n_axes = m * p;
+        let probs_full = self.row_probabilities(eta);
+        let d_eta_u = self.d_eta_from_d_beta(d_beta_u)?;
+        let design = self.design.view();
+        let mut flat = (0..n)
+            .into_par_iter()
+            .fold(
+                || vec![0.0_f64; n_axes * dim * dim],
+                |mut acc, row| {
+                    let w = self.weights[row];
+                    if w == 0.0 {
+                        return acc;
+                    }
+                    // δ-only quantities (shared across all a0 / axes this row).
+                    let mut s_u = 0.0_f64;
+                    for c in 0..m {
+                        s_u += probs_full[[row, c]] * d_eta_u[[row, c]];
+                    }
+                    let mut dp_u = vec![0.0_f64; m];
+                    for c in 0..m {
+                        dp_u[c] = probs_full[[row, c]] * (d_eta_u[[row, c]] - s_u);
+                    }
+                    for a0 in 0..m {
+                        let pa0 = probs_full[[row, a0]];
+                        // a0-specific (X-free) v-side quantities.
+                        let mut dp_v_hat = vec![0.0_f64; m];
+                        let mut ds_u_dv = 0.0_f64;
+                        for c in 0..m {
+                            let pc = probs_full[[row, c]];
+                            let v = pc * (if c == a0 { 1.0 } else { 0.0 } - pa0);
+                            dp_v_hat[c] = v;
+                            ds_u_dv += v * d_eta_u[[row, c]];
+                        }
+                        let mut ddp_hat = vec![0.0_f64; m];
+                        for c in 0..m {
+                            let pc = probs_full[[row, c]];
+                            ddp_hat[c] = dp_v_hat[c] * (d_eta_u[[row, c]] - s_u) - pc * ds_u_dv;
+                        }
+                        // Ĵ²_{a0}[c,d] (the X[row,i0]-free per-row second jet),
+                        // matching `second_directional_fisher_jet` term-for-term.
+                        let mut jhat = vec![0.0_f64; m * m];
+                        for a in 0..m {
+                            let pa = probs_full[[row, a]];
+                            jhat[a * m + a] =
+                                w * (ddp_hat[a] * (1.0 - 2.0 * pa) - 2.0 * dp_u[a] * dp_v_hat[a]);
+                            for b in (a + 1)..m {
+                                let pb = probs_full[[row, b]];
+                                let off = -w
+                                    * (ddp_hat[a] * pb
+                                        + dp_u[a] * dp_v_hat[b]
+                                        + dp_v_hat[a] * dp_u[b]
+                                        + pa * ddp_hat[b]);
+                                jhat[a * m + b] = off;
+                                jhat[b * m + a] = off;
+                            }
+                        }
+                        // Scatter `X[row,i0] · Ĵ²_{a0}[c,d] · X[row,i] X[row,j]`
+                        // into axis `(a0,i0)`'s `(dim,dim)` buffer (output-major).
+                        for i0 in 0..p {
+                            let xi0 = design[[row, i0]];
+                            if xi0 == 0.0 {
+                                continue;
+                            }
+                            let axis = a0 * p + i0;
+                            let axis_base = axis * dim * dim;
+                            for c in 0..m {
+                                let row_c = c * p;
+                                for d in 0..m {
+                                    let jcd = jhat[c * m + d];
+                                    if jcd == 0.0 {
+                                        continue;
+                                    }
+                                    let wcd = xi0 * jcd;
+                                    let col_d = d * p;
+                                    for i in 0..p {
+                                        let xi = design[[row, i]];
+                                        if xi == 0.0 {
+                                            continue;
+                                        }
+                                        let scaled = wcd * xi;
+                                        let out_row = axis_base + (row_c + i) * dim;
+                                        for j in 0..p {
+                                            acc[out_row + col_d + j] += scaled * design[[row, j]];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    acc
+                },
+            )
+            .reduce(
+                || vec![0.0_f64; n_axes * dim * dim],
+                |mut a, b| {
+                    for (av, bv) in a.iter_mut().zip(b.iter()) {
+                        *av += *bv;
+                    }
+                    a
+                },
+            );
+        let mut out = Vec::with_capacity(n_axes);
+        for axis in 0..n_axes {
+            let start = axis * dim * dim;
+            let mut mat =
+                Array2::<f64>::from_shape_vec((dim, dim), flat[start..start + dim * dim].to_vec())
+                    .expect("axis second-derivative buffer is dim·dim");
+            for i in 0..dim {
+                for j in (i + 1)..dim {
+                    let avg = 0.5 * (mat[[i, j]] + mat[[j, i]]);
+                    mat[[i, j]] = avg;
+                    mat[[j, i]] = avg;
+                }
+            }
+            out.push(mat);
+        }
+        flat.clear();
+        flat.shrink_to_fit();
+        Ok(out)
+    }
+
     /// Index of the single canonical axis `k` if `d_beta_flat` is the unit
     /// vector `e_k` (the Tier-B Jeffreys loop's request shape), else `None`.
     fn canonical_axis_index(&self, d_beta_flat: &Array1<f64>) -> Option<usize> {
@@ -1252,6 +1412,56 @@ impl CustomFamily for MultinomialFamily {
         Ok(Some(dh))
     }
 
+    fn joint_jeffreys_information_directional_derivative_all_axes_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        _specs: &[ParameterBlockSpec],
+    ) -> Result<Option<Vec<Array2<f64>>>, String> {
+        // BATCHED all-axes fast path for the Tier-B Jeffreys/Firth loop
+        // (#979). The generic trait default queries `Hdot[e_a]` `p = (K−1)·P`
+        // separate times through the per-axis hook; each call takes the
+        // axis-derivative cache Mutex and CLONES a full `dim×dim` matrix out
+        // of the memo, and the default sweep runs SERIALLY. Multinomial
+        // already assembles the WHOLE axis set in ONE row-parallel softmax pass
+        // (`assemble_all_axis_directional_derivatives`, fanned over the n rows
+        // with a per-thread fold/reduce). Wire that directly here: a single
+        // parallel build, returned by move with no per-axis Mutex traffic or
+        // dim×dim clones. Bit-identical to the per-axis route by construction —
+        // it is the very function `cached_axis_directional_derivative` fills its
+        // memo from, so each returned axis matrix equals the cached clone the
+        // serial loop would have produced. `specs` only steer the trait-default
+        // routing (coupled multinomial always serves from its own coupled joint
+        // derivative); the β-fixed `η` comes from `block_states` exactly as the
+        // per-axis `exact_newton_joint_hessian_directional_derivative` does.
+        let eta = self.collect_eta_matrix(block_states)?;
+        Ok(Some(
+            self.assemble_all_axis_directional_derivatives(eta.view()),
+        ))
+    }
+
+    fn joint_jeffreys_information_second_directional_all_axes_with_specs(
+        &self,
+        block_states: &[ParameterBlockState],
+        _specs: &[ParameterBlockSpec],
+        d_beta_u_flat: &Array1<f64>,
+    ) -> Result<Option<Vec<Array2<f64>>>, String> {
+        // BATCHED all-axes SECOND-directional fast path for the Tier-B Jeffreys
+        // outer drift (#1082 / #979). The generic trait default queries
+        // `H²dot[δ, e_a]` `p = (M·P)` separate times, each rebuilding the full
+        // `O(n·M²·P²)` coupled Gram through `dense_block_xtwx` — the profile-pinned
+        // outer hot spot (≈half the smooth-by-factor wall-clock; the drift batch
+        // calls this once per mode-response direction). Multinomial assembles the
+        // WHOLE second-axis set in ONE row-parallel softmax pass via the
+        // X[row,i0]-factored per-row second jet (see
+        // `assemble_all_axis_second_directional_derivatives`), bit-faithful to the
+        // per-axis `second_directional_fisher_jet → dense_block_xtwx` route up to
+        // row-sum associativity, for a single Gram-assembly cost instead of `p`.
+        let eta = self.collect_eta_matrix(block_states)?;
+        Ok(Some(
+            self.assemble_all_axis_second_directional_derivatives(eta.view(), d_beta_u_flat)?,
+        ))
+    }
+
     fn exact_newton_joint_hessiansecond_directional_derivative(
         &self,
         block_states: &[ParameterBlockState],
@@ -1272,7 +1482,7 @@ impl CustomFamily for MultinomialFamily {
 /// views of the joint penalized Hessian.
 ///
 /// Equivalent in spirit to `LatentHessianWorkspace` in
-/// [`crate::families::latent_survival`]; the multinomial case keeps a
+/// [`crate::families::survival::latent`]; the multinomial case keeps a
 /// single workspace type because the family has no per-block
 /// configuration to specialise on.
 struct MultinomialHessianWorkspace {
@@ -1371,7 +1581,7 @@ mod tests {
     //! The reference class `K − 1` carries `η ≡ 0` and is NOT represented
     //! as a parameter block — so the gauge is set entirely by the block
     //! layout. These tests pin three invariants the canonical
-    //! [`crate::solver::identifiability_canonical::canonicalize_for_identifiability`]
+    //! [`crate::identifiability::canonical::canonicalize_for_identifiability`]
     //! step must preserve:
     //!
     //! 1. Block count `= K − 1` and block names `class_0 … class_{K-2}`.
@@ -1513,10 +1723,7 @@ mod tests {
             beta: Array1::<f64>::zeros(2),
             eta: Array1::<f64>::zeros(4),
         }];
-        let err = family
-            .collect_eta_matrix(&single)
-            .expect_err("wrong block count must error");
-        assert!(err.contains("expects 2 blocks"));
+        assert!(family.collect_eta_matrix(&single).is_err());
     }
 
     #[test]
@@ -1635,6 +1842,73 @@ mod tests {
         let dense_diag = dense.diag();
         for (a, b) in mf_diag.iter().zip(dense_diag.iter()) {
             assert!((a - b).abs() < 1.0e-9, "matrix-free diag {a} != dense {b}");
+        }
+    }
+
+    #[test]
+    fn batched_second_directional_all_axes_matches_per_axis() {
+        // The #1082 fix: `assemble_all_axis_second_directional_derivatives`
+        // (one Gram-assembly pass for all p axes) must equal the per-axis route
+        // `exact_newton_joint_hessiansecond_directional_derivative(e_a)` the
+        // generic trait default loops, axis-by-axis, to bit-tight tolerance.
+        let family = toy_family(9, 3, 4);
+        let p = family.design.ncols();
+        let m = family.active_classes();
+        let n = family.weights.len();
+        let design = family.design.view();
+        let block_states: Vec<ParameterBlockState> = (0..m)
+            .map(|a| {
+                let beta = Array1::<f64>::from_shape_fn(p, |i| {
+                    0.25 * ((a + 1) as f64) - 0.13 * (i as f64)
+                });
+                let eta = Array1::<f64>::from_shape_fn(n, |row| {
+                    (0..p).map(|i| design[[row, i]] * beta[i]).sum()
+                });
+                ParameterBlockState { beta, eta }
+            })
+            .collect();
+        let specs = family.build_block_specs();
+        let dim = m * p;
+
+        // A non-trivial first direction δ (not a canonical axis).
+        let delta = Array1::<f64>::from_shape_fn(dim, |i| {
+            0.4 - 0.07 * (i as f64) + 0.03 * ((i * i) as f64).cos()
+        });
+
+        // Batched: all axes in one pass.
+        let batched = family
+            .joint_jeffreys_information_second_directional_all_axes_with_specs(
+                &block_states,
+                &specs,
+                &delta,
+            )
+            .expect("batched second-directional must succeed")
+            .expect("batched second-directional must be present");
+        assert_eq!(batched.len(), dim, "one matrix per canonical axis");
+
+        // Per-axis reference: the route the generic trait default takes.
+        for axis in 0..dim {
+            let mut e_a = Array1::<f64>::zeros(dim);
+            e_a[axis] = 1.0;
+            let per_axis = family
+                .exact_newton_joint_hessiansecond_directional_derivative(
+                    &block_states,
+                    &delta,
+                    &e_a,
+                )
+                .expect("per-axis second-directional must succeed")
+                .expect("per-axis second-directional must be present");
+            assert_eq!(batched[axis].dim(), (dim, dim));
+            for r in 0..dim {
+                for c in 0..dim {
+                    let a = batched[axis][[r, c]];
+                    let b = per_axis[[r, c]];
+                    assert!(
+                        (a - b).abs() <= 1e-10 * (1.0 + b.abs()),
+                        "axis {axis} entry ({r},{c}): batched {a} != per-axis {b}"
+                    );
+                }
+            }
         }
     }
 

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2026 CERN.
+ * SPDX-License-Identifier: MIT
+ */
+
 import React, { Component } from "react";
 import TimelineFeedComponent from "../timeline/TimelineFeed";
 import PropTypes from "prop-types";

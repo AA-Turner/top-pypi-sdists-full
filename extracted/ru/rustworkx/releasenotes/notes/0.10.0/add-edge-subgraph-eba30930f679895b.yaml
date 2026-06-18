@@ -1,0 +1,7 @@
+---
+features:
+  - |
+    Added a new method, :meth:`~rustworkx.PyDiGraph.edge_subgraph`, to the
+    :class:`~rustworkx.PyDiGraph` and :class:`~rustworkx.PyGraph`
+    (:meth:`~rustworkx.PyGraph.edge_subgraph`) to get an edge induced subgraph
+    from a given graph object.

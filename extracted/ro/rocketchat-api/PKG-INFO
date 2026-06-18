@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rocketchat_API
-Version: 3.6.1
+Version: 3.7.0
 Summary: Python API wrapper for Rocket.Chat
 Author-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
 Maintainer-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>

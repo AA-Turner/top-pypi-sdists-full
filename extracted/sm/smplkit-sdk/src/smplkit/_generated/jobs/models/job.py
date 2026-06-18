@@ -14,6 +14,7 @@ from typing import Literal
 import datetime
 
 if TYPE_CHECKING:
+    from ..models.job_environments import JobEnvironments
     from ..models.job_http_configuration import JobHttpConfiguration
 
 
@@ -25,7 +26,11 @@ class Job:
     """A scheduled unit of work: an HTTP request run on a schedule.
 
     The job is the definition; each time it fires the service records a run
-    capturing the request, response, timing, and outcome.
+    capturing the request, response, timing, and outcome. A job is enabled per
+    environment: set `environments[<env>].enabled` to schedule runs there. A
+    recurring (cron) job may be enabled in several environments at once and
+    fires once per enabled environment; a one-off (`now` or future datetime)
+    job runs a single time in the environment it was created in.
 
         Attributes:
             name (str): Human-readable name for the job.
@@ -37,9 +42,15 @@ class Job:
                 Extends the shared forwarder configuration with the two fields a scheduled
                 job needs beyond a forwarder.
             description (None | str | Unset): Free-text description for the job.
-            enabled (bool | Unset): Whether the job is scheduling runs. Set to `false` to pause without deleting. Default:
-                True.
+            enabled (bool | None | Unset): Whether the job is enabled in at least one environment. Read-only roll-up of
+                `environments[*].enabled`; set enablement per environment via `environments`.
             type_ (Literal['http'] | Unset): Job type. Only `http` is supported today. Default: 'http'.
+            environments (JobEnvironments | Unset): Per-environment overrides keyed by environment key (e.g. `production`,
+                `staging`). Each entry sets `enabled` (whether the job schedules runs in that environment) and an optional
+                `configuration` override (omit to inherit the base `configuration`). A job with no entry for an environment is
+                disabled there. For a recurring job, supply this map to choose where it runs. For a one-off job, the environment
+                it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every
+                referenced environment must exist for the account.
             concurrency_policy (Literal['ALLOW'] | Unset): How overlapping runs are handled. `ALLOW` (the only value today)
                 permits them. Default: 'ALLOW'.
             next_run_at (datetime.datetime | None | Unset): The next scheduled fire time. `null` once a one-off job has
@@ -56,8 +67,9 @@ class Job:
     schedule: str
     configuration: JobHttpConfiguration
     description: None | str | Unset = UNSET
-    enabled: bool | Unset = True
+    enabled: bool | None | Unset = UNSET
     type_: Literal["http"] | Unset = "http"
+    environments: JobEnvironments | Unset = UNSET
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
     next_run_at: datetime.datetime | None | Unset = UNSET
     recurring: bool | None | Unset = UNSET
@@ -80,9 +92,17 @@ class Job:
         else:
             description = self.description
 
-        enabled = self.enabled
+        enabled: bool | None | Unset
+        if isinstance(self.enabled, Unset):
+            enabled = UNSET
+        else:
+            enabled = self.enabled
 
         type_ = self.type_
+
+        environments: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.environments, Unset):
+            environments = self.environments.to_dict()
 
         concurrency_policy = self.concurrency_policy
 
@@ -145,6 +165,8 @@ class Job:
             field_dict["enabled"] = enabled
         if type_ is not UNSET:
             field_dict["type"] = type_
+        if environments is not UNSET:
+            field_dict["environments"] = environments
         if concurrency_policy is not UNSET:
             field_dict["concurrency_policy"] = concurrency_policy
         if next_run_at is not UNSET:
@@ -164,6 +186,7 @@ class Job:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.job_environments import JobEnvironments
         from ..models.job_http_configuration import JobHttpConfiguration
 
         d = dict(src_dict)
@@ -182,11 +205,25 @@ class Job:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        enabled = d.pop("enabled", UNSET)
+        def _parse_enabled(data: object) -> bool | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(bool | None | Unset, data)
+
+        enabled = _parse_enabled(d.pop("enabled", UNSET))
 
         type_ = cast(Literal["http"] | Unset, d.pop("type", UNSET))
         if type_ != "http" and not isinstance(type_, Unset):
             raise ValueError(f"type must match const 'http', got '{type_}'")
+
+        _environments = d.pop("environments", UNSET)
+        environments: JobEnvironments | Unset
+        if isinstance(_environments, Unset):
+            environments = UNSET
+        else:
+            environments = JobEnvironments.from_dict(_environments)
 
         concurrency_policy = cast(Literal["ALLOW"] | Unset, d.pop("concurrency_policy", UNSET))
         if concurrency_policy != "ALLOW" and not isinstance(concurrency_policy, Unset):
@@ -285,6 +322,7 @@ class Job:
             description=description,
             enabled=enabled,
             type_=type_,
+            environments=environments,
             concurrency_policy=concurrency_policy,
             next_run_at=next_run_at,
             recurring=recurring,

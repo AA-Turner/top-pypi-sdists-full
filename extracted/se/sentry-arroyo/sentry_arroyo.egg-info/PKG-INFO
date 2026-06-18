@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-arroyo
-Version: 2.40.0
+Version: 2.40.1
 Summary: Arroyo is a Python library for working with streaming data.
 Home-page: https://github.com/getsentry/arroyo
 Author: Sentry

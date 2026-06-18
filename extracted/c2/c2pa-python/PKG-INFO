@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: c2pa-python
-Version: 0.35.0
+Version: 0.35.1
 Summary: Python bindings for the C2PA Content Authenticity Initiative (CAI) library
 Author-email: Gavin Peacock <gvnpeacock@adobe.com>, Tania Mathern <mathern@adobe.com>
-Maintainer-email: Gavin Peacock <gpeacock@adobe.com>
+Maintainer-email: Gavin Peacock <gpeacock@adobe.com>, Tania Mathern <mathern@adobe.com>
 License: MIT OR Apache-2.0
 Project-URL: homepage, https://contentauthenticity.org
 Project-URL: repository, https://github.com/contentauth/c2pa-python

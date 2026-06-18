@@ -303,7 +303,9 @@ export default function Page() {
 
 _NEXTJS_TEST = """\
 import { test } from 'vitest';
-test('page renders', () => {});
+test('page renders', () => {
+  // test logic
+});
 """
 
 _NEXTJS_README = """\

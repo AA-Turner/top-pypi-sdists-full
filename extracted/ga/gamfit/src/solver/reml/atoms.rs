@@ -126,7 +126,11 @@
 use ndarray::{Array1, Array2};
 use std::sync::Arc;
 
-use super::unified::PenaltySubspaceTrace;
+use super::jeffreys_subspace::{
+    floored_inverse, floored_inverse_divided_differences, jeffreys_antiderivative,
+    jeffreys_antiderivative_floor_sensitivity,
+};
+use super::reml_outer_engine::{PenaltyCoordinate, PenaltySubspaceTrace};
 
 /// An outer-coordinate direction with its induced inner motion, built ONCE
 /// per direction by the calculus and shared by every atom.
@@ -138,16 +142,20 @@ use super::unified::PenaltySubspaceTrace;
 /// Channels are filled lazily by [`Sensitivity`] (β̇ needs the factored
 /// solve; Ḣ_total needs β̇) so a value-only evaluation pays nothing.
 ///
-/// Only the channels the LANDED first-order calculus reads live here:
-/// `index` (unit θ-coordinate), `beta_dot` (the shared β̇), and
-/// `h_dot_total` (the total drift Ḣ every atom traces). The further channels
-/// the design names — a dense `dir` for general (non-unit) directions, and
-/// the staged `s_dot` (∂Sλ/∂θ) / `h_dot_frozen` (∂H/∂θ at fixed β̂) inputs
-/// from which the [`Sensitivity`] operator assembles `h_dot_total =
-/// h_dot_frozen + D_βH[β̇]` — re-land as fields together with that operator
-/// (#935), the code that fills AND reads them. Carrying them now would be
-/// unread design surface (the same no-stub discipline this module applies to
-/// its second-order and certify passes).
+/// The channels the LANDED first-order calculus reads live here: `index`
+/// (unit θ-coordinate), `beta_dot` (the shared β̇), and `h_dot_total` (the
+/// total drift Ḣ every atom traces). They are filled in exactly one place —
+/// [`Sensitivity::fill_direction`] (#935 now closed) — which runs the
+/// `β̇ = −H⁺ F_{βθ}` solve through the shared [`FitSensitivity`] operator and
+/// assembles `h_dot_total = h_dot_frozen + D_βH[β̇]` against THAT β̇ (the cubic
+/// correction supplied as the caller's existing operator, not re-implemented).
+/// The further channels the design names — a dense `dir` for general (non-unit)
+/// directions, and the staged `s_dot` (∂Sλ/∂θ) input — re-land as fields with
+/// the code that fills AND reads them; carrying them now would be unread design
+/// surface (the same no-stub discipline this module applies to its
+/// second-order and certify passes).
+///
+/// [`FitSensitivity`]: crate::solver::sensitivity::FitSensitivity
 pub struct ThetaDirection {
     /// Coordinate index in the packed θ = (ρ‖ψ) layout, with the unit
     /// direction implied. (A dense general-direction channel re-lands with
@@ -200,6 +208,83 @@ pub struct Sensitivity {
     /// eigengap. `certify` refuses FD probes that cross a stratum boundary
     /// (rank change or near-degenerate frame) instead of flagging them.
     pub stratum: StratumFingerprint,
+}
+
+impl Sensitivity {
+    /// Fill a [`ThetaDirection`]'s shared inner-motion channels (`beta_dot`,
+    /// `h_dot_total`) from the one factored sensitivity operator — the #935
+    /// pass that fills AND reads them (no unread design surface).
+    ///
+    /// This is the ONE place the chain-rule data is assembled, killing the
+    /// #901-layer-2 per-consumer drift: given the direction's frozen score
+    /// derivative `f_beta_theta = ∂g/∂θ[dir]` (the `F_{βθ}` column) and the
+    /// frozen Hessian drift `h_dot_frozen = ∂H/∂θ[dir]|_{β̂}`, it produces
+    ///
+    /// ```text
+    ///   β̇(dir)      = −H⁺ · F_{βθ}[dir]            (one solve through `op`)
+    ///   Ḣ_total     = h_dot_frozen + D_βH[β̇]       (the cubic correction
+    ///                                                applied to THAT β̇)
+    /// ```
+    ///
+    /// The cubic correction `D_βH[β̇] = Xᵀ diag(c ⊙ X β̇) X` is NOT
+    /// re-implemented here — it is supplied as the caller's existing operator
+    /// `cubic_drift`, so there is exactly one assembly of it in the codebase
+    /// (the migration law's no-parallel-layer rule). Every atom that traces
+    /// `dir.h_dot_total` (the logdet, the #784 sampled block, the Jeffreys
+    /// term) then rides the SAME β̇ and the SAME drift: they structurally
+    /// cannot disagree about what `dir` means.
+    ///
+    /// `op` MUST be the operator inverting the SAME curvature `H` this
+    /// `Sensitivity`'s `kernel` describes (the #935 single-inverse contract);
+    /// a dimension mismatch against the kernel declines (`None`). Returns
+    /// `None` (declining, never approximating) if the mode-response solve
+    /// produced a non-finite β̇ — matching `FitSensitivity::mode_response`.
+    ///
+    /// [`FitSensitivity`]: crate::solver::sensitivity::FitSensitivity
+    pub fn fill_direction<F>(
+        &self,
+        index: usize,
+        op: &crate::solver::sensitivity::FitSensitivity<'_>,
+        f_beta_theta: &Array1<f64>,
+        h_dot_frozen: &Array2<f64>,
+        cubic_drift: F,
+    ) -> Option<ThetaDirection>
+    where
+        F: FnOnce(&Array1<f64>) -> Array2<f64>,
+    {
+        // The operator MUST invert the same curvature this Sensitivity's
+        // kernel describes (the #935 single-inverse contract): the score
+        // dimension, the operator dimension, and the kernel's basis height
+        // (`u_s.nrows()` = p) must all agree, else `dir` would mean different
+        // things to the solve and to the trace atoms. A mismatch declines.
+        let p = self.kernel.u_s.nrows();
+        if f_beta_theta.len() != p
+            || op.dim() != p
+            || h_dot_frozen.nrows() != p
+            || h_dot_frozen.ncols() != p
+        {
+            return None;
+        }
+        // β̇ = −H⁺ F_{βθ}, one batched solve through the shared operator.
+        let rhs = f_beta_theta.view().insert_axis(ndarray::Axis(1));
+        let beta_dot_col = op.mode_response(rhs)?;
+        let beta_dot = beta_dot_col.column(0).to_owned();
+        if beta_dot.iter().any(|v| !v.is_finite()) {
+            return None;
+        }
+        // Ḣ_total = ∂H/∂θ|_{β̂} + D_βH[β̇]: the frozen drift plus the cubic
+        // correction applied to THE SAME β̇ (no second β̇, no second cubic).
+        let mut h_dot_total = h_dot_frozen.clone();
+        h_dot_total += &cubic_drift(&beta_dot);
+        if h_dot_total.iter().any(|v| !v.is_finite()) {
+            return None;
+        }
+        Some(ThetaDirection {
+            index: Some(index),
+            beta_dot: Some(Arc::new(beta_dot)),
+            h_dot_total: Some(Arc::new(h_dot_total)),
+        })
+    }
 }
 
 /// Where the criterion is — and is not — differentiable.
@@ -437,14 +522,713 @@ impl CriterionAtom for SampledBlockAtom {
     }
 }
 
+/// Atom 4 (the simplest β-channel anchor): the penalty quadratic
+/// `½ Σ_k λ_k (β̂ − μ_k)ᵀ S_k (β̂ − μ_k)`.
+///
+/// This is the migration's smallest non-trivial test of the β-channel
+/// discipline — the one place the calculus's envelope/noise-floor correction
+/// has a closed form, so its contract is checkable by hand:
+///
+/// - `value`      = `½ Σ_k λ_k qᵀ S_k q` with `q = β̂ − μ_k` (the prior mean
+///   `μ_k` is zero for the usual smoothing penalties; a nonzero `μ_k` carries
+///   a Gaussian-prior shift). One quadratic form, one internal state.
+/// - `frozen_d1`  w.r.t. the log-smoothing coordinate `ρ_k = ln λ_k` at FIXED
+///   `β̂` is `½ λ_k qᵀ S_k q` — the per-block term itself, because
+///   `∂λ_k/∂ρ_k = λ_k`. ψ-coordinates (which move `S_k`'s *entries*, not its
+///   weight) enter through the shared drift like every other term and are not
+///   this atom's explicit channel, so `frozen_d1` reads only the `ρ` index.
+/// - `beta_channel` = `Σ_k λ_k S_k (β̂ − μ_k) = Sλ(β̂ − μ)` — the *penalty
+///   half* of the KKT residual `g = ∂_β(NLL) + Sλ(β̂ − μ)`. The calculus
+///   contracts it with the shared `β̇`, so the implicit `β̂(θ)`-motion of the
+///   penalty quadratic is charged exactly once and by the same chain rule the
+///   logdet and sampled atoms ride. No site can forget it; none can build a
+///   second, drifting copy.
+///
+/// `stratum` is `None`: the quadratic is C^∞ in both θ and β̂ on its own, so
+/// it declares no boundary — any non-smoothness the evaluation crosses belongs
+/// to the spectral atoms, not here.
+pub struct PenaltyQuadAtom {
+    /// Per-block smoothing weights `λ_k` (NOT logs — the atom multiplies them
+    /// in directly; the `ρ_k = ln λ_k` chain factor lives in `frozen_d1`).
+    pub lambdas: Array1<f64>,
+    /// Per-block penalty quadratic forms `q_k = (β̂ − μ_k)ᵀ S_k (β̂ − μ_k) ≥ 0`,
+    /// evaluated once at the current `β̂` (the only internal state this atom
+    /// needs; value and `frozen_d1` are both projections of it).
+    pub block_quadratics: Array1<f64>,
+    /// `Σ_k λ_k S_k (β̂ − μ_k)` — the penalty half of the KKT residual, the
+    /// atom's exact `∂A/∂β̂`. Built once alongside `block_quadratics`.
+    pub penalty_score: Array1<f64>,
+    /// Per-block beta score emissions `λ_k S_k(β̂ − μ_k)`, aligned with
+    /// `lambdas` / `block_quadratics`. Live gradient, Hessian, KKT-residual,
+    /// and EFS assembly read these instead of reassembling centered
+    /// beta-Gaussian prior matvecs at each consumer.
+    pub block_penalty_scores: Vec<Array1<f64>>,
+    /// The penalty-quadratic VALUE in the STABLE reparameterized basis,
+    /// `½ · stable_penalty_term` (the PIRLS-emitted
+    /// `penalty_active.shifted_quadratic(β̂_transformed) + ridge‖β̂_transformed‖²`,
+    /// halved to the criterion's `½βᵀSβ` convention). `Some` when the atom is
+    /// built from the converged inner solve (the live LAML cost path);
+    /// `value()` then returns THIS stable scalar rather than the original-basis
+    /// `½ Σ λ_k q_k`, which cancels catastrophically at large λ.
+    ///
+    /// Why value and gradient stay coherent across the two bases: the
+    /// reparameterization is a FIXED linear map at frozen β̂, so
+    /// `½ Σ_j λ_j q_j` is basis-invariant as a function value — only its
+    /// floating-point evaluation differs — and `∂/∂ρ_k = ½ λ_k q_k` (the
+    /// `rho_frozen_d1` emission) is the exact derivative of EITHER spelling.
+    /// Carrying the stable scalar here makes `value()` and `frozen_d1()`
+    /// projections of one object that owns the numerically-sound spelling, so
+    /// the cost can no longer read a raw penalty scalar the gradient atom does
+    /// not own (the #931 structural kill, without the large-λ cancellation).
+    pub stable_value: Option<f64>,
+}
+
+impl PenaltyQuadAtom {
+    /// Build the beta-Gaussian prior / penalty-quadratic atom from the live
+    /// REML penalty-coordinate representation.
+    ///
+    /// Each coordinate owns its prior-mean convention (`β` vs `β − μ`) and
+    /// sparse/block/root application. This constructor is the single emission
+    /// point for the centered quadratic `q_k`, the per-block score
+    /// `λ_k S_k(β̂ − μ_k)`, and their total beta channel.
+    pub(crate) fn from_penalty_coords(
+        lambdas: &[f64],
+        coords: &[PenaltyCoordinate],
+        beta: &Array1<f64>,
+    ) -> Result<Self, String> {
+        if lambdas.len() != coords.len() {
+            return Err(format!(
+                "penalty quadratic atom dimension mismatch: lambdas={}, coords={}",
+                lambdas.len(),
+                coords.len()
+            ));
+        }
+        let mut block_quadratics = Array1::<f64>::zeros(coords.len());
+        let mut penalty_score = Array1::<f64>::zeros(beta.len());
+        let mut block_penalty_scores = Vec::with_capacity(coords.len());
+        for (idx, (coord, &lambda)) in coords.iter().zip(lambdas.iter()).enumerate() {
+            if !lambda.is_finite() {
+                return Err(format!(
+                    "penalty quadratic atom received non-finite lambda at coord {idx}: {lambda}"
+                ));
+            }
+            let q_k = coord.shifted_quadratic(beta, 1.0);
+            if !q_k.is_finite() {
+                return Err(format!(
+                    "penalty quadratic atom produced non-finite shifted quadratic at coord {idx}: {q_k}"
+                ));
+            }
+            let score_k = coord.apply_shifted_penalty(beta, lambda);
+            if score_k.len() != beta.len() {
+                return Err(format!(
+                    "penalty quadratic atom score length mismatch at coord {idx}: got {}, expected {}",
+                    score_k.len(),
+                    beta.len()
+                ));
+            }
+            if score_k.iter().any(|v| !v.is_finite()) {
+                return Err(format!(
+                    "penalty quadratic atom produced a non-finite beta score at coord {idx}"
+                ));
+            }
+            block_quadratics[idx] = q_k;
+            penalty_score += &score_k;
+            block_penalty_scores.push(score_k);
+        }
+        Ok(Self {
+            lambdas: Array1::from_vec(lambdas.to_vec()),
+            block_quadratics,
+            penalty_score,
+            block_penalty_scores,
+            stable_value: None,
+        })
+    }
+
+    /// Value-only carrier: a `PenaltyQuadAtom` holding ONLY the stable-basis
+    /// penalty energy `½ · stable_penalty_term`, with empty block/score state.
+    ///
+    /// The live LAML cost is assembled (and may early-return for `ValueOnly`)
+    /// before the full gradient-bearing atom is built, so the cost reads the
+    /// penalty scalar through this lightweight carrier — making `value()` the
+    /// SINGLE source of the penalty term in the cost, the same `value()` the
+    /// full gradient atom exposes. `frozen_d1`/`beta_channel` are inert here (no
+    /// blocks), which is correct: a value-only carrier contributes no
+    /// derivative; the gradient flows through the full atom built downstream.
+    pub(crate) fn stable_value_only(half_stable_penalty_term: f64) -> Self {
+        Self {
+            lambdas: Array1::zeros(0),
+            block_quadratics: Array1::zeros(0),
+            penalty_score: Array1::zeros(0),
+            block_penalty_scores: Vec::new(),
+            stable_value: Some(half_stable_penalty_term),
+        }
+    }
+
+    /// Attach the production STABLE-basis penalty value (`½ · stable_penalty_term`).
+    ///
+    /// The inner solve already evaluated the penalty energy in the stable
+    /// reparameterized basis (where `βᵀSβ` does not cancel at large λ); this
+    /// records `½ · stable_penalty_term` as the atom's authoritative
+    /// [`value`](CriterionAtom::value), so the live LAML cost reads the penalty
+    /// scalar FROM the same atom whose `frozen_d1` supplies its ρ-derivative.
+    /// The original-basis `block_quadratics` are retained: they feed
+    /// `rho_frozen_d1` (the `½ λ_k q_k` per-block derivative, basis-invariant at
+    /// frozen β̂) and remain the closed-form `value()` fallback when no stable
+    /// scalar is supplied (the standalone-atom test path).
+    pub(crate) fn with_stable_value(mut self, half_stable_penalty_term: f64) -> Self {
+        self.stable_value = Some(half_stable_penalty_term);
+        self
+    }
+
+    /// Fixed-β derivative with respect to `ρ_idx = log λ_idx`.
+    pub(crate) fn rho_frozen_d1(&self, idx: usize) -> f64 {
+        if idx < self.lambdas.len() {
+            0.5 * self.lambdas[idx] * self.block_quadratics[idx]
+        } else {
+            0.0
+        }
+    }
+
+    pub(crate) fn block_penalty_scores(&self) -> &[Array1<f64>] {
+        &self.block_penalty_scores
+    }
+}
+
+impl CriterionAtom for PenaltyQuadAtom {
+    fn name(&self) -> &'static str {
+        "penalty_quadratic"
+    }
+    fn value(&self) -> f64 {
+        // The stable-basis scalar when the atom was built from the converged
+        // inner solve (the live LAML cost); otherwise the original-basis
+        // closed form ½ Σ_k λ_k q_k (standalone-atom path). Both are the same
+        // mathematical penalty energy; the stable spelling avoids large-λ
+        // cancellation.
+        self.stable_value.unwrap_or_else(|| {
+            0.5 * self
+                .lambdas
+                .iter()
+                .zip(self.block_quadratics.iter())
+                .map(|(&lam, &q)| lam * q)
+                .sum::<f64>()
+        })
+    }
+    fn frozen_d1(&self, dir: &ThetaDirection) -> f64 {
+        // ∂/∂ρ_k of ½ λ_k q_k at fixed β̂ is ½ λ_k q_k (since ∂λ_k/∂ρ_k = λ_k).
+        // Only the ρ-block coordinate matching `dir.index` has an explicit
+        // channel; ψ-motion of S_k's entries rides the shared drift.
+        match dir.index {
+            Some(k) => self.rho_frozen_d1(k),
+            _ => 0.0,
+        }
+    }
+    fn beta_channel(&self) -> Option<BetaChannel> {
+        Some(BetaChannel {
+            grad_beta: self.penalty_score.clone(),
+        })
+    }
+    fn stratum(&self) -> Option<StratumFingerprint> {
+        None
+    }
+}
+
+/// Atom 5 (ledger item "TK/Jeffreys/prior atoms"): the universal Jeffreys /
+/// Firth term `Φ_J = G · ½ Σ_i g(λ_i)` on the under-identified reduced
+/// information `H_id = Z_Jᵀ H Z_J` — the spectral-logdet sibling of
+/// [`HessianLogdetAtom`], but over the floored/saturated Jeffreys
+/// antiderivative `g` (gam#979) instead of the bare `log σ`, and scaled by the
+/// C¹ conditioning gate `G ∈ [0, 1]`.
+///
+/// Internal state = the ONE reduced-information eigendecomposition
+/// `(λ_i, V)` that `joint_jeffreys_term` already produces. Both channels are
+/// projections of it, and — the gam#787/#785 value↔gradient-consistency
+/// invariant made structural — they are pinned through one pair of functions:
+///
+/// - `value`      = `G · ½ Σ_i g(λ_i)` with `g = jeffreys_antiderivative`
+///   (the exact same four-branch `g` whose derivative is `floored_inverse`);
+/// - `frozen_d1`  = `G · ½ tr(H_id⁺ Ḣ_id[dir])` = `G · ½ Σ_i d_i (Ṽ_dir)_ii`
+///   with `d_i = floored_inverse(λ_i) = g'(λ_i)` and `Ṽ_dir = Vᵀ Ḣ_id V` the
+///   reduced drift rotated into the eigenbasis. Because `d = g'` is the SAME
+///   function `value` antidifferentiates, the directional derivative is the
+///   exact derivative of the value on the constant-rank/constant-gate stratum —
+///   no second formula to drift (the bug this term stalled on, gam#787);
+/// - `beta_channel` = NONE, exactly as [`HessianLogdetAtom`]: the β̂-motion of
+///   `H_id` (and the gate's own mode-response, gam#854) enters through the
+///   direction's shared `h_dot_total`, leaving no second site to misassemble;
+/// - `stratum`    = the reduced spectrum's smallest relative eigengap (the
+///   Daleckii–Krein kernel divides by `λ_i − λ_j`) AND the gate band state
+///   (a gate flip is a declared boundary, not a desync). `kept_rank` is the
+///   reduced dimension `m`.
+///
+/// The Hessian drift is supplied already rotated into the eigenbasis as the
+/// reduced matrix `Ṽ_dir = Vᵀ Z_Jᵀ Ḣ Z_J V` (an `m × m` object — the same
+/// reduced derivative `joint_jeffreys_term`'s gradient builds). If the
+/// relative eigenvalue floor is active, the floor drift
+/// `floor_dot(dir) = d floor / d dir` is supplied beside it. The atom then
+/// contracts the full first derivative
+/// `½ Σ_i g'_λ(λ_i) λ̇_i + ½ Σ_i g'_floor(λ_i) floor_dot`, so the value and
+/// gradient are projections of the same `g(λ; floor)`.
+pub struct JeffreysLogdetAtom {
+    /// Reduced-information eigenvalues `λ_i` (signed; may be < floor or < 0 in
+    /// the saturating branches). The one spectrum both channels project.
+    pub eigvals: Array1<f64>,
+    /// The floor passed to `jeffreys_antiderivative` / `floored_inverse` — the
+    /// single knot pinning `g` and `g'`.
+    pub floor: f64,
+    /// Conditioning-gate weight `G ∈ [0, 1]` scaling the whole term (the
+    /// `conditioning_gate_weight` value computed once for this spectrum).
+    pub gate_weight: f64,
+    /// Per-direction reduced drift `Ṽ_dir = Vᵀ Z_Jᵀ Ḣ[dir] Z_J V`, keyed by the
+    /// packed-θ coordinate index — the eigenbasis-rotated derivative the
+    /// gradient builder already forms. Looked up by `dir.index`; an absent
+    /// index has no frozen channel (its motion, if any, is zero in this term).
+    pub reduced_drift: std::collections::HashMap<usize, Arc<Array2<f64>>>,
+    /// Per-direction drift of the relative floor `floor = max(rel·λ_max, abs)`.
+    /// Missing entries mean the floor is fixed for that direction.
+    pub floor_drift: std::collections::HashMap<usize, f64>,
+    /// Declared smoothness stratum (reduced rank + min relative eigengap).
+    pub stratum: StratumFingerprint,
+}
+
+impl JeffreysLogdetAtom {
+    /// `d_i = floored_inverse(λ_i) = g'(λ_i)` — the floored-inverse diagonal
+    /// (`inv_diag` in `joint_jeffreys_term`), the SAME slope the value
+    /// antidifferentiates and the frozen trace weights against.
+    fn floored_inv_diag(&self) -> Array1<f64> {
+        self.eigvals.mapv(|lam| floored_inverse(lam, self.floor))
+    }
+
+    fn floor_sensitivity_sum(&self) -> f64 {
+        self.eigvals
+            .iter()
+            .map(|&lam| jeffreys_antiderivative_floor_sensitivity(lam, self.floor))
+            .sum()
+    }
+
+    /// Exact Daleckii-Krein curvature contribution `-∇²Φ` for the same
+    /// spectrum and reduced drifts that emit [`value`](CriterionAtom::value)
+    /// and [`frozen_d1`](CriterionAtom::frozen_d1).
+    ///
+    /// This is the live second-order Jeffreys atomization pass: the rows
+    /// `vec(Ṽ_a)` and `vec(Ψ ∘ Ṽ_a)` are assembled from this atom's
+    /// `reduced_drift` map, with `Ψ` computed from the same `(eigvals, floor)`
+    /// pair as the value/gradient functions. The omitted mixed second-
+    /// directional-Hessian completion remains in
+    /// `joint_jeffreys_second_order_completion`; this method owns the
+    /// divided-difference body that `joint_jeffreys_term` consumes directly.
+    pub fn second_order_curvature(&self, axis_count: usize) -> Result<Array2<f64>, String> {
+        let m = self.eigvals.len();
+        let psi = floored_inverse_divided_differences(&self.eigvals, self.floor);
+        let mut a_rows = Array2::<f64>::zeros((axis_count, m * m));
+        let mut aw_rows = Array2::<f64>::zeros((axis_count, m * m));
+        for axis in 0..axis_count {
+            let reduced = self.reduced_drift.get(&axis).ok_or_else(|| {
+                format!(
+                    "jeffreys_logdet second-order curvature missing reduced drift for axis {axis}"
+                )
+            })?;
+            if reduced.dim() != (m, m) {
+                return Err(format!(
+                    "jeffreys_logdet reduced drift shape for axis {axis} is {:?}, expected ({m}, {m})",
+                    reduced.dim()
+                ));
+            }
+            let mut col = 0usize;
+            for i in 0..m {
+                for j in 0..m {
+                    let a_ij = reduced[[i, j]];
+                    a_rows[[axis, col]] = a_ij;
+                    aw_rows[[axis, col]] = psi[[i, j]] * a_ij;
+                    col += 1;
+                }
+            }
+        }
+        let mut hphi = crate::linalg::faer_ndarray::fast_abt(&aw_rows, &a_rows);
+        hphi.mapv_inplace(|v| -0.5 * self.gate_weight * v);
+        Ok(hphi)
+    }
+}
+
+impl CriterionAtom for JeffreysLogdetAtom {
+    fn name(&self) -> &'static str {
+        "jeffreys_logdet"
+    }
+    fn value(&self) -> f64 {
+        // G · ½ Σ_i g(λ_i): the gate-scaled bounded Jeffreys log-volume.
+        self.gate_weight
+            * 0.5
+            * self
+                .eigvals
+                .iter()
+                .map(|&lam| jeffreys_antiderivative(lam, self.floor))
+                .sum::<f64>()
+    }
+    fn frozen_d1(&self, dir: &ThetaDirection) -> f64 {
+        let idx = match dir.index {
+            Some(idx) => idx,
+            None => return 0.0,
+        };
+        let reduced = match self.reduced_drift.get(&idx) {
+            Some(r) => r,
+            None => return 0.0,
+        };
+        // G · ½ d/dθ Σ_i g(λ_i; floor): the eigenvalue drift and the
+        // relative-floor drift are both projections of the same antiderivative.
+        let d = self.floored_inv_diag();
+        let m = d.len();
+        let mut trace = 0.0;
+        for i in 0..m {
+            trace += d[i] * reduced[[i, i]];
+        }
+        if let Some(floor_dot) = self.floor_drift.get(&idx) {
+            trace += self.floor_sensitivity_sum() * floor_dot;
+        }
+        self.gate_weight * 0.5 * trace
+    }
+    fn beta_channel(&self) -> Option<BetaChannel> {
+        None
+    }
+    fn stratum(&self) -> Option<StratumFingerprint> {
+        Some(StratumFingerprint {
+            kept_rank: self.stratum.kept_rank,
+            min_relative_eigengap: self.stratum.min_relative_eigengap,
+        })
+    }
+}
+
+/// Atom 6 (ledger item "TK/Jeffreys/prior atoms"): the configured
+/// smoothing-parameter prior over packed `ρ` coordinates.
+///
+/// This is a θ-only atom: it has no dependence on the inner mode `β̂`, so its
+/// β-channel is `None` and it declares no smoothness stratum. Its internal state
+/// is the single [`RhoPriorEval`](crate::rho_prior_eval::RhoPriorEval) emitted by
+/// the shared prior evaluator after all REML/LAML policies have been applied
+/// (weight anchoring, Saturate invalid-prior handling, and the Firth-default
+/// self-gated barrier). The objective assembly reads value, first derivative,
+/// and diagonal Hessian from this same object, so configured-prior cost and
+/// gradient can no longer come from separate wrapper calls.
+pub struct ConfiguredRhoPriorAtom {
+    pub eval: crate::rho_prior_eval::RhoPriorEval,
+}
+
+impl ConfiguredRhoPriorAtom {
+    pub fn cost(&self) -> f64 {
+        self.eval.cost
+    }
+
+    pub fn gradient(&self) -> &Array1<f64> {
+        &self.eval.gradient
+    }
+
+    pub fn hessian(&self) -> Option<&Array2<f64>> {
+        self.eval.hessian.as_ref()
+    }
+}
+
+impl CriterionAtom for ConfiguredRhoPriorAtom {
+    fn name(&self) -> &'static str {
+        "configured_rho_prior"
+    }
+    fn value(&self) -> f64 {
+        self.cost()
+    }
+    fn frozen_d1(&self, dir: &ThetaDirection) -> f64 {
+        match dir.index {
+            Some(idx) if idx < self.eval.gradient.len() => self.eval.gradient[idx],
+            _ => 0.0,
+        }
+    }
+    fn beta_channel(&self) -> Option<BetaChannel> {
+        None
+    }
+    fn stratum(&self) -> Option<StratumFingerprint> {
+        None
+    }
+}
+
+/// Atom 6b (ledger item "TK/Jeffreys/prior atoms"): the soft numerical-guard
+/// ρ prior — a weak, separable `log cosh` barrier that keeps the outer search
+/// off the `ρ → ±RHO_BOUND` walls.
+///
+/// Per coordinate, evaluated at the weight-anchored coordinate
+/// `ρ̃ = ρ − rho_weight_anchor` (issue #877; the anchor is ρ-independent so
+/// `d/dρ = d/dρ̃`):
+///
+/// ```text
+///   C_i(ρ_i) = w · log cosh( a (ρ_i − anchor) ),   a = sharpness / bound
+///   dC_i/dρ_i   = w · a · tanh( a (ρ_i − anchor) )
+///   d²C_i/dρ_i² = w · a² · (1 − tanh²( a (ρ_i − anchor) ))
+/// ```
+///
+/// The value, gradient, and Hessian were previously three separate
+/// `compute_soft_prior{cost,grad,hess}` functions, each re-deriving `anchor`,
+/// `a`, and the `tanh` argument independently. That is exactly the
+/// objective↔gradient desync surface this module exists to remove: the three
+/// emissions are the antiderivative chain `∫ tanh = log cosh`,
+/// `d tanh = 1 − tanh²`, so a single edit to the sharpness/anchor/bound in one
+/// formula and not the others silently biases λ-selection. This atom evaluates
+/// the chain ONCE — one `tanh` per coordinate feeds value (`log cosh`), gradient
+/// (`tanh`), and curvature (`1 − tanh²`) together — so they cannot disagree.
+///
+/// It is θ-only and separable: `beta_channel` is `None` (no inner-mode
+/// dependence) and the gradient/Hessian are diagonal in ρ. `frozen_d1` reads
+/// the per-coordinate gradient the same emission produced, so the profiled
+/// total derivative through [`CriterionSum`] is consistent by construction.
+pub struct SoftRhoGuardPriorAtom {
+    /// Scalar cost `Σ_i w · log cosh(a (ρ_i − anchor))`.
+    pub value: f64,
+    /// Per-coordinate gradient `w · a · tanh(a (ρ_i − anchor))`.
+    pub gradient: Array1<f64>,
+    /// Diagonal of the per-coordinate curvature
+    /// `w · a² · (1 − tanh²(a (ρ_i − anchor)))`, `None` when the prior
+    /// contributes zero curvature (empty ρ or zero weight).
+    pub hessian_diag: Option<Array1<f64>>,
+}
+
+impl SoftRhoGuardPriorAtom {
+    /// Evaluate the soft guard prior from one pass over the weight-anchored ρ.
+    ///
+    /// `weight`, `sharpness`, and `bound` are the `RHO_SOFT_PRIOR_WEIGHT`,
+    /// `RHO_SOFT_PRIOR_SHARPNESS`, and `RHO_BOUND` policy constants (passed in
+    /// so this module needs no cross-crate const import); `anchor` is the
+    /// `rho_weight_anchor` shift. A single `tanh` per coordinate feeds all three
+    /// emissions, so value/gradient/Hessian are projections of one computation.
+    pub fn evaluate(rho: &Array1<f64>, weight: f64, sharpness: f64, bound: f64) -> Self {
+        Self::evaluate_anchored(rho, weight, sharpness, bound, 0.0)
+    }
+
+    /// As [`evaluate`](Self::evaluate) but with an explicit weight anchor
+    /// (issue #877): the prior is evaluated at `ρ_i − anchor`.
+    pub fn evaluate_anchored(
+        rho: &Array1<f64>,
+        weight: f64,
+        sharpness: f64,
+        bound: f64,
+        anchor: f64,
+    ) -> Self {
+        let len = rho.len();
+        let mut gradient = Array1::<f64>::zeros(len);
+        if len == 0 || weight == 0.0 {
+            return Self {
+                value: 0.0,
+                gradient,
+                hessian_diag: None,
+            };
+        }
+        let a = sharpness / bound;
+        let grad_prefactor = weight * a;
+        let hess_prefactor = weight * a * a;
+        let mut value = 0.0;
+        let mut hess = Array1::<f64>::zeros(len);
+        for (i, &ri) in rho.iter().enumerate() {
+            let scaled = a * (ri - anchor);
+            let t = scaled.tanh();
+            // One evaluation of the chain: log cosh → tanh → 1 − tanh².
+            value += weight * scaled.cosh().ln();
+            gradient[i] = grad_prefactor * t;
+            hess[i] = hess_prefactor * (1.0 - t * t);
+        }
+        let hessian_diag = hess.iter().any(|&v| v != 0.0).then_some(hess);
+        Self {
+            value,
+            gradient,
+            hessian_diag,
+        }
+    }
+
+    pub fn cost(&self) -> f64 {
+        self.value
+    }
+
+    pub fn gradient(&self) -> &Array1<f64> {
+        &self.gradient
+    }
+
+    /// The diagonal curvature materialized as a dense matrix, matching the
+    /// `Option<Array2>` shape the prior assembly consumes. `None` when the prior
+    /// contributes no curvature.
+    pub fn hessian(&self) -> Option<Array2<f64>> {
+        let diag = self.hessian_diag.as_ref()?;
+        let len = diag.len();
+        let mut hess = Array2::<f64>::zeros((len, len));
+        for (i, &d) in diag.iter().enumerate() {
+            hess[[i, i]] = d;
+        }
+        Some(hess)
+    }
+}
+
+impl CriterionAtom for SoftRhoGuardPriorAtom {
+    fn name(&self) -> &'static str {
+        "soft_rho_guard_prior"
+    }
+    fn value(&self) -> f64 {
+        self.value
+    }
+    fn frozen_d1(&self, dir: &ThetaDirection) -> f64 {
+        match dir.index {
+            Some(idx) if idx < self.gradient.len() => self.gradient[idx],
+            _ => 0.0,
+        }
+    }
+    fn beta_channel(&self) -> Option<BetaChannel> {
+        None
+    }
+    fn stratum(&self) -> Option<StratumFingerprint> {
+        None
+    }
+}
+
+/// Common projection surface for θ-only correction atoms whose value,
+/// gradient, and Hessian are emitted as one object.
+pub(crate) trait ThetaCorrectionProjection: CriterionAtom {
+    fn cost(&self) -> f64 {
+        self.value()
+    }
+    fn gradient(&self) -> Option<&Array1<f64>>;
+    fn hessian(&self) -> Option<&Array2<f64>>;
+}
+
+/// Atom 7a (TK kernel): the Tierney-Kadane frozen-curvature correction.
+///
+/// The row-kernel assembly in `tierney_kadane_terms` now returns this atom
+/// directly: value, first derivative, and Hessian are projected from the one
+/// `TkCorrectionTerms` emission produced by the shared TK intermediates. This
+/// is stronger than the previous application-layer wrapper: the live TK kernel
+/// itself is a `CriterionAtom`, so objective, gradient, and Hessian assembly
+/// cannot route around its single owner.
+pub struct TierneyKadaneAtom {
+    terms: super::outer_eval::TkCorrectionTerms,
+}
+
+impl TierneyKadaneAtom {
+    pub(crate) fn from_terms(terms: super::outer_eval::TkCorrectionTerms) -> Self {
+        Self { terms }
+    }
+
+    pub fn gradient(&self) -> Option<&Array1<f64>> {
+        self.terms.gradient.as_ref()
+    }
+
+    pub fn hessian(&self) -> Option<&Array2<f64>> {
+        self.terms.hessian.as_ref()
+    }
+}
+
+impl CriterionAtom for TierneyKadaneAtom {
+    fn name(&self) -> &'static str {
+        "tierney_kadane"
+    }
+    fn value(&self) -> f64 {
+        self.terms.value
+    }
+    fn frozen_d1(&self, dir: &ThetaDirection) -> f64 {
+        match (dir.index, self.terms.gradient.as_ref()) {
+            (Some(idx), Some(gradient)) if idx < gradient.len() => gradient[idx],
+            _ => 0.0,
+        }
+    }
+    fn beta_channel(&self) -> Option<BetaChannel> {
+        None
+    }
+    fn stratum(&self) -> Option<StratumFingerprint> {
+        None
+    }
+}
+
+impl ThetaCorrectionProjection for TierneyKadaneAtom {
+    fn gradient(&self) -> Option<&Array1<f64>> {
+        TierneyKadaneAtom::gradient(self)
+    }
+
+    fn hessian(&self) -> Option<&Array2<f64>> {
+        TierneyKadaneAtom::hessian(self)
+    }
+}
+
+/// Atom 7b (sampled-correction application layer): a θ-only scalar
+/// correction emitted as one value + derivative bundle.
+///
+/// The #784 sampler still owns the hard math that produces
+/// [`TkCorrectionTerms`](super::outer_eval::TkCorrectionTerms).
+/// This atom owns the assembly-side invariant: once such a correction exists,
+/// cost, gradient, and Hessian are projected from one object, so the caller
+/// cannot add the scalar value while forgetting or shape-shifting its analytic
+/// derivative. It is θ-only, so β-channel and stratum are both absent.
+pub struct ThetaOnlyCorrectionAtom {
+    pub label: &'static str,
+    pub value: f64,
+    pub gradient: Option<Array1<f64>>,
+    pub hessian: Option<Array2<f64>>,
+}
+
+impl ThetaOnlyCorrectionAtom {
+    pub(crate) fn from_tk_terms(
+        label: &'static str,
+        terms: super::outer_eval::TkCorrectionTerms,
+    ) -> Self {
+        Self {
+            label,
+            value: terms.value,
+            gradient: terms.gradient,
+            hessian: terms.hessian,
+        }
+    }
+
+    pub fn cost(&self) -> f64 {
+        self.value
+    }
+
+    pub fn gradient(&self) -> Option<&Array1<f64>> {
+        self.gradient.as_ref()
+    }
+
+    pub fn hessian(&self) -> Option<&Array2<f64>> {
+        self.hessian.as_ref()
+    }
+}
+
+impl ThetaCorrectionProjection for ThetaOnlyCorrectionAtom {
+    fn gradient(&self) -> Option<&Array1<f64>> {
+        self.gradient()
+    }
+
+    fn hessian(&self) -> Option<&Array2<f64>> {
+        self.hessian()
+    }
+}
+
+impl CriterionAtom for ThetaOnlyCorrectionAtom {
+    fn name(&self) -> &'static str {
+        self.label
+    }
+    fn value(&self) -> f64 {
+        self.value
+    }
+    fn frozen_d1(&self, dir: &ThetaDirection) -> f64 {
+        match (dir.index, self.gradient.as_ref()) {
+            (Some(idx), Some(gradient)) if idx < gradient.len() => gradient[idx],
+            _ => 0.0,
+        }
+    }
+    fn beta_channel(&self) -> Option<BetaChannel> {
+        None
+    }
+    fn stratum(&self) -> Option<StratumFingerprint> {
+        None
+    }
+}
+
 // Atom 2 in the migration order is `penalty_logdet.rs` itself — it already
 // satisfies the contract (one factorization → value + ρ/ψ/cross
 // derivatives) and needs only the trait impl plus the deletion of its
 // remaining call-site special-casing. The penalty quadratic
-// `½ λ_k (β−μ_k)ᵀ S_k (β−μ_k)` is the simplest β-channel atom (frozen_d1 =
-// the explicit ½λ_k quadratic; beta_channel = Sλ(β̂−μ) = the KKT residual's
-// penalty half) and should be ported alongside the inner-objective atom so
-// the envelope/noise-floor correction emerges from the calculus on day one.
+// `½ λ_k (β−μ_k)ᵀ S_k (β−μ_k)` is realized above as `PenaltyQuadAtom` (the
+// simplest β-channel atom: frozen_d1 = the explicit ½λ_k quadratic;
+// beta_channel = Sλ(β̂−μ) = the KKT residual's penalty half). Its live
+// derivative assembly now reads the atom's centered beta-Gaussian emissions;
+// the scalar cost still reads `pirls_result.stable_penalty_term` for the
+// stable-basis value invariant recorded below.
 //
 // ── Migration ledger ──────────────────────────────────────────────────────
 //
@@ -469,9 +1253,10 @@ impl CriterionAtom for SampledBlockAtom {
 // `shifted_quadratic`. The two formulas are mathematically one atom, but the
 // stable-basis evaluation exists because `βᵀSλβ` cancels catastrophically in
 // the original basis at large λ — unifying the source text would trade a
-// certified value/gradient pair for worse numerics. That pair is covered by
-// the #934 certificate until the quadratic atom can own a stable-basis
-// emission for BOTH channels.
+// certified value/gradient pair for worse numerics. The live derivative,
+// Hessian, KKT-residual, and EFS sites now read the centered `PenaltyQuadAtom`
+// emissions; the remaining value-side work is a stable-basis value emission
+// from PIRLS, not a second shifted-quadratic formula in the outer assembly.
 //
 // LANDED (pass 2, the ThetaDirection shared-drift pass — the β̇ kernel
 // half): `ThetaModeResponseKernel` in unified.rs is now the ONE place the
@@ -507,10 +1292,99 @@ impl CriterionAtom for SampledBlockAtom {
 // (`respond_one` single-RHS vs `respond_stack` batched) also stay
 // distinct on purpose: GEMV-per-column and blocked GEMM sum in different
 // orders, so collapsing them would break bit-identity with the pre-port
-// assemblies. The remaining ThetaDirection channels — caching β̇/Ḣ_total
-// on the direction object and replacing the per-consumer Ḣ assemblies in
-// the trace branches — land with the #935 Sensitivity operator pass that
-// fills AND reads them.
+// assemblies. The per-site solve SHAPES (`respond_one` single-RHS vs
+// `respond_stack` batched) also stay distinct on purpose.
+//
+// LANDED (pass 3, the #935 Sensitivity operator → ThetaDirection channel
+// fill): `Sensitivity::fill_direction` is now the ONE place the shared inner
+// motion is assembled — it runs `β̇ = −H⁺ F_{βθ}` through the shared
+// `crate::solver::sensitivity::FitSensitivity` (#935 closed) operator and
+// builds `Ḣ_total = h_dot_frozen + D_βH[β̇]` against THAT β̇, with the cubic
+// correction `D_βH[β̇] = Xᵀdiag(c⊙Xβ̇)X` supplied as the caller's EXISTING
+// operator (no second copy — the no-parallel-layer rule). The `beta_dot` /
+// `h_dot_total` channels are filled there and READ by `CriterionSum::d1` and
+// every atom's `frozen_d1` (the calculus contracts ONE β̇ and traces ONE
+// drift), so there is no unread design surface. End-to-end pin:
+// `sensitivity_fill_direction_feeds_criterion_sum_end_to_end` builds the
+// operator from a Cholesky factor, fills a direction, and asserts the logdet
+// + penalty-quadratic profiled `d1` from the filled β̇/Ḣ_total. The dense
+// general-direction `dir` and staged `s_dot` channels stay unbuilt until a
+// consumer reads them. Folding `fill_direction` into the deeply-cached
+// `gradient_hessian.rs` per-consumer Ḣ assemblies (deleting them) is the
+// per-pass MSI-FD-verified step against the iso-κ suite, not done here.
+//
+// LANDED (pass 4 start, ledger item "TK/Jeffreys/prior atoms"):
+// `JeffreysLogdetAtom` ports the universal Jeffreys/Firth term
+// `Φ_J = G·½ Σ g(λ_i)` on the under-identified reduced information `H_id` as
+// the spectral-logdet sibling of `HessianLogdetAtom`. Value (`½ Σ g`) and
+// frozen directional derivative (`½ Σ floored_inverse(λ)·Ṽ_ii`) are pinned to
+// ONE pair of functions — `jeffreys_antiderivative` (the `g` factored out of
+// `joint_jeffreys_term`'s inline value branches) and `floored_inverse` (its
+// exact slope `g'`) — so the gam#787/#785 value↔gradient-consistency stall is
+// structural here: `d = g'` is the function `value` antidifferentiates.
+// `beta_channel` is None (β̂-motion rides the shared drift, like the main
+// logdet); `stratum` carries the reduced min-eigengap + gate band. The live
+// `joint_jeffreys_term` call site now builds the atom once for value and once
+// with per-axis reduced/floor drifts for gradient, so the inline value/gradient
+// projection pair is deleted; the divided-difference curvature remains in
+// `joint_jeffreys_term` until the second-order atom pass. Isolation + FD pin:
+// `jeffreys_logdet_atom_emits_consistent_value_and_directional_derivative`
+// asserts the closed-form value/frozen_d1, the relative-floor channel, and an
+// FD oracle `g'(λ) ≈ floored_inverse(λ)` across all four branches.
+//
+// LANDED (pass 4b, configured-prior atom): `ConfiguredRhoPriorAtom` wraps the
+// shared `RhoPriorEval` after the REML/LAML policies are applied (configured
+// prior, Firth-default barrier replacement, invalid-prior saturation, and
+// weight anchoring). The live `RemlState::build_prior` path now constructs
+// this atom once per prior assembly and projects configured-prior cost,
+// gradient, and diagonal Hessian from that one emission; the old
+// `compute_configured_rho_prior_{cost,grad,hess}` wrappers and the generic
+// `soft_prior_for_mode` closure helper are deleted.
+//
+// LANDED (pass 4d, soft numerical-guard prior atom): `SoftRhoGuardPriorAtom`
+// ports the separable `log cosh` ρ-barrier. The three `compute_soft_prior{cost,
+// grad,hess}` functions (and the `add_soft_priorhessian_in_place` helper) each
+// re-derived the anchor, the `a = sharpness/bound` scale, and the `tanh`
+// argument independently — the canonical desync surface, since the three
+// formulas are the antiderivative chain `∫ tanh = log cosh`,
+// `d tanh = 1 − tanh²`. `evaluate_anchored` now walks that chain ONCE per
+// coordinate (one `tanh` feeds value, gradient, and curvature), and the live
+// `build_prior` + `#778` cost-order short-circuit call sites read cost,
+// gradient, and Hessian from this one atom via `soft_rho_guard_prior_atom`. The
+// three split functions are deleted in the same commit. Isolation + FD pin:
+// `soft_rho_guard_prior_atom_value_gradient_hessian_are_one_chain` asserts the
+// closed-form value/gradient/diagonal-Hessian and an independent central-FD
+// oracle (FD of value == analytic gradient, FD of gradient == analytic
+// curvature) per coordinate.
+//
+// LANDED (pass 4c, sampled-correction application atom): the live runtime
+// post-evaluator no longer splices sampled `TkCorrectionTerms` into
+// `RemlLamlResult` field-by-field. `block_local_sampled_correction` still
+// computes the sampler emission, but `assemble_and_evaluate*` immediately
+// wraps it in a `ThetaOnlyCorrectionAtom`; cost, gradient, and Hessian are then
+// projected from that atom in one application site with arity checks. This
+// ports the block value+gradient splice to the atom ledger without touching
+// #932's row kernels.
+//
+// LANDED (pass 4f, TK kernel atom): `tierney_kadane_terms` now returns a
+// `TierneyKadaneAtom` directly. The TK row-kernel core still emits the same
+// `TkCorrectionTerms` from one shared-intermediates pass, but the kernel output
+// is the criterion atom itself, not a loose tuple later rewrapped by the
+// application layer. Standard assembly and EFS both apply that atom through
+// `ThetaCorrectionProjection`, so TK value, gradient, and Hessian share one
+// owner and one arity-checked projection path.
+//
+// LANDED (pass 4e, beta-Gaussian prior derivative atom): live ρ penalty
+// derivative assembly now builds `PenaltyQuadAtom` from `PenaltyCoordinate`s
+// once per evaluator path and projects the centered Gaussian-prior emissions
+// from it: `rho_frozen_d1` feeds the gradient/Hessian/EFS penalty-quadratic
+// scalar, and `block_penalty_scores` feeds mode-response RHSs plus the
+// KKT-residual correction. The old outer helper pair
+// `penalty_a_k_{beta,quadratic}` is deleted, so the outer derivative stack no
+// longer reassembles `(β̂ − μ_k)` matvecs and quadratics independently at each
+// consumer. The profiled cost VALUE deliberately remains the stable PIRLS
+// emission above; this pass removes the live inline derivative/Hessian beta
+// prior assembly without replacing the numerically stable scalar value path.
 
 #[cfg(test)]
 mod tests {
@@ -607,5 +1481,633 @@ mod tests {
         };
         assert!((sum.value() - (0.5 * 8.0_f64.ln() - 0.4)).abs() < 1e-12);
         assert!((sum.d1(&dir) - 0.935).abs() < 1e-12);
+    }
+
+    /// Per-atom isolation check for the penalty-quadratic anchor
+    /// (`PenaltyQuadAtom`): confirm `value` is `½ Σ_k λ_k q_k`, that the
+    /// `frozen_d1` w.r.t. the ρ_k coordinate is the per-block term `½ λ_k q_k`
+    /// (and zero for any non-ρ-block index), and that `beta_channel` returns
+    /// the penalty-half KKT residual so the `CriterionSum` fold charges its
+    /// envelope correction `⟨Sλ(β̂−μ), β̇⟩` exactly once. Everything is chosen
+    /// to be verifiable by hand against the closed form, matching the
+    /// `HessianLogdetAtom` isolation discipline above.
+    #[test]
+    pub(crate) fn penalty_quad_atom_emits_closed_form_value_score_and_directional_derivative() {
+        // Two penalty blocks: λ = (3, 5), block quadratics q = (qᵀS₀q, qᵀS₁q)
+        // = (2, 4). value = ½(3·2 + 5·4) = ½·26 = 13.
+        // Penalty score Sλ(β̂−μ) is supplied directly (a 2-vector here).
+        let atom = PenaltyQuadAtom {
+            lambdas: array![3.0, 5.0],
+            block_quadratics: array![2.0, 4.0],
+            penalty_score: array![1.5, -0.5],
+            block_penalty_scores: vec![array![1.0, 0.0], array![0.5, -0.5]],
+            stable_value: None,
+        };
+        assert_eq!(atom.name(), "penalty_quadratic");
+        assert!((atom.value() - 13.0).abs() < 1e-12);
+        assert!(
+            atom.stratum().is_none(),
+            "the penalty quadratic is C^∞ and declares no stratum boundary"
+        );
+
+        // frozen_d1 w.r.t. ρ_0 = ln λ_0: ½ λ_0 q_0 = ½·3·2 = 3.
+        let dir0 = ThetaDirection {
+            index: Some(0),
+            beta_dot: Some(Arc::new(array![0.5, 0.5])),
+            h_dot_total: Some(Arc::new(array![[0.0, 0.0], [0.0, 0.0]])),
+        };
+        assert!((atom.frozen_d1(&dir0) - 3.0).abs() < 1e-12);
+
+        // frozen_d1 w.r.t. ρ_1 = ln λ_1: ½ λ_1 q_1 = ½·5·4 = 10.
+        let dir1 = ThetaDirection {
+            index: Some(1),
+            beta_dot: Some(Arc::new(array![0.5, 0.5])),
+            h_dot_total: Some(Arc::new(array![[0.0, 0.0], [0.0, 0.0]])),
+        };
+        assert!((atom.frozen_d1(&dir1) - 10.0).abs() < 1e-12);
+
+        // An out-of-range / non-ρ-block index has no explicit channel.
+        let dir_none = ThetaDirection {
+            index: Some(7),
+            beta_dot: Some(Arc::new(array![0.5, 0.5])),
+            h_dot_total: Some(Arc::new(array![[0.0, 0.0], [0.0, 0.0]])),
+        };
+        assert!(atom.frozen_d1(&dir_none).abs() < 1e-12);
+
+        // β-channel is the penalty-half KKT residual; the calculus contracts
+        // it with β̇ = [0.5, 0.5] ⇒ ⟨[1.5, −0.5], [0.5, 0.5]⟩ = 0.5.
+        let channel = atom
+            .beta_channel()
+            .expect("penalty quadratic declares a β-channel");
+        assert!((channel.grad_beta.dot(&array![0.5, 0.5]) - 0.5).abs() < 1e-12);
+
+        // CriterionSum fold over the ρ_0 direction: value = 13, profiled
+        // d1 = frozen_d1(ρ_0) + ⟨Sλ(β̂−μ), β̇⟩ = 3 + 0.5 = 3.5. The envelope
+        // correction appears with no per-atom chain rule — exactly the win.
+        let sum = CriterionSum {
+            atoms: vec![Box::new(atom)],
+        };
+        assert!((sum.value() - 13.0).abs() < 1e-12);
+        assert!((sum.d1(&dir0) - 3.5).abs() < 1e-12);
+
+        // Live constructor path with a nonzero Gaussian prior mean:
+        // β = (2, 3), μ = (1, 1), R = I, λ = 4.
+        // q = ||β - μ||² = 1 + 4 = 5, value = 10,
+        // score = λ(β - μ) = (4, 8).
+        let centered_coord = PenaltyCoordinate::from_dense_root_with_mean(
+            array![[1.0, 0.0], [0.0, 1.0]],
+            array![1.0, 1.0],
+        );
+        let centered_atom =
+            PenaltyQuadAtom::from_penalty_coords(&[4.0], &[centered_coord], &array![2.0, 3.0])
+                .expect("centered penalty atom");
+        assert!((centered_atom.value() - 10.0).abs() < 1e-12);
+        assert!((centered_atom.rho_frozen_d1(0) - 10.0).abs() < 1e-12);
+        let centered_channel = centered_atom
+            .beta_channel()
+            .expect("centered penalty atom declares beta channel");
+        assert_eq!(centered_channel.grad_beta, array![4.0, 8.0]);
+        assert_eq!(centered_atom.block_penalty_scores()[0], array![4.0, 8.0]);
+    }
+
+    /// #931 production routing: the penalty-quadratic VALUE the live LAML cost
+    /// consumes is the atom's stable-basis `value()`, and the SAME atom's
+    /// `rho_frozen_d1` is the exact ρ-derivative of that value.
+    ///
+    /// 1. `stable_value_only(s).value() == s` — the lightweight cost-side
+    ///    carrier returns exactly the stable scalar the cost reads (no
+    ///    original-basis recomputation that could cancel at large λ).
+    /// 2. A full atom built from real penalty coords, given `with_stable_value(s)`,
+    ///    returns `s` from `value()` (stable spelling) WHILE its `rho_frozen_d1`
+    ///    stays the original-basis `½ λ_k q_k` — and that derivative equals the
+    ///    centered FD of `½ Σ_j λ_j(ρ) q_j` in ρ (so value and gradient are the
+    ///    same energy: the gradient IS d/dρ of the value, basis-invariant).
+    /// 3. With no stable value attached, `value()` falls back to the
+    ///    original-basis closed form — the standalone-atom path is unchanged.
+    #[test]
+    pub(crate) fn penalty_quad_atom_stable_value_matches_production_and_gradient_is_rho_derivative()
+    {
+        // (1) Value-only carrier returns the stable scalar verbatim.
+        let carrier = PenaltyQuadAtom::stable_value_only(7.25);
+        assert!((carrier.value() - 7.25).abs() < 1e-12);
+        assert_eq!(carrier.name(), "penalty_quadratic");
+        // Inert derivative/channel for the value-only carrier (no blocks).
+        let dir0 = ThetaDirection {
+            index: Some(0),
+            beta_dot: Some(Arc::new(array![0.0, 0.0])),
+            h_dot_total: None,
+        };
+        assert_eq!(carrier.frozen_d1(&dir0), 0.0);
+        assert!(carrier.beta_channel().is_some()); // empty score, but present
+        assert_eq!(
+            carrier.beta_channel().unwrap().grad_beta.len(),
+            0,
+            "value-only carrier has no β-channel mass"
+        );
+
+        // (2) Full atom: two blocks, β = (2, 3), μ = 0, R = I ⇒ q = (β₀², β₁²)
+        // per block selecting one coordinate. Build λ-dependent value and check
+        // rho_frozen_d1 == d/dρ_k of ½ Σ λ_j q_j.
+        let beta = array![2.0_f64, 3.0];
+        // Block 0 penalizes coordinate 0 (root e₀ᵀ), block 1 coordinate 1.
+        let coord0 = PenaltyCoordinate::from_dense_root_with_mean(
+            array![[1.0, 0.0], [0.0, 0.0]],
+            array![0.0, 0.0],
+        );
+        let coord1 = PenaltyCoordinate::from_dense_root_with_mean(
+            array![[0.0, 0.0], [0.0, 1.0]],
+            array![0.0, 0.0],
+        );
+        let lambdas = [0.7_f64, 1.3];
+        let coords = vec![coord0.clone(), coord1.clone()];
+        let build = |lams: &[f64]| {
+            PenaltyQuadAtom::from_penalty_coords(lams, &coords, &beta).expect("penalty atom")
+        };
+        // q_0 = β₀² = 4, q_1 = β₁² = 9. Stable value (production scalar) =
+        // ½(0.7·4 + 1.3·9) = ½·14.5 = 7.25 — attach it and assert value() uses it.
+        let stable = 0.5 * (lambdas[0] * 4.0 + lambdas[1] * 9.0);
+        let atom = build(&lambdas).with_stable_value(stable);
+        assert!((atom.value() - 7.25).abs() < 1e-12);
+        // rho_frozen_d1(k) = ½ λ_k q_k, the original-basis closed form, retained.
+        assert!((atom.rho_frozen_d1(0) - 0.5 * 0.7 * 4.0).abs() < 1e-12);
+        assert!((atom.rho_frozen_d1(1) - 0.5 * 1.3 * 9.0).abs() < 1e-12);
+
+        // FD: the ρ-derivative is d/dρ_k of the ENERGY value ½ Σ λ_j(ρ) q_j
+        // (λ_j = e^{ρ_j}). Use the original-basis value() of a fresh atom (no
+        // stable override) as the energy-of-ρ oracle and centrally difference.
+        let energy_at = |rho: [f64; 2]| -> f64 {
+            let lams = [rho[0].exp(), rho[1].exp()];
+            build(&lams).value() // no stable override ⇒ ½ Σ λ_j q_j
+        };
+        let rho0 = [lambdas[0].ln(), lambdas[1].ln()];
+        let h = 1e-6;
+        for k in 0..2 {
+            let mut rp = rho0;
+            let mut rm = rho0;
+            rp[k] += h;
+            rm[k] -= h;
+            let fd = (energy_at(rp) - energy_at(rm)) / (2.0 * h);
+            assert!(
+                (fd - atom.rho_frozen_d1(k)).abs() < 1e-6,
+                "rho_frozen_d1[{k}] {} vs FD-of-value {}",
+                atom.rho_frozen_d1(k),
+                fd
+            );
+        }
+
+        // (3) No stable value ⇒ value() is the original-basis closed form 7.25.
+        let plain = build(&lambdas);
+        assert!((plain.value() - 7.25).abs() < 1e-12);
+    }
+
+    /// Per-atom isolation + value↔gradient consistency check for the Jeffreys
+    /// anchor (`JeffreysLogdetAtom`, ledger item "TK/Jeffreys/prior atoms").
+    ///
+    /// Two properties, matching the `HessianLogdetAtom` discipline:
+    ///
+    /// 1. **Closed-form bit-identity.** `value = G·½ Σ g(λ_i)` and
+    ///    `frozen_d1 = G·½ Σ d_i Ṽ_ii` are reproduced by hand from a chosen
+    ///    spectrum, with `g = jeffreys_antiderivative` and `d = floored_inverse`.
+    /// 2. **The structural desync-killer (gam#787):** the slope the frozen
+    ///    trace weights against, `d_i = floored_inverse(λ_i)`, is the EXACT
+    ///    derivative of the function `value` antidifferentiates,
+    ///    `g = jeffreys_antiderivative`. An FD oracle confirms
+    ///    `g'(λ) ≈ floored_inverse(λ)` across all four branches (top/log/band/
+    ///    bottom-saturation), so the atom's value and directional derivative
+    ///    cannot drift — exactly the consistency the term stalled on.
+    #[test]
+    pub(crate) fn jeffreys_logdet_atom_emits_consistent_value_and_directional_derivative() {
+        use super::super::jeffreys_subspace::{floored_inverse, jeffreys_antiderivative};
+
+        let floor = 1e-3_f64;
+
+        // FD oracle: g' == floored_inverse on a sample from each branch. The cap
+        // here is the gate-clear scale (floor < that), so: top (λ ≥ cap),
+        // log-window (floor ≤ λ < cap), below-floor band (0 ≤ λ < floor), and
+        // bottom-saturation (λ < 0). Use a central difference with a per-point
+        // step (relative away from kinks) and a loose tolerance — the branches
+        // are only C¹, so straddling a knot is excluded by construction.
+        let cap = super::super::jeffreys_subspace::jeffreys_cap(floor);
+        for &lam in &[cap * 4.0, (floor + cap) * 0.5, floor * 0.5, -0.7_f64] {
+            let h = 1e-7 * lam.abs().max(1e-3);
+            let fd = (jeffreys_antiderivative(lam + h, floor)
+                - jeffreys_antiderivative(lam - h, floor))
+                / (2.0 * h);
+            let analytic = floored_inverse(lam, floor);
+            assert!(
+                (fd - analytic).abs() <= 1e-4 * analytic.abs().max(1.0),
+                "g'(λ) desync at λ={lam}: fd={fd} analytic={analytic}"
+            );
+        }
+
+        // Spectrum λ = (2.0, 0.5) — both in the exact log-window (floor < λ < cap):
+        //   g(λ) = ln λ ⇒ value = G·½(ln 2 + ln 0.5) = G·½·ln 1 = 0  (for any G!),
+        //   d(λ) = 1/λ ⇒ d = (0.5, 2.0).
+        // Use a richer spectrum so the value is nonzero and hand-checkable:
+        //   λ = (4.0, 0.25): g = ln 4 + ln 0.25 = 0 again — pick (4.0, 0.5):
+        //   value = G·½(ln 4 + ln 0.5) = G·½·ln 2.
+        let eigvals = array![4.0_f64, 0.5_f64];
+        let gate = 0.75_f64;
+        let stratum = StratumFingerprint {
+            kept_rank: 2,
+            min_relative_eigengap: (4.0 - 0.5) / 4.0,
+        };
+
+        // Reduced drift for direction 0: Ṽ_dir = [[1.0, 0.2], [0.2, 3.0]].
+        // d = (1/4, 1/0.5) = (0.25, 2.0). tr(diag(d)·Ṽ) = 0.25·1.0 + 2.0·3.0 = 6.25.
+        // frozen_d1 = G·½·6.25 = 0.75·0.5·6.25 = 2.34375.
+        let mut reduced_drift = std::collections::HashMap::new();
+        reduced_drift.insert(0_usize, Arc::new(array![[1.0, 0.2], [0.2, 3.0]]));
+        reduced_drift.insert(1_usize, Arc::new(array![[2.0, 0.5], [0.5, 1.0]]));
+
+        let atom = JeffreysLogdetAtom {
+            eigvals: eigvals.clone(),
+            floor,
+            gate_weight: gate,
+            reduced_drift,
+            floor_drift: std::collections::HashMap::new(),
+            stratum,
+        };
+
+        assert_eq!(atom.name(), "jeffreys_logdet");
+        let expected_value = gate * 0.5 * (4.0_f64.ln() + 0.5_f64.ln());
+        assert!(
+            (atom.value() - expected_value).abs() < 1e-12,
+            "value {} vs {}",
+            atom.value(),
+            expected_value
+        );
+        assert!(
+            atom.beta_channel().is_none(),
+            "Jeffreys logdet rides the shared drift; no β-channel (like HessianLogdetAtom)"
+        );
+        assert_eq!(atom.stratum().expect("declared stratum").kept_rank, 2);
+
+        let dir0 = ThetaDirection {
+            index: Some(0),
+            beta_dot: Some(Arc::new(array![0.0, 0.0])),
+            h_dot_total: None,
+        };
+        assert!(
+            (atom.frozen_d1(&dir0) - 2.34375).abs() < 1e-12,
+            "frozen_d1 {} vs 2.34375",
+            atom.frozen_d1(&dir0)
+        );
+        let hphi = atom
+            .second_order_curvature(2)
+            .expect("second-order Jeffreys atom curvature");
+        assert!((hphi[[0, 0]] - 13.5384375).abs() < 1e-12);
+        assert!((hphi[[0, 1]] - 4.584375).abs() < 1e-12);
+        assert!((hphi[[1, 0]] - 4.584375).abs() < 1e-12);
+        assert!((hphi[[1, 1]] - 1.6875).abs() < 1e-12);
+
+        // A direction with no reduced drift entry has no frozen channel here.
+        let dir_absent = ThetaDirection {
+            index: Some(9),
+            beta_dot: None,
+            h_dot_total: None,
+        };
+        assert!(atom.frozen_d1(&dir_absent).abs() < 1e-12);
+
+        // CriterionSum fold: with no β-channel the profiled d1 is just the
+        // frozen sum (β̇ unused), so it equals the standalone frozen_d1.
+        let sum = CriterionSum {
+            atoms: vec![Box::new(atom)],
+        };
+        assert!((sum.value() - expected_value).abs() < 1e-12);
+        assert!((sum.d1(&dir0) - 2.34375).abs() < 1e-12);
+
+        // Relative-floor channel: with eigenvalue drifts zero and a moving
+        // floor, frozen_d1 must still be the derivative of
+        // ½ Σ g(λ_i; floor). For λ=(0.5,0.25)·floor,
+        // ∂g/∂floor = (500, 750), so Σ ∂g/∂floor = 1250.
+        let mut reduced_drift = std::collections::HashMap::new();
+        reduced_drift.insert(1_usize, Arc::new(array![[0.0, 0.0], [0.0, 0.0]]));
+        let mut floor_drift = std::collections::HashMap::new();
+        floor_drift.insert(1_usize, 2.0e-4);
+        let floor_atom = JeffreysLogdetAtom {
+            eigvals: array![0.5 * floor, 0.25 * floor],
+            floor,
+            gate_weight: gate,
+            reduced_drift,
+            floor_drift,
+            stratum: StratumFingerprint {
+                kept_rank: 2,
+                min_relative_eigengap: 0.25,
+            },
+        };
+        let dir_floor = ThetaDirection {
+            index: Some(1),
+            beta_dot: Some(Arc::new(array![0.0, 0.0])),
+            h_dot_total: None,
+        };
+        let expected_floor_d1 = gate * 0.5 * 1250.0 * 2.0e-4;
+        assert!(
+            (floor_atom.frozen_d1(&dir_floor) - expected_floor_d1).abs() < 1e-12,
+            "floor frozen_d1 {} vs {}",
+            floor_atom.frozen_d1(&dir_floor),
+            expected_floor_d1
+        );
+    }
+
+    /// Configured-prior atom isolation check: value and frozen directional
+    /// derivative are projections of one `RhoPriorEval`, and the optional
+    /// Hessian exposed to `build_prior` is the same emission rather than a
+    /// second evaluator call.
+    #[test]
+    pub(crate) fn configured_rho_prior_atom_projects_one_eval() {
+        let atom = ConfiguredRhoPriorAtom {
+            eval: crate::rho_prior_eval::RhoPriorEval {
+                cost: 1.25,
+                gradient: array![0.5, -1.5, 2.0],
+                hessian: Some(array![[3.0, 0.0, 0.0], [0.0, 4.0, 0.0], [0.0, 0.0, 5.0]]),
+            },
+        };
+        assert_eq!(atom.name(), "configured_rho_prior");
+        assert!((atom.value() - 1.25).abs() < 1e-12);
+        assert!(
+            atom.beta_channel().is_none(),
+            "rho prior is theta-only and declares no β-channel"
+        );
+        assert!(
+            atom.stratum().is_none(),
+            "rho prior is smooth on its configured-valid branch"
+        );
+
+        let dir1 = ThetaDirection {
+            index: Some(1),
+            beta_dot: None,
+            h_dot_total: None,
+        };
+        assert!((atom.frozen_d1(&dir1) - (-1.5)).abs() < 1e-12);
+        let dir_absent = ThetaDirection {
+            index: Some(9),
+            beta_dot: None,
+            h_dot_total: None,
+        };
+        assert!(atom.frozen_d1(&dir_absent).abs() < 1e-12);
+        assert_eq!(atom.gradient(), &array![0.5, -1.5, 2.0]);
+        assert_eq!(atom.hessian().expect("configured Hessian")[[2, 2]], 5.0);
+    }
+
+    /// TK/sampled correction application atom: the scalar value, gradient
+    /// projection, and Hessian carrier are read from one object.
+    #[test]
+    pub(crate) fn theta_only_correction_atom_projects_value_gradient_and_hessian() {
+        use crate::solver::estimate::reml::outer_eval::TkCorrectionTerms;
+
+        let tk_atom = TierneyKadaneAtom::from_terms(TkCorrectionTerms {
+            value: -0.75,
+            gradient: Some(array![0.25, -0.5]),
+            hessian: Some(array![[2.0, 0.1], [0.1, 3.0]]),
+        });
+        assert_eq!(tk_atom.name(), "tierney_kadane");
+        assert!((tk_atom.value() - (-0.75)).abs() < 1e-12);
+        assert!(tk_atom.beta_channel().is_none());
+        assert!(tk_atom.stratum().is_none());
+
+        let dir1 = ThetaDirection {
+            index: Some(1),
+            beta_dot: None,
+            h_dot_total: None,
+        };
+        assert!((tk_atom.frozen_d1(&dir1) - (-0.5)).abs() < 1e-12);
+        assert_eq!(tk_atom.gradient().expect("gradient"), &array![0.25, -0.5]);
+        assert_eq!(tk_atom.hessian().expect("hessian")[[1, 1]], 3.0);
+
+        let atom = ThetaOnlyCorrectionAtom {
+            label: "sampled_block_marginal",
+            value: -0.75,
+            gradient: Some(array![0.25, -0.5]),
+            hessian: Some(array![[2.0, 0.1], [0.1, 3.0]]),
+        };
+        assert_eq!(atom.name(), "sampled_block_marginal");
+        assert!((atom.value() - (-0.75)).abs() < 1e-12);
+        assert!(atom.beta_channel().is_none());
+        assert!(atom.stratum().is_none());
+
+        assert!((atom.frozen_d1(&dir1) - (-0.5)).abs() < 1e-12);
+        let dir_absent = ThetaDirection {
+            index: Some(7),
+            beta_dot: None,
+            h_dot_total: None,
+        };
+        assert!(atom.frozen_d1(&dir_absent).abs() < 1e-12);
+        assert_eq!(atom.gradient().expect("gradient"), &array![0.25, -0.5]);
+        assert_eq!(atom.hessian().expect("hessian")[[1, 1]], 3.0);
+    }
+
+    /// Soft numerical-guard prior atom: the `log cosh` barrier's value,
+    /// gradient, and diagonal Hessian are ONE emission of the antiderivative
+    /// chain, so they cannot drift apart (the #931 desync-by-construction kill).
+    ///
+    /// Hand-anchored on a single coordinate with `w=2, sharpness=4, bound=8,
+    /// anchor=0.5` and `ρ = (1.5, 0.5, −1.5)` so `a = 4/8 = 0.5`:
+    ///   x_i = a(ρ_i − anchor) = (0.5, 0.0, −1.0).
+    ///   value  = w Σ log cosh(x) = 2·(log cosh 0.5 + log cosh 0 + log cosh 1).
+    ///   grad_i = w·a·tanh(x_i)   = 1.0·(tanh 0.5, 0, tanh(−1)).
+    ///   hess_i = w·a²·(1−tanh²)  = 0.5·(sech²0.5, 1, sech²1).
+    /// An independent central FD of the value reproduces the gradient and an FD
+    /// of the gradient reproduces the diagonal Hessian — the two analytic
+    /// channels are exactly the value's first and second derivatives.
+    #[test]
+    pub(crate) fn soft_rho_guard_prior_atom_value_gradient_hessian_are_one_chain() {
+        let (w, sharp, bound, anchor) = (2.0_f64, 4.0_f64, 8.0_f64, 0.5_f64);
+        let rho = array![1.5_f64, 0.5_f64, -1.5_f64];
+        let a = sharp / bound;
+
+        let atom = SoftRhoGuardPriorAtom::evaluate_anchored(&rho, w, sharp, bound, anchor);
+        assert_eq!(atom.name(), "soft_rho_guard_prior");
+        assert!(
+            atom.beta_channel().is_none(),
+            "soft guard prior is θ-only and separable"
+        );
+        assert!(atom.stratum().is_none(), "smooth everywhere");
+
+        // Closed-form value.
+        let expected_value: f64 = w * rho
+            .iter()
+            .map(|&r| (a * (r - anchor)).cosh().ln())
+            .sum::<f64>();
+        assert!(
+            (atom.value() - expected_value).abs() < 1e-12,
+            "value {} vs {}",
+            atom.value(),
+            expected_value
+        );
+
+        // The scalar-cost helper used by `build_prior`/the short-circuit path
+        // is the same value, not a parallel recomputation.
+        assert!((atom.cost() - expected_value).abs() < 1e-12);
+
+        // Closed-form gradient = w·a·tanh(x), and frozen_d1 reads exactly it.
+        for (i, &r) in rho.iter().enumerate() {
+            let g = w * a * (a * (r - anchor)).tanh();
+            assert!(
+                (atom.gradient()[i] - g).abs() < 1e-12,
+                "grad[{i}] {} vs {}",
+                atom.gradient()[i],
+                g
+            );
+            let dir = ThetaDirection {
+                index: Some(i),
+                beta_dot: None,
+                h_dot_total: None,
+            };
+            assert!((atom.frozen_d1(&dir) - g).abs() < 1e-12);
+        }
+
+        // Closed-form diagonal Hessian = w·a²·(1−tanh²), off-diagonal zero.
+        let hess = atom.hessian().expect("nonzero curvature");
+        for i in 0..rho.len() {
+            let t = (a * (rho[i] - anchor)).tanh();
+            let h = w * a * a * (1.0 - t * t);
+            assert!((hess[[i, i]] - h).abs() < 1e-12, "hess[{i},{i}]");
+            for j in 0..rho.len() {
+                if i != j {
+                    assert_eq!(hess[[i, j]], 0.0, "off-diagonal must be zero");
+                }
+            }
+        }
+
+        // FD-exactness: the analytic gradient/Hessian ARE the value's
+        // derivatives (independent central differences, per coordinate).
+        let step = 1e-6;
+        for i in 0..rho.len() {
+            let mut rp = rho.clone();
+            let mut rm = rho.clone();
+            rp[i] += step;
+            rm[i] -= step;
+            let vp = SoftRhoGuardPriorAtom::evaluate_anchored(&rp, w, sharp, bound, anchor).value();
+            let vm = SoftRhoGuardPriorAtom::evaluate_anchored(&rm, w, sharp, bound, anchor).value();
+            let fd_grad = (vp - vm) / (2.0 * step);
+            assert!(
+                (fd_grad - atom.gradient()[i]).abs() < 1e-6,
+                "FD grad[{i}] {} vs analytic {}",
+                fd_grad,
+                atom.gradient()[i]
+            );
+
+            let gp = SoftRhoGuardPriorAtom::evaluate_anchored(&rp, w, sharp, bound, anchor)
+                .gradient()[i];
+            let gm = SoftRhoGuardPriorAtom::evaluate_anchored(&rm, w, sharp, bound, anchor)
+                .gradient()[i];
+            let fd_hess = (gp - gm) / (2.0 * step);
+            assert!(
+                (fd_hess - hess[[i, i]]).abs() < 1e-6,
+                "FD hess[{i}] {} vs analytic {}",
+                fd_hess,
+                hess[[i, i]]
+            );
+        }
+
+        // Degenerate guards: zero weight and empty ρ contribute nothing.
+        let zero_w = SoftRhoGuardPriorAtom::evaluate(&rho, 0.0, sharp, bound);
+        assert_eq!(zero_w.value(), 0.0);
+        assert!(zero_w.hessian().is_none());
+        let empty = SoftRhoGuardPriorAtom::evaluate(&Array1::<f64>::zeros(0), w, sharp, bound);
+        assert_eq!(empty.value(), 0.0);
+        assert!(empty.hessian().is_none());
+
+        // CriterionSum fold: θ-only ⇒ profiled d1 is the frozen sum (β̇ unused).
+        let dir0 = ThetaDirection {
+            index: Some(0),
+            beta_dot: Some(Arc::new(array![0.0, 0.0])),
+            h_dot_total: None,
+        };
+        let g0 = w * a * (a * (rho[0] - anchor)).tanh();
+        let sum = CriterionSum {
+            atoms: vec![Box::new(atom)],
+        };
+        assert!((sum.value() - expected_value).abs() < 1e-12);
+        assert!((sum.d1(&dir0) - g0).abs() < 1e-12);
+    }
+
+    /// The #935 operator pass, end-to-end: [`Sensitivity::fill_direction`]
+    /// runs the `β̇ = −H⁺ F_{βθ}` solve through the shared [`FitSensitivity`]
+    /// operator and assembles `Ḣ_total = h_dot_frozen + D_βH[β̇]`, and the
+    /// resulting [`ThetaDirection`] is READ by `CriterionSum::d1` (so the
+    /// channels are filled AND consumed — no unread surface). Every quantity
+    /// is hand-verifiable.
+    ///
+    /// `H = diag(2, 4)` ⇒ `L = diag(√2, 2)` (lower-Cholesky), `H⁻¹ =
+    /// diag(0.5, 0.25)`. With `F_{βθ} = (1, −2)`, β̇ = −H⁻¹F = −(0.5, −0.5)
+    /// = (−0.5, 0.5). The cubic operator we pass adds `D_βH[β̇] = diag(β̇)`
+    /// (a deliberately simple, hand-checkable stand-in for `Xᵀdiag(c⊙Xβ̇)X`),
+    /// so with `h_dot_frozen = [[1, 0],[0, 1]]` the total drift is
+    /// `[[0.5, 0],[0, 1.5]]`.
+    ///
+    /// Then the logdet atom (same `H⁺ = diag(0.5, 0.25)` kernel) traces
+    /// `½ tr(H⁺ Ḣ) = ½(0.5·0.5 + 0.25·1.5) = ½·0.625 = 0.3125`, and a penalty
+    /// quadratic with β-channel `Sλ(β̂−μ) = (2, 1)` contributes the envelope
+    /// term `⟨(2,1), β̇⟩ = 2·(−0.5) + 1·0.5 = −0.5` plus its own frozen ρ₀
+    /// term `½λ₀q₀ = ½·3·2 = 3`. Total `d1 = 0.3125 + 3 + (−0.5) = 2.8125`.
+    #[test]
+    pub(crate) fn sensitivity_fill_direction_feeds_criterion_sum_end_to_end() {
+        use crate::solver::sensitivity::FitSensitivity;
+
+        // Shared operator over H = diag(2, 4): lower-Cholesky L = diag(√2, 2).
+        let lower = array![[2.0_f64.sqrt(), 0.0], [0.0, 2.0]];
+        let op = FitSensitivity::from_lower_triangular(&lower);
+
+        // Sensitivity kernel: H⁺ = diag(0.5, 0.25) in the identity basis,
+        // logdet = ln 8 — the SAME inverse the operator applies (one inverse).
+        let kernel = Arc::new(PenaltySubspaceTrace {
+            u_s: array![[1.0, 0.0], [0.0, 1.0]],
+            h_proj_inverse: array![[0.5, 0.0], [0.0, 0.25]],
+        });
+        let sensitivity = Arc::new(Sensitivity {
+            kernel: kernel.clone(),
+            logdet: 8.0_f64.ln(),
+            stratum: StratumFingerprint {
+                kept_rank: 2,
+                min_relative_eigengap: 0.5,
+            },
+        });
+
+        // Fill the direction through the operator: β̇ = −H⁻¹ F_{βθ},
+        // Ḣ_total = h_dot_frozen + diag(β̇).
+        let f_beta_theta = array![1.0, -2.0];
+        let h_dot_frozen = array![[1.0, 0.0], [0.0, 1.0]];
+        let dir = sensitivity
+            .fill_direction(0, &op, &f_beta_theta, &h_dot_frozen, |beta_dot| {
+                Array2::from_diag(beta_dot)
+            })
+            .expect("finite mode response");
+
+        // β̇ = (−0.5, 0.5) exactly.
+        let beta_dot = dir.beta_dot.as_ref().expect("filled β̇");
+        assert!((beta_dot[0] - (-0.5)).abs() < 1e-12);
+        assert!((beta_dot[1] - 0.5).abs() < 1e-12);
+        // Ḣ_total = [[0.5, 0], [0, 1.5]].
+        let h_dot = dir.h_dot_total.as_ref().expect("filled Ḣ_total");
+        assert!((h_dot[[0, 0]] - 0.5).abs() < 1e-12);
+        assert!((h_dot[[1, 1]] - 1.5).abs() < 1e-12);
+
+        // Read the filled direction through the calculus: logdet atom (traces
+        // Ḣ_total) + penalty quadratic (β-channel contracts the SAME β̇).
+        let hess = HessianLogdetAtom {
+            sensitivity: sensitivity.clone(),
+        };
+        let pen = PenaltyQuadAtom {
+            lambdas: array![3.0, 5.0],
+            block_quadratics: array![2.0, 4.0],
+            penalty_score: array![2.0, 1.0],
+            block_penalty_scores: vec![array![2.0, 0.0], array![0.0, 1.0]],
+            stable_value: None,
+        };
+        // hess.frozen_d1 = ½ tr(H⁺ Ḣ) = ½(0.5·0.5 + 0.25·1.5) = 0.3125.
+        assert!((hess.frozen_d1(&dir) - 0.3125).abs() < 1e-12);
+
+        let sum = CriterionSum {
+            atoms: vec![Box::new(hess), Box::new(pen)],
+        };
+        // d1 = 0.3125 (logdet frozen) + 3.0 (pen frozen ρ₀) + ⟨(2,1),(−0.5,0.5)⟩
+        //    = 0.3125 + 3.0 + (−0.5) = 2.8125.
+        assert!(
+            (sum.d1(&dir) - 2.8125).abs() < 1e-12,
+            "profiled d1 {} vs 2.8125",
+            sum.d1(&dir)
+        );
     }
 }

@@ -13,6 +13,7 @@ from prefab_ui.actions import AppendState, SetState, ShowToast
 from prefab_ui.components import ComboboxOption, SelectOption
 from prefab_ui.rx import ERROR, RESULT
 
+from airbyte_ops_webapp.auth.mock_session import mock_oauth_is_authenticated
 from airbyte_ops_webapp.models import ConnectorOption, ScopeType
 from airbyte_ops_webapp.services.connector_version_manager.adapter import OpsMcpAdapter
 from airbyte_ops_webapp.services.connector_version_manager.demo_mode import (
@@ -39,7 +40,7 @@ SCOPE_PLACEHOLDER_SUFFIX = "_example"
 
 def auth_available(bearer_token_override: str | None = None) -> bool:
     if mock_only_enabled():
-        return True
+        return mock_oauth_is_authenticated()
     if os.getenv(AIRBYTE_BEARER_TOKEN_ENV_VAR):
         return True
     return bool(bearer_token_override)
@@ -252,6 +253,44 @@ def fail_tool_call(message: Any) -> list[Any]:
     ]
 
 
+def rollout_action_success_actions() -> list[Any]:
+    """Post-action feedback for successful rollout operations.
+
+    Shows a success toast, appends to the notifications panel, marks
+    notifications as unviewed, and clears the stale rollout selection.
+    """
+    return [
+        *finish_tool_call(),
+        SetState("rollout_action_result", RESULT.rollout_action_result),
+        SetState("rollout_action_success", RESULT.rollout_action_success),
+        ShowToast(
+            "Rollout action completed",
+            description=RESULT.rollout_action_result,
+            variant="success",
+        ),
+        AppendState("notifications", RESULT.rollout_action_result),
+        SetState("has_unviewed_notifications", True),
+        SetState(
+            "selected_rollout",
+            {
+                "rollout_id": "",
+                "connector_id": "",
+                "connector_name": "",
+                "connector_type": "source",
+                "docker_repository": "",
+                "state": "",
+                "rc_docker_image_tag": "",
+                "initial_docker_image_tag": "",
+                "current_target_rollout_pct": "",
+                "final_target_rollout_pct": "",
+                "created_at": "",
+                "updated_at": "",
+            },
+        ),
+        SetState("rollout_action", ""),
+    ]
+
+
 def context_success_actions() -> list[Any]:
     return [
         *finish_tool_call(),
@@ -270,6 +309,28 @@ def context_success_actions() -> list[Any]:
         SetState("actor_workspace_id", RESULT.actor_workspace_id),
         SetState("context_error", RESULT.context_error),
         SetState("rollout_error", RESULT.rollout_error),
+        # Clear stale rollout selection when connector context changes.
+        SetState(
+            "selected_rollout",
+            {
+                "rollout_id": "",
+                "connector_id": "",
+                "connector_name": "",
+                "connector_type": "source",
+                "docker_repository": "",
+                "state": "",
+                "rc_docker_image_tag": "",
+                "initial_docker_image_tag": "",
+                "current_target_rollout_pct": "",
+                "final_target_rollout_pct": "",
+                "created_at": "",
+                "updated_at": "",
+            },
+        ),
+        SetState("rollout_action", ""),
+        SetState("rollout_action_result", ""),
+        SetState("rollout_action_success", False),
+        SetState("rollout_modal_open", False),
     ]
 
 
@@ -292,9 +353,9 @@ def context_error_toast_actions() -> list[Any]:
 
 def fail_context_actions() -> list[Any]:
     return [
-        *fail_tool_call(ERROR.message),
-        SetState("context_error", ERROR.message),
-        AppendState("notifications", ERROR.message),
+        *fail_tool_call(ERROR),
+        SetState("context_error", ERROR),
+        AppendState("notifications", ERROR),
         SetState("has_unviewed_notifications", True),
     ]
 
@@ -399,10 +460,22 @@ def target_ids(
     return adapter.resolve_organization_id("workspace", scope_id), scope_id, None
 
 
-def cloud_scope_url(scope_type: ScopeType, scope_id: str) -> str:
+def cloud_scope_url(
+    *,
+    scope_type: ScopeType,
+    scope_id: str,
+    workspace_id: str = "",
+    actor_type: str = "",
+) -> str:
     """Build an Airbyte Cloud URL for viewing the target scope."""
     if scope_type == "workspace":
         return f"{CLOUD_UI_BASE_URL}/workspaces/{scope_id}"
     if scope_type == "organization":
         return f"{CLOUD_UI_BASE_URL}/organizations/{scope_id}/settings"
+    if scope_type == "actor" and workspace_id:
+        if actor_type in ("source", "destination"):
+            return (
+                f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}/{actor_type}/{scope_id}"
+            )
+        return f"{CLOUD_UI_BASE_URL}/workspaces/{workspace_id}"
     return f"{CLOUD_UI_BASE_URL}/workspaces"

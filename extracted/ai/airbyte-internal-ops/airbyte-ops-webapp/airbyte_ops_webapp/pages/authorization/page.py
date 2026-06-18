@@ -26,11 +26,16 @@ from airbyte_ops_webapp.auth.google_oauth import (
     GOOGLE_OAUTH_JS_ACTIONS,
     google_oauth_config,
     hydrate_google_oauth_action,
+    logout_google_oauth_action,
+    mock_login_google_oauth_action,
+    mock_logout_google_oauth_action,
 )
 from airbyte_ops_webapp.auth.oauth import (
     OAUTH_JS_ACTIONS,
     hydrate_oauth_action,
     logout_oauth_action,
+    mock_login_oauth_action,
+    mock_logout_oauth_action,
     oauth_config,
 )
 from airbyte_ops_webapp.pages.authorization.defaults import (
@@ -39,9 +44,15 @@ from airbyte_ops_webapp.pages.authorization.defaults import (
 from airbyte_ops_webapp.pages.shared_components.layout import (
     OPS_HOME_PATH,
     render_breadcrumb_nav,
+    render_environment_banners,
     render_page_hero,
 )
-from airbyte_ops_webapp.state import mock_only_enabled
+from airbyte_ops_webapp.state import (
+    mock_only_enabled,
+    preview_deploy_enabled,
+    preview_pr_number,
+    preview_pr_url,
+)
 from airbyte_ops_webapp.theme import (
     BUTTON_INFO_CLASS,
     BUTTON_OUTLINE_CLASS,
@@ -96,7 +107,9 @@ def _render_airbyte_auth_card() -> None:
                     variant="outline",
                     size="sm",
                     css_class=BUTTON_OUTLINE_CLASS,
-                    onClick=logout_oauth_action(),
+                    onClick=mock_logout_oauth_action()
+                    if mock_only_enabled()
+                    else logout_oauth_action(),
                 )
 
     with If(~STATE.oauth_authenticated):
@@ -116,7 +129,9 @@ def _render_airbyte_auth_card() -> None:
                     "Log in with Airbyte",
                     variant="info",
                     css_class=BUTTON_INFO_CLASS,
-                    onClick=CallHandler("startOAuth"),
+                    onClick=mock_login_oauth_action()
+                    if mock_only_enabled()
+                    else CallHandler("startOAuth"),
                 )
 
 
@@ -142,7 +157,9 @@ def _render_google_auth_card() -> None:
                     variant="outline",
                     size="sm",
                     css_class=BUTTON_OUTLINE_CLASS,
-                    onClick=CallHandler("logoutGoogleOAuth"),
+                    on_click=mock_logout_google_oauth_action()
+                    if mock_only_enabled()
+                    else logout_google_oauth_action(),
                 )
 
     with If(~STATE.google_authenticated):
@@ -160,7 +177,9 @@ def _render_google_auth_card() -> None:
                     "Log in with Google",
                     variant="info",
                     css_class=BUTTON_INFO_CLASS,
-                    onClick=CallHandler("startGoogleOAuth"),
+                    onClick=mock_login_google_oauth_action()
+                    if mock_only_enabled()
+                    else CallHandler("startGoogleOAuth"),
                 )
 
 
@@ -175,6 +194,9 @@ def open_ops_authorization() -> PrefabApp:
         "auth_bearer_token": "",
         "admin_user_email": "",
         "is_mock_only": mock_only_enabled(),
+        "is_preview_deploy": preview_deploy_enabled(),
+        "preview_pr_number": preview_pr_number(),
+        "preview_pr_url": preview_pr_url(),
         "oauth_config": current_oauth_config,
         "oauth_enabled": current_oauth_config["enabled"],
         "oauth_authenticated": False,
@@ -208,6 +230,7 @@ def open_ops_authorization() -> PrefabApp:
         ),
         Column(gap=5, css_class=PAGE_CLASS),
     ):
+        render_environment_banners()
         render_breadcrumb_nav(current_page="Authorization")
         render_page_hero(
             title="Authorization",

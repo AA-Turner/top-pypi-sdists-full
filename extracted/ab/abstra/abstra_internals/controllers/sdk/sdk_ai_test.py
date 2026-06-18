@@ -116,11 +116,10 @@ class TestAiSDKController(unittest.TestCase):
         self.assertEqual(result, [expected_message])
 
     def test_make_messages_from_path(self):
-        file_path = self.temp_path / "test.pdf"
-        file_path.write_text("dummy content")  # Creating a dummy file
+        file_path = self.temp_path / "test.png"
+        Image.new("RGB", (10, 10)).save(file_path, format="PNG")
 
-        with patch("builtins.open", MagicMock(return_value=BytesIO(b"fake content"))):
-            result = self.controller._make_messages(file_path)
+        result = self.controller._make_messages(file_path)
 
         with open(file_path, "rb") as f:
             url = b64.encode_base_64(f)
@@ -259,9 +258,9 @@ class TestAiSDKController(unittest.TestCase):
         # Mock AI client response
         self.mock_ai_client.prompt.return_value = {"content": "Mocked AI response"}
 
-        # save dummy file
-        file_path = self.temp_path / "test.pdf"
-        file_path.write_text("dummy content")
+        # save a real image file
+        file_path = self.temp_path / "test.png"
+        Image.new("RGB", (10, 10)).save(file_path, format="PNG")
 
         class MockFileResponse(FileResponse):
             def __init__(self, url):
@@ -299,9 +298,9 @@ class TestAiSDKController(unittest.TestCase):
         # Mock AI client response
         self.mock_ai_client.prompt.return_value = {"content": "Mocked AI response"}
 
-        # save dummy file
-        file_path = self.temp_path / "test.pdf"
-        file_path.write_text("dummy content")
+        # save a real image file
+        file_path = self.temp_path / "test.png"
+        Image.new("RGB", (10, 10)).save(file_path, format="PNG")
 
         class MockFileResponse(DeprecatedFileResponse):
             def __init__(self, url):
@@ -368,3 +367,30 @@ class TestAiSDKController(unittest.TestCase):
         self.controller.prompt(["hello there"], ["system note"], None, 1.0)
 
         self.assertEqual(self._sent_texts(), ["system note", "hello there"])
+
+    def test_html_saved_as_pdf_raises_clear_error(self):
+        # NFS-e/boleto downloads that capture an HTML error page and save it
+        # as `.pdf` must fail fast, not get shipped as a bogus image.
+        file_path = self.temp_path / "nfse.pdf"
+        file_path.write_bytes(b"<!DOCTYPE html><html><body>ERROR</body></html>")
+
+        with self.assertRaises(ValueError) as ctx:
+            self.controller._make_messages(file_path)
+        self.assertIn("HTML page", str(ctx.exception))
+
+    def test_empty_file_raises_clear_error(self):
+        file_path = self.temp_path / "empty.pdf"
+        file_path.write_bytes(b"")
+
+        with self.assertRaises(ValueError) as ctx:
+            self.controller._make_messages(file_path)
+        self.assertIn("empty file", str(ctx.exception))
+
+    def test_truncated_pdf_raises_clear_error(self):
+        # Valid %PDF header but corrupt/truncated body: pdfium can't render it.
+        file_path = self.temp_path / "boleto.pdf"
+        file_path.write_bytes(b"%PDF-1.4\n" + b"\x00" * 64)
+
+        with self.assertRaises(ValueError) as ctx:
+            self.controller._make_messages(file_path)
+        self.assertIn("could not be rendered", str(ctx.exception))

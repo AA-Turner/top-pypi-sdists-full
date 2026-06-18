@@ -1542,10 +1542,10 @@ pub(crate) fn custom_family_outer_derivatives<F: CustomFamily + ?Sized>(
     specs: &[ParameterBlockSpec],
     options: &BlockwiseFitOptions,
 ) -> (
-    crate::solver::outer_strategy::Derivative,
-    crate::solver::outer_strategy::DeclaredHessianForm,
+    crate::solver::rho_optimizer::Derivative,
+    crate::solver::rho_optimizer::DeclaredHessianForm,
 ) {
-    use crate::solver::outer_strategy::{DeclaredHessianForm, Derivative};
+    use crate::solver::rho_optimizer::{DeclaredHessianForm, Derivative};
 
     // The capability-vs-policy split: capability tells us *what the family
     // can compute*; policy tells us *what we should ask for at this size*.
@@ -2516,6 +2516,41 @@ pub(crate) fn apply_joint_feasibility_limit<F: CustomFamily + ?Sized>(
     // trust-region/line-search already chooses the appropriate step size
     // within direction, this barrier check just enforces feasibility on
     // top of that direction.
+    let (joint_alpha, limiting_block) =
+        compute_joint_feasibility_alpha(family, states, ranges, trial_delta)?;
+    if joint_alpha < 1.0 {
+        trial_delta.mapv_inplace(|v| joint_alpha * v);
+        log::debug!(
+            "[PIRLS/joint-Newton] feasibility scaled joint step by α={:.3e} (block {:?} binding)",
+            joint_alpha,
+            limiting_block,
+        );
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
+/// Compute the joint fraction-to-boundary feasibility scalar `α ∈ (0, 1]` that
+/// [`apply_joint_feasibility_limit`] would apply to `trial_delta`, WITHOUT
+/// mutating the step. Returns `(α, limiting_block)`. `α = 1.0` means the step is
+/// fully feasible (no binding constraint); `α < 1.0` is the min over blocks of
+/// each block's `max_feasible_step_size`. Returns `Err` iff a block has no
+/// positive feasible step (current iterate infeasible / degenerate).
+///
+/// Split out (gam#979) so the constrained joint-Newton path can DETECT the
+/// pathological α-collapse — a binding monotonicity row at slack≈0 driving
+/// `α → 0`, which globally crushes the whole joint step and freezes β — and
+/// reroute feasibility through the magnitude-preserving cone projection in that
+/// case ONLY, while keeping the exact existing α-scaling behaviour whenever `α`
+/// is healthy. Every currently-converging arm sees byte-identical numerics off
+/// the pathology.
+pub(crate) fn compute_joint_feasibility_alpha<F: CustomFamily + ?Sized>(
+    family: &F,
+    states: &[ParameterBlockState],
+    ranges: &[(usize, usize)],
+    trial_delta: &Array1<f64>,
+) -> Result<(f64, Option<usize>), String> {
     let mut joint_alpha = 1.0_f64;
     let mut limiting_block: Option<usize> = None;
     for (block_idx, (start, end)) in ranges.iter().copied().enumerate() {
@@ -2532,18 +2567,19 @@ pub(crate) fn apply_joint_feasibility_limit<F: CustomFamily + ?Sized>(
             }
         }
     }
-    if joint_alpha < 1.0 {
-        trial_delta.mapv_inplace(|v| joint_alpha * v);
-        log::debug!(
-            "[PIRLS/joint-Newton] feasibility scaled joint step by α={:.3e} (block {:?} binding)",
-            joint_alpha,
-            limiting_block,
-        );
-        Ok(true)
-    } else {
-        Ok(false)
-    }
+    Ok((joint_alpha, limiting_block))
 }
+
+/// Below this joint fraction-to-boundary `α`, scaling the WHOLE joint step by
+/// `α` crushes it so severely that β is effectively frozen for the cycle (the
+/// gam#979 survival hang: `α ≈ 1e-4` on a binding monotone time-derivative row
+/// reduced the step to noise while a huge time-block gradient persisted). At or
+/// above it the step retains enough magnitude that the existing α-scaling is a
+/// healthy globalization, so the constrained path keeps the legacy behaviour
+/// unchanged. The threshold is deliberately small (`1e-2`): a step scaled by
+/// `≥ 1%` still makes real progress, whereas the pathology drives `α` five-plus
+/// orders below it.
+pub(crate) const JOINT_FEASIBILITY_ALPHA_CRUSH_THRESHOLD: f64 = 1.0e-2;
 
 pub(crate) fn joint_inner_kkt_converged(residual: f64, residual_tol: f64) -> bool {
     residual.is_finite() && residual_tol.is_finite() && residual <= residual_tol
@@ -2836,14 +2872,44 @@ pub(crate) mod whitened_spectrum {
                     .iter()
                     .map(|w| 1.0 / positive_joint_diagonal_entry(*w).sqrt()),
             );
-            // A = D^{-1/2} H D^{-1/2}; symmetric since H is symmetric and D diagonal.
+            // A = D^{-1/2} H D^{-1/2}; symmetric since H is symmetric and D
+            // diagonal. This runs once per joint-Newton cycle on a ~p²-element
+            // matrix (p up to ~382 on the coupled multinomial / survival
+            // marginal-slope inner, gam#1082), so it is on the per-cycle hot
+            // path alongside the O(p³) eigh below. The prior code was a serial
+            // `for i,j in 0..p` double loop followed by a full
+            // `symmetrize_dense_in_place` sweep. Two math-identical wins:
+            //   1. `A` is exactly symmetric because `H` is symmetric and `D`
+            //      diagonal, so row `i` of `A` equals `d_inv_sqrt[i] · (h_pen
+            //      row i) ⊙ d_inv_sqrt`. Filling each row from that closed form
+            //      yields a fully symmetric matrix with NO separate
+            //      `symmetrize_dense_in_place` pass (drops a whole O(p²) sweep
+            //      while keeping both triangles consistent, which the rare
+            //      `FaerEigh::eigh` repair branch — it averages `[i,j]`/`[j,i]`
+            //      — relies on).
+            //   2. Rows are independent and own disjoint output slices, so we
+            //      fan the fill across the Rayon pool (the same pool faer's eigh
+            //      uses) via `outer_iter_mut().into_par_iter()`. No unsafe, no
+            //      cross-row writes. The eigh dominates, but this assembly was
+            //      otherwise a purely serial bounds-checked scalar loop.
             let mut a = Array2::<f64>::zeros((p, p));
-            for i in 0..p {
-                for j in 0..p {
-                    a[[i, j]] = h_pen[[i, j]] * d_inv_sqrt[i] * d_inv_sqrt[j];
-                }
+            {
+                use rayon::iter::{
+                    IndexedParallelIterator, IntoParallelIterator, ParallelIterator,
+                };
+                let d = d_inv_sqrt.as_slice().expect("contiguous d_inv_sqrt");
+                a.outer_iter_mut()
+                    .into_par_iter()
+                    .enumerate()
+                    .for_each(|(i, mut a_row)| {
+                        let di = d[i];
+                        let h_row = h_pen.row(i);
+                        let out = a_row.as_slice_mut().expect("contiguous A row");
+                        for (j, out_j) in out.iter_mut().enumerate() {
+                            *out_j = h_row[j] * di * d[j];
+                        }
+                    });
             }
-            symmetrize_dense_in_place(&mut a);
             let (gamma, evecs) = FaerEigh::eigh(&a, Side::Lower)
                 .map_err(|e| format!("whitened trust-region eigendecomposition failed: {e}"))?;
             // c = Vᵀ (D^{-1/2} rhs).
@@ -2851,8 +2917,8 @@ pub(crate) mod whitened_spectrum {
             let c = evecs.t().dot(&whitened_rhs);
             let lambda_max_abs = gamma.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
             let numerical_floor = lambda_max_abs * (p as f64).sqrt() * f64::EPSILON;
-            let cutoff = rank_tol * lambda_max_abs;
-            let null_cutoff = cutoff.min(numerical_floor);
+            let rank_cutoff = rank_tol * lambda_max_abs;
+            let null_cutoff = rank_cutoff.max(numerical_floor);
             Ok(Self {
                 gamma,
                 evecs,
@@ -3290,6 +3356,45 @@ mod trust_region_subproblem_tests {
         // The identified direction takes its exact Newton component (1/2).
         assert!((step.delta[0] - 0.5).abs() < 1e-10);
         assert!(step.delta[1].abs() < 1e-10, "null coordinate left at 0");
+    }
+
+    /// Near-null directions below the public rank tolerance must be treated the
+    /// same way as exact null directions. Regresses the #1082 gauge-drift crawl:
+    /// using `min(rank_cutoff, numerical_floor)` classified this mode as
+    /// identified, so the step and Newton-decrement certificate chased a
+    /// rank-tolerance-null gauge direction instead of dropping it.
+    #[test]
+    pub(crate) fn rank_tolerance_null_direction_is_dropped_from_step_and_decrement() {
+        let h = array![[1.0, 0.0], [0.0, 1e-12]];
+        let rhs = array![1.0, 0.5];
+        let d = array![1.0, 1.0];
+        let spec = WhitenedHessianSpectrum::decompose(&h, &rhs, &d, KKT_REFUSAL_RANK_TOL).unwrap();
+
+        assert!(
+            spec.null_cutoff >= KKT_REFUSAL_RANK_TOL,
+            "rank tolerance must set the null cutoff; got {}",
+            spec.null_cutoff
+        );
+
+        let step = spec.trust_region_step(1e6);
+        assert_eq!(step.nullity, 1, "near-null direction expected");
+        assert!(
+            step.null_rhs_inf >= 0.5 - 1e-9,
+            "near-null rhs component must be reported, got {}",
+            step.null_rhs_inf
+        );
+        assert!((step.delta[0] - 1.0).abs() < 1e-10);
+        assert!(
+            step.delta[1].abs() < 1e-10,
+            "rank-tolerance-null coordinate must be dropped, got {}",
+            step.delta[1]
+        );
+
+        let decrement = spec.newton_decrement();
+        assert!(
+            (decrement - 0.5).abs() < 1e-10,
+            "decrement must exclude the near-null gauge mode; got {decrement}"
+        );
     }
 
     /// Non-identity metric: the boundary is measured in the `D` norm, so a step
@@ -3838,7 +3943,15 @@ pub(crate) fn stabilized_joint_solver_diagonal_ridge<F: CustomFamily + ?Sized>(
         base_diagonal_ridge,
         joint_full_width,
     );
-    let shift = exact_newton_stabilizing_shift(&lhs, ridge_floor).unwrap_or(0.0);
+    // The penalty added above is positive-semidefinite by construction (each
+    // block penalty is `λ_k·S_k` with `λ_k = exp(ρ_k) > 0` and `S_k ⪰ 0`, plus a
+    // non-negative diagonal ridge). Indefiniteness of the penalized Hessian can
+    // therefore only originate in the data Hessian `h_joint`, so the stabilizing
+    // shift is bounded by the data Hessian's curvature — NOT the penalty's. Pass
+    // `h_joint` as the Gershgorin source so the shift stays `O(data scale)` even
+    // when the penalty is heavily over-smoothed (gam#979; see the function doc).
+    let shift =
+        exact_newton_stabilizing_shift_psd_penalized(&lhs, h_joint, ridge_floor).unwrap_or(0.0);
     if shift > 0.0 {
         log::debug!(
             "[PIRLS/joint-Newton] stabilized dense penalized Hessian with diagonal shift {:.3e}",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-mail
-Version: 1.6.4
+Version: 1.6.5
 Summary: Simple lightweight mail library for FastApi
 License: MIT
 License-File: LICENSE
@@ -18,7 +18,7 @@ Provides-Extra: httpx
 Provides-Extra: redis
 Requires-Dist: aiosmtplib (>=5.0.0)
 Requires-Dist: blinker (>=1.9.0)
-Requires-Dist: cryptography (>=47.0.0,<48.0.0)
+Requires-Dist: cryptography (>=49.0.0,<50.0.0)
 Requires-Dist: email-validator (>=2.3.0)
 Requires-Dist: httpx (>=0.28.1)
 Requires-Dist: httpx ; extra == "httpx"

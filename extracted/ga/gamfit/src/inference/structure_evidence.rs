@@ -61,7 +61,7 @@
 //! e-process per claim, serializable across #973 shards) →
 //! [`StructureLedger::certify`] (the e-BH [`StructureCertificate`],
 //! shipped beside the gauge report via
-//! `crate::sae_identifiability::dictionary_report`) →
+//! `crate::terms::sae::identifiability::dictionary_report`) →
 //! [`plan_probe_for_contested_claim`] (the design loop: contested claims
 //! get a [`ProbePlan`] whose δ runs through
 //! `crate::inference::steering::steer_delta` and whose per-hypothesis
@@ -184,22 +184,19 @@ impl EProcess {
         if e_value.is_nan() || e_value < 0.0 {
             return Err(format!("e-value must be in [0, ∞], got {e_value}"));
         }
-        self.log_e += e_value.ln();
+        self.absorb_log(e_value.ln())
+    }
+
+    /// Absorb a batch e-value supplied in log space (the only numerically
+    /// honest interface for long streams).
+    pub fn absorb_log(&mut self, log_e_value: f64) -> Result<(), String> {
+        let next_log_e = checked_log_e_sum(self.log_e, log_e_value)?;
+        self.log_e = next_log_e;
         self.steps += 1;
         if self.log_e > self.log_e_max {
             self.log_e_max = self.log_e;
         }
         Ok(())
-    }
-
-    /// Absorb a batch e-value supplied in log space (the only numerically
-    /// honest interface for long streams).
-    pub fn absorb_log(&mut self, log_e_value: f64) {
-        self.log_e += log_e_value;
-        self.steps += 1;
-        if self.log_e > self.log_e_max {
-            self.log_e_max = self.log_e;
-        }
     }
 
     pub fn log_evidence(&self) -> f64 {
@@ -234,6 +231,24 @@ impl Default for EProcess {
     }
 }
 
+fn checked_log_e_sum(current: f64, increment: f64) -> Result<f64, String> {
+    if current.is_nan() {
+        return Err("EProcess invariant violation: current log evidence is NaN".to_string());
+    }
+    if increment.is_nan() {
+        return Err("log e-value must not be NaN".to_string());
+    }
+    if current.is_infinite()
+        && increment.is_infinite()
+        && current.is_sign_positive() != increment.is_sign_positive()
+    {
+        return Err(format!(
+            "cannot combine opposing infinite log e-values: current {current}, increment {increment}"
+        ));
+    }
+    Ok(current + increment)
+}
+
 /// One universal-inference (split-likelihood-ratio) e-value: finite-sample
 /// valid with NO regularity conditions — the correct instrument for atom
 /// birth (K vs K+1 components, boundary/Davies regime where χ² fails).
@@ -250,6 +265,27 @@ pub fn split_likelihood_log_e_value(
     log_lik_alternative_on_eval: f64,
     log_lik_null_sup_on_eval: f64,
 ) -> f64 {
+    // Degenerate halves yield a well-defined, conservative e-value of 1
+    // (`log E = 0`, no evidence for the alternative) rather than a NaN that
+    // would poison the e-process product and the downstream FDR certificate:
+    //   * Either log-likelihood is NaN — the model could not be evaluated on
+    //     this shard (a numerically degenerate fit). The honest reading is
+    //     "no information", i.e. `E = 1`.
+    //   * Both halves are the SAME signed infinity — e.g. a shard/outcome
+    //     with zero density under both the alternative and the null
+    //     (`−∞ − (−∞)`), or both `+∞`. The ratio is undefined; again `E = 1`.
+    // This keeps `log E` finite so `absorb_log` never banks a NaN and the
+    // e-BH certificate sees a contributing-nothing claim instead of panicking.
+    if log_lik_alternative_on_eval.is_nan() || log_lik_null_sup_on_eval.is_nan() {
+        return 0.0;
+    }
+    if log_lik_alternative_on_eval.is_infinite()
+        && log_lik_null_sup_on_eval.is_infinite()
+        && log_lik_alternative_on_eval.is_sign_positive()
+            == log_lik_null_sup_on_eval.is_sign_positive()
+    {
+        return 0.0;
+    }
     log_lik_alternative_on_eval - log_lik_null_sup_on_eval
 }
 
@@ -277,15 +313,24 @@ impl PredictablePluginEProcess {
     /// product a supermartingale; violating it voids the guarantee, which
     /// is why the SAE integration must hand this function the PREVIOUS
     /// shard's fitted dictionary, never the current one).
+    pub fn try_absorb_batch(
+        &mut self,
+        log_lik_alternative_prefit: f64,
+        log_lik_null_sup_on_batch: f64,
+    ) -> Result<(), String> {
+        self.process.absorb_log(split_likelihood_log_e_value(
+            log_lik_alternative_prefit,
+            log_lik_null_sup_on_batch,
+        ))
+    }
+
     pub fn absorb_batch(
         &mut self,
         log_lik_alternative_prefit: f64,
         log_lik_null_sup_on_batch: f64,
     ) {
-        self.process.absorb_log(split_likelihood_log_e_value(
-            log_lik_alternative_prefit,
-            log_lik_null_sup_on_batch,
-        ));
+        self.try_absorb_batch(log_lik_alternative_prefit, log_lik_null_sup_on_batch)
+            .expect("PredictablePluginEProcess received invalid log evidence");
     }
 }
 
@@ -356,13 +401,22 @@ impl AtomBirthGate {
     }
 
     /// Absorb one shard's split-likelihood ratio (see type-level contract).
+    pub fn try_absorb_shard(
+        &mut self,
+        log_lik_alternative_prefit: f64,
+        log_lik_null_sup_on_shard: f64,
+    ) -> Result<(), String> {
+        self.test
+            .try_absorb_batch(log_lik_alternative_prefit, log_lik_null_sup_on_shard)
+    }
+
     pub fn absorb_shard(
         &mut self,
         log_lik_alternative_prefit: f64,
         log_lik_null_sup_on_shard: f64,
     ) {
-        self.test
-            .absorb_batch(log_lik_alternative_prefit, log_lik_null_sup_on_shard);
+        self.try_absorb_shard(log_lik_alternative_prefit, log_lik_null_sup_on_shard)
+            .expect("AtomBirthGate received invalid log evidence");
     }
 
     pub fn verdict(&self) -> GateVerdict {
@@ -416,7 +470,7 @@ pub fn run_atom_birth_gate<S, A>(
         if !matches!(gate.verdict(), GateVerdict::Certified { .. }) {
             let log_lik_alt = alternative_log_lik(&alt, &shard);
             let log_lik_null = null_sup_log_lik(&shard);
-            gate.absorb_shard(log_lik_alt, log_lik_null);
+            gate.try_absorb_shard(log_lik_alt, log_lik_null)?;
         }
         alt = refit_alternative(alt, &shard);
     }
@@ -439,21 +493,28 @@ pub fn run_atom_birth_gate<S, A>(
 /// e-BH can.
 pub fn e_benjamini_hochberg(log_e_values: &[f64], alpha: f64) -> Vec<usize> {
     let m = log_e_values.len();
-    if m == 0 || !(alpha > 0.0) {
+    if m == 0 || !(alpha.is_finite() && alpha > 0.0) {
         return Vec::new();
     }
+    // Robustness: a degenerate claim can bank a non-finite log e-value (a
+    // NaN from an upstream `(−∞) − (−∞)` split-LR that escaped the source
+    // guard). This is the documented honest FDR surface, so it must NEVER
+    // panic on such input. Treat any NaN as least-evidence (`−∞`): an
+    // undefined/contested claim contributes no evidence, sorts last, and can
+    // never be among the rejections. Finite/±∞ values pass through unchanged;
+    // `total_cmp` then gives a total order on the sanitized keys.
+    let sanitized: Vec<f64> = log_e_values
+        .iter()
+        .map(|&v| if v.is_nan() { f64::NEG_INFINITY } else { v })
+        .collect();
     let mut order: Vec<usize> = (0..m).collect();
-    order.sort_by(|&a, &b| {
-        log_e_values[b]
-            .partial_cmp(&log_e_values[a])
-            .expect("finite log e-values")
-    });
+    order.sort_by(|&a, &b| sanitized[b].total_cmp(&sanitized[a]));
     let m_f = m as f64;
     let mut k_star = 0usize;
     for (rank0, &idx) in order.iter().enumerate() {
         let k = (rank0 + 1) as f64;
         // e_(k) ≥ m / (α k)  ⟺  log e_(k) ≥ log m − log α − log k
-        if log_e_values[idx] >= m_f.ln() - alpha.ln() - k.ln() {
+        if sanitized[idx] >= m_f.ln() - alpha.ln() - k.ln() {
             k_star = rank0 + 1;
         }
     }
@@ -525,8 +586,7 @@ impl StructureLedger {
         let claim = self.claims.get_mut(idx).ok_or_else(|| {
             format!("StructureLedger: claim index {idx} out of range ({n} claims)")
         })?;
-        claim.evidence.absorb_log(log_e_value);
-        Ok(())
+        claim.evidence.absorb_log(log_e_value)
     }
 
     pub fn claims(&self) -> &[StructuralClaim] {
@@ -606,7 +666,7 @@ pub struct CertificateEntry {
 
 /// The deliverable: "we found N structures at FDR ≤ α, certificate
 /// attached". Ships next to the identifiability certificate
-/// ([`crate::sae_identifiability::residual_gauge`], #981) — that one says
+/// ([`crate::terms::sae::identifiability::residual_gauge`], #981) — that one says
 /// what the GAUGE cannot distinguish, this one says what the DATA can.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructureCertificate {
@@ -630,7 +690,7 @@ impl StructureCertificate {
 /// any valid p — superuniformity only, no other conditions).
 ///
 /// This is the bridge from p-value-shaped instruments into the ledger —
-/// e.g. the feature-binding Wald test (`terms::anova_atom::carve`'s
+/// e.g. the feature-binding Wald test (`terms::structure::anova_atom::carve`'s
 /// `edge_p_value` → a [`ClaimKind::BindingEdge`] entry). It spends
 /// calibration slack (a p of 0.01 becomes e = 5, not 100), which is the
 /// honest price of converting a fixed-sample test into anytime-valid
@@ -781,6 +841,92 @@ mod tests {
         assert_eq!(e_benjamini_hochberg(&log_e2, 0.1), vec![0]);
     }
 
+    #[test]
+    fn split_likelihood_equal_impossibility_is_neutral_log_evidence() {
+        let log_e = split_likelihood_log_e_value(f64::NEG_INFINITY, f64::NEG_INFINITY);
+        assert_eq!(log_e, 0.0);
+        assert!(log_e.is_finite());
+
+        let mut proc = EProcess::new();
+        proc.absorb_log(log_e).unwrap();
+        assert_eq!(proc.log_evidence(), 0.0);
+        assert_eq!(proc.steps(), 1);
+    }
+
+    #[test]
+    fn e_bh_orders_infinite_log_e_values_without_comparator_panic() {
+        let log_e = [f64::NEG_INFINITY, f64::INFINITY, 45.0f64.ln(), 1.0f64.ln()];
+        assert_eq!(e_benjamini_hochberg(&log_e, 0.1), vec![1, 2]);
+    }
+
+    /// A NaN log e-value (a degenerate claim whose `(−∞) − (−∞)` split-LR
+    /// escaped the source guard) must NOT panic the e-BH comparator — the
+    /// honest FDR surface stays robust. The NaN claim is treated as
+    /// least-evidence (`−∞`): it is never rejected, and it cannot disturb the
+    /// rejection of a genuinely strong claim.
+    #[test]
+    fn e_bh_treats_nan_as_least_evidence_without_panicking() {
+        // m = 2, α = 0.1 → threshold for the top claim is m/(αk) = 2/0.1 = 20.
+        // Claim 0 has e = 45 ≥ 20 (rejected); claim 1 is NaN (no evidence).
+        let log_e = [45.0f64.ln(), f64::NAN];
+        let rejected = e_benjamini_hochberg(&log_e, 0.1);
+        assert_eq!(
+            rejected,
+            vec![0],
+            "strong claim survives; NaN claim never rejected"
+        );
+
+        // An all-NaN ledger yields an empty (no-rejection) certificate, not a
+        // panic.
+        let all_nan = [f64::NAN, f64::NAN, f64::NAN];
+        assert!(e_benjamini_hochberg(&all_nan, 0.1).is_empty());
+    }
+
+    /// The full source→consumer chain: a shard with zero density under both
+    /// the alternative and the null produces `(−∞) − (−∞)`, which the split-LR
+    /// resolves to neutral `log E = 0` rather than NaN; banking it and
+    /// certifying must not panic. A genuinely-NaN log-likelihood is likewise
+    /// resolved to neutral evidence at the source.
+    #[test]
+    fn degenerate_split_lr_flows_through_certify_without_nan_panic() {
+        // (−∞) − (−∞): zero density under both hypotheses → neutral.
+        let neutral = split_likelihood_log_e_value(f64::NEG_INFINITY, f64::NEG_INFINITY);
+        assert_eq!(neutral, 0.0);
+        // NaN log-likelihood (un-evaluable degenerate fit) → neutral, finite.
+        let from_nan = split_likelihood_log_e_value(f64::NAN, -3.0);
+        assert!(from_nan.is_finite());
+        assert_eq!(from_nan, 0.0);
+
+        let mut ledger = StructureLedger::new();
+        let degenerate = ledger.register(ClaimKind::AtomExists { atom: 0 });
+        let strong = ledger.register(ClaimKind::AtomExists { atom: 1 });
+        // Bank the neutral split-LR on the degenerate claim — no NaN reaches
+        // the e-process.
+        ledger.absorb_log(degenerate, neutral).unwrap();
+        ledger.absorb_log(strong, 45.0f64.ln()).unwrap();
+        // certify() runs e_benjamini_hochberg internally; must not panic.
+        let certificate = ledger.certify(0.1);
+        let degenerate_entry = certificate
+            .entries
+            .iter()
+            .find(|e| e.kind == ClaimKind::AtomExists { atom: 0 })
+            .expect("degenerate claim present");
+        // Neutral evidence (log_e = 0) never qualifies → contested, not confirmed.
+        assert!(!degenerate_entry.confirmed);
+        assert_eq!(degenerate_entry.log_e, 0.0);
+    }
+
+    #[test]
+    fn e_process_absorb_log_rejects_undefined_log_products() {
+        let mut proc = EProcess::new();
+        assert!(proc.absorb_log(f64::NAN).is_err());
+
+        proc.absorb_log(f64::INFINITY).unwrap();
+        assert!(proc.absorb_log(f64::NEG_INFINITY).is_err());
+        assert_eq!(proc.log_evidence(), f64::INFINITY);
+        assert_eq!(proc.steps(), 1);
+    }
+
     /// Ville-style sanity: under H0 (simulated fair e-values from a
     /// likelihood ratio of identical Gaussians), the e-process crosses
     /// 1/α rarely; under a true alternative it crosses fast and the
@@ -796,7 +942,7 @@ mod tests {
         for t in 0..200 {
             // x_t ~ alternative-ish deterministic surrogate around μ
             let x = mu + 0.9 * ((t as f64 * 0.7321).sin());
-            proc_alt.absorb_log(mu * x - 0.5 * mu * mu);
+            proc_alt.absorb_log(mu * x - 0.5 * mu * mu).unwrap();
             if proc_alt.rejects_at(0.05) && crossed_at.is_none() {
                 crossed_at = Some(t);
             }
@@ -810,7 +956,7 @@ mod tests {
         let mut proc_null = EProcess::new();
         for t in 0..200 {
             let x = 0.9 * ((t as f64 * 0.7321).sin());
-            proc_null.absorb_log(mu * x - 0.5 * mu * mu);
+            proc_null.absorb_log(mu * x - 0.5 * mu * mu).unwrap();
         }
         assert!(
             !proc_null.rejects_at(0.05),
@@ -973,6 +1119,42 @@ mod tests {
         assert!(log_e_from_p_calibrator(0.0).is_err());
         assert!(log_e_from_p_calibrator(1.5).is_err());
         assert!(log_e_from_p_calibrator(f64::NAN).is_err());
+    }
+
+    /// The e-value validity condition: under the null `P ~ Uniform(0, 1]`,
+    /// the calibrated e-value must satisfy `E_{H0}[e(P)] = ∫₀¹ e(p) dp ≤ 1`
+    /// (Wang–Ramdas e-BH controls FDR ONLY for genuine e-values). The κ = ½
+    /// member `e(p) = ½ p^{−1/2}` integrates to exactly 1, the boundary of
+    /// admissibility. We verify this numerically with a midpoint Riemann sum
+    /// over the unit interval (which UNDER-estimates `∫ p^{−1/2}` slightly
+    /// because the integrand is convex, so the analytic value 1 sits just
+    /// above the quadrature estimate — both safely ≤ 1 + tolerance).
+    ///
+    /// This is the property `e = 1/p` VIOLATES — `∫₀¹ (1/p) dp = ∞` — which
+    /// is why the behavioral-head and anova-atom paths route through this
+    /// calibrator rather than `−ln p`.
+    #[test]
+    fn p_to_e_calibrator_null_expectation_at_most_one() {
+        let n = 2_000_000usize;
+        let h = 1.0 / n as f64;
+        let mut mean_e = 0.0_f64;
+        for i in 0..n {
+            // Midpoint of cell i: p = (i + 0.5)/n, always in (0, 1).
+            let p = (i as f64 + 0.5) * h;
+            let e = log_e_from_p_calibrator(p).unwrap().exp();
+            mean_e += e * h;
+        }
+        // Analytic E_{H0}[e(P)] = 1; allow a small quadrature tolerance, but
+        // it MUST NOT exceed 1 by more than that (an invalid calibrator like
+        // 1/p would diverge here, not land near 1).
+        assert!(
+            mean_e <= 1.0 + 1e-3,
+            "calibrated e-value null expectation {mean_e} exceeds 1 — not a valid e-value"
+        );
+        assert!(
+            mean_e > 0.99,
+            "calibrated e-value null expectation {mean_e} far below the analytic 1.0"
+        );
     }
 
     /// POWER STUDY, null side: the heuristic gate every dictionary paper

@@ -2,7 +2,7 @@
 #
 
 # version managed by poetry
-__version__ = '3.5.2'
+__version__ = '3.6.0'
 
 
 # see release note for details <https://github.com/openatx/android-uiautomator-server/releases>

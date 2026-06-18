@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AuthFlowType",
+    "CapabilityTypeType",
     "DevOpsAgentServiceServiceName",
     "EventChannelTypeType",
     "ExecutionStatusType",
@@ -55,6 +56,7 @@ __all__ = (
     "PrivateConnectionTypeType",
     "RecommendationPriorityType",
     "RecommendationStatusType",
+    "RemoteAgentAuthorizationMethodType",
     "ResourceConfigDnsResolutionType",
     "ResourceServiceName",
     "SchedulerStateType",
@@ -72,6 +74,9 @@ __all__ = (
 
 
 AuthFlowType = Literal["iam", "idc", "idp"]
+CapabilityTypeType = Literal[
+    "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
+]
 EventChannelTypeType = Literal["webhook"]
 ExecutionStatusType = Literal["CANCELED", "FAILED", "RUNNING", "STOPPED", "TIMED_OUT"]
 GitLabTokenTypeType = Literal["group", "personal"]
@@ -109,6 +114,8 @@ PostRegisterServiceSupportedServiceType = Literal[
     "mcpserversigv4",
     "mcpserversplunk",
     "pagerduty",
+    "remoteagent",
+    "remoteagentsigv4",
     "servicenow",
 ]
 PriorityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM", "MINIMAL"]
@@ -120,6 +127,7 @@ RecommendationPriorityType = Literal["HIGH", "LOW", "MEDIUM"]
 RecommendationStatusType = Literal[
     "ACCEPTED", "CLOSED", "COMPLETED", "PROPOSED", "REJECTED", "UPDATE_IN_PROGRESS"
 ]
+RemoteAgentAuthorizationMethodType = Literal["api-key", "bearer-token", "oauth-client-credentials"]
 ResourceConfigDnsResolutionType = Literal["IN_VPC", "PUBLIC"]
 SchedulerStateType = Literal["DISABLED", "ENABLED"]
 ServiceType = Literal[
@@ -137,6 +145,8 @@ ServiceType = Literal[
     "mcpserversigv4",
     "mcpserversplunk",
     "pagerduty",
+    "remoteagent",
+    "remoteagentsigv4",
     "servicenow",
     "slack",
 ]
@@ -155,7 +165,7 @@ TaskStatusType = Literal[
     "SKIPPED",
     "TIMED_OUT",
 ]
-TaskTypeType = Literal["EVALUATION", "INVESTIGATION"]
+TaskTypeType = Literal["EVALUATION", "INVESTIGATION", "RELEASE_READINESS_REVIEW", "RELEASE_TESTING"]
 UserTypeType = Literal["IAM", "IDC", "IDP"]
 ValidationStatusType = Literal["invalid", "pending-confirmation", "valid"]
 WebhookTypeType = Literal["apikey", "gitlab", "hmac", "pagerduty"]

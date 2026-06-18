@@ -16,6 +16,7 @@ def _get_kwargs(
     *,
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
+    filterenvironment: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -40,6 +41,13 @@ def _get_kwargs(
     else:
         json_filterstatus = filterstatus
     params["filter[status]"] = json_filterstatus
+
+    json_filterenvironment: None | str | Unset
+    if isinstance(filterenvironment, Unset):
+        json_filterenvironment = UNSET
+    else:
+        json_filterenvironment = filterenvironment
+    params["filter[environment]"] = json_filterenvironment
 
     json_filtercreated_at: None | str | Unset
     if isinstance(filtercreated_at, Unset):
@@ -126,6 +134,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
+    filterenvironment: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -150,6 +159,8 @@ def sync_detailed(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[environment]` — one environment key or a comma-separated list
+      (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
@@ -159,6 +170,9 @@ def sync_detailed(
         filterstatus (None | str | Unset): Restrict to runs in the given lifecycle state. One of
             `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them
             to match any (e.g. `SUCCEEDED,FAILED`).
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access.
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -201,6 +215,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         filterjob=filterjob,
         filterstatus=filterstatus,
+        filterenvironment=filterenvironment,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
@@ -222,6 +237,7 @@ def sync(
     client: AuthenticatedClient,
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
+    filterenvironment: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -246,6 +262,8 @@ def sync(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[environment]` — one environment key or a comma-separated list
+      (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
@@ -255,6 +273,9 @@ def sync(
         filterstatus (None | str | Unset): Restrict to runs in the given lifecycle state. One of
             `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them
             to match any (e.g. `SUCCEEDED,FAILED`).
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access.
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -298,6 +319,7 @@ def sync(
         client=client,
         filterjob=filterjob,
         filterstatus=filterstatus,
+        filterenvironment=filterenvironment,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
@@ -313,6 +335,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
+    filterenvironment: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -337,6 +360,8 @@ async def asyncio_detailed(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[environment]` — one environment key or a comma-separated list
+      (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
@@ -346,6 +371,9 @@ async def asyncio_detailed(
         filterstatus (None | str | Unset): Restrict to runs in the given lifecycle state. One of
             `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them
             to match any (e.g. `SUCCEEDED,FAILED`).
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access.
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -388,6 +416,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         filterjob=filterjob,
         filterstatus=filterstatus,
+        filterenvironment=filterenvironment,
         filtercreated_at=filtercreated_at,
         filterstarted_at=filterstarted_at,
         filterfinished_at=filterfinished_at,
@@ -407,6 +436,7 @@ async def asyncio(
     client: AuthenticatedClient,
     filterjob: None | str | Unset = UNSET,
     filterstatus: None | str | Unset = UNSET,
+    filterenvironment: None | str | Unset = UNSET,
     filtercreated_at: None | str | Unset = UNSET,
     filterstarted_at: None | str | Unset = UNSET,
     filterfinished_at: None | str | Unset = UNSET,
@@ -431,6 +461,8 @@ async def asyncio(
 
     - `filter[job]={id}` — a single job's run history.
     - `filter[status]` — one state or a comma-separated list (any-of).
+    - `filter[environment]` — one environment key or a comma-separated list
+      (any-of); omitted covers every environment you can access.
     - `filter[created_at]` / `filter[started_at]` / `filter[finished_at]` /
       `filter[scheduled_for]` — half-open `[start,end)` date ranges (see each
       parameter for the interval syntax).
@@ -440,6 +472,9 @@ async def asyncio(
         filterstatus (None | str | Unset): Restrict to runs in the given lifecycle state. One of
             `PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`, `CANCELED`, or a comma-separated list of them
             to match any (e.g. `SUCCEEDED,FAILED`).
+        filterenvironment (None | str | Unset): Comma-separated list of environment keys to scope
+            results to (e.g. `production,staging`). When omitted, results cover every environment you
+            can access.
         filtercreated_at (None | str | Unset): Restrict to runs whose `created_at` falls in a
             half-open `[start,end)` interval. Bounds are ISO-8601 timestamps; `*` leaves a bound open.
             The leading bracket is `[` (inclusive) or `(` (exclusive) and the trailing bracket is `]`
@@ -484,6 +519,7 @@ async def asyncio(
             client=client,
             filterjob=filterjob,
             filterstatus=filterstatus,
+            filterenvironment=filterenvironment,
             filtercreated_at=filtercreated_at,
             filterstarted_at=filterstarted_at,
             filterfinished_at=filterfinished_at,

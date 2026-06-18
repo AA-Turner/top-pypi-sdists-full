@@ -1018,7 +1018,7 @@ fn test_collapse_array_of_tables_preserves_comments() {
 }
 
 #[test]
-fn test_collapse_array_of_tables_preserves_multiple_comments_per_entry() {
+fn test_collapse_array_of_tables_skips_when_comments_between_keys() {
     let toml = indoc! {r#"
         [tool.cibuildwheel]
         name = "foo"
@@ -1036,21 +1036,42 @@ fn test_collapse_array_of_tables_preserves_multiple_comments_per_entry() {
 
     collapse_sub_table(&mut tables, "tool.cibuildwheel", "overrides", 120);
 
+    let overrides = tables.get("tool.cibuildwheel.overrides").unwrap();
+    assert!(
+        !overrides[0].borrow().is_empty(),
+        "entries with comments between keys must stay expanded to keep valid TOML"
+    );
     let parent = tables.get("tool.cibuildwheel").unwrap();
     let parent_table = parent[0].borrow();
     let result = parent_table.iter().map(|e| e.to_string()).collect::<String>();
-    insta::assert_snapshot!(result, @r#"
-    [tool.cibuildwheel]
-    name = "foo"
-    overrides = [
-      # iOS environment comment
-      # yeah
-      { select = "*_iphoneos" },
-      # s
-      # oh yeah
-      { pure = "ss" },
-    ]
-    "#);
+    assert!(!result.contains("overrides ="), "table must not be collapsed inline");
+}
+
+#[test]
+fn test_collapse_array_of_tables_skips_when_entry_has_disabled_key() {
+    let toml = format!(
+        indoc! {r#"
+        [project]
+        name = "foo"
+
+        [[project.authors]]
+        name = "Alice"  # {}
+    "#},
+        crate::disabled::MARKER
+    );
+    let root_ast = parse(&toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "project", "authors", 120);
+
+    let authors = tables.get("project.authors").unwrap();
+    assert!(
+        !authors[0].borrow().is_empty(),
+        "entries with a disabled key must stay expanded to keep valid TOML"
+    );
+    let parent = tables.get("project").unwrap();
+    let result = parent[0].borrow().iter().map(|e| e.to_string()).collect::<String>();
+    assert!(!result.contains("authors ="), "table must not be collapsed inline");
 }
 
 #[test]
@@ -2384,5 +2405,219 @@ fn test_reorder_inline_table_keys_unknown_keys_appended() {
     insta::assert_snapshot!(result, @r#"
     [section]
     val = { replace = "env", name = "X", extra = true }
+    "#);
+}
+
+fn reorder_keys_render(start: &str, table_name: &str, order: &[&str]) -> String {
+    let root_ast = parse(start);
+    let tables = Tables::from_ast(&root_ast);
+    let refs = tables.get(table_name).unwrap();
+    reorder_table_keys(&mut refs[0].borrow_mut(), order);
+    refs[0].borrow().iter().map(|e| e.to_string()).collect::<String>()
+}
+
+#[test]
+fn test_reorder_table_keys_group_markers_partition() {
+    let start = indoc! {r#"
+        [tool.x]
+        # Group: a
+        zebra = 1
+        apple = 2
+        # Group: b
+        yak = 3
+        bear = 4
+    "#};
+    let res = reorder_keys_render(start, "tool.x", &[""]);
+    insta::assert_snapshot!(res, @r#"
+    [tool.x]
+    # Group: a
+    apple = 2
+    zebra = 1
+    # Group: b
+    bear = 4
+    yak = 3
+    "#);
+}
+
+#[test]
+fn test_reorder_table_keys_no_markers_unchanged() {
+    let start = indoc! {r#"
+        [tool.x]
+        zebra = 1
+        apple = 2
+    "#};
+    let res = reorder_keys_render(start, "tool.x", &[""]);
+    insta::assert_snapshot!(res, @r#"
+    [tool.x]
+    apple = 2
+    zebra = 1
+    "#);
+}
+
+#[test]
+fn test_reorder_sections_group_markers_block_cross_group() {
+    let start = indoc! {r#"
+        # Group: one
+        [tool.zzz]
+        a = 1
+
+        [tool.aaa]
+        b = 2
+
+        # Group: two
+        [tool.yyy]
+        c = 3
+
+        [tool.bbb]
+        d = 4
+    "#};
+    let root_ast = parse(start);
+    let tables = Tables::from_ast(&root_ast);
+    tables.reorder(&root_ast, &[], &[], "\n", "");
+    insta::assert_snapshot!(format_toml(&root_ast, 120), @r#"
+    # Group: one
+    [tool.aaa]
+    b = 2
+
+    [tool.zzz]
+    a = 1
+
+    # Group: two
+    [tool.bbb]
+    d = 4
+
+    [tool.yyy]
+    c = 3
+    "#);
+}
+
+#[test]
+fn test_collapse_array_of_tables_skips_multi_position_parent() {
+    let toml = indoc! {r#"
+        [[project]]
+        name = "a"
+
+        [[project]]
+        name = "b"
+
+        [[project.foo]]
+        x = 1
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_table(&mut tables, "project", "foo", 120);
+
+    let foo = tables.get("project.foo").unwrap();
+    assert!(
+        !foo[0].borrow().is_empty(),
+        "must not collapse into a parent with multiple positions"
+    );
+}
+
+#[test]
+fn test_reorder_table_keys_group_markers_respect_order() {
+    let start = indoc! {r#"
+        [tool.x]
+        # Group: a
+        beta = 1
+        alpha = 2
+        # Group: b
+        delta = 3
+        charlie = 4
+    "#};
+    let res = reorder_keys_render(start, "tool.x", &["alpha", "charlie"]);
+    insta::assert_snapshot!(res, @r#"
+    [tool.x]
+    # Group: a
+    alpha = 2
+    beta = 1
+    # Group: b
+    charlie = 4
+    delta = 3
+    "#);
+}
+
+#[test]
+fn test_collapse_sub_table_keeps_empty_parent_with_wide_array_of_tables() {
+    let toml = indoc! {r#"
+        [tool.demo.labels]
+
+        [[tool.demo.labels.file-rules]]
+        any-glob-to-any-file = ["src/managers/apt*", "src/managers/dpkg*", "src/managers/opkg*", "tests/*apt*", "tests/*dpkg*", "tests/*opkg*"]
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    apply_table_formatting(&mut tables, |_| true, &["tool.demo"], 120);
+
+    assert!(
+        tables.get("tool.demo").is_none(),
+        "empty parent must not be collapsed to an inline table"
+    );
+    let file_rules = tables.get("tool.demo.labels.file-rules").unwrap();
+    assert!(
+        !file_rules[0].borrow().is_empty(),
+        "wide array of tables must stay expanded"
+    );
+
+    tables.reorder(
+        &root_ast,
+        &["tool.demo.labels", "tool.demo.labels.file-rules"],
+        &[],
+        "\n",
+        "",
+    );
+    let result = format_toml(&root_ast, 120);
+    crate::test_util::assert_valid_toml(&result);
+    insta::assert_snapshot!(result, @r#"
+    [tool.demo.labels]
+    [[tool.demo.labels.file-rules]]
+    any-glob-to-any-file = [
+      "src/managers/apt*",
+      "src/managers/dpkg*",
+      "src/managers/opkg*",
+      "tests/*apt*",
+      "tests/*dpkg*",
+      "tests/*opkg*"
+    ]
+    "#);
+}
+
+#[test]
+fn test_collapse_sub_tables_keeps_empty_table_with_array_of_tables_descendant() {
+    let toml = indoc! {r#"
+        [dependency-groups.docs]
+
+        [[dependency-groups.docs.entries]]
+        name = "sphinx"
+    "#};
+    let root_ast = parse(toml);
+    let mut tables = Tables::from_ast(&root_ast);
+
+    collapse_sub_tables(&mut tables, "dependency-groups");
+
+    let main = tables.get("dependency-groups").unwrap();
+    let main_text = main[0].borrow().iter().map(|e| e.to_string()).collect::<String>();
+    assert!(
+        !main_text.contains("docs ="),
+        "empty table must not be collapsed to an inline table"
+    );
+    assert!(tables.header_to_pos.contains_key("dependency-groups.docs.entries"));
+
+    tables.reorder(
+        &root_ast,
+        &["dependency-groups.docs", "dependency-groups.docs.entries"],
+        &[],
+        "\n",
+        "",
+    );
+    let result = format_toml(&root_ast, 120);
+    crate::test_util::assert_valid_toml(&result);
+    insta::assert_snapshot!(result, @r#"
+    [dependency-groups]
+    [dependency-groups.docs]
+    [[dependency-groups.docs.entries]]
+    name = "sphinx"
     "#);
 }

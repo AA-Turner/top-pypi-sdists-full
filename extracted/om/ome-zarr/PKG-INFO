@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ome-zarr
-Version: 0.17.0
+Version: 0.18.0
 Summary: Implementation of images in Zarr files.
 Author: The Open Microscopy Team
 License-Expression: BSD-2-Clause
@@ -26,6 +26,7 @@ Requires-Dist: requests
 Requires-Dist: scikit-image>=0.19.0
 Requires-Dist: toolz
 Requires-Dist: rangehttpserver
+Requires-Dist: ome-zarr-models>=1.6
 Requires-Dist: Deprecated
 Dynamic: license-file
 

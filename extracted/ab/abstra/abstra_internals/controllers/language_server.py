@@ -10,7 +10,7 @@ import subprocess
 import sys
 import threading
 import tokenize as _tokenize_mod
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -874,8 +874,23 @@ def get_hover(code: str, line: int, character: int) -> Optional[dict]:
         return None
 
 
+# Diagnostics provider hook: when set, get_diagnostics() delegates to it
+# instead of the local pyrefly singleton. Installed by the linter sidecar
+# child so TypeCheckingRule reaches the EDITOR's pyrefly over IPC instead of
+# spawning a second pyrefly in the child. The check lives INSIDE the wrapper
+# because callers bind it early (`from ... import get_diagnostics`).
+_diagnostics_provider: Optional[Callable[[str], list]] = None
+
+
+def set_diagnostics_provider(provider: Optional[Callable[[str], list]]) -> None:
+    global _diagnostics_provider
+    _diagnostics_provider = provider
+
+
 def get_diagnostics(code: str) -> list:
     try:
+        if _diagnostics_provider is not None:
+            return _diagnostics_provider(code)
         return _lsp.get_diagnostics(code)
     except Exception:
         return []
@@ -1005,17 +1020,6 @@ def analyze_python_syntax_file(file: str) -> Optional[dict]:
     Args:
         file (str): Relative path to the Python file from the project root
             directory. Should include the `.py` extension.
-
-    Returns:
-        dict with keys:
-            - diagnostics (List[dict]): LSP Diagnostic objects with
-                range/severity/message/source. Severities: 1=Error, 2=Warning,
-                3=Information, 4=Hint.
-            - error_count (int): Number of severity=1 diagnostics.
-            - warning_count (int): Number of severity=2 diagnostics.
-            - type_discipline_hint (str | None): Short reminder pointing at the
-                Abstra SDK types. Set whenever there is at least one error.
-        None if the file does not exist or is not a regular file.
 
     Copywritings:
         Analyze a Python file for syntax and type errors

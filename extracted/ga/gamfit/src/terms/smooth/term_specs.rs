@@ -1,6 +1,3 @@
-
-use bspline_boundary::bspline_boundary_linear_constraints;
-
 use coefficient_transforms::{
     convex_divided_difference_transform_matrix, cumulative_exp, cumulative_sum_transform_matrix,
     second_cumulative_exp,
@@ -20,7 +17,6 @@ use shape_constraints::{
     shape_uses_box_reparameterization,
 };
 
-
 fn describe_thin_plate_center_request(strategy: &CenterStrategy) -> String {
     match strategy {
         CenterStrategy::Auto(inner) => describe_thin_plate_center_request(inner),
@@ -34,7 +30,6 @@ fn describe_thin_plate_center_request(strategy: &CenterStrategy) -> String {
         }
     }
 }
-
 
 fn rewrite_thin_plate_knots_error(
     err: BasisError,
@@ -72,7 +67,6 @@ fn rewrite_thin_plate_knots_error(
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ShapeConstraint {
     None,
@@ -81,7 +75,6 @@ pub enum ShapeConstraint {
     Convex,
     Concave,
 }
-
 
 /// Parse a shape-constraint string into a [`ShapeConstraint`].
 ///
@@ -113,7 +106,6 @@ pub fn parse_shape_constraint(raw: &str) -> Result<ShapeConstraint, String> {
     }
 }
 
-
 impl ShapeConstraint {
     /// Canonical formula-DSL spelling, i.e. the text emitted into
     /// `s(x, shape=...)`. Round-trips through [`parse_shape_constraint`].
@@ -127,7 +119,6 @@ impl ShapeConstraint {
         }
     }
 }
-
 
 /// Smooth-term head keywords recognised by the formula DSL. A `shape=` option
 /// may be attached to any term whose head is one of these.
@@ -144,7 +135,6 @@ const SMOOTH_HEAD_KEYWORDS: [&str; 11] = [
     "bs",
     "bspline",
 ];
-
 
 /// Rewrite smooth-term calls in `formula` so each named smooth carries a
 /// `shape=<kind>` option understood by the formula DSL.
@@ -262,7 +252,6 @@ pub fn apply_shape_constraints_to_formula(
             break;
         }
 
-
         let term_text: String = chars[head_start..=j].iter().collect();
 
         let key_norm = strip_ws(&term_text);
@@ -283,9 +272,7 @@ pub fn apply_shape_constraints_to_formula(
         }
 
         i = j + 1;
-
     }
-
 
     let mut missing: Vec<String> = wanted
         .keys()
@@ -304,13 +291,11 @@ pub fn apply_shape_constraints_to_formula(
     Ok(out)
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BySmoothKind {
     Numeric,
     Level { level_bits: u64 },
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SmoothBasisSpec {
@@ -429,7 +414,6 @@ pub enum SmoothBasisSpec {
         spec: TensorBSplineSpec,
     },
 }
-
 
 impl SmoothBasisSpec {
     /// Conservative lower bound on the number of sample rows needed for this
@@ -587,7 +571,6 @@ impl SmoothBasisSpec {
     }
 }
 
-
 /// Lower bound on the number of sample rows a 1D B-spline smooth needs for a
 /// well-posed *penalized* REML fit. Used as the per-smooth row floor in
 /// [`SmoothBasisSpec::min_sample_rows`].
@@ -646,13 +629,11 @@ fn bspline_basis_min_rows(spec: &crate::terms::basis::BSplineBasisSpec) -> usize
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ByVariableSpec {
     Numeric,
     Level { value_bits: u64, label: String },
 }
-
 
 /// Tensor-product B-spline smooth specification.
 ///
@@ -670,7 +651,6 @@ pub enum TensorMarginalSpec {
     },
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ByVarKind {
     Numeric {
@@ -682,7 +662,6 @@ pub enum ByVarKind {
         frozen_levels: Option<Vec<u64>>,
     },
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FactorSmoothSpec {
@@ -700,14 +679,12 @@ pub struct FactorSmoothSpec {
     pub frozen_global_orthogonality: Option<Array2<f64>>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FactorSmoothFlavour {
     Fs { m_null_penalty_orders: Vec<usize> },
     Sz,
     Re,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TensorBSplineSpec {
@@ -717,8 +694,9 @@ pub struct TensorBSplineSpec {
     pub double_penalty: bool,
     #[serde(default)]
     pub identifiability: TensorBSplineIdentifiability,
+    #[serde(default)]
+    pub penalty_decomposition: TensorBSplinePenaltyDecomposition,
 }
-
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum TensorBSplineIdentifiability {
@@ -740,6 +718,17 @@ pub enum TensorBSplineIdentifiability {
     },
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TensorBSplinePenaltyDecomposition {
+    /// mgcv `te(...)`: one overlapping Kronecker-product penalty per margin,
+    /// `S_j` embedded against identities in the other tensor factors.
+    #[default]
+    MarginalKroneckerSum,
+    /// mgcv `t2(...)`: split every marginal coefficient space into penalized
+    /// range and penalty-null subspaces, then emit one disjoint tensor-subspace
+    /// penalty for every non-empty penalized/null combination.
+    Separable,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmoothTermSpec {
@@ -757,7 +746,6 @@ pub struct SmoothTermSpec {
     #[serde(default)]
     pub joint_null_rotation: Option<crate::terms::basis::JointNullRotation>,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SmoothTerm {
@@ -812,7 +800,6 @@ pub struct SmoothTerm {
     pub unabsorbed_global_orthogonality: Option<Array2<f64>>,
 }
 
-
 impl SmoothTerm {
     /// Apply the joint-null absorption rotation to a raw new-data design
     /// matrix, returning `X_new_raw · Q` when this term was rotated at
@@ -854,7 +841,6 @@ impl SmoothTerm {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PenaltyBlockInfo {
     pub global_index: usize,
@@ -862,13 +848,11 @@ pub struct PenaltyBlockInfo {
     pub penalty: PenaltyInfo,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DroppedPenaltyBlockInfo {
     pub termname: Option<String>,
     pub penalty: PenaltyInfo,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SmoothDesign {
@@ -888,7 +872,6 @@ pub struct SmoothDesign {
     pub linear_constraints: Option<LinearInequalityConstraints>,
 }
 
-
 impl SmoothDesign {
     pub fn total_smooth_cols(&self) -> usize {
         self.term_designs.iter().map(DesignMatrix::ncols).sum()
@@ -897,7 +880,6 @@ impl SmoothDesign {
         self.term_designs.first().map_or(0, DesignMatrix::nrows)
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct RawSmoothDesign {
@@ -913,7 +895,6 @@ pub struct RawSmoothDesign {
     pub linear_constraints: Option<LinearInequalityConstraints>,
 }
 
-
 impl RawSmoothDesign {
     pub fn total_smooth_cols(&self) -> usize {
         self.term_designs.iter().map(DesignMatrix::ncols).sum()
@@ -922,7 +903,6 @@ impl RawSmoothDesign {
         self.term_designs.first().map_or(0, DesignMatrix::nrows)
     }
 }
-
 
 impl From<RawSmoothDesign> for SmoothDesign {
     fn from(value: RawSmoothDesign) -> Self {
@@ -939,7 +919,6 @@ impl From<RawSmoothDesign> for SmoothDesign {
     }
 }
 
-
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub enum BoundedCoefficientPriorSpec {
     #[default]
@@ -950,7 +929,6 @@ pub enum BoundedCoefficientPriorSpec {
         b: f64,
     },
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub enum LinearCoefficientGeometry {
@@ -963,7 +941,6 @@ pub enum LinearCoefficientGeometry {
         prior: BoundedCoefficientPriorSpec,
     },
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinearTermSpec {
@@ -978,6 +955,18 @@ pub struct LinearTermSpec {
     /// design column. `len() >= 1`; `len() == 1` is a plain linear effect.
     #[serde(default)]
     pub feature_cols: Vec<usize>,
+    /// Categorical-level gates for a factor-aware `:` interaction.
+    ///
+    /// Each `(col, level_bits)` multiplies the realized design column by the
+    /// indicator `1[data[row, col].to_bits() == level_bits]`. This is how a
+    /// `factor:x` (or `factor:factor`) interaction is expanded: `build_termspec`
+    /// emits one `LinearTermSpec` per surviving cell of the categorical
+    /// operand(s) (treatment-coded, first level dropped per factor), each
+    /// carrying the numeric operands in `feature_cols` and the cell's level
+    /// gate(s) here. Empty for a plain numeric `:` interaction or main effect,
+    /// in which case the realized column is exactly the numeric product.
+    #[serde(default)]
+    pub categorical_levels: Vec<(usize, u64)>,
     /// Optional ridge (`S = I`, REML-selected `λ`) on this linear coefficient.
     /// A parametric linear term carries no wiggliness, so it is **unpenalized by
     /// default** — gam reports the MLE, matching mgcv/glm/survreg/VGAM (which
@@ -994,7 +983,6 @@ pub struct LinearTermSpec {
     pub coefficient_max: Option<f64>,
 }
 
-
 impl LinearTermSpec {
     /// Return the effective list of feature columns. Backfills from
     /// `feature_col` for legacy specs that predate the multi-column field.
@@ -1008,10 +996,70 @@ impl LinearTermSpec {
 
     /// True when this term is a Wilkinson-Rogers `:` interaction (multi-col).
     pub fn is_interaction(&self) -> bool {
-        self.feature_cols.len() > 1
+        self.feature_cols.len() > 1 || !self.categorical_levels.is_empty()
+    }
+
+    /// Realize this linear term's `(n,)` design column from `data`.
+    ///
+    /// The column is the elementwise product of every numeric feature column
+    /// (`effective_feature_cols`) gated by the categorical-level indicators in
+    /// `categorical_levels`: each `(col, level_bits)` multiplies the running
+    /// column by `1[data[row, col].to_bits() == level_bits]`. A plain numeric
+    /// term (no `categorical_levels`) reduces to the bare product, matching the
+    /// historical behaviour. A pure categorical interaction (empty
+    /// `feature_cols`, non-empty `categorical_levels`) reduces to the cell
+    /// indicator. Bounds are validated here; the returned column has length
+    /// `data.nrows()`.
+    pub fn realized_design_column(&self, data: ArrayView2<'_, f64>) -> Result<Array1<f64>, String> {
+        let n = data.nrows();
+        let p = data.ncols();
+        let bounds = |col: usize| -> Result<(), String> {
+            if col >= p {
+                Err(format!(
+                    "linear term '{}' feature column {} out of bounds for {} columns",
+                    self.name, col, p
+                ))
+            } else {
+                Ok(())
+            }
+        };
+
+        // Numeric operands. When `categorical_levels` is set we treat
+        // `feature_cols` as the (possibly empty) numeric operand list and start
+        // from a column of ones; otherwise we preserve the legacy backfill from
+        // `feature_col` so a plain term with no `feature_cols` still resolves.
+        let mut column = if self.categorical_levels.is_empty() {
+            let cols = self.effective_feature_cols();
+            for &c in &cols {
+                bounds(c)?;
+            }
+            let mut acc = data.column(cols[0]).to_owned();
+            for &c in cols.iter().skip(1) {
+                acc *= &data.column(c);
+            }
+            acc
+        } else {
+            let mut acc = Array1::<f64>::ones(n);
+            for &c in &self.feature_cols {
+                bounds(c)?;
+                acc *= &data.column(c);
+            }
+            acc
+        };
+
+        for &(col, level_bits) in &self.categorical_levels {
+            bounds(col)?;
+            let gate = data.column(col);
+            for (out, &v) in column.iter_mut().zip(gate.iter()) {
+                if v.to_bits() != level_bits {
+                    *out = 0.0;
+                }
+            }
+        }
+
+        Ok(column)
     }
 }
-
 
 const fn default_linear_term_double_penalty() -> bool {
     // Parametric/linear terms are unpenalized by default — a single linear
@@ -1024,16 +1072,13 @@ const fn default_linear_term_double_penalty() -> bool {
     false
 }
 
-
 const fn default_pca_smooth_penalty() -> f64 {
     1.0
 }
 
-
 const fn default_pca_chunk_size() -> usize {
     4096
 }
-
 
 /// Random-effects term specification.
 ///
@@ -1058,11 +1103,9 @@ pub struct RandomEffectTermSpec {
     pub frozen_levels: Option<Vec<u64>>,
 }
 
-
 fn default_random_effect_penalized() -> bool {
     true
 }
-
 
 fn validate_measure_jet_positive_vec_len(
     label: &str,
@@ -1090,14 +1133,12 @@ fn validate_measure_jet_positive_vec_len(
     Ok(())
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TermCollectionSpec {
     pub linear_terms: Vec<LinearTermSpec>,
     pub random_effect_terms: Vec<RandomEffectTermSpec>,
     pub smooth_terms: Vec<SmoothTermSpec>,
 }
-
 
 fn validate_smooth_basis_frozen(
     basis: &SmoothBasisSpec,
@@ -1140,7 +1181,6 @@ fn validate_smooth_basis_frozen(
     }
 }
 
-
 impl TermCollectionSpec {
     /// Write this collection's topology identity into a warm-start cache
     /// fingerprint (#869).
@@ -1155,7 +1195,7 @@ impl TermCollectionSpec {
     /// candidate is preserved while cross-candidate contamination is removed.
     /// Only the structural identity is hashed (not fitted coefficients or
     /// frozen knot values), so a refit of the *same* topology still hits.
-    pub fn write_structural_shape_hash(&self, h: &mut crate::cache::Fingerprinter) {
+    pub fn write_structural_shape_hash(&self, h: &mut crate::warm_start::Fingerprinter) {
         h.write_str("term-collection");
         h.write_usize(self.linear_terms.len());
         for linear in &self.linear_terms {
@@ -1626,6 +1666,13 @@ impl TermCollectionSpec {
             for fc in lt.feature_cols.iter_mut() {
                 *fc = remap(*fc)?;
             }
+            // A factor-aware `:` interaction also gates on categorical columns;
+            // those indices live in the same training-time layout and must be
+            // realigned to the runtime table alongside the numeric operands, or
+            // the predict-time level indicator would dereference a stale column.
+            for (col, _bits) in lt.categorical_levels.iter_mut() {
+                *col = remap(*col)?;
+            }
         }
         for rt in &mut out.random_effect_terms {
             rt.feature_col = remap(rt.feature_col)?;
@@ -1636,7 +1683,6 @@ impl TermCollectionSpec {
         Ok(out)
     }
 }
-
 
 /// Walk a `SmoothBasisSpec` tree, re-resolving every column index through
 /// `remap`. Shared by all predict-time column realignment (see
@@ -1689,13 +1735,11 @@ where
     Ok(())
 }
 
-
 #[derive(Debug, Clone)]
 pub enum PenaltyStructureHint {
     Ridge(f64),
     Kronecker(Vec<Array2<f64>>),
 }
-
 
 /// A penalty matrix stored at its natural block size together with the
 /// column range it occupies in the global coefficient vector.
@@ -1719,9 +1763,8 @@ pub struct BlockwisePenalty {
     /// the originating closed-form factory emitted an op-form penalty so exact
     /// operator algebra can use matvec instead of materializing the dense
     /// `block_p × block_p` Gram. `None` for ordinary dense penalties.
-    pub op: Option<std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>>,
+    pub op: Option<std::sync::Arc<dyn crate::terms::analytic_penalties::PenaltyOp>>,
 }
-
 
 impl std::fmt::Debug for BlockwisePenalty {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1737,7 +1780,6 @@ impl std::fmt::Debug for BlockwisePenalty {
             .finish()
     }
 }
-
 
 impl BlockwisePenalty {
     /// Create a new blockwise penalty.
@@ -1764,7 +1806,7 @@ impl BlockwisePenalty {
     /// Attach an op-form penalty handle bit-equivalent to `local`.
     pub fn with_op(
         mut self,
-        op: Option<std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>>,
+        op: Option<std::sync::Arc<dyn crate::terms::analytic_penalties::PenaltyOp>>,
     ) -> Self {
         self.op = op;
         self
@@ -1842,7 +1884,6 @@ impl BlockwisePenalty {
     }
 }
 
-
 /// Compute `Σ_k λ_k S_k` directly from blockwise penalties, accumulating
 /// into a pre-allocated `p_total × p_total` output without ever materializing
 /// individual global matrices.
@@ -1884,7 +1925,6 @@ pub fn weighted_blockwise_penalty_sum(
     out
 }
 
-
 // ---------------------------------------------------------------------------
 // KroneckerPenaltySystem — factored tensor-product penalty representation
 // ---------------------------------------------------------------------------
@@ -1902,7 +1942,6 @@ pub struct KroneckerPenaltySystem {
     /// Whether a global ridge (double) penalty is present.
     pub has_double_penalty: bool,
 }
-
 
 impl KroneckerPenaltySystem {
     pub fn new(
@@ -1993,8 +2032,8 @@ impl KroneckerPenaltySystem {
                 structural_sigma += marginal_eigenvalue;
                 sigma += lambdas[k] * marginal_eigenvalue;
             }
-            if self.has_double_penalty {
-                structural_sigma += 1.0;
+            let joint_null = structural_sigma <= STRUCTURAL_ZERO_FLOOR;
+            if self.has_double_penalty && joint_null {
                 sigma += lambdas[d];
             }
             if structural_sigma > STRUCTURAL_ZERO_FLOOR {
@@ -2009,16 +2048,20 @@ impl KroneckerPenaltySystem {
                 for k in 0..n_pen {
                     let ck = if k < d {
                         lambdas[k] * self.marginal_eigensystems[k].0[multi_idx[k]]
-                    } else {
+                    } else if joint_null {
                         lambdas[d]
+                    } else {
+                        0.0
                     };
                     grad[k] += ck * inv_sigma;
                     hess[[k, k]] += ck * inv_sigma - ck * ck * inv_sigma2;
                     for l in (k + 1)..n_pen {
                         let cl = if l < d {
                             lambdas[l] * self.marginal_eigensystems[l].0[multi_idx[l]]
-                        } else {
+                        } else if joint_null {
                             lambdas[d]
+                        } else {
+                            0.0
                         };
                         let off = -ck * cl * inv_sigma2;
                         hess[[k, l]] += off;
@@ -2046,6 +2089,34 @@ impl KroneckerPenaltySystem {
     }
 }
 
+#[cfg(test)]
+mod kronecker_penalty_system_tests {
+    use super::KroneckerPenaltySystem;
+    use ndarray::array;
+
+    #[test]
+    fn double_penalty_rank_derivatives_use_only_joint_null_space() {
+        let penalties = vec![
+            array![[0.0, 0.0], [0.0, 2.0]],
+            array![[0.0, 0.0], [0.0, 3.0]],
+        ];
+        let system = KroneckerPenaltySystem::new(penalties, vec![2usize, 2usize], true).unwrap();
+        let lambdas = vec![5.0, 7.0, 11.0];
+
+        let (logdet, rank, grad, hess) = system.logdet_rank_and_derivatives(&lambdas, 0.0);
+
+        let expected_diag = [11.0_f64, 21.0, 10.0, 31.0];
+        let expected_logdet: f64 = expected_diag.iter().map(|v| v.ln()).sum();
+        assert_eq!(rank, 4);
+        assert!((logdet - expected_logdet).abs() <= 1e-12);
+        assert!(
+            (grad[2] - 1.0).abs() <= 1e-12,
+            "double-penalty rank derivative must count only the joint null mode, got {}",
+            grad[2]
+        );
+        assert!(hess[[2, 2]].abs() <= 1e-12);
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct TermCollectionDesign {
@@ -2074,7 +2145,6 @@ pub struct TermCollectionDesign {
     pub random_effect_levels: Vec<(String, Vec<u64>)>,
     pub smooth: SmoothDesign,
 }
-
 
 impl TermCollectionDesign {
     /// Convert blockwise penalties to `PenaltyMatrix::Blockwise` without
@@ -2139,14 +2209,12 @@ impl TermCollectionDesign {
     }
 }
 
-
 #[derive(Clone)]
 pub struct FittedTermCollection {
     pub fit: UnifiedFitResult,
     pub design: TermCollectionDesign,
     pub adaptive_diagnostics: Option<AdaptiveRegularizationDiagnostics>,
 }
-
 
 #[derive(Clone)]
 pub struct FittedTermCollectionWithSpec {
@@ -2156,18 +2224,16 @@ pub struct FittedTermCollectionWithSpec {
     pub adaptive_diagnostics: Option<AdaptiveRegularizationDiagnostics>,
 }
 
-
 #[derive(Clone)]
 pub struct StandardLatentCoordConfig {
-    pub values: std::sync::Arc<crate::terms::latent_coord::LatentCoordValues>,
+    pub values: std::sync::Arc<crate::terms::latent::LatentCoordValues>,
     pub term_index: crate::types::SmoothTermIdx,
     pub feature_cols: Vec<usize>,
-    pub manifold: crate::terms::latent_coord::LatentManifold,
+    pub manifold: crate::terms::latent::LatentManifold,
     pub manifold_auto: bool,
     pub retraction_registry: crate::solver::latent_cache::LatentRetractionRegistry,
     pub analytic_penalties: Option<std::sync::Arc<crate::terms::AnalyticPenaltyRegistry>>,
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AdaptiveSpatialMap {
@@ -2178,7 +2244,6 @@ pub struct AdaptiveSpatialMap {
     pub invgradweight: Array1<f64>,
     pub inv_lapweight: Array1<f64>,
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AdaptiveRegularizationDiagnostics {
@@ -2191,7 +2256,6 @@ pub struct AdaptiveRegularizationDiagnostics {
     pub maps: Vec<AdaptiveSpatialMap>,
 }
 
-
 #[derive(Debug, Clone)]
 struct LinearColumnConditioning {
     col_idx: usize,
@@ -2199,13 +2263,11 @@ struct LinearColumnConditioning {
     scale: f64,
 }
 
-
 #[derive(Debug, Clone, Default)]
 struct LinearFitConditioning {
     intercept_idx: usize,
     columns: Vec<LinearColumnConditioning>,
 }
-
 
 #[derive(Clone)]
 pub(crate) struct SpatialPsiDerivative {
@@ -2239,7 +2301,6 @@ pub(crate) struct SpatialPsiDerivative {
     pub implicit_axis: usize,
 }
 
-
 #[derive(Debug, Clone)]
 pub(crate) struct SpatialLogKappaCoords {
     /// Flattened ψ values. For isotropic terms, one entry per term.
@@ -2248,7 +2309,6 @@ pub(crate) struct SpatialLogKappaCoords {
     /// Dimensionality of each term: 1 for isotropic, d for anisotropic.
     dims_per_term: Vec<usize>,
 }
-
 
 /// Which end of the ψ bound the shared `aniso_bounds_from_data` helper is
 /// computing. The lower end uses `-max_length_scale.ln()` as the pure-Duchon
@@ -2259,7 +2319,6 @@ enum AnisoBoundEnd {
     Lower,
     Upper,
 }
-
 
 impl SpatialLogKappaCoords {
     /// Construct from an explicit dims layout plus values.
@@ -2744,7 +2803,6 @@ impl SpatialLogKappaCoords {
     }
 }
 
-
 pub(crate) fn center_aniso_log_scales(eta: &[f64]) -> Vec<f64> {
     if eta.len() <= 1 {
         return eta.to_vec();
@@ -2761,7 +2819,6 @@ pub(crate) fn center_aniso_log_scales(eta: &[f64]) -> Vec<f64> {
         })
         .collect()
 }
-
 
 fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx: usize) -> bool {
     // Ordinary penalized thin-plate regression splines do not have an
@@ -2824,7 +2881,6 @@ fn spatial_term_supports_hyper_optimization(spec: &TermCollectionSpec, term_idx:
     get_spatial_length_scale(spec, term_idx).is_some()
 }
 
-
 /// The measure-jet term's spec, when `term_idx` is a measure-jet smooth.
 /// Single accessor for every dial-plumbing dispatch below.
 fn measure_jet_term_spec(
@@ -2839,7 +2895,6 @@ fn measure_jet_term_spec(
         })
 }
 
-
 /// Single source for measure-jet outer-ψ enrollment: the lnτ dial is
 /// undefined in the τ = 0 pseudo-inverse oracle mode (see
 /// `build_measure_jet_basis_psi_derivatives`), so only a positive ridge
@@ -2847,21 +2902,20 @@ fn measure_jet_term_spec(
 /// `spatial_term_uses_per_axis_psi` both defer here so the θ-layout
 /// sources cannot disagree.
 fn measure_jet_enrolls_psi(mj: &crate::basis::MeasureJetBasisSpec) -> bool {
-    // Two independent enrollment sources (#1116):
+    // Two independent enrollment sources (#1116), both explicit:
     //   * the design-moving representer length-scale ℓ (`learn_length_scale`),
-    //     available in EVERY mode (it is the cure for the over-smoothing on
-    //     low-intrinsic-dimension manifolds — matérn's log_kappa analog);
+    //     available in every mode when the spec opts in;
     //   * the multiscale penalty dials (s, α, lnτ): the per-scale spectral
     //     split's (α, lnτ) ride the explicit `multiscale` opt-in, and the lnτ
     //     channel additionally needs a positive ridge (τ = 0 is the
     //     pseudo-inverse oracle mode where lnτ is undefined).
     // A term enrolls if EITHER source is active.
-    measure_jet_learns_length_scale(mj) || (mj.tau0 > 0.0 && crate::basis::measure_jet_multiscale_mode(mj))
+    measure_jet_learns_length_scale(mj)
+        || (mj.tau0 > 0.0 && crate::basis::measure_jet_multiscale_mode(mj))
 }
 
-/// Whether the design-moving ℓ dial is enrolled for this term. ℓ is learnable
-/// in every mode; an explicitly-pinned positive `length_scale` with
-/// `learn_length_scale = false` freezes it (matches a user-fixed kernel scale).
+/// Whether the design-moving ℓ dial is enrolled for this term. ℓ is fixed by
+/// default and learnable in every mode only when `learn_length_scale = true`.
 fn measure_jet_learns_length_scale(mj: &crate::basis::MeasureJetBasisSpec) -> bool {
     mj.learn_length_scale
 }
@@ -2878,15 +2932,11 @@ const MEASURE_JET_PSI_ALPHA_BOUNDS: (f64, f64) = (-1.0, 3.0);
 const MEASURE_JET_PSI_LN_TAU_BOUNDS: (f64, f64) = (-18.420680743952367, 4.605170185988092);
 
 /// Log-ℓ box for the design-moving representer length-scale dial (#1116). An
-/// ABSOLUTE window in the data coordinate scale (ln of ℓ ∈ [1e-3, 1e2]): wide
-/// enough to let REML shrink ℓ ~orders below the auto ambient-spacing seed
-/// (the fix for the 1-D-curve-in-3-D over-smoothing) or grow it for very smooth
-/// surfaces, while keeping the Gaussian kernel numerically well-scaled. Absolute
+/// ABSOLUTE window in the data coordinate scale (ln of ℓ ∈ [1e-3, 1e2]) used
+/// only when the spec explicitly enrolls the learned representer range. Absolute
 /// (not seed-relative) so the bound producer needs no data view, matching the
 /// other dial boxes. `ln(1e-3) = -6.9077…`, `ln(1e2) = 4.6051…`.
-const MEASURE_JET_PSI_LN_LENGTH_SCALE_BOUNDS: (f64, f64) =
-    (-6.907755278982137, 4.605170185988092);
-
+const MEASURE_JET_PSI_LN_LENGTH_SCALE_BOUNDS: (f64, f64) = (-6.907755278982137, 4.605170185988092);
 
 /// Number of multiscale PENALTY dials (excluding the design-moving ℓ):
 /// multiscale (per-scale spectral) mode carries (α, lnτ) = 2 — the order is
@@ -2909,7 +2959,6 @@ fn measure_jet_penalty_psi_dim(mj: &crate::basis::MeasureJetBasisSpec) -> usize 
 fn measure_jet_psi_dim(mj: &crate::basis::MeasureJetBasisSpec) -> usize {
     usize::from(measure_jet_learns_length_scale(mj)) + measure_jet_penalty_psi_dim(mj)
 }
-
 
 /// Seed ψ from the term's realized dials, in producer coordinate order: ℓ first
 /// (when enrolled), then the multiscale penalty dials. The ℓ seed is the
@@ -2936,7 +2985,6 @@ fn measure_jet_psi_seed(mj: &crate::basis::MeasureJetBasisSpec) -> Vec<f64> {
     seed
 }
 
-
 /// One end of the per-coordinate dial boxes, in producer coordinate order
 /// (ℓ first when enrolled, then the multiscale penalty dials).
 fn measure_jet_psi_bound_values(mj: &crate::basis::MeasureJetBasisSpec, upper: bool) -> Vec<f64> {
@@ -2952,7 +3000,6 @@ fn measure_jet_psi_bound_values(mj: &crate::basis::MeasureJetBasisSpec, upper: b
     }
     bounds
 }
-
 
 /// Write optimized ψ dials back into a measure-jet spec. Returns `true` when
 /// any dial actually moved. The geometry (centers, masses, band, ℓ, z) is
@@ -3009,7 +3056,6 @@ fn apply_measure_jet_psi(
     Ok(changed)
 }
 
-
 /// Collection-level measure-jet dial write-back (the `apply_tospec` /
 /// realizer-side entry). Returns whether anything moved.
 fn set_measure_jet_psi_dials(
@@ -3022,7 +3068,6 @@ fn set_measure_jet_psi_dials(
     };
     set_single_term_measure_jet_psi_dials(term, psi)
 }
-
 
 /// Single-term dial write-back: the shared match+apply core, also used
 /// directly on the cached per-trial build spec (whose caller has already
@@ -3038,7 +3083,6 @@ fn set_single_term_measure_jet_psi_dials(
     apply_measure_jet_psi(mj, psi)
 }
 
-
 /// The constant-curvature smooth's spec, when `term_idx` is one. Single
 /// accessor for every κ-ψ dispatch below, mirroring `measure_jet_term_spec`.
 fn constant_curvature_term_spec(
@@ -3053,7 +3097,6 @@ fn constant_curvature_term_spec(
         })
 }
 
-
 /// Hard positive cap on |κ| relative to the data's inverse squared chart
 /// radius. The κ-stereographic chart is valid for `1 + κ‖x‖² > 0`; at
 /// `|κ| = 1/R²` (R² = max squared chart radius) the gauge `1 + κ‖x‖²` reaches
@@ -3067,7 +3110,6 @@ const CONSTANT_CURVATURE_KAPPA_CHART_FRACTION: f64 = 0.5;
 /// degenerate (near-origin) point cloud still yields a finite, usable bracket
 /// rather than an unbounded one.
 const CONSTANT_CURVATURE_MIN_CHART_RADIUS2: f64 = 1e-8;
-
 
 /// `(κ_min, κ_max)` outer-optimization window for a constant-curvature term,
 /// derived from the data's maximum squared chart radius `R²` so the κ-jets
@@ -3100,7 +3142,6 @@ fn constant_curvature_kappa_bounds(
     (-half, half)
 }
 
-
 /// Write the optimized κ back into a constant-curvature term spec. Returns
 /// `true` when κ moved. Centers, ℓ, and the constraint transform `z` are
 /// κ-FIXED by the basis κ-contract, so only `kappa` changes.
@@ -3116,7 +3157,6 @@ fn set_constant_curvature_kappa(
     };
     set_single_term_constant_curvature_kappa(term, psi)
 }
-
 
 /// Single-term κ write-back: the shared validate+apply core, also used directly
 /// on the cached per-trial build spec in the incremental realizer (whose caller
@@ -3151,7 +3191,6 @@ fn set_single_term_constant_curvature_kappa(
     }
 }
 
-
 /// Returns `true` when a spatial term has NO outer optimization axes — i.e.
 /// the user provided an explicit `length_scale` and the term does not enroll
 /// REML-side per-axis ψ contrasts, so both the scalar κ and any fixed geometry
@@ -3166,7 +3205,6 @@ pub fn spatial_term_has_locked_kappa(spec: &TermCollectionSpec, term_idx: usize)
     get_spatial_length_scale(spec, term_idx).is_some()
         && !spatial_term_uses_per_axis_psi(spec, term_idx)
 }
-
 
 /// Per-term data-derived ψ = log κ bounds.
 ///
@@ -3186,7 +3224,6 @@ const KERNEL_RANGE_MIN_DIAMETER_FRACTION: f64 = 2.0;
 /// nearly collinear with the polynomial nullspace, so the kernel range is
 /// capped here to keep the basis geometry well-conditioned.
 const KERNEL_RANGE_MAX_SPACING_MULTIPLE: f64 = 1e2;
-
 
 /// Returns ψ-space bounds (ψ_lo = ln(κ_lo), ψ_hi = ln(κ_hi)).
 ///
@@ -3270,7 +3307,6 @@ fn spatial_term_psi_bounds(
     (psi_lo, psi_hi)
 }
 
-
 /// Data-derived ψ seed for a spatial term when the user has not set an
 /// explicit length_scale on its basis spec. Uses the geometric mean of the
 /// data-informed kappa range (i.e., the midpoint of the ψ window).
@@ -3287,7 +3323,6 @@ fn spatial_term_psi_seed(
     Some(0.5 * (psi_lo + psi_hi))
 }
 
-
 fn spatial_term_psi_to_length_scale_and_aniso(psi: &[f64]) -> (Option<f64>, Option<Vec<f64>>) {
     if psi.len() <= 1 {
         (Some((-psi.first().copied().unwrap_or(0.0)).exp()), None)
@@ -3299,7 +3334,6 @@ fn spatial_term_psi_to_length_scale_and_aniso(psi: &[f64]) -> (Option<f64>, Opti
         )
     }
 }
-
 
 /// Get the `aniso_log_scales` from a spatial term, if present.
 pub fn get_spatial_aniso_log_scales(
@@ -3315,7 +3349,6 @@ pub fn get_spatial_aniso_log_scales(
         })
 }
 
-
 /// Get the number of feature columns (spatial dimensionality) for a spatial term.
 fn get_spatial_feature_dim(spec: &TermCollectionSpec, term_idx: usize) -> Option<usize> {
     spec.smooth_terms
@@ -3327,7 +3360,6 @@ fn get_spatial_feature_dim(spec: &TermCollectionSpec, term_idx: usize) -> Option
             _ => None,
         })
 }
-
 
 /// Log the learned per-axis spatial anisotropy for all spatial terms that
 /// have `aniso_log_scales` set after optimization.
@@ -3376,7 +3408,6 @@ pub fn log_spatial_aniso_scales(spec: &TermCollectionSpec) {
     }
 }
 
-
 /// Set `aniso_log_scales` on a spatial term's basis spec.
 fn set_spatial_aniso_log_scales(
     spec: &mut TermCollectionSpec,
@@ -3402,7 +3433,6 @@ fn set_spatial_aniso_log_scales(
         ))),
     }
 }
-
 
 /// Sync knot-cloud-derived anisotropy contrasts from basis metadata back into
 /// the mutable spec so the optimizer starts from the correct eta values.
@@ -3431,7 +3461,6 @@ pub(crate) fn sync_aniso_contrasts_from_metadata(
         }
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct SpatialLengthScaleOptimizationOptions {
@@ -3464,7 +3493,6 @@ pub struct SpatialLengthScaleOptimizationOptions {
     pub pilot_subsample_threshold: usize,
 }
 
-
 impl Default for SpatialLengthScaleOptimizationOptions {
     fn default() -> Self {
         Self {
@@ -3478,7 +3506,6 @@ impl Default for SpatialLengthScaleOptimizationOptions {
         }
     }
 }
-
 
 impl SpatialLengthScaleOptimizationOptions {
     /// Validate the struct's invariants. Callers that construct these options
@@ -3538,7 +3565,6 @@ impl SpatialLengthScaleOptimizationOptions {
     }
 }
 
-
 #[derive(Debug, Clone)]
 struct RandomEffectBlock {
     name: String,
@@ -3549,18 +3575,15 @@ struct RandomEffectBlock {
     kept_levels: Vec<u64>,
 }
 
-
 const BLOCK_SPARSE_ZERO_EPS: f64 = 1e-12;
 
 const BLOCK_SPARSE_MAX_DENSITY: f64 = 0.20;
-
 
 fn blocks_have_intrinsic_sparse_structure(blocks: &[DesignBlock]) -> bool {
     blocks
         .iter()
         .any(|block| matches!(block, DesignBlock::Sparse(_) | DesignBlock::RandomEffect(_)))
 }
-
 
 fn sparse_compatible_block_nnz(block: &DesignBlock) -> Option<usize> {
     match block {
@@ -3577,7 +3600,6 @@ fn sparse_compatible_block_nnz(block: &DesignBlock) -> Option<usize> {
         }),
     }
 }
-
 
 fn try_build_sparse_design_from_blocks(
     blocks: &[DesignBlock],
@@ -3668,7 +3690,6 @@ fn try_build_sparse_design_from_blocks(
     )))
 }
 
-
 fn assemble_term_collection_design_matrix(
     blocks: Vec<DesignBlock>,
 ) -> Result<DesignMatrix, BasisError> {
@@ -3682,7 +3703,6 @@ fn assemble_term_collection_design_matrix(
         Arc::new(block_op),
     )))
 }
-
 
 fn select_columns(data: ArrayView2<'_, f64>, cols: &[usize]) -> Result<Array2<f64>, BasisError> {
     let n = data.nrows();
@@ -3699,7 +3719,6 @@ fn select_columns(data: ArrayView2<'_, f64>, cols: &[usize]) -> Result<Array2<f6
     Ok(out)
 }
 
-
 fn nonfinite_value_label(value: f64) -> &'static str {
     if value.is_nan() {
         "NaN"
@@ -3709,7 +3728,6 @@ fn nonfinite_value_label(value: f64) -> &'static str {
         "-Inf"
     }
 }
-
 
 fn validate_term_feature_column_finite(
     data: ArrayView2<'_, f64>,
@@ -3734,7 +3752,6 @@ fn validate_term_feature_column_finite(
     Ok(())
 }
 
-
 fn validate_smooth_terms_finite_inputs(
     data: ArrayView2<'_, f64>,
     terms: &[SmoothTermSpec],
@@ -3746,7 +3763,6 @@ fn validate_smooth_terms_finite_inputs(
     }
     Ok(())
 }
-
 
 fn validate_term_collection_finite_inputs(
     data: ArrayView2<'_, f64>,
@@ -3761,7 +3777,6 @@ fn validate_term_collection_finite_inputs(
     validate_smooth_terms_finite_inputs(data, &spec.smooth_terms)
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct JointSpatialCenterGroupKey {
     feature_cols: Vec<usize>,
@@ -3770,7 +3785,6 @@ struct JointSpatialCenterGroupKey {
     requested_num_centers: usize,
     input_scale_bits: Option<Vec<u64>>,
 }
-
 
 fn spatial_term_min_center_count(term: &SmoothTermSpec) -> usize {
     match &term.basis {
@@ -3788,7 +3802,6 @@ fn spatial_term_min_center_count(term: &SmoothTermSpec) -> usize {
         _ => 1,
     }
 }
-
 
 fn spatial_term_group_key(term: &SmoothTermSpec) -> Option<JointSpatialCenterGroupKey> {
     let (feature_cols, strategy, input_scales) = match &term.basis {
@@ -3830,7 +3843,6 @@ fn spatial_term_group_key(term: &SmoothTermSpec) -> Option<JointSpatialCenterGro
     })
 }
 
-
 fn spatial_term_center_strategy(term: &SmoothTermSpec) -> Option<&CenterStrategy> {
     match &term.basis {
         SmoothBasisSpec::ThinPlate { spec, .. } => Some(&spec.center_strategy),
@@ -3839,7 +3851,6 @@ fn spatial_term_center_strategy(term: &SmoothTermSpec) -> Option<&CenterStrategy
         _ => None,
     }
 }
-
 
 fn set_spatial_term_centers(
     term: &mut SmoothTermSpec,
@@ -3864,7 +3875,6 @@ fn set_spatial_term_centers(
         ))),
     }
 }
-
 
 fn standardized_spatial_term_data(
     data: ArrayView2<'_, f64>,
@@ -3898,7 +3908,6 @@ fn standardized_spatial_term_data(
     }
     Ok(x)
 }
-
 
 fn plan_joint_spatial_centers_for_term_blocks(
     data: ArrayView2<'_, f64>,
@@ -3994,7 +4003,6 @@ fn plan_joint_spatial_centers_for_term_blocks(
     Ok(planned_blocks)
 }
 
-
 /// Compute a data-driven initial length scale from the per-axis range of the
 /// feature columns. The heuristic `max_range / sqrt(n)` puts the kernel on
 /// the wiggly side of REML's basin so the optimizer can grow it back if the
@@ -4041,14 +4049,12 @@ fn auto_initial_length_scale(data: ArrayView2<'_, f64>, feature_cols: &[usize]) 
     init.max(LENGTH_SCALE_FLOOR).min(max_range)
 }
 
-
 /// Walk a term and, if it is a Matern or thin-plate smooth whose length_scale
 /// was left at the auto sentinel (`0.0`), overwrite it with
 /// [`auto_initial_length_scale`].
 fn auto_init_length_scale_in_place(data: ArrayView2<'_, f64>, term: &mut SmoothTermSpec) {
     auto_init_length_scale_in_basis(data, &mut term.basis);
 }
-
 
 /// Replace the `0.0` auto-init length-scale sentinel with a data-derived value
 /// for any Matern / thin-plate kernel reachable from this basis — including the
@@ -4088,7 +4094,6 @@ fn auto_init_length_scale_in_basis(data: ArrayView2<'_, f64>, basis: &mut Smooth
         _ => {}
     }
 }
-
 
 impl LinearFitConditioning {
     fn from_columns(design: &TermCollectionDesign, selected_cols: &[usize]) -> Self {
@@ -4302,7 +4307,6 @@ impl LinearFitConditioning {
     }
 }
 
-
 fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> BasisMetadata {
     match metadata {
         BasisMetadata::ThinPlate {
@@ -4344,7 +4348,6 @@ fn freeze_raw_spatial_metadata(metadata: BasisMetadata, raw_cols: usize) -> Basi
         other => other,
     }
 }
-
 
 fn matern_operator_penalty_triplet_from_metadata(
     metadata: &BasisMetadata,
@@ -4425,7 +4428,6 @@ fn matern_operator_penalty_triplet_from_metadata(
     filter_active_penalty_candidates(candidates)
 }
 
-
 fn normalize_penalty_in_constrained_space(matrix: &Array2<f64>) -> (Array2<f64>, f64) {
     // Constrained-space normalization:
     //   c = ||S_con||_F,  S_tilde = S_con / c.
@@ -4441,7 +4443,6 @@ fn normalize_penalty_in_constrained_space(matrix: &Array2<f64>) -> (Array2<f64>,
         (matrix, 1.0)
     }
 }
-
 
 fn build_periodic_fourier_margin(
     x: ArrayView1<'_, f64>,
@@ -4506,7 +4507,6 @@ fn build_periodic_fourier_margin(
     let knots = Array1::linspace(0.0, period, q);
     Ok((basis, penalty, knots))
 }
-
 
 fn tensor_product_design_from_sparse_marginals(
     marginal_sparse: &[&SparseColMat<usize, f64>],
@@ -4615,6 +4615,49 @@ fn tensor_product_design_from_sparse_marginals(
     })
 }
 
+struct TensorMarginRangeNullProjectors {
+    range: Array2<f64>,
+    null: Array2<f64>,
+}
+
+fn projector_from_columns(columns: &Array2<f64>, indices: &[usize]) -> Array2<f64> {
+    if indices.is_empty() {
+        return Array2::<f64>::zeros((columns.nrows(), columns.nrows()));
+    }
+    let basis = columns.select(Axis(1), indices);
+    basis.dot(&basis.t())
+}
+
+fn tensor_margin_range_null_projectors(
+    normalized_marginal_penalties: &[(Array2<f64>, f64)],
+) -> Result<Vec<TensorMarginRangeNullProjectors>, BasisError> {
+    normalized_marginal_penalties
+        .iter()
+        .enumerate()
+        .map(|(dim, (penalty, _))| {
+            let analysis = crate::terms::basis::analyze_penalty_block(penalty)?;
+            if analysis.rank == 0 {
+                crate::bail_invalid_basis!(
+                    "t2 separable tensor penalty margin {dim} has rank-zero penalty; \
+                     cannot split penalized and null subspaces"
+                );
+            }
+            let mut range_idx = Vec::<usize>::new();
+            let mut null_idx = Vec::<usize>::new();
+            for (idx, &ev) in analysis.eigenvalues.iter().enumerate() {
+                if ev > analysis.tol {
+                    range_idx.push(idx);
+                } else {
+                    null_idx.push(idx);
+                }
+            }
+            Ok(TensorMarginRangeNullProjectors {
+                range: projector_from_columns(&analysis.eigenvectors, &range_idx),
+                null: projector_from_columns(&analysis.eigenvectors, &null_idx),
+            })
+        })
+        .collect()
+}
 
 fn build_tensor_bspline_basis(
     data: ArrayView2<'_, f64>,
@@ -4781,7 +4824,10 @@ fn build_tensor_bspline_basis(
         .then(|| tensor_product_design_from_marginals(&marginal_designs))
         .transpose()?;
     let mut candidates = Vec::<PenaltyCandidate>::with_capacity(
-        marginal_penalties.len() + if spec.double_penalty { 1 } else { 0 },
+        match spec.penalty_decomposition {
+            TensorBSplinePenaltyDecomposition::MarginalKroneckerSum => marginal_penalties.len(),
+            TensorBSplinePenaltyDecomposition::Separable => marginal_penalties.len() * 2,
+        } + if spec.double_penalty { 1 } else { 0 },
     );
 
     // Tensor-product smoothing parameters are one-per-margin.  Therefore the
@@ -4798,65 +4844,110 @@ fn build_tensor_bspline_basis(
     let mut kronecker_marginal_penalties =
         Vec::<Array2<f64>>::with_capacity(normalized_marginal_penalties.len());
 
-    // Accumulate the Kronecker-sum of the per-margin penalties, `Σ_dim S_dim`,
-    // whose null space is exactly the *joint* null space of all marginal
-    // penalties — the tensor of the marginal polynomial null spaces, i.e. the
-    // bilinear (low-order) directions that no marginal roughness operator
-    // touches. The tensor double penalty (below) shrinks only this joint null,
-    // never the already-penalized interaction range.
-    let mut marginal_kron_sum = Array2::<f64>::zeros((total_cols, total_cols));
+    match spec.penalty_decomposition {
+        TensorBSplinePenaltyDecomposition::MarginalKroneckerSum => {
+            // Accumulate the Kronecker-sum of the per-margin penalties,
+            // `Σ_dim S_dim`, whose null space is exactly the *joint* null space
+            // of all marginal penalties — the tensor of marginal polynomial
+            // null spaces. The tensor double penalty (below) shrinks only this
+            // joint null, never the already-penalized interaction range.
+            let mut marginal_kron_sum = Array2::<f64>::zeros((total_cols, total_cols));
 
-    for dim in 0..normalized_marginal_penalties.len() {
-        let mut s_dim = Array2::<f64>::eye(1);
-        let mut factors = Vec::<Array2<f64>>::with_capacity(marginalnum_basis.len());
-        for (j, &qj) in marginalnum_basis.iter().enumerate() {
-            let factor = if j == dim {
-                normalized_marginal_penalties[j].0.clone()
-            } else {
-                Array2::<f64>::eye(qj)
-            };
-            factors.push(factor.clone());
-            s_dim = kronecker_product(&s_dim, &factor);
+            for dim in 0..normalized_marginal_penalties.len() {
+                let mut s_dim = Array2::<f64>::eye(1);
+                let mut factors = Vec::<Array2<f64>>::with_capacity(marginalnum_basis.len());
+                for (j, &qj) in marginalnum_basis.iter().enumerate() {
+                    let factor = if j == dim {
+                        normalized_marginal_penalties[j].0.clone()
+                    } else {
+                        Array2::<f64>::eye(qj)
+                    };
+                    factors.push(factor.clone());
+                    s_dim = kronecker_product(&s_dim, &factor);
+                }
+                if dim == kronecker_marginal_penalties.len() {
+                    kronecker_marginal_penalties.push(normalized_marginal_penalties[dim].0.clone());
+                }
+                marginal_kron_sum += &s_dim;
+
+                candidates.push(PenaltyCandidate {
+                    matrix: s_dim,
+                    nullspace_dim_hint: 0,
+                    source: PenaltySource::TensorMarginal { dim },
+                    normalization_scale: normalized_marginal_penalties[dim].1,
+                    kronecker_factors: Some(factors),
+                    op: None,
+                });
+            }
+
+            if spec.double_penalty
+                && let Some(shrink) =
+                    crate::terms::basis::build_nullspace_shrinkage_penalty(&marginal_kron_sum)?
+            {
+                let (matrix, normalization_scale) =
+                    normalize_penalty_in_constrained_space(&shrink.sym_penalty);
+                candidates.push(PenaltyCandidate {
+                    matrix,
+                    nullspace_dim_hint: 0,
+                    source: PenaltySource::TensorGlobalRidge,
+                    normalization_scale,
+                    kronecker_factors: None,
+                    op: None,
+                });
+            }
         }
-        if dim == kronecker_marginal_penalties.len() {
-            kronecker_marginal_penalties.push(normalized_marginal_penalties[dim].0.clone());
-        }
-        marginal_kron_sum += &s_dim;
+        TensorBSplinePenaltyDecomposition::Separable => {
+            let projectors = tensor_margin_range_null_projectors(&normalized_marginal_penalties)?;
+            let n_masks = 1usize.checked_shl(projectors.len() as u32).ok_or_else(|| {
+                BasisError::InvalidInput(format!(
+                    "t2 separable tensor penalty supports at most {} margins, got {}",
+                    usize::BITS - 1,
+                    projectors.len()
+                ))
+            })?;
+            for mask in 1..n_masks {
+                let mut matrix = Array2::<f64>::eye(1);
+                let mut factors = Vec::<Array2<f64>>::with_capacity(projectors.len());
+                let mut penalized_margins = Vec::<usize>::new();
+                for (dim, projector) in projectors.iter().enumerate() {
+                    let use_range = ((mask >> dim) & 1) == 1;
+                    let factor = if use_range {
+                        penalized_margins.push(dim);
+                        projector.range.clone()
+                    } else {
+                        projector.null.clone()
+                    };
+                    matrix = kronecker_product(&matrix, &factor);
+                    factors.push(factor);
+                }
+                let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&matrix);
+                candidates.push(PenaltyCandidate {
+                    matrix,
+                    nullspace_dim_hint: 0,
+                    source: PenaltySource::TensorSeparable { penalized_margins },
+                    normalization_scale,
+                    kronecker_factors: Some(factors),
+                    op: None,
+                });
+            }
 
-        candidates.push(PenaltyCandidate {
-            matrix: s_dim,
-            nullspace_dim_hint: 0,
-            source: PenaltySource::TensorMarginal { dim },
-            normalization_scale: normalized_marginal_penalties[dim].1,
-            kronecker_factors: Some(factors),
-            op: None,
-        });
-    }
-
-    if spec.double_penalty {
-        // mgcv `select=TRUE` semantics, mirrored from the 1D double penalty:
-        // the extra penalty shrinks ONLY the directions left unpenalized by the
-        // primary (marginal) penalties — here the joint null space of the
-        // Kronecker-sum `Σ_dim S_dim` (the bilinear tensor null `Z₀ ⊗ Z₁`).
-        // A full identity ridge `I` over *all* tensor coefficients (the prior
-        // behavior) instead penalizes the already-penalized interaction range
-        // as well, and REML/LAML then places positive weight on it and
-        // systematically over-smooths the recovered surface; mgcv's `te`/`ti`
-        // carry no such global ridge. Penalizing the null subspace alone keeps
-        // the interaction range governed solely by the per-margin λ's.
-        if let Some(shrink) =
-            crate::terms::basis::build_nullspace_shrinkage_penalty(&marginal_kron_sum)?
-        {
-            let (matrix, normalization_scale) =
-                normalize_penalty_in_constrained_space(&shrink.sym_penalty);
-            candidates.push(PenaltyCandidate {
-                matrix,
-                nullspace_dim_hint: 0,
-                source: PenaltySource::TensorGlobalRidge,
-                normalization_scale,
-                kronecker_factors: None,
-                op: None,
-            });
+            if spec.double_penalty {
+                let mut matrix = Array2::<f64>::eye(1);
+                let mut factors = Vec::<Array2<f64>>::with_capacity(projectors.len());
+                for projector in &projectors {
+                    matrix = kronecker_product(&matrix, &projector.null);
+                    factors.push(projector.null.clone());
+                }
+                let (matrix, normalization_scale) = normalize_penalty_in_constrained_space(&matrix);
+                candidates.push(PenaltyCandidate {
+                    matrix,
+                    nullspace_dim_hint: 0,
+                    source: PenaltySource::TensorGlobalRidge,
+                    normalization_scale,
+                    kronecker_factors: Some(factors),
+                    op: None,
+                });
+            }
         }
     }
 
@@ -4874,7 +4965,8 @@ fn build_tensor_bspline_basis(
                 )
             })?;
             let (_, z) = apply_sum_to_zero_constraint(dense_design_ref.view(), None)?;
-            Some(z)
+            let gauge = crate::solver::gauge::Gauge::sum_to_zero(z);
+            Some(gauge.block_transform(0))
         }
         TensorBSplineIdentifiability::MarginalSumToZero => {
             // `ti(...)`: drop the marginal main effects by centering every
@@ -4901,6 +4993,8 @@ fn build_tensor_bspline_basis(
                     );
                 }
                 let (_, z_dim) = apply_sum_to_zero_constraint(marginal.view(), None)?;
+                let gauge_dim = crate::solver::gauge::Gauge::sum_to_zero(z_dim);
+                let z_dim = gauge_dim.block_transform(0);
                 z = kronecker_product(&z, &z_dim);
             }
             Some(z)
@@ -4918,17 +5012,18 @@ fn build_tensor_bspline_basis(
     };
 
     if let Some(z) = z_opt.as_ref() {
+        let gauge = crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]);
         let dense = dense_design.as_mut().ok_or_else(|| {
             BasisError::InvalidInput(
                 "tensor identifiability transform requires a realized basis".to_string(),
             )
         })?;
-        *dense = dense.dot(z);
+        let restricted_design = gauge.restrict_design(dense);
+        *dense = restricted_design;
         candidates = candidates
             .into_iter()
             .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                let zt_s = fast_atb(z, &candidate.matrix);
-                let matrix = fast_ab(&zt_s, z);
+                let matrix = gauge.restrict_penalty(&candidate.matrix);
                 let (matrix, c_new) = normalize_penalty_in_constrained_space(&matrix);
                 let preserve_margin_scale =
                     matches!(&candidate.source, PenaltySource::TensorMarginal { .. });
@@ -5012,7 +5107,11 @@ fn build_tensor_bspline_basis(
             periods: marginal_effective_periods,
             identifiability_transform: z_opt,
         },
-        kronecker_factored: if matches!(spec.identifiability, TensorBSplineIdentifiability::None) {
+        kronecker_factored: if matches!(spec.identifiability, TensorBSplineIdentifiability::None)
+            && matches!(
+                spec.penalty_decomposition,
+                TensorBSplinePenaltyDecomposition::MarginalKroneckerSum
+            ) {
             Some(KroneckerFactoredBasis {
                 marginal_designs,
                 marginal_penalties: kronecker_marginal_penalties,
@@ -5024,7 +5123,6 @@ fn build_tensor_bspline_basis(
         },
     })
 }
-
 
 fn tensor_product_design_from_marginals(
     marginal_designs: &[Array2<f64>],
@@ -5098,7 +5196,6 @@ fn tensor_product_design_from_marginals(
         });
     Ok(design)
 }
-
 
 fn build_random_effect_block(
     data: ArrayView2<'_, f64>,
@@ -5179,7 +5276,6 @@ fn build_random_effect_block(
     })
 }
 
-
 impl SmoothDesign {
     /// Map an unconstrained term coefficient vector to its constrained shape space.
     /// This is useful for nonlinear fits that optimize unconstrained parameters.
@@ -5201,12 +5297,11 @@ impl SmoothDesign {
     }
 }
 
-
 struct LocalSmoothTermBuild {
     dim: usize,
     design: DesignMatrix,
     penalties: Vec<Array2<f64>>,
-    ops: Vec<Option<std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>>>,
+    ops: Vec<Option<std::sync::Arc<dyn crate::terms::analytic_penalties::PenaltyOp>>>,
     nullspaces: Vec<usize>,
     /// Per-active-penalty null-space eigenvector matrices, parallel to
     /// `penalties` / `ops` / `nullspaces`. `Some(U_null)` when
@@ -5231,7 +5326,6 @@ struct LocalSmoothTermBuild {
     kronecker_factored: Option<KroneckerFactoredBasis>,
 }
 
-
 #[derive(Clone)]
 struct PcaScoresMemmapDesignOperator {
     mmap: Arc<memmap2::Mmap>,
@@ -5240,7 +5334,6 @@ struct PcaScoresMemmapDesignOperator {
     ncols: usize,
     chunk_size: usize,
 }
-
 
 impl PcaScoresMemmapDesignOperator {
     fn open(path: PathBuf, chunk_size: usize) -> Result<Self, BasisError> {
@@ -5300,7 +5393,6 @@ impl PcaScoresMemmapDesignOperator {
         self.chunk_size.min(self.nrows.max(1))
     }
 }
-
 
 impl LinearOperator for PcaScoresMemmapDesignOperator {
     fn nrows(&self) -> usize {
@@ -5436,7 +5528,6 @@ impl LinearOperator for PcaScoresMemmapDesignOperator {
     }
 }
 
-
 impl DenseDesignOperator for PcaScoresMemmapDesignOperator {
     fn compute_xtwy(&self, weights: &Array1<f64>, y: &Array1<f64>) -> Result<Array1<f64>, String> {
         if weights.len() != self.nrows || y.len() != self.nrows {
@@ -5493,7 +5584,6 @@ impl DenseDesignOperator for PcaScoresMemmapDesignOperator {
         out
     }
 }
-
 
 fn parse_f64_2d_npy_header(
     bytes: &[u8],
@@ -5592,7 +5682,6 @@ fn parse_f64_2d_npy_header(
     Ok((data_offset, dims[0], dims[1]))
 }
 
-
 fn pca_center_mean(x: ArrayView2<'_, f64>) -> Result<Array1<f64>, BasisError> {
     if x.nrows() == 0 {
         crate::bail_invalid_basis!("Pca basis requires at least one row to compute center mean");
@@ -5604,7 +5693,6 @@ fn pca_center_mean(x: ArrayView2<'_, f64>) -> Result<Array1<f64>, BasisError> {
     mean.mapv_inplace(|v| v / x.nrows() as f64);
     Ok(mean)
 }
-
 
 fn build_pca_smooth_basis(
     data: ArrayView2<'_, f64>,
@@ -5712,7 +5800,6 @@ fn build_pca_smooth_basis(
     })
 }
 
-
 fn apply_by_variable_to_local_build(
     mut built: LocalSmoothTermBuild,
     data: ArrayView2<'_, f64>,
@@ -5754,7 +5841,6 @@ fn apply_by_variable_to_local_build(
     Ok(built)
 }
 
-
 fn ensure_by_variable_specs_match(
     kind: &BySmoothKind,
     by: &ByVariableSpec,
@@ -5772,7 +5858,6 @@ fn ensure_by_variable_specs_match(
         ))),
     }
 }
-
 
 /// Build a factor-smooth interaction basis (`bs="fs"`/`"sz"`/`"re"`).
 ///
@@ -6108,7 +6193,6 @@ fn build_factor_smooth(
     })
 }
 
-
 /// Resolve the grouping levels for a factor smooth: replay the frozen level
 /// list when present (predict path), otherwise discover the sorted unique bit
 /// patterns of the factor column (fit path).
@@ -6137,7 +6221,6 @@ fn resolve_factor_smooth_levels(
     Ok(bits)
 }
 
-
 /// Marginal B-spline spec for a factor-smooth block. The marginal always builds
 /// without an identifiability constraint (the per-level replication, not a
 /// sum-to-zero side constraint, provides identifiability against the parametric
@@ -6149,7 +6232,6 @@ fn factor_smooth_marginal_for_replay(marginal: &BSplineBasisSpec) -> BSplineBasi
     m.identifiability = BSplineIdentifiability::None;
     m
 }
-
 
 fn build_single_local_smooth_term(
     data: ArrayView2<'_, f64>,
@@ -6313,14 +6395,9 @@ fn build_single_local_smooth_term(
                 // Sum-to-zero side constraints conflict with monotonic/convex cones.
                 spec_local.identifiability = BSplineIdentifiability::None;
             }
-            // Boundary conditions are emitted by the smooth-level paired
-            // linear-constraint path (`bspline_boundary_linear_constraints`),
-            // which supports non-zero anchors and composes them with the frozen
-            // identifiability transform. Clear them here so the basis builder
-            // does not also bake them into the basis null space — the legacy
-            // basis-level path rejected non-zero anchors and dropped columns
-            // before the frozen transform, conflicting with the constraint path.
-            spec_local.boundary_conditions = BSplineBoundaryConditions::default();
+            // Endpoint boundary conditions are structural for B-splines: the
+            // basis builder bakes their homogeneous nullspace transform into
+            // the design, penalties, and stored raw-basis transform.
             build_bspline_basis_1d(data.column(*feature_col), &spec_local)?
         }
         SmoothBasisSpec::ThinPlate {
@@ -6676,7 +6753,8 @@ fn build_single_local_smooth_term(
     // identity path; nulled element-wise when `T^T S T` reparametrization
     // is applied (operator no longer bit-equivalent to the transformed
     // matrix); wrapped in `ScaledPenaltyOp` after Frobenius normalization.
-    let mut ops_t: Vec<Option<std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>>> = built.ops;
+    let mut ops_t: Vec<Option<std::sync::Arc<dyn crate::terms::analytic_penalties::PenaltyOp>>> =
+        built.ops;
     if matches!(
         spatial_identifiability_policy(term),
         Some(SpatialIdentifiability::OrthogonalToParametric)
@@ -6852,10 +6930,10 @@ fn build_single_local_smooth_term(
                 // so `op.as_dense() == matrix` post-normalization.
                 let scaled_op = if op_scale > 0.0 && op_scale.is_finite() {
                     op_in.map(|op| {
-                        std::sync::Arc::new(crate::terms::penalty_op::ScaledPenaltyOp::new(
+                        std::sync::Arc::new(crate::terms::analytic_penalties::ScaledPenaltyOp::new(
                             op, op_scale,
                         ))
-                            as std::sync::Arc<dyn crate::terms::penalty_op::PenaltyOp>
+                            as std::sync::Arc<dyn crate::terms::analytic_penalties::PenaltyOp>
                     })
                 } else {
                     None
@@ -6896,17 +6974,7 @@ fn build_single_local_smooth_term(
     } else {
         None
     };
-    let boundary_linear_constraints = match &term.basis {
-        SmoothBasisSpec::BSpline1D { spec, .. } => bspline_boundary_linear_constraints(
-            spec.boundary_conditions,
-            &metadata,
-            spec.degree,
-            coefficient_transform_for_constraints.as_ref(),
-        )?,
-        _ => None,
-    };
-    let linear_constraints_local =
-        merge_linear_constraints_global(shape_linear_constraints, boundary_linear_constraints);
+    let linear_constraints_local = merge_linear_constraints_global(shape_linear_constraints, None);
 
     // Joint-null absorption rotation. Fresh fit specs compute Q from the final
     // per-smooth penalty set (after all in-smooth reparameterizations have
@@ -6950,7 +7018,6 @@ fn build_single_local_smooth_term(
     })
 }
 
-
 pub fn build_smooth_design(
     data: ArrayView2<'_, f64>,
     terms: &[SmoothTermSpec],
@@ -6958,7 +7025,6 @@ pub fn build_smooth_design(
     let mut ws = crate::basis::BasisWorkspace::new();
     build_smooth_design_withworkspace(data, terms, &mut ws)
 }
-
 
 /// Like `build_smooth_design`, but honors the caller workspace policy while
 /// building each planned smooth term with an independent per-term workspace.
@@ -6974,7 +7040,6 @@ pub fn build_smooth_design_withworkspace(
     validate_smooth_terms_finite_inputs(data, terms)?;
     build_smooth_design_withworkspace_unvalidated(data, terms, workspace)
 }
-
 
 fn build_smooth_design_withworkspace_unvalidated(
     data: ArrayView2<'_, f64>,

@@ -30,6 +30,10 @@ from meridian.analysis.review import results
 from meridian.model import context
 import numpy as np
 import pandas as pd
+from scipy import stats as scipy_stats
+from typing_extensions import override
+import xarray as xr
+
 
 ConfigType = TypeVar("ConfigType", bound=configs.BaseConfig)
 ResultType = TypeVar("ResultType", bound=results.CheckResult)
@@ -815,3 +819,315 @@ class PriorPosteriorShiftCheck(
     media_results = self._run_for_channel_type(constants.MEDIA_CHANNEL)
     rf_results = self._run_for_channel_type(constants.RF_CHANNEL)
     return self._aggregate(media_results, rf_results)
+
+
+# ==============================================================================
+# Check: Implausible ROI
+# ==============================================================================
+def _calculate_spend_share(model_context: context.ModelContext) -> np.ndarray:
+  """Calculates the spend share for all paid channels.
+
+  Args:
+    model_context: The ModelContext of the Meridian model.
+
+  Returns:
+    A 1D NumPy array of shape `(n_channels,)` containing the spend share for
+    each paid channel, or all zeros if the total spend sum is zero.
+  """
+  initial_spend = model_context.input_data.get_total_spend()
+  # TODO: Verify if we really support 1D spend
+  spend = (
+      np.sum(initial_spend, axis=(0, 1))
+      if initial_spend.ndim == 3
+      else initial_spend
+  )
+
+  total_spend_sum = np.sum(spend)
+  if total_spend_sum > 0:
+    return spend / total_spend_sum
+  else:
+    return np.zeros_like(spend)
+
+
+class ImplausibleROICheck(
+    BaseCheck[configs.ImplausibleROIConfig, results.ImplausibleROICheckResult]
+):
+  """A check for paid channels with implausible posterior ROI estimates."""
+
+  @override
+  def run(self) -> results.ImplausibleROICheckResult:
+    # 1. Get spend and calculate spend share
+    spend_share = _calculate_spend_share(self._model_context)
+
+    # 2. Get posterior ROI and channels
+    posterior_rois = []
+    channels = []
+    if constants.MEDIA_CHANNEL in self._inference_data.posterior.coords:
+      posterior_rois.append(self._inference_data.posterior.roi_m.values)
+      channels.extend(
+          self._inference_data.posterior.media_channel.values.tolist()
+      )
+    if constants.RF_CHANNEL in self._inference_data.posterior.coords:
+      posterior_rois.append(self._inference_data.posterior.roi_rf.values)
+      channels.extend(self._inference_data.posterior.rf_channel.values.tolist())
+
+    if not posterior_rois:
+      raise ValueError("No posterior ROI data found in inference_data.")
+
+    posterior_roi_concat = np.concatenate(posterior_rois, axis=-1)
+    roi_means = np.mean(posterior_roi_concat, axis=(0, 1))
+
+    # 3. Evaluate checks
+    channel_results = []
+    high_roi_channels = []
+    low_roi_channels = []
+
+    spend_weighted_roi_all = roi_means * spend_share
+    reciprocal_spend_weighted_roi_all = np.divide(
+        roi_means,
+        spend_share,
+        out=np.full_like(roi_means, np.nan),
+        where=(spend_share != 0),
+    )
+
+    for i, channel in enumerate(channels):
+      mean = roi_means[i]
+      share = spend_share[i]
+
+      spend_weighted_roi = spend_weighted_roi_all[i]
+      reciprocal_spend_weighted_roi = reciprocal_spend_weighted_roi_all[i]
+
+      if spend_weighted_roi > self._config.roi_upper_bound:
+        case = results.ImplausibleROIChannelCases.ROI_HIGH
+        high_roi_channels.append(channel)
+      elif reciprocal_spend_weighted_roi < self._config.roi_lower_bound:
+        case = results.ImplausibleROIChannelCases.ROI_LOW
+        low_roi_channels.append(channel)
+      else:
+        case = results.ImplausibleROIChannelCases.ROI_PASS
+
+      channel_results.append(
+          results.ImplausibleROIChannelResult(
+              case=case,
+              channel_name=channel,
+              spend_share=share,
+              roi_mean=mean,
+              spend_weighted_roi=spend_weighted_roi,
+          )
+      )
+
+    if high_roi_channels or low_roi_channels:
+      agg_case = results.ImplausibleROIAggregateCases.REVIEW
+      msg_parts = []
+      if high_roi_channels:
+        msg_parts.append(
+            "high ROI estimates (for channel(s) "
+            f"{', '.join(f'`{c}`' for c in high_roi_channels)})"
+        )
+      if low_roi_channels:
+        msg_parts.append(
+            "low ROI estimates (for channel(s) "
+            f"{', '.join(f'`{c}`' for c in low_roi_channels)})"
+        )
+      implausible_roi_msg = (
+          "We've detected implausibly " + " and ".join(msg_parts) + "."
+      )
+      aggregate_details = {"implausible_roi_msg": implausible_roi_msg}
+    else:
+      agg_case = results.ImplausibleROIAggregateCases.PASS
+      aggregate_details = {"implausible_roi_msg": ""}
+
+    return results.ImplausibleROICheckResult(
+        case=agg_case,
+        channel_results=channel_results,
+        high_roi_channels=high_roi_channels,
+        low_roi_channels=low_roi_channels,
+        aggregate_details=aggregate_details,
+    )
+
+
+# ==============================================================================
+# Check: High Variance ROI
+# ==============================================================================
+class HighVarianceCheck(
+    BaseCheck[configs.HighVarianceConfig, results.HighVarianceCheckResult]
+):
+  """A check for paid channels with high variance in posterior ROI."""
+
+  @override
+  def run(self) -> results.HighVarianceCheckResult:
+    # 1. Get spend and calculate spend share
+    spend_share = _calculate_spend_share(self._model_context)
+
+    # 2. Get posterior ROI and channels
+    posterior_rois = []
+    channels = []
+
+    if constants.MEDIA_CHANNEL in self._inference_data.posterior.coords:
+      posterior_rois.append(self._inference_data.posterior.roi_m.values)
+      channels.extend(
+          self._inference_data.posterior.media_channel.values.tolist()
+      )
+
+    if constants.RF_CHANNEL in self._inference_data.posterior.coords:
+      posterior_rois.append(self._inference_data.posterior.roi_rf.values)
+      channels.extend(self._inference_data.posterior.rf_channel.values.tolist())
+
+    if not posterior_rois:
+      raise ValueError("No posterior ROI data found in inference_data.")
+
+    posterior_roi_concat = np.concatenate(posterior_rois, axis=-1)
+    roi_medians = np.median(posterior_roi_concat, axis=(0, 1))
+
+    # 3. Compute credible intervals using az.hdi
+    hdi = az.hdi(posterior_roi_concat, hdi_prob=self._config.hdi_prob)
+    hdi_lower, hdi_upper = hdi.T
+
+    rel_width_post = np.divide(
+        hdi_upper - hdi_lower,
+        np.abs(roi_medians),
+        out=np.zeros_like(roi_medians, dtype=float),
+        where=(roi_medians != 0),
+    )
+
+    # 4. Compute high variance check
+    relative_width_ratio = np.divide(
+        rel_width_post,
+        self._config.prior_relative_hdi_width,
+        out=np.zeros_like(rel_width_post, dtype=float),
+        where=(self._config.prior_relative_hdi_width != 0),
+    )
+    spend_weighted_ratio = relative_width_ratio * spend_share
+
+    channel_results = []
+    high_variance_channels = []
+
+    for channel, share, ratio, weighted_ratio in zip(
+        channels, spend_share, relative_width_ratio, spend_weighted_ratio
+    ):
+      if weighted_ratio > self._config.high_variance_threshold:
+        case = results.HighVarianceChannelCases.HIGH_VARIANCE
+        high_variance_channels.append(channel)
+      else:
+        case = results.HighVarianceChannelCases.ROI_PASS
+
+      channel_results.append(
+          results.HighVarianceChannelResult(
+              case=case,
+              channel_name=channel,
+              spend_share=share,
+              relative_width_ratio=ratio,
+          )
+      )
+
+    return results.HighVarianceCheckResult(
+        case=(
+            results.HighVarianceAggregateCases.REVIEW
+            if high_variance_channels
+            else results.HighVarianceAggregateCases.PASS
+        ),
+        channel_results=channel_results,
+        high_variance_channels=high_variance_channels,
+    )
+
+
+# ==============================================================================
+# Check: Potential Bias
+# ==============================================================================
+class PotentialBiasCheck(
+    BaseCheck[configs.PotentialBiasConfig, results.PotentialBiasCheckResult]
+):
+  """A check for correlation between paid channels and control variables to flag potential confounding."""
+
+  @override
+  def run(self) -> results.PotentialBiasCheckResult:
+    """Runs the potential bias check.
+
+    This check computes the Pearson correlation between each paid channel's
+    media/RF data and all control variables. It flags channels where the
+    maximum absolute correlation with any control variable exceeds a
+    predefined threshold.
+
+    Returns:
+      A results.PotentialBiasCheckResult object containing the results of the
+      check.
+    """
+    channels = self._model_context.input_data.get_all_paid_channels().tolist()
+
+    controls = self._model_context.input_data.controls
+    if controls is None or self._model_context.n_controls == 0:
+      correlation_matrix = xr.DataArray(
+          np.zeros((self._model_context.n_geos, len(channels), 0)),
+          coords={
+              constants.GEO: self._model_context.input_data.geo.values,
+              constants.CHANNEL: channels,
+              constants.CONTROL_VARIABLE: [],
+          },
+          dims=[constants.GEO, constants.CHANNEL, constants.CONTROL_VARIABLE],
+      )
+      return results.PotentialBiasCheckResult(
+          case=results.PotentialBiasAggregateCases.NO_CONTROLS,
+          channel_results=[],
+          low_correlation_channels=[],
+          correlation_matrix=correlation_matrix,
+      )
+
+    media_data = self._model_context.input_data.get_all_media_and_rf()
+    n_times = self._model_context.n_times
+    media_aligned = media_data[:, -n_times:, :]
+
+    controls_data = controls.values
+
+    # media_aligned: (n_geos, n_times, n_channels)
+    # controls_data: (n_geos, n_times, n_controls)
+    with warnings.catch_warnings():
+      warnings.filterwarnings("ignore", category=RuntimeWarning)
+      correlation = scipy_stats.pearsonr(
+          media_aligned[..., np.newaxis],
+          controls_data[:, :, np.newaxis, :],
+          axis=1,
+      ).statistic
+      abs_correlation = np.abs(correlation)
+      max_abs_correlations = np.nanmax(abs_correlation, axis=(0, 2))
+
+    channel_results = []
+    low_correlation_channels = []
+
+    for channel, max_corr in zip(channels, max_abs_correlations):
+      if max_corr < self._config.correlation_threshold:
+        case = results.PotentialBiasChannelCases.LOW_CORRELATION
+        low_correlation_channels.append(channel)
+      else:
+        case = results.PotentialBiasChannelCases.ROI_PASS
+
+      channel_results.append(
+          results.PotentialBiasChannelResult(
+              case=case,
+              channel_name=channel,
+              max_abs_correlation=max_corr,
+          )
+      )
+
+    correlation_matrix = xr.DataArray(
+        correlation,
+        coords={
+            constants.GEO: self._model_context.input_data.geo.values,
+            constants.CHANNEL: channels,
+            constants.CONTROL_VARIABLE: (
+                controls.coords[constants.CONTROL_VARIABLE].values
+            ),
+        },
+        dims=[constants.GEO, constants.CHANNEL, constants.CONTROL_VARIABLE],
+    )
+
+    return results.PotentialBiasCheckResult(
+        case=(
+            results.PotentialBiasAggregateCases.REVIEW
+            if low_correlation_channels
+            else results.PotentialBiasAggregateCases.PASS
+        ),
+        channel_results=channel_results,
+        low_correlation_channels=low_correlation_channels,
+        correlation_matrix=correlation_matrix,
+    )
+

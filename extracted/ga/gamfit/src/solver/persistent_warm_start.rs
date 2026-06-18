@@ -1,5 +1,6 @@
-use crate::cache::{EntryKind, Fingerprinter, StoreOptions, WarmStartStore};
+use crate::warm_start::{EntryKind, Fingerprinter, StoreOptions, WarmStartStore};
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -23,7 +24,7 @@ pub(crate) fn cache_schema_tag() -> String {
     // unified onto `Fingerprinter`. Prior on-disk warm-start entries are
     // walled off into the `schema2-` keyspace and cold-start once; this
     // is the intentional consequence of the unification, documented in
-    // the commit that performs it. See `src/cache/key.rs` for the new
+    // the commit that performs it. See `src/warm_start/key.rs` for the new
     // canonical hasher API.
     // Bumped to `v2` when the persistent warm-start key stopped hashing the
     // θ-dependent, lazily-refreshed isometry Jacobian cache slots
@@ -256,49 +257,45 @@ fn load_json_record<T: for<'de> Deserialize<'de>>(key: &str) -> Option<T> {
 /// processes within a single boot, and `WarmStartStore::open` falls back
 /// to `None` if the path is unwritable.
 fn persistent_store() -> Option<WarmStartStore> {
-    let root = std::env::temp_dir().join("gam").join("warm").join("v1");
-    WarmStartStore::open(
-        root,
-        StoreOptions {
-            size_budget_bytes: MAX_TOTAL_BYTES,
-            ttl: Duration::from_secs(CACHE_TTL_SECS),
-        },
-    )
-    .ok()
+    // Memoize the store process-wide. The root (`temp_dir()/gam/warm/v1`) is
+    // constant within a process, so a single instance suffices — and reusing
+    // it is essential, not just an optimization: `WarmStartStore` carries the
+    // per-store directory-scan / metadata cache and the eviction-throttle
+    // counters that #1114 added. Reconstructing the store on every save/lookup
+    // (as this used to) handed each fit an empty cache and a zeroed throttle,
+    // so every operation re-walked the cache root and re-read every metadata
+    // JSON from disk — the syscall storm that made several quality tests look
+    // hung. Clones returned here share the cache and throttle via `Arc`.
+    static STORE: OnceLock<Option<WarmStartStore>> = OnceLock::new();
+    STORE
+        .get_or_init(|| {
+            let root = std::env::temp_dir().join("gam").join("warm").join("v1");
+            WarmStartStore::open(
+                root,
+                StoreOptions {
+                    size_budget_bytes: MAX_TOTAL_BYTES,
+                    ttl: Duration::from_secs(CACHE_TTL_SECS),
+                },
+            )
+            .ok()
+        })
+        .clone()
 }
 
-/// Look up a single outer-iterate payload by string key without opening
-/// a long-lived session.
-///
-/// Used by the workflow dispatcher to fetch a *seed* from a near-match
-/// (data-independent) key. The session's own [`crate::cache::Session::preload`]
-/// stashes the returned entry so the next [`crate::cache::Session::try_load`]
-/// returns it ahead of the (empty) exact-key store lookup. Save writes
-/// always go to the session's own key — the prefix lookup is read-only.
-pub(crate) fn lookup_outer_iterate_payload(seed_key: &str) -> Option<crate::cache::CachedEntry> {
-    let store = persistent_store()?;
-    let mut fp = Fingerprinter::new();
-    fp.absorb_str(b"outer-iterate-key", seed_key);
-    // Seed-prefix entries can represent related but non-identical fits
-    // (different folds, diseases, or row sets). Their objectives are not on a
-    // common scale, so "lowest objective" is the wrong selection rule here.
-    // Prefer the newest valid seed; exact-key resume still uses objective-
-    // ranked lookup through Session::try_load().
-    store.lookup_latest(&fp.finalize()).ok().flatten()
-}
-
-/// Open a [`crate::cache::Session`] for outer-iterate (rho-axis) checkpoints.
+/// Open a [`crate::warm_start::Session`] for outer-iterate (rho-axis) checkpoints.
 ///
 /// Uses a different fingerprint tag than the inner `warm-start-key`
 /// absorption (see [`load_json_record`]) so the outer-iterate keyspace
 /// is disjoint from the inner beta-record keyspace —
 /// the two layers persist different payload shapes and must not alias.
-pub(crate) fn open_outer_session(key: &str) -> Option<std::sync::Arc<crate::cache::Session>> {
+pub(crate) fn open_outer_session(key: &str) -> Option<std::sync::Arc<crate::warm_start::Session>> {
     let store = persistent_store()?;
     let mut fp = Fingerprinter::new();
     fp.absorb_str(b"outer-iterate-key", key);
     let fp = fp.finalize();
-    Some(std::sync::Arc::new(crate::cache::Session::open(store, fp)))
+    Some(std::sync::Arc::new(crate::warm_start::Session::open(
+        store, fp,
+    )))
 }
 
 /// Persist a descriptor-indexed cross-fit [`FitArtifact`] under the

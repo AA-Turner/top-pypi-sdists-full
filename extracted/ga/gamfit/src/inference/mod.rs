@@ -15,7 +15,6 @@ pub mod generative;
 pub mod harvest;
 pub mod higher_order;
 pub mod hmc;
-pub mod identifiability_diagnostics;
 pub mod lawley;
 pub mod layer_transport;
 pub mod model;
@@ -30,15 +29,26 @@ pub mod posterior_bands;
 pub mod predict;
 pub mod probability;
 pub mod probe_runner;
-pub mod psis;
+/// Back-compat re-export: the self-contained Pareto-smoothed importance-sampling
+/// primitive moved DOWN to the crate-root `crate::psis` lower layer (#1135) so
+/// `solver` (and a relocated `rho_uncertainty`) can depend on it without
+/// importing *up* into `inference`. Existing `crate::inference::psis::*` paths
+/// keep resolving.
+pub use crate::psis;
 pub mod quadrature;
 pub mod residual_factor;
 pub mod rho_posterior;
-pub mod rho_uncertainty;
+/// Back-compat re-export: the ρ-uncertainty (PSIS-on-ρ) diagnostic moved DOWN to
+/// the crate-root `crate::rho_uncertainty` lower layer (#1135) so `solver`
+/// (its primary consumer) names it without importing *up* into `inference`. Its
+/// only dependency is the lower-layer `crate::psis`. Existing
+/// `crate::inference::rho_uncertainty::*` paths keep resolving.
+pub use crate::rho_uncertainty;
 pub mod riesz;
 pub mod row_measure;
 pub mod row_metric;
 pub mod sample;
+pub mod skovgaard;
 pub mod smooth_test;
 pub mod steering;
 pub mod structure_evidence;

@@ -83,9 +83,7 @@ def _create_context(user: dict, account: dict) -> list[Context]:
 async def main() -> None:
 
     # or SmplClient for synchronous use
-    async with AsyncSmplClient(
-        environment="production", service="showcase-service"
-    ) as client:
+    async with AsyncSmplClient(environment="production") as client:
         await setup_runtime_showcase(client)
         await client.wait_until_ready()
 
@@ -180,10 +178,6 @@ async def main() -> None:
 
         # simulate someone making changes to a flag to trigger listeners
         await _update_rules(client)
-
-        # wait a moment for the event to be delivered (typical WS
-        # round-trip is well under 200ms; 400ms is plenty of headroom
-        # and anything past that is a real signal, not noise to absorb).
         await asyncio.sleep(0.4)
 
         # verify both listeners fired

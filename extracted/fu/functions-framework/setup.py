@@ -25,7 +25,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="functions-framework",
-    version="3.10.1",
+    version="3.10.2",
     description="An open source FaaS (Function as a service) framework for writing portable Python functions -- brought to you by the Google Cloud Functions team.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -58,7 +58,10 @@ setup(
         "Werkzeug>=0.14,<4.0.0",
     ],
     extras_require={
-        "async": ["starlette>=0.37.0,<1.0.0"],
+        "async": [
+            "starlette>=0.37.0,<1.0.0; python_version<'3.10'",
+            "starlette>=1.0.1,<2.0.0; python_version>='3.10'",
+        ],
     },
     entry_points={
         "console_scripts": [

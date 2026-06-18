@@ -1,4 +1,4 @@
-//! Caller-facing thin wrapper around `crate::gpu::arrow_schur`.
+//! Caller-facing thin wrapper around `crate::gpu::kernels::arrow_schur`.
 //!
 //! The entire dense per-row factor + Schur reduce + back-sub pipeline lives
 //! device-side; this module only translates the device failure enum into the
@@ -15,7 +15,7 @@
 //! is not a numerical failure, just a capability mismatch, so the CPU solver
 //! receives the full system without escalating any ridge.
 
-use crate::gpu::arrow_schur::{
+use crate::gpu::kernels::arrow_schur::{
     ArrowSchurGpuFailure, gpu_schur_matvec_backend, solve_arrow_newton_step,
 };
 use crate::solver::arrow_schur::{

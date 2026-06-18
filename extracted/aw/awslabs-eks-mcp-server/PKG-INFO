@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.eks-mcp-server
-Version: 0.1.31
+Version: 0.1.32
 Summary: An AWS Labs Model Context Protocol (MCP) server for EKS
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/eks-mcp-server/

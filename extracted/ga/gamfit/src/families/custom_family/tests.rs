@@ -12,7 +12,7 @@ pub(crate) struct TestOuterHessianOperator {
     pub(crate) matrix: Array2<f64>,
 }
 
-impl crate::solver::outer_strategy::OuterHessianOperator for TestOuterHessianOperator {
+impl crate::solver::rho_optimizer::OuterHessianOperator for TestOuterHessianOperator {
     fn dim(&self) -> usize {
         self.matrix.nrows()
     }
@@ -43,7 +43,7 @@ impl CustomFamily for BatchedOuterHessianTestFamily {
     fn outer_hyper_hessian_operator(
         &self,
         block_specs: &[ParameterBlockSpec],
-    ) -> Option<Arc<dyn crate::solver::outer_strategy::OuterHessianOperator>> {
+    ) -> Option<Arc<dyn crate::solver::rho_optimizer::OuterHessianOperator>> {
         assert!(block_specs.len() <= isize::MAX as usize);
         Some(Arc::new(TestOuterHessianOperator {
             matrix: self.matrix.clone(),
@@ -91,7 +91,7 @@ pub(crate) fn blockwise_fit_from_parts_accepts_stacked_solver_eta_with_canonical
                 working_weights: Array1::ones(2),
                 working_response: Array1::zeros(2),
             }),
-            precomputed_edf: Some((1.0, Vec::new(), vec![1.0])),
+            precomputed_edf: Some((1.0, Vec::new(), vec![1.0], Vec::new())),
         },
         &[spec],
     )
@@ -113,7 +113,7 @@ pub(crate) fn batched_outer_hessian_terms_materialize_to_exact_small_matrix() {
         .expect("batched Hessian hook succeeds")
         .expect("test family exposes batched HVP terms");
     let operator = match terms.outer_hessian {
-        crate::solver::outer_strategy::HessianResult::Operator(operator) => operator,
+        crate::solver::rho_optimizer::HessianResult::Operator(operator) => operator,
         _ => panic!("batched hook should expose an operator"),
     };
     let dense = operator
@@ -329,7 +329,7 @@ pub(crate) fn default_inner_cycle_budget_covers_large_scale_joint_newton_tail() 
 
 #[test]
 pub(crate) fn startup_validation_failure_routes_to_never_fail_escalation() {
-    use crate::estimate::EstimationError;
+    use crate::model_types::EstimationError;
 
     let all_seeds_rejected = EstimationError::RemlOptimizationFailed(
         "no candidate seeds passed outer startup validation (custom family):\n  generated=4"
@@ -1393,15 +1393,15 @@ pub(crate) fn binomial_location_scale_wiggle_outer_fixture()
             .penalties
             .iter()
             .map(|ps| match ps {
-                crate::solver::estimate::PenaltySpec::Block {
+                crate::model_types::PenaltySpec::Block {
                     local, col_range, ..
                 } => PenaltyMatrix::Blockwise {
                     local: local.clone(),
                     col_range: col_range.clone(),
                     total_dim: wiggle_block.design.ncols(),
                 },
-                crate::solver::estimate::PenaltySpec::Dense(m)
-                | crate::solver::estimate::PenaltySpec::DenseWithMean { matrix: m, .. } => {
+                crate::model_types::PenaltySpec::Dense(m)
+                | crate::model_types::PenaltySpec::DenseWithMean { matrix: m, .. } => {
                     PenaltyMatrix::Dense(m.clone())
                 }
             })
@@ -1422,7 +1422,7 @@ pub(crate) fn binomial_location_scale_wiggle_outer_fixture()
         log_sigma_design: Some(base.log_sigma_design),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     BinomialLocationScaleWiggleOuterFixture {
         family,
@@ -2019,7 +2019,7 @@ pub(crate) fn psi_drift_deriv_workspace_preserves_block_local_operator() {
             assert!(arr.iter().all(|v| !v.is_nan()));
             assert_eq!(psi_index, 0);
             Ok(Some(DriftDerivResult::Operator(Arc::new(
-                crate::solver::estimate::reml::unified::BlockLocalDrift {
+                BlockLocalDrift {
                     local: array![[3.0, 1.0], [1.0, 2.0]],
                     start: 1,
                     end: 3,
@@ -2054,6 +2054,181 @@ pub(crate) fn psi_drift_deriv_workspace_preserves_block_local_operator() {
             assert_eq!(local, &array![[3.0, 1.0], [1.0, 2.0]]);
         }
     }
+}
+
+#[test]
+pub(crate) fn contracted_psi_hook_declines_partial_axis_coverage_before_pair_tables_are_skipped() {
+    struct PartialContractedPsiWorkspace;
+
+    impl ExactNewtonJointPsiWorkspace for PartialContractedPsiWorkspace {
+        fn second_order_terms(
+            &self,
+            psi_i: usize,
+            psi_j: usize,
+        ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+            assert!(psi_i < usize::MAX);
+            assert!(psi_j < usize::MAX);
+            Ok(None)
+        }
+
+        fn second_order_terms_contracted(
+            &self,
+            alpha_psi: &[f64],
+        ) -> Result<Option<ExactNewtonJointPsiSecondOrderContracted>, String> {
+            if alpha_psi.get(1).copied().unwrap_or(0.0) != 0.0 {
+                return Ok(None);
+            }
+            let psi_dim = alpha_psi.len();
+            Ok(Some(ExactNewtonJointPsiSecondOrderContracted {
+                objective: Array1::zeros(psi_dim),
+                score: Array2::zeros((psi_dim, 1)),
+                hessian: (0..psi_dim)
+                    .map(|_| DriftDerivResult::Dense(Array2::zeros((1, 1))))
+                    .collect(),
+            }))
+        }
+
+        fn hessian_directional_derivative(
+            &self,
+            psi_index: usize,
+            d_beta_flat: &Array1<f64>,
+        ) -> Result<Option<DriftDerivResult>, String> {
+            assert!(psi_index < usize::MAX);
+            assert_eq!(d_beta_flat.len(), 1);
+            Ok(None)
+        }
+    }
+
+    let specs = vec![ParameterBlockSpec {
+        name: "partial".to_string(),
+        design: DesignMatrix::from(Array2::ones((1, 1))),
+        offset: Array1::zeros(1),
+        penalties: Vec::new(),
+        nullspace_dims: Vec::new(),
+        initial_log_lambdas: Array1::zeros(0),
+        initial_beta: None,
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    }];
+    let derivative_blocks = Arc::new(vec![vec![
+        CustomFamilyBlockPsiDerivative::new(
+            None,
+            Array2::zeros((1, 1)),
+            Array2::zeros((1, 1)),
+            None,
+            None,
+            None,
+            None,
+        ),
+        CustomFamilyBlockPsiDerivative::new(
+            None,
+            Array2::zeros((1, 1)),
+            Array2::zeros((1, 1)),
+            None,
+            None,
+            None,
+            None,
+        ),
+    ]]);
+    let hook = build_contracted_psi_hook(
+        &specs,
+        derivative_blocks,
+        &array![0.0],
+        &[],
+        &[0],
+        None,
+        Some(Arc::new(PartialContractedPsiWorkspace)),
+    )
+    .expect("partial contracted psi hook probe should not error");
+
+    assert!(
+        hook.is_none(),
+        "partial contracted psi coverage must keep the exact per-pair assembly path"
+    );
+}
+
+#[test]
+pub(crate) fn contracted_psi_hook_rejects_wrong_score_width_before_installing_operator_hook() {
+    struct WrongScoreWidthPsiWorkspace;
+
+    impl ExactNewtonJointPsiWorkspace for WrongScoreWidthPsiWorkspace {
+        fn second_order_terms(
+            &self,
+            psi_i: usize,
+            psi_j: usize,
+        ) -> Result<Option<ExactNewtonJointPsiSecondOrderTerms>, String> {
+            assert!(psi_i < usize::MAX);
+            assert!(psi_j < usize::MAX);
+            Ok(None)
+        }
+
+        fn second_order_terms_contracted(
+            &self,
+            alpha_psi: &[f64],
+        ) -> Result<Option<ExactNewtonJointPsiSecondOrderContracted>, String> {
+            let psi_dim = alpha_psi.len();
+            Ok(Some(ExactNewtonJointPsiSecondOrderContracted {
+                objective: Array1::zeros(psi_dim),
+                score: Array2::zeros((psi_dim, 0)),
+                hessian: (0..psi_dim)
+                    .map(|_| DriftDerivResult::Dense(Array2::zeros((1, 1))))
+                    .collect(),
+            }))
+        }
+
+        fn hessian_directional_derivative(
+            &self,
+            psi_index: usize,
+            d_beta_flat: &Array1<f64>,
+        ) -> Result<Option<DriftDerivResult>, String> {
+            assert!(psi_index < usize::MAX);
+            assert_eq!(d_beta_flat.len(), 1);
+            Ok(None)
+        }
+    }
+
+    let specs = vec![ParameterBlockSpec {
+        name: "wrong-score-width".to_string(),
+        design: DesignMatrix::from(Array2::ones((1, 1))),
+        offset: Array1::zeros(1),
+        penalties: Vec::new(),
+        nullspace_dims: Vec::new(),
+        initial_log_lambdas: Array1::zeros(0),
+        initial_beta: None,
+        gauge_priority: 100,
+        jacobian_callback: None,
+        stacked_design: None,
+        stacked_offset: None,
+    }];
+    let derivative_blocks = Arc::new(vec![vec![CustomFamilyBlockPsiDerivative::new(
+        None,
+        Array2::zeros((1, 1)),
+        Array2::zeros((1, 1)),
+        None,
+        None,
+        None,
+        None,
+    )]]);
+
+    let err = match build_contracted_psi_hook(
+        &specs,
+        derivative_blocks,
+        &array![0.0],
+        &[],
+        &[0],
+        None,
+        Some(Arc::new(WrongScoreWidthPsiWorkspace)),
+    ) {
+        Ok(_) => panic!("wrong contracted score width must be rejected before hook install"),
+        Err(err) => err,
+    };
+
+    assert!(
+        err.contains("score=1x0") && err.contains("beta_dim=1"),
+        "unexpected wrong-score-width error: {err}"
+    );
 }
 
 #[test]
@@ -2105,13 +2280,10 @@ pub(crate) fn custom_family_outer_derivatives_respects_missing_second_order_capa
         &specs,
         &BlockwiseFitOptions::default(),
     );
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Unavailable
+        crate::solver::rho_optimizer::DeclaredHessianForm::Unavailable
     );
 }
 
@@ -2255,7 +2427,7 @@ pub(crate) fn default_custom_family_exact_hessian_hooks_drive_profiled_outer_hes
 
     assert_eq!(result.gradient.len(), 1);
     match result.outer_hessian {
-        crate::solver::outer_strategy::HessianResult::Analytic(hessian) => {
+        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => {
             assert_eq!(hessian.dim(), (1, 1));
             assert!(hessian[[0, 0]].is_finite());
         }
@@ -2370,13 +2542,10 @@ pub(crate) fn custom_family_outer_derivatives_exposes_surrogate_second_order_geo
         ..BlockwiseFitOptions::default()
     };
     let (gradient, hessian) = custom_family_outer_derivatives(&SurrogateFamily, &specs, &options);
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either
     );
 }
 
@@ -2424,13 +2593,10 @@ pub(crate) fn custom_family_outer_derivatives_keeps_strict_second_order_geometry
         ..BlockwiseFitOptions::default()
     };
     let (gradient, hessian) = custom_family_outer_derivatives(&StrictFamily, &specs, &options);
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either
     );
 }
 
@@ -2548,8 +2714,20 @@ pub(crate) fn generic_single_block_fallback_includes_nonzero_d2h_drift() {
     )
     .expect("single-block fallback with zero d2H should evaluate");
 
-    let h_with = with_d2.outer_hessian.unwrap_analytic();
-    let h_without = without_d2_contribution.outer_hessian.unwrap_analytic();
+    let h_with = match with_d2.outer_hessian {
+        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => hessian,
+        crate::solver::rho_optimizer::HessianResult::Operator(_)
+        | crate::solver::rho_optimizer::HessianResult::Unavailable => {
+            panic!("expected dense analytic Hessian")
+        }
+    };
+    let h_without = match without_d2_contribution.outer_hessian {
+        crate::solver::rho_optimizer::HessianResult::Analytic(hessian) => hessian,
+        crate::solver::rho_optimizer::HessianResult::Operator(_)
+        | crate::solver::rho_optimizer::HessianResult::Unavailable => {
+            panic!("expected dense analytic Hessian")
+        }
+    };
     let d2h_delta = h_with[[0, 0]] - h_without[[0, 0]];
     assert!(
         d2h_delta.abs() > 1e-8,
@@ -2926,13 +3104,10 @@ pub(crate) fn custom_family_outer_derivatives_keeps_second_order_for_large_inner
     };
 
     let (gradient, hessian) = custom_family_outer_derivatives(&StrictFamily, &specs, &options);
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either
     );
 }
 
@@ -4370,6 +4545,302 @@ pub(crate) fn ridge_stabilization_gap_produces_exact_rho_two_in_null_direction()
     }
 }
 
+/// gam#979 survival marginal-slope flex non-convergence (the constrained
+/// joint-Newton feasibility reroute). When a trust-region trial step crosses a
+/// BINDING monotonicity row — the current iterate sits on the cone face
+/// (slack≈0) and the step has negative drift on that row — the two feasibility
+/// mechanisms behave very differently:
+///
+///   * the global fraction-to-boundary scalar `α = slack / −drift` (what
+///     `apply_joint_feasibility_limit` applied to the WHOLE joint step) is ~0 on
+///     a binding row, so it crushes the ENTIRE step — including its components
+///     orthogonal to the binding row — to a microscopic fraction. β then crawls
+///     ~α·‖δ‖ per cycle and the inner joint-Newton grinds its budget without
+///     converging (the survival hang);
+///   * the strict-interior cone projection keeps the step's components in the
+///     unconstrained directions and only corrects the binding direction, so the
+///     realized step retains O(1) magnitude.
+///
+/// This pins that contrast on a one-row binding cone: the projection's step is
+/// orders of magnitude larger than the α-crushed step, which is the whole reason
+/// the constrained path now routes feasibility through the projection.
+#[test]
+pub(crate) fn cone_projection_preserves_step_where_alpha_crush_collapses_it() {
+    use crate::solver::active_set::{
+        LinearInequalityConstraints, project_point_strictly_into_feasible_cone,
+    };
+    // One monotonicity row `a·β ≥ 0` with a = [1, 0]; the current iterate
+    // β = [0, 0] sits exactly on it (slack = 0). The Newton trial step wants to
+    // move DOWN on the binding coordinate (δ_0 = −1, would violate) and freely on
+    // the orthogonal coordinate (δ_1 = +5, unconstrained).
+    let a = array![[1.0_f64, 0.0]];
+    let b = Array1::<f64>::zeros(1);
+    let constraints = LinearInequalityConstraints::from_paired(a, b);
+
+    let beta = array![0.0_f64, 0.0];
+    let trial_step = array![-1.0_f64, 5.0];
+    let trial_point = &beta + &trial_step;
+
+    // ── Old mechanism: global fraction-to-boundary α ────────────────────────
+    // slack = a·β − b = 0; drift = a·δ = −1 (< 0) ⇒ α = slack/−drift = 0. The
+    // whole joint step is scaled by α, so BOTH components collapse.
+    let slack = constraints.a.row(0).dot(&beta) - constraints.b[0];
+    let drift = constraints.a.row(0).dot(&trial_step);
+    assert!(drift < 0.0, "binding-row drift must be negative");
+    let alpha = (slack / -drift).clamp(0.0, 1.0);
+    let alpha_step_norm = {
+        let s = &trial_step * alpha;
+        s.dot(&s).sqrt()
+    };
+    assert!(
+        alpha_step_norm < 1e-6,
+        "α-crush must collapse the whole step on a binding row; got |step|={alpha_step_norm:.3e}"
+    );
+
+    // ── New mechanism: strict-interior cone projection ──────────────────────
+    // Projects the trial point onto `β_0 ≥ 0`; the orthogonal component
+    // (β_1 = 5) is preserved, the binding component is clipped to ~0.
+    let projected = project_point_strictly_into_feasible_cone(&trial_point, &constraints)
+        .expect("cone projection of the trial point must succeed");
+    let projected_step = &projected - &beta;
+    let projected_step_norm = projected_step.dot(&projected_step).sqrt();
+
+    // The unconstrained coordinate's full motion survives the projection.
+    assert!(
+        (projected[1] - 5.0).abs() < 1e-9,
+        "unconstrained coordinate must keep its full motion; got {:.6}",
+        projected[1]
+    );
+    // The realized step magnitude is O(1) — orders of magnitude above the
+    // α-crushed step (which would have frozen the solve).
+    assert!(
+        projected_step_norm > 4.9,
+        "cone projection must preserve the unconstrained step magnitude; got |step|={projected_step_norm:.3e}"
+    );
+    assert!(
+        projected_step_norm > 1e6 * alpha_step_norm,
+        "projection step ({projected_step_norm:.3e}) must dwarf the α-crushed step ({alpha_step_norm:.3e})"
+    );
+    // The projected point is feasible (binding coordinate ≥ 0).
+    assert!(
+        projected[0] >= -1e-9,
+        "projected binding coordinate must be feasible; got {:.3e}",
+        projected[0]
+    );
+}
+
+/// gam#979 gated QP-feasibility reroute discriminator. The constrained
+/// joint-Newton path only bypasses the global α-crush when the α it WOULD apply
+/// falls below `JOINT_FEASIBILITY_ALPHA_CRUSH_THRESHOLD`. This test pins that
+/// discriminator on `compute_joint_feasibility_alpha`:
+///   * a HEALTHY step (α = 1.0, no binding constraint) is at/above the threshold
+///     ⇒ the legacy truncate + α path runs UNCHANGED (byte-identical numerics —
+///     the guarantee for every currently-converging arm, e.g. binary BMS), and
+///   * a PATHOLOGICAL step (α far below the threshold, a binding row crushing the
+///     whole step) is detected as the crush case ⇒ the magnitude-preserving cone
+///     projection is used instead.
+#[test]
+pub(crate) fn joint_feasibility_alpha_gate_discriminates_healthy_from_crush() {
+    // Minimal family supplying a controllable per-block feasibility α via
+    // `max_feasible_step_size`. α is the configured value (or `None` ⇒ no limit).
+    #[derive(Clone)]
+    struct AlphaFamily {
+        alpha: Option<f64>,
+    }
+    impl CustomFamily for AlphaFamily {
+        fn evaluate(
+            &self,
+            _block_states: &[ParameterBlockState],
+        ) -> Result<FamilyEvaluation, String> {
+            Ok(FamilyEvaluation {
+                log_likelihood: 0.0,
+                blockworking_sets: vec![BlockWorkingSet::ExactNewton {
+                    gradient: array![0.0],
+                    hessian: SymmetricMatrix::Dense(array![[1.0]]),
+                }],
+            })
+        }
+        fn max_feasible_step_size(
+            &self,
+            _block_states: &[ParameterBlockState],
+            _idx: usize,
+            _arr: &Array1<f64>,
+        ) -> Result<Option<f64>, String> {
+            Ok(self.alpha)
+        }
+    }
+
+    let states = vec![ParameterBlockState {
+        beta: array![0.0],
+        eta: array![0.0],
+    }];
+    let ranges = vec![(0usize, 1usize)];
+    let step = array![1.0_f64];
+
+    // No feasibility limit ⇒ α = 1.0 (fully feasible). At/above the threshold:
+    // the legacy path runs unchanged.
+    let healthy = AlphaFamily { alpha: None };
+    let (alpha_healthy, _) =
+        compute_joint_feasibility_alpha(&healthy, &states, &ranges, &step).unwrap();
+    assert_eq!(alpha_healthy, 1.0, "no constraint ⇒ α = 1.0");
+    assert!(
+        alpha_healthy >= JOINT_FEASIBILITY_ALPHA_CRUSH_THRESHOLD,
+        "healthy α must NOT trip the crush bypass (legacy path stays byte-identical)"
+    );
+
+    // A moderate limit just above the threshold is still NOT a crush: legacy
+    // α-scaling applies, no reroute.
+    let moderate = AlphaFamily {
+        alpha: Some(2.0 * JOINT_FEASIBILITY_ALPHA_CRUSH_THRESHOLD),
+    };
+    let (alpha_moderate, _) =
+        compute_joint_feasibility_alpha(&moderate, &states, &ranges, &step).unwrap();
+    assert!(
+        alpha_moderate >= JOINT_FEASIBILITY_ALPHA_CRUSH_THRESHOLD,
+        "moderate α (2× threshold) must stay on the legacy path"
+    );
+
+    // The survival pathology: α ≈ 1e-4 on a binding monotone row. Below the
+    // threshold ⇒ the bypass fires and the cone projection takes over.
+    let crush = AlphaFamily { alpha: Some(1e-4) };
+    let (alpha_crush, limiting) =
+        compute_joint_feasibility_alpha(&crush, &states, &ranges, &step).unwrap();
+    assert!(
+        alpha_crush < JOINT_FEASIBILITY_ALPHA_CRUSH_THRESHOLD,
+        "the survival pathology (α≈1e-4) must trip the crush bypass; got α={alpha_crush:.3e}"
+    );
+    assert_eq!(limiting, Some(0), "the binding block must be reported");
+}
+
+/// gam#979 (per-block exact-Newton arm; the bernoulli marginal-slope binary
+/// path). The per-block left-hand side is `lhs = H_data + S` with `S ⪰ 0` an
+/// over-smoothed block penalty. A naive Gershgorin bound on the *penalized*
+/// matrix `lhs` (computed inline below) reads a spurious huge-negative `λ_min`
+/// because `S`'s large off-diagonals are balanced by equally large diagonals →
+/// adds a giant ridge → collapses every per-block Newton step (the survival-hang
+/// fingerprint). The PSD-penalized variant
+/// [`stabilize_exact_newton_penalized_lhs_in_place`] must bound the shift by the
+/// DATA Hessian's curvature (`exact_newton_stabilizing_shift_psd_penalized`)
+/// instead, leaving the step well-scaled.
+#[test]
+pub(crate) fn per_block_penalized_shift_stays_data_scaled_under_oversmoothed_penalty() {
+    // Data Hessian with one NEGATIVE eigenvalue along (1,−1,0) (the concave
+    // entry-survival term makes the per-block data Hessian indefinite away from
+    // the optimum). Crucially that negative direction lies in `ker(S)` of the
+    // over-smoothed penalty below, so the penalty does NOT lift it — the
+    // penalized matrix `lhs` stays genuinely indefinite, the no-shift Cholesky
+    // FAILS, and the shift branch (with its Gershgorin bound) actually runs. On
+    // a PD matrix the shared fast path returns `None` before Gershgorin is ever
+    // consulted, which is exactly why the bug only bites an indefinite cycle.
+    //
+    // `h_data = I − 1.4·(1,−1,0)(1,−1,0)ᵀ/2`: eigenvalue 1 − 1.4 = −0.4 along
+    // (1,−1,0)/√2, +1.0 on the orthogonal complement (curvature scale ≈ 1).
+    let h_data = array![
+        [1.0 - 0.7, 0.7, 0.0],
+        [0.7, 1.0 - 0.7, 0.0],
+        [0.0, 0.0, 1.0],
+    ];
+
+    // Heavily over-smoothed PSD penalty: a rank-1 `λ·vvᵀ` with `v = (1,1,1)` and
+    // `λ ≈ 1e7`. It is PSD (single eigenvalue 3λ along (1,1,1); zero on the
+    // orthogonal complement, which CONTAINS the data's negative direction
+    // (1,−1,0)). Its large off-diagonals `λ·v_i v_j` are balanced by equally
+    // large diagonals `λ·v_i²`, so the matrix is exactly PSD — but the per-row
+    // Gershgorin `diag − radius = λ(v_i² − v_i·Σ_{j≠i}|v_j|) = λ(1 − 2) = −λ` is
+    // hugely negative. This is the exact shape that fools plain Gershgorin into
+    // reading a spurious ~−λ `λ_min` even though `S` adds NO indefiniteness.
+    let lam = 1.0e7_f64;
+    let s = &array![[1.0_f64, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0],] * lam;
+
+    let lhs = &h_data + &s;
+
+    // Sanity: the penalized matrix is genuinely indefinite (Cholesky fails), so
+    // the shift branch runs rather than the PD fast path.
+    assert!(
+        lhs.cholesky(Side::Lower).is_err(),
+        "penalized lhs must stay indefinite along ker(S) ∋ (1,−1,0) so the shift branch engages"
+    );
+
+    let ridge_floor = 1.0e-12_f64;
+
+    // ── Naive penalized-Gershgorin shift (the bug) ──────────────────────────
+    // Gershgorin lower bound on the PENALIZED matrix `lhs = H_data + S`:
+    //   min_i (lhs_ii − Σ_{j≠i} |lhs_ij|).
+    // The over-smoothed `S` drives this hugely negative (~−2λ), so the lifting
+    // shift `floor − g` is ~λ-scale — the spurious ridge that froze the survival
+    // per-block Newton. We compute it directly here (rather than via the now
+    // deleted plain-Gershgorin wrapper) so the contrast is explicit and the
+    // test does not depend on the data-bounded fast path's Cholesky outcome.
+    let p = lhs.nrows();
+    let naive_gershgorin_min = (0..p)
+        .map(|i| {
+            let radius: f64 = (0..p).filter(|&j| j != i).map(|j| lhs[[i, j]].abs()).sum();
+            lhs[[i, i]] - radius
+        })
+        .fold(f64::INFINITY, f64::min);
+    assert!(
+        naive_gershgorin_min < -1.0e6,
+        "over-smoothed penalty must make the naive penalized-Gershgorin bound spuriously huge-negative; got {naive_gershgorin_min:.3e}"
+    );
+    let naive_shift = ridge_floor.max(1e-15) - naive_gershgorin_min;
+    assert!(
+        naive_shift > 1.0e6,
+        "naive penalized-Gershgorin shift should read the spurious ~λ ridge; got {naive_shift:.3e}",
+    );
+
+    // ── PSD-penalized shift (the fix): Gershgorin bounded by the data Hessian.
+    let psd_shift =
+        exact_newton_stabilizing_shift_psd_penalized(&lhs, &h_data, ridge_floor).unwrap_or(0.0);
+
+    // The data Hessian's most-negative eigenvalue is −0.4, so the data-bounded
+    // shift stays O(data scale) (a few units), NOT the ~1e7 penalty scale.
+    assert!(
+        psd_shift < 10.0,
+        "PSD-penalized shift must stay O(data scale), NOT the ~{lam:.0e} penalty scale; got {psd_shift:.3e}",
+    );
+    // And it must lift the genuine data indefiniteness (it is positive).
+    assert!(
+        psd_shift > 0.0,
+        "PSD-penalized shift must still lift the data Hessian's negative eigenvalue; got {psd_shift:.3e}"
+    );
+    // Concretely: the data-bounded shift is ≥ 5 orders of magnitude smaller than
+    // the spurious naive one.
+    assert!(
+        psd_shift * 1.0e5 < naive_shift,
+        "PSD-penalized shift ({psd_shift:.3e}) must be ≥1e5× smaller than the spurious naive shift ({naive_shift:.3e})",
+    );
+
+    // And the shift restores positive (semi)definiteness: by Weyl,
+    // `λ_min(lhs + δI) ≥ λ_min(H_data) + δ ≥ λ_min(H_data) − gershgorin_min(H_data) ≥ 0`,
+    // because `λ_min(H_data) ≥ gershgorin_min(H_data)`. So the shift covers the
+    // data Hessian's most-negative eigenvalue. Verify the data-Gershgorin bound
+    // the shift is built from is at least as negative as `H_data`'s true λ_min,
+    // and that `lhs + (δ + margin)·I` is PD (the floor makes the borderline
+    // λ_min = 0 case strictly PD downstream; we add a tiny margin here so the
+    // numerical Cholesky is unambiguous).
+    let data_gershgorin_min = (0..p)
+        .map(|i| {
+            let radius: f64 = (0..p)
+                .filter(|&j| j != i)
+                .map(|j| h_data[[i, j]].abs())
+                .sum();
+            h_data[[i, i]] - radius
+        })
+        .fold(f64::INFINITY, f64::min);
+    assert!(
+        psd_shift >= -data_gershgorin_min - 1e-9,
+        "PSD-penalized shift ({psd_shift:.3e}) must cover the data-Gershgorin bound ({data_gershgorin_min:.3e})"
+    );
+    let mut stabilized = lhs.clone();
+    for d in 0..stabilized.nrows() {
+        stabilized[[d, d]] += psd_shift + 1e-6;
+    }
+    assert!(
+        stabilized.cholesky(Side::Lower).is_ok(),
+        "stabilized penalized lhs must be PD after the PSD-penalized shift",
+    );
+}
+
 #[test]
 pub(crate) fn joint_solver_ridge_stabilizes_dense_indefinite_coupled_hessian() {
     let family = TwoBlockJointConstrainedFamily { coupling: 2.0 };
@@ -4891,7 +5362,7 @@ pub(crate) fn binomial_location_scale_outer_fixture(
         link_kind: crate::types::InverseLink::Standard(crate::types::StandardLink::Probit),
         threshold_design: Some(threshold_design),
         log_sigma_design: Some(log_sigma_design),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![thresholdspec, log_sigmaspec];
     let penalty_counts = vec![1usize, 1usize];

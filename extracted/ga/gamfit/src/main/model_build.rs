@@ -60,34 +60,34 @@ pub(crate) fn route_marginal_slope_deviation_blocks(
 
 pub(crate) fn cli_frailty_kind(
     frailty_kind: Option<FrailtyKindArg>,
-) -> Option<gam::config_resolve::CliFrailtyKind> {
+) -> Option<crate::config_resolve::CliFrailtyKind> {
     frailty_kind.map(|kind| match kind {
-        FrailtyKindArg::GaussianShift => gam::config_resolve::CliFrailtyKind::GaussianShift,
-        FrailtyKindArg::HazardMultiplier => gam::config_resolve::CliFrailtyKind::HazardMultiplier,
+        FrailtyKindArg::GaussianShift => crate::config_resolve::CliFrailtyKind::GaussianShift,
+        FrailtyKindArg::HazardMultiplier => crate::config_resolve::CliFrailtyKind::HazardMultiplier,
     })
 }
 
 pub(crate) fn cli_hazard_loading(
     hazard_loading: Option<HazardLoadingArg>,
-) -> Option<gam::config_resolve::CliHazardLoading> {
+) -> Option<crate::config_resolve::CliHazardLoading> {
     hazard_loading.map(|loading| match loading {
-        HazardLoadingArg::Full => gam::config_resolve::CliHazardLoading::Full,
+        HazardLoadingArg::Full => crate::config_resolve::CliHazardLoading::Full,
         HazardLoadingArg::LoadedVsUnloaded => {
-            gam::config_resolve::CliHazardLoading::LoadedVsUnloaded
+            crate::config_resolve::CliHazardLoading::LoadedVsUnloaded
         }
     })
 }
 
 pub(crate) fn latent_cloglog_state_from_frailty_spec(
-    frailty: &gam::families::lognormal_kernel::FrailtySpec,
+    frailty: &gam::families::survival::lognormal_kernel::FrailtySpec,
     context: &str,
 ) -> Result<gam::types::LatentCLogLogState, String> {
     let sigma = match frailty {
-        gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+        gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
             sigma_fixed: Some(sigma),
-            loading: gam::families::lognormal_kernel::HazardLoading::Full,
+            loading: gam::families::survival::lognormal_kernel::HazardLoading::Full,
         } => *sigma,
-        gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+        gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
             sigma_fixed: Some(_),
             loading,
         } => {
@@ -95,18 +95,18 @@ pub(crate) fn latent_cloglog_state_from_frailty_spec(
                 "{context} requires --hazard-loading full, got {loading:?}"
             ));
         }
-        gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+        gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
             sigma_fixed: None,
             ..
         } => {
             return Err(format!("{context} currently requires a fixed --frailty-sd"));
         }
-        gam::families::lognormal_kernel::FrailtySpec::GaussianShift { .. } => {
+        gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift { .. } => {
             return Err(format!(
                 "{context} requires --frailty-kind hazard-multiplier"
             ));
         }
-        gam::families::lognormal_kernel::FrailtySpec::None => {
+        gam::families::survival::lognormal_kernel::FrailtySpec::None => {
             return Err(format!(
                 "{context} requires an explicit frailty specification"
             ));
@@ -119,8 +119,8 @@ pub(crate) fn latent_cloglog_state_from_frailty_spec(
 pub(crate) fn fit_frailty_spec_from_args(
     args: &FitArgs,
     context: &str,
-) -> Result<gam::families::lognormal_kernel::FrailtySpec, String> {
-    gam::config_resolve::resolve_cli_frailty_spec(
+) -> Result<gam::families::survival::lognormal_kernel::FrailtySpec, String> {
+    crate::config_resolve::resolve_cli_frailty_spec(
         cli_frailty_kind(args.frailty_kind),
         args.frailty_sd,
         cli_hazard_loading(args.hazard_loading),
@@ -131,8 +131,8 @@ pub(crate) fn fit_frailty_spec_from_args(
 pub(crate) fn fit_frailty_spec_from_survival_args(
     args: &SurvivalArgs,
     context: &str,
-) -> Result<gam::families::lognormal_kernel::FrailtySpec, String> {
-    gam::config_resolve::resolve_cli_frailty_spec(
+) -> Result<gam::families::survival::lognormal_kernel::FrailtySpec, String> {
+    crate::config_resolve::resolve_cli_frailty_spec(
         cli_frailty_kind(args.frailty_kind),
         args.frailty_sd,
         cli_hazard_loading(args.hazard_loading),
@@ -141,45 +141,51 @@ pub(crate) fn fit_frailty_spec_from_survival_args(
 }
 
 pub(crate) fn fixed_gaussian_shift_frailty_from_spec(
-    frailty: &gam::families::lognormal_kernel::FrailtySpec,
+    frailty: &gam::families::survival::lognormal_kernel::FrailtySpec,
     context: &str,
-) -> Result<gam::families::lognormal_kernel::FrailtySpec, String> {
+) -> Result<gam::families::survival::lognormal_kernel::FrailtySpec, String> {
     match frailty {
-        gam::families::lognormal_kernel::FrailtySpec::None => {
-            Ok(gam::families::lognormal_kernel::FrailtySpec::None)
+        gam::families::survival::lognormal_kernel::FrailtySpec::None => {
+            Ok(gam::families::survival::lognormal_kernel::FrailtySpec::None)
         }
-        gam::families::lognormal_kernel::FrailtySpec::GaussianShift {
+        gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
             sigma_fixed: Some(sigma),
         } => Ok(
-            gam::families::lognormal_kernel::FrailtySpec::GaussianShift {
+            gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
                 sigma_fixed: Some(*sigma),
             },
         ),
-        gam::families::lognormal_kernel::FrailtySpec::GaussianShift { sigma_fixed: None } => {
-            Err(format!(
-                "{context} currently requires a fixed GaussianShift sigma; learnable GaussianShift sigma is not implemented for the exact marginal-slope outer solver"
-            ))
-        }
-        gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier { .. } => Err(format!(
-            "{context} requires --frailty-kind gaussian-shift or no frailty"
+        gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift {
+            sigma_fixed: None,
+        } => Err(format!(
+            "{context} currently requires a fixed GaussianShift sigma; learnable GaussianShift sigma is not implemented for the exact marginal-slope outer solver"
         )),
+        gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier { .. } => Err(
+            format!("{context} requires --frailty-kind gaussian-shift or no frailty"),
+        ),
     }
 }
 
 pub(crate) fn fixed_hazard_multiplier_from_saved_family(
     family: &FittedFamily,
-) -> Result<(f64, gam::families::lognormal_kernel::HazardLoading), String> {
+) -> Result<
+    (
+        f64,
+        gam::families::survival::lognormal_kernel::HazardLoading,
+    ),
+    String,
+> {
     match family.frailty() {
-        Some(gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+        Some(gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
             sigma_fixed: Some(sigma),
             loading,
         }) => Ok((*sigma, *loading)),
-        Some(gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+        Some(gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
             sigma_fixed: None,
             ..
         }) => Err("saved latent survival/binary model must store a concrete HazardMultiplier sigma in family_state.frailty".to_string()),
-        Some(gam::families::lognormal_kernel::FrailtySpec::GaussianShift { .. })
-        | Some(gam::families::lognormal_kernel::FrailtySpec::None)
+        Some(gam::families::survival::lognormal_kernel::FrailtySpec::GaussianShift { .. })
+        | Some(gam::families::survival::lognormal_kernel::FrailtySpec::None)
         | None => Err(
             "saved latent survival/binary model requires a fixed HazardMultiplier frailty specification"
                 .to_string(),
@@ -207,7 +213,7 @@ pub(crate) fn build_bernoulli_marginal_slope_saved_model(
     score_warp_runtime: Option<&DeviationRuntime>,
     link_dev_runtime: Option<&DeviationRuntime>,
     base_link: InverseLink,
-    frailty: gam::families::lognormal_kernel::FrailtySpec,
+    frailty: gam::families::survival::lognormal_kernel::FrailtySpec,
 ) -> Result<SavedModel, String> {
     // Thin adapter over the shared core assembler. Everything semantic — the
     // singular/vector mirror fields, the flex-runtime serialization, the
@@ -373,6 +379,12 @@ pub(crate) fn core_saved_fit_result(
             reml_score: summary.reml_score,
             stable_penalty_term: summary.stable_penalty_term,
             penalized_objective,
+            // A fit reconstructed from a saved-model summary performed no device
+            // (GPU) execution in this process — it was deserialized from disk —
+            // so the device-use flag is false. `SavedFitSummary` does not persist
+            // this field; it is a property of the original fit run, not the saved
+            // artifact.
+            used_device: false,
             outer_iterations: summary.iterations,
             outer_converged: matches!(summary.pirls_status, gam::pirls::PirlsStatus::Converged),
             outer_gradient_norm: Some(summary.finalgrad_norm),

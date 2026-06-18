@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-hybrid
-Version: 0.6.15
+Version: 0.6.16
 Summary: Hybrid Asynchronous Decomposition Solver Framework
 Home-page: https://github.com/dwavesystems/dwave-hybrid
 Author: D-Wave Systems Inc.
@@ -17,17 +17,17 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 License-File: LICENSE
-Requires-Dist: numpy>=1.19.1
-Requires-Dist: networkx
-Requires-Dist: click>5
-Requires-Dist: plucky>=0.4.3
-Requires-Dist: dimod<0.13,>=0.12.2
-Requires-Dist: dwave-preprocessing>=0.5.4
-Requires-Dist: minorminer>=0.1.7
-Requires-Dist: dwave-networkx>=0.8.8
-Requires-Dist: dwave-system>=1.16.0
-Requires-Dist: dwave-cloud-client>=0.10.6
-Requires-Dist: dwave-samplers>=1.0.0
+Requires-Dist: click<9,>5
+Requires-Dist: dimod<0.13,>=0.12.22
+Requires-Dist: dwave-cloud-client<0.15,>=0.10.6
+Requires-Dist: dwave-graphs<2,>=1
+Requires-Dist: dwave-preprocessing<0.7,>=0.6.6
+Requires-Dist: dwave-samplers<2,>=1.3
+Requires-Dist: dwave-system<2,>=1.23.0
+Requires-Dist: minorminer<0.3,>=0.1.7
+Requires-Dist: networkx<4,>=3.2
+Requires-Dist: numpy<3,>=2
+Requires-Dist: plucky<0.5,>=0.4.3
 Provides-Extra: test
 Requires-Dist: coverage; extra == "test"
 Dynamic: author

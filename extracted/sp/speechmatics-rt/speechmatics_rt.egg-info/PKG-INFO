@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: speechmatics-rt
-Version: 1.0.0
+Version: 1.1.0
 Summary: Speechmatics Real-Time API Client
 Author-email: Speechmatics <support@speechmatics.com>
 License-Expression: MIT
@@ -22,6 +22,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: websockets>=10.0
+Requires-Dist: typing-extensions>=4.5.0
 Provides-Extra: jwt
 Requires-Dist: aiohttp; extra == "jwt"
 Provides-Extra: dev

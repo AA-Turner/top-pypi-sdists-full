@@ -16,7 +16,7 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 
-from smplkit import AsyncSmplClient, NotFoundError
+from smplkit import AsyncSmplClient
 from smplkit.audit import (
     ForwarderType,
     HttpConfiguration,
@@ -24,6 +24,8 @@ from smplkit.audit import (
     HttpMethod,
     TransformType,
 )
+
+from setup.audit_setup import cleanup_showcase, setup_showcase
 
 
 # JSON Logic filter — only forward ``invoice.*`` actions. Events that don't
@@ -47,7 +49,8 @@ SIEM_TRANSFORM = """
 async def main() -> None:
 
     # or SmplClient for synchronous use
-    async with AsyncSmplClient(environment="production") as client:
+    async with AsyncSmplClient() as client:
+        await setup_showcase(client)
         some_resource_id = f"showcase-{uuid.uuid4().hex[:8]}"
 
         # ----- Events: record / list / get --------------------------------
@@ -107,7 +110,7 @@ async def main() -> None:
 
         # ----- Forwarders: SIEM streaming CRUD ----------------------------
 
-        forwarder_id = f"showcase-{uuid.uuid4().hex[:6]}"
+        forwarder_id = "showcase-forwarder"
 
         try:
             # create a forwarder (disabled by default)
@@ -137,22 +140,28 @@ async def main() -> None:
             assert forwarder.id == forwarder_id
 
             # configure where to forward events in production
-            forwarder.set_configuration(HttpConfiguration(
+            forwarder.set_configuration(
+                HttpConfiguration(
                     headers=[HttpHeader(name="X-Showcase", value="ok")],
                     method=HttpMethod.POST,
                     url="https://httpbin.org/post",
                 ),
-                environment="production"
+                environment="production",
             )
             await forwarder.save()
-            assert forwarder.environments["production"].configuration.url == "https://httpbin.org/post"
+            assert (
+                forwarder.environments["production"].configuration.url
+                == "https://httpbin.org/post"
+            )
             print(f"Updated forwarder: {forwarder.name}")
 
             # start forwarding events in production
             forwarder.set_enabled(True, environment="production")
             await forwarder.save()
-            print(f"Enabled forwarder {forwarder.name} (id={forwarder.id}) "
-                  "to start forwarding events in production")
+            print(
+                f"Enabled forwarder {forwarder.name} (id={forwarder.id}) "
+                "to start forwarding events in production"
+            )
 
             # delete a forwarder
             await forwarder.delete()
@@ -160,11 +169,7 @@ async def main() -> None:
             assert forwarder_id not in {f.id for f in remaining.forwarders}
             print(f"Deleted forwarder: {forwarder.name}")
         finally:
-            # tear-down: never leave the showcase forwarder behind, even on failure
-            try:
-                await client.audit.forwarders.delete(forwarder_id)
-            except NotFoundError:
-                pass
+            await cleanup_showcase(client)
 
         print("Done!")
 

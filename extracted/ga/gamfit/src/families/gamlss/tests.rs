@@ -15,6 +15,7 @@ use super::binomial_q_derivs::{
 };
 use super::dispersion_family::{
     DISPERSION_ETA_CLAMP, DISPERSION_MIN_CURVATURE, DispersionRowKernel, dispersion_row_kernel,
+    dispersion_tweedie_nll_tower,
 };
 use crate::basis::{
     CenterStrategy, Dense, KnotSource, MaternBasisSpec, MaternIdentifiability, MaternNu,
@@ -407,8 +408,50 @@ pub(crate) fn hand_dispersion_row_kernel(
                 disp_response: ed + s_phi / (phi * info_phi),
             }
         }
-        DispersionFamilyKind::Tweedie { .. } => {
-            panic!("Tweedie dispersion witness is intentionally out of migration scope")
+        DispersionFamilyKind::Tweedie { p } => {
+            // Independent hand derivation of the Tweedie working set in the
+            // predictor coordinates `(η_μ, η_d)` with `μ = exp(η_μ)`,
+            // `φ = exp(−η_d)` — derived separately from the production tower so
+            // a tower-composition bug (a dropped chain term, a sign flip in the
+            // φ = exp(−η_d) curvature) shows up as a disagreement. Observed
+            // information `∂²NLL/∂η_d²` is used uniformly (the same Newton
+            // curvature the production arm reads off `tower.h[1][1]`), matching
+            // the NB/Gamma/Beta dispersion arms.
+            let mu = em.exp().max(1e-300);
+            let phi = (-ed).exp().max(1e-12);
+            let two_minus_p = 2.0 - p;
+            let one_minus_p = 1.0 - p;
+            let mean_weight = wi * mu.powf(two_minus_p) / phi;
+            let mean_response = em + (yi - mu) / mu;
+            let (loglik, s_eta, info_eta) = if yi > 0.0 {
+                let dev = 2.0
+                    * (yi.powf(two_minus_p) / (one_minus_p * two_minus_p)
+                        - yi * mu.powf(one_minus_p) / one_minus_p
+                        + mu.powf(two_minus_p) / two_minus_p);
+                let loglik = wi
+                    * (-dev / (2.0 * phi)
+                        - 0.5 * (2.0 * std::f64::consts::PI * phi).ln()
+                        - 0.5 * p * yi.ln());
+                // NLL(η_d) = w·[ (dev/2)·exp(η_d) − ½η_d + const ].
+                let s_eta = 0.5 - dev / (2.0 * phi);
+                let info_eta = dev / (2.0 * phi);
+                (loglik, s_eta, info_eta)
+            } else {
+                let c = mu.powf(two_minus_p) / two_minus_p;
+                let loglik = wi * (-c / phi);
+                // NLL(η_d) = w·c·exp(η_d).
+                let s_eta = -c / phi;
+                let info_eta = c / phi;
+                (loglik, s_eta, info_eta)
+            };
+            let curvature_eta = info_eta.max(DISPERSION_MIN_CURVATURE);
+            DispersionRowKernel {
+                loglik,
+                mean_weight,
+                mean_response,
+                disp_weight: wi * curvature_eta,
+                disp_response: ed + s_eta / curvature_eta,
+            }
         }
     }
 }
@@ -428,6 +471,44 @@ pub(crate) fn dispersion_row_towers_match_hand_witnesses() {
         (DispersionFamilyKind::Gamma, 9.0, 1.7, 25.0, 1.1),
         (DispersionFamilyKind::Beta, 0.02, -3.0, -20.0, 0.8),
         (DispersionFamilyKind::Beta, 0.98, 3.0, 20.0, 1.4),
+        // Tweedie #932: the previously-unmechanized arm. Both density branches
+        // (y = 0 exact point mass, y > 0 saddlepoint), two powers, and the
+        // η-clamp boundary so the clamped natural parameters are exercised.
+        (
+            DispersionFamilyKind::Tweedie { p: 1.5 },
+            0.0,
+            -0.7,
+            0.4,
+            0.9,
+        ),
+        (
+            DispersionFamilyKind::Tweedie { p: 1.5 },
+            3.2,
+            0.6,
+            -0.3,
+            1.2,
+        ),
+        (
+            DispersionFamilyKind::Tweedie { p: 1.2 },
+            0.0,
+            1.1,
+            -0.8,
+            0.6,
+        ),
+        (
+            DispersionFamilyKind::Tweedie { p: 1.8 },
+            7.5,
+            -0.4,
+            1.0,
+            1.3,
+        ),
+        (
+            DispersionFamilyKind::Tweedie { p: 1.5 },
+            2.0,
+            -25.0,
+            25.0,
+            1.0,
+        ),
     ];
     for (kind, y, eta_mu, eta_d, weight) in cases {
         let actual = dispersion_row_kernel(kind, y, eta_mu, eta_d, weight);
@@ -456,6 +537,120 @@ pub(crate) fn dispersion_row_towers_match_hand_witnesses() {
             actual.disp_response,
             expected.disp_response,
             1e-10,
+        );
+    }
+}
+
+#[test]
+// Regression for #1107: the Tweedie y=0 dispersion-channel curvature in the
+// η_d = −log φ link must equal the observed-information second derivative
+// ∂²(−ℓ)/∂η_d² = c/φ, NOT the Fisher-information shortcut 2c/φ. The shortcut
+// drops the first-order score term (valid only when E[score]=0, i.e. the
+// saddlepoint y>0 branch) and was 2× too large for the deterministic zero-mass
+// branch. This asserts the kernel's reported per-row curvature (`disp_weight`
+// at unit prior weight) matches a centered finite-difference of the NLL.
+pub(crate) fn tweedie_zero_mass_dispersion_curvature_matches_finite_difference() {
+    // (p in (1,2), eta_mu, eta_d) cases spanning small/large μ and φ.
+    let cases = [
+        (1.3_f64, -2.0_f64, -1.0_f64),
+        (1.5, -0.5, 0.5),
+        (1.5, 1.0, -1.5),
+        (1.7, 2.0, 2.0),
+        (1.1, -3.0, 0.0),
+    ];
+    for (p, eta_mu, eta_d) in cases {
+        let kind = DispersionFamilyKind::Tweedie { p };
+        // NLL(η_d) = −loglik(η_d) at unit prior weight; loglik is the kernel's
+        // reported log-likelihood contribution for this row.
+        let nll = |ed: f64| -dispersion_row_kernel(kind, 0.0, eta_mu, ed, 1.0).loglik;
+        let h = 1e-4;
+        let fd_curv = (nll(eta_d + h) - 2.0 * nll(eta_d) + nll(eta_d - h)) / (h * h);
+
+        let kernel = dispersion_row_kernel(kind, 0.0, eta_mu, eta_d, 1.0);
+        // disp_weight at unit prior weight is exactly the per-row curvature.
+        assert_rel_close(
+            "tweedie y=0 dispersion curvature vs finite difference",
+            kernel.disp_weight,
+            fd_curv,
+            1e-5,
+        );
+
+        // Closed-form guard: curvature must be c/φ, and a 2× error (the old
+        // 2c/φ) would be caught by the FD check above but we pin it explicitly.
+        let mu = (eta_mu as f64).exp();
+        let phi = (-eta_d).exp();
+        let c = mu.powf(2.0 - p) / (2.0 - p);
+        assert_rel_close(
+            "tweedie y=0 dispersion curvature equals c/phi (not 2c/phi)",
+            kernel.disp_weight,
+            c / phi,
+            1e-10,
+        );
+    }
+}
+
+#[test]
+// #932: the single-expression `dispersion_tweedie_nll_tower` IS the production
+// Tweedie row NLL; its mechanically-derived gradient and Hessian channels must
+// be the exact derivatives of its own value channel. Anchor every channel of
+// the tower against centered finite differences of the value, in BOTH predictor
+// directions (η_μ, η_d) and BOTH density branches (y > 0 saddlepoint, y = 0
+// point mass), so a dropped chain term or a sign flip in the Faà-di-Bruno
+// composition shows up here independent of any closed-form witness.
+pub(crate) fn tweedie_nll_tower_is_finite_difference_consistent() {
+    // (p in (1,2), y, eta_mu, eta_d, weight); y = 0 hits the point-mass branch.
+    let cases = [
+        (1.5_f64, 0.0_f64, -0.7_f64, 0.4_f64, 0.9_f64),
+        (1.5, 3.2, 0.6, -0.3, 1.2),
+        (1.2, 0.0, 1.1, -0.8, 0.6),
+        (1.8, 7.5, -0.4, 1.0, 1.3),
+        (1.3, 2.0, 0.2, 0.7, 1.0),
+    ];
+    let eval = |p: f64, y: f64, em: f64, ed: f64, w: f64| -> f64 {
+        dispersion_tweedie_nll_tower(y, em, ed, p, w).v
+    };
+    for (p, y, em, ed, w) in cases {
+        let t = dispersion_tweedie_nll_tower(y, em, ed, p, w);
+        let h = 1e-5;
+        // value → gradient and gradient → Hessian, one direction at a time.
+        for (axis, perturb) in [(0usize, [h, 0.0]), (1usize, [0.0, h])] {
+            let vp = eval(p, y, em + perturb[0], ed + perturb[1], w);
+            let vm = eval(p, y, em - perturb[0], ed - perturb[1], w);
+            let fd_g = (vp - vm) / (2.0 * h);
+            assert_rel_close(
+                "tweedie tower gradient vs finite difference",
+                t.g[axis],
+                fd_g,
+                1e-5,
+            );
+            // Diagonal Hessian via the gradient of a perturbed tower.
+            let tp = dispersion_tweedie_nll_tower(y, em + perturb[0], ed + perturb[1], p, w);
+            let tm = dispersion_tweedie_nll_tower(y, em - perturb[0], ed - perturb[1], p, w);
+            let fd_h = (tp.g[axis] - tm.g[axis]) / (2.0 * h);
+            assert_rel_close(
+                "tweedie tower diagonal Hessian vs finite difference",
+                t.h[axis][axis],
+                fd_h,
+                1e-5,
+            );
+        }
+        // Mixed cross block — the #736 fragility shape — anchored both ways.
+        let cross = {
+            let tp = dispersion_tweedie_nll_tower(y, em + h, ed, p, w);
+            let tm = dispersion_tweedie_nll_tower(y, em - h, ed, p, w);
+            (tp.g[1] - tm.g[1]) / (2.0 * h)
+        };
+        assert_rel_close(
+            "tweedie tower cross-Hessian vs finite difference",
+            t.h[0][1],
+            cross,
+            1e-5,
+        );
+        assert_rel_close(
+            "tweedie tower Hessian symmetry",
+            t.h[0][1],
+            t.h[1][0],
+            1e-12,
         );
     }
 }
@@ -835,7 +1030,7 @@ pub(crate) fn binomial_location_scale_loglik_uses_tail_stable_standard_links() {
         link_kind: InverseLink::Standard(StandardLink::Logit),
         threshold_design: Some(design.clone()),
         log_sigma_design: Some(design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let logit_states = vec![
         ParameterBlockState {
@@ -858,7 +1053,7 @@ pub(crate) fn binomial_location_scale_loglik_uses_tail_stable_standard_links() {
         link_kind: InverseLink::Standard(StandardLink::CLogLog),
         threshold_design: Some(design.clone()),
         log_sigma_design: Some(design),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let cloglog_states = vec![
         ParameterBlockState {
@@ -922,7 +1117,7 @@ pub(crate) fn gaussian_location_scale_coefficient_cost_delegates_to_joint_couple
         weights: Array1::from_elem(n, 1.0),
         mu_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let specs = vec![
@@ -978,7 +1173,7 @@ pub(crate) fn large_n_gaussian_location_scale_keeps_exact_outer_hessian_plan() {
         weights: Array1::from_elem(n, 1.0),
         mu_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let specs = vec![
@@ -1018,37 +1213,35 @@ pub(crate) fn large_n_gaussian_location_scale_keeps_exact_outer_hessian_plan() {
     let options = BlockwiseFitOptions::default();
     let (gradient, hessian) =
         crate::custom_family::custom_family_outer_derivatives(&family, &specs, &options);
-    assert_eq!(
-        gradient,
-        crate::solver::outer_strategy::Derivative::Analytic
-    );
+    assert_eq!(gradient, crate::solver::rho_optimizer::Derivative::Analytic);
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either,
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either,
         "large-n GAMLSS location-scale fits must advertise exact second-order curvature instead of triggering the historical BFGS downgrade"
     );
 
     let p_total = p_mu + p_log_sigma;
     assert!(
-        crate::solver::estimate::reml::unified::prefer_outer_hessian_operator(n, p_total, 2),
+        crate::solver::estimate::reml::reml_outer_engine::prefer_outer_hessian_operator(
+            n, p_total, 2
+        ),
         "the large-n work model should select the scalable explicit Hessian-operator representation"
     );
 
-    let plan =
-        crate::solver::outer_strategy::plan(&crate::solver::outer_strategy::OuterCapability {
-            gradient,
-            hessian,
-            n_params: 2,
-            psi_dim: 0,
-            fixed_point_available: false,
-            barrier_config: None,
-            prefer_gradient_only: false,
-            disable_fixed_point: true,
-        });
-    assert_eq!(plan.solver, crate::solver::outer_strategy::Solver::Arc);
+    let plan = crate::solver::rho_optimizer::plan(&crate::solver::rho_optimizer::OuterCapability {
+        gradient,
+        hessian,
+        n_params: 2,
+        psi_dim: 0,
+        fixed_point_available: false,
+        barrier_config: None,
+        prefer_gradient_only: false,
+        disable_fixed_point: true,
+    });
+    assert_eq!(plan.solver, crate::solver::rho_optimizer::Solver::Arc);
     assert_eq!(
         plan.hessian_source,
-        crate::solver::outer_strategy::HessianSource::Analytic
+        crate::solver::rho_optimizer::HessianSource::Analytic
     );
 }
 
@@ -1081,7 +1274,7 @@ pub(crate) fn gls_workspace_fixture() -> (
         weights,
         mu_design: Some(mu_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let states = vec![
@@ -1155,7 +1348,7 @@ pub(crate) fn bls_workspace_fixture() -> (
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(threshold_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let states = vec![
         ParameterBlockState {
@@ -1496,7 +1689,7 @@ pub(crate) fn binomial_location_scale_operator_workspace_never_densifies_specs()
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let states = vec![
         ParameterBlockState {
@@ -1770,7 +1963,7 @@ pub(crate) fn binomial_location_scale_projected_trace_cache_matches_dense() {
         .second_directional_derivative_operator(&d_beta_u, &d_beta_v)
         .expect("d2H operator call")
         .expect("d2H operator present");
-    let cache = crate::solver::estimate::reml::unified::ProjectedFactorCache::default();
+    let cache = crate::reml_contracts::ProjectedFactorCache::default();
 
     for (name, op) in [("dH", dh_op.clone()), ("d2H", d2h_op.clone())] {
         let dense = op.to_dense();
@@ -1831,7 +2024,7 @@ pub(crate) fn binomial_location_scale_projected_trace_rejects_wrong_factor_rows(
         .expect("dH operator call")
         .expect("dH operator present");
     let bad_factor = Array2::<f64>::zeros((p + 1, 2));
-    let cache = crate::solver::estimate::reml::unified::ProjectedFactorCache::default();
+    let cache = crate::reml_contracts::ProjectedFactorCache::default();
     dh_op.trace_projected_factor_cached(&bad_factor, &cache);
 }
 
@@ -2087,7 +2280,7 @@ pub(crate) fn bls_wiggle_workspace_fixture() -> (
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 2,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let q0 = Array1::from_iter(
         eta_t
@@ -2495,7 +2688,7 @@ pub(crate) fn gaussian_location_scale_wiggle_workspace_matvec_matches_dense() {
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 2,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let states = vec![
@@ -2631,7 +2824,7 @@ pub(crate) fn gls_wiggle_workspace_fixture() -> (
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 2,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     // The wiggle block has dynamic geometry (q0-dependent basis): the
@@ -2928,7 +3121,7 @@ pub(crate) fn zeroweightrows_stay_inactive_in_builtin_diagonal_families() {
         weights: weights.clone(),
         mu_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let gaussian_eval = gaussian
@@ -3174,7 +3367,7 @@ pub(crate) fn gaussian_log_sigmaweight_directional_derivative_iszero_on_active_f
         weights: Array1::from_vec(vec![1.0]),
         mu_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let states = vec![
@@ -3207,7 +3400,7 @@ pub(crate) fn gaussian_log_sigmaweight_directional_derivative_matches_finite_dif
         weights: Array1::from_vec(vec![1.0]),
         mu_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let etamu = Array1::from_vec(vec![0.1]);
@@ -3330,7 +3523,7 @@ pub(crate) fn gaussian_diagonal_log_sigma_block_uses_fisher_score_step_in_far_ta
         weights: array![1.0],
         mu_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let eta_mu = array![0.0];
@@ -3406,7 +3599,7 @@ pub(crate) fn gaussian_exact_joint_path_stays_finite_in_exp_link_far_tail() {
         weights: array![1.0],
         mu_design: Some(mu_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let beta_mu = array![0.0];
@@ -3609,7 +3802,7 @@ pub(crate) fn binomial_location_scale_exact_probit_tailobjects_stay_finite() {
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(threshold_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let beta_t = array![250.0];
     let beta_ls = array![0.0];
@@ -3676,7 +3869,7 @@ pub(crate) fn binomial_location_scale_many_smoothing_params_keeps_second_order_o
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![
         spec_with_penalties("threshold", n, 3, 2),
@@ -3694,7 +3887,7 @@ pub(crate) fn binomial_location_scale_many_smoothing_params_keeps_second_order_o
     );
     assert_eq!(
         hessian,
-        crate::solver::outer_strategy::DeclaredHessianForm::Either
+        crate::solver::rho_optimizer::DeclaredHessianForm::Either
     );
 }
 
@@ -3908,7 +4101,7 @@ pub(crate) fn binomial_location_scale_exact_newton_spatial_joint_hyper_returns_f
         &rho,
         &derivative_blocks,
         None,
-        crate::solver::estimate::reml::unified::EvalMode::ValueGradientHessian,
+        crate::reml_contracts::EvalMode::ValueGradientHessian,
     )
     .expect("exact spatial joint hyper eval");
     assert!(eval.objective.is_finite());
@@ -3993,7 +4186,7 @@ pub(crate) fn binomial_location_scalewiggle_exact_newton_spatial_joint_hyper_ret
         &rho,
         &derivative_blocks,
         None,
-        crate::solver::estimate::reml::unified::EvalMode::ValueGradientHessian,
+        crate::reml_contracts::EvalMode::ValueGradientHessian,
     )
     .expect("exact wiggle spatial joint hyper eval");
     assert!(eval.objective.is_finite());
@@ -4076,7 +4269,7 @@ pub(crate) fn gaussian_location_scale_exact_newton_spatial_joint_hyper_returns_f
         &rho,
         &derivative_blocks,
         None,
-        crate::solver::estimate::reml::unified::EvalMode::ValueGradientHessian,
+        crate::reml_contracts::EvalMode::ValueGradientHessian,
     )
     .expect("exact spatial joint hyper eval");
     assert!(eval.objective.is_finite());
@@ -4638,7 +4831,7 @@ pub(crate) fn wiggle_family_evaluate_returns_exact_newton_blocks() {
         log_sigma_design: Some(log_sigma_design),
         wiggle_knots: knots,
         wiggle_degree: 2,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let eta_t = Array1::from_vec(vec![0.4; n]);
@@ -4723,7 +4916,7 @@ pub(crate) fn wiggle_family_exact_newton_directional_derivative_matches_finite_d
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let beta_t = Array1::from_vec(vec![0.25]);
@@ -4828,7 +5021,7 @@ pub(crate) fn wiggle_threshold_block_exacthessian_matches_autodiffobjective() {
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots.clone(),
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let beta_t0 = 0.25;
@@ -4899,7 +5092,7 @@ pub(crate) fn gaussian_log_sigma_psi_terms_match_autodiff_scalar_objective() {
         log_sigma_design: Some(DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
             x_ls0_mat.clone(),
         ))),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let specs = vec![
@@ -5160,7 +5353,7 @@ pub(crate) fn gaussian_log_sigma_psi_second_order_terms_match_autodiff_scalar_ob
         log_sigma_design: Some(DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
             x_ls0_mat.clone(),
         ))),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
         cached_row_scalars: std::sync::RwLock::new(None),
     };
     let specs = vec![
@@ -5883,7 +6076,7 @@ pub(crate) fn wiggle_family_block_hessians_match_jointhessian_principal_blocks()
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let beta_t = Array1::from_vec(vec![0.25]);
@@ -5984,7 +6177,7 @@ pub(crate) fn wiggle_nontrivial_fixture() -> (
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     (
         family,
@@ -6226,7 +6419,7 @@ pub(crate) fn wiggle_family_joint_exacthessian_directional_derivative_matches_fi
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let beta_t = Array1::from_vec(vec![0.25]);
@@ -6339,7 +6532,7 @@ pub(crate) fn wiggle_family_joint_exacthessiansecond_directional_derivative_matc
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 4,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let rebuild_states = |beta_t: &Array1<f64>,
@@ -6438,7 +6631,7 @@ pub(crate) fn wiggle_family_joint_hessian_cross_blocks_match_finite_difference_o
         log_sigma_design: Some(log_sigma_design.clone()),
         wiggle_knots: knots,
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let rebuild_states = |beta_t: &Array1<f64>,
@@ -6594,7 +6787,7 @@ pub(crate) fn nonwiggle_family_evaluate_returns_exact_newton_blockswhen_designs_
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(threshold_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let beta_t = array![0.2, -0.15];
@@ -6666,7 +6859,7 @@ pub(crate) fn nonwiggle_family_joint_exacthessian_directional_derivative_matches
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(threshold_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let rebuild_states = |beta_t: &Array1<f64>, beta_ls: &Array1<f64>| {
@@ -6739,7 +6932,7 @@ pub(crate) fn nonwiggle_family_joint_exacthessiansecond_directional_derivative_m
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(threshold_design.clone()),
         log_sigma_design: Some(log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let rebuild_states = |beta_t: &Array1<f64>, beta_ls: &Array1<f64>| {
@@ -6919,7 +7112,7 @@ pub(crate) fn binomial_location_scale_generative_matches_coremu() {
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: None,
         log_sigma_design: None,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let states = vec![
         ParameterBlockState {
@@ -6965,7 +7158,7 @@ pub(crate) fn wiggle_geometry_and_generative_use_same_sigma_link_as_core() {
         log_sigma_design: None,
         wiggle_knots: knots,
         wiggle_degree: 2,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let core_for_q0 =
@@ -7098,7 +7291,7 @@ pub(crate) fn binomial_location_scale_batched_gradient_matches_finite_difference
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(base.threshold_design),
         log_sigma_design: Some(base.log_sigma_design),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
 
     let specs = vec![base.threshold_spec, base.log_sigma_spec];
@@ -7119,7 +7312,7 @@ pub(crate) fn binomial_location_scale_batched_gradient_matches_finite_difference
             rho,
             &derivative_blocks,
             None,
-            crate::solver::estimate::reml::unified::EvalMode::ValueAndGradient,
+            crate::reml_contracts::EvalMode::ValueAndGradient,
         )
         .expect("objective+gradient at rho");
         (result.objective, result.gradient)
@@ -7186,7 +7379,7 @@ pub(crate) fn binomial_mean_wiggle_operator_fixture() -> (
         link_kind: InverseLink::Standard(StandardLink::Logit),
         wiggle_knots: knots,
         wiggle_degree: degree,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let basis = family.wiggle_design(eta.view()).expect("wiggle basis");
     let beta_w = Array1::from_iter((0..basis.ncols()).map(|j| 0.015 * (j as f64 + 1.0)));
@@ -7254,7 +7447,7 @@ pub(crate) fn binomial_location_scale_expected_info_derivatives_match_finite_dif
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(base.threshold_design.clone()),
         log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![base.threshold_spec, base.log_sigma_spec];
     let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
@@ -7391,7 +7584,7 @@ pub(crate) fn expected_info_jeffreys_does_not_reward_probit_saturation() {
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(base.threshold_design.clone()),
         log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![base.threshold_spec, base.log_sigma_spec];
     let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
@@ -7485,7 +7678,7 @@ pub(crate) fn binomial_location_scale_expected_info_contracted_trace_matches_sec
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(base.threshold_design.clone()),
         log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![base.threshold_spec, base.log_sigma_spec];
     let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
@@ -7551,7 +7744,7 @@ pub(crate) fn binomial_location_scale_expected_hphi_drift_matches_finite_differe
         link_kind: InverseLink::Standard(StandardLink::Probit),
         threshold_design: Some(base.threshold_design.clone()),
         log_sigma_design: Some(base.log_sigma_design.clone()),
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![base.threshold_spec, base.log_sigma_spec];
     let x_t = specs[BinomialLocationScaleFamily::BLOCK_T]
@@ -7575,7 +7768,54 @@ pub(crate) fn binomial_location_scale_expected_hphi_drift_matches_finite_differe
         },
     ];
     let total = beta_t.len() + beta_ls.len();
-    let z = Array2::<f64>::eye(total);
+    // IDENTIFIABLE-SPAN Jeffreys subspace `Z_J`. The binomial location-scale map
+    // `q = −η_t/σ` carries an EXACT threshold↔scale gauge degeneracy: the
+    // direction `(δη_t = η_t, δη_ls = 1)` gives `q̇ = q_t·η_t + q_ls = −η_t/σ +
+    // η_t/σ = 0`, so the per-row q-gradient — hence the whole expected Fisher
+    // information `I(β)` — is rank-deficient by exactly one along this gauge
+    // axis. On the constant-design fixture every row is proportional, so `I` is
+    // rank 1 and its smallest eigenvalue is structurally ZERO. Differencing the
+    // floored-pseudo-inverse `H_Φ` over the FULL span (`Z = I`) therefore
+    // central-differences a quantity whose near-zero-eigenvalue eigenvector is
+    // arbitrary up to numerical noise: the FD is meaningless (it swings by
+    // O(1/floor) with the eps choice) even though the analytic drift is exact.
+    // Production never runs the Jeffreys term on the raw gauge-degenerate span;
+    // it reduces to the identifiable coordinates first. We mirror that here by
+    // taking `Z_J` to be the eigenvectors of the base information with
+    // non-negligible eigenvalue, so the reduced `H_Φ` is well-conditioned and
+    // its central difference converges to the analytic directional derivative at
+    // the 1e-7 bar. (The dropped gauge axis carries no identifiable curvature, so
+    // restricting to it loses nothing the objective ever uses.)
+    let z = {
+        use crate::faer_ndarray::FaerEigh;
+        use faer::Side;
+        let base_info = family
+            .joint_jeffreys_information_with_specs(&states, &specs)
+            .expect("base expected info")
+            .expect("base expected info present");
+        let mut sym = Array2::<f64>::zeros((total, total));
+        for i in 0..total {
+            for j in 0..total {
+                sym[[i, j]] = 0.5 * (base_info[[i, j]] + base_info[[j, i]]);
+            }
+        }
+        let (evals, evecs) = sym.eigh(Side::Lower).expect("base info eigendecomposition");
+        let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max);
+        // Keep the identifiable directions (curvature ≥ a tiny fraction of the
+        // dominant eigenvalue); drop the structural gauge null space.
+        let keep: Vec<usize> = (0..total)
+            .filter(|&i| evals[i] > lambda_max * 1e-8)
+            .collect();
+        assert!(
+            !keep.is_empty(),
+            "base information must have an identifiable direction"
+        );
+        let mut z = Array2::<f64>::zeros((total, keep.len()));
+        for (col, &i) in keep.iter().enumerate() {
+            z.column_mut(col).assign(&evecs.column(i));
+        }
+        z
+    };
     let direction = Array1::from_shape_fn(total, |i| 0.03 * ((i + 1) as f64).sin());
     let perturb = |scale: f64| {
         let mut next = states.clone();
@@ -7665,7 +7905,7 @@ pub(crate) fn binomial_mean_wiggle_hessian_operators_match_dense_derivatives() {
         .expect("workspace")
         .expect("workspace available");
     let h_columns = Array2::from_shape_fn((total, total), |(i, j)| if i == j { 1.0 } else { 0.0 });
-    let op_h = crate::solver::estimate::reml::unified::HyperOperator::mul_mat(
+    let op_h = crate::reml_contracts::HyperOperator::mul_mat(
         family
             .bmw_static_hessian_operator(&states, Arc::new(x_eta.clone()))
             .expect("static op")
@@ -7721,7 +7961,7 @@ pub(crate) fn binomial_mean_wiggle_planner_keeps_second_order_at_large_n() {
         wiggle_knots: initializewiggle_knots_from_seed(Array1::linspace(-1.0, 1.0, 9).view(), 3, 4)
             .expect("large-n knots"),
         wiggle_degree: 3,
-        policy: crate::resource::ResourcePolicy::default_library(),
+        policy: crate::solver::resource::ResourcePolicy::default_library(),
     };
     let specs = vec![
         ParameterBlockSpec {
@@ -7776,7 +8016,7 @@ pub(crate) fn binomial_mean_wiggle_planner_keeps_second_order_at_large_n() {
 /// FAILS against the pre-fix code.
 #[test]
 pub(crate) fn gaussian_location_scale_psi_joint_hessian_pins_fisher_cross_zero() {
-    use crate::solver::estimate::reml::unified::HyperOperator;
+    use crate::reml_contracts::HyperOperator;
 
     // Materialize an `ExactNewtonJointPsiTerms` joint Hessian regardless of
     // whether the family returns it dense or operator-backed.

@@ -45,7 +45,7 @@ impl BinomialLocationScaleWiggleHessianWorkspace {
     /// are independent of the per-row weights and remain unchanged.
     pub(crate) fn apply_outer_subsample(
         &mut self,
-        rows: &[crate::families::marginal_slope_shared::WeightedOuterRow],
+        rows: &[crate::solver::outer_subsample::WeightedOuterRow],
     ) {
         let n = self.pieces.coeff_tt.len();
         let mut mask_tt = Array1::<f64>::zeros(n);
@@ -194,8 +194,7 @@ impl ExactNewtonJointHessianWorkspace for BinomialLocationScaleWiggleHessianWork
     fn directional_derivative_operator(
         &self,
         d_beta_flat: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
         self.family.bls_wiggle_directional_operator(
             &self.block_states,
             self.x_t.clone(),
@@ -221,8 +220,7 @@ impl ExactNewtonJointHessianWorkspace for BinomialLocationScaleWiggleHessianWork
         &self,
         d_beta_u: &Array1<f64>,
         d_beta_v: &Array1<f64>,
-    ) -> Result<Option<Arc<dyn crate::solver::estimate::reml::unified::HyperOperator>>, String>
-    {
+    ) -> Result<Option<Arc<dyn crate::reml_contracts::HyperOperator>>, String> {
         self.family.bls_wiggle_second_directional_operator(
             &self.block_states,
             self.x_t.clone(),
@@ -238,15 +236,11 @@ impl CustomFamilyGenerative for BinomialLocationScaleWiggleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<GenerativeSpec, String> {
-        if block_states.len() != 3 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "BinomialLocationScaleWiggleFamily expects 3 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>(
+            "BinomialLocationScaleWiggleFamily",
+            3,
+            block_states.len(),
+        )?;
         let eta_t = &block_states[Self::BLOCK_T].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
         let etaw = &block_states[Self::BLOCK_WIGGLE].eta;

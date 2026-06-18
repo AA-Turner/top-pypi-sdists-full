@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: livekit-plugins-aws
-Version: 1.6.0
+Version: 1.6.1
 Summary: LiveKit Agents Plugin for services from AWS
 Project-URL: Documentation, https://docs.livekit.io
 Project-URL: Website, https://livekit.io/
@@ -20,7 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10.0
 Requires-Dist: aioboto3>=14.1.0
 Requires-Dist: aws-sdk-transcribe-streaming>=0.2.0; python_version >= '3.12'
-Requires-Dist: livekit-agents>=1.6.0
+Requires-Dist: livekit-agents>=1.6.1
 Provides-Extra: realtime
 Requires-Dist: aws-sdk-bedrock-runtime>=0.2.0; (python_version >= '3.12') and extra == 'realtime'
 Requires-Dist: aws-sdk-signers>=0.0.3; (python_version >= '3.12') and extra == 'realtime'
@@ -119,7 +119,6 @@ The `realtime_joke_teller.py` example demonstrates both realtime and pipeline mo
 1. **Install dependencies:**
    ```bash
    pip install livekit-plugins-aws[realtime] \
-               livekit-plugins-silero \
                jokeapi \
                duckduckgo-search \
                python-weather \
@@ -360,13 +359,14 @@ if __name__ == "__main__":
 For more control over individual components, use pipeline mode:
 
 ```python
-from livekit.plugins import aws, silero
+from livekit.agents import inference
+from livekit.plugins import aws
 
 session = AgentSession(
     stt=aws.STT(),                    # Amazon Transcribe
     llm=aws.LLM(),                    # Nova 2 Lite (default)
     tts=aws.TTS(),                    # Amazon Polly
-    vad=silero.VAD.load(),
+    vad=inference.VAD(),
 )
 ```
 

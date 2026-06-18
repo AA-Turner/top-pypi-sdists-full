@@ -19,24 +19,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from workflows.events import Event, StopEvent
+from workflows.runtime.types.step_id import StepId
 
 
 @dataclass(frozen=True)
 class CommandRunWorker:
-    step_name: str
+    step_id: StepId
     event: Event
     id: int
+    bound_events: dict[str, Event] | None = None
 
 
 @dataclass(frozen=True)
 class CommandQueueEvent:
     event: Event
-    step_name: str | None = None
-    attempts: int | None = None
-    first_attempt_at: float | None = None
-    last_exception: Exception | None = None
-    last_failed_at: float | None = None
+    step_id: StepId | None = None
     recovery_counts: dict[str, int] = field(default_factory=dict)
+    scope_path: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -51,7 +50,7 @@ class CommandCompleteRun:
 
 @dataclass(frozen=True)
 class CommandFailWorkflow:
-    step_name: str
+    step_id: StepId
     exception: Exception
 
 
@@ -62,7 +61,7 @@ class CommandPublishEvent:
 
 @dataclass(frozen=True)
 class CommandScheduleWaiterTimeout:
-    step_name: str
+    step_id: StepId
     waiter_id: str
     timeout: float
 
@@ -86,7 +85,7 @@ class CommandScheduleIdleCheck:
     Returned by the reducer when state looks quiescent after processing a tick.
     The runner appends a TickIdleCheck to tick_buffer so that idle is confirmed
     on the next loop iteration, after an asyncio.sleep(0) yield gives in-flight
-    ctx.send_event() calls a chance to drain.
+    ctx.send_event() calls a chance to deliver.
     """
 
     pass

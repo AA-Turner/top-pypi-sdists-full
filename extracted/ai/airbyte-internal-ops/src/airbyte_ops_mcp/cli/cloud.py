@@ -50,15 +50,15 @@ from airbyte_cdk.utils.connector_paths import find_connector_root_from_name
 from airbyte_cdk.utils.docker import build_connector_image, verify_docker_installation
 from airbyte_protocol.models import ConfiguredAirbyteCatalog
 from cyclopts import Parameter
-
-from airbyte_ops_mcp.cli._base import App, app
-from airbyte_ops_mcp.cli._shared import (
+from fastmcp_extensions.cli import (
     exit_with_error,
     print_error,
     print_json,
     print_success,
     print_warning,
 )
+
+from airbyte_ops_mcp.cli._base import App, app
 from airbyte_ops_mcp.cloud_admin.auth import CloudAuthError
 from airbyte_ops_mcp.cloud_admin.connection_config import fetch_connection_config
 from airbyte_ops_mcp.cloud_admin.connection_state import (

@@ -17,10 +17,11 @@ from typing import Any, AnyStr, Callable, Dict, Iterable, List, Mapping, Mutable
 from urllib.request import build_opener
 
 import frida
-from colorama import Fore, Style
-from prompt_toolkit import PromptSession
+from colorama import Style
+from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import FormattedText, fragment_list_to_text
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts import prompt
@@ -28,8 +29,8 @@ from prompt_toolkit.styles import Style as PromptToolkitStyle
 from pygments.lexers.javascript import JavascriptLexer
 from pygments.token import Token
 
-from frida_tools import _repl_magic
-from frida_tools.application import ConsoleApplication
+from frida_tools import _repl_magic, repl_inspect
+from frida_tools.application import ConsoleApplication, ConsoleState
 from frida_tools.cli_formatting import THEME_COLOR, format_compiled, format_compiling, format_diagnostic
 from frida_tools.reactor import Reactor
 
@@ -482,17 +483,16 @@ class REPLApplication(ConsoleApplication):
         success = False
         try:
             t, value = self._perform_on_reactor_thread(lambda: exec(arg))
-            if t in ("function", "undefined", "null"):
-                output = t
-            elif t == "binary":
-                output = hexdump(value).rstrip("\n")
+            if t == "binary":
+                output = repl_inspect.render_hexdump(value)
             else:
-                output = json.dumps(value, sort_keys=True, indent=4, separators=(",", ": "))
+                tree, blob = value
+                output = "undefined" if repl_inspect.is_undefined(tree) else repl_inspect.render(tree, blob)
             success = True
         except JavaScriptError as e:
             error = e.error
 
-            output = Fore.RED + Style.BRIGHT + error["name"] + Style.RESET_ALL + ": " + error["message"]
+            fragments = [("fg:#ff453a bold", error["name"]), ("", ": " + error["message"])]
 
             stack = error.get("stack", None)
             if stack is not None:
@@ -500,12 +500,21 @@ class REPLApplication(ConsoleApplication):
                 trim_amount = 6 if self._runtime == "v8" else 7
                 trimmed_stack = stack.split("\n")[message_len:-trim_amount]
                 if len(trimmed_stack) > 0:
-                    output += "\n" + "\n".join(trimmed_stack)
+                    fragments.append(("", "\n" + "\n".join(trimmed_stack)))
+
+            output = FormattedText(fragments)
         except frida.InvalidOperationError:
             return success
         if output != "undefined":
-            self._print(output)
+            self._print_rich(output)
         return success
+
+    def _print_rich(self, formatted: FormattedText) -> None:
+        if self._cli is not None:
+            print_formatted_text(formatted, output=self._cli.output)
+            self._console_state = ConsoleState.TEXT
+        else:
+            self._print(fragment_list_to_text(formatted))
 
     def _print_startup_message(self) -> None:
         self._print("""\
@@ -529,7 +538,8 @@ class REPLApplication(ConsoleApplication):
         obj_type, obj_value = self._evaluate_expression(obj_to_identify)
 
         if obj_type == "function":
-            signature = self._evaluate_expression("%s.toString()" % obj_to_identify)[1]
+            _, (signature_tree, _) = self._evaluate_expression("%s.toString()" % obj_to_identify)
+            signature = signature_tree[1]
             clean_signature = signature.split("{")[0][:-1].split("function ")[-1]
 
             if "[native code]" in signature:
@@ -549,9 +559,9 @@ class REPLApplication(ConsoleApplication):
             help_text += "Docstring: #TODO :)"
 
         elif obj_type == "string":
-            bool_text = self._evaluate_expression(obj_to_identify + ".toString()")[1]
+            _, (text_tree, _) = self._evaluate_expression(obj_to_identify + ".toString()")
             help_text += "Type:      Boolean\n"
-            help_text += f"Text:      {bool_text.decode()}\n"
+            help_text += f"Text:      {text_tree[1]}\n"
             help_text += "Docstring: #TODO :)"
 
         self._print(help_text)
@@ -681,7 +691,8 @@ class REPLApplication(ConsoleApplication):
             return ("binary", bytes())
         elif result[0] == "error":
             raise JavaScriptError(result[1])
-        return (result[0], result[1])
+        _, value_type, tree, blob = result
+        return (value_type, (tree, blob))
 
     def _process_message(self, message: Mapping[Any, Any], data: Any) -> None:
         message_type = message["type"]
@@ -716,9 +727,7 @@ class REPLApplication(ConsoleApplication):
         raw_fragments = []
 
         data_dir = Path(__file__).parent
-        raw_fragments.append(
-            (data_dir / "repl_agent.js").read_text(encoding="utf-8").replace("/agent.js", "/frida/repl/agent.js", 1)
-        )
+        raw_fragments.append(self._relocate_bundle((data_dir / "repl_agent.js").read_text(encoding="utf-8"), "/frida/repl"))
 
         if self._codeshare_script is not None:
             raw_fragments.append(
@@ -760,6 +769,16 @@ class REPLApplication(ConsoleApplication):
                 fragments.append(f"{size} /frida/repl-{script_id}.js\n✄\n{raw_fragment}")
 
         return "📦\n" + "\n✄\n".join(fragments)
+
+    @staticmethod
+    def _relocate_bundle(bundle: str, prefix: str) -> str:
+        header, separator, body = bundle.partition("\n✄\n")
+        lines = header.split("\n")
+        relocated = [lines[0]]
+        for line in lines[1:]:
+            size, _, path = line.partition(" ")
+            relocated.append(f"{size} {prefix}{path}")
+        return "\n".join(relocated) + separator + body
 
     def _wrap_user_script(self, name, script):
         if script.startswith("📦\n"):
@@ -1096,7 +1115,8 @@ class FridaCompleter(Completer):
         if t == "error":
             return []
 
-        return sorted(filter(self._is_valid_name, set(value)))
+        names = repl_inspect.to_string_list(value[0])
+        return sorted(filter(self._is_valid_name, set(names)))
 
     def _is_valid_name(self, name) -> bool:
         tokens = list(self._lexer.get_tokens(name))
@@ -1110,17 +1130,6 @@ def script_needs_compilation(path: AnyStr) -> bool:
     if isinstance(path, str):
         return path.endswith(".ts")
     return path.endswith(b".ts")
-
-
-def hexdump(src, length: int = 16) -> str:
-    FILTER = "".join([(len(repr(chr(x))) == 3) and chr(x) or "." for x in range(256)])
-    lines = []
-    for c in range(0, len(src), length):
-        chars = src[c : c + length]
-        hex = " ".join(["%02x" % x for x in iter(chars)])
-        printable = "".join(["%s" % ((x <= 127 and FILTER[x]) or ".") for x in iter(chars)])
-        lines.append("%04x  %-*s  %s\n" % (c, length * 3, hex, printable))
-    return "".join(lines)
 
 
 OS_BINARY_SIGNATURES = {

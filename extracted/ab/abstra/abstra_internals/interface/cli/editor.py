@@ -340,6 +340,12 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
 
     main_controller = MainController(repositories)
 
+    # Linter sidecar wiring: after a child respawn the client resyncs its
+    # checks mirror in the background — the UI must hear about it.
+    _set_on_checks_updated = getattr(repositories.linter, "set_on_checks_updated", None)
+    if _set_on_checks_updated is not None:
+        _set_on_checks_updated(LinterEventController.broadcast)
+
     storage = _wire_editor_storage(
         main_controller,
         is_web_editor=is_web_editor,
@@ -398,9 +404,14 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         if shutdown_started.is_set():
             return
         shutdown_started.set()
+        # The linter sidecar client exposes stop() (shutdown RPC + EOF +
+        # kill); stdin EOF also covers every non-graceful editor death.
+        linter_sidecar = (
+            repositories.linter if hasattr(repositories.linter, "stop") else None
+        )
         shutdown_editor_components(
             server=server,
-            watchers=(watcher, logs_watcher, tasks_watcher, heartbeat),
+            watchers=(watcher, logs_watcher, tasks_watcher, heartbeat, linter_sidecar),
             editor_consumer=editor_consumer,
             consumer_controller=consumer_controller,
             stdio_broadcast_stop_event=stdio_broadcast_stop_event,

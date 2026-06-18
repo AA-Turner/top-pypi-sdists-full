@@ -82,6 +82,72 @@ pub(crate) fn are_penalties_block_factored(
     true
 }
 
+/// Partition dense penalty components into disjoint diagonal coordinate blocks.
+///
+/// Each `S_k` occupies a contiguous coordinate support `[min, max)` (the rows /
+/// columns where it has any nonzero entry). Components whose supports overlap
+/// are merged into one block; components with disjoint supports become separate
+/// blocks. Returns the sorted, non-overlapping block ranges `[(start, end), …]`
+/// when the union support partitions into **more than one** disjoint block, so
+/// the per-block λ-coercivity threshold (#1237) can be applied; returns `None`
+/// when there is a single connected block (the global threshold is already
+/// block-local in that case) or when there are no penalized coordinates.
+///
+/// This mirrors `are_penalties_block_factored` / `from_penalties_block_factored`
+/// but recovers the block structure from the dense component supports, which is
+/// the only structure available on the `from_components` path (custom-family /
+/// multinomial), where penalties arrive as dense `Array2` without
+/// `CanonicalPenalty` column-range metadata.
+fn disjoint_diagonal_blocks(s_k_matrices: &[Array2<f64>]) -> Option<Vec<(usize, usize)>> {
+    if s_k_matrices.is_empty() {
+        return None;
+    }
+    let p_dim = s_k_matrices[0].nrows();
+    if p_dim == 0 {
+        return None;
+    }
+
+    // Per-component support [min, max] over coordinates with any nonzero entry.
+    // A symmetric S_k is supported on coordinate i iff its i-th row (equivalently
+    // column) has a nonzero, so it suffices to scan row magnitudes.
+    let mut spans: Vec<(usize, usize)> = Vec::with_capacity(s_k_matrices.len());
+    for s_k in s_k_matrices {
+        let mut lo: Option<usize> = None;
+        let mut hi: usize = 0;
+        for i in 0..p_dim {
+            let nz = (0..p_dim).any(|j| s_k[[i, j]] != 0.0);
+            if nz {
+                if lo.is_none() {
+                    lo = Some(i);
+                }
+                hi = i;
+            }
+        }
+        if let Some(lo) = lo {
+            spans.push((lo, hi + 1));
+        }
+    }
+    if spans.is_empty() {
+        return None;
+    }
+
+    // Merge overlapping/adjacent-by-overlap spans into maximal disjoint blocks.
+    spans.sort_unstable();
+    let mut blocks: Vec<(usize, usize)> = Vec::with_capacity(spans.len());
+    for (start, end) in spans {
+        match blocks.last_mut() {
+            // Overlap (strict: a coordinate shared by both spans) merges the two
+            // into one block. Touching-but-disjoint spans (`prev_end == start`)
+            // stay separate — they share no coordinate, so their penalties never
+            // couple and each block carries its own λ.
+            Some(last) if start < last.1 => last.1 = last.1.max(end),
+            _ => blocks.push((start, end)),
+        }
+    }
+
+    if blocks.len() > 1 { Some(blocks) } else { None }
+}
+
 /// Result of a penalty pseudo-logdet computation.
 ///
 /// Holds the eigendecomposition and precomputed W-factor so that derivative
@@ -416,6 +482,43 @@ impl PenaltyPseudologdet {
         }
 
         let ridge_hint = if ridge > 0.0 { Some(ridge) } else { None };
+
+        // λ-COERCIVITY ON SEPARATING DIRECTIONS (#1237). The penalty sum
+        // S(λ) = Σ_k λ_k S_k decomposes into disjoint diagonal blocks whenever
+        // the penalized terms occupy disjoint coordinate ranges (the common
+        // multi-smooth case: each `s(xⱼ)` penalizes its own column block; the
+        // multinomial K-1 class blocks are themselves separate `from_components`
+        // calls, each carrying that class's per-term penalties). When one term's
+        // `λ_t → 0` (the near-separable signature: a wigglier spline separates
+        // the classes ever better, so the outer REML search drives that λ down),
+        // ALL of S_t's eigenvalues scale by λ_t. If the positive/null split is
+        // taken against the GLOBAL spectrum's `max|e|` — set by the other,
+        // moderately-penalized terms — then S_t's genuine range-space modes
+        // `λ_t σ_t` slide below the relative noise floor `100·p·ε·max|e|` and are
+        // misclassified as structural null. Dropping them deletes their
+        // `−½ log(λ_t σ_t) = −½ ρ_t − const` contribution to `−½ log|S|₊`, which
+        // is exactly the coercivity term that would otherwise make V(ρ) blow up
+        // as ρ_t → −∞. Without it the outer criterion is monotone-decreasing in
+        // ρ_t, λ slams to its lower box bound and bounces, and the search never
+        // certifies a stationary point (the #1082 penguin `_nnet` timeout).
+        //
+        // Thresholding PER disjoint diagonal block fixes this: within a single
+        // block governed by one λ, every eigenvalue scales by that λ, so the
+        // relative floor `100·b·ε·max_block|e|` scales identically and λ CANCELS
+        // — the dropped set is the genuine λ-invariant structural null of the
+        // unit penalty, and a barely-penalized real mode keeps its coercivity.
+        // This mirrors `from_penalties_block_factored` (which already thresholds
+        // block-local from `CanonicalPenalty` col-ranges); here we recover the
+        // same block structure from the dense components' union support, so the
+        // custom-family/multinomial value (joint_newton) and gradient
+        // (`rho_derivatives` via `compute_block_penalty_logdet_derivs`) paths —
+        // both routed through `from_components` — agree by construction.
+        if let Some(blocks) = disjoint_diagonal_blocks(s_k_matrices)
+            && blocks.len() > 1
+        {
+            return Self::from_assembled_block_local(s_total, ridge_hint, &blocks);
+        }
+
         Self::from_assembled(s_total, ridge_hint)
     }
 
@@ -475,7 +578,8 @@ impl PenaltyPseudologdet {
         //                  eigendecomposition introduces at most O(p · ε · ‖S‖)
         //                  perturbation, so any eigenvalue ≤ r + delta is
         //                  indistinguishable from ridge-only within FP noise.
-        let noise_band = super::unified::positive_eigenvalue_threshold(evals.as_slice().unwrap());
+        let noise_band =
+            super::reml_outer_engine::positive_eigenvalue_threshold(evals.as_slice().unwrap());
         let boundary = match ridge {
             Some(r) if r > 0.0 => r + noise_band,
             _ => noise_band,
@@ -556,6 +660,157 @@ impl PenaltyPseudologdet {
             rank,
             value,
             block_spans: Vec::new(),
+        })
+    }
+
+    /// Assemble the pseudo-logdet block-locally over disjoint diagonal blocks.
+    ///
+    /// `s_total` is the fully assembled `Σ_k λ_k S_k (+ ridge·I)`; `blocks` are
+    /// the sorted, non-overlapping coordinate ranges from
+    /// [`disjoint_diagonal_blocks`]. Each block is eigendecomposed in isolation
+    /// via [`Self::from_assembled`], so the positive/null split uses that
+    /// block's OWN relative floor `100·b·ε·max_block|e|`. Within a block every
+    /// eigenvalue scales by that block's single λ, so the floor scales with it
+    /// and λ cancels: a near-separable term keeps its genuine range-space modes
+    /// (and their `−½ log(λ σ)` coercivity) instead of having them slide below a
+    /// global floor set by the other, moderately-penalized blocks (#1237).
+    ///
+    /// The result is identical in shape to [`Self::from_assembled`] on `s_total`
+    /// (a block-diagonal W-factor embedded in the full p×p space, the summed
+    /// value, the stacked null basis) and carries `block_spans` for downstream
+    /// per-block queries, exactly like [`Self::from_penalties_block_factored`].
+    fn from_assembled_block_local(
+        s_total: Array2<f64>,
+        ridge: Option<f64>,
+        blocks: &[(usize, usize)],
+    ) -> Result<Self, String> {
+        let p_total = s_total.nrows();
+
+        struct BlockResult {
+            start: usize,
+            end: usize,
+            w_local: Array2<f64>,
+            u_null_local: Array2<f64>,
+            inv_evals_sq: Vec<f64>,
+            value: f64,
+            rank: usize,
+            nullity: usize,
+        }
+
+        // Eigendecompose each disjoint block in its own frame.
+        let mut covered = vec![false; p_total];
+        for &(start, end) in blocks {
+            for i in start..end {
+                covered[i] = true;
+            }
+        }
+
+        let mut block_results: Vec<BlockResult> = Vec::with_capacity(blocks.len());
+        for &(start, end) in blocks {
+            let local = s_total.slice(s![start..end, start..end]).to_owned();
+            let block_pld = Self::from_assembled(local, ridge)?;
+            let nullity = block_pld.u_null.as_ref().map_or(0, Array2::ncols);
+            block_results.push(BlockResult {
+                start,
+                end,
+                w_local: block_pld.w_factor,
+                u_null_local: block_pld
+                    .u_null
+                    .unwrap_or_else(|| Array2::<f64>::zeros((end - start, 0))),
+                inv_evals_sq: block_pld.inv_evals_sq.to_vec(),
+                value: block_pld.value,
+                rank: block_pld.rank,
+                nullity,
+            });
+        }
+
+        // Coordinates not covered by any penalty block carry only the ridge (or
+        // are structurally null when ridge == 0), mirroring the uncovered-column
+        // handling in `from_penalties_block_factored`.
+        if let Some(r) = ridge {
+            let inv_ridge_sq = 1.0 / (r * r);
+            let scale = 1.0 / r.sqrt();
+            for (idx, &c) in covered.iter().enumerate() {
+                if !c {
+                    let mut w_col = Array2::<f64>::zeros((1, 1));
+                    w_col[[0, 0]] = scale;
+                    block_results.push(BlockResult {
+                        start: idx,
+                        end: idx + 1,
+                        w_local: w_col,
+                        u_null_local: Array2::<f64>::zeros((1, 0)),
+                        inv_evals_sq: vec![inv_ridge_sq],
+                        value: r.ln(),
+                        rank: 1,
+                        nullity: 0,
+                    });
+                }
+            }
+        }
+
+        // Assemble the combined block-diagonal factorization.
+        let total_rank: usize = block_results.iter().map(|br| br.rank).sum();
+        let total_value: f64 = block_results.iter().map(|br| br.value).sum();
+
+        let mut w_factor = Array2::<f64>::zeros((p_total, total_rank));
+        let mut inv_evals_sq = Array1::<f64>::zeros(total_rank);
+        let mut block_spans = Vec::with_capacity(block_results.len());
+        let mut col_offset = 0;
+        for br in &block_results {
+            if br.rank > 0 {
+                w_factor
+                    .slice_mut(s![br.start..br.end, col_offset..col_offset + br.rank])
+                    .assign(&br.w_local);
+                for (i, &v) in br.inv_evals_sq.iter().enumerate() {
+                    inv_evals_sq[col_offset + i] = v;
+                }
+                block_spans.push(PenaltyBlockSpan {
+                    start: br.start,
+                    end: br.end,
+                    rank_start: col_offset,
+                    rank_end: col_offset + br.rank,
+                });
+                col_offset += br.rank;
+            }
+        }
+
+        let block_nullity: usize = block_results.iter().map(|br| br.nullity).sum();
+        let uncovered_nullity = if ridge.is_some() {
+            0
+        } else {
+            covered.iter().filter(|&&c| !c).count()
+        };
+        let total_nullity = block_nullity + uncovered_nullity;
+        let u_null = if total_nullity > 0 {
+            let mut u0 = Array2::<f64>::zeros((p_total, total_nullity));
+            let mut null_col = 0;
+            for br in &block_results {
+                if br.nullity > 0 {
+                    u0.slice_mut(s![br.start..br.end, null_col..null_col + br.nullity])
+                        .assign(&br.u_null_local);
+                    null_col += br.nullity;
+                }
+            }
+            if ridge.is_none() {
+                for (idx, &c) in covered.iter().enumerate() {
+                    if !c {
+                        u0[[idx, null_col]] = 1.0;
+                        null_col += 1;
+                    }
+                }
+            }
+            Some(u0)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            w_factor,
+            u_null,
+            inv_evals_sq,
+            rank: total_rank,
+            value: total_value,
+            block_spans,
         })
     }
 
@@ -1306,7 +1561,7 @@ mod tests {
             + 2.0 * r_psi.dot(&d).dot(&r_psi.t())
             + r.dot(&d).dot(&r_psi_psi.t());
 
-        let root = crate::estimate::reml::unified::penalty_matrix_root(&s_mat).unwrap();
+        let root = crate::estimate::reml::reml_outer_engine::penalty_matrix_root(&s_mat).unwrap();
         let penalty = crate::construction::CanonicalPenalty::from_dense_root(root, 3);
         let block_factored = PenaltyPseudologdet::from_penalties(&[penalty], &[1.0], 0.0, 3)
             .expect("block-factored pseudo-logdet");
@@ -1331,7 +1586,7 @@ mod tests {
         let s = array![[4.0, 2.0], [2.0, 1.0]];
         let ridge = 1e-4_f64;
 
-        let root = crate::estimate::reml::unified::penalty_matrix_root(&s).unwrap();
+        let root = crate::estimate::reml::reml_outer_engine::penalty_matrix_root(&s).unwrap();
         let penalty = crate::construction::CanonicalPenalty::from_dense_root(root, 2);
         let block_factored = PenaltyPseudologdet::from_penalties(&[penalty], &[1.0], ridge, 2)
             .expect("block-factored pseudo-logdet");

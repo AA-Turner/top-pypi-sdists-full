@@ -29,13 +29,14 @@ license:
 
 from __future__ import annotations
 
-from math import atan2, cos, isnan, sin
+from math import atan2, cos, isnan, sin, pi
 from typing import overload, TYPE_CHECKING, Callable, TypeVar
 from typing import cast as tcast
 
 from OCP.BRep import BRep_Tool
 from OCP.BRepAdaptor import BRepAdaptor_Curve
 from OCP.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeVertex
+from OCP.BRepLib import BRepLib
 from OCP.GCPnts import GCPnts_AbscissaPoint
 from OCP.Geom import Geom_Curve, Geom_Plane
 from OCP.Geom2d import (
@@ -58,6 +59,7 @@ from OCP.Geom2dGcc import (
     Geom2dGcc_Lin2d2Tan,
     Geom2dGcc_QualifiedCurve,
 )
+from OCP.GeomAbs import GeomAbs_CurveType
 from OCP.GeomAPI import GeomAPI
 from OCP.gp import (
     gp_Ax2d,
@@ -136,7 +138,10 @@ def _edge_to_qualified_2d(
 def _edge_from_circle(h2d_circle: Geom2d_Circle, u1: float, u2: float) -> TopoDS_Edge:
     """Build a 3D edge on XY from a trimmed 2D circle segment [u1, u2]."""
     arc2d = Geom2d_TrimmedCurve(h2d_circle, u1, u2, True)  # sense=True
-    return BRepBuilderAPI_MakeEdge(arc2d, _surf_xy).Edge()
+    circle_edge = BRepBuilderAPI_MakeEdge(arc2d, _surf_xy).Edge()
+    BRepLib.BuildCurves3d_s(circle_edge)
+
+    return circle_edge
 
 
 def _param_in_trim(
@@ -174,7 +179,7 @@ def _as_gcc_arg(obj: Edge | Vector, constaint: Tangency) -> tuple[
     - Edge -> (QualifiedCurve, h2d, first, last, True)
     - Vector -> (CartesianPoint, None, None, None, False)
     """
-    if obj.wrapped is None:
+    if not obj:
         raise TypeError("Can't create a qualified curve from empty edge")
 
     if isinstance(obj.wrapped, TopoDS_Edge):
@@ -264,6 +269,48 @@ def _qstr(q) -> str:  # pragma: no cover
     except Exception:
         # Fallback if enums aren't importable for any reason
         return str(int(q))
+
+
+def _enclosed_circ_param_offset(
+    tangent_tuples: list[tuple[Edge | Vector, Tangency]],
+    circ: gp_Circ2d,
+    params: list[float],
+) -> list[float]:
+    """
+    Adjusts solution-circle parameters by adding pi if the solution circle is
+    enclosed within a tangent circular edge.
+
+    Only applies when at least one tangent input is non-circular: GccAna_Circ2d3Tan
+    (invoked for all-circle inputs) already computes the correct tangent direction
+    for the enclosed case, so no offset is needed there.
+    """
+    adapts = [
+        (
+            BRepAdaptor_Curve(t[0].wrapped)
+            if isinstance(t[0].wrapped, TopoDS_Edge)
+            else None
+        )
+        for t in tangent_tuples
+    ]
+    is_circ = [
+        a is not None and a.GetType() == GeomAbs_CurveType.GeomAbs_Circle
+        for a in adapts
+    ]
+
+    if all(is_circ):
+        return list(params)
+
+    center_pnt = circ.Location()
+    center_vrt = Vector(center_pnt.X(), center_pnt.Y(), 0)
+
+    pars = list(params)
+    for i, (par, circ_flag, t) in enumerate(zip(params, is_circ, tangent_tuples)):
+        if isinstance(t[0], Vector):
+            continue
+        if circ_flag and (center_vrt - t[0].arc_center).length < t[0].radius:
+            pars[i] = par + pi
+
+    return pars
 
 
 def _make_2tan_rad_arcs(
@@ -427,6 +474,10 @@ def _make_2tan_on_arcs(
         if not _ok(1, u_arg2):
             continue
 
+        u_circ1, u_circ2 = _enclosed_circ_param_offset(
+            tangent_tuples, circ, [u_circ1, u_circ2]
+        )
+
         # Build sagitta arc(s) and select by LengthConstraint
         if sagitta == Sagitta.BOTH:
             solutions.extend(_two_arc_edges_from_params(circ, u_circ1, u_circ2))
@@ -517,6 +568,11 @@ def _make_3tan_arcs(
         if not _ok(2, u_arg3):
             continue
 
+        u_circ1, u_circ2, _u_circ3 = _enclosed_circ_param_offset(
+            tangent_tuples,
+            circ,
+            [u_circ1, u_circ2, _u_circ3],
+        )
         # Build arc(s) between u_circ1 and u_circ2 per LengthConstraint
         if sagitta == Sagitta.BOTH:
             out_topos.extend(_two_arc_edges_from_params(circ, u_circ1, u_circ2))
@@ -678,7 +734,7 @@ def _make_tan_on_rad_arcs(
 
         # Project center onto the (trimmed) 2D locus
         proj = Geom2dAPI_ProjectPointOnCurve(center2d, h_on2d)
-        u_on = proj.Parameter(1)
+        u_on = tcast(float, proj.Parameter(1))
 
         # Respect the trimmed interval (handles periodic curves too)
         if not _param_in_trim(u_on, on_first, on_last, h_on2d):

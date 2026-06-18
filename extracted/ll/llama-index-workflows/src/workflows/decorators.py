@@ -20,6 +20,7 @@ from typing import (
 
 from pydantic import BaseModel
 
+from .collect import Collect
 from .errors import WorkflowValidationError
 from .events import StepFailedEvent
 from .resource import ResourceDefinition
@@ -51,6 +52,31 @@ class StepConfig:
     resources: list[ResourceDefinition]
     context_state_type: type[BaseModel] | None = None
     skip_graph_checks: list[StepGraphCheck] = dataclasses.field(default_factory=list)
+    # Heterogeneous fan-in: when a step declares more than one event parameter,
+    # this is the ordered list of (parameter_name, event_type) it collects. The
+    # step fires once when one event of each type has arrived. None for the
+    # ordinary single-event-trigger model.
+    collect_params: list[tuple[str, Any]] | None = None
+    # Fan-out producer: True when the return annotation is ``list[E]``. Such
+    # a step MAY mint a fresh stream per execution — whether it does is a
+    # runtime fact: only an actual list return opens a stream. Computed at
+    # decoration time from the return annotation; used for binding computation
+    # and validation.
+    is_fan_out: bool = False
+    # Non-list members of a fan-out return union (``-> list[A] | B`` -> (B,)).
+    # A bare return of one of these types is ordinary dispatch; any other bare
+    # event under a list-returning annotation is a runtime error.
+    bare_return_types: tuple[Any, ...] = ()
+    # Collection-stream fan-in: set to ``(parameter_name, element_event_types)``
+    # when the step declares a single ``list[E]`` parameter. The element types are
+    # a tuple — ``list[Done]`` -> ``(Done,)``; a union flat list ``list[A | B]`` ->
+    # ``(A, B)`` (every member routes to the step). The step buffers incoming
+    # members by innermost stream id and releases per ``collection_policy``.
+    collection_param: tuple[str, tuple[Any, ...]] | None = None
+    # The resolved ``Collect`` marker for the collection parameter. A bare
+    # ``list[E]`` parameter resolves to ``Collect()`` (``All``). None for steps
+    # without a collection parameter.
+    collection_policy: Collect | None = None
     role: StepRole = "step"
     # Only meaningful when role == "catch_error".
     # None means wildcard — covers any step not claimed by a scoped handler.
@@ -202,6 +228,16 @@ def make_step_function(
 
     event_name, accepted_events = next(iter(spec.accepted_events.items()))
 
+    # Collect-mode (multi-slot fan-in): more than one event parameter. The step
+    # accepts every declared event type for routing, then collects by
+    # declaration order before firing once.
+    collect_params: list[tuple[str, Any]] | None = None
+    if len(spec.accepted_events) > 1:
+        collect_params = [
+            (name, param_types[0]) for name, param_types in spec.accepted_events.items()
+        ]
+        accepted_events = [event_type for _, event_type in collect_params]
+
     casted = cast(StepFunction[P, R], func)
     casted._step_config = StepConfig(
         accepted_events=accepted_events,
@@ -213,6 +249,11 @@ def make_step_function(
         retry_policy=retry_policy,
         resources=spec.resources,
         skip_graph_checks=skip_graph_checks or [],
+        collect_params=collect_params,
+        is_fan_out=spec.is_fan_out,
+        bare_return_types=tuple(spec.bare_return_types),
+        collection_param=spec.collection_param,
+        collection_policy=spec.collection_policy,
         accept_event_subclasses=accept_event_subclasses,
     )
 
@@ -352,12 +393,7 @@ def _capture_decorator_localns() -> dict[str, Any]:
         return {}
 
     try:
-        decorator_frame = frame.f_back
-        localns: dict[str, Any] = {}
-        localns.update(decorator_frame.f_locals)
-        if decorator_frame.f_back is not None:
-            localns.update(decorator_frame.f_back.f_locals)
-        return localns
+        return _merge_ancestor_locals(frame.f_back, depth=4)
     finally:
         del frame
 
@@ -368,11 +404,20 @@ def _capture_callsite_localns() -> dict[str, Any]:
         return {}
 
     try:
-        callsite_frame = frame.f_back.f_back
-        localns: dict[str, Any] = {}
-        localns.update(callsite_frame.f_locals)
-        if callsite_frame.f_back is not None:
-            localns.update(callsite_frame.f_back.f_locals)
-        return localns
+        return _merge_ancestor_locals(frame.f_back.f_back, depth=3)
     finally:
         del frame
+
+
+def _merge_ancestor_locals(start: Any, depth: int) -> dict[str, Any]:
+    frames: list[Any] = []
+    f = start
+    for _ in range(depth):
+        if f is None:
+            break
+        frames.append(f)
+        f = f.f_back
+    localns: dict[str, Any] = {}
+    for fr in reversed(frames):
+        localns.update(fr.f_locals)
+    return localns

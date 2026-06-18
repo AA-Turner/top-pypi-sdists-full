@@ -14,12 +14,9 @@ from dataclasses import asdict
 from fastmcp import FastMCP
 from prefab_ui.app import PrefabApp
 from prefab_ui.components import (
-    CardContent,
     Column,
     Div,
     Grid,
-    Markdown,
-    Text,
 )
 from prefab_ui.components.control_flow import If
 from prefab_ui.rx import STATE
@@ -55,18 +52,20 @@ from airbyte_ops_webapp.pages.connector_version_manager.version_list import (
 )
 from airbyte_ops_webapp.pages.shared_components.layout import (
     render_breadcrumb_nav,
-    render_mock_mode_banner,
+    render_environment_banners,
     render_page_hero,
 )
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     org_lookup_modal_state,
 )
-from airbyte_ops_webapp.state import mock_only_enabled
+from airbyte_ops_webapp.state import (
+    mock_only_enabled,
+    preview_deploy_enabled,
+    preview_pr_number,
+    preview_pr_url,
+)
 from airbyte_ops_webapp.theme import (
-    AIRBYTE_PRIMARY,
     PAGE_CLASS,
-    PREVIEW_CARD_CLASS,
-    _card_style,
     _page_style,
 )
 
@@ -138,6 +137,7 @@ def connector_version_manager(
     ) as app:
         with Div(style=_page_style(), onMount=hydrate_oauth_action()):
             with Column(gap=5, css_class=PAGE_CLASS):
+                render_environment_banners()
                 render_breadcrumb_nav(
                     current_page=f"{CONNECTOR_VERSION_MANAGER_EMOJI} Connector Version Manager",
                 )
@@ -149,8 +149,6 @@ def connector_version_manager(
                     ),
                     show_auth_controls=True,
                 )
-                render_mock_mode_banner()
-                _render_loading_banner()
                 render_connector_selector(state)
 
                 with If(STATE.selected_connector.id):
@@ -161,22 +159,6 @@ def connector_version_manager(
                             render_connector_overview(state)
 
     return app
-
-
-# ---------------------------------------------------------------------------
-# Small inline sections
-# ---------------------------------------------------------------------------
-
-
-def _render_loading_banner() -> None:
-    with If(STATE.loading_message):
-        with Div(
-            css_class=PREVIEW_CARD_CLASS,
-            style=_card_style(accent=AIRBYTE_PRIMARY),
-        ):
-            with CardContent(), Column(gap=1):
-                Markdown("**Loading**")
-                Text(STATE.loading_message)
 
 
 # ---------------------------------------------------------------------------
@@ -238,12 +220,36 @@ def _build_initial_state(
         "loading_message": "",
         "tool_error": "",
         "is_mock_only": mock_only_enabled(),
+        "is_preview_deploy": preview_deploy_enabled(),
+        "preview_pr_number": preview_pr_number(),
+        "preview_pr_url": preview_pr_url(),
         "oauth_config": current_oauth_config,
         "oauth_enabled": current_oauth_config["enabled"],
         "oauth_authenticated": False,
         "oauth_status": "",
         "oauth_user_email": "",
         "pin_modal_open": False,
+        "locate_pin_modal_open": False,
+        # --- Rollout action state ---
+        "rollout_modal_open": False,
+        "rollout_action": "",
+        "rollout_action_result": "",
+        "rollout_action_success": False,
+        "rollout_target_percentage": "",
+        "selected_rollout": {
+            "rollout_id": "",
+            "connector_id": "",
+            "connector_name": "",
+            "connector_type": "source",
+            "docker_repository": "",
+            "state": "",
+            "rc_docker_image_tag": "",
+            "initial_docker_image_tag": "",
+            "current_target_rollout_pct": "",
+            "final_target_rollout_pct": "",
+            "created_at": "",
+            "updated_at": "",
+        },
         # --- Version pin detail state ---
         "selected_version_tag": "",
         "selected_version_id": "",

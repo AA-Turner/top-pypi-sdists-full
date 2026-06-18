@@ -118,9 +118,14 @@ __all__ = (
     "LanguageType",
     "LastCrawlStatusType",
     "LastRefreshTypeType",
+    "ListAssetTypesPaginatorName",
     "ListBlueprintsPaginatorName",
     "ListConnectionTypesPaginatorName",
     "ListEntitiesPaginatorName",
+    "ListFormTypesPaginatorName",
+    "ListGlossariesPaginatorName",
+    "ListGlossaryTermsPaginatorName",
+    "ListIterableFormsPaginatorName",
     "ListJobsPaginatorName",
     "ListMaterializedViewRefreshTaskRunsPaginatorName",
     "ListRegistriesPaginatorName",
@@ -164,6 +169,9 @@ __all__ = (
     "SchemaDiffTypeType",
     "SchemaStatusType",
     "SchemaVersionStatusType",
+    "SearchFilterOperatorType",
+    "SearchPaginatorName",
+    "SearchSortOrderType",
     "SeparatorType",
     "ServiceName",
     "SessionStatusType",
@@ -562,9 +570,14 @@ JoinTypeType = Literal["equijoin", "left", "leftanti", "leftsemi", "outer", "rig
 LanguageType = Literal["PYTHON", "SCALA"]
 LastCrawlStatusType = Literal["CANCELLED", "FAILED", "SUCCEEDED"]
 LastRefreshTypeType = Literal["FULL", "INCREMENTAL"]
+ListAssetTypesPaginatorName = Literal["list_asset_types"]
 ListBlueprintsPaginatorName = Literal["list_blueprints"]
 ListConnectionTypesPaginatorName = Literal["list_connection_types"]
 ListEntitiesPaginatorName = Literal["list_entities"]
+ListFormTypesPaginatorName = Literal["list_form_types"]
+ListGlossariesPaginatorName = Literal["list_glossaries"]
+ListGlossaryTermsPaginatorName = Literal["list_glossary_terms"]
+ListIterableFormsPaginatorName = Literal["list_iterable_forms"]
 ListJobsPaginatorName = Literal["list_jobs"]
 ListMaterializedViewRefreshTaskRunsPaginatorName = Literal[
     "list_materialized_view_refresh_task_runs"
@@ -629,6 +642,11 @@ ScheduleTypeType = Literal["AUTO", "CRON"]
 SchemaDiffTypeType = Literal["SYNTAX_DIFF"]
 SchemaStatusType = Literal["AVAILABLE", "DELETING", "PENDING"]
 SchemaVersionStatusType = Literal["AVAILABLE", "DELETING", "FAILURE", "PENDING"]
+SearchFilterOperatorType = Literal[
+    "equals", "greaterThan", "greaterThanOrEquals", "lessThan", "lessThanOrEquals", "notExists"
+]
+SearchPaginatorName = Literal["search"]
+SearchSortOrderType = Literal["ASCENDING", "DESCENDING"]
 SeparatorType = Literal["comma", "ctrla", "pipe", "semicolon", "tab"]
 SessionStatusType = Literal["FAILED", "PROVISIONING", "READY", "STOPPED", "STOPPING", "TIMEOUT"]
 SessionTypeType = Literal["LIVY", "SPARK_CONNECT"]
@@ -1127,9 +1145,14 @@ PaginatorName = Literal[
     "get_triggers",
     "get_user_defined_functions",
     "get_workflow_runs",
+    "list_asset_types",
     "list_blueprints",
     "list_connection_types",
     "list_entities",
+    "list_form_types",
+    "list_glossaries",
+    "list_glossary_terms",
+    "list_iterable_forms",
     "list_jobs",
     "list_materialized_view_refresh_task_runs",
     "list_registries",
@@ -1139,6 +1162,7 @@ PaginatorName = Literal[
     "list_triggers",
     "list_usage_profiles",
     "list_workflows",
+    "search",
 ]
 RegionName = Literal[
     "af-south-1",

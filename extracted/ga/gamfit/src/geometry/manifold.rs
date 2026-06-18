@@ -322,7 +322,7 @@ pub(crate) fn dot(a: ArrayView1<'_, f64>, b: ArrayView1<'_, f64>) -> f64 {
 ///
 /// Choosing the tiling: we target as many equal tiles as there are output rows
 /// can support while keeping each tile a non-trivial GEMM, so the batch axis is
-/// long enough to cross `crate::gpu::linalg`'s multi-GPU batch floor and spread
+/// long enough to cross `crate::gpu::linalg_dispatch`'s multi-GPU batch floor and spread
 /// across every device.
 pub(crate) fn fast_ab_rows_multi_gpu(
     a: ArrayView2<'_, f64>,
@@ -337,7 +337,7 @@ pub(crate) fn fast_ab_rows_multi_gpu(
     // one device and there are enough rows to tile across it; otherwise the plain
     // single-device shim is strictly better.
     let multi_gpu =
-        crate::gpu::runtime::GpuRuntime::global().is_some_and(|rt| rt.device_count() > 1);
+        crate::gpu::device_runtime::GpuRuntime::global().is_some_and(|rt| rt.device_count() > 1);
     // The batch axis must clear the multi-GPU floor used inside the dispatch
     // layer (64) for the split to engage, so we need at least that many tiles.
     const MIN_TILES: usize = 64;

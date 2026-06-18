@@ -1,11 +1,13 @@
 import math
 import warnings
 
-import httpx
-from tqdm import tqdm  # type: ignore
+import httpx2
+from tqdm import tqdm
 from urllib3.exceptions import ConnectTimeoutError
 
 from .exceptions import RequestError
+from .facets import validate_facets
+from .field_queries import validate_field_queries
 from .filterhandler import filter_handler
 from .habanero_utils import (
     check_json,
@@ -14,6 +16,8 @@ from .habanero_utils import (
     make_ua,
     rename_query_filters,
 )
+from .select import validate_select
+from .sort import validate_sort
 
 
 class Request(object):
@@ -31,7 +35,7 @@ class Request(object):
         url,
         path,
         query=None,
-        filter=None,
+        filter=None, # noqa: A002 (Crossref API uses filter)
         offset=None,
         limit=None,
         sample=None,
@@ -40,7 +44,7 @@ class Request(object):
         facet=None,
         select=None,
         cursor=None,
-        cursor_max=None,
+        cursor_max=5000,
         agency=False,
         progress_bar=False,
         **kwargs,
@@ -71,8 +75,17 @@ class Request(object):
 
     def do_request(self, should_warn=False):
         filt = filter_handler(self.filter)
-        if self.select.__class__ is list:
+        if isinstance(self.select, list):
             self.select = ",".join(self.select)
+
+        validate_facets(self.facet)
+        validate_sort(self.sort)
+        validate_select(self.select)
+        fq_keys = [
+            k.replace("query_", "query.", 1).replace("_", "-")
+            for k in filter_dict(self.kwargs)
+        ]
+        validate_field_queries(fq_keys if fq_keys else None)
 
         if not isinstance(self.cursor_max, (type(None), int)):
             raise ValueError("cursor_max must be of class int")
@@ -94,10 +107,10 @@ class Request(object):
         payload["offset"] = ifelsestr(payload["offset"])
         payload["rows"] = ifelsestr(payload["rows"])
         # remove params with value None
-        payload = dict((k, v) for k, v in payload.items() if v)
-        # add query filters
+        payload = {k: v for k, v in payload.items() if v}
+        # add field queries
         payload.update(filter_dict(self.kwargs))
-        # rename query filters
+        # rename field queries
         payload = rename_query_filters(payload)
 
         js = self._req(payload=payload, should_warn=should_warn)
@@ -109,9 +122,7 @@ class Request(object):
         return res
 
     def _redo_req(self, js, payload, cu, max_avail, should_warn):
-        if cu.__class__.__name__ != "NoneType" and self.cursor_max > len(
-            js["message"]["items"]
-        ):
+        if cu is not None and self.cursor_max > len(js["message"]["items"]):
             res = [js]
             total = len(js["message"]["items"])
 
@@ -125,11 +136,7 @@ class Request(object):
                 runs = math.ceil(actual_max / (self.limit or 20))
                 pbar = tqdm(total=runs - 1)
 
-            while (
-                cu.__class__.__name__ != "NoneType"
-                and self.cursor_max > total
-                and total < max_avail
-            ):
+            while cu is not None and self.cursor_max > total and total < max_avail:
                 payload["cursor"] = cu
                 out = self._req(payload=payload, should_warn=should_warn)
                 cu = out["message"].get("next-cursor")
@@ -144,31 +151,29 @@ class Request(object):
             return js
 
     def _req(self, payload, should_warn):
-        r = None
         try:
-            r = httpx.get(
+            r = httpx2.get(
                 self._url(),
                 params=payload,
                 headers=make_ua(self.mailto, self.ua_string),
                 timeout=self.timeout,
             )
             r.raise_for_status()
-        except httpx.HTTPStatusError:
+        except httpx2.HTTPStatusError:
             try:
                 f = r.json()
                 raise RequestError(r.status_code, f["message"][0]["message"])
-            except:
+            except (ValueError, KeyError, IndexError):
                 if should_warn:
                     mssg = "%s: %s" % (r.status_code, r.reason_phrase)
-                    warnings.warn(mssg)
+                    warnings.warn(mssg, stacklevel=2)
                     return None
                 else:
                     r.raise_for_status()
         except ConnectTimeoutError as e:
-            raise httpx.ConnectTimeout(e, r)
-        except httpx.HTTPError as e:
-            # print(e)
-            raise RuntimeError(e)
+            raise httpx2.ConnectTimeout(str(e)) from e
+        except httpx2.HTTPError as e:
+            raise RuntimeError(e) from e
         else:
             if not r:
                 raise RuntimeError("An unknown problem occurred with an HTTP request")

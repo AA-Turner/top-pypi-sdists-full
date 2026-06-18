@@ -19,7 +19,7 @@ opendocs:
 	open docs/_build/html/index.html
 
 lint-fix:
-	uv run ruff check --select I --fix habanero test
+	uv run ruff check --fix habanero test
 
 lint-check:
 	uv run ruff check habanero test
@@ -29,6 +29,9 @@ format-fix:
 
 format-check:
 	uv run ruff format --check habanero test
+
+format-check-show:
+	uv run ruff format --check --diff habanero test
 
 ipython:
 	uv run --with rich --with ipython python -m IPython

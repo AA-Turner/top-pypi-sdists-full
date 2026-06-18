@@ -49,6 +49,7 @@ __all__ = (
     "DescriptorTypeType",
     "DraftStatusType",
     "EndpointIpAddressTypeType",
+    "EnforcementModeType",
     "EvaluatorLevelType",
     "EvaluatorStatusType",
     "EvaluatorTypeType",
@@ -62,12 +63,15 @@ __all__ = (
     "GatewayRuleStatusType",
     "GatewayStatusType",
     "HarnessBedrockApiFormatType",
+    "HarnessEndpointStatusType",
+    "HarnessManagedMemoryStrategyTypeType",
     "HarnessOpenAiApiFormatType",
     "HarnessStatusType",
     "HarnessToolTypeType",
     "HarnessTruncationStrategyType",
     "InboundTokenClaimValueTypeType",
     "IncludedDataType",
+    "InterceptorPayloadExclusionType",
     "KeyTypeType",
     "ListAgentRuntimeEndpointsPaginatorName",
     "ListAgentRuntimeVersionsPaginatorName",
@@ -85,6 +89,8 @@ __all__ = (
     "ListGatewayRulesPaginatorName",
     "ListGatewayTargetsPaginatorName",
     "ListGatewaysPaginatorName",
+    "ListHarnessEndpointsPaginatorName",
+    "ListHarnessVersionsPaginatorName",
     "ListHarnessesPaginatorName",
     "ListMemoriesPaginatorName",
     "ListOauth2CredentialProvidersPaginatorName",
@@ -116,6 +122,7 @@ __all__ = (
     "OnlineEvaluationExecutionStatusType",
     "OverrideTypeType",
     "PaginatorName",
+    "PassthroughProtocolTypeType",
     "PaymentConnectorStatusType",
     "PaymentConnectorTypeType",
     "PaymentCredentialProviderVendorTypeType",
@@ -148,6 +155,8 @@ __all__ = (
     "SynchronizationTypeType",
     "TargetProtocolTypeType",
     "TargetStatusType",
+    "TargetTypeType",
+    "WafFailureModeType",
     "WaiterName",
 )
 
@@ -223,6 +232,7 @@ DatasetStatusType = Literal[
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 DraftStatusType = Literal["MODIFIED", "UNMODIFIED"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
+EnforcementModeType = Literal["ACTIVE", "LOG_ONLY"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
 EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
@@ -251,6 +261,12 @@ GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
 ]
 HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
+HarnessEndpointStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+HarnessManagedMemoryStrategyTypeType = Literal[
+    "EPISODIC", "SEMANTIC", "SUMMARIZATION", "USER_PREFERENCE"
+]
 HarnessOpenAiApiFormatType = Literal["chat_completions", "responses"]
 HarnessStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
@@ -265,6 +281,7 @@ HarnessToolTypeType = Literal[
 HarnessTruncationStrategyType = Literal["none", "sliding_window", "summarization"]
 InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
+InterceptorPayloadExclusionType = Literal["RESPONSE_BODY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
 ListAgentRuntimeVersionsPaginatorName = Literal["list_agent_runtime_versions"]
@@ -282,6 +299,8 @@ ListEvaluatorsPaginatorName = Literal["list_evaluators"]
 ListGatewayRulesPaginatorName = Literal["list_gateway_rules"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
+ListHarnessEndpointsPaginatorName = Literal["list_harness_endpoints"]
+ListHarnessVersionsPaginatorName = Literal["list_harness_versions"]
 ListHarnessesPaginatorName = Literal["list_harnesses"]
 ListMemoriesPaginatorName = Literal["list_memories"]
 ListOauth2CredentialProvidersPaginatorName = Literal["list_oauth2_credential_providers"]
@@ -322,6 +341,7 @@ OverrideTypeType = Literal[
     "SUMMARY_OVERRIDE",
     "USER_PREFERENCE_OVERRIDE",
 ]
+PassthroughProtocolTypeType = Literal["A2A", "CUSTOM", "INFERENCE", "MCP"]
 PaymentConnectorStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
@@ -386,6 +406,18 @@ TargetStatusType = Literal[
     "UPDATE_UNSUCCESSFUL",
     "UPDATING",
 ]
+TargetTypeType = Literal[
+    "AGENTCORE_RUNTIME",
+    "API_GATEWAY",
+    "CONNECTOR",
+    "LAMBDA",
+    "MCP_SERVER",
+    "OPEN_API_SCHEMA",
+    "PASSTHROUGH",
+    "PROVIDER",
+    "SMITHY_MODEL",
+]
+WafFailureModeType = Literal["FAIL_CLOSE", "FAIL_OPEN"]
 BedrockAgentCoreControlServiceName = Literal["bedrock-agentcore-control"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -834,6 +866,8 @@ PaginatorName = Literal[
     "list_gateway_rules",
     "list_gateway_targets",
     "list_gateways",
+    "list_harness_endpoints",
+    "list_harness_versions",
     "list_harnesses",
     "list_memories",
     "list_oauth2_credential_providers",

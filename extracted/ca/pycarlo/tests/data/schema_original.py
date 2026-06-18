@@ -1159,6 +1159,7 @@ class AssetFilterType(sgqlc.types.Enum):
     * `ACTIVITY_VOLUME_CHANGE`None
     * `ACTIVITY_WRITE`None
     * `ACTIVITY_WRITE_IS_NULL`None
+    * `FULL_TABLE_ID`None
     * `TABLE_NAME`None
     * `TABLE_TAG`None
     * `TABLE_TYPE`None
@@ -1175,6 +1176,7 @@ class AssetFilterType(sgqlc.types.Enum):
         "ACTIVITY_VOLUME_CHANGE",
         "ACTIVITY_WRITE",
         "ACTIVITY_WRITE_IS_NULL",
+        "FULL_TABLE_ID",
         "TABLE_NAME",
         "TABLE_TAG",
         "TABLE_TYPE",
@@ -9053,6 +9055,7 @@ class AssetFilterUnionInput(sgqlc.types.Input):
     __field_names__ = (
         "table_name",
         "table_name_operator",
+        "full_table_id",
         "table_type",
         "table_tags",
         "table_tags_operator",
@@ -9073,6 +9076,8 @@ class AssetFilterUnionInput(sgqlc.types.Input):
     table_name_operator = sgqlc.types.Field(
         AssetFilterTableNameOperator, graphql_name="tableNameOperator"
     )
+
+    full_table_id = sgqlc.types.Field(String, graphql_name="fullTableId")
 
     table_type = sgqlc.types.Field(TableType, graphql_name="tableType")
 
@@ -18759,74 +18764,6 @@ class AgentGraphNode(sgqlc.types.Type):
     """
 
 
-class AgentHealthCard(sgqlc.types.Type):
-    """Top-level health summary for a single agent within a snapshot."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "account_uuid",
-        "resource_uuid",
-        "analytics_export_ts",
-        "run_id",
-        "materialized_at",
-        "detection_start",
-        "detection_end",
-        "baseline_start",
-        "baseline_end",
-        "agent_name",
-        "agent_id",
-        "workflow_name",
-        "workflow_id",
-        "health",
-        "signal_count",
-        "root_cause",
-        "confidence",
-        "remediation",
-        "needs_human_review",
-    )
-    account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
-
-    resource_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceUuid")
-
-    analytics_export_ts = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="analyticsExportTs"
-    )
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-
-    materialized_at = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="materializedAt"
-    )
-
-    detection_start = sgqlc.types.Field(DateTime, graphql_name="detectionStart")
-
-    detection_end = sgqlc.types.Field(DateTime, graphql_name="detectionEnd")
-
-    baseline_start = sgqlc.types.Field(DateTime, graphql_name="baselineStart")
-
-    baseline_end = sgqlc.types.Field(DateTime, graphql_name="baselineEnd")
-
-    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
-
-    agent_id = sgqlc.types.Field(String, graphql_name="agentId")
-
-    workflow_name = sgqlc.types.Field(String, graphql_name="workflowName")
-
-    workflow_id = sgqlc.types.Field(String, graphql_name="workflowId")
-
-    health = sgqlc.types.Field(String, graphql_name="health")
-
-    signal_count = sgqlc.types.Field(Int, graphql_name="signalCount")
-
-    root_cause = sgqlc.types.Field(String, graphql_name="rootCause")
-
-    confidence = sgqlc.types.Field(String, graphql_name="confidence")
-
-    remediation = sgqlc.types.Field(String, graphql_name="remediation")
-
-    needs_human_review = sgqlc.types.Field(Boolean, graphql_name="needsHumanReview")
-
-
 class AgentHealthCheck(sgqlc.types.Type):
     """One verifier's verdict on an evidence row, plus the proof behind
     it.  `validity` (is the finding real?) and `resolution` (already
@@ -18976,119 +18913,6 @@ class AgentHealthEvidenceSample(sgqlc.types.Type):
 
     trace_id = sgqlc.types.Field(String, graphql_name="traceId")
     """Trace id of the sampled occurrence."""
-
-
-class AgentHealthFinding(sgqlc.types.Type):
-    """One detected health issue for an agent within a snapshot."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "account_uuid",
-        "resource_uuid",
-        "analytics_export_ts",
-        "run_id",
-        "materialized_at",
-        "detection_start",
-        "detection_end",
-        "baseline_start",
-        "baseline_end",
-        "agent_name",
-        "agent_id",
-        "workflow_name",
-        "workflow_id",
-        "logical_span_id",
-        "detector",
-        "category",
-        "issue_type",
-        "severity",
-        "classification",
-        "title",
-        "summary",
-        "metric_value",
-        "metric_unit",
-        "metric_baseline",
-        "change_vs_baseline",
-        "count",
-        "total_calls",
-        "sample_trace_ids",
-        "sample_span_ids",
-        "error_categories",
-        "daily_trend",
-        "baseline_daily_trend",
-        "first_seen",
-        "last_seen",
-    )
-    account_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="accountUuid")
-
-    resource_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceUuid")
-
-    analytics_export_ts = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="analyticsExportTs"
-    )
-
-    run_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="runId")
-
-    materialized_at = sgqlc.types.Field(
-        sgqlc.types.non_null(DateTime), graphql_name="materializedAt"
-    )
-
-    detection_start = sgqlc.types.Field(DateTime, graphql_name="detectionStart")
-
-    detection_end = sgqlc.types.Field(DateTime, graphql_name="detectionEnd")
-
-    baseline_start = sgqlc.types.Field(DateTime, graphql_name="baselineStart")
-
-    baseline_end = sgqlc.types.Field(DateTime, graphql_name="baselineEnd")
-
-    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
-
-    agent_id = sgqlc.types.Field(String, graphql_name="agentId")
-
-    workflow_name = sgqlc.types.Field(String, graphql_name="workflowName")
-
-    workflow_id = sgqlc.types.Field(String, graphql_name="workflowId")
-
-    logical_span_id = sgqlc.types.Field(String, graphql_name="logicalSpanId")
-
-    detector = sgqlc.types.Field(String, graphql_name="detector")
-
-    category = sgqlc.types.Field(String, graphql_name="category")
-
-    issue_type = sgqlc.types.Field(String, graphql_name="issueType")
-
-    severity = sgqlc.types.Field(String, graphql_name="severity")
-
-    classification = sgqlc.types.Field(String, graphql_name="classification")
-
-    title = sgqlc.types.Field(String, graphql_name="title")
-
-    summary = sgqlc.types.Field(String, graphql_name="summary")
-
-    metric_value = sgqlc.types.Field(Float, graphql_name="metricValue")
-
-    metric_unit = sgqlc.types.Field(String, graphql_name="metricUnit")
-
-    metric_baseline = sgqlc.types.Field(Float, graphql_name="metricBaseline")
-
-    change_vs_baseline = sgqlc.types.Field(Float, graphql_name="changeVsBaseline")
-
-    count = sgqlc.types.Field(Int, graphql_name="count")
-
-    total_calls = sgqlc.types.Field(Int, graphql_name="totalCalls")
-
-    sample_trace_ids = sgqlc.types.Field(JSONString, graphql_name="sampleTraceIds")
-
-    sample_span_ids = sgqlc.types.Field(JSONString, graphql_name="sampleSpanIds")
-
-    error_categories = sgqlc.types.Field(JSONString, graphql_name="errorCategories")
-
-    daily_trend = sgqlc.types.Field(JSONString, graphql_name="dailyTrend")
-
-    baseline_daily_trend = sgqlc.types.Field(JSONString, graphql_name="baselineDailyTrend")
-
-    first_seen = sgqlc.types.Field(Date, graphql_name="firstSeen")
-
-    last_seen = sgqlc.types.Field(Date, graphql_name="lastSeen")
 
 
 class AgentHealthFindingPayload(sgqlc.types.Type):
@@ -47533,6 +47357,10 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
+                (
+                    "rename_on_conflict",
+                    sgqlc.types.Arg(Boolean, graphql_name="renameOnConflict", default=False),
+                ),
             )
         ),
     )
@@ -47546,6 +47374,15 @@ class Mutation(sgqlc.types.Type):
       prior to restore.
     * `monitor_uuids` (`[UUID!]!`): UUIDs of the metric monitors or
       custom rules to restore
+    * `rename_on_conflict` (`Boolean`): Controls how a name collision
+      on restore is handled. A monitor recovers its original name when
+      restored; if a metric monitor with that name was recreated while
+      this one was deleted, the restore would collide. When false (the
+      default) the restore fails with a validation error so the
+      collision can be resolved deliberately. When true, the colliding
+      monitor is restored under a '-restored-<timestamp>' name
+      instead, leaving the existing monitor in place. (default:
+      `false`)
     """
 
     run_monitors = sgqlc.types.Field(
@@ -63197,8 +63034,6 @@ class Query(sgqlc.types.Type):
         "get_agent_observability_billing_info",
         "get_agent_trace_tables",
         "get_platform_agents",
-        "get_agent_health_findings",
-        "get_agent_health_card",
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
         "get_available_platform_agents",
@@ -63770,7 +63605,6 @@ class Query(sgqlc.types.Type):
         "get_task_graph",
         "get_job_dependencies",
         "get_tsa_analysis_result",
-        "get_trace_rx_reports",
         "get_agent_memories",
         "get_ai_agent_config",
         "get_authorization_prompt",
@@ -64318,79 +64152,6 @@ class Query(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID`): Filter results to agents assigned to
       this domain
-    """
-
-    get_agent_health_findings = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthFinding))),
-        graphql_name="getAgentHealthFindings",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="resourceUuid", default=None
-                    ),
-                ),
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "workflow_name",
-                    sgqlc.types.Arg(String, graphql_name="workflowName", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) Agent health findings for the current snapshot of
-    (resource_uuid, agent_name[, workflow_name]), ordered by severity
-    then title. May return multiple rows.
-
-    Arguments:
-
-    * `resource_uuid` (`UUID!`): Resource UUID the findings are scoped
-      to
-    * `agent_name` (`String!`): Agent name
-    * `workflow_name` (`String`): Workflow name to filter by. When
-      omitted, returns findings across all workflows for the agent.
-    """
-
-    get_agent_health_card = sgqlc.types.Field(
-        AgentHealthCard,
-        graphql_name="getAgentHealthCard",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="resourceUuid", default=None
-                    ),
-                ),
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "workflow_name",
-                    sgqlc.types.Arg(String, graphql_name="workflowName", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) Agent health card for the current snapshot of
-    (resource_uuid, agent_name[, workflow_name]). Returns null when no
-    card is present.
-
-    Arguments:
-
-    * `resource_uuid` (`UUID!`): Resource UUID the card is scoped to
-    * `agent_name` (`String!`): Agent name
-    * `workflow_name` (`String`): Workflow name to filter by. When
-      omitted, matches the agent's card regardless of workflow.
     """
 
     get_latest_agent_health_finding = sgqlc.types.Field(
@@ -71200,10 +70961,14 @@ class Query(sgqlc.types.Type):
                     "sort_direction",
                     sgqlc.types.Arg(String, graphql_name="sortDirection", default=None),
                 ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
             )
         ),
     )
-    """Get dbt run steps
+    """Get dbt run steps. Results are paginated with a default limit of
+    1000 starting at offset 0. Use limit and offset to page through
+    large result sets.
 
     Arguments:
 
@@ -71220,6 +70985,10 @@ class Query(sgqlc.types.Type):
       completed_at
     * `sort_direction` (`String`): Sort direction: asc or desc. The
       default value is asc
+    * `limit` (`Int`): Maximum number of results to return (1-10000).
+      The default value is 1000
+    * `offset` (`Int`): Number of results to skip before returning
+      (0-10000). The default value is 0
     """
 
     get_dbt_test_results_count = sgqlc.types.Field(
@@ -72294,6 +72063,10 @@ class Query(sgqlc.types.Type):
                     "include_explanation",
                     sgqlc.types.Arg(Boolean, graphql_name="includeExplanation", default=False),
                 ),
+                (
+                    "use_alert_sample",
+                    sgqlc.types.Arg(Boolean, graphql_name="useAlertSample", default=False),
+                ),
             )
         ),
     )
@@ -72324,7 +72097,19 @@ class Query(sgqlc.types.Type):
     * `include_explanation` (`Boolean`): Include the explanation field
       in the results (only supported for monitors with LLM
       evaluations, e.g. agent monitors and metric monitors with
-      eval_prompt) (default: `false`)
+      eval_prompt). Combined with useAlertSample=true on a ClickHouse
+      LLM-eval alert, it re-evaluates the alert's exact spans (a fresh
+      judge call) and grafts the alert's stored score as alertScore,
+      rather than projecting a stored column. (default: `false`)
+    * `use_alert_sample` (`Boolean`): When true, return the sample
+      stored when the alert fired — the exact spans and scores it
+      evaluated — instead of taking a fresh sample. Only alerts whose
+      Event.hasAlertSample is true have such a stored sample; for any
+      other monitor or connection, or if the stored sample is no
+      longer available, the request fails with
+      ALERT_SAMPLE_UNAVAILABLE rather than substituting a different
+      sample. When false (default), a new sample is taken. (default:
+      `false`)
     """
 
     get_field_health_sampling_conditions = sgqlc.types.Field(
@@ -85352,31 +85137,6 @@ class Query(sgqlc.types.Type):
       result for
     """
 
-    get_trace_rx_reports = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("TraceRxReport")),
-        graphql_name="getTraceRxReports",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "resource_id",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="resourceId", default=None
-                    ),
-                ),
-                ("agent_name", sgqlc.types.Arg(String, graphql_name="agentName", default=None)),
-            )
-        ),
-    )
-    """(experimental) Get TraceRX health reports for a resource
-
-    Arguments:
-
-    * `resource_id` (`UUID!`): UUID of the warehouse resource to get
-      reports for
-    * `agent_name` (`String`): Filter results to a specific agent by
-      name
-    """
-
     get_agent_memories = sgqlc.types.Field(
         ListMemoriesResultType,
         graphql_name="getAgentMemories",
@@ -92969,49 +92729,6 @@ class TracePageInfo(sgqlc.types.Type):
     """Cursor of the last edge"""
 
 
-class TraceRxReport(sgqlc.types.Type):
-    """Per-workflow health report produced by the TraceRX agent."""
-
-    __schema__ = schema
-    __field_names__ = (
-        "id",
-        "agent_name",
-        "workflow",
-        "health",
-        "signal_count",
-        "health_card",
-        "scope",
-        "created_time",
-        "updated_time",
-    )
-    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
-    """Unique identifier for this report"""
-
-    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
-    """Agent name (e.g. 'ai-agent')"""
-
-    workflow = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflow")
-    """Agent workflow name (e.g. 'Chat Agent', 'TTSA')"""
-
-    health = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="health")
-    """Overall health severity: critical, high, medium, or low"""
-
-    signal_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="signalCount")
-    """Number of signals (findings) detected for this workflow"""
-
-    health_card = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="healthCard")
-    """Full health card data: span_sections, raw_findings, diagnosis"""
-
-    scope = sgqlc.types.Field(sgqlc.types.non_null(GenericScalar), graphql_name="scope")
-    """Detection and baseline time windows for this report run"""
-
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-    """When this report was created"""
-
-    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
-    """When this report was last updated"""
-
-
 class TraceTimeSeriesBucketType(sgqlc.types.Type):
     """A single time bucket in a time series."""
 
@@ -97127,6 +96844,12 @@ class AssetFilterActivityWriteIsNull(sgqlc.types.Type, AssetFilterInterface):
     )
 
 
+class AssetFilterFullTableId(sgqlc.types.Type, AssetFilterInterface):
+    __schema__ = schema
+    __field_names__ = ("full_table_id",)
+    full_table_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="fullTableId")
+
+
 class AssetFilterTableName(sgqlc.types.Type, AssetFilterInterface):
     __schema__ = schema
     __field_names__ = ("table_name", "table_name_operator")
@@ -99458,6 +99181,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "paused_reason",
         "is_draft",
         "is_auto_created",
+        "alert_grouping",
         "rule_type",
         "warehouse_uuid",
         "interval_minutes",
@@ -99598,6 +99322,9 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
     """Was this monitor auto-created by the recommendation service?"""
+
+    alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration (null = legacy behavior)"""
 
     rule_type = sgqlc.types.Field(CustomRuleModelRuleType, graphql_name="ruleType")
 
@@ -102193,6 +101920,8 @@ class Event(sgqlc.types.Type, Node):
         "has_live_freshness",
         "has_reproduction_queries",
         "has_sampling",
+        "has_alert_sample",
+        "has_alert_sample_explanation",
         "alert",
         "table_stats",
         "mc_sql",
@@ -102320,6 +102049,31 @@ class Event(sgqlc.types.Type, Node):
     has_reproduction_queries = sgqlc.types.Field(Boolean, graphql_name="hasReproductionQueries")
 
     has_sampling = sgqlc.types.Field(Boolean, graphql_name="hasSampling")
+
+    has_alert_sample = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasAlertSample"
+    )
+    """Whether this alert has a retrievable stored evaluation sample —
+    the exact spans or conversations and scores it fired on — that
+    getFieldHealthSampling can return when called with
+    useAlertSample=true. True for a ClickHouse agent LLM-eval alert
+    (span grain or conversation aggregation) whose evaluation batch
+    was recorded; false for every other monitor or connection, which
+    always sample live.
+    """
+
+    has_alert_sample_explanation = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasAlertSampleExplanation"
+    )
+    """Whether this alert's stored evaluation sample already carries the
+    judge's explanation, retrievable without re-evaluation. True only
+    for conversation-aggregation ClickHouse agent LLM-eval alerts —
+    the persisted conversation scores include the judge reasoning, so
+    getFieldHealthSampling with includeExplanation=true is a stored
+    read. False for span-grain alerts (the stored batch holds the
+    score only, so an explanation requires a fresh re-evaluation) and
+    for every other monitor or connection. Implies hasAlertSample.
+    """
 
     alert = sgqlc.types.Field(Alert, graphql_name="alert")
 
@@ -103620,6 +103374,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "paused_reason",
         "is_draft",
         "is_auto_created",
+        "alert_grouping",
         "type",
         "warehouse_uuid",
         "controlled_by",
@@ -103744,6 +103499,9 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_auto_created = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isAutoCreated")
     """Was this monitor auto-created by the recommendation service?"""
+
+    alert_grouping = sgqlc.types.Field(JSONString, graphql_name="alertGrouping")
+    """Per-monitor alert grouping configuration (null = legacy behavior)"""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(MetricMonitoringModelType), graphql_name="type")
 

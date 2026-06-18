@@ -401,6 +401,20 @@ def _normalize_smooths(
                 f"TensorBSpline / Pca / PeriodicSplineCurve / Categorical), "
                 f"got {type(descriptor).__name__}"
             )
+        by = getattr(descriptor, "by", None)
+        if by is not None and not isinstance(by, str):
+            # On the formula `smooths={}` descriptor path the gating variable
+            # is named by data-frame column (resolved to a `by_col` in the Rust
+            # merge, identical to `s(x, by=g)`). A raw per-row `by` *array* is
+            # the contract of the primitive numpy API (`gamfit.duchon_basis`,
+            # ... — `crates/gam-pyffi/src/model_ffi.rs`), which has no data
+            # frame to name. Reject it loudly here rather than mis-serialize.
+            raise ValueError(
+                f"smooths[{key!r}]: by= on the smooths={{}} descriptor path must "
+                f"be the *name* of a data-frame column (the gating variable), "
+                f"e.g. Duchon(..., by='g'); got {type(by).__name__}. Raw per-row "
+                f"by arrays are supported only on the primitive numpy API."
+            )
         payload = descriptor.to_rust_descriptor()
         if not isinstance(payload, Mapping):
             raise TypeError(

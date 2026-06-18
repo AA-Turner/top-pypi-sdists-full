@@ -39,6 +39,38 @@ from codex_plugin_scanner.guard.runtime.supply_chain_package_eval import (
 )
 from codex_plugin_scanner.guard.store import GuardStore
 
+
+def _seed_guard_cloud(store, *, workspace_id=None, sync_url=None, token="demo-token", now="2026-05-19T00:00:00Z"):
+    """Seed OAuth credentials (replaces legacy set_sync_credentials scaffolding).
+
+    Also installs a test-only resolver override so sync-path exercises stay hermetic
+    (no OAuth token refresh against the network). Tests that need real sync against a
+    local server pass sync_url=<url>.
+    """
+    from codex_plugin_scanner.guard.cli.oauth_client import generate_dpop_key_pair
+    from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
+
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token=token,
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-1",
+        machine_id="machine-1",
+        workspace_id=workspace_id,
+        now=now,
+    )
+    effective_sync_url = sync_url if sync_url is not None else "https://hol.org/api/guard/receipts/sync"
+    guard_runner_module._test_sync_auth_context_override = {
+        "sync_url": effective_sync_url,
+        "access_token": token,
+        "dpop_key_material": None,
+    }
+
+
 WORKSPACE_ID = "workspace-alpha"
 
 
@@ -314,11 +346,11 @@ def test_canonical_decision_order_prefers_cloud_over_signed_bundle(tmp_path: Pat
     thread.start()
     try:
         store = GuardStore(tmp_path / "guard-home")
-        store.set_sync_credentials(
-            f"http://127.0.0.1:{server.server_port}/api/guard/receipts/sync",
-            "demo-token",
-            "2026-05-19T00:00:00Z",
+        _seed_guard_cloud(
+            store,
             workspace_id=WORKSPACE_ID,
+            sync_url=f"http://127.0.0.1:{server.server_port}/api/guard/receipts/sync",
+            token="demo-token",
         )
         bundle_response = _bundle_response(
             packages=[
@@ -363,11 +395,11 @@ def test_evaluate_package_request_artifact_posts_cloud_request_and_maps_block_re
     thread.start()
     try:
         store = GuardStore(tmp_path / "guard-home")
-        store.set_sync_credentials(
-            f"http://127.0.0.1:{server.server_port}/api/guard/receipts/sync",
-            "demo-token",
-            "2026-05-19T00:00:00Z",
+        _seed_guard_cloud(
+            store,
             workspace_id=WORKSPACE_ID,
+            sync_url=f"http://127.0.0.1:{server.server_port}/api/guard/receipts/sync",
+            token="demo-token",
         )
         workspace_dir = tmp_path / "workspace"
         workspace_dir.mkdir()
@@ -412,9 +444,7 @@ def test_evaluate_package_request_artifact_uses_cached_eval_before_network(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -594,11 +624,11 @@ def test_evaluate_package_request_artifact_handles_upgrade_required_with_premium
     thread.start()
     try:
         store = GuardStore(tmp_path / "guard-home")
-        store.set_sync_credentials(
-            f"http://127.0.0.1:{server.server_port}/api/guard/receipts/sync",
-            "demo-token",
-            "2026-05-19T00:00:00Z",
+        _seed_guard_cloud(
+            store,
             workspace_id=WORKSPACE_ID,
+            sync_url=f"http://127.0.0.1:{server.server_port}/api/guard/receipts/sync",
+            token="demo-token",
         )
         artifact = _artifact_for_targets("left-pad@1.0.0")
 
@@ -625,12 +655,7 @@ def test_evaluate_package_request_artifact_fails_closed_on_untrusted_cloud_http_
     status_code: int,
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync",
-        "demo-token",
-        "2026-05-19T00:00:00Z",
-        workspace_id=WORKSPACE_ID,
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -678,12 +703,7 @@ def test_evaluate_package_request_artifact_strict_mode_blocks_on_cloud_unreachab
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
     (store.guard_home / "config.toml").write_text('security_level = "strict"\n', encoding="utf-8")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync",
-        "demo-token",
-        "2026-05-19T00:00:00Z",
-        workspace_id=WORKSPACE_ID,
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -714,6 +734,51 @@ def test_evaluate_package_request_artifact_strict_mode_blocks_on_cloud_unreachab
 
     assert result.decision == "block"
     assert result.policy_action == "block"
+    assert result.enforcement == "premium_cloud"
+    assert any(reason["code"] == "cloud_validation_error" for reason in result.reasons)
+
+
+def test_evaluate_package_request_artifact_rejects_untrusted_cloud_endpoint_before_network(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    _seed_guard_cloud(
+        store,
+        workspace_id=WORKSPACE_ID,
+        sync_url="https://evil.example/api/guard/receipts/sync",
+        token="demo-token",
+    )
+    response = _bundle_response(
+        packages=[
+            _package(
+                ecosystem="npm",
+                name="left-pad",
+                version="1.0.0",
+                default_action="monitor",
+                normalized_severity="low",
+                exploit_level="none",
+                known_exploited=False,
+                malware_state="none",
+                risk_score=220,
+            )
+        ]
+    )
+    store.cache_supply_chain_bundle(WORKSPACE_ID, response, "2026-05-19T00:00:00Z")
+
+    def fail_network(*args: object, **kwargs: object) -> object:
+        raise AssertionError("untrusted supply-chain endpoint reached network")
+
+    monkeypatch.setattr(evaluator_module, "_urlopen_json_with_timeout_retry", fail_network)
+    result = evaluate_package_request_artifact(
+        artifact=_artifact_for_targets("left-pad@1.0.0"),
+        store=store,
+        workspace_dir=tmp_path / "workspace",
+        now="2026-05-19T00:00:00Z",
+    )
+
+    assert result.decision == "ask"
+    assert result.policy_action == "require-reapproval"
     assert result.enforcement == "premium_cloud"
     assert any(reason["code"] == "cloud_validation_error" for reason in result.reasons)
 
@@ -819,12 +884,7 @@ def test_evaluate_package_request_artifact_fails_closed_on_invalid_cloud_respons
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync",
-        "demo-token",
-        "2026-05-19T00:00:00Z",
-        workspace_id=WORKSPACE_ID,
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -863,12 +923,7 @@ def test_evaluate_package_request_artifact_ignores_malformed_cached_bundle(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync",
-        "demo-token",
-        "2026-05-19T00:00:00Z",
-        workspace_id=WORKSPACE_ID,
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     monkeypatch.setattr(
         store,
         "get_cached_supply_chain_bundle",
@@ -901,12 +956,7 @@ def test_evaluate_package_request_artifact_normalizes_cloud_review_decision(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync",
-        "demo-token",
-        "2026-05-19T00:00:00Z",
-        workspace_id=WORKSPACE_ID,
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
 
     monkeypatch.setattr(
         evaluator_module,
@@ -963,9 +1013,7 @@ def test_evaluate_package_request_artifact_applies_policy_rule_override(
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1115,9 +1163,7 @@ def test_evaluate_package_request_artifact_applies_allow_exception_rule(
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1162,9 +1208,7 @@ def test_evaluate_package_request_artifact_summarizes_multi_package_and_safe_alt
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1210,9 +1254,7 @@ def test_evaluate_package_request_artifact_blocks_maintainer_compromise_fixture(
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1252,9 +1294,7 @@ def test_evaluate_package_request_artifact_blocks_transitive_lockfile_match_with
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1302,9 +1342,7 @@ def test_evaluate_package_request_artifact_warns_for_low_confidence_transitive_l
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1523,9 +1561,7 @@ def test_evaluate_package_request_artifact_blocks_hoisted_lockfile_match(
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1696,12 +1732,7 @@ def test_evaluate_package_request_artifact_handles_unreadable_lockfile_context_w
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync",
-        "demo-token",
-        "2026-05-19T00:00:00Z",
-        workspace_id=WORKSPACE_ID,
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     workspace_dir = tmp_path / "workspace"
     workspace_dir.mkdir()
     lockfile_path = workspace_dir / "package-lock.json"
@@ -1744,9 +1775,7 @@ def test_evaluate_package_request_artifact_range_only_timeout_falls_back_safely(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1781,9 +1810,7 @@ def test_evaluate_package_request_artifact_blocks_from_cached_bundle_after_cloud
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     response = _bundle_response(
         packages=[
             _package(
@@ -1824,9 +1851,7 @@ def test_evaluate_package_request_artifact_stale_bundle_requests_refresh_and_rec
 ) -> None:
     _force_cloud_fallback(monkeypatch)
     store = GuardStore(tmp_path / "guard-home")
-    store.set_sync_credentials(
-        "https://hol.org/api/guard/receipts/sync", "demo-token", "2026-05-19T00:00:00Z", workspace_id=WORKSPACE_ID
-    )
+    _seed_guard_cloud(store, workspace_id=WORKSPACE_ID)
     stale_response = _bundle_response(
         packages=[
             _package(

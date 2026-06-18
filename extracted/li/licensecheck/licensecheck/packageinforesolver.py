@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from boolean.boolean import Expression
 import configparser
 import contextlib
 import re
@@ -16,6 +15,8 @@ from typing import Any
 import license_expression
 import requests
 import tomli
+from boolean.boolean import Expression
+from depgather.models.pypijson import ProjectResponse
 from depgather.parse import gather
 from license_expression import Licensing
 from packaging.requirements import Requirement
@@ -23,7 +24,6 @@ from packaging.utils import canonicalize_name
 
 from licensecheck.models.constants import JOINS, UNKNOWN
 from licensecheck.models.packageinfo import PackageInfo
-from licensecheck.models.pypijson import ProjectResponse
 from licensecheck.session import session
 
 RAW_JOINS = " AND "
@@ -115,14 +115,13 @@ def normalize_license(lice: str) -> str:
 	licensing = Licensing()
 	parsed = None
 	with contextlib.suppress(license_expression.ExpressionParseError):
-		parsed = licensing.parse(
-			re.sub(r"[^a-zA-Z0-9_.:\- ]", "_", lice.splitlines()[0])
-		)
+		parsed = licensing.parse(re.sub(r"[^a-zA-Z0-9_.:\- ]", "_", lice.splitlines()[0]))
 	if parsed is None:
 		return lice
 
 	tokens: list[Expression] = sorted(parsed.literals)
 	return str(JOINS.join(getattr(x, "key", str(x)) for x in tokens))
+
 
 class LocalPackageInfo:
 	"""Handles retrieval of package info from local installation."""
@@ -130,13 +129,14 @@ class LocalPackageInfo:
 	def __init__(self, package: PackageInfo) -> None:
 		self.package: PackageInfo = package
 		# email message appears to mostly conform to the protocol
+		# https://packaging.python.org/en/latest/specifications/core-metadata/#core-metadata
 		self.meta: PackageMetadata = Message()
 		with contextlib.suppress(metadata.PackageNotFoundError):
 			self.meta = metadata.metadata(package.name)
 
 	def get_license(self) -> str | None:
 		return (
-			self.meta.get("License_Expression")
+			self.meta.get("License-Expression")
 			or from_classifiers(self.meta.get_all("Classifier"))
 			or self.meta.get("License")
 		)

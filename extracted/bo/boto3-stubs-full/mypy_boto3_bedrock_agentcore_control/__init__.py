@@ -28,6 +28,8 @@ Usage::
         ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
         ListGatewaysPaginator,
+        ListHarnessEndpointsPaginator,
+        ListHarnessVersionsPaginator,
         ListHarnessesPaginator,
         ListMemoriesPaginator,
         ListOauth2CredentialProvidersPaginator,
@@ -79,6 +81,8 @@ Usage::
     list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
     list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
     list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
+    list_harness_endpoints_paginator: ListHarnessEndpointsPaginator = client.get_paginator("list_harness_endpoints")
+    list_harness_versions_paginator: ListHarnessVersionsPaginator = client.get_paginator("list_harness_versions")
     list_harnesses_paginator: ListHarnessesPaginator = client.get_paginator("list_harnesses")
     list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
     list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = client.get_paginator("list_oauth2_credential_providers")
@@ -117,7 +121,9 @@ from .paginator import (
     ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
+    ListHarnessEndpointsPaginator,
     ListHarnessesPaginator,
+    ListHarnessVersionsPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
     ListOnlineEvaluationConfigsPaginator,
@@ -166,6 +172,8 @@ __all__ = (
     "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",
     "ListGatewaysPaginator",
+    "ListHarnessEndpointsPaginator",
+    "ListHarnessVersionsPaginator",
     "ListHarnessesPaginator",
     "ListMemoriesPaginator",
     "ListOauth2CredentialProvidersPaginator",

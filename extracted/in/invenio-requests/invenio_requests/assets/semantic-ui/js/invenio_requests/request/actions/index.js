@@ -1,4 +1,7 @@
-// This file is part of InvenioRequests
+/*
+ * SPDX-FileCopyrightText: 2022-2023 CERN.
+ * SPDX-License-Identifier: MIT
+ */
 
 import { RequestActionController } from "@js/invenio_requests/request/actions/RequestActionController";
 import PropTypes from "prop-types";

@@ -126,6 +126,38 @@ def h(cls) -> None: ...  # E: `h` is missing an annotation for parameter `cls`
 "#,
 );
 
+// https://github.com/facebook/pyrefly/issues/3542
+testcase!(
+    test_underscore_params_suppress_implicit_any,
+    TestEnv::new().enable_implicit_any_parameter_error(),
+    r#"
+# Single `_` and `_`-prefixed params (single underscore, not ending with `_`)
+# should not trigger implicit-any-parameter error
+def foo(_) -> int:  # ok - intentionally unused
+    return 1
+
+def bar(_x) -> int:  # ok
+    return 1
+
+# Params starting with `__` or ending with `_` should still error
+def baz(__x) -> int:  # E: `baz` is missing an annotation for parameter `__x`
+    return 1
+
+def qux(x_) -> int:  # E: `qux` is missing an annotation for parameter `x_`
+    return 1
+
+def quux(__x__) -> int:  # E: `quux` is missing an annotation for parameter `__x__`
+    return 1
+
+def corge(_x_) -> int:  # E: `corge` is missing an annotation for parameter `_x_`
+    return 1
+
+# Regular params without annotation should still error
+def grault(x) -> int:  # E: `grault` is missing an annotation for parameter `x`
+    return 1
+"#,
+);
+
 testcase!(
     test_implicit_any_with_complete_annotations,
     TestEnv::new().enable_implicit_any_error(),
@@ -172,6 +204,32 @@ x2 = {}
 );
 
 testcase!(
+    test_explicit_any_default_disabled,
+    r#"
+from typing import Any
+
+def f(value: Any) -> Any:
+    print(value.asdfsdf)
+    return value
+"#,
+);
+
+testcase!(
+    test_explicit_any_error,
+    TestEnv::new().enable_explicit_any_error(),
+    r#"
+from typing import Any, TypeAlias
+
+def f(value: Any) -> Any:  # E: Explicit `Any` is not allowed # E: Explicit `Any` is not allowed
+    print(value.asdfsdf)
+    return value
+
+xs: list[Any] = []  # E: Explicit `Any` is not allowed
+Alias: TypeAlias = dict[str, Any]  # E: Explicit `Any` is not allowed
+"#,
+);
+
+testcase!(
     test_warn_on_implicit_any_in_attribute,
     TestEnv::new().enable_implicit_any_attribute_error(),
     r#"
@@ -179,6 +237,17 @@ from typing import Any
 class A:
     def __init__(self):
         self.x = None  # E: implicitly inferred to be `Any | None`
+    "#,
+);
+
+testcase!(
+    test_implicit_any_attribute_slots_excluded,
+    TestEnv::new().enable_implicit_any_attribute_error(),
+    r#"
+class A:
+    __slots__ = ()
+    __match_args__ = ()
+    x = ()  # E: implicitly inferred to be `tuple[Any, ...]`
     "#,
 );
 

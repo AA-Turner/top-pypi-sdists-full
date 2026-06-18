@@ -100,44 +100,6 @@ def test_parse_obs_window_target_preserves_colons_in_title():
     }
 
 
-def test_compute_effective_window_target_does_not_jump_across_browsers():
-    """Chrome_WidgetWin_1 is shared by all Chromium apps — a dead Chrome source must
-    not be retargeted to an Edge (or any other-exe) window via class-match fallback."""
-    configured = "いけちゃん - YouTube - Google Chrome:Chrome_WidgetWin_1:chrome.exe"
-    property_items = [
-        {"itemValue": "YouTube - Youtube:Chrome_WidgetWin_1:msedge.exe", "itemEnabled": True},
-    ]
-
-    result = obs_launch_module.compute_effective_window_target(configured, property_items)
-
-    assert result is None
-
-
-def test_compute_effective_window_target_allows_same_browser_relaunch():
-    """A new Chrome window (same chrome.exe) is still a valid fallback."""
-    configured = "Old Page - Google Chrome:Chrome_WidgetWin_1:chrome.exe"
-    property_items = [
-        {"itemValue": "YouTube - Youtube:Chrome_WidgetWin_1:msedge.exe", "itemEnabled": True},
-        {"itemValue": "New Page - Google Chrome:Chrome_WidgetWin_1:chrome.exe", "itemEnabled": True},
-    ]
-
-    result = obs_launch_module.compute_effective_window_target(configured, property_items)
-
-    assert result == "New Page - Google Chrome:Chrome_WidgetWin_1:chrome.exe"
-
-
-def test_compute_effective_window_target_class_fallback_for_non_ambiguous_class():
-    """Real games keep the normal class-match fallback even across executables."""
-    configured = "Chapter 1:UnrealWindow:game.exe"
-    property_items = [
-        {"itemValue": "Chapter 2:UnrealWindow:game_dx12.exe", "itemEnabled": True},
-    ]
-
-    result = obs_launch_module.compute_effective_window_target(configured, property_items)
-
-    assert result == "Chapter 2:UnrealWindow:game_dx12.exe"
-
-
 def test_build_scheduled_tick_options_respects_intervals():
     service = obs.OBSService.__new__(obs.OBSService)
     service.tick_intervals = obs.OBSTickIntervals(
@@ -478,7 +440,6 @@ def test_obs_service_tick_applies_fit_before_screenshot_probe(monkeypatch):
     service._pending_scene_item_refresh = None
     service._scene_item_refresh_deadline = 0.0
     service._scene_item_debounce_seconds = 2.0
-    service._reconcile_window_target_cooldown = 10.0
 
     fit_calls = []
     monkeypatch.setattr(
@@ -560,7 +521,7 @@ def test_get_active_video_sources_can_suppress_connection_errors(monkeypatch):
         @contextlib.contextmanager
         def get_client(self):
             raise ConnectionError("OBS Client unavailable")
-            yield
+            yield  # NOSONAR(S1763) required so @contextmanager treats this as a generator
 
         def call(self, operation, retries=0, retryable=True):
             with self.get_client() as client:
@@ -729,14 +690,14 @@ def test_obs_connection_pool_recreates_client_after_failed_use(monkeypatch):
     pool.min_reconnect_interval = 0  # Allow immediate reconnect in tests
 
     with pytest.raises(RuntimeError):
-        with pool.get_client() as client:
-            first_client_id = client.client_id
+        with pool.get_client():
             raise RuntimeError("boom")
 
     with pool.get_client() as client:
         second_client_id = client.client_id
 
-    assert first_client_id == 0
+    # assert via created_clients (always populated) so the ids are definitely-defined
+    assert created_clients[0].client_id == 0
     assert second_client_id == 1
     assert created_clients[0].disconnected is True
 
@@ -946,7 +907,7 @@ def test_toggle_replay_buffer_does_not_retry_non_idempotent_calls(monkeypatch):
         def get_client(self):
             attempts.append("get_client")
             raise ConnectionError("socket is already closed")
-            yield
+            yield  # NOSONAR(S1763) required so @contextmanager treats this as a generator
 
         def call(self, operation, retries=0, retryable=True):
             with self.get_client() as client:

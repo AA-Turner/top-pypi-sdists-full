@@ -1,0 +1,1 @@
+import{k as e}from"./chunk-JSBRDJBE-DD67o4Z0.js";import{n as t}from"./Wizard-BCzF47np.js";import{a as n}from"./ProviderRadio-DuNTkiMF.js";var r=e();function i({children:e,displayCancel:i=!0}){return(0,r.jsxs)(t,{children:[i&&(0,r.jsx)(n,{}),e]})}export{i as t};

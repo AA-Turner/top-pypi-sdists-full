@@ -1,4 +1,3 @@
-
 fn build_term_collection_design_inner(
     data: ArrayView2<'_, f64>,
     spec: &TermCollectionSpec,
@@ -6,8 +5,7 @@ fn build_term_collection_design_inner(
     use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
     let n = data.nrows();
-    let p_data = data.ncols();
-    let p_intercept = 1usize;
+    let p_intercept = usize::from(!term_collection_has_one_sided_anchored_bspline(spec));
     let p_lin = spec.linear_terms.len();
 
     // Smooth construction, random-effect construction, and linear-column
@@ -37,24 +35,18 @@ fn build_term_collection_design_inner(
                         .map(|j| {
                             let linear = &spec.linear_terms[j];
                             // `:` interactions carry multiple feature columns; the
-                            // materialized column is their elementwise product (a
-                            // plain main effect has a single column). Mirror
-                            // `build_term_collection_fixed_blocks` so this path and
-                            // the incremental realizer agree on every interaction.
-                            let cols = linear.effective_feature_cols();
-                            for &col in &cols {
-                                if col >= p_data {
-                                    crate::bail_dim_basis!(
-                                        "linear term '{}' feature column {} out of bounds for {} columns",
-                                        linear.name, col, p_data
-                                    );
-                                }
-                            }
-                            let mut column = data.column(cols[0]).to_owned();
-                            for &c in cols.iter().skip(1) {
-                                column *= &data.column(c);
-                            }
-                            Ok(column)
+                            // materialized column is their elementwise product
+                            // (a plain main effect has a single column), gated by
+                            // any categorical-level indicators for a factor-aware
+                            // `factor:x` expansion. `realized_design_column`
+                            // validates bounds and is the single authority every
+                            // design path (this one, the incremental realizer in
+                            // `build_term_collection_fixed_blocks`, and the
+                            // marginal-slope rank check) shares so they agree on
+                            // every interaction.
+                            linear
+                                .realized_design_column(data)
+                                .map_err(BasisError::InvalidInput)
                         })
                         .collect::<Result<Vec<_>, _>>()?;
 
@@ -122,8 +114,12 @@ fn build_term_collection_design_inner(
 
     let mut blocks = Vec::<DesignBlock>::new();
 
-    // Block 0: intercept — zero storage.
-    blocks.push(DesignBlock::Intercept(n));
+    // Block 0: intercept — zero storage. A one-sided anchored B-spline consumes
+    // the absolute level at that endpoint, so a free intercept would violate
+    // the structural anchor.
+    if p_intercept == 1 {
+        blocks.push(DesignBlock::Intercept(n));
+    }
 
     // Block 1: linear terms.
     if let Some(lin_block) = linear_block {
@@ -364,7 +360,7 @@ fn build_term_collection_design_inner(
             None
         },
         linear_constraints,
-        intercept_range: 0..1,
+        intercept_range: 0..p_intercept,
         linear_ranges,
         random_effect_ranges,
         random_effect_levels,
@@ -372,6 +368,52 @@ fn build_term_collection_design_inner(
     })
 }
 
+fn term_collection_has_one_sided_anchored_bspline(spec: &TermCollectionSpec) -> bool {
+    spec.smooth_terms
+        .iter()
+        .any(|term| smooth_basis_has_one_sided_anchored_bspline(&term.basis))
+}
+
+fn smooth_basis_has_one_sided_anchored_bspline(basis: &SmoothBasisSpec) -> bool {
+    match basis {
+        SmoothBasisSpec::ByVariable { inner, .. }
+        | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
+            smooth_basis_has_one_sided_anchored_bspline(inner)
+        }
+        SmoothBasisSpec::BSpline1D { spec, .. } => {
+            bspline_conditions_have_one_sided_anchor(&spec.boundary_conditions)
+        }
+        SmoothBasisSpec::BySmooth { smooth, .. } => {
+            smooth_basis_has_one_sided_anchored_bspline(smooth)
+        }
+        SmoothBasisSpec::TensorBSpline { spec, .. } => spec
+            .marginalspecs
+            .iter()
+            .any(|marginal| bspline_conditions_have_one_sided_anchor(&marginal.boundary_conditions)),
+        SmoothBasisSpec::FactorSmooth { .. }
+        | SmoothBasisSpec::ThinPlate { .. }
+        | SmoothBasisSpec::Sphere { .. }
+        | SmoothBasisSpec::ConstantCurvature { .. }
+        | SmoothBasisSpec::Matern { .. }
+        | SmoothBasisSpec::MeasureJet { .. }
+        | SmoothBasisSpec::Duchon { .. }
+        | SmoothBasisSpec::Pca { .. } => false,
+    }
+}
+
+fn bspline_conditions_have_one_sided_anchor(
+    conditions: &crate::basis::BSplineBoundaryConditions,
+) -> bool {
+    let left_anchored = matches!(
+        conditions.left,
+        crate::basis::BSplineEndpointBoundaryCondition::Anchored { .. }
+    );
+    let right_anchored = matches!(
+        conditions.right,
+        crate::basis::BSplineEndpointBoundaryCondition::Anchored { .. }
+    );
+    left_anchored != right_anchored
+}
 
 pub fn build_term_collection_design(
     data: ArrayView2<'_, f64>,
@@ -390,7 +432,6 @@ pub fn build_term_collection_design(
     planned_spec.smooth_terms = planned_smooth_terms;
     build_term_collection_design_inner(data, &planned_spec)
 }
-
 
 pub fn build_term_collection_designs_joint(
     data: ArrayView2<'_, f64>,
@@ -413,7 +454,6 @@ pub fn build_term_collection_designs_joint(
     Ok(out)
 }
 
-
 pub fn build_term_collection_designs_and_freeze_joint(
     data: ArrayView2<'_, f64>,
     specs: &[TermCollectionSpec],
@@ -425,230 +465,6 @@ pub fn build_term_collection_designs_and_freeze_joint(
     }
     Ok((designs, resolved_specs))
 }
-
-
-fn smooth_basis_feature_cols(basis: &SmoothBasisSpec) -> Vec<usize> {
-    match basis {
-        SmoothBasisSpec::ByVariable { inner, by_col, .. }
-        | SmoothBasisSpec::FactorSumToZero { inner, by_col, .. } => {
-            let mut cols = smooth_basis_feature_cols(inner);
-            cols.push(*by_col);
-            cols.sort_unstable();
-            cols.dedup();
-            cols
-        }
-        SmoothBasisSpec::BySmooth { smooth, .. } => smooth_basis_feature_cols(smooth),
-        SmoothBasisSpec::BSpline1D { feature_col, .. } => vec![*feature_col],
-        SmoothBasisSpec::ThinPlate { feature_cols, .. }
-        | SmoothBasisSpec::Sphere { feature_cols, .. }
-        | SmoothBasisSpec::ConstantCurvature { feature_cols, .. }
-        | SmoothBasisSpec::Matern { feature_cols, .. }
-        | SmoothBasisSpec::MeasureJet { feature_cols, .. }
-        | SmoothBasisSpec::Duchon { feature_cols, .. }
-        | SmoothBasisSpec::Pca { feature_cols, .. }
-        | SmoothBasisSpec::TensorBSpline { feature_cols, .. } => feature_cols.clone(),
-        SmoothBasisSpec::FactorSmooth { spec } => {
-            let mut cols = spec.continuous_cols.clone();
-            cols.push(spec.group_col);
-            cols.sort_unstable();
-            cols.dedup();
-            cols
-        }
-    }
-}
-
-
-pub fn smooth_term_feature_cols(term: &SmoothTermSpec) -> Vec<usize> {
-    smooth_basis_feature_cols(&term.basis)
-}
-
-
-fn smooth_basis_family_rank(term: &SmoothTermSpec) -> u8 {
-    match &term.basis {
-        SmoothBasisSpec::ByVariable { inner, .. }
-        | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
-            smooth_basis_family_rank(&SmoothTermSpec {
-                name: term.name.clone(),
-                basis: (**inner).clone(),
-                shape: term.shape,
-                joint_null_rotation: None,
-            })
-        }
-        SmoothBasisSpec::BSpline1D { .. } => 0,
-        SmoothBasisSpec::TensorBSpline { .. } => 1,
-        SmoothBasisSpec::ThinPlate { .. } => 2,
-        SmoothBasisSpec::Sphere { .. } => 3,
-        SmoothBasisSpec::Matern { .. } => 4,
-        SmoothBasisSpec::Duchon { .. } => 5,
-        SmoothBasisSpec::Pca { .. } => 6,
-        SmoothBasisSpec::ConstantCurvature { .. } => 8,
-        SmoothBasisSpec::MeasureJet { .. } => 9,
-        SmoothBasisSpec::BySmooth { smooth, .. } => smooth_basis_family_rank(&SmoothTermSpec {
-            name: term.name.clone(),
-            basis: (**smooth).clone(),
-            shape: term.shape,
-            joint_null_rotation: None,
-        }),
-        SmoothBasisSpec::FactorSmooth { .. } => 7,
-    }
-}
-
-
-fn smooth_has_frozen_identifiability(term: &SmoothTermSpec) -> bool {
-    match &term.basis {
-        SmoothBasisSpec::ByVariable { inner, .. }
-        | SmoothBasisSpec::FactorSumToZero { inner, .. } => {
-            smooth_has_frozen_identifiability(&SmoothTermSpec {
-                name: term.name.clone(),
-                basis: (**inner).clone(),
-                shape: term.shape,
-                joint_null_rotation: None,
-            })
-        }
-        SmoothBasisSpec::BSpline1D { spec, .. } => {
-            matches!(
-                spec.identifiability,
-                BSplineIdentifiability::FrozenTransform { .. }
-            )
-        }
-        SmoothBasisSpec::ThinPlate { spec, .. } => matches!(
-            spec.identifiability,
-            SpatialIdentifiability::FrozenTransform { .. }
-        ),
-        SmoothBasisSpec::Sphere { spec, .. } => {
-            matches!(spec.center_strategy, CenterStrategy::UserProvided(_))
-                || matches!(
-                    spec.identifiability,
-                    SphericalSplineIdentifiability::FrozenTransform { .. }
-                )
-        }
-        SmoothBasisSpec::ConstantCurvature { spec, .. } => {
-            matches!(spec.center_strategy, CenterStrategy::UserProvided(_))
-                || matches!(
-                    spec.identifiability,
-                    ConstantCurvatureIdentifiability::FrozenTransform { .. }
-                )
-        }
-        SmoothBasisSpec::MeasureJet { spec, .. } => {
-            matches!(spec.center_strategy, CenterStrategy::UserProvided(_))
-                || matches!(
-                    spec.identifiability,
-                    MeasureJetIdentifiability::FrozenTransform { .. }
-                )
-        }
-        SmoothBasisSpec::Matern { spec, .. } => matches!(
-            spec.identifiability,
-            MaternIdentifiability::FrozenTransform { .. }
-        ),
-        SmoothBasisSpec::BySmooth { by_kind, .. } => match by_kind {
-            ByVarKind::Factor { frozen_levels, .. } => frozen_levels.is_some(),
-            ByVarKind::Numeric { .. } => true,
-        },
-        SmoothBasisSpec::FactorSmooth { spec } => spec.group_frozen_levels.is_some(),
-        SmoothBasisSpec::Duchon { spec, .. } => matches!(
-            spec.identifiability,
-            SpatialIdentifiability::FrozenTransform { .. }
-        ),
-        SmoothBasisSpec::Pca {
-            centered,
-            center_mean,
-            pca_basis_path,
-            ..
-        } => !*centered || center_mean.is_some() || pca_basis_path.is_some(),
-        SmoothBasisSpec::TensorBSpline { spec, .. } => matches!(
-            spec.identifiability,
-            TensorBSplineIdentifiability::FrozenTransform { .. }
-        ),
-    }
-}
-
-
-fn compare_smooth_ownership_priority(
-    lhs_idx: usize,
-    lhs: &SmoothTermSpec,
-    rhs_idx: usize,
-    rhs: &SmoothTermSpec,
-) -> std::cmp::Ordering {
-    let lhs_cols = smooth_term_feature_cols(lhs);
-    let rhs_cols = smooth_term_feature_cols(rhs);
-    lhs_cols
-        .len()
-        .cmp(&rhs_cols.len())
-        .then_with(|| lhs_cols.cmp(&rhs_cols))
-        .then_with(|| smooth_basis_family_rank(lhs).cmp(&smooth_basis_family_rank(rhs)))
-        .then_with(|| lhs.name.cmp(&rhs.name))
-        .then(lhs_idx.cmp(&rhs_idx))
-}
-
-
-fn smooth_is_owned_by_prior_term(owner: &SmoothTermSpec, target: &SmoothTermSpec) -> bool {
-    let owner_features = smooth_term_feature_cols(owner)
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-    let target_features = smooth_term_feature_cols(target)
-        .into_iter()
-        .collect::<BTreeSet<_>>();
-    owner_features.is_subset(&target_features)
-}
-
-
-/// Static (spec-only) description of the hierarchical smooth-ownership decomposition.
-///
-/// This is the single source of truth for the deterministic ownership policy that
-/// [`apply_global_smooth_identifiability`] uses during the fit: the processing order of
-/// smooth terms, the feature columns each term spans, the candidate lower-order owners of
-/// each term (nested/duplicate feature sets), and the basis-family rank used as a
-/// tie-breaker. The fit engine consumes this structure and additionally applies a numerical
-/// cross-residual overlap test on the realized design columns; the CLI structure-warning
-/// path consumes the same structure for diagnostic messages, so both paths agree on which
-/// smooths own which subspaces.
-pub struct SmoothStructureAnalysis {
-    /// Smooth-term indices sorted into ownership-processing order (lowest priority first):
-    /// lower-order / narrower smooths come first and own their subspaces.
-    pub ownership_order: Vec<usize>,
-    /// `term_feature_cols[idx]` are the sorted, deduplicated feature columns that smooth term
-    /// `idx` spans (indexed by the original smooth-term index, not by `ownership_order`).
-    pub term_feature_cols: Vec<Vec<usize>>,
-    /// `term_owners[idx]` are the indices of prior (in `ownership_order`) smooth terms whose
-    /// feature set is a subset of term `idx`'s feature set, i.e. candidate owners of `idx`.
-    /// The list is given in ownership-processing order.
-    pub term_owners: Vec<Vec<usize>>,
-    /// `basis_family_ranks[idx]` is the basis-family ordering rank of smooth term `idx`.
-    pub basis_family_ranks: Vec<u8>,
-}
-
-
-/// Compute the static hierarchical smooth-ownership decomposition from the smooth-term specs.
-///
-/// `smoothspecs` is the same slice that [`apply_global_smooth_identifiability`] receives.
-pub fn analyze_smooth_ownership(smoothspecs: &[SmoothTermSpec]) -> SmoothStructureAnalysis {
-    let term_feature_cols: Vec<Vec<usize>> =
-        smoothspecs.iter().map(smooth_term_feature_cols).collect();
-    let basis_family_ranks: Vec<u8> = smoothspecs.iter().map(smooth_basis_family_rank).collect();
-
-    let mut ownership_order: Vec<usize> = (0..smoothspecs.len()).collect();
-    ownership_order.sort_by(|&lhs, &rhs| {
-        compare_smooth_ownership_priority(lhs, &smoothspecs[lhs], rhs, &smoothspecs[rhs])
-    });
-
-    let mut term_owners = vec![Vec::<usize>::new(); smoothspecs.len()];
-    for (pos, &target_idx) in ownership_order.iter().enumerate() {
-        let target = &smoothspecs[target_idx];
-        term_owners[target_idx] = ownership_order[..pos]
-            .iter()
-            .copied()
-            .filter(|&owner_idx| smooth_is_owned_by_prior_term(&smoothspecs[owner_idx], target))
-            .collect();
-    }
-
-    SmoothStructureAnalysis {
-        ownership_order,
-        term_feature_cols,
-        term_owners,
-        basis_family_ranks,
-    }
-}
-
 
 fn build_constraint_block(
     n: usize,
@@ -683,7 +499,6 @@ fn build_constraint_block(
     Ok(block)
 }
 
-
 fn design_cross_relative_residual(
     lhs: &DesignMatrix,
     rhs: &DesignMatrix,
@@ -716,7 +531,6 @@ fn design_cross_relative_residual(
     Ok(num / denom)
 }
 
-
 fn smooth_has_overlapping_linear_terms(
     linear_terms: &[LinearTermSpec],
     termspec: &SmoothTermSpec,
@@ -726,7 +540,6 @@ fn smooth_has_overlapping_linear_terms(
         .iter()
         .any(|linear| feature_cols.contains(&linear.feature_col))
 }
-
 
 fn smooth_intrinsic_parametric_feature_cols(
     linear_terms: &[LinearTermSpec],
@@ -755,7 +568,6 @@ fn smooth_intrinsic_parametric_feature_cols(
     }
     owned
 }
-
 
 fn apply_global_smooth_identifiability(
     smooth: RawSmoothDesign,
@@ -910,8 +722,11 @@ fn apply_global_smooth_identifiability(
                 Err(err) => return Err(err),
             }
         };
-        let design_constrained = if let Some(z) = z_opt.as_ref() {
-            apply_smooth_transform_to_design(design_local, z, &term.name)?
+        let coefficient_gauge = z_opt
+            .as_ref()
+            .map(|z| crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]));
+        let design_constrained = if let Some(gauge) = coefficient_gauge.as_ref() {
+            apply_smooth_transform_to_design(design_local, &gauge.block_transform(0), &term.name)?
         } else {
             design_local
         };
@@ -951,9 +766,8 @@ fn apply_global_smooth_identifiability(
             .penalties_local
             .par_iter()
             .map(|s_local| {
-                if let Some(z) = z_opt.as_ref() {
-                    let zt_s = fast_atb(z, s_local);
-                    fast_ab(&zt_s, z)
+                if let Some(gauge) = coefficient_gauge.as_ref() {
+                    gauge.restrict_penalty(s_local)
                 } else {
                     s_local.clone()
                 }
@@ -978,9 +792,9 @@ fn apply_global_smooth_identifiability(
             filter_active_penalty_candidates(penalty_candidates)?;
         let linear_constraints_constrained =
             if let Some(lin_local) = term.linear_constraints_local.as_ref() {
-                if let Some(z) = z_opt.as_ref() {
+                if let Some(gauge) = coefficient_gauge.as_ref() {
                     Some(LinearInequalityConstraints {
-                        a: lin_local.a.dot(z),
+                        a: lin_local.a.dot(&gauge.block_transform(0)),
                         b: lin_local.b.clone(),
                     })
                 } else {
@@ -1179,7 +993,6 @@ fn apply_global_smooth_identifiability(
     })
 }
 
-
 /// If `termspec` is a single-level factor-by smooth (`s(x, by=fac)` expanded
 /// into one `ByVariable { kind: Level }` block per factor level), return the
 /// `(by_col, value_bits)` pair identifying which rows that level's block gates
@@ -1212,7 +1025,6 @@ fn factor_by_level_gate(termspec: &SmoothTermSpec) -> Option<(usize, u64)> {
         _ => None,
     }
 }
-
 
 fn build_parametric_constraint_block_for_term(
     data: ArrayView2<'_, f64>,
@@ -1276,7 +1088,6 @@ fn build_parametric_constraint_block_for_term(
     Ok(c)
 }
 
-
 fn apply_smooth_transform_to_design(
     design_local: DesignMatrix,
     transform: &Array2<f64>,
@@ -1306,7 +1117,6 @@ fn apply_smooth_transform_to_design(
     }
 }
 
-
 fn design_constraint_cross(
     design: &DesignMatrix,
     constraint_matrix: ArrayView2<'_, f64>,
@@ -1331,7 +1141,6 @@ fn design_constraint_cross(
     Ok(cross)
 }
 
-
 fn design_frobenius_norm(design: &DesignMatrix) -> Result<f64, BasisError> {
     let n = design.nrows();
     const CHUNK: usize = 1024;
@@ -1345,7 +1154,6 @@ fn design_frobenius_norm(design: &DesignMatrix) -> Result<f64, BasisError> {
     }
     Ok(sumsq.sqrt())
 }
-
 
 /// The persisted fit-time global-orthogonality chart for a factor-smooth
 /// term, if one was frozen onto its spec (#978). `Some` means this term was
@@ -1362,7 +1170,6 @@ fn frozen_global_orthogonality(termspec: &SmoothTermSpec) -> Option<&Array2<f64>
         _ => None,
     }
 }
-
 
 fn maybe_smooth_identifiability_transform(
     termspec: &SmoothTermSpec,
@@ -1397,7 +1204,6 @@ fn maybe_smooth_identifiability_transform(
     }
 }
 
-
 fn spatial_identifiability_policy(termspec: &SmoothTermSpec) -> Option<&SpatialIdentifiability> {
     match &termspec.basis {
         SmoothBasisSpec::ThinPlate { spec, .. } => Some(&spec.identifiability),
@@ -1405,7 +1211,6 @@ fn spatial_identifiability_policy(termspec: &SmoothTermSpec) -> Option<&SpatialI
         _ => None,
     }
 }
-
 
 /// Whether this smooth's *realized* design (the basis evaluated at the n data
 /// rows) must be residualized against the model's parametric block (intercept +
@@ -1519,7 +1324,6 @@ fn smooth_requires_parametric_orthogonality(termspec: &SmoothTermSpec) -> bool {
     }
 }
 
-
 fn compose_identifiability_transforms(
     existing: Option<&Array2<f64>>,
     extra: Option<&Array2<f64>>,
@@ -1548,7 +1352,6 @@ fn compose_identifiability_transforms(
         (None, None) => Ok(None),
     }
 }
-
 
 fn with_identifiability_transform(
     metadata: &BasisMetadata,
@@ -1810,7 +1613,6 @@ fn orthogonality_relative_residual_for_design(
     Ok(num / denom)
 }
 
-
 pub fn fit_term_collection_forspec(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -1824,7 +1626,6 @@ pub fn fit_term_collection_forspec(
         data, y, weights, offset, spec, None, family, options,
     )
 }
-
 
 pub fn fit_term_collection_with_coefficient_groups(
     data: ArrayView2<'_, f64>,
@@ -1864,7 +1665,6 @@ pub fn fit_term_collection_with_coefficient_groups(
     Ok(fitted)
 }
 
-
 pub fn fit_term_collection_with_penalty_block_gamma_prior_callback<F>(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -1900,7 +1700,6 @@ where
     Ok(fitted)
 }
 
-
 pub fn fit_term_collection_with_penalty_block_gamma_priors(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -1932,7 +1731,6 @@ pub fn fit_term_collection_with_penalty_block_gamma_priors(
     enforce_term_constraint_feasibility(&fitted.design, &fitted.fit)?;
     Ok(fitted)
 }
-
 
 pub fn fit_term_collection_with_coefficient_groups_and_penalty_block_gamma_priors(
     data: ArrayView2<'_, f64>,
@@ -1983,7 +1781,6 @@ pub fn fit_term_collection_with_coefficient_groups_and_penalty_block_gamma_prior
     Ok(fitted)
 }
 
-
 fn fit_term_collection_forspecwith_heuristic_lambdas(
     data: ArrayView2<'_, f64>,
     y: ArrayView1<'_, f64>,
@@ -2007,7 +1804,6 @@ fn fit_term_collection_forspecwith_heuristic_lambdas(
     )
 }
 
-
 fn has_bounded_linear_terms(spec: &TermCollectionSpec) -> bool {
     spec.linear_terms.iter().any(|term| {
         matches!(
@@ -2016,7 +1812,6 @@ fn has_bounded_linear_terms(spec: &TermCollectionSpec) -> bool {
         )
     })
 }
-
 
 fn fit_term_collection_on_realized_design(
     y: ArrayView1<'_, f64>,
@@ -2082,7 +1877,6 @@ fn fit_term_collection_on_realized_design(
     )
 }
 
-
 #[derive(Clone)]
 struct SpatialOperatorRuntimeCache {
     termname: String,
@@ -2098,7 +1892,6 @@ struct SpatialOperatorRuntimeCache {
     dimension: usize,
 }
 
-
 #[derive(Clone)]
 struct SpatialAdaptiveWeights {
     inv_magweight: Array1<f64>,
@@ -2106,14 +1899,12 @@ struct SpatialAdaptiveWeights {
     inv_lapweight: Array1<f64>,
 }
 
-
 #[derive(Clone)]
 struct CharbonnierScalarBlockState {
     signal: Array1<f64>,
     radius: Array1<f64>,
     epsilon: f64,
 }
-
 
 impl CharbonnierScalarBlockState {
     fn from_signal(signal: Array1<f64>, epsilon: f64) -> Self {
@@ -2344,7 +2135,6 @@ impl CharbonnierScalarBlockState {
     }
 }
 
-
 #[derive(Clone)]
 struct CharbonnierGroupedBlockState {
     norm: Array1<f64>,
@@ -2352,7 +2142,6 @@ struct CharbonnierGroupedBlockState {
     signal_blocks: Array2<f64>,
     epsilon: f64,
 }
-
 
 impl CharbonnierGroupedBlockState {
     fn from_signal_blocks(signal_blocks: Array2<f64>, epsilon: f64) -> Self {
@@ -2673,11 +2462,9 @@ impl CharbonnierGroupedBlockState {
     }
 }
 
-
 fn scalar_operatorgradient(operator: &Array2<f64>, coeff: &Array1<f64>) -> Array1<f64> {
     operator.t().dot(coeff)
 }
-
 
 fn scalar_operatorhessian(operator: &Array2<f64>, diag: &Array1<f64>) -> Array2<f64> {
     let mut weighted = operator.clone();
@@ -2687,7 +2474,6 @@ fn scalar_operatorhessian(operator: &Array2<f64>, diag: &Array1<f64>) -> Array2<
     let gram = operator.t().dot(&weighted);
     (&gram + &gram.t().to_owned()) * 0.5
 }
-
 
 fn grouped_operatorgradient(
     d1: &Array2<f64>,
@@ -2716,7 +2502,6 @@ fn grouped_operatorgradient(
     }
     Ok(out)
 }
-
 
 fn grouped_operatorhessian(
     d1: &Array2<f64>,
@@ -2750,14 +2535,12 @@ fn grouped_operatorhessian(
     Ok((&out + &out.t().to_owned()) * 0.5)
 }
 
-
 #[derive(Clone)]
 struct SpatialPenaltyExactState {
     magnitude: CharbonnierScalarBlockState,
     gradient: CharbonnierGroupedBlockState,
     curvature: CharbonnierGroupedBlockState,
 }
-
 
 fn collocationgradient_blocks(
     gradrows: &Array1<f64>,
@@ -2778,7 +2561,6 @@ fn collocationgradient_blocks(
     }
     Ok(out)
 }
-
 
 fn collocationhessian_blocks(
     hessianrows: &Array1<f64>,
@@ -2802,7 +2584,6 @@ fn collocationhessian_blocks(
     }
     Ok(out)
 }
-
 
 impl SpatialPenaltyExactState {
     fn from_beta_local(
@@ -2866,7 +2647,6 @@ impl SpatialPenaltyExactState {
     }
 }
 
-
 fn robust_epsilon_from_samples(values: &[f64], min_epsilon_cfg: f64) -> f64 {
     if values.is_empty() {
         return min_epsilon_cfg.max(1e-12);
@@ -2925,7 +2705,6 @@ fn robust_epsilon_from_samples(values: &[f64], min_epsilon_cfg: f64) -> f64 {
     let kappa = 1.0_f64;
     (kappa * scale).max(s_min)
 }
-
 
 fn extract_spatial_operator_runtime_caches(
     spec: &TermCollectionSpec,
@@ -3161,7 +2940,6 @@ fn extract_spatial_operator_runtime_caches(
     Ok(out)
 }
 
-
 /// Posterior variance of a scalar collocation operator response under the
 /// working-Laplace posterior `beta ~ N(beta_hat, Sigma_local)`.
 ///
@@ -3182,7 +2960,6 @@ fn scalar_operator_response_variance(
         row.dot(&s).max(0.0)
     }))
 }
-
 
 /// Posterior second-moment variance aggregated over each grouped collocation
 /// block (gradient/curvature). The grouped operator is stored row-stacked with
@@ -3218,7 +2995,6 @@ fn grouped_operator_response_variance(
     }
     Ok(out)
 }
-
 
 fn compute_spatial_adaptiveweights_for_beta(
     beta: &Array1<f64>,
@@ -3313,7 +3089,6 @@ fn compute_spatial_adaptiveweights_for_beta(
         .collect()
 }
 
-
 fn compute_initial_epsilons(
     beta: &Array1<f64>,
     caches: &[SpatialOperatorRuntimeCache],
@@ -3345,7 +3120,6 @@ fn compute_initial_epsilons(
     Ok((eps_0, eps_g, eps_c))
 }
 
-
 fn exact_spatial_adaptive_penalty_index_set(
     caches: &[SpatialOperatorRuntimeCache],
 ) -> BTreeSet<usize> {
@@ -3357,7 +3131,6 @@ fn exact_spatial_adaptive_penalty_index_set(
     }
     out
 }
-
 
 fn build_spatial_adaptive_hyperspecs(cache_count: usize) -> Vec<SpatialAdaptiveHyperSpec> {
     let mut out = Vec::with_capacity(cache_count * 3 + 3);
@@ -3390,7 +3163,6 @@ fn build_spatial_adaptive_hyperspecs(cache_count: usize) -> Vec<SpatialAdaptiveH
     out
 }
 
-
 fn penalty_matrixwith_local_block(
     total_dim: usize,
     coeff_range: Range<usize>,
@@ -3401,7 +3173,6 @@ fn penalty_matrixwith_local_block(
         .assign(local);
     out
 }
-
 
 fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     baseline: FittedTermCollection,
@@ -3673,7 +3444,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         ..BlockwiseFitOptions::default()
     };
 
-    use crate::solver::outer_strategy::{
+    use crate::solver::rho_optimizer::{
         DeclaredHessianForm, Derivative, HessianResult, OuterEval, OuterProblem,
     };
 
@@ -3760,7 +3531,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         } else {
             DeclaredHessianForm::Unavailable
         })
-        .with_fallback_policy(crate::solver::outer_strategy::FallbackPolicy::Disabled)
+        .with_fallback_policy(crate::solver::rho_optimizer::FallbackPolicy::Disabled)
         .with_psi_dim(n_theta.saturating_sub(rho_dim))
         .with_tolerance(options.tol)
         .with_max_iter(outer_max_iter)
@@ -3775,7 +3546,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
 
     let eval_outer = |st: &mut SpatialAdaptiveOuterState,
                       theta: &Array1<f64>,
-                      order: crate::solver::outer_strategy::OuterEvalOrder|
+                      order: crate::solver::rho_optimizer::OuterEvalOrder|
      -> Result<OuterEval, EstimationError> {
         let theta = clamp_theta(theta);
 
@@ -3788,7 +3559,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 .all(|(&a, &b)| (a - b).abs() <= 1e-12)
             && (!matches!(
                 order,
-                crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian
+                crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian
             ) || analytic_outer_hessian_available)
         {
             st.warm_cache = Some(cached_warm.clone());
@@ -3797,7 +3568,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 gradient: cached_grad.clone(),
                 hessian: if matches!(
                     order,
-                    crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian
+                    crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian
                 ) && analytic_outer_hessian_available
                 {
                     cached_hess.clone()
@@ -3812,7 +3583,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
         let family_eval = base_family.with_adaptive_params(adaptive_params, zero_quadratic.clone());
         let need_hessian = matches!(
             order,
-            crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian
+            crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian
         ) && analytic_outer_hessian_available;
         let result = evaluate_custom_family_joint_hyper(
             &family_eval,
@@ -3822,9 +3593,9 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             &derivative_blocks,
             st.warm_cache.as_ref(),
             if need_hessian {
-                crate::solver::estimate::reml::unified::EvalMode::ValueGradientHessian
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueGradientHessian
             } else {
-                crate::solver::estimate::reml::unified::EvalMode::ValueAndGradient
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueAndGradient
             },
         )
         .map_err(|e| {
@@ -3900,7 +3671,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 &rho,
                 &derivative_blocks,
                 st.warm_cache.as_ref(),
-                crate::solver::estimate::reml::unified::EvalMode::ValueOnly,
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
             )
             .map_err(|e| {
                 EstimationError::RemlOptimizationFailed(format!(
@@ -3921,15 +3692,15 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 st,
                 theta,
                 if analytic_outer_hessian_available {
-                    crate::solver::outer_strategy::OuterEvalOrder::ValueGradientHessian
+                    crate::solver::rho_optimizer::OuterEvalOrder::ValueGradientHessian
                 } else {
-                    crate::solver::outer_strategy::OuterEvalOrder::ValueAndGradient
+                    crate::solver::rho_optimizer::OuterEvalOrder::ValueAndGradient
                 },
             )
         },
         |st: &mut SpatialAdaptiveOuterState,
          theta: &Array1<f64>,
-         order: crate::solver::outer_strategy::OuterEvalOrder| {
+         order: crate::solver::rho_optimizer::OuterEvalOrder| {
             eval_outer(st, theta, order)
         },
         Some(|st: &mut SpatialAdaptiveOuterState| {
@@ -3986,7 +3757,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 &rho,
                 &derivative_blocks,
                 st.warm_cache.as_ref(),
-                crate::solver::estimate::reml::unified::EvalMode::ValueOnly,
+                crate::solver::estimate::reml::reml_outer_engine::EvalMode::ValueOnly,
             )
             .map_err(|e| {
                 EstimationError::RemlOptimizationFailed(format!(
@@ -4200,14 +3971,19 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             ));
         }
     }
-    let (edf_by_block, edf_total) = if let Some(cov) = beta_covariance.as_ref() {
+    let (edf_by_block, penalty_block_trace, edf_total) = if let Some(cov) = beta_covariance.as_ref()
+    {
         exact_bounded_edf(
             &local_penalty_blocks,
             &Array1::from_elem(local_penalty_blocks.len(), 1.0),
             cov,
         )?
     } else {
-        (vec![0.0; local_penalty_blocks.len()], 0.0)
+        (
+            vec![0.0; local_penalty_blocks.len()],
+            vec![0.0; local_penalty_blocks.len()],
+            0.0,
+        )
     };
     let stable_penalty_term =
         2.0 * final_eval.adaptive_penalty_value + beta.dot(&fixed_total.dot(&beta));
@@ -4281,6 +4057,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
             let log_lambdas = full_lambdas.mapv(|v| v.max(1e-300).ln());
             let inf = FitInference {
                 edf_by_block,
+                penalty_block_trace,
                 edf_total,
                 smoothing_correction: None,
                 // Boundary adapter: wrap the raw `Array2<f64>` Hessian as
@@ -4337,6 +4114,7 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
                 reml_score: final_fit.penalized_objective,
                 stable_penalty_term,
                 penalized_objective: final_fit.penalized_objective,
+                used_device: false,
                 outer_iterations,
                 outer_converged: final_fit.outer_converged,
                 outer_gradient_norm: outer_grad_norm,
@@ -4372,7 +4150,6 @@ fn fit_term_collectionwith_exact_spatial_adaptive_regularization(
     Ok(fitted)
 }
 
-
 fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign) -> FitOptions {
     FitOptions {
         latent_cloglog: options.latent_cloglog,
@@ -4402,13 +4179,11 @@ fn adaptive_fit_options_base(options: &FitOptions, design: &TermCollectionDesign
     }
 }
 
-
 fn superseded_fit_options(options: &FitOptions) -> FitOptions {
     let mut fit_options = options.clone();
     fit_options.skip_rho_posterior_inference = true;
     fit_options
 }
-
 
 #[derive(Clone)]
 struct BoundedLinearTermMeta {
@@ -4417,7 +4192,6 @@ struct BoundedLinearTermMeta {
     max: f64,
     prior: BoundedCoefficientPriorSpec,
 }
-
 
 /// β-dependent effective Jacobian for the bounded-linear fit block.
 ///
@@ -4446,7 +4220,6 @@ struct BoundedEffectiveJacobian {
     design: Array2<f64>,
     bounded_terms: Vec<BoundedLinearTermMeta>,
 }
-
 
 impl BlockEffectiveJacobian for BoundedEffectiveJacobian {
     fn effective_jacobian_rows(
@@ -4489,7 +4262,6 @@ impl BlockEffectiveJacobian for BoundedEffectiveJacobian {
     }
 }
 
-
 #[derive(Clone)]
 struct BoundedLinearFamily {
     family: LikelihoodSpec,
@@ -4504,7 +4276,6 @@ struct BoundedLinearFamily {
     bounded_terms: Vec<BoundedLinearTermMeta>,
 }
 
-
 #[derive(Clone)]
 struct StandardFamilyObservationState {
     eta: Array1<f64>,
@@ -4516,12 +4287,10 @@ struct StandardFamilyObservationState {
     log_likelihood: f64,
 }
 
-
 fn bounded_logit(z: f64) -> f64 {
     let zc = z.clamp(1e-12, 1.0 - 1e-12);
     (zc / (1.0 - zc)).ln()
 }
-
 
 fn stable_sigmoid(theta: f64) -> f64 {
     if theta >= 0.0 {
@@ -4533,7 +4302,6 @@ fn stable_sigmoid(theta: f64) -> f64 {
     }
 }
 
-
 fn bounded_latent_to_user(theta: f64, min: f64, max: f64) -> (f64, f64, f64) {
     let z = stable_sigmoid(theta);
     let width = max - min;
@@ -4541,7 +4309,6 @@ fn bounded_latent_to_user(theta: f64, min: f64, max: f64) -> (f64, f64, f64) {
     let db_dtheta = width * z * (1.0 - z);
     (beta, z, db_dtheta)
 }
-
 
 /// Invert the bounded interval transform: given a user-scale coefficient
 /// `beta` in the open interval `(min, max)`, return the latent coordinate
@@ -4562,7 +4329,6 @@ fn bounded_user_to_latent(beta: f64, min: f64, max: f64) -> f64 {
     bounded_logit(z)
 }
 
-
 /// One bounded coefficient column for posterior sampling: its position in the
 /// (internal, conditioned) coefficient vector and the interval bounds expressed
 /// on that same internal scale.
@@ -4575,7 +4341,6 @@ pub struct BoundedSampleColumn {
     /// Upper interval bound on the internal scale.
     pub max: f64,
 }
-
 
 /// Exact posterior draws for a model with `bounded()` coefficients.
 ///
@@ -4685,7 +4450,6 @@ pub fn sample_bounded_latent_posterior_internal(
     Ok(draws)
 }
 
-
 /// Box-Muller standard-normal draw (kept local so the bounded sampler does not
 /// depend on the HMC module's RNG plumbing).
 #[inline]
@@ -4695,7 +4459,6 @@ fn standard_normal_draw<R: rand::Rng + ?Sized>(rng: &mut R) -> f64 {
     let u2 = rng.random::<f64>();
     (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
 }
-
 
 /// Solve `Lᵀ x = b` for a lower-triangular `L` (back substitution), writing the
 /// result into `out`. Used to turn a standard-normal `b` into a draw with
@@ -4712,7 +4475,6 @@ fn solve_lower_transpose_into(l: &Array2<f64>, b: &Array1<f64>, out: &mut Array1
     }
 }
 
-
 fn bounded_latent_derivatives(theta: f64, min: f64, max: f64) -> (f64, f64, f64, f64, f64) {
     let z = stable_sigmoid(theta);
     let width = max - min;
@@ -4723,7 +4485,6 @@ fn bounded_latent_derivatives(theta: f64, min: f64, max: f64) -> (f64, f64, f64,
     let d3b_dtheta3 = width * s * (1.0 - 6.0 * z + 6.0 * z * z);
     (beta, z, db_dtheta, d2b_dtheta2, d3b_dtheta3)
 }
-
 
 fn bounded_prior_terms(theta: f64, prior: &BoundedCoefficientPriorSpec) -> (f64, f64, f64, f64) {
     let (a, b) = match prior {
@@ -4741,7 +4502,6 @@ fn bounded_prior_terms(theta: f64, prior: &BoundedCoefficientPriorSpec) -> (f64,
     let neghess_derivative = (a + b) * z * (1.0 - z) * (1.0 - 2.0 * z);
     (logp, grad, neghess, neghess_derivative)
 }
-
 
 fn evaluate_standard_familyobservations(
     family: LikelihoodSpec,
@@ -4875,7 +4635,6 @@ fn evaluate_standard_familyobservations(
     })
 }
 
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SpatialAdaptiveHyperKind {
     LogLambdaMagnitude,
@@ -4885,7 +4644,6 @@ enum SpatialAdaptiveHyperKind {
     LogEpsilonGradient,
     LogEpsilonCurvature,
 }
-
 
 impl SpatialAdaptiveHyperKind {
     fn component_index(self) -> usize {
@@ -4918,13 +4676,11 @@ impl SpatialAdaptiveHyperKind {
     }
 }
 
-
 #[derive(Clone, Copy, Debug)]
 struct SpatialAdaptiveHyperSpec {
     cache_index: usize,
     kind: SpatialAdaptiveHyperKind,
 }
-
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SpatialAdaptiveExplicitSecondOrderKind {
@@ -4933,7 +4689,6 @@ enum SpatialAdaptiveExplicitSecondOrderKind {
     LocalAlphaEta,
     SharedEtaEta,
 }
-
 
 /// Penalty family selected within one adaptive smooth cache. The component index
 /// (0/1/2) used throughout the runtime caches maps onto these three operators:
@@ -4945,7 +4700,6 @@ enum AdaptiveComponent {
     Gradient,
     Curvature,
 }
-
 
 impl AdaptiveComponent {
     fn from_index(index: usize) -> Result<Self, String> {
@@ -4962,7 +4716,6 @@ impl AdaptiveComponent {
     }
 }
 
-
 /// Which hyper-derivative of the adaptive penalty's local pieces to assemble.
 /// Each variant selects one accessor triple (objective scalar, beta-mixed
 /// gradient, beta hessian) on the per-component exact state; the operator
@@ -4977,7 +4730,6 @@ enum HyperDerivativeKind {
     LogEpsilonSecond,
 }
 
-
 /// Which directional-drift hyper-derivative of the adaptive penalty Hessian to
 /// assemble: the bare rho drift, or the shared-`log epsilon` drift. Both share
 /// the per-component direction projection, operator embedding, and global
@@ -4987,7 +4739,6 @@ enum HyperDriftKind {
     Rho,
     LogEpsilon,
 }
-
 
 impl SpatialAdaptiveHyperSpec {
     fn component_index(self) -> usize {
@@ -5016,13 +4767,11 @@ impl SpatialAdaptiveHyperSpec {
     }
 }
 
-
 #[derive(Clone, Debug)]
 struct SpatialAdaptiveTermHyperParams {
     lambda: [f64; 3],
     epsilon: [f64; 3],
 }
-
 
 #[derive(Clone)]
 struct SpatialAdaptiveExactEvaluation {
@@ -5036,13 +4785,11 @@ struct SpatialAdaptiveExactEvaluation {
     fixed_quadratichessian: Array2<f64>,
 }
 
-
 #[derive(Clone)]
 struct CachedSpatialAdaptiveExactEvaluation {
     beta: Array1<f64>,
     eval: Arc<SpatialAdaptiveExactEvaluation>,
 }
-
 
 impl SpatialAdaptiveExactEvaluation {
     fn total_penalty_value(&self) -> f64 {
@@ -5064,7 +4811,6 @@ impl SpatialAdaptiveExactEvaluation {
     }
 }
 
-
 #[derive(Clone)]
 struct SpatialAdaptiveExactFamily {
     family: LikelihoodSpec,
@@ -5082,7 +4828,6 @@ struct SpatialAdaptiveExactFamily {
     hyperspecs: Arc<Vec<SpatialAdaptiveHyperSpec>>,
     exact_eval_cache: Arc<Mutex<Option<CachedSpatialAdaptiveExactEvaluation>>>,
 }
-
 
 impl SpatialAdaptiveExactFamily {
     fn with_adaptive_params(
@@ -5804,7 +5549,6 @@ impl SpatialAdaptiveExactFamily {
     }
 }
 
-
 impl CustomFamily for SpatialAdaptiveExactFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
         let beta = &expect_single_block_state(block_states, "spatial adaptive exact family")?.beta;
@@ -6081,19 +5825,17 @@ impl CustomFamily for SpatialAdaptiveExactFamily {
     }
 }
 
-
 fn expect_single_block_state<'a>(
     block_states: &'a [ParameterBlockState],
     family_name: &str,
 ) -> Result<&'a ParameterBlockState, String> {
-    crate::util::block_count::validate_block_count::<SmoothError>(
+    crate::families::block_layout::block_count::validate_block_count::<SmoothError>(
         family_name,
         1,
         block_states.len(),
     )?;
     Ok(&block_states[0])
 }
-
 
 fn expect_block_idx_zero(block_idx: usize, family_name: &str, context: &str) -> Result<(), String> {
     if block_idx != 0 {
@@ -6104,7 +5846,6 @@ fn expect_block_idx_zero(block_idx: usize, family_name: &str, context: &str) -> 
     }
     Ok::<(), _>(())
 }
-
 
 impl BoundedLinearFamily {
     fn bounded_term_derivative_data(
@@ -6241,7 +5982,6 @@ impl BoundedLinearFamily {
         Ok((obs, hessian, gradient, prior_loglik))
     }
 }
-
 
 impl CustomFamily for BoundedLinearFamily {
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
@@ -6418,7 +6158,6 @@ impl CustomFamily for BoundedLinearFamily {
     }
 }
 
-
 #[inline]
 fn dense_diag_gram_chunkrows(p: usize) -> usize {
     const MIN_ROWS: usize = 512;
@@ -6427,7 +6166,6 @@ fn dense_diag_gram_chunkrows(p: usize) -> usize {
     let bytes_per_row = p.max(1) * std::mem::size_of::<f64>();
     (TARGET_BYTES / bytes_per_row).clamp(MIN_ROWS, MAX_ROWS)
 }
-
 
 fn xt_diag_x_dense(x: ArrayView2<'_, f64>, w: ArrayView1<'_, f64>) -> Result<Array2<f64>, String> {
     if x.nrows() != w.len() {
@@ -6475,7 +6213,6 @@ fn xt_diag_x_dense(x: ArrayView2<'_, f64>, w: ArrayView1<'_, f64>) -> Result<Arr
     Ok(out)
 }
 
-
 fn trace_of_dense_product(a: &Array2<f64>, b: &Array2<f64>) -> Result<f64, String> {
     if a.nrows() != a.ncols() || b.nrows() != b.ncols() || a.nrows() != b.nrows() {
         return Err(
@@ -6491,12 +6228,11 @@ fn trace_of_dense_product(a: &Array2<f64>, b: &Array2<f64>) -> Result<f64, Strin
     Ok(trace)
 }
 
-
 fn exact_bounded_edf(
     penalties: &[PenaltySpec],
     lambdas: &Array1<f64>,
     latent_cov: &Array2<f64>,
-) -> Result<(Vec<f64>, f64), EstimationError> {
+) -> Result<(Vec<f64>, Vec<f64>, f64), EstimationError> {
     if penalties.len() != lambdas.len() {
         crate::bail_invalid_estim!(
             "bounded EDF penalty/lambda mismatch: {} penalties vs {} lambdas",
@@ -6511,6 +6247,8 @@ fn exact_bounded_edf(
     let p = latent_cov.nrows();
     let mut s_lambda = Array2::<f64>::zeros((p, p));
     let mut edf_by_block = Vec::with_capacity(penalties.len());
+    // Raw per-block penalty trace tr_kk = λ_kk·tr(H⁻¹S_kk) (issue #1219).
+    let mut penalty_block_trace = Vec::with_capacity(penalties.len());
     let mut trace_sum = 0.0;
 
     for (k, ps) in penalties.iter().enumerate() {
@@ -6535,6 +6273,7 @@ fn exact_bounded_edf(
                     * trace_of_dense_product(&cov_block.to_owned(), local)
                         .map_err(EstimationError::InvalidInput)?;
                 trace_sum += trace_k;
+                penalty_block_trace.push(trace_k);
                 let p_k = penalty_rank as f64;
                 edf_by_block.push((p_k - trace_k).clamp(0.0, p_k));
             }
@@ -6547,6 +6286,7 @@ fn exact_bounded_edf(
                     * trace_of_dense_product(latent_cov, m)
                         .map_err(EstimationError::InvalidInput)?;
                 trace_sum += trace_k;
+                penalty_block_trace.push(trace_k);
                 let p_k = penalty_rank as f64;
                 edf_by_block.push((p_k - trace_k).clamp(0.0, p_k));
             }
@@ -6557,9 +6297,8 @@ fn exact_bounded_edf(
         .map_err(|e| EstimationError::InvalidInput(format!("bounded EDF nullity failed: {e}")))?
         as f64;
     let edf_total = (p as f64 - trace_sum).clamp(nullity_total, p as f64);
-    Ok((edf_by_block, edf_total))
+    Ok((edf_by_block, penalty_block_trace, edf_total))
 }
-
 
 /// Symmetric posterior-precision inverse for the bounded-coefficient path.
 ///
@@ -6617,7 +6356,6 @@ fn symmetric_positive_definite_inverse_or_pseudo(
     Ok((&cov + &cov.t().to_owned()) * 0.5)
 }
 
-
 fn transform_bounded_latent_precision_to_user_internal(
     latent_precision: &Array2<f64>,
     jac_diag: &Array1<f64>,
@@ -6646,7 +6384,6 @@ fn transform_bounded_latent_precision_to_user_internal(
     }
     Ok(out)
 }
-
 
 fn fit_bounded_term_collection_with_design(
     y: ArrayView1<'_, f64>,
@@ -6895,10 +6632,14 @@ fn fit_bounded_term_collection_with_design(
     } else {
         -2.0 * eta_state.log_likelihood
     };
-    let (edf_by_block, edf_total) = if let Some(cov) = latent_cov.as_ref() {
+    let (edf_by_block, penalty_block_trace, edf_total) = if let Some(cov) = latent_cov.as_ref() {
         exact_bounded_edf(&fit_penalties, &fit.lambdas, cov)?
     } else {
-        (vec![0.0; fit_penalties.len()], 0.0)
+        (
+            vec![0.0; fit_penalties.len()],
+            vec![0.0; fit_penalties.len()],
+            0.0,
+        )
     };
     let geometry = Some(crate::estimate::FitGeometry {
         penalized_hessian: penalized_hessian.clone().into(),
@@ -6921,6 +6662,7 @@ fn fit_bounded_term_collection_with_design(
             let log_lambdas = fit.lambdas.mapv(|v| v.max(1e-300).ln());
             let inf = FitInference {
                 edf_by_block,
+                penalty_block_trace,
                 edf_total,
                 smoothing_correction: None,
                 // Boundary adapter: `penalized_hessian` storage is now
@@ -6972,6 +6714,7 @@ fn fit_bounded_term_collection_with_design(
                 reml_score: fit.penalized_objective,
                 stable_penalty_term: penalty_term,
                 penalized_objective: fit.penalized_objective,
+                used_device: false,
                 outer_iterations: fit.outer_iterations,
                 outer_converged: fit.outer_converged,
                 outer_gradient_norm: fit.outer_gradient_norm,
@@ -6996,7 +6739,6 @@ fn fit_bounded_term_collection_with_design(
         adaptive_diagnostics: None,
     })
 }
-
 
 fn enforce_term_constraint_feasibility(
     design: &TermCollectionDesign,
@@ -7082,7 +6824,6 @@ fn enforce_term_constraint_feasibility(
     }
     Ok(())
 }
-
 
 fn stratified_spatial_subsample(
     data: ArrayView2<'_, f64>,
@@ -7194,7 +6935,6 @@ fn stratified_spatial_subsample(
     selected
 }
 
-
 fn spatial_subsample_seed(
     data: ArrayView2<'_, f64>,
     spatial_cols: &[usize],
@@ -7222,18 +6962,15 @@ fn spatial_subsample_seed(
     state
 }
 
-
 #[inline]
 fn spatial_seed_mix(state: &mut u64, value: u64) {
-    let mut z = value
-        .wrapping_add(0x9E37_79B9_7F4A_7C15)
-        .wrapping_add(*state);
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    *state ^= z ^ (z >> 31);
+    // Canonical SplitMix64 step over `value + state` (the step adds G itself),
+    // then an extra rotate-multiply avalanche unique to the spatial seed mix.
+    let mut s = value.wrapping_add(*state);
+    let z = crate::linalg::utils::splitmix64(&mut s);
+    *state ^= z;
     *state = (*state).rotate_left(27).wrapping_mul(0x3C79_AC49_2BA7_B653);
 }
-
 
 fn sampled_rows(data: ArrayView2<'_, f64>, indices: &[usize]) -> Array2<f64> {
     let mut sampled = Array2::<f64>::zeros((indices.len(), data.ncols()));
@@ -7243,14 +6980,12 @@ fn sampled_rows(data: ArrayView2<'_, f64>, indices: &[usize]) -> Array2<f64> {
     sampled
 }
 
-
 fn spatial_term_user_centers(term: &SmoothTermSpec) -> Option<ArrayView2<'_, f64>> {
     match spatial_term_center_strategy(term) {
         Some(CenterStrategy::UserProvided(centers)) => Some(centers.view()),
         _ => None,
     }
 }
-
 
 fn finite_centered_axis_contrasts(values: &[f64], expected_dim: usize) -> Option<Vec<f64>> {
     if values.len() != expected_dim || expected_dim <= 1 {
@@ -7261,7 +6996,6 @@ fn finite_centered_axis_contrasts(values: &[f64], expected_dim: usize) -> Option
     }
     Some(center_aniso_log_scales(values))
 }
-
 
 fn blended_pilot_axis_contrasts(
     pilot_data: ArrayView2<'_, f64>,
@@ -7287,7 +7021,6 @@ fn blended_pilot_axis_contrasts(
     };
     finite_centered_axis_contrasts(&blended, d)
 }
-
 
 fn apply_pilot_spatial_psi_reseed(
     pilot_data: ArrayView2<'_, f64>,
@@ -7339,7 +7072,6 @@ fn apply_pilot_spatial_psi_reseed(
         .clamp_to_bounds(&log_kappa_lower, &log_kappa_upper)
         .apply_tospec(spec, spatial_terms)
 }
-
 
 pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
     data: ArrayView2<'_, f64>,
@@ -7436,7 +7168,6 @@ pub(crate) fn apply_spatial_anisotropy_pilot_initializer(
     updated_terms
 }
 
-
 pub(crate) fn spatial_length_scale_term_indices(spec: &TermCollectionSpec) -> Vec<usize> {
     spec.smooth_terms
         .iter()
@@ -7444,7 +7175,6 @@ pub(crate) fn spatial_length_scale_term_indices(spec: &TermCollectionSpec) -> Ve
         .filter_map(|(idx, _)| spatial_term_supports_hyper_optimization(spec, idx).then_some(idx))
         .collect()
 }
-
 
 /// Returns `true` when every spatial term in `spec` has a locked kernel
 /// scale (explicit `length_scale=X` without anisotropy) and therefore
@@ -7464,7 +7194,6 @@ pub fn all_spatial_terms_kappa_fixed(spec: &TermCollectionSpec) -> bool {
     })
 }
 
-
 fn fit_score(fit: &UnifiedFitResult) -> f64 {
     if fit.reml_score.is_finite() {
         return fit.reml_score;
@@ -7476,7 +7205,6 @@ fn fit_score(fit: &UnifiedFitResult) -> f64 {
         f64::INFINITY
     }
 }
-
 
 /// Classify an outer-evaluation error as a *recoverable trial-point
 /// infeasibility* versus a genuine fatal failure.
@@ -7498,7 +7226,6 @@ fn fit_score(fit: &UnifiedFitResult) -> f64 {
 fn is_recoverable_trial_point_error(err: &EstimationError) -> bool {
     matches!(err, EstimationError::BasisError(_))
 }
-
 
 fn require_successful_spatial_optimization_result<T>(
     initial_score: f64,
@@ -7535,7 +7262,6 @@ fn require_successful_spatial_optimization_result<T>(
     }
 }
 
-
 fn external_opts_for_design(
     family: &LikelihoodSpec,
     design: &TermCollectionDesign,
@@ -7569,7 +7295,6 @@ fn external_opts_for_design(
     }
 }
 
-
 /// Evaluate the joint REML cost, gradient, and Hessian result at a given θ = [ρ, ψ]
 /// for a single-block term collection with spatial hyperparameters.
 ///
@@ -7584,13 +7309,13 @@ fn evaluate_joint_reml_outer_eval_at_theta(
     rho_dim: usize,
     hyper_dirs: Vec<crate::estimate::reml::DirectionalHyperParam>,
     warm_start_beta: Option<ArrayView1<'_, f64>>,
-    order: crate::solver::outer_strategy::OuterEvalOrder,
+    order: crate::solver::rho_optimizer::OuterEvalOrder,
     design_revision: Option<u64>,
 ) -> Result<
     (
         f64,
         Array1<f64>,
-        crate::solver::outer_strategy::HessianResult,
+        crate::solver::rho_optimizer::HessianResult,
     ),
     EstimationError,
 > {
@@ -7609,7 +7334,6 @@ fn evaluate_joint_reml_outer_eval_at_theta(
     )
 }
 
-
 fn evaluate_joint_reml_efs_at_theta(
     evaluator: &mut crate::estimate::ExternalJointHyperEvaluator<'_>,
     design: &TermCollectionDesign,
@@ -7618,7 +7342,7 @@ fn evaluate_joint_reml_efs_at_theta(
     hyper_dirs: Vec<crate::estimate::reml::DirectionalHyperParam>,
     warm_start_beta: Option<ArrayView1<'_, f64>>,
     design_revision: Option<u64>,
-) -> Result<crate::solver::outer_strategy::EfsEval, EstimationError> {
+) -> Result<crate::solver::rho_optimizer::EfsEval, EstimationError> {
     evaluator.evaluate_efs(
         &design.design,
         &design.penalties,
@@ -7632,7 +7356,6 @@ fn evaluate_joint_reml_efs_at_theta(
         design_revision,
     )
 }
-
 
 fn exact_joint_spatial_outer_hessian_available(
     family: &LikelihoodSpec,
@@ -7675,7 +7398,6 @@ fn exact_joint_spatial_outer_hessian_available(
     family_supported && design.design.ncols() > 0
 }
 
-
 fn smooth_term_penalty_index(
     spec: &TermCollectionSpec,
     design: &TermCollectionDesign,
@@ -7708,7 +7430,6 @@ fn smooth_term_penalty_index(
         .sum::<usize>();
     Some(smooth_offset + local_offset)
 }
-
 
 fn try_build_spatial_term_log_kappa_derivativeinfo(
     data: ArrayView2<'_, f64>,
@@ -7763,7 +7484,6 @@ fn try_build_spatial_term_log_kappa_derivativeinfo(
     }))
 }
 
-
 pub(crate) fn try_build_spatial_log_kappa_derivativeinfo_list(
     data: ArrayView2<'_, f64>,
     resolvedspec: &TermCollectionSpec,
@@ -7797,7 +7517,6 @@ pub(crate) fn try_build_spatial_log_kappa_derivativeinfo_list(
     }
     Ok(Some(out))
 }
-
 
 /// For an aniso term with d axes, produce d `SpatialPsiDerivative` entries.
 fn try_build_spatial_term_log_kappa_aniso_derivativeinfos(

@@ -117,17 +117,6 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
             let s_psi_beta_local = s_psi_local.dot(&beta_block);
             let a_penalty_quadratic = 0.5 * beta_block.dot(&s_psi_beta_local);
             let a = psi_terms.objective_psi + a_penalty_quadratic;
-            // HVP ψ-gradient attribution (#740): record the first ψ coordinate's
-            // `a = a_likelihood + a_penalty_quadratic` split so a failing
-            // `coord_a` FD can be attributed to the per-row likelihood channel
-            // (`objective_psi`) vs the penalty-quadratic channel. Diagnostic
-            // only; gated to a live capture guard so production never pays.
-            if psi_global == 0 && crate::test_support::debug_stash::capture_requested() {
-                crate::test_support::debug_stash::store_a_split(
-                    psi_terms.objective_psi,
-                    a_penalty_quadratic,
-                );
-            }
             // Embed s_psi_beta into full p-vector for the score.
             let mut s_psi_beta = Array1::zeros(total);
             s_psi_beta
@@ -224,9 +213,9 @@ pub fn build_psi_hyper_coords<F: CustomFamily + Clone + Send + Sync + 'static>(
 /// (#740).
 ///
 /// Returns `Some(hook)` only when the family's psi workspace supplies a
-/// combined-direction likelihood kernel (`second_order_terms_contracted`);
-/// otherwise `None`, which keeps the outer-Hessian operator on the exact
-/// per-pair `ext_ext_fn` assembly.
+/// combined-direction likelihood kernel (`second_order_terms_contracted`) that
+/// covers every ψ basis axis; otherwise `None`, which keeps the outer-Hessian
+/// operator on the exact per-pair `ext_ext_fn` assembly.
 ///
 /// The hook produces, for the ψ-direction weights `α_ψ`, the
 /// [`ContractedPsiSecondOrder`] ψψ-block contraction: it sums the family
@@ -296,6 +285,32 @@ pub(crate) fn build_contracted_psi_hook(
         return Ok(None);
     }
 
+    for axis_idx in 0..psi_dim {
+        let mut basis = vec![0.0; psi_dim];
+        basis[axis_idx] = 1.0;
+        let Some(terms) = workspace.second_order_terms_contracted(&basis)? else {
+            log::info!(
+                "[outer-hvp contracted-psi] declined: workspace does not cover psi basis axis {}",
+                axis_idx
+            );
+            return Ok(None);
+        };
+        if terms.objective.len() != psi_dim
+            || terms.score.nrows() != psi_dim
+            || terms.score.ncols() != total
+            || terms.hessian.len() != psi_dim
+        {
+            return Err(format!(
+                "contracted ψψ hook basis probe shape mismatch at axis {axis_idx}: \
+                 objective={}, score={}x{}, hessian={}, psi_dim={psi_dim}, beta_dim={total}",
+                terms.objective.len(),
+                terms.score.nrows(),
+                terms.score.ncols(),
+                terms.hessian.len(),
+            ));
+        }
+    }
+
     let derivative_blocks = Arc::clone(&derivative_blocks);
 
     let hook = move |alpha_psi: &[f64]| -> Result<Option<ContractedPsiSecondOrder>, String> {
@@ -306,8 +321,9 @@ pub(crate) fn build_contracted_psi_hook(
             ));
         }
         // Family likelihood ψψ contraction (one combined-direction row pass).
-        // Declining here (e.g. a σ-aux axis carried weight) declines the whole
-        // hook so the operator builder keeps the per-pair assembly.
+        // The basis-axis probe above rejects partial kernels before the operator
+        // skips per-pair ψψ tables; a decline here means the workspace violated
+        // that coverage contract for a combined direction.
         let Some(likelihood) = workspace.second_order_terms_contracted(alpha_psi)? else {
             return Ok(None);
         };
@@ -317,11 +333,16 @@ pub(crate) fn build_contracted_psi_hook(
         // Per-output-row penalty drift `Σ_j α_j S_{ψi ψj}` (block-local),
         // composed onto the likelihood `hessian[i]` operator below.
         let mut hessian: Vec<DriftDerivResult> = likelihood.hessian;
-        if objective.len() != psi_dim || score.nrows() != psi_dim || hessian.len() != psi_dim {
+        if objective.len() != psi_dim
+            || score.nrows() != psi_dim
+            || score.ncols() != total
+            || hessian.len() != psi_dim
+        {
             return Err(format!(
-                "contracted ψψ hook: family kernel shape mismatch (objective={}, score_rows={}, hessian={}, psi_dim={psi_dim})",
+                "contracted ψψ hook: family kernel shape mismatch (objective={}, score={}x{}, hessian={}, psi_dim={psi_dim}, beta_dim={total})",
                 objective.len(),
                 score.nrows(),
+                score.ncols(),
                 hessian.len(),
             ));
         }
@@ -363,31 +384,30 @@ pub(crate) fn build_contracted_psi_hook(
             }
             // hessian[i] += S_{ψi ψ(α)} as a block-local drift (matches the
             // ext_ext `b_operator` BlockLocalDrift composite).
-            let block_drift: Arc<dyn HyperOperator> =
-                Arc::new(crate::solver::estimate::reml::unified::BlockLocalDrift {
-                    local: s_psi_psi_alpha.clone(),
-                    start: axis_i.start,
-                    end: axis_i.end,
-                    total_dim: total,
-                });
+            let block_drift: Arc<dyn HyperOperator> = Arc::new(BlockLocalDrift {
+                local: s_psi_psi_alpha.clone(),
+                start: axis_i.start,
+                end: axis_i.end,
+                total_dim: total,
+            });
             let combined = match std::mem::replace(
                 &mut hessian[i],
                 DriftDerivResult::Operator(Arc::clone(&block_drift)),
             ) {
-                DriftDerivResult::Operator(existing) => DriftDerivResult::Operator(Arc::new(
-                    crate::solver::estimate::reml::unified::CompositeHyperOperator {
+                DriftDerivResult::Operator(existing) => {
+                    DriftDerivResult::Operator(Arc::new(CompositeHyperOperator {
                         dense: None,
                         operators: vec![existing, block_drift],
                         dim_hint: total,
-                    },
-                )),
-                DriftDerivResult::Dense(dense) => DriftDerivResult::Operator(Arc::new(
-                    crate::solver::estimate::reml::unified::CompositeHyperOperator {
+                    }))
+                }
+                DriftDerivResult::Dense(dense) => {
+                    DriftDerivResult::Operator(Arc::new(CompositeHyperOperator {
                         dense: Some(dense),
                         operators: vec![block_drift],
                         dim_hint: total,
-                    },
-                )),
+                    }))
+                }
             };
             hessian[i] = combined;
 
@@ -623,25 +643,22 @@ pub fn build_psi_pair_callbacks<F: CustomFamily + Clone + Send + Sync + 'static>
                         b_mat.slice_mut(s![cache_i.start..cache_i.end, cache_i.start..cache_i.end]);
                     b_local += &s_local;
                 } else {
-                    let block_drift: Arc<dyn HyperOperator> =
-                        Arc::new(crate::solver::estimate::reml::unified::BlockLocalDrift {
-                            local: s_local.clone(),
-                            start: cache_i.start,
-                            end: cache_i.end,
-                            total_dim: total,
-                        });
+                    let block_drift: Arc<dyn HyperOperator> = Arc::new(BlockLocalDrift {
+                        local: s_local.clone(),
+                        start: cache_i.start,
+                        end: cache_i.end,
+                        total_dim: total,
+                    });
                     b_operator = Some(match b_operator.take() {
                         Some(existing) => {
                             let existing_arc: Arc<dyn HyperOperator> = Arc::from(existing);
-                            Box::new(
-                                crate::solver::estimate::reml::unified::CompositeHyperOperator {
-                                    dense: None,
-                                    operators: vec![existing_arc, block_drift],
-                                    dim_hint: total,
-                                },
-                            ) as Box<dyn HyperOperator>
+                            Box::new(CompositeHyperOperator {
+                                dense: None,
+                                operators: vec![existing_arc, block_drift],
+                                dim_hint: total,
+                            }) as Box<dyn HyperOperator>
                         }
-                        None => Box::new(crate::solver::estimate::reml::unified::BlockLocalDrift {
+                        None => Box::new(BlockLocalDrift {
                             local: s_local.clone(),
                             start: cache_i.start,
                             end: cache_i.end,
@@ -1204,7 +1221,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
                         gradient,
-                        outer_hessian: crate::solver::outer_strategy::HessianResult::Unavailable,
+                        outer_hessian: crate::solver::rho_optimizer::HessianResult::Unavailable,
                         warm_start: value_only.warm_start,
                         inner_converged: inner.converged,
                     });
@@ -1603,7 +1620,7 @@ pub(crate) fn evaluate_custom_family_hyper_internal_shared<
                     return Ok(OuterObjectiveEvalResult {
                         objective: value_only.objective,
                         gradient,
-                        outer_hessian: crate::solver::outer_strategy::HessianResult::Unavailable,
+                        outer_hessian: crate::solver::rho_optimizer::HessianResult::Unavailable,
                         warm_start: value_only.warm_start,
                         inner_converged: inner.converged,
                     });
@@ -2151,7 +2168,7 @@ pub(crate) fn evaluate_custom_family_joint_hyper_efs_internal_shared<
     warm_start: Option<&ConstrainedWarmStart>,
 ) -> Result<
     (
-        crate::solver::outer_strategy::EfsEval,
+        crate::solver::rho_optimizer::EfsEval,
         ConstrainedWarmStart,
         bool,
     ),

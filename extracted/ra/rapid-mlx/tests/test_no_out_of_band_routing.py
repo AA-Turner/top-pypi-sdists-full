@@ -164,6 +164,23 @@ ALLOWED_RAPID_MLX_ENV_VARS: frozenset[str] = frozenset(
         # servers. It selects external tool endpoints, never which model /
         # parser / tier the engine routes a request to.
         "RAPID_MLX_MCP_CONFIG",
+        # User-configured HTTP base URL for a weight mirror (R2/S3/any HTTP
+        # host) consumed by ``_try_mirror_prefetch`` in ``vllm_mlx/cli.py``.
+        # Pre-populates the HF cache layout (``snapshots/<sha>/<file>``) from
+        # ``${mirror}/<owner>/<repo>/<file>`` before falling back to
+        # huggingface_hub on any miss. This selects *where the bytes come
+        # from* — strictly a download/CDN knob — not which model alias loads,
+        # which parser fires, or which tier engages. The desktop app sets a
+        # default R2 URL; power users override with any URL or "" to disable.
+        # Never consulted by the engine, scheduler, or routing layer.
+        "RAPID_MLX_MODEL_MIRROR",
+        # SIGTERM-grace budget (seconds, float) for the lifespan prefix-cache
+        # flush in ``vllm_mlx/runtime/cache.py``. Defaults to 3.5s so a
+        # multi-GB save commits its partial snapshot before downstream
+        # supervisors (rapid-desktop's 5s grace, systemd / Docker / launchd
+        # equivalents) escalate to SIGKILL and orphan ``<cache_dir>.new/``.
+        # Pure deadline knob — never selects model, parser, or tier.
+        "RAPID_MLX_PREFIX_CACHE_SHUTDOWN_BUDGET",
     }
 )
 
@@ -1054,6 +1071,15 @@ def test_alias_profile_str_fields_are_explicitly_listed():
             # AttributeError; not consumed by any code path. Removed in
             # v0.8.0 alongside the loader's deprecation handler.
             "diffusion_backend",
+            # PFlash long-prompt compression eligibility (#287). One of
+            # VALID_PFLASH_TIERS ({"unknown", "verified"}). It IS a
+            # routing decision in the sense that it flips the engine's
+            # default ``--pflash`` mode, but the value space is a closed
+            # enum, the routing flip is gated behind a user-overridable
+            # CLI flag (``--pflash off`` always wins), and the field is
+            # validated by VALID_PFLASH_TIERS at JSON load — so a typo'd
+            # value fails loud rather than misrouting.
+            "pflash_tier",
         }
     )
 

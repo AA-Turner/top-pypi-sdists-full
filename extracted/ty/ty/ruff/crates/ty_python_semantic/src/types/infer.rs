@@ -51,7 +51,7 @@ use rustc_hash::FxHashMap;
 use salsa;
 use salsa::plumbing::AsId;
 use std::borrow::Cow;
-pub(super) use ty_python_core::frozen::{FrozenMap, FrozenSet};
+pub(super) use ty_python_core::frozen::{FrozenMap, FrozenSet, FrozenValueMap};
 
 use crate::types::diagnostic::TypeCheckDiagnostics;
 use crate::types::function::{FunctionDecorators, FunctionType};
@@ -91,6 +91,28 @@ impl get_size2::GetSize for TypeExpressionFlags {}
 struct TypeAndRange<'db> {
     ty: Type<'db>,
     range: TextRange,
+}
+
+type CollectionUseConstraints<'db> = FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>;
+
+/// Extends the current collection-use constraints with those from the previous cycle iteration.
+///
+/// Constraints for a collection can appear and disappear while dependent inference results are
+/// still changing. Retaining previous constraints makes this part of inference monotonic.
+fn extend_collection_use_constraints<'db>(
+    current: &mut CollectionUseConstraints<'db>,
+    previous: &CollectionUseConstraints<'db>,
+) {
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "constraints for distinct collection definitions are merged independently"
+    )]
+    for (collection_def, constraints) in previous {
+        current
+            .entry(*collection_def)
+            .or_default()
+            .extend(constraints);
+    }
 }
 
 /// Infer all types for a [`Definition`] (including sub-expressions).
@@ -750,7 +772,7 @@ impl<'db> InferenceRegion<'db> {
 #[derive(Debug, Eq, PartialEq, salsa::Update, get_size2::GetSize)]
 pub(crate) struct ScopeInference<'db> {
     /// The types of every expression in this region.
-    expressions: FrozenMap<ExpressionNodeKey, Type<'db>>,
+    expressions: FrozenValueMap<ExpressionNodeKey, Type<'db>>,
 
     /// The extra data that is only present for few inference regions.
     extra: Option<Box<ScopeInferenceExtra<'db>>>,
@@ -771,7 +793,7 @@ struct ScopeInferenceExtra<'db> {
     type_expression_flags: FrozenMap<ExpressionNodeKey, TypeExpressionFlags>,
 
     /// The constraints on any collection literals that are accessed in this region.
-    collection_use_constraints: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
+    collection_use_constraints: CollectionUseConstraints<'db>,
 
     /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
     cycle_recovery: Option<Type<'db>>,
@@ -787,7 +809,7 @@ impl<'db> ScopeInference<'db> {
                 cycle_recovery: Some(cycle_recovery),
                 ..ScopeInferenceExtra::default()
             })),
-            expressions: FrozenMap::default(),
+            expressions: FrozenValueMap::default(),
         }
     }
 
@@ -797,9 +819,19 @@ impl<'db> ScopeInference<'db> {
         previous_inference: &ScopeInference<'db>,
         cycle: &salsa::Cycle,
     ) -> ScopeInference<'db> {
-        for (expr, ty) in &mut self.expressions {
-            let previous_ty = previous_inference.expression_type(*expr);
-            *ty = ty.cycle_normalized(db, previous_ty, cycle);
+        self.expressions.map_values(|expr, ty| {
+            ty.cycle_normalized(db, previous_inference.expression_type(expr), cycle)
+        });
+
+        if cycle.iteration() > crate::TAINTED_CYCLES
+            && let Some(previous_extra) = previous_inference.extra.as_deref()
+            && !previous_extra.collection_use_constraints.is_empty()
+        {
+            let extra = self.extra.get_or_insert_default();
+            extend_collection_use_constraints(
+                &mut extra.collection_use_constraints,
+                &previous_extra.collection_use_constraints,
+            );
         }
 
         self
@@ -1098,8 +1130,42 @@ impl<'db> DefinitionTypes<'db> {
     }
 }
 
+/// Compact representations for common combinations of extra definition inference data.
+/// `Other` stores uncommon combinations that require multiple fields.
+#[derive(Debug, Eq, PartialEq, get_size2::GetSize, salsa::Update)]
+enum DefinitionInferenceExtra<'db> {
+    /// Type qualifiers are the only extra data for most annotated definitions.
+    Qualifiers(FrozenMap<ExpressionNodeKey, TypeQualifiers>),
+
+    /// Deferred definitions are the only extra data for most definitions with annotations.
+    Deferred(Box<[Definition<'db>]>),
+
+    Diagnostics(Box<TypeCheckDiagnostics>),
+
+    Undecorated(Box<Type<'db>>),
+
+    /// Deferred definitions and the undecorated type are a common two-field combination.
+    DeferredAndUndecorated(Box<DeferredAndUndecorated<'db>>),
+
+    CalledFunctions(Box<[FunctionType<'db>]>),
+
+    ExpectedTypes(FrozenMap<ExpressionNodeKey, Type<'db>>),
+
+    StringAnnotations(FrozenSet<ExpressionNodeKey>),
+
+    DiscardsDictKeyAssignments,
+
+    Other(Box<OtherDefinitionInferenceExtra<'db>>),
+}
+
+#[derive(Debug, Eq, PartialEq, get_size2::GetSize, salsa::Update)]
+struct DeferredAndUndecorated<'db> {
+    deferred: Box<[Definition<'db>]>,
+    undecorated_type: Type<'db>,
+}
+
 #[derive(Debug, Eq, PartialEq, get_size2::GetSize, salsa::Update, Default)]
-struct DefinitionInferenceExtra<'db> {
+struct OtherDefinitionInferenceExtra<'db> {
     /// String annotations found in this region
     string_annotations: FrozenSet<ExpressionNodeKey>,
 
@@ -1113,7 +1179,7 @@ struct DefinitionInferenceExtra<'db> {
     type_expression_flags: FrozenMap<ExpressionNodeKey, TypeExpressionFlags>,
 
     /// The constraints on any collection literals that are accessed in this region.
-    collection_use_constraints: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
+    collection_use_constraints: CollectionUseConstraints<'db>,
 
     /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
     cycle_recovery: Option<Type<'db>>,
@@ -1134,6 +1200,64 @@ struct DefinitionInferenceExtra<'db> {
     /// Type qualifiers (`Required`, `NotRequired`, etc.) for annotation expressions.
     /// Only populated for expressions that have non-empty qualifiers.
     qualifiers: FrozenMap<ExpressionNodeKey, TypeQualifiers>,
+}
+
+impl<'db> DefinitionInferenceExtra<'db> {
+    fn into_other(self) -> OtherDefinitionInferenceExtra<'db> {
+        match self {
+            Self::Qualifiers(qualifiers) => OtherDefinitionInferenceExtra {
+                qualifiers,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::Deferred(deferred) => OtherDefinitionInferenceExtra {
+                deferred,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::Diagnostics(diagnostics) => OtherDefinitionInferenceExtra {
+                diagnostics: *diagnostics,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::Undecorated(undecorated_type) => OtherDefinitionInferenceExtra {
+                undecorated_type: Some(*undecorated_type),
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::DeferredAndUndecorated(extra) => {
+                let DeferredAndUndecorated {
+                    deferred,
+                    undecorated_type,
+                } = *extra;
+                OtherDefinitionInferenceExtra {
+                    deferred,
+                    undecorated_type: Some(undecorated_type),
+                    ..OtherDefinitionInferenceExtra::default()
+                }
+            }
+            Self::CalledFunctions(called_functions) => OtherDefinitionInferenceExtra {
+                called_functions,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::ExpectedTypes(expected_types) => OtherDefinitionInferenceExtra {
+                expected_types,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::StringAnnotations(string_annotations) => OtherDefinitionInferenceExtra {
+                string_annotations,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::DiscardsDictKeyAssignments => OtherDefinitionInferenceExtra {
+                discards_dict_key_assignments: true,
+                ..OtherDefinitionInferenceExtra::default()
+            },
+            Self::Other(extra) => *extra,
+        }
+    }
+
+    fn collection_use_constraints(&self) -> Option<&CollectionUseConstraints<'db>> {
+        match self {
+            Self::Other(extra) => Some(&extra.collection_use_constraints),
+            _ => None,
+        }
+    }
 }
 
 impl<'db> DefinitionInference<'db> {
@@ -1172,10 +1296,12 @@ impl<'db> DefinitionInference<'db> {
             types,
             #[cfg(debug_assertions)]
             scope: definition.scope(db),
-            extra: Some(Box::new(DefinitionInferenceExtra {
-                cycle_recovery: Some(cycle_recovery),
-                ..DefinitionInferenceExtra::default()
-            })),
+            extra: Some(Box::new(DefinitionInferenceExtra::Other(Box::new(
+                OtherDefinitionInferenceExtra {
+                    cycle_recovery: Some(cycle_recovery),
+                    ..OtherDefinitionInferenceExtra::default()
+                },
+            )))),
         }
     }
 
@@ -1196,6 +1322,26 @@ impl<'db> DefinitionInference<'db> {
             cycle,
             definition,
         );
+
+        if cycle.iteration() > crate::TAINTED_CYCLES
+            && let Some(previous_constraints) = previous_inference
+                .extra
+                .as_deref()
+                .and_then(DefinitionInferenceExtra::collection_use_constraints)
+            && !previous_constraints.is_empty()
+        {
+            let mut extra = self
+                .extra
+                .take()
+                .map_or_else(OtherDefinitionInferenceExtra::default, |extra| {
+                    extra.into_other()
+                });
+            extend_collection_use_constraints(
+                &mut extra.collection_use_constraints,
+                previous_constraints,
+            );
+            self.extra = Some(Box::new(DefinitionInferenceExtra::Other(Box::new(extra))));
+        }
 
         self
     }
@@ -1220,17 +1366,25 @@ impl<'db> DefinitionInference<'db> {
         collection_def: Definition<'db>,
     ) -> Option<&FxIndexSet<Type<'db>>> {
         self.extra
-            .as_ref()?
-            .collection_use_constraints
+            .as_deref()?
+            .collection_use_constraints()?
             .get(&collection_def)
     }
 
     /// Get qualifiers for an annotation expression
     pub(crate) fn qualifiers(&self, expression: impl Into<ExpressionNodeKey>) -> TypeQualifiers {
-        self.extra
-            .as_ref()
-            .and_then(|extra| extra.qualifiers.get(&expression.into()).copied())
-            .unwrap_or_default()
+        let expression = expression.into();
+        match self.extra.as_deref() {
+            Some(DefinitionInferenceExtra::Qualifiers(qualifiers)) => {
+                qualifiers.get(&expression).copied().unwrap_or_default()
+            }
+            Some(DefinitionInferenceExtra::Other(extra)) => extra
+                .qualifiers
+                .get(&expression)
+                .copied()
+                .unwrap_or_default(),
+            Some(_) | None => TypeQualifiers::default(),
+        }
     }
 
     /// Get metadata for a type expression.
@@ -1238,10 +1392,14 @@ impl<'db> DefinitionInference<'db> {
         &self,
         expression: impl Into<ExpressionNodeKey>,
     ) -> TypeExpressionFlags {
-        self.extra
-            .as_ref()
-            .and_then(|extra| extra.type_expression_flags.get(&expression.into()).copied())
-            .unwrap_or_default()
+        match self.extra.as_deref() {
+            Some(DefinitionInferenceExtra::Other(extra)) => extra
+                .type_expression_flags
+                .get(&expression.into())
+                .copied()
+                .unwrap_or_default(),
+            Some(_) | None => TypeExpressionFlags::default(),
+        }
     }
 
     #[track_caller]
@@ -1296,17 +1454,31 @@ impl<'db> DefinitionInference<'db> {
     }
 
     pub(crate) fn fallback_type(&self) -> Option<Type<'db>> {
-        self.extra.as_ref().and_then(|extra| extra.cycle_recovery)
+        match self.extra.as_deref() {
+            Some(DefinitionInferenceExtra::Other(extra)) => extra.cycle_recovery,
+            Some(_) | None => None,
+        }
     }
 
     pub(crate) fn discards_dict_key_assignments(&self) -> bool {
-        self.extra
-            .as_deref()
-            .is_some_and(|extra| extra.discards_dict_key_assignments)
+        match self.extra.as_deref() {
+            Some(DefinitionInferenceExtra::DiscardsDictKeyAssignments) => true,
+            Some(DefinitionInferenceExtra::Other(extra)) => extra.discards_dict_key_assignments,
+            Some(_) | None => false,
+        }
     }
 
     pub(crate) fn undecorated_type(&self) -> Option<Type<'db>> {
-        self.extra.as_ref().and_then(|extra| extra.undecorated_type)
+        match self.extra.as_deref() {
+            Some(DefinitionInferenceExtra::Undecorated(undecorated_type)) => {
+                Some(**undecorated_type)
+            }
+            Some(DefinitionInferenceExtra::DeferredAndUndecorated(extra)) => {
+                Some(extra.undecorated_type)
+            }
+            Some(DefinitionInferenceExtra::Other(extra)) => extra.undecorated_type,
+            Some(_) | None => None,
+        }
     }
 
     pub(crate) fn function_type(&self, definition: Definition<'db>) -> Option<FunctionType<'db>> {
@@ -1348,7 +1520,7 @@ struct ExpressionInferenceExtra<'db> {
     type_expression_flags: FrozenMap<ExpressionNodeKey, TypeExpressionFlags>,
 
     /// The constraints on any collection literals that are accessed in this region.
-    collection_use_constraints: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
+    collection_use_constraints: CollectionUseConstraints<'db>,
 
     /// The types of every binding in this expression region.
     ///
@@ -1400,6 +1572,17 @@ impl<'db> ExpressionInference<'db> {
         for (expr, ty) in &mut self.expressions {
             let previous_ty = previous.expression_type(*expr);
             *ty = ty.cycle_normalized(db, previous_ty, cycle);
+        }
+
+        if cycle.iteration() > crate::TAINTED_CYCLES
+            && let Some(previous_extra) = previous.extra.as_deref()
+            && !previous_extra.collection_use_constraints.is_empty()
+        {
+            let extra = self.extra.get_or_insert_default();
+            extend_collection_use_constraints(
+                &mut extra.collection_use_constraints,
+                &previous_extra.collection_use_constraints,
+            );
         }
 
         self
@@ -1511,7 +1694,7 @@ struct StatementInferenceInnerExtra<'db> {
     type_expression_flags: FrozenMap<ExpressionNodeKey, TypeExpressionFlags>,
 
     /// The constraints on any collection literals that are accessed in this region.
-    collection_use_constraints: FxHashMap<Definition<'db>, FxIndexSet<Type<'db>>>,
+    collection_use_constraints: CollectionUseConstraints<'db>,
 
     /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
     cycle_recovery: Option<Type<'db>>,
@@ -1578,6 +1761,17 @@ impl<'db> StatementInferenceInner<'db> {
                 *declaration_ty =
                     declaration_ty.map_type(|decl_ty| decl_ty.recursive_type_normalized(db, cycle));
             }
+        }
+
+        if cycle.iteration() > crate::TAINTED_CYCLES
+            && let Some(previous_extra) = previous_inference.extra.as_deref()
+            && !previous_extra.collection_use_constraints.is_empty()
+        {
+            let extra = self.extra.get_or_insert_default();
+            extend_collection_use_constraints(
+                &mut extra.collection_use_constraints,
+                &previous_extra.collection_use_constraints,
+            );
         }
 
         self

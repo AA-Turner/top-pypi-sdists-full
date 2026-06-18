@@ -31,8 +31,45 @@ import unittest
 from build123d.geometry import BoundBox, Vector
 from build123d.topology import Solid, Vertex
 
+from OCP.TopoDS import TopoDS_Shape
+
 
 class TestBoundBox(unittest.TestCase):
+    def test_constructor_errors(self):
+        topo_ds = TopoDS_Shape()
+
+        # Unexpected keywords
+        with self.assertRaises(TypeError) as ctx:
+            BoundBox(topo_ds, unexpected_kw="Unknown")
+        self.assertEqual(
+            "Unexpected keyword arguments: unexpected_kw", str(ctx.exception)
+        )
+
+        # Invalid first parameter
+        topo_ds_str = "TopoDS_Shape"
+        with self.assertRaises(TypeError) as ctx:
+            BoundBox(topo_ds_str)
+        self.assertEqual(
+            f"Invalid positional arguments: {topo_ds_str}", str(ctx.exception)
+        )
+
+        # Second parameter not float
+        tolerance_str = "tolerance_str"
+        with self.assertRaises(TypeError) as ctx:
+            BoundBox(topo_ds, tolerance_str)
+        self.assertEqual(
+            f"Second parameter must be a float or None not {tolerance_str}",
+            str(ctx.exception),
+        )
+
+        # Third parameter not bool
+        optimal_str = "optimal_str"
+        with self.assertRaises(TypeError) as ctx:
+            BoundBox(topo_ds, None, optimal_str)
+        self.assertEqual(
+            f"Third parameter must be a bool not {optimal_str}", str(ctx.exception)
+        )
+
     def test_basic_bounding_box(self):
         v = Vertex(1, 1, 1)
         v2 = Vertex(2, 2, 2)
@@ -43,6 +80,7 @@ class TestBoundBox(unittest.TestCase):
 
         # OCC uses some approximations
         self.assertAlmostEqual(bb1.size.X, 1.0, 1)
+        self.assertAlmostEqual(bb1.measure, 1.0, 5)
 
         # Test adding to an existing bounding box
         v0 = Vertex(0, 0, 0)
@@ -50,6 +88,7 @@ class TestBoundBox(unittest.TestCase):
 
         bb3 = bb1.add(bb2)
         self.assertAlmostEqual(bb3.size, (2, 2, 2), 7)
+        self.assertAlmostEqual(bb3.measure, 8, 5)
 
         bb3 = bb2.add((3, 3, 3))
         self.assertAlmostEqual(bb3.size, (3, 3, 3), 7)
@@ -61,6 +100,7 @@ class TestBoundBox(unittest.TestCase):
         bb1 = Vertex(1, 1, 0).bounding_box().add(Vertex(2, 2, 0).bounding_box())
         bb2 = Vertex(0, 0, 0).bounding_box().add(Vertex(3, 3, 0).bounding_box())
         bb3 = Vertex(0, 0, 0).bounding_box().add(Vertex(1.5, 1.5, 0).bounding_box())
+        self.assertAlmostEqual(bb2.measure, 9, 5)
         # Test that bb2 contains bb1
         self.assertEqual(bb2, BoundBox.find_outside_box_2d(bb1, bb2))
         self.assertEqual(bb2, BoundBox.find_outside_box_2d(bb2, bb1))

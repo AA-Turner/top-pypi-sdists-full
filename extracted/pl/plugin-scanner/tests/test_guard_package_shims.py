@@ -32,6 +32,38 @@ from tests.shim_execution_helpers import write_fake_manager_script
 from tests.test_guard_protect import _seed_bundle_cache_only, _SyncAndEvaluateHandler
 from tests.test_guard_supply_chain_evaluator import _cloud_response, _EvaluateHandler
 
+
+def _seed_guard_cloud(store, *, workspace_id=None, sync_url=None, token="demo-token", now="2026-05-19T00:00:00Z"):
+    """Seed OAuth credentials (replaces legacy set_sync_credentials scaffolding).
+
+    Also installs a test-only resolver override so sync-path exercises stay hermetic
+    (no OAuth token refresh against the network). Tests that need real sync against a
+    local server pass sync_url=<url>.
+    """
+    from codex_plugin_scanner.guard.cli.oauth_client import generate_dpop_key_pair
+    from codex_plugin_scanner.guard.runtime import runner as guard_runner_module
+
+    dpop_key_material = generate_dpop_key_pair()
+    store.set_oauth_local_credentials(
+        issuer="https://hol.org",
+        client_id="guard-local-daemon",
+        refresh_token=token,
+        dpop_private_key_pem=dpop_key_material.private_key_pem,
+        dpop_public_jwk=dpop_key_material.public_jwk,
+        dpop_public_jwk_thumbprint=dpop_key_material.public_jwk_thumbprint,
+        grant_id="grant-1",
+        machine_id="machine-1",
+        workspace_id=workspace_id,
+        now=now,
+    )
+    effective_sync_url = sync_url if sync_url is not None else "https://hol.org/api/guard/receipts/sync"
+    guard_runner_module._test_sync_auth_context_override = {
+        "sync_url": effective_sync_url,
+        "access_token": token,
+        "dpop_key_material": None,
+    }
+
+
 WORKSPACE_ID = "workspace-alpha"
 
 
@@ -86,7 +118,7 @@ def _bundle_response(
     policy_hash: str = "policy-hash-shim-proof",
     bundle_version: str = "1747612800000-shim-proof",
 ) -> dict[str, object]:
-    generated_at = datetime(2026, 5, 19, tzinfo=timezone.utc)
+    generated_at = datetime.now(timezone.utc).replace(microsecond=0)
     expires_at = generated_at + timedelta(hours=12)
     advisory_id = f"GHSA-{ecosystem}-{package_name}"
     bundle = {
@@ -180,7 +212,17 @@ def _seed_bundle(
 
 
 def _seed_workspace_sync_credentials(home_dir: Path, sync_url: str, *, now: str = "2026-05-19T00:00:00Z") -> None:
-    GuardStore(home_dir).set_sync_credentials(sync_url, "demo-token", now, workspace_id=WORKSPACE_ID)
+    _seed_guard_cloud(GuardStore(home_dir), workspace_id=WORKSPACE_ID, sync_url=sync_url, now=now)
+
+
+def _with_subprocess_sync_auth(env: dict[str, str], sync_url: str) -> dict[str, str]:
+    env["HOL_GUARD_TEST_SYNC_AUTH_CONTEXT_JSON"] = json.dumps(
+        {
+            "sync_url": sync_url,
+            "access_token": "demo-token",
+        }
+    )
+    return env
 
 
 def _start_cloud_eval_server(
@@ -867,39 +909,34 @@ def test_guard_package_shims_block_before_manager_execution(
     fake_bin.mkdir(parents=True, exist_ok=True)
     marker_path = tmp_path / f"{manager}-marker.json"
     write_fake_manager_script(fake_bin=fake_bin, manager=manager, marker_path=marker_path, exit_code=0)
-    server, thread, sync_url = _start_cloud_eval_server(
-        decision="allow",
+    sync_url = "http://127.0.0.1:9/api/guard/receipts/sync"
+    _seed_bundle(
+        home_dir=home_dir,
+        ecosystem=ecosystem,
         package_name=package_name,
-        evaluate_status=401,
+        package_version=package_version,
+        action="block",
     )
-    try:
-        _seed_bundle(
-            home_dir=home_dir,
-            ecosystem=ecosystem,
-            package_name=package_name,
-            package_version=package_version,
-            action="block",
-        )
-        _seed_workspace_sync_credentials(home_dir, sync_url)
-        shim_path = _install_single_manager_shim(
-            home_dir=home_dir,
-            workspace_dir=workspace_dir,
-            manager=manager,
-            capsys=capsys,
-        )
+    _seed_workspace_sync_credentials(home_dir, sync_url)
+    shim_path = _install_single_manager_shim(
+        home_dir=home_dir,
+        workspace_dir=workspace_dir,
+        manager=manager,
+        capsys=capsys,
+    )
 
-        env = dict(os.environ)
-        env["PATH"] = os.pathsep.join(filter(None, [str(fake_bin), env.get("PATH")]))
-        result = subprocess.run(
-            [str(shim_path), *shim_args],
-            cwd=workspace_dir,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    finally:
-        _stop_cloud_eval_server(server, thread)
+    env = _with_subprocess_sync_auth(dict(os.environ), sync_url)
+    env["HOL_GUARD_TEST_SKIP_LOCAL_APPROVAL_QUEUE"] = "1"
+    env["PATH"] = os.pathsep.join(filter(None, [str(fake_bin), env.get("PATH")]))
+    result = subprocess.run(
+        [str(shim_path), *shim_args],
+        cwd=workspace_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
 
     assert result.returncode != 0
     assert marker_path.exists() is False
@@ -1066,7 +1103,7 @@ def test_guard_protect_probe_skips_local_approval_queue_on_block(
     store = GuardStore(home_dir)
 
     assert rc == 2
-    assert payload["verdict"]["action"] == "review"
+    assert payload["verdict"]["action"] == "block"
     assert "primary_approval_request_id" not in payload
     assert store.list_approval_requests(limit=None) == []
 

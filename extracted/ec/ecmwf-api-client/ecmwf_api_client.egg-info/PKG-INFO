@@ -1,94 +1,112 @@
 Metadata-Version: 2.1
 Name: ecmwf-api-client
-Version: 1.6.5
+Version: 1.7.0
 Summary: Python client for ECMWF web services API.
-Home-page: https://github.com/ecmwf/ecmwf-api-client
-Author: European Centre for Medium-Range Weather Forecasts (ECMWF)
-Author-email: software.support@ecmwf.int
+Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
+Project-URL: Homepage, https://github.com/ecmwf/ecmwf-api-client
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
 # ecmwf-api-client
 
-# Installation
+[![PyPI version](https://img.shields.io/pypi/v/ecmwf-api-client.svg)](https://pypi.org/project/ecmwf-api-client/)
+[![Python versions](https://img.shields.io/pypi/pyversions/ecmwf-api-client.svg)](https://pypi.org/project/ecmwf-api-client/)
+[![Build](https://github.com/ecmwf/ecmwf-api-client/actions/workflows/check-and-publish.yml/badge.svg?branch=master)](https://github.com/ecmwf/ecmwf-api-client/actions/workflows/check-and-publish.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-Install via pip with:
+Python client for the [ECMWF Web API](https://confluence.ecmwf.int/display/WEBAPI). Two entry points:
 
-> $ pip install ecmwf-api-client
+- **`ECMWFDataServer`** — retrieve IFS research experiments.
+- **`ECMWFService`** — access [MARS](https://confluence.ecmwf.int/display/WEBAPI/Access+MARS), ECMWF's Meteorological Archival and Retrieval System, for authorized users.
 
-# Configure
+## What this client is for
 
-## Anonymous access (default, not recommended)
+- **IFS research experiments** — available anonymously, or with registered access for a better quality of service.
+- **MARS archive access** — for authorized users; see [Access MARS](https://confluence.ecmwf.int/display/WEBAPI/Access+MARS) for who can access it and how.
 
-Anonymous access is the default type of access, with no configuration needed.
+## Looking for public datasets?
 
-However, anonymous access is only available for a limited set of datasets, and comes with a much lower quality of service. For access to all the available datasets, and an improved quality of service, please use registered access (see below).
+The **ECMWF Public Datasets Service** (TIGGE, S2S, ERA-Interim, and others) has been decommissioned. See the [decommissioning notice](https://confluence.ecmwf.int/display/DAC/Decommissioning+of+ECMWF+Public+Datasets+Service) for where each dataset moved — in short: TIGGE and S2S to the [ECMWF Data Store (ECDS)](https://ecds.ecmwf.int/), reanalyses to the [Climate Data Store (CDS)](https://cds.climate.copernicus.eu/), and real-time open forecast data is available via [ecmwf-opendata](https://github.com/ecmwf/ecmwf-opendata).
 
-## Registered access (recommended)
+## Installation
 
-* Register with ECMWF at https://www.ecmwf.int.
-* Retrieve you API access key at https://api.ecmwf.int/v1/key/.
-
-   Note that the API access key expires in 1 year. You will receive an email to the registered email address 1 month before the expiration date with the renewal instructions. To check the expiry date of your current key, log into www.ecmwf.int, and go to https://api.ecmwf.int/v1/key/.
-
-* Copy and paste the API access key into the file $HOME/.ecmwfapirc (Unix/Linux) or %USERPROFILE%\\.ecmwfapirc (Windows: usually in C:\\Users\\\<USERNAME\>\\.ecmwfapirc).
-
-   Your $HOME/.ecmwfapirc (Unix/Linux) or %USERPROFILE%\\.ecmwfapirc (Windows) should look something like this:
-   ```
-   {
-       "url"   : "https://api.ecmwf.int/v1",
-       "key"   : "XXXXXXXXXXXXXXXXXXXXXX",
-       "email" : "john.smith@example.com"
-   }
-   ```
-* Alternatively, one can use a file of their own liking, and point to it using environment variable `ECMWF_API_RC_FILE`. `ECMWF_API_RC_FILE` should be set to the full path of the given file. This method takes priority of the previous method of using a .ecmwfapirc file.
-* As yet another option, one can set the API access key values directly in the environment using variables `ECMWF_API_KEY` (key), `ECMWF_API_URL` (url), `ECMWF_API_EMAIL` (email). This method takes priority over the previous method of using environment variable `ECMWF_API_RC_FILE`.
-   
-# Example
-
-You can test this small python script to retrieve TIGGE (https://apps.ecmwf.int/datasets/data/tigge) data. Note that access to TIGGE data requires registered access, and is subject to accepting a licence at https://apps.ecmwf.int/datasets/data/tigge/licence/.
 ```
-#!/usr/bin/env python
-from ecmwfapi import ECMWFDataServer
+$ pip install ecmwf-api-client
+```
 
-# To run this example, you need an API key
-# available from https://api.ecmwf.int/v1/key/
+or with conda:
+
+```
+$ conda install -c conda-forge ecmwf-api-client
+```
+
+## Configure
+
+### Anonymous access (default)
+
+No configuration needed. Anonymous access works only for the IFS research experiments, with a lower quality of service. For everything else, and for a better quality of service, use registered access.
+
+### Registered access (recommended)
+
+- Register with ECMWF at https://www.ecmwf.int.
+- Retrieve your API key at https://api.ecmwf.int/v1/key/ (see [Install ECMWF API Key](https://confluence.ecmwf.int/display/WEBAPI/Install+ECMWF+API+Key) for details, including key expiry and renewal).
+- Save the key to `$HOME/.ecmwfapirc` (Unix/Linux/macOS) or `C:\Users\<USERNAME>\.ecmwfapirc` (Windows):
+
+  ```
+  {
+      "url"   : "https://api.ecmwf.int/v1",
+      "key"   : "XXXXXXXXXXXXXXXXXXXXXX",
+      "email" : "john.smith@example.com"
+  }
+  ```
+
+- Alternatively, point the environment variable `ECMWF_API_RC_FILE` to a file of your choice (takes priority over `.ecmwfapirc`).
+- Or set `ECMWF_API_KEY`, `ECMWF_API_URL`, `ECMWF_API_EMAIL` directly in the environment (takes priority over `ECMWF_API_RC_FILE`).
+- Or pass the values directly in code: `ECMWFDataServer(url=..., key=..., email=...)` or `ECMWFService("mars", url=..., key=..., email=...)`.
+
+## Retrieving IFS research experiments
+
+Use `ECMWFDataServer`:
+
+```python
+from ecmwfapi import ECMWFDataServer
 
 server = ECMWFDataServer()
 server.retrieve({
-    'origin'    : "ecmf",
-    'levtype'   : "sfc",
-    'number'    : "1",
-    'expver'    : "prod",
-    'dataset'   : "tigge",
-    'step'      : "0/6/12/18",
-    'area'      : "70/-130/30/-60",
-    'grid'      : "2/2",
-    'param'     : "167",
-    'time'      : "00/12",
-    'date'      : "2014-11-01",
-    'type'      : "pf",
-    'class'     : "ti",
-    'target'    : "tigge_2014-11-01_0012.grib"
+    # ... request parameters ...
 })
 ```
 
-# Logging
+Don't write the request by hand. Open the experiment's page (for example https://apps.ecmwf.int/ifs-experiments/rd/gkzp/), select what you need, and the site generates the exact request to paste into `retrieve({...})`.
 
-Logging messages by default are emitted to `stdout` using Python's `print` statement.
+## Accessing MARS
 
-To change that behaviour, one can define their own logging function and use it like so:
+For MARS access, follow [Access MARS](https://confluence.ecmwf.int/display/WEBAPI/Access+MARS). The recommended way is the `mars` command wrapper script provided there, which runs MARS requests from a file. The wrapper is built on this package's `ECMWFService` class.
 
-```
+## Retrieving efficiently
+
+Before submitting requests, it is recommended to read [Retrieval efficiency](https://confluence.ecmwf.int/display/WEBAPI/Retrieval+efficiency) — it explains how to check the cost of requests, how to structure requests around tapes, and the request limits. The [Web API FAQ](https://confluence.ecmwf.int/display/WEBAPI/Web+API+FAQ) covers monitoring requests and common errors.
+
+## Logging
+
+By default, log messages are printed to `stdout`. To use your own logging:
+
+```python
 import logging
 from ecmwfapi import ECMWFDataServer
 
@@ -100,7 +118,7 @@ def my_logging_function(msg):
 server = ECMWFDataServer(log=my_logging_function)
 ```
 
-# License
+## License
 
 Copyright 2019 European Centre for Medium-Range Weather Forecasts (ECMWF)
 Licensed under the Apache License, Version 2.0 (the “License”); you may not use this file except in compliance with the License. You may obtain a copy of the License at

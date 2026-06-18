@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cogeo-mosaic
-Version: 9.1.0
+Version: 9.2.0
 Summary: CLI and Backends to work with MosaicJSON.
 Project-URL: Homepage, https://github.com/developmentseed/cogeo-mosaic
 Project-URL: Documentation, https://developmentseed.org/cogeo-mosaic/
@@ -47,7 +47,7 @@ Requires-Dist: cachetools
 Requires-Dist: click
 Requires-Dist: click-plugins
 Requires-Dist: cligj
-Requires-Dist: httpx
+Requires-Dist: httpx2
 Requires-Dist: morecantile>=7.0
 Requires-Dist: numpy
 Requires-Dist: pydantic-settings~=2.0
@@ -138,6 +138,10 @@ See [contributors](https://github.com/developmentseed/cogeo-mosaic/graphs/contri
 ## Changelog
 
 ## Unreleased
+
+## 9.2.0 (2026-06-18)
+
+* feat: switch to httpx2
 
 ## 9.1.0 (2026-02-02)
 

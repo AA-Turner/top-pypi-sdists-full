@@ -153,10 +153,10 @@ class Data(Dao, Downloadable, Taggable):
     @exception_handler
     @beartype
     def reset_url(self) -> str:
-        """Reset url property of this Data by calling platform.
+        """Reset url property of this (Data) by calling platform.
 
         Returns:
-            A url as a string of this Data.
+            A url as a string of this (Data).
         """
         r = self.connection.get(f"/api/data/{self.id}/presigned-url")
         self._url = r.json()["presigned_url"]

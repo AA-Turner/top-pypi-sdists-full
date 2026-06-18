@@ -30,10 +30,12 @@
 //! [`joint_jeffreys_term`] (self-limiting, returns the exact zero contribution on
 //! a well-conditioned fit) is the only "apply where needed" mechanism.
 
-use crate::linalg::faer_ndarray::{FaerEigh, fast_abt};
+use crate::linalg::faer_ndarray::FaerEigh;
 use crate::linalg::lanczos::{SymmetricLanczosOptions, symmetric_lanczos_eigenpairs};
 use faer::Side;
 use ndarray::{Array1, Array2, ArrayView2};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 #[inline]
 pub(crate) fn norm2_slice(a: &[f64]) -> f64 {
@@ -112,6 +114,69 @@ pub(crate) fn floored_inverse(lam: f64, floor: f64) -> f64 {
     } else {
         let denom = floor - lam;
         floor / (denom * denom)
+    }
+}
+
+/// The Jeffreys eigenvalue antiderivative `g(λ; floor)` whose derivative is
+/// exactly [`floored_inverse`] — i.e. `d/dλ g = floored_inverse(λ, floor)`.
+///
+/// This is the SINGLE source of the per-eigenvalue value branches the
+/// `Φ = ½ Σ_i g(λ_i)` accumulation in [`joint_jeffreys_term`] computes inline;
+/// it is factored out so the `½ log|H_id|₊`-style **criterion atom**
+/// (`JeffreysLogdetAtom`) can emit its VALUE (`½ Σ g`) and its frozen
+/// directional DERIVATIVE (`½ Σ floored_inverse(λ) · Ṽ_ii`, the `tr(H_id⁺ Ḣ)`
+/// trace) as projections of one spectrum — value and gradient cannot desync
+/// because `g` and `g' = floored_inverse` are pinned here (the gam#787/#785
+/// value↔gradient-consistency invariant, now structural). The four branches
+/// mirror the documentation on [`floored_inverse`] exactly:
+///
+///   * `λ ≥ Λ`:           `g = ln Λ + 1 − Λ/λ`        (TOP saturation);
+///   * `floor ≤ λ < Λ`:   `g = ln λ`                  (exact Jeffreys log-volume);
+///   * `0 ≤ λ < floor`:   `g = λ/floor + ln(floor) − 1` (#787 linear continuation);
+///   * `λ < 0`:           `g = ln(floor) − 1 + λ/(floor − λ)` (BOTTOM saturation).
+#[inline]
+pub(crate) fn jeffreys_antiderivative(lam: f64, floor: f64) -> f64 {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        cap.ln() + 1.0 - cap / lam
+    } else if lam >= floor {
+        lam.ln()
+    } else if lam >= 0.0 {
+        lam / floor + floor.ln() - 1.0
+    } else {
+        floor.ln() - 1.0 + lam / (floor - lam)
+    }
+}
+
+/// `∂g/∂floor` with `λ` held fixed — the floor-motion term of the Jeffreys
+/// VALUE, the exact antiderivative partner of [`floored_inverse_floor_sensitivity`]
+/// (which is `∂g'/∂floor`). Pinned to the SAME four branches as
+/// [`jeffreys_antiderivative`] so the floor-response gradient cannot drift from
+/// the value the way the inline branches once did (gam#826):
+///
+///   * `λ ≥ Λ`:           `1/floor − 1/λ` when the cap is floor-bound
+///     (`Λ = floor`, extreme-scale regime), else `0` (the gate-bound cap does
+///     not move with the floor, so the value does not either);
+///   * `floor ≤ λ < Λ`:   `0`            (`g = ln λ` is floor-free here);
+///   * `0 ≤ λ < floor`:   `1/floor − λ/floor²` (the #787 linear continuation);
+///   * `λ < 0`:           `1/floor − λ/(floor − λ)²` (BOTTOM saturation).
+#[inline]
+pub(crate) fn jeffreys_antiderivative_floor_sensitivity(lam: f64, floor: f64) -> f64 {
+    let cap = jeffreys_cap(floor);
+    if lam >= cap {
+        if cap > CONDITIONING_GATE_ABSOLUTE_CLEAR {
+            // Floor-bound cap: g = ln(floor) + 1 − floor/λ ⇒ ∂g/∂floor = 1/floor − 1/λ.
+            1.0 / floor - 1.0 / lam
+        } else {
+            0.0
+        }
+    } else if lam >= floor {
+        0.0
+    } else if lam >= 0.0 {
+        1.0 / floor - lam / (floor * floor)
+    } else {
+        let denom = floor - lam;
+        1.0 / floor - lam / (denom * denom)
     }
 }
 
@@ -888,73 +953,29 @@ where
     } else {
         None
     };
-    // `Σ_{i: |λ_i| < floor} ∂g(λ_i; floor)/∂floor = Σ (1/floor − λ_i/floor²)`, the
-    // sensitivity of the below-floor value contributions to the floor. Zero when no
-    // eigenvalue sits below the floor (so the floor-response term vanishes on every
-    // well-conditioned / indefinite fit), making this fix inert outside the
-    // genuinely below-floor regime it targets.
-    let mut floor_value_sensitivity = 0.0_f64;
-    let mut phi = 0.0_f64;
-    // h_id_inv = V diag(1/max(λ,floor)) Vᵀ  (floored symmetric pseudo-inverse).
-    let mut inv_diag = Array1::<f64>::zeros(m);
-    for (i, &lam) in evals.iter().enumerate() {
-        // VALUE / GRADIENT CONSISTENCY (was a stall — gam#787/#785). The gradient
-        // below is `½ tr(H_id⁻¹ D_k) = ½ Σ_i inv_diag_i ∂λ_i/∂β`, so for the
-        // value/gradient pair to be consistent (∇Φ = d/dβ Φ) the value
-        // `Φ = ½ Σ_i g(λ_i)` must use the antiderivative `g` of
-        // `λ ↦ inv_diag(λ) = floored_inverse(λ)` — the three-branch `g`
-        // documented on `floored_inverse`: exact `ln λ` on identified positive
-        // curvature, the #787 linear continuation inside the band, and the
-        // gam#979 SATURATING continuation on negative curvature (which replaced
-        // the gam#814 `ln|λ|` magnitude branch — that branch made Φ REWARD
-        // increasingly indefinite curvature, an unbounded sink the exact
-        // divided-difference H_Φ let the inner Newton descend into likelihood
-        // saturation; the saturating branch is monotone, bounded below, and
-        // keeps the gam#814 guarantee that moderate negatives carry no phantom
-        // score: `d(−0.3) = floor/(floor+0.3)² ≈ 0`).
-        let cap = jeffreys_cap(floor);
-        if lam >= cap {
-            phi += 0.5 * (cap.ln() + 1.0 - cap / lam);
-            inv_diag[i] = floored_inverse(lam, floor);
-            if cap > CONDITIONING_GATE_ABSOLUTE_CLEAR {
-                // Floor-bound cap (extreme-scale regime): g = ln(floor) + 1 − floor/λ,
-                // so ∂g/∂floor = 1/floor − 1/λ.
-                floor_value_sensitivity += 1.0 / floor - 1.0 / lam;
-            }
-        } else if lam >= floor {
-            phi += 0.5 * lam.ln();
-            inv_diag[i] = floored_inverse(lam, floor);
-        } else if lam >= 0.0 {
-            phi += 0.5 * (lam / floor + floor.ln() - 1.0);
-            inv_diag[i] = floored_inverse(lam, floor);
-            // ∂g(λ; floor)/∂floor = 1/floor − λ/floor², accumulated so the gradient
-            // below can add the floor-response term `½ · this · ∂floor/∂β_k`.
-            floor_value_sensitivity += 1.0 / floor - lam / (floor * floor);
-        } else {
-            phi += 0.5 * (floor.ln() - 1.0 + lam / (floor - lam));
-            inv_diag[i] = floored_inverse(lam, floor);
-            // ∂g(λ; floor)/∂floor = 1/floor − λ/(floor − λ)² for the saturating
-            // branch (λ < 0 makes both terms positive).
-            let denom = floor - lam;
-            floor_value_sensitivity += 1.0 / floor - lam / (denom * denom);
-        }
-    }
-    // Daleckii–Krein divided-difference kernel of the floored signed inverse on
-    // this spectrum — the single source of truth tying `∇Φ` (its diagonal
-    // weights are `inv_diag = d(λ_i)`) to the exact curvature `H_Φ` below
-    // (gam#979).
-    let psi = floored_inverse_divided_differences(&evals, floor);
-
+    // SINGLE-EMISSION (gam#931). The Jeffreys value and first derivative are
+    // emitted by the atom below from one spectrum and one floor. The live call
+    // site supplies the same reduced drifts it already needs for curvature; the
+    // atom owns the scalar projection (`g`, `g'_λ`, and `g'_floor`) so no inline
+    // value/gradient branch can drift from it.
+    let value_atom = super::atoms::JeffreysLogdetAtom {
+        eigvals: evals.clone(),
+        floor,
+        gate_weight,
+        reduced_drift: HashMap::new(),
+        floor_drift: HashMap::new(),
+        stratum: super::atoms::StratumFingerprint {
+            kept_rank: m,
+            min_relative_eigengap: 0.0,
+        },
+    };
+    let phi = super::atoms::CriterionAtom::value(&value_atom);
     // Gradient: grad[k] = ½ tr(K · Z_Jᵀ Hdot[e_k] Z_J) = ½ Σ_i d_i (Ṽ_k)_ii with
     // Ṽ_k = Vᵀ D_k V the reduced derivative rotated into the eigenbasis. For the
     // inner-Newton dense path the Hessian is beta-dependent through the working
     // weights only along coefficient directions; we evaluate Hdot per canonical
     // coefficient axis.
     let mut grad = Array1::<f64>::zeros(p);
-    // Eigenbasis sensitivity rows vec(Ṽ_k) and their Ψ-weighted partners
-    // vec(Ψ ∘ Ṽ_k), kept to assemble the exact curvature in one GEMM.
-    let mut a_rows = Array2::<f64>::zeros((p, m * m));
-    let mut aw_rows = Array2::<f64>::zeros((p, m * m));
     // PARALLEL DIRECTIONAL DERIVATIVES. Each canonical axis `e_k` requires one
     // FULL-DATA directional-derivative pass `Hdot[e_k]` (the n-row inner-Newton
     // exact derivative) — the dominant cost (e.g. ~1.5 s × p=35 ≈ 55 s serial on
@@ -965,9 +986,9 @@ where
     // combined with the nested-BLAS guard each pass runs single-threaded faer,
     // so the directions fan across cores with no rayon×BLAS oversubscription.
     //
-    // The cheap per-k reduction (D_k = ZᵀHdotZ rotation, grad/a_rows/aw_rows
-    // writes) stays SERIAL below over the index-ordered results, so the outputs
-    // are bit-identical to the original `for k in 0..p` loop. Early-return
+    // The cheap per-k reduction (D_k = ZᵀHdotZ rotation and atom input writes)
+    // stays SERIAL below over the index-ordered results, so the outputs are
+    // bit-identical to the original `for k in 0..p` loop. Early-return
     // semantics are preserved exactly: if ANY axis yields `Ok(None)` the family
     // does not expose the exact derivative and the whole term degenerates to
     // `(gate_weight·phi, 0, 0)` (matching the serial first-None behaviour); any
@@ -999,7 +1020,7 @@ where
                     // Jeffreys gradient/curvature degenerate to zero (objective
                     // still well-defined). This keeps the term safe rather than
                     // wrong.
-                    return Ok((gate_weight * phi, Array1::zeros(p), Array2::zeros((p, p))));
+                    return Ok((phi, Array1::zeros(p), Array2::zeros((p, p))));
                 }
             };
             if hdot.nrows() != p || hdot.ncols() != p {
@@ -1013,56 +1034,56 @@ where
         }
         hdots
     };
+    let mut reduced_drift: HashMap<usize, Arc<Array2<f64>>> = HashMap::with_capacity(p);
+    let mut floor_drift: HashMap<usize, f64> = HashMap::new();
     for (k, hdot) in hdots.into_iter().enumerate() {
         // Reduced derivative D_k = Z_J^T Hdot Z_J (m x m), rotated into the
         // eigenbasis: Ṽ_k = Vᵀ D_k V.
         let hdz = hdot.dot(&z_j);
         let d_k = z_j.t().dot(&hdz);
         let a_k = evecs.t().dot(&d_k).dot(&evecs);
-        // grad[k] = ½ Σ_i d_i (Ṽ_k)_ii (the eigenvalue term `½ Σ_i inv_diag_i ∂λ_i/∂β_k`,
-        // identical to the previous ½ tr(H_id⁻¹ D_k) — just read off in the eigenbasis).
-        let mut trace = 0.0;
-        for i in 0..m {
-            trace += inv_diag[i] * a_k[[i, i]];
-        }
-        grad[k] = 0.5 * trace;
-        // FLOOR-RESPONSE term (see the `floor` block above). For below-floor
-        // eigenvalues the floor moves with `λ_max(β)`, so `dΦ/dβ_k` carries
-        // `½ · floor_value_sensitivity · ∂floor/∂β_k`, with
-        // `∂floor/∂β_k = REL · ∂λ_max/∂β_k = REL · v_maxᵀ D_k v_max = REL · (Ṽ_k)_mm`.
-        // This is the exact antiderivative partner of the below-floor value branch;
-        // it is identically zero (and skipped) whenever no eigenvalue is below the
-        // floor or the floor is in the β-independent absolute regime, so the well-
-        // conditioned, indefinite, and above-floor paths are unchanged.
+        // FLOOR-RESPONSE term (see the `floor` block above). The atom consumes
+        // `floor_dot` beside `Ṽ_k`, so `dΦ/dβ_k` remains the derivative of its
+        // own `value()`.
         if let Some(idx_max) = lambda_max_idx {
-            if floor_value_sensitivity != 0.0 {
-                let dlambda_max = a_k[[idx_max, idx_max]]; // v_maxᵀ D_k v_max
-                let dfloor = REDUCED_INFO_RELATIVE_FLOOR * dlambda_max;
-                grad[k] += 0.5 * floor_value_sensitivity * dfloor;
-            }
+            let dlambda_max = a_k[[idx_max, idx_max]]; // v_maxᵀ D_k v_max
+            floor_drift.insert(k, REDUCED_INFO_RELATIVE_FLOOR * dlambda_max);
         }
-        // Store vec(Ṽ_k) and vec(Ψ ∘ Ṽ_k) for the exact-curvature GEMM.
-        let mut col = 0usize;
-        for i in 0..m {
-            for j in 0..m {
-                a_rows[[k, col]] = a_k[[i, j]];
-                aw_rows[[k, col]] = psi[[i, j]] * a_k[[i, j]];
-                col += 1;
-            }
-        }
+        reduced_drift.insert(k, Arc::new(a_k));
     }
-    // EXACT Jeffreys curvature on the floored spectrum (gam#979). The penalized
-    // objective is `−ℓ + ½βᵀSβ − Φ`, so the Newton system needs `−∇²Φ`. By the
+    let gradient_atom = super::atoms::JeffreysLogdetAtom {
+        eigvals: evals.clone(),
+        floor,
+        gate_weight,
+        reduced_drift,
+        floor_drift,
+        stratum: super::atoms::StratumFingerprint {
+            kept_rank: m,
+            min_relative_eigengap: 0.0,
+        },
+    };
+    for k in 0..p {
+        let dir = super::atoms::ThetaDirection {
+            index: Some(k),
+            beta_dot: None,
+            h_dot_total: None,
+        };
+        grad[k] = super::atoms::CriterionAtom::frozen_d1(&gradient_atom, &dir);
+    }
+    // EXACT Jeffreys curvature on the floored spectrum (gam#979), now emitted
+    // by the same atom that emitted `phi` and `grad`. The penalized objective is
+    // `−ℓ + ½βᵀSβ − Φ`, so the Newton system needs `−∇²Φ`. By the
     // Daleckii–Krein formula (first-order eigen-perturbation), with
     // `Ṽ_k = Vᵀ D_k V` and `Ψ` the divided differences of `d = g'`:
     //   ∇²Φ[a,b] = ½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij + ½ tr(K D_ab),
-    // and we keep everything except the second-directional-Hessian term
-    // `½ tr(K D_ab)` (a genuinely separating direction's `D_ab` carries its
-    // vanishing curvature factor, so that remainder is O(1) exactly where the
-    // term arms — the trust region owns it). So
+    // and `JeffreysLogdetAtom::second_order_curvature` keeps everything except
+    // the second-directional-Hessian term `½ tr(K D_ab)` (a genuinely
+    // separating direction's `D_ab` carries its vanishing curvature factor, so
+    // that remainder is O(1) exactly where the term arms — the trust region owns
+    // it). So
     //   H_Φ[a,b] = −½ Σ_ij Ψ_ij (Ṽ_a)_ij (Ṽ_b)_ij,
-    // assembled as one BLAS-3 GEMM over the stored rows. On an unfloored PSD
-    // spectrum `Ψ_ij = −1/(λ_i λ_j)` and this is the classic PSD log-det
+    // assembled as one BLAS-3 GEMM over the atom's stored rows. On an unfloored
+    // PSD spectrum `Ψ_ij = −1/(λ_i λ_j)` and this is the classic PSD log-det
     // Gauss-Newton curvature `½ tr(K D_a K D_b)`.
     //
     // WHY NOT THE vec-GRAM `½⟨vec(K D_a), vec(K D_b)⟩` (the previous surrogate):
@@ -1081,13 +1102,8 @@ where
     // the objective and Newton recovers its quadratic rate. It is indefinite
     // exactly where `Φ` is (mixed-sign spectrum); the exact Moré–Sorensen
     // trust-region subproblem handles that rigorously.
-    let mut hphi = fast_abt(&aw_rows, &a_rows);
-    hphi.mapv_inplace(|v| -0.5 * v);
-    // Scale the (value, gradient, curvature) triple by the smooth gate weight.
-    // `gate_weight == 1` in the fully-active (under-identified) regime, so this is
-    // identity there (byte-identical to the binary-gate term); it only tapers the
-    // term to 0 across the transition band, making Φ/∇Φ/H_Φ continuous in ρ.
-    Ok((gate_weight * phi, grad * gate_weight, hphi * gate_weight))
+    let hphi = gradient_atom.second_order_curvature(p)?;
+    Ok((phi, grad, hphi))
 }
 
 /// Exact second-directional-Hessian completion for the Tier-B joint Jeffreys
@@ -1335,6 +1351,104 @@ impl JeffreysHphiDriftBase {
         if m == 0 || p == 0 {
             return Ok(None);
         }
+        // The β-FIXED per-axis base needs the `p` first directional derivatives
+        // `Hdot[e_a]` (the dominant `O(n·p)` cost). PARALLEL AXIS SWEEP: each axis
+        // is an independent pure evaluation of `(family, β̂, e_a)`, fanned across
+        // the Rayon pool exactly as the value-path `joint_jeffreys_term` does; the
+        // `Sync` bound makes the evaluator safe to call concurrently and the
+        // nested-BLAS guard pins each pass's faer GEMM to `Par::Seq`. First-anomaly
+        // semantics: any `Err` propagates and the first `None` collapses to `None`.
+        //
+        // NOTE for families that serve every canonical axis from ONE shared
+        // softmax/Gram pass (multinomial `cached_axis_directional_derivative`):
+        // prefer [`prepare_with_axes`], which takes the precomputed all-axes batch
+        // and avoids the `p` concurrent cache-miss sweeps this fan-out triggers on
+        // a fresh β. This per-axis-closure path stays for families without a
+        // batched hook (the trait default already serves bit-identically).
+        let hdots: Vec<Array2<f64>> = {
+            use rayon::iter::{IntoParallelIterator, ParallelIterator};
+            let results: Vec<Result<Option<Array2<f64>>, String>> = (0..p)
+                .into_par_iter()
+                .map(|a| {
+                    let mut axis = Array1::<f64>::zeros(p);
+                    axis[a] = 1.0;
+                    crate::linalg::faer_ndarray::with_nested_parallel(|| base_hessian_dir(&axis))
+                })
+                .collect();
+            let mut hdots = Vec::with_capacity(p);
+            for result in results {
+                let hdot = match result? {
+                    Some(hd) => hd,
+                    None => return Ok(None),
+                };
+                hdots.push(hdot);
+            }
+            hdots
+        };
+        Self::from_axis_derivatives(h_joint, z_j, hdots)
+    }
+
+    /// Same prepared base as [`prepare`], but consuming the PRECOMPUTED all-axes
+    /// first-directional derivatives `{Hdot[e_a]}` (one entry per canonical axis,
+    /// `a = 0..p`) instead of re-deriving them axis-by-axis. Families that assemble
+    /// the whole canonical axis set in a single shared softmax/Gram pass (e.g.
+    /// multinomial) build that batch once and pass it here, collapsing the `p`
+    /// redundant full-data sweeps the per-axis closure would otherwise trigger
+    /// (each parallel cache-miss reruns the entire assembly — #1082/#979). The
+    /// reduction is identical to `prepare`, so the prepared base is bit-faithful.
+    pub(crate) fn prepare_with_axes(
+        h_joint: ArrayView2<'_, f64>,
+        z_j: ArrayView2<'_, f64>,
+        hdots: Vec<Array2<f64>>,
+    ) -> Result<Option<JeffreysHphiDriftBase>, String> {
+        let p = h_joint.nrows();
+        if h_joint.ncols() != p {
+            return Err(format!(
+                "JeffreysHphiDriftBase::prepare_with_axes: H must be square, got {}x{}",
+                h_joint.nrows(),
+                h_joint.ncols()
+            ));
+        }
+        if z_j.nrows() != p {
+            return Err(format!(
+                "JeffreysHphiDriftBase::prepare_with_axes: Z_J has {} rows, expected {p}",
+                z_j.nrows()
+            ));
+        }
+        if hdots.len() != p {
+            return Err(format!(
+                "JeffreysHphiDriftBase::prepare_with_axes: got {} axis derivatives, expected {p}",
+                hdots.len()
+            ));
+        }
+        let m = z_j.ncols();
+        if m == 0 || p == 0 {
+            return Ok(None);
+        }
+        Self::from_axis_derivatives(h_joint, z_j, hdots)
+    }
+
+    /// Shared reduction: from the `p` first-directional derivatives `{Hdot[e_a]}`
+    /// (however they were obtained) and the fixed `(H, Z_J)`, build the prepared
+    /// β-fixed drift base. Reproduces EXACTLY the value-path reduced information,
+    /// conditioning gate, and floored pseudo-inverse so the derivative stays
+    /// consistent with the `H_Φ` the objective uses.
+    fn from_axis_derivatives(
+        h_joint: ArrayView2<'_, f64>,
+        z_j: ArrayView2<'_, f64>,
+        hdots: Vec<Array2<f64>>,
+    ) -> Result<Option<JeffreysHphiDriftBase>, String> {
+        let p = h_joint.nrows();
+        let m = z_j.ncols();
+        for hdot in &hdots {
+            if hdot.nrows() != p || hdot.ncols() != p {
+                return Err(format!(
+                    "JeffreysHphiDriftBase: Hdot[e_a] shape {}x{} != {p}x{p}",
+                    hdot.nrows(),
+                    hdot.ncols()
+                ));
+            }
+        }
         // Reproduce EXACTLY the value-path reduced information, conditioning gate,
         // and floored pseudo-inverse so the derivative is consistent with the
         // `H_Φ` the objective uses.
@@ -1370,50 +1484,11 @@ impl JeffreysHphiDriftBase {
             }
         }
         // The β-FIXED per-axis base: `Ṽ_a = Vᵀ D_a V` and `Ψ ∘ Ṽ_a`, formed from
-        // the `p` first directional derivatives `Hdot[e_a]` (the dominant `O(n·p)`
-        // cost — done ONCE here, reused for every drift direction).
-        //
-        // PARALLEL AXIS SWEEP. Each axis `e_a` requires one FULL-DATA
-        // directional-derivative row-stream `Hdot[e_a]` (n≈348k biobank rows) — the
-        // dominant cost of the whole outer-gradient eval. The `p` passes are
-        // independent pure evaluations of `(family, β̂, e_a)`, so we fan them across
-        // the Rayon pool exactly as the value-path `joint_jeffreys_term` does; the
-        // `Sync` bound on `BaseFn` makes the evaluator safe to call concurrently and
-        // the nested-BLAS guard pins each pass's faer GEMM to `Par::Seq` so the
-        // axes fan across cores without rayon×BLAS oversubscription. The cheap
-        // per-axis reduction (`Ṽ_a` rotation + row writes) stays serial over the
-        // index-ordered results, so the prepared base is bit-identical to the
-        // original serial loop. First-anomaly semantics preserved: any `Err`
-        // propagates and the first `None` (family lacks the exact derivative on
-        // some axis) collapses the whole base to `None` (zero drift everywhere).
+        // the `p` supplied first directional derivatives `Hdot[e_a]`. The cheap
+        // per-axis reduction (`Ṽ_a` rotation + row writes) is serial over the
+        // index-ordered axes, so the prepared base is bit-identical regardless of
+        // how the `{Hdot[e_a]}` were obtained (per-axis closure or batched hook).
         let z_owned = z_j.to_owned();
-        let hdots: Vec<Array2<f64>> = {
-            use rayon::iter::{IntoParallelIterator, ParallelIterator};
-            let results: Vec<Result<Option<Array2<f64>>, String>> = (0..p)
-                .into_par_iter()
-                .map(|a| {
-                    let mut axis = Array1::<f64>::zeros(p);
-                    axis[a] = 1.0;
-                    crate::linalg::faer_ndarray::with_nested_parallel(|| base_hessian_dir(&axis))
-                })
-                .collect();
-            let mut hdots = Vec::with_capacity(p);
-            for result in results {
-                let hdot = match result? {
-                    Some(hd) => hd,
-                    None => return Ok(None),
-                };
-                if hdot.nrows() != p || hdot.ncols() != p {
-                    return Err(format!(
-                        "JeffreysHphiDriftBase::prepare: Hdot[e_a] shape {}x{} != {p}x{p}",
-                        hdot.nrows(),
-                        hdot.ncols()
-                    ));
-                }
-                hdots.push(hdot);
-            }
-            hdots
-        };
         let mut a_rows = Array2::<f64>::zeros((p, m * m));
         let mut aw_rows = Array2::<f64>::zeros((p, m * m));
         for (a, hdot_a) in hdots.into_iter().enumerate() {
@@ -2427,6 +2502,65 @@ mod tests {
         }
     }
 
+    /// Desync-guard (gam#931) for the conditioning-gate value↔gradient pair.
+    ///
+    /// `conditioning_gate_weight` (value `G`) and `conditioning_gate_weight_grad`
+    /// (its analytic partials `(∂G/∂λ_min, ∂G/∂λ_max)`) are written as two
+    /// SEPARATE functions, each independently re-spelling the cubic `ramp_down`
+    /// smoothstep and the `max(w_abs, w_rel)` branch selection. That is precisely
+    /// the split value/derivative code path #931 exists to make non-drifting:
+    /// the gradient is consumed live in the Jeffreys outer hypergradient
+    /// (`gate_weight` mode-response term, gam#854), so a drift between these two
+    /// would silently bias the analytic outer gradient against its own value
+    /// exactly where the gate sits in its transition band.
+    ///
+    /// Central-difference `G` in both arguments and assert the analytic grad
+    /// matches, sampling the absolute-active band, the relative-active band, and
+    /// the saturated (locally-constant `G`) regimes — staying inside each branch
+    /// to avoid the C¹ knots (the `max`-tie and ramp endpoints) where FD straddles
+    /// a kink.
+    #[test]
+    pub(crate) fn conditioning_gate_weight_grad_matches_finite_difference() {
+        // Each config picks (λ_min, λ_max) comfortably inside one branch:
+        //  - absolute-active: λ_min in (1, 16), λ_max huge so log10(ratio) ≤ -6
+        //    (w_rel = 0) ⇒ w_abs dominates and varies, ∂/∂λ_max = 0;
+        //  - relative-active: λ_min above the absolute-clear knot (w_abs = 0) with
+        //    log10(λ_min/λ_max) inside (-8, -6) ⇒ w_rel dominates and varies in
+        //    BOTH arguments;
+        //  - saturated: well inside a flat region ⇒ both partials are 0.
+        let configs: [(f64, f64); 6] = [
+            (8.0, 1.0e9),            // absolute band mid (w_rel = 0)
+            (4.0, 1.0e9),            // absolute band lower-mid
+            (12.0, 1.0e9),           // absolute band upper-mid
+            (100.0, 100.0 / 1.0e-7), // relative band mid (w_abs = 0, ratio = 1e-7)
+            (0.05, 1.0e9),           // saturated: w_abs = 1 (λ_min < 1), w_rel = 0
+            (1.0e3, 1.0e3 / 1.0e-9), // saturated: ratio = 1e-9 < relative-clear ⇒ w_rel = 1
+        ];
+        for &(lmin, lmax) in &configs {
+            let (g_dlmin, g_dlmax) = conditioning_gate_weight_grad(lmin, lmax);
+
+            // Central difference in λ_min (λ_max fixed), relative step away from knots.
+            let hmin = 1e-7 * lmin.abs().max(1e-3);
+            let fd_dlmin = (conditioning_gate_weight(lmin + hmin, lmax)
+                - conditioning_gate_weight(lmin - hmin, lmax))
+                / (2.0 * hmin);
+            assert!(
+                (fd_dlmin - g_dlmin).abs() <= 1e-4 * g_dlmin.abs().max(1.0),
+                "∂G/∂λ_min desync at (λ_min={lmin}, λ_max={lmax}): fd={fd_dlmin} analytic={g_dlmin}"
+            );
+
+            // Central difference in λ_max (λ_min fixed).
+            let hmax = 1e-7 * lmax.abs().max(1e-3);
+            let fd_dlmax = (conditioning_gate_weight(lmin, lmax + hmax)
+                - conditioning_gate_weight(lmin, lmax - hmax))
+                / (2.0 * hmax);
+            assert!(
+                (fd_dlmax - g_dlmax).abs() <= 1e-4 * g_dlmax.abs().max(1.0),
+                "∂G/∂λ_max desync at (λ_min={lmin}, λ_max={lmax}): fd={fd_dlmax} analytic={g_dlmax}"
+            );
+        }
+    }
+
     #[test]
     pub(crate) fn empty_span_yields_zero_term() {
         let h = Array2::<f64>::eye(3);
@@ -2562,5 +2696,63 @@ mod tests {
             Ok(Array1::from_elem(v.len(), f64::NAN))
         };
         assert!(!jeffreys_term_skippable_via_matvec(hv, p).unwrap());
+    }
+
+    /// Single-emission pin (gam#931) for the Jeffreys eigenvalue function
+    /// `g(λ; floor)`: the three canonical functions `joint_jeffreys_term` now
+    /// reads from — the value `g = jeffreys_antiderivative`, its λ-slope
+    /// `g' = floored_inverse`, and its floor-motion
+    /// `∂g/∂floor = jeffreys_antiderivative_floor_sensitivity` — are a
+    /// consistent `(g, ∂g/∂λ, ∂g/∂floor)` triple. Because the production loop
+    /// now PROJECTS its value, gradient and floor-response off exactly these
+    /// functions (no inline copy), an FD agreement here is a structural
+    /// guarantee the value and its derivatives cannot drift. We sample one
+    /// point from each of the four branches and central-difference both `λ`
+    /// (floor fixed) and `floor` (λ fixed), avoiding the C¹ knots.
+    #[test]
+    pub(crate) fn jeffreys_antiderivative_is_consistent_value_slope_floor_triple() {
+        let floor = 1e-3_f64;
+        let cap = jeffreys_cap(floor);
+        // One sample comfortably inside each branch (away from cap/floor/0 knots).
+        // The top branch here is GATE-bound (cap = CLEAR ≫ floor), so its
+        // ∂g/∂floor is exactly 0 — exercised below alongside a separate
+        // floor-bound-cap point.
+        for &lam in &[cap * 4.0, (floor + cap) * 0.5, floor * 0.5, -0.7_f64] {
+            // ∂g/∂λ = floored_inverse.
+            let hl = 1e-7 * lam.abs().max(1e-3);
+            let fd_lam = (jeffreys_antiderivative(lam + hl, floor)
+                - jeffreys_antiderivative(lam - hl, floor))
+                / (2.0 * hl);
+            let dl = floored_inverse(lam, floor);
+            assert!(
+                (fd_lam - dl).abs() <= 1e-4 * dl.abs().max(1.0),
+                "∂g/∂λ desync at λ={lam}: fd={fd_lam} analytic={dl}"
+            );
+            // ∂g/∂floor = jeffreys_antiderivative_floor_sensitivity.
+            let hf = 1e-7 * floor;
+            let fd_floor = (jeffreys_antiderivative(lam, floor + hf)
+                - jeffreys_antiderivative(lam, floor - hf))
+                / (2.0 * hf);
+            let df = jeffreys_antiderivative_floor_sensitivity(lam, floor);
+            assert!(
+                (fd_floor - df).abs() <= 1e-4 * df.abs().max(1.0),
+                "∂g/∂floor desync at λ={lam}: fd={fd_floor} analytic={df}"
+            );
+        }
+        // Floor-bound-cap regime (`Λ = floor`, the extreme-scale branch): pick a
+        // floor above the gate-clear scale so `jeffreys_cap(floor) = floor` and a
+        // λ in the now-active top branch carries a nonzero ∂g/∂floor.
+        let big_floor = CONDITIONING_GATE_ABSOLUTE_CLEAR * 10.0;
+        assert!((jeffreys_cap(big_floor) - big_floor).abs() < 1e-12);
+        let lam_top = big_floor * 3.0;
+        let hf = 1e-7 * big_floor;
+        let fd_floor = (jeffreys_antiderivative(lam_top, big_floor + hf)
+            - jeffreys_antiderivative(lam_top, big_floor - hf))
+            / (2.0 * hf);
+        let df = jeffreys_antiderivative_floor_sensitivity(lam_top, big_floor);
+        assert!(
+            df != 0.0 && (fd_floor - df).abs() <= 1e-4 * df.abs().max(1.0),
+            "floor-bound-cap ∂g/∂floor desync: fd={fd_floor} analytic={df}"
+        );
     }
 }

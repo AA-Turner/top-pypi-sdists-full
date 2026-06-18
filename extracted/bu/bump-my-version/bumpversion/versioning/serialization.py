@@ -93,11 +93,11 @@ def serialize(version: Version, serialize_patterns: List[str], context: MutableM
         serialize_patterns: The serialization format to use, using Python's format string syntax
         context: The context to use when serializing the version
 
-    Raises:
-        FormattingError: if a serialization pattern
-
     Returns:
         The serialized version as a string
+
+    Raises:
+        FormattingError: if a serialization pattern
     """
     logger.debug("Serializing version '%s'", version)
     logger.indent()
@@ -123,7 +123,8 @@ def serialize(version: Version, serialize_patterns: List[str], context: MutableM
 
     valid_patterns = filter(itemgetter("renderable"), patterns)
     sorted_patterns = multisort(
-        list(valid_patterns), (("has_required_components", True), ("num_labels", False), ("order", False))
+        list(valid_patterns),
+        (("has_required_components", True), ("num_labels", False), ("order", False)),
     )
 
     if not sorted_patterns:

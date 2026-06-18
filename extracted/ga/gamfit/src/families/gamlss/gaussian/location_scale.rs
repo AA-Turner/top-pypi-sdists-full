@@ -13,7 +13,7 @@ pub struct GaussianLocationScaleFamily {
     /// per-call materialization decision) made during exact-Newton joint psi
     /// derivative evaluation. Defaults to `ResourcePolicy::default_library()`
     /// when the family is built without an explicit policy.
-    pub policy: crate::resource::ResourcePolicy,
+    pub policy: crate::solver::resource::ResourcePolicy,
     /// Cached per-observation row scalars keyed by 6-element fingerprint
     /// (first, mid, last elements of both eta vectors).
     /// Avoids recomputing O(n) scalars K+ times per REML gradient/Hessian evaluation.
@@ -294,15 +294,7 @@ impl GaussianLocationScaleFamily {
         xmu: &DenseOrOperator<'_>,
         x_ls: &DenseOrOperator<'_>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -331,15 +323,7 @@ impl GaussianLocationScaleFamily {
         x_ls: &DenseOrOperator<'_>,
         d_beta_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -390,15 +374,7 @@ impl GaussianLocationScaleFamily {
         d_beta_u_flat: &Array1<f64>,
         d_betav_flat: &Array1<f64>,
     ) -> Result<Option<Array2<f64>>, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -446,7 +422,7 @@ impl GaussianLocationScaleFamily {
         psi_index: usize,
         xmu: &Array2<f64>,
         x_ls: &Array2<f64>,
-        policy: &crate::resource::ResourcePolicy,
+        policy: &crate::solver::resource::ResourcePolicy,
     ) -> Result<Option<LocationScaleJointPsiDirection>, String> {
         let Some(parts) = locscale_joint_psi_direction_parts(
             block_states,
@@ -511,15 +487,7 @@ impl GaussianLocationScaleFamily {
         xmu: &Array2<f64>,
         x_ls: &Array2<f64>,
     ) -> Result<Option<crate::custom_family::ExactNewtonJointPsiTerms>, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         if specs.len() != 2 || derivative_blocks.len() != 2 {
             return Err(GamlssError::DimensionMismatch { reason: format!(
                 "GaussianLocationScaleFamily joint psi terms expect 2 specs and 2 derivative blocks, got {} and {}",
@@ -662,7 +630,7 @@ impl GaussianLocationScaleFamily {
         dir_j: &LocationScaleJointPsiDirection,
         xmu: &Array2<f64>,
         x_ls: &Array2<f64>,
-        subsample: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        subsample: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<crate::custom_family::ExactNewtonJointPsiSecondOrderTerms, String> {
         let second_drifts = self.exact_newton_joint_psisecond_design_drifts(
             block_states,
@@ -811,7 +779,7 @@ impl GaussianLocationScaleFamily {
         d_beta_flat: &Array1<f64>,
         xmu: &Array2<f64>,
         x_ls: &Array2<f64>,
-        subsample: Option<&[crate::families::marginal_slope_shared::WeightedOuterRow]>,
+        subsample: Option<&[crate::solver::outer_subsample::WeightedOuterRow]>,
     ) -> Result<Array2<f64>, String> {
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -904,7 +872,7 @@ impl GaussianLocationScaleFamily {
         specs: &[ParameterBlockSpec],
         block_idx: usize,
     ) -> Result<Box<dyn BlockEffectiveJacobian>, String> {
-        crate::util::block_jacobian::AdditiveWiggleBlockLayout {
+        crate::families::block_layout::block_jacobian::AdditiveWiggleBlockLayout {
             family: "GaussianLocationScaleFamily",
             n_outputs: 2,
             additive_blocks: &[Self::BLOCK_MU, Self::BLOCK_LOG_SIGMA],
@@ -1094,15 +1062,7 @@ impl CustomFamily for GaussianLocationScaleFamily {
     }
 
     fn evaluate(&self, block_states: &[ParameterBlockState]) -> Result<FamilyEvaluation, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_log_sigma = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -1230,15 +1190,7 @@ impl CustomFamily for GaussianLocationScaleFamily {
     }
 
     fn log_likelihood_only(&self, block_states: &[ParameterBlockState]) -> Result<f64, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_log_sigma = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -1310,15 +1262,7 @@ impl CustomFamily for GaussianLocationScaleFamily {
         let Some(subsample) = options.outer_score_subsample.as_ref() else {
             return self.log_likelihood_only(block_states);
         };
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let etamu = &block_states[Self::BLOCK_MU].eta;
         let eta_log_sigma = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -1410,15 +1354,7 @@ impl CustomFamily for GaussianLocationScaleFamily {
         block_idx: usize,
         d_eta: &Array1<f64>,
     ) -> Result<Option<Array1<f64>>, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let n = self.y.len();
         let eta_t = &block_states[Self::BLOCK_MU].eta;
         let eta_ls = &block_states[Self::BLOCK_LOG_SIGMA].eta;
@@ -1578,10 +1514,10 @@ impl CustomFamily for GaussianLocationScaleFamily {
         specs: &[ParameterBlockSpec],
         derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
-        if block_states.len() != 2 || specs.len() != 2 || derivative_blocks.len() != 2 {
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
+        if specs.len() != 2 || derivative_blocks.len() != 2 {
             return Err(GamlssError::DimensionMismatch { reason: format!(
-                "GaussianLocationScaleFamily joint psi workspace expects 2 states, 2 specs, and 2 derivative block lists, got {} / {} / {}",
-                block_states.len(),
+                "GaussianLocationScaleFamily joint psi workspace expects 2 specs and 2 derivative block lists, got {} / {}",
                 specs.len(),
                 derivative_blocks.len()
             ) }.into());
@@ -1620,10 +1556,10 @@ impl CustomFamily for GaussianLocationScaleFamily {
         derivative_blocks: &[Vec<crate::custom_family::CustomFamilyBlockPsiDerivative>],
         options: &BlockwiseFitOptions,
     ) -> Result<Option<Arc<dyn ExactNewtonJointPsiWorkspace>>, String> {
-        if block_states.len() != 2 || specs.len() != 2 || derivative_blocks.len() != 2 {
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
+        if specs.len() != 2 || derivative_blocks.len() != 2 {
             return Err(GamlssError::DimensionMismatch { reason: format!(
-                "GaussianLocationScaleFamily joint psi workspace expects 2 states, 2 specs, and 2 derivative block lists, got {} / {} / {}",
-                block_states.len(),
+                "GaussianLocationScaleFamily joint psi workspace expects 2 specs and 2 derivative block lists, got {} / {}",
                 specs.len(),
                 derivative_blocks.len()
             ) }.into());
@@ -1734,15 +1670,7 @@ impl CustomFamilyGenerative for GaussianLocationScaleFamily {
         &self,
         block_states: &[ParameterBlockState],
     ) -> Result<GenerativeSpec, String> {
-        if block_states.len() != 2 {
-            return Err(GamlssError::DimensionMismatch {
-                reason: format!(
-                    "GaussianLocationScaleFamily expects 2 blocks, got {}",
-                    block_states.len()
-                ),
-            }
-            .into());
-        }
+        validate_block_count::<GamlssError>("GaussianLocationScaleFamily", 2, block_states.len())?;
         let mu = block_states[Self::BLOCK_MU].eta.clone();
         let eta_log_sigma = &block_states[Self::BLOCK_LOG_SIGMA].eta;
         let sigma = gamlss_rowwise_map(eta_log_sigma.len(), |i| {

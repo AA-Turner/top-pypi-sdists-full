@@ -1,9 +1,7 @@
-"""
-Custom Sphinx extensions.
-"""
+"""Custom Sphinx extensions."""
 
 from importlib.metadata import version
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeAlias
 
 from beartype import beartype
 from docutils.nodes import (
@@ -24,6 +22,7 @@ from sphinx.application import Sphinx
 from sphinx.config import Config
 from sphinx.directives.code import CodeBlock, LiteralInclude
 from sphinx.environment import BuildEnvironment
+from sphinx.errors import SphinxError
 from sphinx.roles import XRefRole
 from sphinx.util.typing import ExtensionMetadata, OptionSpec
 
@@ -36,15 +35,88 @@ from sphinx_substitution_extensions.shared import (
     SUBSTITUTION_OPTION_NAME,
 )
 
+SubstitutionValue: TypeAlias = (
+    str
+    | int
+    | float
+    | list["SubstitutionValue"]
+    | dict[str, "SubstitutionValue"]
+)
+Substitutions: TypeAlias = dict[str, SubstitutionValue]
+
+
+@beartype
+def _validate_substitution_key(*, key: str) -> None:
+    """Validate that a substitution key does not contain dots.
+
+    Dots are reserved for nested access notation in flattened keys
+    (e.g., |a.b.c| for nested dictionaries or |items.0| for lists).
+    Allowing dots in user-defined keys would create ambiguity between
+    a literal key name and a path to a nested value.
+
+    A :class:`~sphinx.errors.SphinxError` is raised if the key contains a dot.
+    """
+    if "." in key:
+        message = (
+            f"Substitution key {key!r} contains a dot ('.'). "
+            "Dots are reserved for nested access notation "
+            "(e.g., |a.b.c| for nested dictionaries or |items.0| for lists)."
+        )
+        raise SphinxError(message)
+
+
+# NOTE: beartype is not used here
+# because it throws `beartype.roar.BeartypeCallHintForwardRefException`
+# for recursive type `Substitutions`
+def _flatten_substitutions(
+    *,
+    substitutions: Substitutions,
+) -> dict[str, str]:
+    """Flatten nested substitutions dictionary using dot notation.
+
+    Recursively processes nested dictionaries and lists, converting them
+    to a flat dictionary where keys represent the path to each value using
+    dot notation. For example::
+
+        {'a': {'b': {'c': 'value'}}} -> {'a.b.c': 'value'}
+        {'items': [{'name': 'a'}]} -> {'items.0.name': 'a'}
+
+    A :class:`~sphinx.errors.SphinxError` is raised if any key in the nested
+    structure contains a dot.
+    """
+    result: dict[str, str] = {}
+    stack: list[tuple[str, SubstitutionValue]] = [("", substitutions)]
+
+    while stack:
+        current_key, current_value = stack.pop()
+
+        match current_value:
+            case dict():
+                for key, value in current_value.items():
+                    _validate_substitution_key(key=key)
+                    new_key = f"{current_key}.{key}" if current_key else key
+                    stack.append((new_key, value))
+            case list():
+                for idx, item in enumerate(iterable=current_value):
+                    new_key = (
+                        f"{current_key}.{idx}"
+                        if current_key
+                        else str(object=idx)
+                    )
+                    stack.append((new_key, item))
+            case _:
+                result[current_key] = str(object=current_value)
+
+    return result
+
 
 @beartype
 def _get_delimiter_pairs(
+    *,
     env: BuildEnvironment,
     config: Config,
 ) -> set[tuple[str, str]]:
-    """
-    Get the delimiter pairs for substitution.
-    """
+    """Get the delimiter pairs for substitution."""
     markdown_suffixes = {
         key.lstrip(".")
         for key, value in config.source_suffix.items()
@@ -69,13 +141,12 @@ def _get_delimiter_pairs(
 
 @beartype
 def _get_substitution_defs(
+    *,
     env: BuildEnvironment,
     config: Config,
     substitution_defs: dict[str, substitution_definition],
 ) -> dict[str, str]:
-    """
-    Get the substitution definitions from the environment.
-    """
+    """Get the substitution definitions from the environment."""
     markdown_suffixes = {
         key.lstrip(".")
         for key, value in config.source_suffix.items()
@@ -85,7 +156,9 @@ def _get_substitution_defs(
     parser_supported_formats = set(env.parser.supported)
     if parser_supported_formats.intersection(markdown_suffixes):
         if "substitution" in config.myst_enable_extensions:
-            return dict(config.myst_substitutions)
+            return _flatten_substitutions(
+                substitutions=dict(config.myst_substitutions),
+            )
     else:
         return {
             key: value.astext() for key, value in substitution_defs.items()
@@ -96,13 +169,12 @@ def _get_substitution_defs(
 
 @beartype
 def _apply_substitutions(
+    *,
     text: str,
     substitution_defs: dict[str, str],
     delimiter_pairs: set[tuple[str, str]],
 ) -> str:
-    """
-    Apply substitutions to text using the given delimiter pairs.
-    """
+    """Apply substitutions to text using the given delimiter pairs."""
     new_text = text
     for name, replacement in substitution_defs.items():
         for delimiter_pair in delimiter_pairs:
@@ -116,13 +188,15 @@ def _apply_substitutions(
 
 @beartype
 def _should_apply_substitutions(
+    *,
     options: dict[str, Any],
     config: Config,
     yes_flag: str,
     no_flag: str,
 ) -> bool:
     """
-    Whether substitutions should be applied based on flags and configuration.
+    Whether substitutions should be applied based on flags and
+    configuration.
     """
     if no_flag in options:
         return False
@@ -133,13 +207,12 @@ def _should_apply_substitutions(
 
 @beartype
 def _process_node(
+    *,
     node: Node,
     substitution_defs: dict[str, str],
     delimiter_pairs: set[tuple[str, str]],
 ) -> None:
-    """
-    Recursively process nodes to apply substitutions.
-    """
+    """Recursively process nodes to apply substitutions."""
     if isinstance(node, Element):
         new_text = _apply_substitutions(
             text=node.rawsource,
@@ -162,9 +235,7 @@ def _process_node(
 
 @beartype
 class SubstitutionCodeBlock(CodeBlock):
-    """
-    Similar to CodeBlock but replaces placeholders with variables.
-    """
+    """Similar to CodeBlock but replaces placeholders with variables."""
 
     option_spec: ClassVar[OptionSpec] = (
         CodeBlock.option_spec.copy() if CodeBlock.option_spec else {}
@@ -173,9 +244,7 @@ class SubstitutionCodeBlock(CodeBlock):
     option_spec[NO_SUBSTITUTION_OPTION_NAME] = directives.flag
 
     def run(self) -> list[Node]:
-        """
-        Replace placeholders with given variables.
-        """
+        """Replace placeholders with given variables."""
         new_content = StringList()
         existing_content = self.content
         substitution_defs = _get_substitution_defs(
@@ -213,9 +282,7 @@ class SubstitutionCodeBlock(CodeBlock):
 
 @beartype
 class SubstitutionCodeRole:
-    """
-    Custom role for substitution code.
-    """
+    """Custom role for substitution code."""
 
     options: ClassVar[dict[str, Any]] = {
         "class": directives.class_option,
@@ -233,9 +300,7 @@ class SubstitutionCodeRole:
         options: dict[Any, Any] = {},  # noqa: B006
         content: list[str] = [],  # noqa: B006
     ) -> tuple[list[Node], list[system_message]]:
-        """
-        Replace placeholders with given variables.
-        """
+        """Replace placeholders with given variables."""
         settings = inliner.document.settings
         env = settings.env
         substitution_defs = _get_substitution_defs(
@@ -285,7 +350,8 @@ class SubstitutionCodeRole:
 @beartype
 class SubstitutionLiteralInclude(LiteralInclude):
     """
-    Similar to LiteralInclude but replaces placeholders with variables.
+    Similar to LiteralInclude but replaces placeholders with
+    variables.
     """
 
     option_spec: ClassVar[OptionSpec] = (
@@ -298,7 +364,8 @@ class SubstitutionLiteralInclude(LiteralInclude):
 
     def run(self) -> list[Node]:
         """
-        Replace placeholders with given variables in the file path and/or
+        Replace placeholders with given variables in the file path
+        and/or
         included file content.
         """
         should_apply_path_substitutions = _should_apply_substitutions(
@@ -361,19 +428,18 @@ class SubstitutionLiteralInclude(LiteralInclude):
 @beartype
 class SubstitutionImage(Image):
     """
-    Similar to Image but replaces placeholders with variables in the path.
+    Similar to Image but replaces placeholders with variables in the
+    path.
     """
 
     option_spec: ClassVar[OptionSpec | None] = {
-        **(Image.option_spec if Image.option_spec else {}),
+        **(Image.option_spec or {}),
         PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
         NO_PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
     }
 
     def run(self) -> list[Node]:
-        """
-        Replace placeholders with given variables in the image path.
-        """
+        """Replace placeholders with given variables in the image path."""
         env = self.state.document.settings.env
         config = env.config
 
@@ -408,9 +474,7 @@ class SubstitutionImage(Image):
 
 @beartype
 class SubstitutionXRefRole(XRefRole):
-    """
-    Custom role for XRefs.
-    """
+    """Custom role for XRefs."""
 
     def create_xref_node(self) -> tuple[list[Node], list[system_message]]:
         """Override parent method to set classes.
@@ -435,7 +499,8 @@ class SubstitutionXRefRole(XRefRole):
         target: str,
     ) -> tuple[str, str]:
         """
-        Override parent method to replace placeholders with given variables.
+        Override parent method to replace placeholders with given
+        variables.
         """
         assert isinstance(env, BuildEnvironment)
         substitution_defs = _get_substitution_defs(
@@ -473,9 +538,7 @@ class SubstitutionXRefRole(XRefRole):
 
 @beartype
 def setup(app: Sphinx) -> ExtensionMetadata:
-    """
-    Add the custom directives to Sphinx.
-    """
+    """Add the custom directives to Sphinx."""
     app.add_config_value(name="substitutions", default=[], rebuild="html")
     app.add_config_value(
         name="substitutions_default_enabled",

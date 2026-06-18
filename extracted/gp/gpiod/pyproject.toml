@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2023 Phil Howard <phil@gadgetoid.com>
 
 [build-system]
-requires = ["setuptools>=77.0.0", "wheel", "packaging"]
+requires = ["setuptools>=77.0.0", "packaging"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,7 +11,7 @@ dynamic = ["version"]
 description = "Python bindings for libgpiod"
 readme = "README.md"
 license = "LGPL-2.1-or-later"
-requires-python = ">=3.9.0"
+requires-python = ">=3.10"
 authors = [
   {name = "Bartosz Golaszewski", email = "brgl@bgdev.pl"},
 ]
@@ -22,17 +22,21 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Free Threading :: 3 - Stable",
 ]
 
 [project.urls]
 Homepage = "https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git"
 Issues = "https://github.com/brgl/libgpiod/issues/"
+Changelog = "https://github.com/brgl/libgpiod/blob/master/bindings/python/CHANGELOG.md"
+
+[dependency-groups]
+lint = ["mypy>=1.18.1", "ruff~=0.15.0", "types-setuptools", "packaging"]
 
 [tool.setuptools]
 platforms = ["linux"]
@@ -46,35 +50,19 @@ include = ["gpiod"]
 namespaces = false
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
+exclude_gitignore = true
 files = [
-  "gpiod/",
-  "tests/",
-]
-
-[[tool.mypy.overrides]]
-module = "gpiod.line.*"
-strict_equality = false # Ignore Enum comparison-overlap: https://github.com/python/mypy/issues/17317
-
-[tool.ruff]
-target-version = "py39"
-include = [
-  "gpiod/**/*.py",
-  "gpiod/**/*.pyi",
-  "tests/**/*.py",
-  "tests/**/*.pyi",
+  ".",
 ]
 
 [tool.ruff.lint]
-select = ["B", "E", "F", "I", "TCH", "UP"]
+select = ["B", "E", "F", "I", "TC", "UP"]
 ignore=[
   # Ignore chained exception warnings for now: https://docs.astral.sh/ruff/rules/raise-without-from-inside-except/
   "B904",
   # Never enforce line length violations. Let the formatter handle it: https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
   "E501",
-  # Ignore new Union (|) syntax until we require 3.10+
-  "UP007",
-  "UP045",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -84,5 +72,4 @@ ignore=[
 
 [tool.cibuildwheel]
 build = "cp*"
-skip = "cp31?t-*"  # Do not build free-threaded wheels
 archs = ["x86_64", "aarch64"]

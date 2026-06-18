@@ -191,6 +191,14 @@ body {
 .airbyte-error-card {
   border-color: color-mix(in srgb, #ff6b6b 70%, transparent) !important;
 }
+.airbyte-env-banner {
+  width: 100%;
+  flex-shrink: 0;
+}
+.airbyte-env-banner a {
+  color: #fff !important;
+  text-decoration: underline !important;
+}
 .airbyte-breadcrumb-nav {
   display: flex;
   align-items: center;
@@ -291,6 +299,7 @@ AIRBYTE_LOGO_CLASS = "airbyte-logo"
 BUTTON_INFO_CLASS = "bg-[#5D51D5] text-white border-[#5D51D5] hover:bg-[#4D43BE]"
 BUTTON_OUTLINE_CLASS = "bg-[#282255] text-white border-[#CECBF24D] hover:bg-[#332B6B]"
 BUTTON_DESTRUCTIVE_CLASS = "bg-[#B42318] text-white border-[#B42318] hover:bg-[#912018]"
+ENV_BANNER_CLASS = "airbyte-env-banner"
 BREADCRUMB_NAV_CLASS = "airbyte-breadcrumb-nav"
 COMBOBOX_CLASS = "bg-[#282255] text-white border-[#CECBF24D] hover:bg-[#332B6B]"
 

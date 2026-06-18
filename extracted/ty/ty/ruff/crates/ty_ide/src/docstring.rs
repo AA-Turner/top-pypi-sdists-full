@@ -6,10 +6,11 @@
 //! There are no formal specifications for any of these formats, so the parsing
 //! logic needs to be tolerant of variations.
 
+mod formats;
 mod markdown;
 mod preformatted;
-mod rest;
 
+use formats::Formats;
 use indexmap::IndexMap;
 use regex::Regex;
 use ruff_python_trivia::{PythonWhitespace, leading_indentation};
@@ -79,7 +80,7 @@ impl Docstring {
         param_docs.extend(extract_numpy_style_params(&self.0));
 
         // reST/Sphinx-style docstrings
-        param_docs.extend(extract_rest_style_params(&self.0));
+        param_docs.extend(Formats::parse(&self.0).parameter_documentation());
 
         param_docs
     }
@@ -403,17 +404,6 @@ fn extract_numpy_style_params(docstring: &str) -> IndexMap<String, String> {
     // Don't forget the last parameter
     if let Some(param_name) = current_param {
         param_docs.insert(param_name, current_doc.trim().to_string());
-    }
-
-    param_docs
-}
-
-/// Extract parameter documentation from reST/Sphinx-style docstrings.
-fn extract_rest_style_params(docstring: &str) -> IndexMap<String, String> {
-    let mut param_docs = IndexMap::new();
-
-    for parameter in rest::Docstring::parse(docstring).parameter_documentation() {
-        param_docs.insert(parameter.name.into_string(), parameter.description);
     }
 
     param_docs
@@ -1638,12 +1628,15 @@ mod tests {
 
         Args:
             param1 (str): Google-style parameter
+            param2 (int): Google-style duplicate parameter
 
         :param int param2: reST-style parameter
         :param param3: Another reST-style parameter
 
         Parameters
         ----------
+        param3 : str
+            NumPy-style duplicate parameter
         param4 : bool
             NumPy-style parameter
         "#;
@@ -1674,12 +1667,15 @@ mod tests {
 
         Args:
             param1 (str): Google-style parameter
+            param2 (int): Google-style duplicate parameter
 
         :param int param2: reST-style parameter
         :param param3: Another reST-style parameter
 
         Parameters
         ----------
+        param3 : str
+            NumPy-style duplicate parameter
         param4 : bool
             NumPy-style parameter
         ");
@@ -1689,12 +1685,15 @@ mod tests {
         <HB>
         Args:<HB>
         &nbsp;&nbsp;&nbsp;&nbsp;param1 (str): Google-style parameter<HB>
+        &nbsp;&nbsp;&nbsp;&nbsp;param2 (int): Google-style duplicate parameter<HB>
         <HB>
         :param int param2: reST-style parameter<HB>
         :param param3: Another reST-style parameter<HB>
         <HB>
         Parameters<HB>
         ----------<HB>
+        param3 : str<HB>
+        &nbsp;&nbsp;&nbsp;&nbsp;NumPy-style duplicate parameter<HB>
         param4 : bool<HB>
         &nbsp;&nbsp;&nbsp;&nbsp;NumPy-style parameter
         ");

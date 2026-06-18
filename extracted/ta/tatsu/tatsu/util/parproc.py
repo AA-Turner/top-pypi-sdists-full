@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import io
+import multiprocessing
 import sys
+import sysconfig
+import threading
 import time
 from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
@@ -35,9 +38,15 @@ __all__ = [
     'parproc',
     'processing_loop',
     '_old_file_process_progress',
+    'GIL_DISABLED',
+    'HAS_MULTITHREADING_SUPPORT',
 ]
 
 EOLCH = '\r' if sys.stderr.isatty() else '\n'
+
+GIL_DISABLED = sysconfig.get_config_var("Py_GIL_DISABLED")
+HAS_MULTITHREADING_SUPPORT = GIL_DISABLED
+
 
 type Func = Callable[..., Any]
 type VisualFunc = Callable[..., Any]
@@ -142,7 +151,10 @@ def parproc(
     max_workers: int | None = None,
     **kwargs: Any,
 ) -> Generator[Result | None, None, None]:
-    stop = Event()
+    stop: Event = threading.Event()
+    if not HAS_MULTITHREADING_SUPPORT:
+        stop = multiprocessing.Manager().Event()
+
     tasks = [
         Task(
             stop=stop,
@@ -454,6 +466,8 @@ def active_pmap() -> Callable[
     import multiprocessing
     from concurrent.futures import (
         Executor,
+        # NOTE from Python 3.14 onwards
+        # InterpreterPoolExecutor,
         ProcessPoolExecutor,
         ThreadPoolExecutor,
         as_completed,
@@ -522,6 +536,23 @@ def active_pmap() -> Callable[
         except (TypeError, PicklingError, PickleError):
             yield from thread_pmap(event, process, tasks, max_workers)
 
+    # def interpreter_pmap(
+    #     event: Event,
+    #     process: Func,
+    #     tasks: Iterable[Any],
+    #     max_workers: int | None = None,
+    # ) -> Iterable[Result]:
+    #     try:
+    #         yield from executor_pmap(
+    #             InterpreterPoolExecutor,
+    #             event,
+    #             process,
+    #             tasks,
+    #             max_workers=max_workers or multiprocessing.cpu_count(),
+    #         )
+    #     except (TypeError, PicklingError, PickleError):
+    #         yield from thread_pmap(event, process, tasks, max_workers)
+
     def imap_pmap(process: Func, tasks: Iterable[Any]) -> Iterable[Result]:
         tasks = list(tasks)
         nworkers = 4 * max(1, multiprocessing.cpu_count())
@@ -539,5 +570,6 @@ def active_pmap() -> Callable[
                 'number of chunked tasks different %d != %d' % (len(tasks), count),
             )
 
+    if HAS_MULTITHREADING_SUPPORT:
+        return thread_pmap
     return process_pmap
-    # return thread_pmap

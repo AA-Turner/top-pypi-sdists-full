@@ -5,7 +5,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Callable, Optional, Sequence, Type, Union
 from urllib.parse import urlparse
 
-import httpx
+import httpx2 as httpx
 from click import Context, Option
 from click.decorators import FC, _param_memo  # noqa: PLC2701
 
@@ -108,11 +108,11 @@ def resolve_conf_location(url_or_path: str) -> Path:
     Args:
         url_or_path: The URL or path to resolve.
 
-    Raises:
-        BumpVersionError: if the file does not exist.
-
     Returns:
         The contents of the location.
+
+    Raises:
+        BumpVersionError: if the file does not exist.
     """
     parsed_url = urlparse(url_or_path)
 

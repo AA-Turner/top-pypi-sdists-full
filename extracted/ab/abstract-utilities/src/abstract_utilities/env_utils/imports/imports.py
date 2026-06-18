@@ -1,5 +1,5 @@
 from ...imports import os
-from dotenv import load_dotenv
+from ...imports import load_dotenv  # lazy proxy (defers importing python-dotenv)
 from ...ssh_utils import is_file
 from ...string_utils import eatAll,eatInner,eatOuter
 from ...safe_utils import safe_split

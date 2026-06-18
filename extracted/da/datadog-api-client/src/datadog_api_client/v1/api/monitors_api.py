@@ -425,6 +425,10 @@ class MonitorsApi:
         * ``operator`` : <, <=, >, >=, ==, or !=
         * ``#`` : an integer or decimal number used to set the threshold
 
+        To use a dynamic threshold on a metric monitor with a formula query, replace ``#`` with the ``threshold`` keyword
+        (for example, ``... > threshold`` ) and provide the threshold as a query via ``critical_query`` on ``options.thresholds``.
+        This feature is in preview.
+
         If you are using the ``_change_`` or ``_pct_change_`` time aggregator, instead use ``change_aggr(time_aggr(time_window),
         timeshift):space_aggr:metric{tags} [by {key}] operator #`` with:
 
@@ -948,6 +952,8 @@ class MonitorsApi:
 
         Validate the monitor provided in the request.
 
+        **Note** : Log monitors require an unscoped App Key and ``logs_read_data`` permission.
+
         :param monitor_id: The ID of the monitor
         :type monitor_id: int
         :param body: Monitor request object
@@ -969,7 +975,7 @@ class MonitorsApi:
 
         Validate the monitor provided in the request.
 
-        **Note** : Log monitors require an unscoped App Key.
+        **Note** : Log monitors require an unscoped App Key and ``logs_read_data`` permission.
 
         :param body: Monitor request object
         :type body: Monitor

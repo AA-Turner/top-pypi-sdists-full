@@ -1,9 +1,8 @@
-// This file is part of InvenioRequests
-// Copyright (C) 2022 CERN.
-// Copyright (C) 2024 KTH Royal Institute of Technology
-//
-// Invenio RDM Records is free software; you can redistribute it and/or modify it
-// under the terms of the MIT License; see LICENSE file for more details.
+/*
+ * SPDX-FileCopyrightText: 2022 CERN.
+ * SPDX-FileCopyrightText: 2024 KTH Royal Institute of Technology
+ * SPDX-License-Identifier: MIT
+ */
 
 import { RequestActionContext } from "@js/invenio_requests/request/actions/context";
 import { RichEditor } from "react-invenio-forms";

@@ -1,7 +1,6 @@
 use crate::faer_ndarray::{FaerSvd, fast_ab};
 use crate::matrix::{DenseDesignMatrix, DenseDesignOperator, DesignMatrix, LinearOperator};
 use ndarray::{Array1, Array2, ArrayViewMut2, s};
-use std::fmt;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -30,22 +29,14 @@ pub enum ScaleDesignError {
     SvdFailed { reason: String },
 }
 
-impl fmt::Display for ScaleDesignError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ScaleDesignError::InvalidWeights { reason }
-            | ScaleDesignError::IncompatibleDimensions { reason }
-            | ScaleDesignError::NonFiniteInput { reason }
-            | ScaleDesignError::DegenerateDesign { reason }
-            | ScaleDesignError::RowMaterializationFailed { reason }
-            | ScaleDesignError::SvdFailed { reason } => f.write_str(reason),
-        }
-    }
-}
-
-impl From<ScaleDesignError> for String {
-    fn from(err: ScaleDesignError) -> String {
-        err.to_string()
+crate::impl_reason_error_boilerplate! {
+    ScaleDesignError {
+        InvalidWeights,
+        IncompatibleDimensions,
+        NonFiniteInput,
+        DegenerateDesign,
+        RowMaterializationFailed,
+        SvdFailed,
     }
 }
 
@@ -390,9 +381,9 @@ impl DenseDesignOperator for ScaleDeviationOperator {
         &self,
         rows: Range<usize>,
         mut out: ArrayViewMut2<'_, f64>,
-    ) -> Result<(), crate::resource::MatrixMaterializationError> {
+    ) -> Result<(), crate::solver::resource::MatrixMaterializationError> {
         let chunk = self.row_chunk(rows).map_err(|err| {
-            crate::resource::MatrixMaterializationError::RowMaterializationFailed {
+            crate::solver::resource::MatrixMaterializationError::RowMaterializationFailed {
                 context: "ScaleDeviationOperator::row_chunk_into",
                 reason: err.to_string(),
             }

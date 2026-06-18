@@ -1,4 +1,3 @@
-
 fn normalize_coefficient_names_value(
     names: Option<&serde_json::Value>,
     n_coeffs: usize,
@@ -178,9 +177,25 @@ fn posterior_eta_bands_impl(
     n_rows: usize,
     family_kind: &str,
     level: f64,
+    link_spec: Option<&str>,
 ) -> Result<String, String> {
+    // Prefer the typed link spec when supplied so the parameterized links
+    // (`Sas`, `Mixture`, `LatentCLogLog`, `BetaLogistic`) push their per-fit
+    // state through to the response-scale bands; otherwise fall back to the
+    // bare string tag (issue #1133).
+    let parsed_link: Option<InverseLink> = match link_spec {
+        Some(spec_json) => Some(
+            serde_json::from_str(spec_json)
+                .map_err(|err| format!("failed to parse link_spec for posterior bands: {err}"))?,
+        ),
+        None => None,
+    };
+    let selector = match parsed_link.as_ref() {
+        Some(link) => posterior_bands::LinkSelector::Spec(link),
+        None => posterior_bands::LinkSelector::Tag(family_kind),
+    };
     let payload =
-        posterior_bands::posterior_eta_bands(eta_flat, n_draws, n_rows, family_kind, level)?;
+        posterior_bands::posterior_eta_bands_link(eta_flat, n_draws, n_rows, selector, level)?;
     serde_json::to_string(&payload)
         .map_err(|err| format!("failed to serialize posterior_eta_bands payload: {err}"))
 }
@@ -228,10 +243,24 @@ fn posterior_predict_bands_table_impl(
         .iter()
         .map(|v| v.as_f64().unwrap_or(0.0))
         .collect();
+    // Prefer the typed link spec carried by the predict payload so the
+    // parameterized links push their per-fit state through to response-scale
+    // bands; otherwise fall back to the bare `family_kind` tag (issue #1133).
+    let parsed_link: Option<InverseLink> = match parsed.get("link_spec").and_then(|v| v.as_str()) {
+        Some(spec_json) => Some(
+            serde_json::from_str(spec_json)
+                .map_err(|err| format!("failed to parse link_spec for posterior bands: {err}"))?,
+        ),
+        None => None,
+    };
+    let selector = match parsed_link.as_ref() {
+        Some(link) => posterior_bands::LinkSelector::Spec(link),
+        None => posterior_bands::LinkSelector::Tag(family_kind.as_str()),
+    };
     let eta = Array2::<f64>::from_shape_vec((n_draws_out, n_rows_out), eta_flat)
         .map_err(|err| format!("failed to reshape eta matrix: {err}"))?;
     let (eta_mean, eta_lower, eta_upper, mean, mean_lower, mean_upper) =
-        eta_bands_from_matrix(eta.view(), &family_kind, level)?;
+        posterior_bands::eta_bands_from_matrix_link(eta.view(), selector, level)?;
     let payload = PosteriorPredictBandsPayload {
         linear_predictor: eta_mean,
         linear_predictor_lower: eta_lower,
@@ -325,6 +354,7 @@ fn posterior_predict_marginal_slope_eta(
         n_rows,
         model_class: prediction_model_class_label(model),
         family_kind: family_link_kind(&model_likelihood_spec(model)).to_string(),
+        link_spec: model_link_spec_json(model),
     };
     serde_json::to_string(&payload)
         .map_err(|err| format!("failed to serialize posterior_predict payload: {err}"))
@@ -390,13 +420,13 @@ fn posterior_predict_table_impl(
     drop(headers);
     let col_map = dataset.column_map();
     let training_headers = model.training_headers.as_ref();
-    let spec = gam::survival_predict::resolve_termspec_for_prediction(
+    let spec = gam::families::survival::predict::resolve_termspec_for_prediction(
         &model.resolved_termspec,
         training_headers,
         &col_map,
         "resolved_termspec",
     )?;
-    let design = gam::smooth::build_term_collection_design(dataset.values.view(), &spec)
+    let design = gam::terms::smooth::build_term_collection_design(dataset.values.view(), &spec)
         .map_err(|err| format!("failed to build design matrix: {err}"))?;
     let base_dense = design
         .design
@@ -429,6 +459,7 @@ fn posterior_predict_table_impl(
         n_rows,
         model_class: prediction_model_class_label(&model),
         family_kind: family_link_kind(&model_likelihood_spec(&model)).to_string(),
+        link_spec: model_link_spec_json(&model),
     };
     serde_json::to_string(&payload)
         .map_err(|err| format!("failed to serialize posterior_predict payload: {err}"))
@@ -448,7 +479,7 @@ fn sample_table_impl(
     let cfg = resolve_nuts_config(&model, options);
     let col_map = dataset.column_map();
     let training_headers = model.training_headers.as_ref();
-    let nuts = gam::sample::sample_saved_model(
+    let nuts = gam::inference::sample::sample_saved_model(
         &model,
         dataset.values.view(),
         &col_map,
@@ -475,6 +506,18 @@ fn family_link_kind(family: &LikelihoodSpec) -> &'static str {
         (ResponseFamily::Binomial, InverseLink::BetaLogistic(_)) => "beta-logistic",
         _ => family.link_function().name(),
     }
+}
+
+/// Serialize the fully parameterized [`InverseLink`] of a model's likelihood to
+/// JSON so the Python wrapper can carry it back into the response-scale
+/// transforms (`apply_inverse_link_array`, `posterior_eta_bands`) as a typed
+/// `link_spec` rather than a lossy `family_kind` tag. The parameterized links
+/// (`Sas`, `Mixture`, `LatentCLogLog`, `BetaLogistic`) carry per-fit state that
+/// the bare string tag cannot represent; this is the seam that wires their
+/// response-scale draws (issue #1133).
+fn model_link_spec_json(model: &FittedModel) -> Option<String> {
+    let spec = model_likelihood_spec(model);
+    serde_json::to_string(&spec.link).ok()
 }
 
 /// Extract the `LikelihoodSpec` carried by the saved model's `family_state`.
@@ -509,7 +552,7 @@ fn nuts_method_label(model: &FittedModel) -> &'static str {
         PredictModelClass::Survival => {
             // Survival latent / latent-binary / location-scale fall
             // back; everything else uses exact NUTS. Mirror the
-            // dispatch in `gam::sample::sample_saved_model`.
+            // dispatch in `gam::inference::sample::sample_saved_model`.
             match model.survival_likelihood.as_deref() {
                 Some("latent") | Some("latent-binary") | Some("location-scale") => "laplace",
                 None
@@ -563,6 +606,7 @@ fn build_sample_payload(model: &FittedModel, nuts: &NutsResult, cfg: &NutsConfig
         },
         model_class: prediction_model_class_label(model),
         family_kind: family_link_kind(&model_likelihood_spec(&model)).to_string(),
+        link_spec: model_link_spec_json(model),
         method: nuts_method_label(model).to_string(),
     }
 }
@@ -637,8 +681,8 @@ fn categorical_level_name_for_bits(
         .cloned()
 }
 
-fn smooth_basis_kind_label(basis: &gam::smooth::SmoothBasisSpec) -> &'static str {
-    use gam::smooth::SmoothBasisSpec as S;
+fn smooth_basis_kind_label(basis: &gam::terms::smooth::SmoothBasisSpec) -> &'static str {
+    use gam::terms::smooth::SmoothBasisSpec as S;
     match basis {
         S::BSpline1D { .. } => "smooth_bspline1d",
         S::TensorBSpline { .. } => "tensor",
@@ -1806,10 +1850,10 @@ fn representative_data_from_ranges(ranges: &[(f64, f64)]) -> Array2<f64> {
 /// information needed to compute it honestly is not available.
 fn summary_smooth_terms(
     model: &FittedModel,
-    fit: &gam::estimate::UnifiedFitResult,
+    fit: &gam::solver::estimate::UnifiedFitResult,
 ) -> Vec<SummarySmoothTermRow> {
     use gam::inference::smooth_test::{SmoothTestInput, SmoothTestScale, wood_smooth_test};
-    use gam::smooth::ShapeConstraint;
+    use gam::terms::smooth::ShapeConstraint;
 
     let payload = model.payload();
     let Some(spec) = payload.resolved_termspec.as_ref() else {
@@ -1828,7 +1872,7 @@ fn summary_smooth_terms(
         return Vec::new();
     }
     let data = representative_data_from_ranges(ranges);
-    let Ok(design) = gam::smooth::build_term_collection_design(data.view(), spec) else {
+    let Ok(design) = gam::terms::smooth::build_term_collection_design(data.view(), spec) else {
         return Vec::new();
     };
 
@@ -1925,7 +1969,7 @@ fn summary_smooth_terms(
 /// (and the κ = 0 flatness p-value) is the profile-CI from
 /// `curvature_inference_json`, which re-profiles `V_p(κ)` against the data.
 fn summary_curvature_estimands(model: &FittedModel) -> Vec<SummaryCurvatureRow> {
-    use gam::smooth::SmoothBasisSpec;
+    use gam::terms::smooth::SmoothBasisSpec;
     let payload = model.payload();
     let Some(spec) = payload.resolved_termspec.as_ref() else {
         return Vec::new();
@@ -2166,13 +2210,25 @@ struct SmoothTermLrRow {
     ref_df: f64,
     /// Lawley LR Bartlett factor `c = 1 + Δε/d` (1.0 when uncorrected).
     bartlett_factor: f64,
+    /// Fixed-λ conditional Lawley factor when the applied factor also includes
+    /// estimated-λ rho variation.
+    bartlett_factor_conditional: Option<f64>,
+    /// Mean-shift increment from ρ̂ sampling variation, when present.
+    rho_variation_shift: Option<f64>,
     /// Bartlett-corrected statistic `W* = W / c`.
     statistic_corrected: f64,
     /// Uncorrected p-value `P(χ²_d > W)`.
     p_value_uncorrected: f64,
     /// Corrected p-value `P(χ²_d > W*)` — the magic-by-default reported value.
     p_value_corrected: f64,
-    /// `"lawley_lr"` when the Bartlett correction was applied, else `"none"`.
+    /// `true` when the correction is **material** (#939 deliverable 4): it moves
+    /// the Bartlett factor or the p-value by more than 10% — the diagnostic that
+    /// `n` is too small for first-order inference on this term. `false` when no
+    /// correction was applied.
+    material: bool,
+    /// `"lawley_lr_estimated_lambda"` when the full estimated-λ Bartlett
+    /// correction was applied, `"lawley_lr_fixed_lambda"` for the conditional
+    /// fixed-λ factor, else `"none"`.
     correction_provenance: &'static str,
 }
 
@@ -2201,7 +2257,7 @@ fn curvature_inference_json_impl(
     rows: Vec<Vec<String>>,
     level: f64,
 ) -> Result<String, String> {
-    use gam::smooth::SmoothBasisSpec;
+    use gam::terms::smooth::SmoothBasisSpec;
     if !(level.is_finite() && level > 0.0 && level < 1.0) {
         return Err(format!(
             "curvature_inference: confidence level must be in (0, 1), got {level}"
@@ -2256,7 +2312,7 @@ fn curvature_inference_json_impl(
         if !matches!(term.basis, SmoothBasisSpec::ConstantCurvature { .. }) {
             continue;
         }
-        let report = gam::smooth::curvature_inference_forspec(
+        let report = gam::terms::smooth::curvature_inference_forspec(
             standard.data.view(),
             standard.y.view(),
             standard.weights.view(),
@@ -2340,7 +2396,7 @@ fn smooth_term_lr_inference_json_impl(
     };
 
     let family = model.likelihood();
-    let reports = gam::smooth::smooth_term_lr_inference_forspec(
+    let reports = gam::terms::smooth::smooth_term_lr_inference_forspec(
         standard.data.view(),
         standard.y.view(),
         standard.weights.view(),
@@ -2359,9 +2415,12 @@ fn smooth_term_lr_inference_json_impl(
             statistic_lr: r.statistic_lr,
             ref_df: r.ref_df,
             bartlett_factor: r.bartlett_factor,
+            bartlett_factor_conditional: r.bartlett_factor_conditional,
+            rho_variation_shift: r.rho_variation_shift,
             statistic_corrected: r.statistic_corrected,
             p_value_uncorrected: r.p_value_uncorrected,
             p_value_corrected: r.p_value_corrected,
+            material: r.material,
             correction_provenance: r.correction.label(),
         })
         .collect::<Vec<_>>();
@@ -2666,7 +2725,7 @@ fn sae_ibp_map_value_grad<'py>(
         }
     }
     let (value, grad) =
-        gam::terms::sae_manifold::ibp_map_row_value_grad(logits_view.view(), temperature, alpha);
+        gam::terms::sae::assignment::ibp_map_row_value_grad(logits_view.view(), temperature, alpha);
     Ok((
         value.into_pyarray(py).unbind(),
         grad.into_pyarray(py).unbind(),
@@ -3269,14 +3328,15 @@ fn request_metadata(request: &FitRequest<'_>) -> (&'static str, &'static str, bo
         FitRequest::SurvivalTransformation(request) => {
             // cause_count is Result<usize, SurvivalError>; on error fall through
             // to the non-competing-risks branches (display-only path).
-            let cause_count =
-                gam::survival::cause_count_from_event_codes(request.spec.event_target.view())
-                    .unwrap_or(1);
+            let cause_count = gam::families::survival::cause_count_from_event_codes(
+                request.spec.event_target.view(),
+            )
+            .unwrap_or(1);
             if cause_count > 1 {
                 ("Cause-specific survival", "competing risks survival", true)
             } else {
                 match request.spec.likelihood_mode {
-                    gam::families::survival_construction::SurvivalLikelihoodMode::Weibull => {
+                    gam::families::survival::construction::SurvivalLikelihoodMode::Weibull => {
                         ("Survival Weibull", "survival", true)
                     }
                     _ => ("Survival", "survival", true),
@@ -3367,7 +3427,7 @@ fn column_fingerprint(name: &str, column: &[&str]) -> ColumnCacheKey {
 /// statistically independent of the unseeded `DefaultHasher`, widening the
 /// content key to 128 bits.
 fn seeded_hasher() -> std::collections::hash_map::DefaultHasher {
-    use std::hash::{Hash, Hasher};
+    use std::hash::Hash;
     let mut h = std::collections::hash_map::DefaultHasher::new();
     0x9E37_79B9_7F4A_7C15u64.hash(&mut h);
     h
@@ -3414,7 +3474,11 @@ fn dataset_with_inferred_schema(
     // (n_rows * n_cols allocations) before any encoding even began.
     let t_encode = std::time::Instant::now();
     let columns: Vec<Vec<&str>> = (0..n_cols)
-        .map(|j| rows.iter().map(|row| row[j].as_str()).collect::<Vec<&str>>())
+        .map(|j| {
+            rows.iter()
+                .map(|row| row[j].as_str())
+                .collect::<Vec<&str>>()
+        })
         .collect();
 
     // Encode each column independently and in parallel. A column whose content
@@ -4018,7 +4082,7 @@ fn bspline_basis_impl(
     } else {
         let (basis, _) = create_basis::<Dense>(
             t,
-            gam::basis::KnotSource::Provided(knots),
+            gam::terms::basis::KnotSource::Provided(knots),
             degree,
             BasisOptions::value(),
         )
@@ -4050,9 +4114,13 @@ fn bspline_basis_derivative_impl(
             ));
         }
     };
-    let (basis, _) =
-        create_basis::<Dense>(t, gam::basis::KnotSource::Provided(knots), degree, options)
-            .map_err(|err| format!("failed to evaluate B-spline derivative: {err}"))?;
+    let (basis, _) = create_basis::<Dense>(
+        t,
+        gam::terms::basis::KnotSource::Provided(knots),
+        degree,
+        options,
+    )
+    .map_err(|err| format!("failed to evaluate B-spline derivative: {err}"))?;
     Ok((*basis).clone())
 }
 
@@ -4146,9 +4214,9 @@ fn smoothness_penalty_impl(
     let greville = greville_abscissae(knots, degree, num_basis)?;
     let penalty = create_difference_penalty_matrix(num_basis, order, Some(greville.view()))
         .map_err(|err| format!("failed to build smoothness penalty: {err}"))?;
-    let (null_basis, _) = gam::faer_ndarray::rrqr_nullspace_basis(
+    let (null_basis, _) = gam::linalg::faer_ndarray::rrqr_nullspace_basis(
         &penalty,
-        gam::faer_ndarray::default_rrqr_rank_alpha(),
+        gam::linalg::faer_ndarray::default_rrqr_rank_alpha(),
     )
     .map_err(|err| format!("failed to build penalty null basis: {err}"))?;
     Ok((penalty, null_basis))
@@ -4806,9 +4874,9 @@ fn pyffi_duchon_kernel_constraint_nullspace(
     order: DuchonNullspaceOrder,
 ) -> Result<Array2<f64>, String> {
     let polynomial_block = pyffi_duchon_polynomial_block(centers, order);
-    gam::faer_ndarray::rrqr_nullspace_basis(
+    gam::linalg::faer_ndarray::rrqr_nullspace_basis(
         &polynomial_block,
-        gam::faer_ndarray::default_rrqr_rank_alpha(),
+        gam::linalg::faer_ndarray::default_rrqr_rank_alpha(),
     )
     .map(|(null_basis, _)| null_basis)
     .map_err(|err| format!("failed to build Duchon kernel constraint nullspace: {err}"))
@@ -4923,8 +4991,8 @@ fn greville_abscissae(
 
 fn fit_with_null_space_logdet(
     design: &TermCollectionDesign,
-    fit: &gam::estimate::UnifiedFitResult,
-) -> Result<gam::estimate::UnifiedFitResult, String> {
+    fit: &gam::solver::estimate::UnifiedFitResult,
+) -> Result<gam::solver::estimate::UnifiedFitResult, String> {
     let mut fit = fit.clone();
     let (null_dim, logdet) = compute_null_space_metadata(design, &fit)?;
     fit.artifacts.null_space_dim = Some(null_dim);
@@ -4934,7 +5002,7 @@ fn fit_with_null_space_logdet(
 
 fn compute_null_space_metadata(
     design: &TermCollectionDesign,
-    fit: &gam::estimate::UnifiedFitResult,
+    fit: &gam::solver::estimate::UnifiedFitResult,
 ) -> Result<(usize, f64), String> {
     let hessian = fit
         .penalized_hessian()
@@ -4994,9 +5062,9 @@ fn compute_null_space_metadata(
             .scaled_add(1.0, &block.local);
     }
 
-    let (null_basis, _) = gam::faer_ndarray::rrqr_nullspace_basis(
+    let (null_basis, _) = gam::linalg::faer_ndarray::rrqr_nullspace_basis(
         &penalty,
-        gam::faer_ndarray::default_rrqr_rank_alpha(),
+        gam::linalg::faer_ndarray::default_rrqr_rank_alpha(),
     )
     .map_err(|err| format!("failed to compute penalty null-space basis: {err}"))?;
     let q = null_basis.ncols();
@@ -5035,7 +5103,7 @@ fn gaussian_jackknife_plus_stats_for_standard_fit(
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
     family: &LikelihoodSpec,
-    saved_fit: &gam::estimate::UnifiedFitResult,
+    saved_fit: &gam::solver::estimate::UnifiedFitResult,
     design: &TermCollectionDesign,
 ) -> Option<gam::inference::full_conformal::GaussianJackknifePlusStats> {
     if !matches!(family.response, ResponseFamily::Gaussian) {
@@ -5084,10 +5152,12 @@ fn build_standard_payload(
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
     family: LikelihoodSpec,
-    saved_fit: &gam::estimate::UnifiedFitResult,
+    saved_fit: &gam::solver::estimate::UnifiedFitResult,
     design: &TermCollectionDesign,
     resolved_termspec: TermCollectionSpec,
-    adaptive_regularization_diagnostics: Option<gam::smooth::AdaptiveRegularizationDiagnostics>,
+    adaptive_regularization_diagnostics: Option<
+        gam::terms::smooth::AdaptiveRegularizationDiagnostics,
+    >,
     wiggle_knots: Option<Vec<f64>>,
     wiggle_degree: Option<usize>,
 ) -> Result<FittedModelPayload, String> {
@@ -5160,7 +5230,7 @@ fn exact_full_conformal_substrate_for_standard_fit(
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
     family: &LikelihoodSpec,
-    saved_fit: &gam::estimate::UnifiedFitResult,
+    saved_fit: &gam::solver::estimate::UnifiedFitResult,
     design: &TermCollectionDesign,
 ) -> Option<gam::inference::full_conformal::ExactFullConformalSubstrate> {
     if !matches!(family.response, ResponseFamily::Gaussian) {
@@ -5182,7 +5252,10 @@ fn exact_full_conformal_substrate_for_standard_fit(
     let col_map = dataset.column_map();
     let response_col = *col_map.get(&response_name)?;
     let y = dataset.values.column(response_col).to_owned();
-    let x = design.design.try_to_dense_arc("full-conformal design").ok()?;
+    let x = design
+        .design
+        .try_to_dense_arc("full-conformal design")
+        .ok()?;
     if x.nrows() != y.len() {
         return None;
     }
@@ -5238,7 +5311,7 @@ fn build_bernoulli_marginal_slope_ffi_payload(
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
     base_link: InverseLink,
-    frailty: gam::families::lognormal_kernel::FrailtySpec,
+    frailty: gam::families::survival::lognormal_kernel::FrailtySpec,
     ms_result: BernoulliMarginalSlopeFitResult,
 ) -> Result<FittedModelPayload, String> {
     let frozen_marginal = freeze_term_collection_from_design(
@@ -5304,10 +5377,10 @@ fn build_survival_marginal_slope_ffi_payload(
     formula: String,
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
-    frailty: gam::families::lognormal_kernel::FrailtySpec,
+    frailty: gam::families::survival::lognormal_kernel::FrailtySpec,
     ms_result: SurvivalMarginalSlopeFitResult,
 ) -> Result<FittedModelPayload, String> {
-    use gam::families::survival_construction::{
+    use gam::families::survival::construction::{
         build_survival_time_basis, parse_survival_baseline_config, parse_survival_likelihood_mode,
         parse_survival_time_basis_config, resolve_survival_time_anchor_value,
     };
@@ -5360,7 +5433,7 @@ fn build_survival_marginal_slope_ffi_payload(
     let mut age_exit = Array1::<f64>::zeros(n);
     for i in 0..n {
         let entry_val = entry_idx.map_or(0.0, |idx| dataset.values[[i, idx]]);
-        let (t0, t1) = gam::families::survival_construction::normalize_survival_time_pair(
+        let (t0, t1) = gam::families::survival::construction::normalize_survival_time_pair(
             entry_val,
             dataset.values[[i, exit_idx]],
             i,
@@ -5377,7 +5450,7 @@ fn build_survival_marginal_slope_ffi_payload(
     )?;
     let likelihood_mode = parse_survival_likelihood_mode(&fit_config.survival_likelihood)?;
     let time_cfg = if parsed.timewiggle.is_some() {
-        gam::families::survival_construction::SurvivalTimeBasisConfig::None
+        gam::families::survival::construction::SurvivalTimeBasisConfig::None
     } else {
         parse_survival_time_basis_config(
             &fit_config.time_basis,
@@ -5442,9 +5515,9 @@ fn build_survival_transformation_ffi_payload(
     formula: String,
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
-    rp_result: gam::SurvivalTransformationFitResult,
+    rp_result: gam::solver::fit_orchestration::SurvivalTransformationFitResult,
 ) -> Result<FittedModelPayload, String> {
-    use gam::families::survival_construction::survival_likelihood_modename;
+    use gam::families::survival::construction::survival_likelihood_modename;
     use ndarray::s;
 
     let parsed = parse_formula(&formula)
@@ -5757,9 +5830,9 @@ fn build_survival_location_scale_ffi_payload(
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
     weights: &Array1<f64>,
-    ls_result: gam::SurvivalLocationScaleFitResult,
+    ls_result: gam::solver::fit_orchestration::SurvivalLocationScaleFitResult,
 ) -> Result<FittedModelPayload, String> {
-    use gam::families::survival_construction::{
+    use gam::families::survival::construction::{
         build_survival_time_basis, parse_survival_baseline_config, parse_survival_likelihood_mode,
         parse_survival_time_basis_config, resolve_survival_time_anchor_value,
     };
@@ -5794,7 +5867,7 @@ fn build_survival_location_scale_ffi_payload(
     let mut age_exit = Array1::<f64>::zeros(n);
     for i in 0..n {
         let entry_val = entry_idx.map_or(0.0, |idx| dataset.values[[i, idx]]);
-        let (t0, t1) = gam::families::survival_construction::normalize_survival_time_pair(
+        let (t0, t1) = gam::families::survival::construction::normalize_survival_time_pair(
             entry_val,
             dataset.values[[i, exit_idx]],
             i,
@@ -5811,7 +5884,7 @@ fn build_survival_location_scale_ffi_payload(
     )?;
     let likelihood_mode = parse_survival_likelihood_mode(&fit_config.survival_likelihood)?;
     let time_cfg = if parsed.timewiggle.is_some() {
-        gam::families::survival_construction::SurvivalTimeBasisConfig::None
+        gam::families::survival::construction::SurvivalTimeBasisConfig::None
     } else {
         parse_survival_time_basis_config(
             &fit_config.time_basis,
@@ -5831,18 +5904,18 @@ fn build_survival_location_scale_ffi_payload(
         )),
     )?;
     let resolved_time_cfg =
-        gam::families::survival_construction::resolved_survival_time_basis_config_from_build(
+        gam::families::survival::construction::resolved_survival_time_basis_config_from_build(
             &time_build.basisname,
             time_build.degree,
             time_build.knots.as_ref(),
             time_build.keep_cols.as_ref(),
             time_build.smooth_lambda,
         )?;
-    let time_anchor_row = gam::families::survival_construction::evaluate_survival_time_basis_row(
+    let time_anchor_row = gam::families::survival::construction::evaluate_survival_time_basis_row(
         time_anchor,
         &resolved_time_cfg,
     )?;
-    gam::families::survival_construction::center_survival_time_designs_at_anchor(
+    gam::families::survival::construction::center_survival_time_designs_at_anchor(
         &mut time_build.x_entry_time,
         &mut time_build.x_exit_time,
         &time_anchor_row,
@@ -5950,8 +6023,8 @@ fn build_latent_survival_ffi_payload(
     formula: String,
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
-    request_frailty: gam::families::lognormal_kernel::FrailtySpec,
-    lat_result: gam::families::latent_survival::LatentSurvivalTermFitResult,
+    request_frailty: gam::families::survival::lognormal_kernel::FrailtySpec,
+    lat_result: gam::families::survival::latent::LatentSurvivalTermFitResult,
 ) -> Result<FittedModelPayload, String> {
     build_latent_window_ffi_payload(
         formula,
@@ -5970,8 +6043,8 @@ fn build_latent_binary_ffi_payload(
     formula: String,
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
-    request_frailty: gam::families::lognormal_kernel::FrailtySpec,
-    lat_result: gam::families::latent_survival::LatentBinaryTermFitResult,
+    request_frailty: gam::families::survival::lognormal_kernel::FrailtySpec,
+    lat_result: gam::families::survival::latent::LatentBinaryTermFitResult,
 ) -> Result<FittedModelPayload, String> {
     build_latent_window_ffi_payload(
         formula,
@@ -5990,14 +6063,14 @@ fn build_latent_window_ffi_payload(
     formula: String,
     dataset: &EncodedDataset,
     fit_config: &FitConfig,
-    request_frailty: gam::families::lognormal_kernel::FrailtySpec,
-    fit: gam::estimate::UnifiedFitResult,
-    resolvedspec: gam::smooth::TermCollectionSpec,
-    cov_design: gam::smooth::TermCollectionDesign,
+    request_frailty: gam::families::survival::lognormal_kernel::FrailtySpec,
+    fit: gam::solver::estimate::UnifiedFitResult,
+    resolvedspec: gam::terms::smooth::TermCollectionSpec,
+    cov_design: gam::terms::smooth::TermCollectionDesign,
     learned_latent_sd: Option<f64>,
     is_survival: bool,
 ) -> Result<FittedModelPayload, String> {
-    use gam::families::survival_construction::{
+    use gam::families::survival::construction::{
         build_survival_time_basis, parse_survival_baseline_config,
         parse_survival_time_basis_config, resolve_survival_time_anchor_value,
     };
@@ -6030,7 +6103,7 @@ fn build_latent_window_ffi_payload(
     let mut age_exit = Array1::<f64>::zeros(n);
     for i in 0..n {
         let entry_val = entry_idx.map_or(0.0, |idx| dataset.values[[i, idx]]);
-        let (t0, t1) = gam::families::survival_construction::normalize_survival_time_pair(
+        let (t0, t1) = gam::families::survival::construction::normalize_survival_time_pair(
             entry_val,
             dataset.values[[i, exit_idx]],
             i,
@@ -6067,12 +6140,12 @@ fn build_latent_window_ffi_payload(
     let saved_family = if is_survival {
         let frailty = match (&request_frailty, learned_latent_sd) {
             (
-                gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+                gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
                     sigma_fixed: None,
                     loading,
                 },
                 Some(sigma),
-            ) => gam::families::lognormal_kernel::FrailtySpec::HazardMultiplier {
+            ) => gam::families::survival::lognormal_kernel::FrailtySpec::HazardMultiplier {
                 sigma_fixed: Some(sigma),
                 loading: *loading,
             },
@@ -6146,8 +6219,10 @@ fn predict_competing_risks_survival_result(
     model: &FittedModel,
     dataset: &EncodedDataset,
     options: &PyPredictOptions,
-) -> Result<gam::survival_predict::CompetingRisksPredictResult, String> {
-    use gam::survival_predict::{SurvivalPredictRequest, predict_competing_risks_survival};
+) -> Result<gam::families::survival::predict::CompetingRisksPredictResult, String> {
+    use gam::families::survival::predict::{
+        SurvivalPredictRequest, predict_competing_risks_survival,
+    };
 
     let col_map = dataset.column_map();
     let payload = model.payload();
@@ -6176,8 +6251,8 @@ fn predict_survival_result(
     model: &FittedModel,
     dataset: &EncodedDataset,
     options: &PyPredictOptions,
-) -> Result<gam::survival_predict::SurvivalPredictResult, String> {
-    use gam::survival_predict::{SurvivalPredictRequest, predict_survival};
+) -> Result<gam::families::survival::predict::SurvivalPredictResult, String> {
+    use gam::families::survival::predict::{SurvivalPredictRequest, predict_survival};
 
     let col_map = dataset.column_map();
     let payload = model.payload();
@@ -6185,9 +6260,9 @@ fn predict_survival_result(
     let primary_offset =
         resolve_offset_column(dataset, &col_map, payload.offset_column.as_deref())?;
     let supports_noise_offset = matches!(
-        gam::survival_predict::require_saved_survival_likelihood_mode(model)?,
-        gam::survival_construction::SurvivalLikelihoodMode::LocationScale
-            | gam::survival_construction::SurvivalLikelihoodMode::MarginalSlope
+        gam::families::survival::predict::require_saved_survival_likelihood_mode(model)?,
+        gam::families::survival::construction::SurvivalLikelihoodMode::LocationScale
+            | gam::families::survival::construction::SurvivalLikelihoodMode::MarginalSlope
     );
     let noise_offset = if supports_noise_offset {
         resolve_offset_column(dataset, &col_map, payload.noise_offset_column.as_deref())?
@@ -6213,7 +6288,7 @@ fn predict_survival_result(
 
 fn serialize_survival_prediction_payload(
     model: &FittedModel,
-    result: gam::survival_predict::SurvivalPredictResult,
+    result: gam::families::survival::predict::SurvivalPredictResult,
 ) -> Result<String, String> {
     // Rowwise flatten for JSON transport.
     let n = result.hazard.nrows();
@@ -6266,24 +6341,34 @@ fn serialize_survival_prediction_payload(
     columns.insert("failure_prob".to_string(), failure_col);
 
     let likelihood_mode_str = match result.likelihood_mode {
-        gam::survival_construction::SurvivalLikelihoodMode::MarginalSlope => "marginal-slope",
-        gam::survival_construction::SurvivalLikelihoodMode::LocationScale => "location-scale",
-        gam::survival_construction::SurvivalLikelihoodMode::Transformation => "transformation",
-        gam::survival_construction::SurvivalLikelihoodMode::Weibull => "weibull",
-        gam::survival_construction::SurvivalLikelihoodMode::Latent => "latent",
-        gam::survival_construction::SurvivalLikelihoodMode::LatentBinary => "latent-binary",
+        gam::families::survival::construction::SurvivalLikelihoodMode::MarginalSlope => {
+            "marginal-slope"
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::LocationScale => {
+            "location-scale"
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::Transformation => {
+            "transformation"
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::Weibull => "weibull",
+        gam::families::survival::construction::SurvivalLikelihoodMode::Latent => "latent",
+        gam::families::survival::construction::SurvivalLikelihoodMode::LatentBinary => {
+            "latent-binary"
+        }
     };
     let model_class_label = match result.likelihood_mode {
-        gam::survival_construction::SurvivalLikelihoodMode::MarginalSlope => {
+        gam::families::survival::construction::SurvivalLikelihoodMode::MarginalSlope => {
             "survival marginal-slope".to_string()
         }
-        gam::survival_construction::SurvivalLikelihoodMode::LocationScale => {
+        gam::families::survival::construction::SurvivalLikelihoodMode::LocationScale => {
             "survival location-scale".to_string()
         }
-        gam::survival_construction::SurvivalLikelihoodMode::Latent => "latent survival".to_string(),
-        gam::survival_construction::SurvivalLikelihoodMode::Transformation
-        | gam::survival_construction::SurvivalLikelihoodMode::Weibull
-        | gam::survival_construction::SurvivalLikelihoodMode::LatentBinary => {
+        gam::families::survival::construction::SurvivalLikelihoodMode::Latent => {
+            "latent survival".to_string()
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::Transformation
+        | gam::families::survival::construction::SurvivalLikelihoodMode::Weibull
+        | gam::families::survival::construction::SurvivalLikelihoodMode::LatentBinary => {
             model.predict_model_class().name().to_string()
         }
     };
@@ -6305,7 +6390,7 @@ fn serialize_survival_prediction_payload(
 }
 
 fn serialize_competing_risks_prediction_payload(
-    result: gam::survival_predict::CompetingRisksPredictResult,
+    result: gam::families::survival::predict::CompetingRisksPredictResult,
 ) -> Result<String, String> {
     let mut columns = BTreeMap::<String, Vec<f64>>::new();
     for (endpoint_idx, name) in result.endpoint_names.iter().enumerate() {
@@ -6330,12 +6415,20 @@ fn serialize_competing_risks_prediction_payload(
             .collect(),
     );
     let likelihood_mode_str = match result.likelihood_mode {
-        gam::survival_construction::SurvivalLikelihoodMode::MarginalSlope => "marginal-slope",
-        gam::survival_construction::SurvivalLikelihoodMode::LocationScale => "location-scale",
-        gam::survival_construction::SurvivalLikelihoodMode::Transformation => "transformation",
-        gam::survival_construction::SurvivalLikelihoodMode::Weibull => "weibull",
-        gam::survival_construction::SurvivalLikelihoodMode::Latent => "latent",
-        gam::survival_construction::SurvivalLikelihoodMode::LatentBinary => "latent-binary",
+        gam::families::survival::construction::SurvivalLikelihoodMode::MarginalSlope => {
+            "marginal-slope"
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::LocationScale => {
+            "location-scale"
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::Transformation => {
+            "transformation"
+        }
+        gam::families::survival::construction::SurvivalLikelihoodMode::Weibull => "weibull",
+        gam::families::survival::construction::SurvivalLikelihoodMode::Latent => "latent",
+        gam::families::survival::construction::SurvivalLikelihoodMode::LatentBinary => {
+            "latent-binary"
+        }
     };
     let payload = serde_json::json!({
         "class": "competing_risks_prediction",
