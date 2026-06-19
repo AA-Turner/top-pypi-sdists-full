@@ -65,6 +65,86 @@ pub(crate) fn dispersion_from_likelihood(
     }
 }
 
+#[cfg(test)]
+mod per_term_edf_tests {
+    use super::*;
+
+    fn eye(n: usize) -> Array2<f64> {
+        let mut out = Array2::<f64>::zeros((n, n));
+        for j in 0..n {
+            out[[j, j]] = 1.0;
+        }
+        out
+    }
+
+    fn fit_with_legacy_tensor_block_sum() -> UnifiedFitResult {
+        let beta = Array1::zeros(36);
+        UnifiedFitResult::new_for_test_unchecked(UnifiedFitResultParts {
+            blocks: vec![FittedBlock {
+                beta: beta.clone(),
+                role: BlockRole::Mean,
+                edf: 28.0,
+                lambdas: Array1::from_vec(vec![1.0, 1.0]),
+            }],
+            log_lambdas: Array1::zeros(2),
+            lambdas: Array1::from_vec(vec![1.0, 1.0]),
+            likelihood_family: Some(LikelihoodSpec::gaussian_identity()),
+            likelihood_scale: LikelihoodScaleMetadata::ProfiledGaussian,
+            log_likelihood_normalization: LogLikelihoodNormalization::Full,
+            log_likelihood: 0.0,
+            deviance: 0.0,
+            reml_score: 0.0,
+            stable_penalty_term: 0.0,
+            penalized_objective: 0.0,
+            used_device: false,
+            outer_iterations: 0,
+            outer_converged: true,
+            outer_gradient_norm: Some(0.0),
+            standard_deviation: 1.0,
+            covariance_conditional: None,
+            covariance_corrected: None,
+            inference: Some(FitInference {
+                edf_by_block: vec![20.0, 20.0],
+                penalty_block_trace: Vec::new(),
+                edf_total: 28.0,
+                smoothing_correction: None,
+                penalized_hessian: crate::inference::dispersion_cov::UnscaledPrecision::wrap(
+                    eye(36),
+                ),
+                working_weights: Array1::ones(1),
+                working_response: Array1::zeros(1),
+                reparam_qs: None,
+                dispersion: Dispersion::Estimated(1.0),
+                beta_covariance: None,
+                beta_standard_errors: None,
+                beta_covariance_corrected: None,
+                beta_standard_errors_corrected: None,
+                beta_covariance_frequentist: None,
+                coefficient_influence: None,
+                weighted_gram: None,
+                bias_correction_beta: None,
+            }),
+            fitted_link: FittedLinkState::Standard(None),
+            geometry: None,
+            block_states: Vec::new(),
+            pirls_status: crate::pirls::PirlsStatus::Converged,
+            max_abs_eta: 0.0,
+            constraint_kkt: None,
+            artifacts: FitArtifacts::default(),
+            inner_cycles: 0,
+        })
+    }
+
+    #[test]
+    fn per_term_edf_legacy_block_sum_is_capped_by_model_total() {
+        let fit = fit_with_legacy_tensor_block_sum();
+
+        let edf = fit.per_term_edf(1..36, 0, 2);
+
+        assert_eq!(edf, 28.0);
+    }
+}
+
 /// Standardized-disagreement gate: the audit flags inconsistency when the
 /// analytic and FD directional derivatives differ by more than this many FD
 /// error bars (and also fail the relative gate).
@@ -1637,6 +1717,71 @@ impl UnifiedFitResult {
             .as_ref()
             .map(|inf| inf.penalty_block_trace.as_slice())
             .unwrap_or(&[])
+    }
+
+    /// Per-term effective degrees of freedom over a smooth/random-effect term's
+    /// coefficient block, defined as the trace of the linear-smoother influence
+    /// matrix `F = H⁻¹X'WX` restricted to that block:
+    ///
+    /// ```text
+    /// edf_term = Σ_{j ∈ coeff_range} F[j,j]
+    ///          = |coeff_range| − Σ_{kk ∈ term} tr_kk,   tr_kk = λ_kk·tr(H⁻¹ S_kk).
+    /// ```
+    ///
+    /// This is additive across terms and sums exactly to `edf_total = p − Σ_all
+    /// tr_kk`, so a term's EDF can never exceed the model total or the design
+    /// column count. The legacy per-block EDF sum `Σ_kk (rank(S_kk) − tr_kk)`
+    /// double-counts shared tensor coefficients for `te`/`ti` (and anisotropic /
+    /// adaptive) smooths, where several penalty blocks span the *same* coefficient
+    /// range and `Σ_kk rank(S_kk) ≫ |coeff_range|` (#1219, #1277).
+    ///
+    /// `penalty_cursor` is the index of the term's first penalty block in the
+    /// flat `lambdas` / `penalty_block_trace` / `edf_by_block` layout, and `k` is
+    /// the number of penalty blocks the term owns (`0` for an unpenalised term).
+    ///
+    /// Resolution order, each exact when available: the influence-matrix trace
+    /// (the model's own definition), then `|coeff_range| − Σ tr_kk` from the
+    /// stored per-block traces (basis-invariant; exact even when `F` was never
+    /// materialised for a large model), then — only when neither was recorded —
+    /// the legacy block-sum as a last resort.
+    pub fn per_term_edf(
+        &self,
+        coeff_range: std::ops::Range<usize>,
+        penalty_cursor: usize,
+        k: usize,
+    ) -> f64 {
+        let dim = coeff_range.len() as f64;
+        // Primary: trace of the influence matrix over the term's coefficient block.
+        if let Some(f) = self.coefficient_influence()
+            && coeff_range.end <= f.nrows()
+            && coeff_range.end <= f.ncols()
+        {
+            let tr = coeff_range.clone().map(|j| f[[j, j]]).sum::<f64>();
+            return tr.clamp(0.0, dim);
+        }
+        // Fallback: |coeff_range| − Σ tr_kk from the stored per-block traces. Equal
+        // to the influence-matrix trace and basis-invariant, so it is exact even
+        // when `F` was never materialised (large models).
+        if k == 0 {
+            // Unpenalised term: every coefficient carries one full degree of freedom.
+            return dim;
+        }
+        let traces = self.penalty_block_trace();
+        if let Some(block) = traces.get(penalty_cursor..penalty_cursor + k) {
+            let sum_trace = block.iter().sum::<f64>();
+            return (dim - sum_trace).clamp(0.0, dim);
+        }
+        // Last resort: the legacy per-block EDF sum. Correct for disjoint penalties;
+        // retained only for fits that recorded neither `F` nor per-block traces.
+        // Clamp to the invariants that remain knowable without `F` or `tr_kk`:
+        // a term sub-trace cannot exceed its coefficient count or the full-model
+        // trace. Without this guard a `te`/`ti` block-sum reports e.g. 40 EDF for
+        // a 36-coefficient model with total EDF 28 (#1277).
+        let upper = self.edf_total().unwrap_or(dim).min(dim).max(0.0);
+        self.edf_by_block()
+            .get(penalty_cursor..penalty_cursor + k)
+            .map(|block| block.iter().sum::<f64>().clamp(0.0, upper))
+            .unwrap_or(0.0)
     }
 
     /// Find a block by role.

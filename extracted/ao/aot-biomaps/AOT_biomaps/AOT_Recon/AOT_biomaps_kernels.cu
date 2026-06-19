@@ -15,6 +15,18 @@ extern "C"{
     // ============================================================================
 
     /**
+    * Function: warp_reduce_sum
+    * Purpose: Perform warp-level reduction to sum values across threads in a warp.
+    * Input: val - the value to be summed across the warp
+    * Output: The sum of val across all threads in the warp.
+    */
+    __device__ __forceinline__ float warp_reduce_sum(float val) {
+    for (int offset = 16; offset > 0; offset >>= 1) {
+        val += __shfl_down_sync(0xFFFFFFFF, val, offset);
+    }
+    return val;
+}
+    /**
     * Kernel: fill_kernel__DENSE
     * Purpose: Fill dense matrix from acoustic fields on GPU
     * Used for: DENSE matrix construction
@@ -102,40 +114,37 @@ extern "C"{
 
     /**
     * Kernel: fill_kernel__CSR
-    * Purpose: Fill CSR format from dense matrix block
-    * Used for: CSR sparse matrix construction
+    * Purpose: Fill local CSR arrays from a dense matrix block (1-Pass Algorithm)
     */
     __global__ void fill_kernel__CSR(
         const float* __restrict__ dense_block,
-        const long long* __restrict__ row_ptr,
+        const long long* __restrict__ local_row_ptr,
         unsigned int* __restrict__ col_ind,
         float* __restrict__ values,
-        int block_start_row,
         int current_rows,
         int num_cols,
         float relative_threshold,
-        long long total_nnz
+        long long local_total_nnz
     ) {
         int row = blockIdx.x * blockDim.x + threadIdx.x;
         if (row >= current_rows) return;
-        int global_row = block_start_row + row;
         
-        const float* row_ptr_local = dense_block + (long long)row * num_cols;
+        const float* row_dense = dense_block + (long long)row * num_cols;
         
         float row_max = 0.f;
         for (int c = 0; c < num_cols; ++c) {
-            float v = fabsf(row_ptr_local[c]);
+            float v = fabsf(row_dense[c]);
             if (v > row_max) row_max = v;
         }
         float thr = row_max * relative_threshold;
         
-        long long base = row_ptr[global_row];
+        long long base = local_row_ptr[row];
         int nnz = 0;
         for (int c = 0; c < num_cols; ++c) {
-            float v = row_ptr_local[c];
+            float v = row_dense[c];
             if (fabsf(v) > thr) {
                 long long pos = base + nnz;
-                if (pos < total_nnz) {
+                if (pos < local_total_nnz) {
                     col_ind[pos] = (unsigned int)c;
                     values[pos] = v;
                 }
@@ -179,6 +188,7 @@ extern "C"{
     /**
     * Kernel: forward_projection_kernel__SELL
     * Purpose: Forward projection using SELL format: q = A * theta
+    * Optimized for coalesced memory access (1 thread = 1 row)
     */
     __global__ void forward_projection_kernel__SELL(
         float* __restrict__ q_out,
@@ -192,23 +202,26 @@ extern "C"{
     ) {
         int row = blockIdx.x * blockDim.x + threadIdx.x;
         if (row >= num_rows) return;
-        
+
         int slice_id = row / slice_height;
         int row_in_slice = row % slice_height;
         long long base = slice_ptr[slice_id];
         int len = slice_len[slice_id];
-        
+
         float acc = 0.0f;
         long long pos = base + (long long)row_in_slice;
+
+        // Sequential loop for the thread ensures coalesced memory access for the warp
         for (int j = 0; j < len; ++j) {
-            float v = sell_values[pos];
+            float v = sell_values[pos + (long long)j * slice_height];
             if (v != 0.0f) {
-                unsigned int col = sell_colinds[pos];
-                float t = __ldg(&theta[col]);
-                acc += v * t;
+                unsigned int col = sell_colinds[pos + (long long)j * slice_height];
+                // __ldg is highly recommended for read-only data caching
+                acc += v * __ldg(&theta[col]);
             }
-            pos += (long long)slice_height;
         }
+        
+        // Direct write without warp reduction
         q_out[row] = acc;
     }
 
@@ -271,7 +284,8 @@ extern "C"{
 
     /**
     * Kernel: backward_projection_kernel__SELL
-    * Purpose: backward projection using SELL format: c += A^T * e
+    * Purpose: Backward projection using SELL format: c += A^T * e
+    * Optimized: 1 thread reads 1 error value and scatters it to the volume
     */
     __global__ void backward_projection_kernel__SELL(
         const float* __restrict__ sell_values,
@@ -285,24 +299,24 @@ extern "C"{
     ) {
         int row = blockIdx.x * blockDim.x + threadIdx.x;
         if (row >= num_rows) return;
-        
+
         float e = e_flat[row];
-        if (e == 0.0f) return;
-        
+        if (e == 0.0f) return; // Skip empty error contributions
+
         int slice_id = row / slice_height;
         int row_in_slice = row % slice_height;
         long long base = slice_ptr[slice_id];
         int len = slice_len[slice_id];
         
         long long pos = base + (long long)row_in_slice;
+
         for (int j = 0; j < len; ++j) {
-            float v = sell_values[pos];
+            float v = sell_values[pos + (long long)j * slice_height];
             if (v != 0.0f) {
-                unsigned int col = sell_colinds[pos];
-                float contrib = v * e;
-                atomicAdd(&c_flat[col], contrib);
+                unsigned int col = sell_colinds[pos + (long long)j * slice_height];
+                // Scatter operation: each element contributes to its specific voxel
+                atomicAdd(&c_flat[col], v * e);
             }
-            pos += (long long)slice_height;
         }
     }
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "instagrapi"
-version = "2.16.0"
+version = "2.16.10"
 authors = [
     {name = "Mark Subzeroid", email = "143403577+subzeroid@users.noreply.github.com"}
 ]
@@ -51,12 +51,12 @@ keywords = [
     "instagram-note",
 ]
 dependencies = [
-    "requests==2.34.2",
-    "PySocks==1.7.1",
+    "requests>=2.34.2,<3",
+    "PySocks>=1.7.1,<2",
     "pydantic==2.12.5; sys_platform == 'android'",
     "pydantic>=2.12.5,<2.14; sys_platform != 'android'",
-    "Pillow==12.2.0",
-    "pycryptodomex==3.23.0",
+    "Pillow>=12.2.0,<13",
+    "pycryptodomex>=3.23.0,<4",
 ]
 
 [project.urls]
@@ -98,7 +98,7 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest==9.1.0",
     "python-dotenv>=0.10",
-    "ruff==0.15.17",
+    "ruff==0.15.18",
 ]
 
 [tool.setuptools]

@@ -11,12 +11,16 @@ function assert(condition: boolean, message: string): void {
 }
 
 assert(
-  formatCloudBundleHashDisplay("sha256:abcdef1234567890") === "sha256:abcd…",
-  "bundle hash display truncates sha256 hashes",
+  formatCloudBundleHashDisplay("sha256:abcdef1234567890") === "sha256:abcdef…7890",
+  "bundle hash display uses middle truncation for sha256 hashes",
 );
 assert(
   formatCloudBundleHashDisplay("sha256:abc") === "sha256:abc",
   "bundle hash display preserves prefix for short hashes",
+);
+assert(
+  formatCloudBundleHashDisplay("abcdefghijklmnopqrstu") === "abcdefgh…rstu",
+  "bundle hash display middle-truncates long non-sha256 hashes",
 );
 assert(formatCloudBundleHashDisplay(null) === "Unavailable", "missing hash shows unavailable");
 
@@ -27,7 +31,7 @@ const attentionCopy = resolveCloudPolicyBundleCopy({
 });
 assert(attentionCopy?.label === "Needs attention", "sync error surfaces attention label");
 assert(
-  resolveCloudBundleStatusSubtitle(attentionCopy!) === "Latest sync needs attention",
+  resolveCloudBundleStatusSubtitle(attentionCopy!) === "Sync needs attention",
   "status subtitle stays short when sync needs attention",
 );
 assert(

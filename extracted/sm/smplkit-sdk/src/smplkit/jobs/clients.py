@@ -198,7 +198,7 @@ class HttpConfig:
 
 @dataclass(slots=True)
 class JobEnvironment:
-    """Per-environment enablement and optional configuration override for a job.
+    """Per-environment enablement, schedule, and configuration override for a job.
 
     A recurring job fires in a given environment only when that environment has
     an entry in :attr:`Job.environments` with ``enabled=True``; an environment
@@ -207,25 +207,37 @@ class JobEnvironment:
     Attributes:
         enabled: Whether the job fires in this environment. Defaults to
             ``False``.
+        schedule: Optional per-environment cron override that varies the cadence
+            for this environment. ``None`` (the default) inherits the job's base
+            :attr:`Job.schedule`.
         configuration: Optional per-environment request configuration that
             fully replaces the job's base :attr:`Job.configuration` for this
             environment. ``None`` (the default) inherits the base
             configuration.
+        next_run_at: Read-only next scheduled fire time in this environment, as
+            reported by the server. ``None`` when the environment is not enabled
+            or once a one-off run has fired. Never sent on save.
     """
 
     enabled: bool = False
+    schedule: Optional[str] = None
     configuration: Optional[HttpConfig] = None
+    next_run_at: Optional[datetime.datetime] = None
 
     @classmethod
     def _from_dict(cls, raw: dict[str, Any]) -> "JobEnvironment":
         cfg = raw.get("configuration")
         return cls(
             enabled=bool(raw.get("enabled", False)),
+            schedule=raw.get("schedule"),
             configuration=HttpConfig.from_dict(cfg) if cfg else None,
+            next_run_at=_parse_dt(raw.get("next_run_at")),
         )
 
     def _to_payload(self) -> dict[str, Any]:
         payload: dict[str, Any] = {"enabled": self.enabled}
+        if self.schedule is not None:
+            payload["schedule"] = self.schedule
         if self.configuration is not None:
             payload["configuration"] = self.configuration.to_dict()
         return payload
@@ -248,7 +260,11 @@ def _normalize_environments(
             cfg = value.get("configuration")
             if cfg is not None and not isinstance(cfg, HttpConfig):
                 cfg = HttpConfig.from_dict(cfg)
-            out[env_key] = JobEnvironment(enabled=bool(value.get("enabled", False)), configuration=cfg)
+            out[env_key] = JobEnvironment(
+                enabled=bool(value.get("enabled", False)),
+                schedule=value.get("schedule"),
+                configuration=cfg,
+            )
     return out
 
 
@@ -289,11 +305,9 @@ class _JobBase:
         configuration: HttpConfig,
         description: Optional[str] = None,
         environments: Optional[dict[str, JobEnvironment]] = None,
-        enabled: bool = False,
         recurring: Optional[bool] = None,
         type: str = "http",
         concurrency_policy: str = "ALLOW",
-        next_run_at: Optional[datetime.datetime] = None,
         created_at: Optional[datetime.datetime] = None,
         updated_at: Optional[datetime.datetime] = None,
         deleted_at: Optional[datetime.datetime] = None,
@@ -304,18 +318,15 @@ class _JobBase:
         self.description = description
         # Per-environment overrides ``{env_key: JobEnvironment}``. The writable
         # surface for enablement: set an entry's ``enabled`` (and optional
-        # configuration) to make the job fire in that environment.
+        # schedule / configuration) to make the job fire in that environment.
+        # Each entry also reports its read-only ``next_run_at``.
         self.environments: dict[str, JobEnvironment] = environments if environments is not None else {}
-        # Read-only server-derived roll-up: True when enabled in >= 1 environment.
-        # Set enablement per environment via ``environments`` / ``set_enabled``.
-        self.enabled = enabled
         # Read-only: True for a recurring (cron) schedule, False for a one-off.
         self.recurring = recurring
         self.type = type
         self.schedule = schedule
         self.configuration = configuration
         self.concurrency_policy = concurrency_policy
-        self.next_run_at = next_run_at
         self.created_at = created_at
         self.updated_at = updated_at
         self.deleted_at = deleted_at
@@ -324,6 +335,16 @@ class _JobBase:
         # the X-Smplkit-Environment header by ``_create``. Ignored for recurring
         # jobs (whose environments come from the map).
         self._birth_environment: Optional[str] = None
+
+    @property
+    def enabled(self) -> bool:
+        """Read-only roll-up: ``True`` when enabled in at least one environment.
+
+        Derived from the :attr:`environments` map — the job has no server-side
+        top-level ``enabled`` field. Set enablement per environment via
+        :meth:`set_enabled` (or the ``environments`` map).
+        """
+        return any(env.enabled for env in self.environments.values())
 
     def _apply(self, other: "_JobBase") -> None:
         self.__dict__.update({k: v for k, v in other.__dict__.items() if not k.startswith("_client")})
@@ -342,8 +363,8 @@ class _JobBase:
     def is_enabled(self, environment: Optional[str] = None) -> bool:
         """Whether the job is enabled.
 
-        With ``environment=None`` (the default), returns the roll-up — ``True``
-        when the job is enabled in at least one environment. With an
+        With ``environment=None`` (the default), returns the derived roll-up —
+        ``True`` when the job is enabled in at least one environment. With an
         ``environment``, returns whether the job is enabled in that specific
         environment.
         """
@@ -373,15 +394,20 @@ class _JobBase:
                 return override.configuration
         return self.configuration
 
-    def set_schedule(self, schedule: str) -> None:
-        """Set the job's schedule.
+    def set_schedule(self, schedule: str, environment: Optional[str] = None) -> None:
+        """Set the job's schedule — base (``environment=None``) or per-environment.
 
-        The schedule is **environment-agnostic** — a job has a single cron /
-        datetime / ``now`` schedule shared across every environment it runs in
-        (each enabled environment fires on the same cadence). There is no
-        per-environment schedule, so this setter takes no ``environment``.
+        With ``environment=None`` (the default) this sets the job's base
+        :attr:`schedule`, the cadence every environment inherits unless it
+        overrides it. With an ``environment``, this sets a per-environment cron
+        override that varies the cadence for just that environment (recurring
+        jobs only); pass the environment's base cadence back, or clear the
+        override, to fall back to the base schedule.
         """
-        self.schedule = schedule
+        if environment is None:
+            self.schedule = schedule
+        else:
+            self._environment_override(environment).schedule = schedule
 
     def _attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -411,13 +437,11 @@ def _job_base_from_resource(resource: dict[str, Any]) -> _JobBase:
         name=a["name"],
         description=a.get("description"),
         environments=environments,
-        enabled=a.get("enabled", False),
         recurring=a.get("recurring"),
         type=a.get("type", "http"),
         schedule=a["schedule"],
         configuration=HttpConfig.from_dict(a["configuration"]),
         concurrency_policy=a.get("concurrency_policy", "ALLOW"),
-        next_run_at=_parse_dt(a.get("next_run_at")),
         created_at=_parse_dt(a.get("created_at")),
         updated_at=_parse_dt(a.get("updated_at")),
         deleted_at=_parse_dt(a.get("deleted_at")),
@@ -683,10 +707,12 @@ def _run_list_kwargs(job: Optional[str], page_size: Optional[int], after: Option
     return kwargs
 
 
-def _list_jobs_kwargs(enabled, page_number, page_size) -> dict[str, Any]:
+def _list_jobs_kwargs(recurring, name, page_number, page_size) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
-    if enabled is not None:
-        kwargs["filterenabled"] = enabled
+    if recurring is not None:
+        kwargs["filterrecurring"] = recurring
+    if name is not None:
+        kwargs["filtername"] = name
     if page_number is not None:
         kwargs["pagenumber"] = page_number
     if page_size is not None:
@@ -979,13 +1005,20 @@ class JobsClient:
         return job
 
     def list(
-        self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
+        self,
+        *,
+        recurring: Optional[bool] = None,
+        name: Optional[str] = None,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
     ) -> list[Job]:
         """List jobs in the account.
 
         Args:
-            enabled: Return only jobs with this enabled state. ``None`` lists
-                both enabled and paused jobs.
+            recurring: Return only recurring (``True``) or one-off (``False``)
+                jobs. ``None`` lists both.
+            name: Return only jobs whose name contains this text
+                (case-insensitive). ``None`` lists all.
             page_number: 1-based page to return. ``None`` returns the first
                 page.
             page_size: Maximum number of jobs to return in this page. ``None``
@@ -994,7 +1027,9 @@ class JobsClient:
         Returns:
             The jobs in this page, as a list of :class:`Job`.
         """
-        resp = _gen_list_jobs.sync_detailed(client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size))
+        resp = _gen_list_jobs.sync_detailed(
+            client=self._auth, **_list_jobs_kwargs(recurring, name, page_number, page_size)
+        )
         _check(resp)
         return [Job._from_resource(r, self) for r in _data(resp)]
 
@@ -1185,13 +1220,20 @@ class AsyncJobsClient:
         return job
 
     async def list(
-        self, *, enabled: Optional[bool] = None, page_number: Optional[int] = None, page_size: Optional[int] = None
+        self,
+        *,
+        recurring: Optional[bool] = None,
+        name: Optional[str] = None,
+        page_number: Optional[int] = None,
+        page_size: Optional[int] = None,
     ) -> list[AsyncJob]:
         """List jobs in the account.
 
         Args:
-            enabled: Return only jobs with this enabled state. ``None`` lists
-                both enabled and paused jobs.
+            recurring: Return only recurring (``True``) or one-off (``False``)
+                jobs. ``None`` lists both.
+            name: Return only jobs whose name contains this text
+                (case-insensitive). ``None`` lists all.
             page_number: 1-based page to return. ``None`` returns the first
                 page.
             page_size: Maximum number of jobs to return in this page. ``None``
@@ -1201,7 +1243,7 @@ class AsyncJobsClient:
             The jobs in this page, as a list of :class:`AsyncJob`.
         """
         resp = await _gen_list_jobs.asyncio_detailed(
-            client=self._auth, **_list_jobs_kwargs(enabled, page_number, page_size)
+            client=self._auth, **_list_jobs_kwargs(recurring, name, page_number, page_size)
         )
         _check(resp)
         return [AsyncJob._from_resource(r, self) for r in _data(resp)]

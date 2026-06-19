@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autobahn
-Version: 25.12.2
+Version: 26.6.1
 Summary: WebSocket client & server library, WAMP real-time framework
 Project-URL: Homepage, https://autobahn.readthedocs.io/
 Project-URL: Source, https://github.com/crossbario/autobahn-python
@@ -29,13 +29,13 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Object Brokering
 Classifier: Topic :: System :: Distributed Computing
 Requires-Python: >=3.11
-Requires-Dist: cbor2>=5.2.0
+Requires-Dist: cbor2<6,>=5.2.0; platform_python_implementation == 'PyPy' and sys_platform == 'win32'
+Requires-Dist: cbor2>=5.2.0; platform_python_implementation != 'PyPy' or sys_platform != 'win32'
 Requires-Dist: cffi>=2.0.0
 Requires-Dist: cryptography>=3.4.6
 Requires-Dist: hyperlink>=21.0.0
 Requires-Dist: importlib-resources>=5.0.0; python_version < '3.10'
 Requires-Dist: msgpack>=1.0.2; platform_python_implementation == 'CPython'
-Requires-Dist: py-ubjson>=0.16.1
 Requires-Dist: txaio>=25.12.2
 Requires-Dist: u-msgpack-python>=2.1; platform_python_implementation != 'CPython'
 Requires-Dist: ujson>=4.0.2
@@ -44,6 +44,7 @@ Provides-Extra: all
 Requires-Dist: argon2-cffi>=20.1.0; extra == 'all'
 Requires-Dist: attrs>=20.3.0; extra == 'all'
 Requires-Dist: base58>=2.1.1; extra == 'all'
+Requires-Dist: bjdata>=0.6.0; (platform_python_implementation == 'CPython') and extra == 'all'
 Requires-Dist: brotli>=1.0.0; (platform_python_implementation == 'CPython') and extra == 'all'
 Requires-Dist: brotlicffi>=1.0.0; (platform_python_implementation != 'CPython') and extra == 'all'
 Requires-Dist: ecdsa>=0.19.1; extra == 'all'
@@ -82,7 +83,6 @@ Requires-Dist: passlib; extra == 'dev'
 Requires-Dist: pep8-naming>=0.3.3; extra == 'dev'
 Requires-Dist: pyenchant>=3.2; extra == 'dev'
 Requires-Dist: pyflakes>=1.0.0; extra == 'dev'
-Requires-Dist: pyinstaller>=4.2; extra == 'dev'
 Requires-Dist: pylint>=1.9.2; extra == 'dev'
 Requires-Dist: pytest-aiohttp; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.14.0; extra == 'dev'
@@ -92,6 +92,7 @@ Requires-Dist: pyyaml>=4.2b4; extra == 'dev'
 Requires-Dist: qualname>=0.1.0; extra == 'dev'
 Requires-Dist: ruff>=0.12.1; extra == 'dev'
 Requires-Dist: scour>=0.38; extra == 'dev'
+Requires-Dist: setuptools>=70.0.0; extra == 'dev'
 Requires-Dist: sphinx-autoapi>=2.1.0; extra == 'dev'
 Requires-Dist: sphinx-copybutton>=0.5; extra == 'dev'
 Requires-Dist: sphinx-design>=0.5; extra == 'dev'
@@ -131,6 +132,7 @@ Provides-Extra: scram
 Requires-Dist: argon2-cffi>=20.1.0; extra == 'scram'
 Requires-Dist: passlib>=1.7.4; extra == 'scram'
 Provides-Extra: serialization
+Requires-Dist: bjdata>=0.6.0; (platform_python_implementation == 'CPython') and extra == 'serialization'
 Provides-Extra: twisted
 Requires-Dist: attrs>=20.3.0; extra == 'twisted'
 Requires-Dist: twisted>=22.10.0; extra == 'twisted'
@@ -181,7 +183,7 @@ implementations of
 - [The WebSocket Protocol](https://tools.ietf.org/html/rfc6455)
 - [The Web Application Messaging Protocol (WAMP)](https://wamp-proto.org/)
 
-for Python 3.7+ and running on
+for Python 3.11+ and running on
 [Twisted](https://twistedmatrix.com/) and
 [asyncio](https://docs.python.org/3/library/asyncio.html).
 
@@ -204,9 +206,10 @@ as well.
 
 Note
 
-**Autobahn|Python** up to version v19.11.2 supported Python 2 and
-3.4+, and up to version v20.7.1 supported Python 3.5+, and up to
-version v21.2.1 supported Python 3.6+.
+**Autobahn|Python** currently requires Python 3.11 or later. Earlier
+release lines supported older Python versions: up to version v19.11.2
+supported Python 2 and 3.4+, up to version v20.7.1 supported Python
+3.5+, and up to version v21.2.1 supported Python 3.6+.
 
 ## Features
 
@@ -362,45 +365,23 @@ The Autobahn|Python OSS project:
 
 ## Package Releases
 
-Autobahn|Python provides comprehensive binary wheel coverage for all major platforms and Python implementations.
+Autobahn|Python publishes source distributions and pre-built wheels on
+[PyPI](https://pypi.org/project/autobahn/) and
+[GitHub Releases](https://github.com/crossbario/autobahn-python/releases).
+The current release line requires Python 3.11 or later and publishes
+wheels for CPython 3.11 through 3.14 and PyPy 3.11 across supported
+Linux, macOS, and Windows targets.
 
-### Generic
+The recommended installation method is:
 
-- **Source distribution**: `autobahn-25.9.1.tar.gz`
-- **Pure Python 3 wheel**: `autobahn-25.9.1-py3-none-any.whl`
+```console
+python -m pip install autobahn
+```
 
-> **Note**: The pure Python wheel cannot include NVX (Native Vector Extensions) optimizations and will fall back to pure Python implementations. This provides maximum compatibility but slower performance compared to platform-specific wheels with native CFFI extensions.
-
-### Linux
-
-Available for x86_64 architecture with native CFFI extensions:
-
-- `autobahn-25.9.1-cp311-cp311-linux_x86_64.whl`
-- `autobahn-25.9.1-cp312-cp312-linux_x86_64.whl`
-- `autobahn-25.9.1-cp313-cp313-linux_x86_64.whl`
-- `autobahn-25.9.1-cp314-cp314-linux_x86_64.whl`
-- `autobahn-25.9.1-pp311-pypy311_pp73-linux_x86_64.whl`
-
-### macOS
-
-Available for Apple Silicon (ARM64) architecture:
-
-- `autobahn-25.9.1-cp312-cp312-macosx_15_0_arm64.whl`
-- `autobahn-25.9.1-cp313-cp313-macosx_15_0_arm64.whl`
-- `autobahn-25.9.1-cp314-cp314-macosx_11_0_arm64.whl`
-- `autobahn-25.9.1-pp311-pypy311_pp73-macosx_11_0_arm64.whl`
-
-### Windows
-
-Available for x86_64 (AMD64) architecture:
-
-- `autobahn-25.9.1-cp311-cp311-win_amd64.whl`
-- `autobahn-25.9.1-cp312-cp312-win_amd64.whl`
-- `autobahn-25.9.1-cp313-cp313-win_amd64.whl`
-- `autobahn-25.9.1-cp314-cp314-win_amd64.whl`
-- `autobahn-25.9.1-pp311-pypy311_pp73-win_amd64.whl`
-
-All wheels include native CFFI extensions for optimal performance and are available from [PyPI](https://pypi.org/project/autobahn/) and [GitHub Releases](https://github.com/crossbario/autobahn-python/releases).
+Pip will choose the best matching wheel for your Python implementation,
+operating system, and CPU architecture. See the
+[wheels inventory](https://autobahn.readthedocs.io/en/latest/wheels-inventory.html)
+for the supported wheel matrix and NVX acceleration notes.
 
 ## Extensions
 
@@ -409,9 +390,8 @@ All wheels include native CFFI extensions for optimal performance and are availa
 Autobahn runs on both Twisted and asyncio. To select the
 respective netoworking framework, install flavor:
 
-- `asyncio`: Install asyncio (when on Python 2, otherwise it's
-  included in the standard library already) and asyncio support
-  in Autobahn
+- `asyncio`: Backwards-compatible no-op. Asyncio is included in the
+  Python standard library for all supported Python versions.
 - `twisted`: Install Twisted and Twisted support in Autobahn
 
 ---
@@ -504,14 +484,14 @@ masking) and UTF-8 validation.
 
 ### WAMP Serializers
 
-**As of v25.11.1, all WAMP serializers are included by default** - batteries included!
+**The JSON, MessagePack, CBOR and FlatBuffers serializers are included by default** - batteries included! UBJSON is available via the optional `autobahn[serialization]` extra.
 
-Autobahn|Python now ships with full support for all WAMP serializers out-of-the-box:
+Autobahn|Python ships with the following WAMP serializers:
 
 - **JSON** (standard library) - always available
 - **MessagePack** - high-performance binary serialization
 - **CBOR** - IETF standard binary serialization (RFC 8949)
-- **UBJSON** - Universal Binary JSON
+- **UBJSON** - Universal Binary JSON *(optional: `pip install autobahn[serialization]`)*
 - **Flatbuffers** - Google's zero-copy serialization (vendored)
 
 #### Architecture & Performance
@@ -524,12 +504,12 @@ The serializer dependencies are optimized for both **CPython** and **PyPy**:
 | **msgpack** | Binary wheel (C extension) | u-msgpack-python (pure Python) | Native + Universal | PyPy JIT makes pure Python faster than C |
 | **ujson** | Binary wheel | Binary wheel | Native | Available for both implementations |
 | **cbor2** | Binary wheel | Pure Python fallback | Native + Universal | Binary wheels + py3-none-any |
-| **ubjson** | Pure Python | Pure Python | Source | Set `PYUBJSON_NO_EXTENSION=1` to skip C build |
+| **ubjson** *(optional)* | C ext (from sdist) | ❌ n/a (CPython only) | Source only — no wheels | Optional `autobahn[serialization]` extra (bjdata, pulls numpy). CPython-only: bjdata can't install on PyPy ([NeuroJSON/pybj#6](https://github.com/NeuroJSON/pybj/issues/6)); on PyPy use cbor/msgpack. On CPython without a compiler set `PYBJDATA_NO_EXTENSION=1` |
 | **flatbuffers** | Vendored | Vendored | Included | Always available, no external dependency |
 
 **Key Design Principles:**
 
-1. **Batteries Included**: All serializers available without extra install steps
+1. **Batteries Included**: Core serializers (JSON, MessagePack, CBOR, FlatBuffers) available without extra install steps; UBJSON via the optional `autobahn[serialization]` extra
 2. **PyPy Optimization**: Pure Python implementations leverage PyPy's JIT for superior performance
 3. **Binary Wheels**: Native wheels for all major platforms (Linux x86_64/ARM64, macOS x86_64/ARM64, Windows x86_64)
 4. **Zero System Pollution**: All dependencies install cleanly via wheels or pure Python
@@ -590,7 +570,7 @@ All dependencies follow these design principles:
 
 ### WAMP Serializers (Batteries Included)
 
-All serializers are now **included by default** in the base installation:
+All serializers **except UBJSON** are included by default in the base installation; UBJSON is an optional extra (`pip install autobahn[serialization]`):
 
 | Serializer | Purpose | CPython | PyPy | Wheel Coverage | Notes |
 |------------|---------|---------|------|----------------|-------|
@@ -598,7 +578,7 @@ All serializers are now **included by default** in the base installation:
 | **msgpack** | MessagePack serialization | msgpack (binary wheel) | u-msgpack-python (pure Python) | ✅ Excellent | 50+ wheels for CPython; PyPy JIT optimized |
 | **ujson** | Fast JSON (optional) | Binary wheel | Binary wheel | ✅ Excellent | 30+ wheels; both implementations |
 | **cbor2** | CBOR serialization (RFC 8949) | Binary wheel | Pure Python fallback | ✅ Excellent | 30+ binary wheels + universal fallback |
-| **py-ubjson** | UBJSON serialization | Pure Python | Pure Python | ✅ Good | Optional C extension (can skip with `PYUBJSON_NO_EXTENSION=1`) |
+| **bjdata** | UBJSON serialization *(optional)* | C ext (from sdist) | ❌ n/a (CPython only) | ⚠️ sdist only — no wheels | `autobahn[serialization]` extra; pulls numpy. CPython-only: can't install on PyPy ([NeuroJSON/pybj#6](https://github.com/NeuroJSON/pybj/issues/6)). On CPython without a compiler set `PYBJDATA_NO_EXTENSION=1`. For wheels-only/cross-arch/PyPy installs prefer cbor/msgpack |
 | **flatbuffers** | Google Flatbuffers | **Vendored** | **Vendored** | ✅ Perfect | Included in our wheel, zero external dependency |
 
 ### Optional: Twisted Framework

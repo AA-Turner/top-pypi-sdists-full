@@ -157,10 +157,7 @@ cdef dict pydantic_settings_to_dict(settings, dict kwargs):
         )
 
     if isinstance(settings, type) and issubclass(settings, PydanticSettings):
-        raise Error(
-            "Got settings class, but expect instance: "
-            "instead \"{0}\" use \"{0}()\"".format(settings.__name__)
-        )
+        settings = settings()
 
     if not isinstance(settings, PydanticSettings):
         raise Error(
@@ -471,15 +468,10 @@ cdef class Provider:
 cdef class Object(Provider):
     """Object provider returns provided instance "as is".
 
-    .. py:attribute:: provides
-
-        Value that have to be provided.
-
-        :type: object
+    :param provides: Value to be provided.
     """
 
     def __init__(self, provides=None):
-        """Initialize provider."""
         self._provides = None
         self.set_provides(provides)
         super(Object, self).__init__()
@@ -594,15 +586,11 @@ cdef class Self(Provider):
 cdef class Delegate(Provider):
     """Delegate provider returns provider "as is".
 
-    .. py:attribute:: provides
-
-        Value that have to be provided.
-
-        :type: object
+    :param provides: Provider to be returned as is.
+    :type provides: Provider | None
     """
 
     def __init__(self, provides=None):
-        """Initialize provider."""
         self._provides = None
         self.set_provides(provides)
         super(Delegate, self).__init__()
@@ -1413,19 +1401,11 @@ cdef class AbstractCallable(Callable):
 cdef class CallableDelegate(Delegate):
     """Callable delegate injects delegating callable "as is".
 
-    .. py:attribute:: provides
-
-        Value that have to be provided.
-
-        :type: object
+    :param callable: :class:`Callable` provider to be returned as is.
+    :type callable: Callable
     """
 
     def __init__(self, callable):
-        """Initializer.
-
-        :param callable: Value that have to be provided.
-        :type callable: object
-        """
         if isinstance(callable, Callable) is False:
             raise Error("{0} can wrap only {1} providers".format(self.__class__, Callable))
         super(CallableDelegate, self).__init__(callable)
@@ -1520,19 +1500,11 @@ cdef class AbstractCoroutine(Coroutine):
 cdef class CoroutineDelegate(Delegate):
     """Coroutine delegate injects delegating coroutine "as is".
 
-    .. py:attribute:: provides
-
-        Value that have to be provided.
-
-        :type: object
+    :param coroutine: :class:`Coroutine` provider to be returned as is.
+    :type coroutine: Coroutine
     """
 
     def __init__(self, coroutine):
-        """Initializer.
-
-        :param coroutine: Value that have to be provided.
-        :type coroutine: object
-        """
         if isinstance(coroutine, Coroutine) is False:
             raise Error("{0} can wrap only {1} providers".format(self.__class__, Callable))
         super(CoroutineDelegate, self).__init__(coroutine)
@@ -2744,19 +2716,11 @@ cdef class AbstractFactory(Factory):
 cdef class FactoryDelegate(Delegate):
     """Factory delegate injects delegating factory "as is".
 
-    .. py:attribute:: provides
-
-        Value that have to be provided.
-
-        :type: object
+    :param factory: :class:`Factory` provider to be returned as is.
+    :type factory: Factory
     """
 
     def __init__(self, factory):
-        """Initializer.
-
-        :param factory: Value that have to be provided.
-        :type factory: object
-        """
         if isinstance(factory, Factory) is False:
             raise Error("{0} can wrap only {1} providers".format(self.__class__, Factory))
         super(FactoryDelegate, self).__init__(factory)
@@ -3366,19 +3330,11 @@ cdef class AbstractSingleton(BaseSingleton):
 cdef class SingletonDelegate(Delegate):
     """Singleton delegate injects delegating singleton "as is".
 
-    .. py:attribute:: provides
-
-        Value that have to be provided.
-
-        :type: object
+    :param singleton: :class:`Singleton` provider to be returned as is.
+    :type singleton: BaseSingleton
     """
 
     def __init__(self, singleton):
-        """Initializer.
-
-        :param singleton: Value that have to be provided.
-        :type singleton: py:class:`BaseSingleton`
-        """
         if isinstance(singleton, BaseSingleton) is False:
             raise Error("{0} can wrap only {1} providers".format(
                 self.__class__, BaseSingleton))
@@ -3635,8 +3591,19 @@ cdef class ResourceState:
     def __cinit__(self, obj, error_callback, /):
         self.resource = None
         self.shutdowner = None
+        self.shutdowner_is_async = False
         self.is_async = False
         self.async_done = False
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"resource={self.resource!r}, "
+            f"shutdowner={self.shutdowner!r}, "
+            f"shutdowner_is_async={self.shutdowner_is_async}, "
+            f"is_async={self.is_async}, "
+            f"async_done={self.async_done})"
+        )
 
     def __init__(self, obj, error_callback, /):
         if __is_future_or_coroutine(obj):
@@ -3656,7 +3623,10 @@ cdef class ResourceState:
         self.shutdowner = None
 
         if shutdowner is not None:
-            await shutdowner(None, None, None)
+            future = shutdowner(None, None, None)
+
+            if self.shutdowner_is_async:
+                await future
 
     async def from_awaitable(self, awaitable, error_callback, /):
         try:
@@ -3688,6 +3658,7 @@ cdef class ResourceState:
             raise
 
         self.shutdowner = acm.__aexit__
+        self.shutdowner_is_async = True
         self.async_done = True
         return resource
 
@@ -3879,7 +3850,9 @@ cdef class BaseResource(Provider):
             if state.is_async:
                 return state.async_shutdown()
             elif state.shutdowner is not None:
-                state.shutdowner(None, None, None)
+                result = state.shutdowner(None, None, None)
+
+                assert not __isfuture(result), "sync resource with async shutdowner"
 
         if self._async_mode == ASYNC_MODE_ENABLED:
             return NULL_AWAITABLE

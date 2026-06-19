@@ -6,6 +6,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <set>
 #include <sstream>
 #include <type_traits>
 
@@ -128,6 +129,18 @@ std::shared_ptr<QPDF> open_pdf(py::object stream,
             "A password was provided, but no password was needed to open this PDF.");
     }
 
+    return q;
+}
+
+// Open a Pdf from an input source containing qpdf JSON (as written by write_qpdf_json
+// or `qpdf --json-output`). Mirrors open_pdf but for the JSON representation.
+std::shared_ptr<QPDF> open_pdf_json(py::object stream, std::string description)
+{
+    auto q = make_registered_qpdf();
+    qpdf_basic_settings(*q);
+    auto json_input =
+        std::make_shared<PythonStreamInputSource>(stream, description, false);
+    q->createFromJSON(std::shared_ptr<InputSource>(json_input));
     return q;
 }
 
@@ -377,6 +390,13 @@ void save_pdf(QPDF &q,
         // Unconditionally calling setDecodeLevel has side effects, disabling
         // preserve encryption in particular
         w.setDecodeLevel(py::cast<qpdf_stream_decode_level_e>(stream_decode_level));
+    } else if (!compress_streams) {
+        // qpdf >= 11.10 defaults its decode level to 'generalized', which
+        // decompresses (without recompressing) streams when compress_streams is
+        // off, ballooning the output. Pin it to 'none' so we honor our
+        // documented contract: compress_streams=False alone does not trigger
+        // decompression unless stream_decode_level is also requested (#676).
+        w.setDecodeLevel(qpdf_dl_none);
     }
     w.setObjectStreamMode(object_stream_mode);
     w.setRecompressFlate(recompress_flate);
@@ -454,6 +474,56 @@ void init_qpdf(py::module_ &m)
         .value("generalized", qpdf_stream_decode_level_e::qpdf_dl_generalized)
         .value("specialized", qpdf_stream_decode_level_e::qpdf_dl_specialized)
         .value("all", qpdf_stream_decode_level_e::qpdf_dl_all);
+
+    py::enum_<qpdf_json_stream_data_e>(m, "JSONStreamData")
+        .value("none", qpdf_json_stream_data_e::qpdf_sj_none)
+        .value("inline", qpdf_json_stream_data_e::qpdf_sj_inline)
+        .value("file", qpdf_json_stream_data_e::qpdf_sj_file);
+
+    py::class_<QPDFXRefEntry>(
+        m, "XrefEntry", "Represents one entry in a PDF cross-reference table.")
+        .def_prop_ro("type",
+            &QPDFXRefEntry::getType,
+            "0 = free, 1 = uncompressed (has offset), 2 = compressed (in an "
+            "object stream).")
+        .def_prop_ro(
+            "offset",
+            [](QPDFXRefEntry &e) -> py::object {
+                if (e.getType() != 1)
+                    return py::none();
+                return py::int_(e.getOffset());
+            },
+            "Byte offset of the object in the file; None unless type == 1.")
+        .def_prop_ro(
+            "obj_stream_number",
+            [](QPDFXRefEntry &e) -> py::object {
+                if (e.getType() != 2)
+                    return py::none();
+                return py::int_(e.getObjStreamNumber());
+            },
+            "Object number of the containing object stream; None unless type == 2.")
+        .def_prop_ro(
+            "obj_stream_index",
+            [](QPDFXRefEntry &e) -> py::object {
+                if (e.getType() != 2)
+                    return py::none();
+                return py::int_(e.getObjStreamIndex());
+            },
+            "Index within the containing object stream; None unless type == 2.")
+        .def("__repr__", [](QPDFXRefEntry &e) {
+            switch (e.getType()) {
+            case 1:
+                return std::string("<pikepdf.XrefEntry type=1 offset=") +
+                       std::to_string(e.getOffset()) + ">";
+            case 2:
+                return std::string("<pikepdf.XrefEntry type=2 obj_stream_number=") +
+                       std::to_string(e.getObjStreamNumber()) +
+                       " obj_stream_index=" + std::to_string(e.getObjStreamIndex()) +
+                       ">";
+            default:
+                return std::string("<pikepdf.XrefEntry type=0 (free)>");
+            }
+        });
 
     py::enum_<QPDF::encryption_method_e>(m, "EncryptionMethod")
         .value("none", QPDF::encryption_method_e::e_none)
@@ -573,6 +643,63 @@ void init_qpdf(py::module_ &m)
                 QpdfLockGuard lock(&q);
                 q.showXRefTable();
             })
+        .def("get_xref_table",
+            [](QPDF &q) {
+                QpdfLockGuard lock(&q);
+                std::map<std::pair<int, int>, QPDFXRefEntry> result;
+                for (auto const &item : q.getXRefTable()) {
+                    result[std::make_pair(item.first.getObj(), item.first.getGen())] =
+                        item.second;
+                }
+                return result;
+            })
+        .def(
+            "fix_dangling_references",
+            [](QPDF &q, bool force) {
+                QpdfLockGuard lock(&q);
+                q.fixDanglingReferences(force);
+            },
+            py::arg("force") = false)
+        .def(
+            "_write_qpdf_json",
+            [](QPDF &q,
+                py::object stream,
+                qpdf_stream_decode_level_e decode_level,
+                qpdf_json_stream_data_e json_stream_data,
+                std::string file_prefix,
+                int version) {
+                QpdfLockGuard lock(&q);
+                Pl_PythonOutput output("json output", stream);
+                std::set<std::string> wanted_objects;
+                q.writeJSON(version,
+                    &output,
+                    decode_level,
+                    json_stream_data,
+                    file_prefix,
+                    wanted_objects);
+                // writeJSON intentionally does not finish() the pipeline.
+                output.finish();
+            },
+            py::arg("stream"),
+            py::kw_only(),
+            py::arg("decode_level") = qpdf_stream_decode_level_e::qpdf_dl_generalized,
+            py::arg("json_stream_data") = qpdf_json_stream_data_e::qpdf_sj_inline,
+            py::arg("file_prefix") = "",
+            py::arg("version") = 2)
+        .def_static("_from_qpdf_json",
+            open_pdf_json,
+            py::arg("stream"),
+            py::arg("description") = "")
+        .def(
+            "_update_from_qpdf_json",
+            [](QPDF &q, py::object stream, std::string description) {
+                QpdfLockGuard lock(&q);
+                auto json_input = std::make_shared<PythonStreamInputSource>(
+                    stream, description, false);
+                q.updateFromJSON(std::shared_ptr<InputSource>(json_input));
+            },
+            py::arg("stream"),
+            py::arg("description") = "")
         .def(
             "_add_page",
             [](QPDF &q, QPDFObjectHandle &page, bool first = false) {
@@ -661,6 +788,70 @@ void init_qpdf(py::module_ &m)
             [](QPDF &q, std::pair<int, int> objgen, QPDFObjectHandle &h) {
                 QpdfLockGuard lock(&q);
                 q.replaceObject(objgen.first, objgen.second, h);
+            })
+        .def("_count_orphaned_widgets",
+            [](QPDF &q) -> size_t {
+                QpdfLockGuard lock(&q);
+                // Build the reachable field-tree set using indirect objgens.
+                // Per the PDF spec, form fields referenced from /AcroForm/Fields
+                // must be indirect objects; direct-object fields are out of scope
+                // for this best-effort orphan check.
+                std::set<QPDFObjGen> field_tree;
+                auto acro = q.getRoot().getKey("/AcroForm");
+                if (acro.isDictionary()) {
+                    auto fields = acro.getKey("/Fields");
+                    if (fields.isArray()) {
+                        std::vector<QPDFObjectHandle> stack;
+                        for (auto &field : fields.aitems())
+                            stack.push_back(field);
+                        while (!stack.empty()) {
+                            auto f = stack.back();
+                            stack.pop_back();
+                            if (!f.isDictionary())
+                                continue;
+                            if (f.isIndirect() &&
+                                !field_tree.insert(f.getObjGen()).second)
+                                continue;
+                            auto kids = f.getKey("/Kids");
+                            if (kids.isArray()) {
+                                for (auto &kid : kids.aitems())
+                                    stack.push_back(kid);
+                            }
+                        }
+                    }
+                }
+                size_t orphans = 0;
+                QPDFPageDocumentHelper dh(q);
+                for (auto &page : dh.getAllPages()) {
+                    auto annots = page.getObjectHandle().getKey("/Annots");
+                    if (!annots.isArray())
+                        continue;
+                    for (auto &a : annots.aitems()) {
+                        if (!a.isDictionary())
+                            continue;
+                        if (!a.getKey("/Subtype").isNameAndEquals("/Widget"))
+                            continue;
+                        bool found = false;
+                        auto cur = a;
+                        std::set<QPDFObjGen> visited;
+                        for (int depth = 0; depth < 100 && cur.isDictionary();
+                            ++depth) {
+                            if (cur.isIndirect()) {
+                                auto og = cur.getObjGen();
+                                if (field_tree.count(og)) {
+                                    found = true;
+                                    break;
+                                }
+                                if (!visited.insert(og).second)
+                                    break;
+                            }
+                            cur = cur.getKey("/Parent");
+                        }
+                        if (!found)
+                            ++orphans;
+                    }
+                }
+                return orphans;
             })
         .def("_swap_objects",
             [](QPDF &q, std::pair<int, int> objgen1, std::pair<int, int> objgen2) {

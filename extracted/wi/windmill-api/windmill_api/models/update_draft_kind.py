@@ -3,6 +3,7 @@ from enum import Enum
 
 class UpdateDraftKind(str, Enum):
     APP = "app"
+    DATA_PIPELINE = "data_pipeline"
     FLOW = "flow"
     RAW_APP = "raw_app"
     RESOURCE = "resource"

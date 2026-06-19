@@ -1159,6 +1159,111 @@ class TestServerConfigCheck:
             assert "parse error" not in captured.lower()
 
 
+class TestServerConfigCheckStorageProbe:
+    """Regression: issue #335 (reported by @mmashwani). `config --check`
+    treated every storage-probe exception as a confirmed `storage` failure,
+    so a sandboxed agent shell that simply cannot prove host writability
+    (EPERM/EACCES) reported a healthy install as broken and exited 1. A
+    confirmed non-writable root must still fail; a sandbox-limited probe must
+    be flagged for host confirmation and NOT exit 1.
+    """
+
+    def _setup_valid_env(self, tmpdir, monkeypatch):
+        """Valid config + isolated home so only the storage probe varies."""
+        from src.jcodemunch_mcp.config import _GLOBAL_CONFIG
+        _GLOBAL_CONFIG.clear()
+        config_path = Path(tmpdir) / "config.jsonc"
+        config_path.write_text('{"max_folder_files": 5000}')
+        monkeypatch.setenv("CODE_INDEX_PATH", tmpdir)
+        # Isolate home so the real ~/.claude/CLAUDE.md + settings.json don't
+        # inject unrelated issues (missing CLAUDE.md only warns).
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path(tmpdir)))
+
+    def test_writable_storage_passes_and_exits_zero(self, capsys, monkeypatch):
+        """A normal writable storage path prints a passing storage row, exit 0."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._setup_valid_env(tmpdir, monkeypatch)
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=True)  # no SystemExit
+
+            captured = capsys.readouterr().out
+            assert "index storage writable" in captured.lower()
+            assert "host confirmation" not in captured.lower()
+
+    def test_confirmed_non_writable_storage_still_fails(self, capsys, monkeypatch):
+        """A confirmed non-writable path (non-EPERM/EACCES OSError) exits 1."""
+        import errno as _errno
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._setup_valid_env(tmpdir, monkeypatch)
+
+            orig_write_text = Path.write_text
+
+            def fake_write_text(self, *a, **k):
+                if self.name == ".jcm_probe":
+                    raise OSError(_errno.EROFS, "Read-only file system")
+                return orig_write_text(self, *a, **k)
+
+            monkeypatch.setattr(Path, "write_text", fake_write_text)
+
+            from src.jcodemunch_mcp.server import _run_config
+            with pytest.raises(SystemExit) as exc_info:
+                _run_config(check=True)
+            assert exc_info.value.code == 1
+
+            captured = capsys.readouterr().out
+            assert "index storage not writable" in captured.lower()
+            assert "host confirmation" not in captured.lower()
+
+    def test_sandbox_eperm_is_host_confirmation_not_failure(self, capsys, monkeypatch):
+        """A mocked PermissionError(EPERM) reports a host-confirmation warning
+        rather than a confirmed storage failure, and does NOT exit 1."""
+        import errno as _errno
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._setup_valid_env(tmpdir, monkeypatch)
+
+            orig_write_text = Path.write_text
+
+            def fake_write_text(self, *a, **k):
+                if self.name == ".jcm_probe":
+                    raise PermissionError(_errno.EPERM, "Operation not permitted")
+                return orig_write_text(self, *a, **k)
+
+            monkeypatch.setattr(Path, "write_text", fake_write_text)
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=True)  # no SystemExit
+
+            captured = capsys.readouterr().out
+            assert "host confirmation" in captured.lower()
+            # Not presented as a confirmed failure.
+            assert "index storage not writable" not in captured.lower()
+            assert "issue(s) found" not in captured.lower()
+
+    def test_sandbox_probe_tells_operator_to_rerun_outside_sandbox(self, capsys, monkeypatch):
+        """The host-confirmation output instructs rerunning outside a sandbox
+        before repairing or reporting storage drift."""
+        import errno as _errno
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._setup_valid_env(tmpdir, monkeypatch)
+
+            orig_write_text = Path.write_text
+
+            def fake_write_text(self, *a, **k):
+                if self.name == ".jcm_probe":
+                    raise PermissionError(_errno.EACCES, "Permission denied")
+                return orig_write_text(self, *a, **k)
+
+            monkeypatch.setattr(Path, "write_text", fake_write_text)
+
+            from src.jcodemunch_mcp.server import _run_config
+            _run_config(check=True)
+
+            captured = capsys.readouterr().out.lower()
+            assert "sandbox" in captured or "restricted shell" in captured
+            assert "rerun" in captured
+
+
 class TestConfigDisplayHonorsProjectOverride:
     """Regression: jcm #300 follow-up (reported by @slazarov on issue #300
     after v1.108.14). `config --check` validated the project file but the
@@ -1295,6 +1400,27 @@ class TestConfigReportGrouping:
         for entry in report:
             assert "group" in entry and isinstance(entry["group"], str) and entry["group"]
             assert "description" in entry and isinstance(entry["description"], str)
+
+    def test_no_key_falls_into_other_or_missing_description(self):
+        """Every config key must be documented in the template — a real section
+        (not the 'Other' catch-all) AND a non-empty description. Regression for
+        the 13 keys (watch_paths/watch_extra_ignore/watch_follow_symlinks/
+        watch_idle_timeout/watch_log, runtime_ingest_enabled/org_ingest_enabled/
+        runtime_ingest_max_body_bytes, license_key, cross_repo_default,
+        discovery_hint, agent_selector, enrichment) that shipped template-less,
+        so jcm emitted them as Other/no-description and the Console showed blank
+        rows. Fails loudly if a future key is added to DEFAULTS without a
+        matching template entry."""
+        from src.jcodemunch_mcp.config import config_report
+        offenders = [
+            e["key"] for e in config_report()
+            if e["group"] == "Other" or not e["description"]
+        ]
+        assert not offenders, (
+            f"config keys missing a template section/description: {offenders}. "
+            "Add each to the JSONC template in generate_template() under a "
+            "=== Section === header with an inline comment."
+        )
 
     def test_known_keys_map_to_expected_sections(self):
         from src.jcodemunch_mcp.config import config_report, _config_meta, generate_template

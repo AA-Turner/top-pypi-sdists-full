@@ -185,6 +185,7 @@ static int nb_ndarray_getbuffer(PyObject *self, Py_buffer *view, int) {
 
         case dlpack::dtype_code::Complex:
             switch (t.dtype.bits) {
+                case 32: format = "Ze"; break;
                 case 64: format = "Zf"; break;
                 case 128: format = "Zd"; break;
             }
@@ -407,9 +408,6 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
             case 'Q':
             case 'N': dt.code = (uint8_t) dlpack::dtype_code::UInt; break;
 
-            case 'E':
-            case 'F':
-            case 'D': is_complex = true; [[fallthrough]];
             case 'e':
             case 'f':
             case 'd': dt.code = (uint8_t) dlpack::dtype_code::Float; break;
@@ -448,23 +446,13 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
         strides = shape + ndim;
     }
 
-    /* See comments in function ndarray_create(). */
-#if 0
-    uintptr_t data_uint = (uintptr_t) view->buf;
-    void* data_ptr = (void *) (data_uint & ~uintptr_t{255});
-    uint64_t data_offset = data_uint & uintptr_t{255};
-#else
-    void* data_ptr = view->buf;
-    constexpr uint64_t data_offset = 0UL;
-#endif
-
-    mt->dltensor.data = data_ptr;
+    mt->dltensor.data = view->buf;
     mt->dltensor.device = { device::cpu::value, 0 };
     mt->dltensor.ndim = ndim;
     mt->dltensor.dtype = dt;
     mt->dltensor.shape = shape;
     mt->dltensor.strides = strides;
-    mt->dltensor.byte_offset = data_offset;
+    mt->dltensor.byte_offset = 0UL;
 
     const int64_t itemsize = (int64_t) view->itemsize;
     for (int32_t i = 0; i < ndim; ++i) {
@@ -515,6 +503,11 @@ bool ndarray_check(PyObject *o) noexcept {
     return result;
 }
 
+// Helper function reports whether `code` represents a complex number.
+static NB_INLINE bool dtype_code_is_complex(uint8_t code) {
+    return code == (uint8_t) dlpack::dtype_code::Complex ||
+           code == (uint8_t) dlpack::dtype_code::Bcomplex;
+}
 
 ndarray_handle *ndarray_import(PyObject *src, const ndarray_config *c,
                                bool convert, cleanup_list *cleanup) noexcept {
@@ -673,9 +666,8 @@ ndarray_handle *ndarray_import(PyObject *src, const ndarray_config *c,
 
     // Do not convert shape and do not convert complex numbers to non-complex.
     convert &= pass_shape &
-               !(t.dtype.code == (uint8_t) dlpack::dtype_code::Complex
-                 && has_dtype
-                 && c->dtype.code != (uint8_t) dlpack::dtype_code::Complex);
+               !(dtype_code_is_complex(t.dtype.code) &&
+                 has_dtype && !dtype_code_is_complex(c->dtype.code));
 
     // Support implicit conversion of dtype and order.
     if (convert && (!pass_dtype || !pass_order) && !src_is_pycapsule) {
@@ -691,7 +683,7 @@ ndarray_handle *ndarray_import(PyObject *src, const ndarray_config *c,
         if (dt.lanes != 1)
             return nullptr;
 
-        char dtype[11];
+        char dtype[12];
         if (dt.code == (uint8_t) dlpack::dtype_code::Bool) {
             std::strcpy(dtype, "bool");
         } else {
@@ -711,6 +703,9 @@ ndarray_handle *ndarray_import(PyObject *src, const ndarray_config *c,
                     break;
                 case (uint8_t) dlpack::dtype_code::Complex:
                     prefix = "complex";
+                    break;
+                case (uint8_t) dlpack::dtype_code::Bcomplex:
+                    prefix = "bcomplex";
                     break;
                 default:
                     return nullptr;
@@ -845,27 +840,20 @@ void ndarray_dec_ref(ndarray_handle *th) noexcept {
 ndarray_handle *ndarray_create(void *data, size_t ndim, const size_t *shape_in,
                                PyObject *owner, const int64_t *strides_in,
                                dlpack::dtype dtype, bool ro, int device_type,
-                               int device_id, char order) {
+                               int device_id, char order,
+                               uint64_t byte_offset) {
     check(ndim <= (size_t) max_ndim,
           "ndarray_create(): ndim is too large!");
 
-    /* DLPack mandates 256-byte alignment of the 'DLTensor::data' field,
-       but this requirement is generally ignored.  Also, PyTorch has/had
-       a bug in ignoring byte_offset and assuming it's zero.
-       It would be wrong to split the 64-bit raw pointer into two pieces,
-       as disabled below, since the pointer dltensor.data must point to
-       allocated memory (i.e., memory that can be accessed).
+    /* A comment in the DLPack header file suggests 256-byte alignment of the
+       DLTensor::data field, but this is generally (and necessarily) ignored.
+       Note that the pointer dltensor.data must point to allocated memory
+       (i.e., memory that can be accessed), so it cannot simply be rounded
+       down by zeroing its lowest 8 bits.
        A byte_offset can be used to support array slicing when data is an
        opaque device pointer or handle, on which arithmetic is impossible.
-       However, this function is not slicing the data.
        See also: https://github.com/data-apis/array-api/discussions/779  */
-#if 0
-    uintptr_t data_uint = (uintptr_t) data;
-    data = (void *) (data_uint & ~uintptr_t{255});      // upper bits
-    uint64_t data_offset = data_uint & uintptr_t{255};  // lowest 8 bits
-#else
-    constexpr uint64_t data_offset = 0UL;
-#endif
+
     if (device_type == 0)
         device_type = device::cpu::value;
 
@@ -916,7 +904,7 @@ ndarray_handle *ndarray_create(void *data, size_t ndim, const size_t *shape_in,
     mt->dltensor.dtype = dtype;
     mt->dltensor.shape = shape;
     mt->dltensor.strides = strides;
-    mt->dltensor.byte_offset = data_offset;
+    mt->dltensor.byte_offset = byte_offset;
     result->mt_versioned = mt.release();
     result->refcount = 0;
     result->owner = owner;

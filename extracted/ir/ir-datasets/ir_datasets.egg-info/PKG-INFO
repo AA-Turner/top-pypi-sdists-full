@@ -1,14 +1,14 @@
 Metadata-Version: 2.4
 Name: ir_datasets
-Version: 0.5.11
+Version: 0.6.0
 Summary: provides a common interface to many IR ad-hoc ranking benchmarks, training datasets, etc.
 Author-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Maintainer-email: Sean MacAvaney <sean.macavaney@glasgow.ac.uk>
 Project-URL: Homepage, https://ir-datasets.com/
 Project-URL: Documentation, https://project.readthedocs.io/
-Project-URL: Source, https://github.com/allenai/ir_datasets
-Project-URL: Issues, https://github.com/allenai/ir_datasets/issues
-Project-URL: Bug Tracker, https://github.com/allenai/ir_datasets/issues
+Project-URL: Source, https://github.com/ir-datasets/ir-datasets
+Project-URL: Issues, https://github.com/ir-datasets/ir-datasets/issues
+Project-URL: Bug Tracker, https://github.com/ir-datasets/ir-datasets/issues
 Classifier: Programming Language :: Python
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Text Processing
@@ -17,21 +17,42 @@ Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: beautifulsoup4>=4.4.1
-Requires-Dist: inscriptis>=2.2.0
-Requires-Dist: lxml>=4.5.2
+Requires-Dist: lxml<6.0.0,>=4.5.2
 Requires-Dist: numpy>=1.18.1
 Requires-Dist: pyyaml>=5.3.1
 Requires-Dist: requests>=2.22.0
 Requires-Dist: tqdm>=4.38.0
-Requires-Dist: trec-car-tools>=2.5.4
 Requires-Dist: lz4>=3.1.10
-Requires-Dist: warc3-wet>=0.2.3
-Requires-Dist: warc3-wet-clueweb09>=0.2.5
-Requires-Dist: zlib-state>=0.1.3
-Requires-Dist: ijson>=3.1.3
-Requires-Dist: unlzw3>=0.2.1
-Requires-Dist: pyarrow>=16.1.0
+Provides-Extra: car
+Requires-Dist: trec-car-tools>=2.5.4; extra == "car"
+Provides-Extra: warc
+Requires-Dist: warc3-wet>=0.2.3; extra == "warc"
+Requires-Dist: warc3-wet-clueweb09>=0.2.5; extra == "warc"
+Provides-Extra: pyautocorpus
+Requires-Dist: pyautocorpus>=0.1.12; extra == "pyautocorpus"
+Provides-Extra: pyarrow
+Requires-Dist: pyarrow>=16.1.0; extra == "pyarrow"
+Provides-Extra: unlzw3
+Requires-Dist: unlzw3>=0.2.1; extra == "unlzw3"
+Provides-Extra: beautifulsoup4
+Requires-Dist: beautifulsoup4>=4.4.1; extra == "beautifulsoup4"
+Provides-Extra: inscriptis
+Requires-Dist: inscriptis>=2.2.0; extra == "inscriptis"
+Provides-Extra: zlib-state
+Requires-Dist: zlib-state>=0.1.3; extra == "zlib-state"
+Provides-Extra: ijson
+Requires-Dist: ijson>=3.1.3; extra == "ijson"
+Provides-Extra: all
+Requires-Dist: trec-car-tools>=2.5.4; extra == "all"
+Requires-Dist: warc3-wet>=0.2.3; extra == "all"
+Requires-Dist: warc3-wet-clueweb09>=0.2.5; extra == "all"
+Requires-Dist: pyarrow>=16.1.0; extra == "all"
+Requires-Dist: pyautocorpus>=0.1.12; extra == "all"
+Requires-Dist: unlzw3>=0.2.1; extra == "all"
+Requires-Dist: beautifulsoup4>=4.4.1; extra == "all"
+Requires-Dist: inscriptis>=2.2.0; extra == "all"
+Requires-Dist: zlib-state>=0.1.3; extra == "all"
+Requires-Dist: ijson>=3.1.3; extra == "all"
 Dynamic: license-file
 
 # ir_datasets
@@ -56,8 +77,8 @@ Want a new dataset, added functionality, or a bug fixed? Feel free to post an is
 ## Getting Started
 
 For a quick start with the Python API, check out our Colab tutorials:
-[Python](https://colab.research.google.com/github/allenai/ir_datasets/blob/master/examples/ir_datasets.ipynb)
-[Command Line](https://colab.research.google.com/github/allenai/ir_datasets/blob/master/examples/ir_datasets_cli.ipynb)
+[Python](https://colab.research.google.com/github/ir-datasets/ir-datasets/blob/master/examples/ir_datasets.ipynb)
+[Command Line](https://colab.research.google.com/github/ir-datasets/ir-datasets/blob/master/examples/ir_datasets_cli.ipynb)
 
 Install via pip:
 
@@ -68,13 +89,13 @@ pip install ir_datasets
 If you want the main branch, you install as such:
 
 ```
-pip install git+https://github.com/allenai/ir_datasets.git
+pip install git+https://github.com/ir-datasets/ir-datasets.git
 ```
 
 If you want to run an editable version locally:
 
 ```
-$ git clone https://github.com/allenai/ir_datasets
+$ git clone https://github.com/ir-datasets/ir-datasets
 $ cd ir_datasets
 $ pip install -e .    
 ```

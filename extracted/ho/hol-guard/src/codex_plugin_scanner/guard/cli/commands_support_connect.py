@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from ._commands_shared import _SERVICE_RUNTIME_CHOICES, _SERVICE_RUNTIME_PROFILE_STATE_KEY, _now
@@ -14,6 +14,14 @@ if TYPE_CHECKING:
 
 from ._commands_shared import *
 from .commands_parser_helpers import *
+from ..local_supply_chain import _resolve_guard_sync_auth_context as _local_resolve_guard_sync_auth_context
+
+
+def _connect_guard_sync_auth_context(store: GuardStore) -> dict[str, object]:
+    resolver = globals().get("_resolve_guard_sync_auth_context")
+    if callable(resolver):
+        return cast(dict[str, object], resolver(store))
+    return _local_resolve_guard_sync_auth_context(store)
 
 def _validate_policy_scope(
     scope: str,
@@ -145,28 +153,15 @@ def _refresh_cloud_policy_bundle(store: GuardStore) -> None:
     now = _now()
     try:
         sync_receipts(store)
+        sync_supply_chain_cloud_state(store)
     except GuardSyncAuthorizationExpiredError as error:
+        message = str(error).strip()
+        auth_expired_message = "Guard authorization expired. Run `hol-guard connect` to sign in again."
+        if message.startswith(auth_expired_message):
+            message = auth_expired_message
         store.set_sync_payload(
             "policy_bundle_last_error",
-            {"reason": "auth_expired", "message": str(error)},
-            now,
-        )
-        return
-    except GuardSyncNotConfiguredError:
-        return
-    except RuntimeError as error:
-        store.set_sync_payload(
-            "policy_bundle_last_error",
-            {"reason": "sync_failed", "message": str(error)},
-            now,
-        )
-        return
-    try:
-        sync_supply_chain_bundle(store)
-    except GuardSyncAuthorizationExpiredError as error:
-        store.set_sync_payload(
-            "policy_bundle_last_error",
-            {"reason": "auth_expired", "message": str(error)},
+            {"reason": "auth_expired", "message": message},
             now,
         )
         return
@@ -324,6 +319,7 @@ def _finalize_guard_connect_payload(
     latest_state = store.record_latest_guard_connect_sync_success(
         sync_payload=sync_payload,
         now=str(sync_payload.get("synced_at") or now),
+        request_id=str(latest_state.get("request_id") or ""),
     )
     payload.update(
         {
@@ -336,7 +332,10 @@ def _finalize_guard_connect_payload(
         }
     )
     try:
-        payload["supply_chain"] = sync_supply_chain_bundle(store)
+        payload["supply_chain"] = sync_supply_chain_cloud_state(
+            store,
+            auth_context=resolved_sync_auth_context,
+        )
     except (GuardSyncNotConfiguredError, GuardSyncNotAvailableError, RuntimeError) as error:
         payload["supply_chain_error"] = str(error)
     return payload

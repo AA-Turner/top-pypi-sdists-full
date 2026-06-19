@@ -4,12 +4,13 @@ import contextlib
 import copy
 import json
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import TypeGuard
+from typing import Any, TypeGuard
 
 from openhands.sdk.agent.acp_agent import ACPAgent
 from openhands.sdk.agent.base import AgentBase
+from openhands.sdk.context.condenser import CondenserBase, LLMSummarizingCondenser
 from openhands.sdk.context.prompts.prompt import render_template
 from openhands.sdk.conversation.base import BaseConversation
 from openhands.sdk.conversation.cancellation import CancellationToken
@@ -27,6 +28,7 @@ from openhands.sdk.conversation.types import (
     ConversationID,
     ConversationTokenCallbackType,
     StuckDetectionThresholds,
+    TraceMetadataValue,
 )
 from openhands.sdk.conversation.visualizer import (
     ConversationVisualizerBase,
@@ -47,6 +49,7 @@ from openhands.sdk.event.conversation_error import ConversationErrorEvent
 from openhands.sdk.hooks import HookConfig, HookEventProcessor, create_hook_callback
 from openhands.sdk.io import LocalFileStore
 from openhands.sdk.llm import LLM, Message, TextContent, content_to_str
+from openhands.sdk.llm.auth.openai import create_subscription_llm_from_config
 from openhands.sdk.llm.llm_profile_store import LLMProfileStore
 from openhands.sdk.llm.llm_registry import LLMRegistry
 from openhands.sdk.logger import get_logger
@@ -63,7 +66,10 @@ from openhands.sdk.security.confirmation_policy import (
     ConfirmationPolicyBase,
 )
 from openhands.sdk.skills import load_available_skills, merge_skills_by_name
-from openhands.sdk.skills.utils import expand_mcp_variables
+from openhands.sdk.skills.utils import (
+    expand_mcp_variables,
+    expand_variable_references,
+)
 from openhands.sdk.subagent import (
     AgentDefinition,
     register_file_agents,
@@ -81,6 +87,29 @@ ACP_LAST_PROMPT_USER_MESSAGE_ID = "acp_last_prompt_user_message_id"
 ACP_INFLIGHT_PROMPT_USER_MESSAGE_ID = "acp_inflight_prompt_user_message_id"
 ACP_SUPERSEDE_INFLIGHT_PROMPT = "acp_supersede_inflight_prompt"
 ACP_STOP_HOOK_FEEDBACK_PREFIX = "[Stop hook feedback]"
+
+
+def _agent_already_surfaced_error(events: Sequence[Event], since: int = 0) -> bool:
+    """Whether the agent's own step already emitted a typed ConversationErrorEvent.
+
+    ACPAgent surfaces a detailed, classified ``ConversationErrorEvent``
+    (``source="agent"``) from its step/init and then re-raises so the run loop
+    tears down.  Without this guard the run loop's generic ``except`` would emit a
+    second, less-informative event (``code=type(exc).__name__``, ``detail=str(exc)``)
+    as the *latest* error — clobbering the agent's rich one in clients that show the
+    most recent error.  Regular agents never self-emit (all their error events are
+    ``source="environment"``), so only the ACP duplicate is suppressed.
+
+    ``since`` should be the number of events that existed at the start of the current
+    ``run()``/``arun()`` call.  Scoping the scan to events added *during this run*
+    prevents a stale source="agent" event from a prior run from suppressing the error
+    event for an unrelated exception in a subsequent run on the same conversation.
+    """
+    for i in range(len(events) - 1, since - 1, -1):
+        event = events[i]
+        if isinstance(event, ConversationErrorEvent):
+            return event.source == "agent"
+    return False
 
 
 def _is_acp_prompt_message(event: Event) -> TypeGuard[MessageEvent]:
@@ -126,6 +155,7 @@ class LocalConversation(BaseConversation):
     _resolved_plugins: list[ResolvedPluginSource] | None
     _plugins_loaded: bool
     _pending_hook_config: HookConfig | None  # Hook config to combine with plugin hooks
+    _subscription_disabled_condenser: Any | None
 
     def __init__(
         self,
@@ -151,6 +181,11 @@ class LocalConversation(BaseConversation):
         tags: dict[str, str] | None = None,
         user_id: str | None = None,
         client_tools: list[ClientToolSpec] | None = None,
+        observability_metadata: dict[str, TraceMetadataValue] | None = None,
+        observability_tags: list[str] | None = None,
+        # Appended at the end (not grouped with max_iteration_per_run) to avoid
+        # shifting the position of any existing positional argument.
+        max_budget_per_run: float | None = None,
         **_: object,
     ):
         """Initialize the conversation.
@@ -192,11 +227,14 @@ class LocalConversation(BaseConversation):
                    (lost) on serialization.
             tags: Optional key-value tags for the conversation. Keys must be
                   lowercase alphanumeric, values up to 256 characters.
+            user_id: Optional user ID to associate with observability traces
             client_tools: Optional list of client-defined tool specs. Each spec
                   is registered and injected into the agent so it can call the
                   tool; the executor returns an acknowledgment and the real
                   execution is expected to be handled by a callback/consumer
                   (e.g. a frontend) observing the emitted ActionEvent.
+            observability_metadata: Optional trace metadata for observability backends.
+            observability_tags: Optional root span tags for observability backends.
         """
         super().__init__()  # Initialize with span tracking
         # Mark cleanup as initiated as early as possible to avoid races or partially
@@ -213,6 +251,7 @@ class LocalConversation(BaseConversation):
         self._plugins_loaded = False
         self._pending_hook_config = hook_config  # Will be combined with plugin hooks
         self._agent_ready = False  # Agent initialized lazily after plugins loaded
+        self._subscription_disabled_condenser = None
 
         # Create-or-resume: factory inspects BASE_STATE to decide
         desired_id = conversation_id or uuid.uuid4()
@@ -318,6 +357,8 @@ class LocalConversation(BaseConversation):
         )
 
         self.max_iteration_per_run = max_iteration_per_run
+        # Hard cost ceiling (USD) for a run; None disables the budget check.
+        self.max_budget_per_run = max_budget_per_run
 
         # Initialize stuck detector
         if stuck_detection:
@@ -372,7 +413,13 @@ class LocalConversation(BaseConversation):
             self.update_secrets(secret_values)
 
         atexit.register(self.close)
-        self._start_observability_span(str(desired_id), user_id=user_id)
+        self._start_observability_span(
+            str(desired_id),
+            user_id=user_id,
+            metadata=observability_metadata,
+            tags=observability_tags,
+            conversation_tags=tags,
+        )
         self.delete_on_close = delete_on_close
 
     def _recover_persisted_client_tools(
@@ -432,6 +479,30 @@ class LocalConversation(BaseConversation):
     @property
     def conversation_stats(self):
         return self._state.stats
+
+    def _budget_exceeded_detail(self) -> str | None:
+        """Error detail if the run has hit its cost budget, else None.
+
+        Bounds total spend across all of the run's LLMs (agent, condenser, ...),
+        complementing the iteration cap which only bounds step count.
+        """
+        if self.max_budget_per_run is None:
+            return None
+        spent = self.conversation_stats.get_combined_metrics().accumulated_cost
+        if spent < self.max_budget_per_run:
+            return None
+        return (
+            f"Agent reached maximum budget limit "
+            f"(${self.max_budget_per_run:.4f}); accumulated cost ${spent:.4f}."
+        )
+
+    def _emit_run_limit_error(self, code: str, detail: str) -> None:
+        """Mark the run failed with a run-limit ConversationErrorEvent."""
+        logger.error(detail)
+        self._state.execution_status = ConversationExecutionStatus.ERROR
+        self._on_event(
+            ConversationErrorEvent(source="environment", code=code, detail=detail)
+        )
 
     @property
     def stuck_detector(self) -> StuckDetector | None:
@@ -597,15 +668,43 @@ class LocalConversation(BaseConversation):
             logger.info(f"Loading {len(self._plugin_specs)} plugin(s)...")
             self._resolved_plugins = []
 
+            # Expand ${VAR} placeholders in the source/ref using per-conversation
+            # secrets, so private plugins can be cloned with a token supplied via
+            # the secrets API, e.g. "https://x-token-auth:${MY_TOKEN}@host/repo.git".
+            #
+            # SECURITY: secrets only (check_env=False) -- never fold host
+            # environment variables into a URL sent to a remote git host.
+            # Braced-only (support_unbraced=False) avoids mangling a literal "$"
+            # that may legitimately appear in a token/password. expand_defaults
+            # is False so an unknown ${VAR} is left verbatim rather than silently
+            # defaulted inside a URL.
+            get_secret = self._state.secret_registry.get_secret_value
+
+            def _expand_secret_refs(value: str) -> str:
+                return expand_variable_references(
+                    value,
+                    get_secret=get_secret,
+                    check_env=False,
+                    support_unbraced=False,
+                    expand_defaults=False,
+                )
+
             for spec in self._plugin_specs:
+                fetch_source = _expand_secret_refs(spec.source)
+                fetch_ref = _expand_secret_refs(spec.ref) if spec.ref else spec.ref
+
                 # Fetch plugin and get resolved commit SHA
                 path, resolved_ref = fetch_plugin_with_resolution(
-                    source=spec.source,
-                    ref=spec.ref,
+                    source=fetch_source,
+                    ref=fetch_ref,
                     repo_path=spec.repo_path,
                 )
 
-                # Store resolved ref for persistence
+                # Store resolved ref for persistence. Build this from the
+                # ORIGINAL spec (not the expanded values) so the persisted
+                # record keeps the ${VAR} placeholder rather than the raw
+                # secret. from_plugin_source() additionally redacts any inline
+                # credentials. Resume re-fetches via the resolved commit SHA.
                 resolved = ResolvedPluginSource.from_plugin_source(spec, resolved_ref)
                 self._resolved_plugins.append(resolved)
 
@@ -846,6 +945,34 @@ class LocalConversation(BaseConversation):
                 **existing,
             }
 
+    def _condenser_for_switched_llm(
+        self,
+        current_llm: LLM,
+        new_llm: LLM,
+    ) -> CondenserBase | None:
+        condenser = self.agent.condenser
+        if not isinstance(condenser, LLMSummarizingCondenser):
+            return condenser
+
+        current_config = current_llm.model_dump(
+            mode="json",
+            context={"expose_secrets": True},
+            exclude={"usage_id"},
+        )
+        condenser_config = condenser.llm.model_dump(
+            mode="json",
+            context={"expose_secrets": True},
+            exclude={"usage_id"},
+        )
+        if condenser_config != current_config:
+            return condenser
+
+        condenser_llm = new_llm.model_copy(
+            update={"usage_id": condenser.llm.usage_id},
+        )
+        condenser_llm.reset_metrics()
+        return condenser.model_copy(update={"llm": condenser_llm})
+
     def switch_llm(self, llm: LLM) -> None:
         """Swap the agent's LLM to the given object.
 
@@ -860,7 +987,7 @@ class LocalConversation(BaseConversation):
         try:
             new_llm = self.llm_registry.get(llm.usage_id)
         except KeyError:
-            new_llm = llm
+            new_llm = create_subscription_llm_from_config(llm)
             self.llm_registry.add(new_llm)
         # A switch_llm tool runs on a worker thread while run()/arun() holds the
         # state lock across the agent step on another thread, blocked awaiting
@@ -873,7 +1000,23 @@ class LocalConversation(BaseConversation):
         skip_lock = self._step_holds_state_lock and not self._state.owned()
         lock = contextlib.nullcontext() if skip_lock else self._state
         with lock:
-            self.agent = self.agent.model_copy(update={"llm": new_llm})
+            update: dict[str, object] = {"llm": new_llm}
+            if new_llm.is_subscription:
+                if self.agent.condenser is not None:
+                    self._subscription_disabled_condenser = self.agent.condenser
+                update["condenser"] = None
+            elif (
+                self.agent.condenser is None
+                and self._subscription_disabled_condenser is not None
+            ):
+                update["condenser"] = self._subscription_disabled_condenser
+                self._subscription_disabled_condenser = None
+            else:
+                update["condenser"] = self._condenser_for_switched_llm(
+                    self.agent.llm,
+                    new_llm,
+                )
+            self.agent = self.agent.model_copy(update=update)
             self._state.agent = self.agent
             self._pin_prompt_cache_key()
             self._pin_session_affinity_header(new_llm)
@@ -901,33 +1044,46 @@ class LocalConversation(BaseConversation):
         self.switch_llm(cached)
 
     def switch_acp_model(self, model: str) -> None:
-        """Switch the model on a running ACP conversation (mid-conversation).
+        """Switch the model on an ACP conversation.
 
         Unlike :meth:`switch_llm`, which swaps OpenHands' own LLM object, this
-        issues a protocol-level ``session/set_model`` call to the ACP
-        subprocess so the new model applies to subsequent turns of the *same*
-        session, preserving conversation context. ``switch_llm`` would not
+        targets the model the ACP subprocess runs. ``switch_llm`` would not
         affect an ACP conversation, since the subprocess owns its own model.
+
+        Behaves differently depending on whether a live session exists yet:
+
+        * **Live session** (after the first ``run()``): issues a protocol-level
+          ``session/set_model`` call so the new model applies to subsequent
+          turns of the *same* session, preserving conversation context.
+        * **No live session yet** (created but not yet run): there is nothing to
+          switch live, so the new value is only persisted. Session creation on
+          the first ``run()`` then honors it — ``_maybe_set_session_model``
+          issues a one-shot ``set_session_model`` for every built-in provider
+          (codex, gemini, and claude-code) — so the first turn runs on the
+          switched model rather than silently using the construction-time one.
 
         Args:
             model: Provider-specific model id to switch to.
 
         Raises:
             ValueError: If the conversation's agent is not an :class:`ACPAgent`,
-                or the provider does not support runtime model switching, or
-                the ACP server rejects the switch.
-            RuntimeError: If the ACP session is not yet initialized.
-            TimeoutError: If the ACP server does not respond within
-                ``acp_prompt_timeout`` seconds.
+                or (for a live switch) the provider does not support runtime
+                model switching, or the ACP server rejects the switch.
+            TimeoutError: If a live switch's ``session/set_model`` round-trip
+                exceeds ``acp_prompt_timeout`` seconds.
         """
         if not isinstance(self.agent, ACPAgent):
             raise ValueError(
                 "switch_acp_model is only supported for ACP conversations."
             )
         with self._state:
-            # Perform the live protocol switch first; if it fails we leave the
-            # persisted state untouched.
-            self.agent.set_acp_model(model)
+            # With a live session, perform the protocol switch first; if it
+            # fails we leave the persisted state untouched. Without one (pre
+            # first run()), there is nothing to switch live — skip the call and
+            # just persist; session creation applies the value (see docstring).
+            live = self.agent.has_live_acp_session
+            if live:
+                self.agent.set_acp_model(model)
             # Persist the switched model as the authoritative value. ``acp_model``
             # is frozen, so we replace the agent with a copy carrying the new
             # value. This matters on two counts the in-place mutation missed:
@@ -938,14 +1094,17 @@ class LocalConversation(BaseConversation):
             #      and the resumed session model from ``acp_model`` on reload, so
             #      it must hold the switched value, not the construction-time one.
             #
-            # model_copy is shallow, so the copy shares the live ACP runtime
+            # model_copy is shallow, so a live copy shares the ACP runtime
             # (_conn/_executor/_process) with the old agent. Disarm the old
             # agent's finalizer before dropping it: otherwise ACPAgent.__del__
             # -> close() on the discarded agent would tear down the session the
             # copy now owns, leaving the next turn pointing at a dead connection.
+            # Pre-session there is no runtime to hand off, so release_runtime is
+            # unnecessary (the discarded agent's close() is already a no-op).
             old_agent = self.agent
             new_agent = old_agent.model_copy(update={"acp_model": model})
-            old_agent.release_runtime()
+            if live:
+                old_agent.release_runtime()
             # ``self.agent`` is the live reference used by subsequent ``step()``
             # calls; ``self._state.agent`` is what the autosave path serializes
             # to base_state.json. Update both so the running conversation and the
@@ -1063,6 +1222,7 @@ class LocalConversation(BaseConversation):
                 self._state.execution_status = ConversationExecutionStatus.RUNNING
 
         iteration = 0
+        _run_start_event_count = len(self._state.events)
         try:
             while True:
                 logger.debug(f"Conversation run iteration {iteration}")
@@ -1152,6 +1312,14 @@ class LocalConversation(BaseConversation):
                     ):
                         break
 
+                    budget_detail = self._budget_exceeded_detail()
+                    if budget_detail and (
+                        self._state.execution_status
+                        != ConversationExecutionStatus.FINISHED
+                    ):
+                        self._emit_run_limit_error("MaxBudgetReached", budget_detail)
+                        break
+
                     if iteration >= self.max_iteration_per_run:
                         # If the agent finished on this final iteration,
                         # preserve the FINISHED status rather than
@@ -1179,14 +1347,19 @@ class LocalConversation(BaseConversation):
             with self._state:
                 self._state.execution_status = ConversationExecutionStatus.ERROR
 
-                # Add an error event
-                self._on_event(
-                    ConversationErrorEvent(
-                        source="environment",
-                        code=e.__class__.__name__,
-                        detail=str(e),
+                # Add an error event — unless the agent already surfaced a typed,
+                # detailed one for this failure (e.g. ACPAgent._emit_turn_error),
+                # which a generic str(e) duplicate would otherwise clobber.
+                if not _agent_already_surfaced_error(
+                    self._state.events, _run_start_event_count
+                ):
+                    self._on_event(
+                        ConversationErrorEvent(
+                            source="environment",
+                            code=e.__class__.__name__,
+                            detail=str(e),
+                        )
                     )
-                )
 
             # Re-raise with conversation id and persistence dir for better UX
             raise ConversationRunError(
@@ -1253,6 +1426,7 @@ class LocalConversation(BaseConversation):
             )
 
         iteration = 0
+        _run_start_event_count = len(self._state.events)
         try:
             while True:
                 logger.debug(f"Conversation arun iteration {iteration}")
@@ -1387,6 +1561,16 @@ class LocalConversation(BaseConversation):
                             self.state.execution_status
                             == ConversationExecutionStatus.WAITING_FOR_CONFIRMATION
                         ):
+                            break
+
+                        budget_detail = self._budget_exceeded_detail()
+                        if budget_detail and (
+                            self._state.execution_status
+                            != ConversationExecutionStatus.FINISHED
+                        ):
+                            self._emit_run_limit_error(
+                                "MaxBudgetReached", budget_detail
+                            )
                             break
 
                         if iteration >= self.max_iteration_per_run:
@@ -1557,6 +1741,14 @@ class LocalConversation(BaseConversation):
                     ):
                         break
 
+                    budget_detail = self._budget_exceeded_detail()
+                    if budget_detail and (
+                        self._state.execution_status
+                        != ConversationExecutionStatus.FINISHED
+                    ):
+                        self._emit_run_limit_error("MaxBudgetReached", budget_detail)
+                        break
+
                     if iteration >= self.max_iteration_per_run:
                         if (
                             self._state.execution_status
@@ -1620,13 +1812,18 @@ class LocalConversation(BaseConversation):
                 updated_agent_state.pop(ACP_SUPERSEDE_INFLIGHT_PROMPT, None)
                 self._state.agent_state = updated_agent_state
                 self._state.execution_status = ConversationExecutionStatus.ERROR
-                self._on_event(
-                    ConversationErrorEvent(
-                        source="environment",
-                        code=e.__class__.__name__,
-                        detail=str(e),
+                # Skip the generic event if the agent already surfaced a typed,
+                # detailed one for this failure (see _agent_already_surfaced_error).
+                if not _agent_already_surfaced_error(
+                    self._state.events, _run_start_event_count
+                ):
+                    self._on_event(
+                        ConversationErrorEvent(
+                            source="environment",
+                            code=e.__class__.__name__,
+                            detail=str(e),
+                        )
                     )
-                )
             raise ConversationRunError(
                 self._state.id, e, persistence_dir=self._state.persistence_dir
             ) from e

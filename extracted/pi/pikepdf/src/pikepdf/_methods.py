@@ -30,8 +30,11 @@ from io import BytesIO
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
-from typing import BinaryIO, Literal, TypeVar
+from typing import TYPE_CHECKING, BinaryIO, Literal, TypeVar
 from warnings import warn
+
+if TYPE_CHECKING:
+    from pikepdf._page_copy import PageCopyResult
 
 from pikepdf._augments import augment_override_cpp, augments
 from pikepdf._core import (
@@ -39,6 +42,7 @@ from pikepdf._core import (
     AttachedFile,
     AttachedFileSpec,
     Attachments,
+    JSONStreamData,
     NameTree,
     NumberTree,
     ObjectStreamMode,
@@ -51,6 +55,7 @@ from pikepdf._core import (
     Token,
     _ObjectMapping,
 )
+from pikepdf._exceptions import PageCopyWarning
 from pikepdf._io import atomic_overwrite, check_different_files, check_stream_is_usable
 from pikepdf.models import Encryption, EncryptionInfo, Outline, Permissions
 from pikepdf.models.metadata import PdfMetadata, decode_pdf_date, encode_pdf_date
@@ -384,6 +389,53 @@ class Extend_Pdf:
             self._add_page(page_obj, first=False)
             return Page(page_obj)
 
+    def add_pages_from(
+        self,
+        src: Pdf,
+        pages: Iterable[int] | range | slice | None = None,
+        *,
+        forms: Literal['preserve', 'strip'] = 'preserve',
+    ) -> PageCopyResult:
+        """Append pages from another ``Pdf``, preserving interactive form fields.
+
+        Unlike ``pdf.pages.extend(src.pages)``, this carries the document's
+        AcroForm form fields so they remain functional in Adobe Acrobat. Fields
+        whose fully-qualified names collide with existing fields are
+        automatically renamed; see the returned :class:`pikepdf.PageCopyResult`.
+        The original→new name mapping in ``renamed_fields`` is best-effort
+        (it pairs source and destination page fields positionally).
+
+        Independent top-level fields are only carried over when a widget is on a
+        copied page, so unrelated forms on separate pages are not imported.
+        However, a field sharing a top-level ancestor with a copied field is
+        carried as an entire subtree; such partially-represented fields are
+        listed in the result's ``partial_fields``. Use ``forms='strip'`` for a
+        hard guarantee of no form data.
+
+        Named destinations referenced by the copied pages' annotations (such as
+        table-of-contents links) are carried into this document, preserving both
+        the ``Names.Dests`` name tree and the legacy ``Root.Dests`` dictionary.
+        A destination whose target page is not among the copied pages cannot be
+        migrated and is reported in :attr:`pikepdf.PageCopyResult.dropped_dests`;
+        names that collide with existing destinations are renamed and reported in
+        :attr:`pikepdf.PageCopyResult.renamed_dests`.
+
+        Args:
+            src: Source ``Pdf`` to copy pages from.
+            pages: Zero-based indices (iterable, ``range`` or ``slice``) of
+                pages in ``src`` to copy. ``None`` copies all pages.
+                A ``slice`` is clamped to the document length; explicit indices
+                (including ``range``) must be valid or ``IndexError`` is raised.
+            forms: ``'preserve'`` (default) carries form fields; ``'strip'``
+                removes widget annotations from the copied pages.
+
+        Returns:
+            A :class:`pikepdf.PageCopyResult` describing the operation.
+        """
+        from pikepdf._page_copy import copy_pages
+
+        return copy_pages(self, src, pages, forms=forms)
+
     def close(self) -> None:
         self._close()
         if getattr(self, '_tmp_stream', None):
@@ -463,6 +515,14 @@ class Extend_Pdf:
                 "Pdf.new(), you must specify a destination object since there is "
                 "no original filename to save to."
             )
+        orphans = self._count_orphaned_widgets()
+        if orphans:
+            warn(
+                f"This document has {orphans} form widget annotation(s) that are "
+                "not reachable from /AcroForm; they may not display in Adobe "
+                "Acrobat. Use Pdf.add_pages_from() to copy pages with forms.",
+                PageCopyWarning,
+            )
         with ExitStack() as stack:
             if hasattr(filename_or_stream, 'seek'):
                 stream = filename_or_stream
@@ -496,6 +556,96 @@ class Extend_Pdf:
                 recompress_flate=recompress_flate,
                 deterministic_id=deterministic_id,
             )
+
+    def write_qpdf_json(
+        self,
+        filename_or_stream: Path | str | BinaryIO,
+        *,
+        decode_level: StreamDecodeLevel = StreamDecodeLevel.generalized,
+        json_stream_data: JSONStreamData = JSONStreamData.inline,
+        file_prefix: str = "",
+    ) -> None:
+        """Write this PDF as qpdf JSON (the ``qpdf --json-output`` format, version 2).
+
+        This is the whole-document JSON serialization, distinct from
+        :meth:`pikepdf.Object.to_json` which serializes a single object. The output
+        can be read back with :meth:`Pdf.from_qpdf_json`.
+
+        Args:
+            filename_or_stream: A filename or writable binary stream.
+            decode_level: How much to decode (uncompress) stream data in the JSON.
+                Use :attr:`StreamDecodeLevel.none` to preserve stream data exactly.
+            json_stream_data: How stream data is represented:
+                :attr:`JSONStreamData.inline` (base64 in the JSON),
+                :attr:`JSONStreamData.file` (written to external files using
+                ``file_prefix``), or :attr:`JSONStreamData.none` (omitted).
+            file_prefix: Required when ``json_stream_data`` is
+                :attr:`JSONStreamData.file`; each stream is written to a file named
+                ``{file_prefix}-{object_number}``.
+        """
+        if json_stream_data == JSONStreamData.file and not file_prefix:
+            if isinstance(filename_or_stream, str | Path):
+                file_prefix = str(filename_or_stream)
+            else:
+                raise ValueError(
+                    "file_prefix is required when json_stream_data is "
+                    "JSONStreamData.file and a stream (rather than a filename) "
+                    "is given"
+                )
+        with ExitStack() as stack:
+            if hasattr(filename_or_stream, 'seek'):
+                stream = filename_or_stream
+                check_stream_is_usable(filename_or_stream)
+            else:
+                if not isinstance(filename_or_stream, str | bytes | Path):
+                    raise TypeError("expected str, bytes or os.PathLike object")
+                stream = stack.enter_context(atomic_overwrite(Path(filename_or_stream)))
+            self._write_qpdf_json(
+                stream,
+                decode_level=decode_level,
+                json_stream_data=json_stream_data,
+                file_prefix=file_prefix,
+            )
+
+    @staticmethod
+    def from_qpdf_json(filename_or_stream: Path | str | BinaryIO) -> Pdf:
+        """Create a new Pdf from qpdf JSON, as written by :meth:`Pdf.write_qpdf_json`.
+
+        The JSON must be a complete representation of a PDF (``qpdf --json-output``
+        version 2 or higher). To merge JSON into an existing Pdf, use
+        :meth:`Pdf.update_from_qpdf_json` instead.
+
+        Args:
+            filename_or_stream: A filename or readable binary stream containing
+                qpdf JSON.
+        """
+        with ExitStack() as stack:
+            if hasattr(filename_or_stream, 'read'):
+                stream = filename_or_stream
+                description = f"stream {stream}"
+            else:
+                stream = stack.enter_context(open(filename_or_stream, 'rb'))
+                description = str(filename_or_stream)
+            return Pdf._from_qpdf_json(stream, description=description)
+
+    def update_from_qpdf_json(self, filename_or_stream: Path | str | BinaryIO) -> None:
+        """Update this Pdf from qpdf JSON, as written by :meth:`Pdf.write_qpdf_json`.
+
+        Objects present in this Pdf but absent from the JSON are left unchanged.
+        See :meth:`Pdf.from_qpdf_json` to create a new Pdf instead.
+
+        Args:
+            filename_or_stream: A filename or readable binary stream containing
+                qpdf JSON.
+        """
+        with ExitStack() as stack:
+            if hasattr(filename_or_stream, 'read'):
+                stream = filename_or_stream
+                description = f"stream {stream}"
+            else:
+                stream = stack.enter_context(open(filename_or_stream, 'rb'))
+                description = str(filename_or_stream)
+            self._update_from_qpdf_json(stream, description=description)
 
     @staticmethod
     def open(
@@ -659,7 +809,96 @@ class Extend_Page:
         self.obj['/TrimBox'] = value
 
     @property
+    def rotation(self) -> int:
+        """The page's clockwise rotation in degrees, normalized to ``[0, 360)``.
+
+        Unlike the raw ``page.Rotate`` attribute, this property reports the
+        *effective* rotation: it resolves a ``/Rotate`` value inherited from the
+        page tree and reports ``0`` when no rotation is set, instead of raising.
+        Assigning to this property sets the absolute rotation; to rotate
+        relative to the current value, use :meth:`rotate` with ``relative=True``.
+
+        .. versionadded:: 10.9
+        """
+        return self._get_rotation()
+
+    @rotation.setter
+    def rotation(self, angle: int) -> None:
+        self.rotate(angle, relative=False)
+
+    @augment_override_cpp
+    def rotate(self, angle: int, /, *args: bool, relative: bool = False) -> None:  # noqa: D417
+        """Rotate this page.
+
+        If ``relative`` is ``False`` (the default), set the page's rotation to
+        ``angle``. If ``relative`` is ``True``, add ``angle`` to the page's
+        current rotation. ``angle`` must be a multiple of ``90``; a positive
+        angle rotates the page clockwise.
+
+        Args:
+            angle: Rotation angle in degrees, a multiple of ``90``.
+            relative: If ``True``, add ``angle`` to the current rotation; if
+                ``False``, set the rotation to ``angle``.
+
+        .. deprecated:: 10.9
+            Passing ``relative`` as a positional argument is deprecated; pass it
+            as a keyword argument instead, e.g. ``page.rotate(90, relative=True)``.
+        """
+        # TODO(pikepdf 11): drop positional support for ``relative`` -- change
+        # the signature to ``def rotate(self, angle, *, relative=False)`` and
+        # remove the ``*args`` deprecation shim below.
+        if args:
+            if len(args) > 1:
+                raise TypeError(
+                    f"rotate() takes at most 2 positional arguments but "
+                    f"{1 + len(args)} were given"
+                )
+            warn(
+                "Passing 'relative' as a positional argument to Page.rotate() "
+                "is deprecated; pass it as a keyword argument instead, e.g. "
+                "page.rotate(90, relative=True). Positional support will be "
+                "removed in pikepdf 11.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            relative = args[0]
+        self._cpprotate(angle, bool(relative))
+
+    @property
     def images(self) -> _ObjectMapping:
+        """Return images directly referenced by this page's resources.
+
+        .. deprecated:: 10.9
+            Use :meth:`get_images` instead. This property reports only images
+            referenced directly by the page and silently omits images nested
+            inside form XObjects. Because it is not visually obvious when a page's
+            content is wrapped in a form XObject, this often appears as if a page
+            "has no images" when it clearly does. :meth:`get_images` recurses into
+            form XObjects by default.
+        """
+        warn(
+            "Page.images is deprecated and will be removed in a future version. "
+            "Use Page.get_images() instead, which by default also finds images "
+            "nested inside form XObjects.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._images
+
+    def get_images(self, recursive: bool = True) -> _ObjectMapping:
+        """Return the images used by this page.
+
+        Args:
+            recursive: If True (the default), also report images nested inside
+                form XObjects referenced by this page, recursing to any depth.
+                This is usually what you want, since a page's visible content is
+                often drawn entirely through one or more form XObjects. If two
+                images in different XObject scopes happen to share a resource
+                name, only one of them is reported. If False, report only images
+                referenced directly by this page's resources.
+        """
+        if recursive:
+            return self._images_recursive
         return self._images
 
     @property

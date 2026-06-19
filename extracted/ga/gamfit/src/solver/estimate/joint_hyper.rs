@@ -112,6 +112,14 @@ pub(crate) struct ExternalJointHyperEvaluator<'a> {
     /// revision yet recorded" — every subsequent call is treated as a
     /// fresh-canonical case and the slow path runs.
     pub(crate) last_canonical_revision: Option<u64>,
+    /// The ψ at which the last full `reset_surface` (slow path) realized and
+    /// froze the reduced-basis reference surface (#1264). The design-revision
+    /// fast path keeps that surface frozen while re-keying the Gram/penalty to
+    /// the trial ψ; the skip is sound only when the realized reduced basis at
+    /// this pinning ψ is still valid at the trial ψ, certified n-free by
+    /// [`crate::solver::psi_gram_tensor::PsiGramTensor::reduced_basis_equal`].
+    /// `None` until the first slow-path reset records a single-ψ trial.
+    pub(crate) last_reset_psi: Option<f64>,
     /// Certified Chebyshev-in-ψ Gram tensor for the SINGLE design-moving
     /// hyperparameter (#1033b, isotropic spatial κ): when present and the
     /// trial ψ lies inside the certified window, `prepare_eval_state`
@@ -122,6 +130,13 @@ pub(crate) struct ExternalJointHyperEvaluator<'a> {
     /// statistics are frame-exact against the streamed ones.
     pub(crate) psi_gram_tensor:
         Option<std::sync::Arc<crate::solver::psi_gram_tensor::PsiGramTensor>>,
+    /// Exact k-space correction from the slow-reset Gaussian cache at
+    /// `last_reset_psi`: `(psi_ref, G_exact(ref)-G_tensor(ref),
+    /// r_exact(ref)-r_tensor(ref))`. The initial slow path already paid the row
+    /// pass and built the exact Gaussian cache for its inner solve; the
+    /// design-revision fast path can reuse that anchor to remove the tensor's
+    /// residual without realizing rows again.
+    pub(crate) psi_gram_anchor_correction: Option<(f64, Array2<f64>, Array1<f64>)>,
     /// EXACT n-free per-ψ canonical penalty surface `S(ψ)` staged for the
     /// CURRENT ψ-trial (#1033, penalty lane). For a spatial smooth ψ (= log
     /// length-scale) moves BOTH the design Gram AND the penalty `S(ψ)` (the
@@ -253,7 +268,9 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             kronecker_factored: opts.kronecker_factored.clone(),
             reml_state,
             last_canonical_revision: None,
+            last_reset_psi: None,
             psi_gram_tensor: None,
+            psi_gram_anchor_correction: None,
             pending_psi_penalty: None,
             supports_nfree_penalty_rekey: false,
             pending_glm_first_step_gram: None,
@@ -269,6 +286,19 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
     /// checking this counter is unchanged across a repeat-revision eval.
     pub(crate) fn slow_path_reset_count(&self) -> u64 {
         self.slow_path_reset_count.get()
+    }
+
+    /// Record the pinning ψ frozen by a slow-path `reset_surface` (#1264): the
+    /// single design-moving ψ when `theta` carries one (`theta.len() == rho_dim +
+    /// 1`), else `None` (multi-ψ / no-ψ fits have no single-ψ skip witness). The
+    /// design-revision fast path certifies its skip against this ψ via
+    /// `psi_gram_tensor_covers_skip`.
+    fn record_reset_psi(&mut self, theta: &Array1<f64>, rho_dim: usize) {
+        self.last_reset_psi = if theta.len() == rho_dim + 1 {
+            Some(theta[rho_dim])
+        } else {
+            None
+        };
     }
 
     /// Stage (or clear) the frozen-weight GLM first-Fisher-step Gram for the
@@ -377,6 +407,7 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         match tensor {
             Some(tensor) => {
                 self.psi_gram_tensor = Some(std::sync::Arc::new(tensor));
+                self.psi_gram_anchor_correction = None;
                 true
             }
             None => false,
@@ -482,19 +513,26 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             .is_some_and(|t| t.contains(psi))
     }
 
-    /// True when a certified ψ-Gram tensor is installed AND `psi` lies inside its
-    /// CONDITIONING-STABLE skip sub-window — the region where the design-revision
-    /// fast-path skip (re-key Gram + penalty on a frozen reference surface)
-    /// reproduces the exact slow-path β̂ (#1216, item 3). On the wide standardized
-    /// window the radial-kernel Gram conditioning (hence the reduced-rank basis)
-    /// moves with ψ; a skip across that move would pair a stale reduced basis with
-    /// a re-keyed Gram and yield a wrong β̂. The caller gates the
-    /// design-realization skip on this so the fast path fires only where it is
-    /// sound; elsewhere the full `reset_surface` slow path runs.
+    /// True when a certified ψ-Gram tensor is installed AND the design-revision
+    /// fast-path skip to `psi` is SOUND given the reduced-basis reference surface
+    /// frozen at the last slow-path reset ψ (`last_reset_psi`) (#1264, #1216 item
+    /// 3). The skip re-keys the Gram + penalty on the frozen reference surface;
+    /// it reproduces the exact slow-path β̂ only when the realized reduced basis
+    /// (the range / null split of the conditioned data Gram) at the pinning ψ is
+    /// still valid at `psi`. On the wide standardized window the radial-kernel
+    /// reduced subspace can rotate with ψ; a skip across that rotation pairs a
+    /// stale reduced basis with a re-keyed Gram and yields a wrong β̂. The pairwise
+    /// witness [`PsiGramTensor::reduced_basis_equal`] compares the gauge-invariant
+    /// range projectors at the two ψ's n-free; the skip fires only where they
+    /// span the same subspace. Without a recorded pinning ψ the skip is refused.
     pub(crate) fn psi_gram_tensor_covers_skip(&self, psi: f64) -> bool {
-        self.psi_gram_tensor
-            .as_ref()
-            .is_some_and(|t| t.contains_for_skip(psi))
+        let Some(tensor) = self.psi_gram_tensor.as_ref() else {
+            return false;
+        };
+        let Some(psi_ref) = self.last_reset_psi else {
+            return false;
+        };
+        tensor.reduced_basis_equal(psi_ref, psi)
     }
 
     /// True when the design-revision fast path of [`Self::prepare_eval_state`]
@@ -565,7 +603,38 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         // Clone the Arc handle so the immutable borrow of `self.psi_gram_tensor`
         // is released before the `&mut self.reml_state` installs below.
         let tensor = std::sync::Arc::clone(tensor);
-        let cache = tensor.gaussian_fixed_cache_at(psi);
+        let mut cache = tensor.gaussian_fixed_cache_at(psi);
+        if let Some(psi_ref) = self.last_reset_psi.filter(|p| tensor.contains(*p)) {
+            let correction_is_current = self
+                .psi_gram_anchor_correction
+                .as_ref()
+                .is_some_and(|(p, _, _)| *p == psi_ref);
+            if !correction_is_current
+                && let Some(anchor) = self.reml_state.installed_gaussian_fixed_cache()
+                && !anchor.row_prediction_is_stale
+                && anchor.xtwx_orig.dim() == cache.xtwx_orig.dim()
+                && anchor.xtwy_orig.len() == cache.xtwy_orig.len()
+            {
+                let tensor_at_ref = tensor.gaussian_fixed_cache_at(psi_ref);
+                if tensor_at_ref.xtwx_orig.dim() == anchor.xtwx_orig.dim()
+                    && tensor_at_ref.xtwy_orig.len() == anchor.xtwy_orig.len()
+                {
+                    self.psi_gram_anchor_correction = Some((
+                        psi_ref,
+                        &anchor.xtwx_orig - &tensor_at_ref.xtwx_orig,
+                        &anchor.xtwy_orig - &tensor_at_ref.xtwy_orig,
+                    ));
+                }
+            }
+            if let Some((p, gram_delta, rhs_delta)) = &self.psi_gram_anchor_correction
+                && *p == psi_ref
+                && gram_delta.dim() == cache.xtwx_orig.dim()
+                && rhs_delta.len() == cache.xtwy_orig.len()
+            {
+                cache.xtwx_orig += gram_delta;
+                cache.xtwy_orig += rhs_delta;
+            }
+        }
         if !self
             .reml_state
             .install_gaussian_fixed_cache(Arc::new(cache))
@@ -576,12 +645,20 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         log::debug!(
             "[psi-gram-tensor] installed n-free Gaussian sufficient statistics at psi={psi:.6}"
         );
-        // Install the conditioned-frame exact ψ-derivatives so the Gaussian
-        // ψ-gradient HyperCoord is assembled from these k×k objects instead of
-        // the n×k ∂X/∂ψ slab — retiring the second per-trial n-pass. Only on the
-        // certified gradient SUB-window: near the ψ-window edges the Chebyshev
-        // derivative reconstruction (T_d′ ∼ d²) is not bit-tight, so those
-        // trials keep the exact slab gradient.
+        // Install the conditioned-frame EXACT ANALYTIC ψ-derivatives so the
+        // Gaussian ψ-gradient HyperCoord is assembled from these k×k objects
+        // instead of the n×k ∂X/∂ψ slab — but ONLY on the certified gradient
+        // SUB-window `contains_for_gradient`. Differentiating the Chebyshev value
+        // interpolant AMPLIFIES its interpolation error (`T_d′ ∼ d²`), so near the
+        // large-ψ window edges the analytic ψ-derivative GENUINELY fails the
+        // certification tolerance even though the VALUE reconstruction still
+        // certifies there — this is a real accuracy boundary, not a certification
+        // artifact. Outside the sub-window we return `false` (no tensor derivative
+        // installed): the caller then computes the EXACT STREAMED ψ-gradient from
+        // the realized n×k ∂X/∂ψ slab for that trial (O(n) for the rare edge evals;
+        // most κ trials land interior). Every gradient is therefore EXACT —
+        // analytic in the interior, exact-streamed at the edges — never an
+        // approximation (no finite difference in production).
         if tensor.contains_for_gradient(psi)
             && self.reml_state.install_gaussian_psi_gram_deriv(Arc::new((
                 tensor.dgram_dpsi(psi),
@@ -589,15 +666,15 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             )))
         {
             log::debug!(
-                "[psi-gram-tensor] installed n-free ψ-gradient derivatives at psi={psi:.6}"
+                "[psi-gram-tensor] installed n-free analytic ψ-gradient derivatives at \
+                 psi={psi:.6}"
             );
             true
         } else {
-            // In the VALUE window but outside the certified GRADIENT sub-window
-            // (or the deriv shape refused). The value cache above is sound and
-            // stays; clear any derivative pair left from a prior in-sub-window ψ
-            // so the gradient lane uses the exact slab for this trial rather than
-            // a stale derivative carried over on the design-revision fast path.
+            // Outside the certified gradient sub-window (or the derivative shape
+            // refused). Clear any derivative pair left from a prior in-sub-window ψ
+            // so the gradient lane computes the EXACT streamed slab for this trial
+            // rather than reusing a stale derivative carried over on the fast path.
             self.reml_state.clear_gaussian_psi_gram_deriv();
             false
         }
@@ -656,8 +733,24 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         // `reset_surface` work entirely. Hyper-direction conditioning still
         // runs (hyper_dirs are freshly constructed per call) and the
         // warm-start beta / penalty-shrinkage floor still need refreshing.
+        //
+        // #1033 (reduced-basis rotation): the fast path keeps the realized
+        // `self.x` frozen at the pinning ψ but re-keys the Gaussian Gram cache
+        // (`install_psi_gram_statistics`) and the canonical penalty surface
+        // (`refresh_psi_penalty_surface`) to this trial's ψ. The inner
+        // Gaussian-identity solve reads its data statistics ONLY from those
+        // re-keyed k×k objects (and the penalty-derived reparametrization Qs),
+        // never from `self.x` rows, so the skip is sound across a basis ROTATION
+        // — gated on the n-free VALUE coverage (`psi_gram_tensor_covers`), the
+        // condition under which the cache re-key actually fires, rather than the
+        // stricter `reduced_basis_equal` witness (which refused sound rotated-
+        // basis skips and forced the O(n) `reset_surface` fallback).
+        let skip_window_allows_fast_path = match (self.psi_gram_tensor.is_some(), theta.len()) {
+            (true, len) if len == rho_dim + 1 => self.psi_gram_tensor_covers(theta[rho_dim]),
+            _ => true,
+        };
         let fast_path = match (design_revision, self.last_canonical_revision) {
-            (Some(rev), Some(last)) => rev == last,
+            (Some(rev), Some(last)) => rev == last && skip_window_allows_fast_path,
             _ => false,
         };
 
@@ -776,6 +869,10 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             .set_penalty_shrinkage_floor(self.penalty_shrinkage_floor);
         self.reml_state.setwarm_start_original_beta(warm_start_beta);
         self.last_canonical_revision = design_revision;
+        // #1264: freeze the reduced-basis reference ψ this slow-path reset pins,
+        // so the next design-revision fast path can certify its skip against it.
+        self.record_reset_psi(theta, rho_dim);
+        self.psi_gram_anchor_correction = None;
         // #1216 hybrid: on the SLOW path the design was just REALIZED (the n×k
         // `x_fit` is live in `reset_surface` above), so the inner PLS forms the
         // EXACT `XᵀWX(ψ)` from it. We deliberately do NOT install the certified
@@ -971,27 +1068,35 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
         // full `reset_surface`, the cached surface's X, canonical penalties,
         // gaussian-fixed cache, and PIRLS cache are all still keyed to the
         // exact same (X, y, w, offset) — skip the eigendecomp + cache wipe.
+        //
+        // #1033 (reduced-basis rotation): a value-only probe's Gaussian-identity
+        // inner solve reads its data statistics ONLY from the re-keyed
+        // `GaussianFixedCache` + penalty-derived reparametrization Qs, never from
+        // the frozen `self.x` rows, so the skip is sound across a basis ROTATION.
+        // Gate on the n-free VALUE coverage (the condition under which the cache
+        // re-key fires) rather than the stricter `reduced_basis_equal` witness,
+        // which refused sound rotated-basis skips and forced the O(n) fallback.
+        let skip_window_allows_fast_path = match (self.psi_gram_tensor.is_some(), theta.len()) {
+            (true, len) if len == rho_dim + 1 => self.psi_gram_tensor_covers(theta[rho_dim]),
+            _ => true,
+        };
         let fast_path = match (design_revision, self.last_canonical_revision) {
-            (Some(rev), Some(last)) => rev == last,
+            (Some(rev), Some(last)) => rev == last && skip_window_allows_fast_path,
             _ => false,
         };
         if fast_path {
             self.reml_state
                 .set_penalty_shrinkage_floor(self.penalty_shrinkage_floor);
             self.reml_state.setwarm_start_original_beta(warm_start_beta);
-            // #1111 / #1033 mechanism (c): a BFGS line-search VALUE probe runs at
-            // a DIFFERENT ψ than the full eval that staged the frozen-W first-step
-            // Gram. On the design-revision fast path `reset_surface` is skipped, so
-            // a Gram installed for a prior trial's ψ would otherwise leak into this
-            // probe's inner P-IRLS first iteration — a wrong-ψ Gram. The frozen
-            // first-step lane is gradient/full-eval-only (eval_full is the sole
-            // stager), so unconditionally clear the slot here; the probe restreams
-            // its first-iteration Gram exactly.
-            self.reml_state.clear_glm_first_step_gram();
-            // Same wrong-ψ-leak reasoning for the GLM frozen-W ψ-gradient
-            // derivative (#1033 / #1111): clear it so a prior trial's ψ pair
-            // never serves this probe's gradient; it restreams the exact slab.
-            self.reml_state.clear_glm_psi_gram_deriv();
+            // #1111 / #1033 mechanism (c): a BFGS line-search VALUE probe can
+            // carry its own ψ-keyed frozen-W first-step Gram staged by
+            // `SpatialJointContext::eval_cost`. Install that staged Gram here on
+            // the same fast path as full evals; when no current-probe value was
+            // staged, this call clears any prior ψ's slot so stale GLM statistics
+            // never leak into the probe. Cost-only probes do not consume the GLM
+            // ψ-gradient derivative, so the stager passes `None` for that slot
+            // and this call clears it as well.
+            self.install_pending_glm_trial_statistics();
             // #1033: the Gaussian-identity `gaussian_fixed_cache` is ALSO keyed to
             // the trial's ψ (the certified ψ-Gram tensor's `XᵀWX(ψ)/XᵀWz(ψ)`), and
             // a VALUE probe runs at a different ψ than the eval that installed it.
@@ -1064,6 +1169,10 @@ impl<'a> ExternalJointHyperEvaluator<'a> {
             .set_penalty_shrinkage_floor(self.penalty_shrinkage_floor);
         self.reml_state.setwarm_start_original_beta(warm_start_beta);
         self.last_canonical_revision = design_revision;
+        // #1264: freeze the reduced-basis reference ψ this slow-path reset pins.
+        self.record_reset_psi(theta, rho_dim);
+        self.psi_gram_anchor_correction = None;
+        self.install_pending_glm_trial_statistics();
         self.install_psi_gram_statistics(theta, rho_dim);
         // #1033 penalty lane: the slow cost-only path rebuilt `S` from the freshly
         // realized design — drop any staged n-free penalty so a later fast-path

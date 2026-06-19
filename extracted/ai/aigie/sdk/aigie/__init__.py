@@ -493,7 +493,7 @@ __all__ = [
     "AutonomousRuntime",
 ]
 
-__version__ = "0.2.45"
+__version__ = "0.2.46"
 
 
 # Lazy imports for performance

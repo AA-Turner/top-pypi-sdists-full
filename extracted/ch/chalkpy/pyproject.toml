@@ -539,6 +539,7 @@ version = { attr = "chalk._version.__version__" }
 profile = "black"
 py_version = 310
 line_length = 120
+known_first_party = ["chalk", "chalk_rs"]
 skip = ["chalk/feature_n/__init__.py"]
 
 [tool.black]

@@ -33,6 +33,10 @@ class Endpoint:
     * **app** (App): Takes App.
     * **name** (str): Name of endpoint passed to App().
     * **model** (obj, optional): Custom model for given app.
+    * **literal_name** (bool, optional): When True, use ``name`` verbatim
+      as the URL slug instead of converting underscores to dashes. Used to
+      reach endpoints whose slug legitimately contains underscores
+      (e.g. custom objects). Defaults to False.
 
     ## Note
 
@@ -40,11 +44,16 @@ class Endpoint:
     names you should convert the dash to an underscore.
     (E.g. querying the ip-addresses endpoint is done with
     ``nb.ipam.ip_addresses.all()``.)
+
+    For the rare endpoint whose slug really does contain underscores,
+    use ``App.endpoint()`` (e.g.
+    ``nb.plugins.custom_objects.endpoint("my_custom_object")``) which sets
+    ``literal_name=True`` so no conversion is applied.
     """
 
-    def __init__(self, api, app, name, model=None):
+    def __init__(self, api, app, name, model=None, literal_name=False):
         self.return_obj = self._lookup_ret_obj(name, model)
-        self.name = name.replace("_", "-")
+        self.name = name if literal_name else name.replace("_", "-")
         self.api = api
         self.app = app
         self.base_url = api.base_url
@@ -118,9 +127,13 @@ class Endpoint:
                 f"Error while parsing Netbox OpenAPI specification: {exc}"
             )
 
-        # Validate all parameters
+        # Validate all parameters. Custom field filters (cf_<fieldname>, plus
+        # lookup expressions like cf_<fieldname>__gt) are per-instance dynamic
+        # and not listed in the OpenAPI spec, so they are skipped here.
         validation_errors = []
         for p in parameters:
+            if p.startswith("cf_"):
+                continue
             if p not in allowed_parameters:
                 validation_errors.append(
                     f"'{p}' is not allowed as parameter on path '{openapi_definition_path}'."
@@ -173,8 +186,14 @@ class Endpoint:
             token=self.token,
             http_session=self.api.http_session,
             threading=self.api.threading,
+            thread_pool_executor=self.api.thread_pool_executor,
+            max_workers=self.api.max_workers,
             limit=limit,
             offset=offset,
+            # Passed uncalled so the version probe behind
+            # _effective_pagination() is deferred until the request actually
+            # runs, rather than firing when this lazy RecordSet is built.
+            pagination=self.api._effective_pagination,
         )
 
         return RecordSet(self, req)
@@ -348,8 +367,14 @@ class Endpoint:
             token=self.token,
             http_session=self.api.http_session,
             threading=self.api.threading,
+            thread_pool_executor=self.api.thread_pool_executor,
+            max_workers=self.api.max_workers,
             limit=limit,
             offset=offset,
+            # Passed uncalled so the version probe behind
+            # _effective_pagination() is deferred until the request actually
+            # runs, rather than firing when this lazy RecordSet is built.
+            pagination=self.api._effective_pagination,
         )
 
         return RecordSet(self, req)
@@ -632,24 +657,29 @@ class DetailEndpoint:
             ]
         return req
 
-    def create(self, data=None):
+    def create(self, data=None, **kwargs):
         """The write operation for a detail endpoint.
 
         Creates objects on a detail endpoint in NetBox.
 
         ## Parameters
 
-        * **data** (dict/list, optional): A dictionary containing the
+        * **data** (dict/list, optional): A dictionary or list containing the
             key/value pair of the items you're creating on the parent
             object. Defaults to empty dict which will create a single
             item with default values.
+        * **kwargs**: Alternative to `data`, fields and values to create
+            the object with — mirrors `Endpoint.create()`. Cannot be
+            combined with `data`.
 
         ## Returns
         A Record object or list of Record objects created
         from data created in NetBox.
         """
-        data = data or {}
-        req = Request(**self.request_kwargs).post(data)
+        if data is not None and kwargs:
+            raise ValueError("Cannot pass both data and keyword arguments")
+        payload = data if data is not None else kwargs
+        req = Request(**self.request_kwargs).post(payload)
         if self.custom_return:
             if isinstance(req, list):
                 return [
@@ -666,7 +696,7 @@ class DetailEndpoint:
 
 
 class RODetailEndpoint(DetailEndpoint):
-    def create(self, data):
+    def create(self, data=None, **kwargs):
         raise NotImplementedError("Writes are not supported for this endpoint.")
 
 

@@ -562,8 +562,45 @@ def build_argparse():
     # Large Margin is from Large Margin In Softmax Cross-Entropy Loss
     # it did not help on an Italian VIT test
     # scores went from 0.8252 to 0.8248
-    parser.add_argument('--loss', default='cross', help='cross, large_margin, or focal.  Focal requires `pip install focal_loss_torch`')
+    # perhaps the reg_lambda was too high for the number of classes learned
+    # (one class per Open type)
+    # experimenting with different values of reg_lambda on the ja_alt dataset,
+    # the dev scores look like this after 200 iterations (May 2026 defaults)
+    #   0.001 : 0.928365
+    #   0.002 : 0.930509
+    #   0.0025: 0.929854
+    #   0.003 : 0.930621
+    #   0.004 : 0.926896
+    #   0.005 : 0.932288
+    #   0.006 : 0.926906
+    #   0.007 : 0.930171
+    #   0.008 : 0.929211
+    #   0.009 : 0.930499
+    #   0.01  : 0.929094
+    #   0.025 : 0.927757
+    #   0.05  : 0.929669
+    #   0.1   : 0.928322
+    #   0.15  : 0.927854
+    #   0.2   : 0.927908
+    # compare with the original loss: 0.928963
+    # running 5x averaged with 0.003: 0.929756
+    # however, running this on two other datasets proved less helpful
+    # so the `--loss large_margin` setting is preserved as an option,
+    # but cross-entropy is kept as the default, since large_margin
+    # did not lead to a consistent improvement.
+    #           cross-entropy    large-margin, 0.003
+    #  de_spmrl  0.9586            0.95844          - 0.00016
+    #  en_ptb3   0.96299           0.96296          - 0.00003
+    #  id_icon   0.896481          0.89698          + 0.0005
+    #  it_vit    0.849556          0.849382         - 0.0002
+    #  ja_alt    0.928963          0.929756         + 0.0007
+    #
+    # Another experiment to run would be a weighted cross entropy
+    # using the transition frequencies as weights
+    parser.add_argument('--loss', default='cross', choices=['cross', 'large_margin', 'focal'],
+                        help='cross, large_margin, or focal.  Focal requires `pip install focal_loss_torch`')
     parser.add_argument('--loss_focal_gamma', default=2, type=float, help='gamma value for a focal loss')
+    parser.add_argument('--loss_reg_lambda', default=0.003, type=float, help='reg_lambda for large margin loss')
 
     # turn off dropout for word_dropout, predict_dropout, and lstm_input_dropout
     # this mechanism doesn't actually turn off lstm_layer_dropout (yet)
@@ -641,8 +678,19 @@ def build_argparse():
     #  0.8253 with maxout, k = 3              (5)
     # The speed in terms of trees/second might be slightly slower with maxout.
     #  51.4 it/s on a Titan Xp with maxout 2 and 51.9 it/s with relu
-    # It might also be worth running some experiments with bigger
-    # output layers to see if that makes up for the difference in score.
+    #
+    # Running a few more experiments in June 2026, with N-1 maxout
+    # layers and one final linear output layer, averaged dev scores
+    # over a few models, makes it look like noise at best:
+    #
+    # Config                  ID         IT         DE
+    # ----------------------  ---------  ---------  ---------
+    # Baseline                0.896995   0.849654   0.958804
+    # Maxout k=2              0.897340   0.848253   0.958643
+    # Maxout k=3              0.896351   0.849062   0.958899
+    # Maxout k=5              0.896050
+    # Maxout k=2, 3 layers    0.896525   0.848185   0.958639
+    # Maxout k=5, 3 layers    0.895786
     parser.add_argument('--maxout_k', default=None, type=int, help="Use maxout layers instead of a nonlinearity for the output layers")
 
     parser.add_argument('--use_silver_words', default=True, dest='use_silver_words', action='store_true', help="Train/don't train word vectors for words only in the silver dataset")
@@ -653,7 +701,66 @@ def build_argparse():
 
     parser.add_argument('--num_lstm_layers', default=2, type=int, help='How many layers to use in the LSTMs')
     parser.add_argument('--num_tree_lstm_layers', default=None, type=int, help='How many layers to use in the TREE_LSTMs, if used.  This also increases the width of the word outputs to match the tree lstm inputs.  Default 2 if TREE_LSTM or TREE_LSTM_CX, 1 otherwise')
-    parser.add_argument('--num_output_layers', default=3, type=int, help='How many layers to use at the prediction level')
+    # Number of output layers in the final MLP
+    # Previous versions used 3, but had a bug which did not include
+    # any nonlinearity between the final two layers
+    # It turned out that condensing those layers into one layer was
+    # mathematically possible and gave the exact same results
+    # We then built a few models with different seeds, averaging the
+    # dev set scores, and found that there wasn't really an advantage
+    # to continuing to use 3 layers
+    # (although note the difference in JA scores)
+    #     2 output layers  3 output layers
+    # DE   0.95859975       0.958617
+    # EN   0.962747         0.962415
+    # ID   0.8964806        0.896985
+    # IT   0.8497188        0.849343
+    # JA   0.92896325       0.930728
+    parser.add_argument('--num_output_layers', default=2, type=int, help='How many layers to use at the prediction level')
+    parser.add_argument('--output_layer_sizes', default=None, type=int, nargs='+', help='How large to make the intermediate connections in the output layers.  Default if not specified will be the same as --hidden_size for each layer')
+    parser.add_argument('--no_condense_output_layers', dest='condense_output_layers', default=True, action='store_false', help='After training, dead output rows will be removed from the output layers.  (Not impossible transitions, of course.)  This can be turned off, but it has no effect on accuracy and makes the final model slightly smaller and faster')
+    parser.add_argument('--condense_output_threshold', default=0.001, type=float, help='Threshold at which to condense an output row (relative to the other output rows)')
+
+    # Setting the --lstm_forget_init without also setting the --lstm_bias_weight_decay
+    # is basically useless, since the weight decay pushes the forget bias
+    # (and all the biases) to 0
+    #
+    # Experimenting with the forget init with weight decay off didn't consistently help
+    #
+    # Setting the weight_decay to a value such as 0 is the more interesting experiment
+    # We ran some extensive experiments which seem to show a tiny benefit for setting it to 0.0:
+    #
+    #  no forget initialization, regular weight decay
+    # DE 0.95859975
+    # EN 0.962747
+    # ID 0.8964806
+    # IT 0.8497188
+    # JA 0.92896325
+    #
+    #  default pytorch init, wd 0
+    # DE 0.9585272
+    # EN 0.9625
+    # ID 0.8966382
+    # IT 0.8496492
+    # JA 0.930267
+    #
+    #  f0, wd 0
+    # DE 0.9580726
+    # EN 0.963001
+    # ID 0.8970284
+    # IT 0.8504895999999998
+    # JA 0.929522
+    #
+    #  f1, wd 0
+    # DE 0.9581934
+    # EN 0.9626946666666667
+    # JA 0.9294432499999999
+    #
+    #  f1, wd 0.0001
+    # EN 0.9626686666666666
+    parser.add_argument('--lstm_forget_init', default=None, type=float, help='Initialization value for the forget gates of the LSTMs')
+    parser.add_argument('--lstm_bias_weight_decay', default=0.0, type=float, help='Use this weight decay for LSTM bias vectors, if set')
+    parser.add_argument('--no_lstm_bias_weight_decay', dest='lstm_bias_weight_decay', action='store_const', const=None, help='Use the same weight decay as the active optimizer for LSTM bias vectors')
 
     parser.add_argument('--sentence_boundary_vectors', default=SentenceBoundary.EVERYTHING, type=lambda x: SentenceBoundary[x.upper()],
                         help='Vectors to learn at the start & end of sentences.  {}'.format(", ".join(x.name for x in SentenceBoundary)))
@@ -750,6 +857,11 @@ def build_argparse():
     parser.add_argument('--wandb_name', default=None, help='Name of a wandb session to start when training.  Will default to the dataset short name')
     parser.add_argument('--wandb_norm_regex', default=None, help='Log on wandb any tensor whose norm matches this matrix.  Might get cluttered?')
 
+    parser.add_argument('--limit_treebank', default=None, type=int, help='Only test this many sentences')
+    parser.add_argument('--write_profile', default=None, help='Write a profile of the constituency parser when scoring the dev set')
+    parser.add_argument('--profile_sort', default='cuda', choices=['cpu', 'cuda'], help='How to sort the profile output of the parser')
+    parser.add_argument('--profile_row_limit', default=30, type=int, help='How many rows to output when printing a profile')
+
     return parser
 
 def build_model_filename(args):
@@ -769,6 +881,19 @@ def build_model_filename(args):
             if args['rattn_sinks'] > 0:
                 rattn += "s%d" % args['rattn_sinks']
 
+    loss = args['loss']
+    if loss == 'large_margin':
+        loss = "%s_%f" % (loss, args['loss_reg_lambda'])
+    elif loss == 'focal':
+        loss = "%s_%f" % (loss, args['loss_focal_gamma'])
+
+    forget = "forget_%s_%s" % (args['lstm_forget_init'], args['lstm_bias_weight_decay'])
+
+    if args['maxout_k']:
+        output = "%d_maxout_%d" % (args['num_output_layers'], args['maxout_k'])
+    else:
+        output = "%d_linear" % args['num_output_layers']
+
     model_save_file = args['save_name'].format(shorthand=args['shorthand'],
                                                oracle_level=args['oracle_level'],
                                                embedding=embedding,
@@ -777,6 +902,9 @@ def build_model_filename(args):
                                                transition_scheme=args['transition_scheme'].name.lower().replace("_", ""),
                                                tscheme=args['transition_scheme'].short_name,
                                                trans_layers=args['bert_hidden_layers'],
+                                               loss=loss,
+                                               forget=forget,
+                                               output=output,
                                                rattn=rattn,
                                                seed=args['seed'])
     model_save_file = re.sub("_+", "_", model_save_file)
@@ -850,6 +978,13 @@ def parse_args(args=None):
 
     if args.wandb_name or args.wandb_norm_regex:
         args.wandb = True
+
+    if args.output_layer_sizes is not None:
+        expected = args.num_output_layers - 1
+        if len(args.output_layer_sizes) != expected:
+            parser.error(f'--output_layer_sizes must have exactly {expected} value(s) '
+                         f'for --num_output_layers {args.num_output_layers} '
+                         f'(got {len(args.output_layer_sizes)})')
 
     args = vars(args)
 

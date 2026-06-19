@@ -46,6 +46,8 @@ export class IntegDefault extends Construct {
 }
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -64,16 +66,40 @@ from jsii._type_checking import check_type
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_codeguruprofiler as _aws_cdk_aws_codeguruprofiler_ceddda9d
-import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
-import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
-import aws_cdk.aws_sqs as _aws_cdk_aws_sqs_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_codeguruprofiler as _aws_cdk_aws_codeguruprofiler_ceddda9d
+    import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
+    import aws_cdk.aws_sns as _aws_cdk_aws_sns_ceddda9d
+    import aws_cdk.aws_sqs as _aws_cdk_aws_sqs_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_codeguruprofiler_ceddda9d = _LazyImport("aws_cdk.aws_codeguruprofiler")
+    _aws_cdk_aws_ec2_ceddda9d = _LazyImport("aws_cdk.aws_ec2")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_kms_ceddda9d = _LazyImport("aws_cdk.aws_kms")
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _aws_cdk_aws_logs_ceddda9d = _LazyImport("aws_cdk.aws_logs")
+    _aws_cdk_aws_sns_ceddda9d = _LazyImport("aws_cdk.aws_sns")
+    _aws_cdk_aws_sqs_ceddda9d = _LazyImport("aws_cdk.aws_sqs")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.enum(jsii_type="cdk-common.AWSManagedPolicies")
@@ -6091,6 +6117,10 @@ class AWSManagedPolicies(enum.Enum):
     :stability: experimental
     '''
     ANTHROPIC_SELF_HOSTED_ENVIRONMENT_ACCESS = "ANTHROPIC_SELF_HOSTED_ENVIRONMENT_ACCESS"
+    '''
+    :stability: experimental
+    '''
+    AWSRESILIENCE_HUB_V2_ASSESSMENT_EXECUTION_POLICY = "AWSRESILIENCE_HUB_V2_ASSESSMENT_EXECUTION_POLICY"
     '''
     :stability: experimental
     '''

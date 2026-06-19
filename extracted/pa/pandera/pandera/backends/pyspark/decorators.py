@@ -7,8 +7,10 @@ from contextlib import contextmanager
 
 from pyspark.sql import DataFrame
 
+_dataframe_types: tuple[type, ...]
 try:
     from pyspark.sql.connect.dataframe import DataFrame as ConnectDataFrame
+
     _dataframe_types = (DataFrame, ConnectDataFrame)
 except ImportError:
     _dataframe_types = (DataFrame,)
@@ -38,7 +40,7 @@ def _get_type_name(dtype) -> str:
 
 
 def register_input_datatypes(
-    acceptable_datatypes: list[type[PysparkDefaultTypes]] = None,
+    acceptable_datatypes: list[type[PysparkDefaultTypes]] | None = None,
 ):
     """
     This decorator is used to register the input datatype for the check.

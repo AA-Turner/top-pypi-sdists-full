@@ -51,6 +51,7 @@ class V2ClusterUpdateParams(object):
         'additional_ntp_source': 'str',
         'ntp_sources': 'str',
         'olm_operators': 'list[OperatorCreateParams]',
+        'operator_bundles': 'list[BundleCreateParams]',
         'hyperthreading': 'str',
         'network_type': 'str',
         'schedulable_masters': 'bool',
@@ -85,6 +86,7 @@ class V2ClusterUpdateParams(object):
         'additional_ntp_source': 'additional_ntp_source',
         'ntp_sources': 'ntp_sources',
         'olm_operators': 'olm_operators',
+        'operator_bundles': 'operator_bundles',
         'hyperthreading': 'hyperthreading',
         'network_type': 'network_type',
         'schedulable_masters': 'schedulable_masters',
@@ -98,7 +100,7 @@ class V2ClusterUpdateParams(object):
         'load_balancer': 'load_balancer'
     }
 
-    def __init__(self, name=None, base_dns_domain=None, cluster_network_cidr=None, platform=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, ingress_vips=None, api_vip_dns_name=None, machine_network_cidr=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=None, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, olm_operators=None, hyperthreading=None, network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
+    def __init__(self, name=None, base_dns_domain=None, cluster_network_cidr=None, platform=None, cluster_network_host_prefix=None, service_network_cidr=None, api_vips=None, ingress_vips=None, api_vip_dns_name=None, machine_network_cidr=None, pull_secret=None, ssh_public_key=None, vip_dhcp_allocation=None, http_proxy=None, https_proxy=None, no_proxy=None, user_managed_networking=None, additional_ntp_source=None, ntp_sources=None, olm_operators=None, operator_bundles=None, hyperthreading=None, network_type=None, schedulable_masters=False, cluster_networks=None, service_networks=None, machine_networks=None, disk_encryption=None, ignition_endpoint=None, tags=None, control_plane_count=None, load_balancer=None):  # noqa: E501
         """V2ClusterUpdateParams - a model defined in Swagger"""  # noqa: E501
 
         self._name = None
@@ -121,6 +123,7 @@ class V2ClusterUpdateParams(object):
         self._additional_ntp_source = None
         self._ntp_sources = None
         self._olm_operators = None
+        self._operator_bundles = None
         self._hyperthreading = None
         self._network_type = None
         self._schedulable_masters = None
@@ -174,6 +177,8 @@ class V2ClusterUpdateParams(object):
             self.ntp_sources = ntp_sources
         if olm_operators is not None:
             self.olm_operators = olm_operators
+        if operator_bundles is not None:
+            self.operator_bundles = operator_bundles
         if hyperthreading is not None:
             self.hyperthreading = hyperthreading
         if network_type is not None:
@@ -644,7 +649,7 @@ class V2ClusterUpdateParams(object):
     def olm_operators(self):
         """Gets the olm_operators of this V2ClusterUpdateParams.  # noqa: E501
 
-        List of OLM operators to be installed. For the full list of supported operators, check the endpoint `/v2/supported-operators`:   # noqa: E501
+        List of standalone OLM operators to be installed (not part of any bundle). For the full list of supported operators, check the endpoint `/v2/supported-operators`:   # noqa: E501
 
         :return: The olm_operators of this V2ClusterUpdateParams.  # noqa: E501
         :rtype: list[OperatorCreateParams]
@@ -655,13 +660,36 @@ class V2ClusterUpdateParams(object):
     def olm_operators(self, olm_operators):
         """Sets the olm_operators of this V2ClusterUpdateParams.
 
-        List of OLM operators to be installed. For the full list of supported operators, check the endpoint `/v2/supported-operators`:   # noqa: E501
+        List of standalone OLM operators to be installed (not part of any bundle). For the full list of supported operators, check the endpoint `/v2/supported-operators`:   # noqa: E501
 
         :param olm_operators: The olm_operators of this V2ClusterUpdateParams.  # noqa: E501
         :type: list[OperatorCreateParams]
         """
 
         self._olm_operators = olm_operators
+
+    @property
+    def operator_bundles(self):
+        """Gets the operator_bundles of this V2ClusterUpdateParams.  # noqa: E501
+
+        List of operator bundles selected by the user with their optional operator choices. The backend expands bundles into their required operators, adds selected optional operators, resolves all dependencies, and tracks bundle membership via source_bundles on monitored operators.   # noqa: E501
+
+        :return: The operator_bundles of this V2ClusterUpdateParams.  # noqa: E501
+        :rtype: list[BundleCreateParams]
+        """
+        return self._operator_bundles
+
+    @operator_bundles.setter
+    def operator_bundles(self, operator_bundles):
+        """Sets the operator_bundles of this V2ClusterUpdateParams.
+
+        List of operator bundles selected by the user with their optional operator choices. The backend expands bundles into their required operators, adds selected optional operators, resolves all dependencies, and tracks bundle membership via source_bundles on monitored operators.   # noqa: E501
+
+        :param operator_bundles: The operator_bundles of this V2ClusterUpdateParams.  # noqa: E501
+        :type: list[BundleCreateParams]
+        """
+
+        self._operator_bundles = operator_bundles
 
     @property
     def hyperthreading(self):

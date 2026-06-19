@@ -26,6 +26,7 @@ from typing import (
 )
 from urllib.parse import unquote
 
+import numpy as np
 import pandas as pd
 import yaml
 from PIL import Image as PILImage
@@ -48,8 +49,7 @@ from pydantic import (
 from tabulate import _column_type, tabulate
 from typing_extensions import Self, deprecated, override
 
-from docling_core.search.package import VERSION_PATTERN
-from docling_core.types.base import _JSON_POINTER_REGEX, UniqueList
+from docling_core.types.base import _JSON_POINTER_REGEX, VERSION_PATTERN, UniqueList
 from docling_core.types.doc import BoundingBox, Size
 from docling_core.types.doc.base import (
     CoordOrigin,
@@ -69,6 +69,13 @@ from docling_core.types.doc.labels import (
 from docling_core.types.doc.tokens import DocumentToken, TableToken
 from docling_core.types.doc.utils import parse_otsl_table_content, relative_path
 from docling_core.utils.settings import settings
+
+try:
+    import cv2
+
+    CV2_INSTALLED = True
+except ImportError:
+    CV2_INSTALLED = False
 
 _logger = logging.getLogger(__name__)
 
@@ -414,7 +421,7 @@ class TableData(BaseModel):  # TBD
     def grid(
         self,
     ) -> list[list[TableCell]]:
-        """grid."""
+        """Grid."""
         # Initialise empty table data grid (only empty cells)
         table_data = [
             [
@@ -1189,12 +1196,39 @@ class ImageRef(BaseModel):
             raise ValueError(f"'{v}' is not a valid MIME type")
         return v
 
-    @classmethod
-    def from_pil(cls, image: PILImage.Image, dpi: int) -> Self:
-        """Construct ImageRef from a PIL Image."""
+    @staticmethod
+    def _to_img_str_cv2(image: PILImage.Image) -> str:
+        arr = np.ascontiguousarray(np.asarray(image))
+
+        if image.mode == "RGB":
+            encoded = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+        elif image.mode == "RGBA":
+            encoded = cv2.cvtColor(arr, cv2.COLOR_RGBA2BGRA)
+        elif image.mode == "L":
+            encoded = arr
+        else:
+            return ImageRef._to_img_str_pil(image)
+
+        ok, buffered = cv2.imencode(".png", encoded)
+        if not ok:
+            return ImageRef._to_img_str_pil(image)
+
+        return base64.b64encode(buffered.tobytes()).decode("utf-8")
+
+    @staticmethod
+    def _to_img_str_pil(image: PILImage.Image) -> str:
         buffered = BytesIO()
         image.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+        return img_str
+
+    @classmethod
+    def from_pil(cls, image: PILImage.Image, dpi: int) -> Self:
+        """Construct ImageRef from a PIL Image."""
+        if CV2_INSTALLED:
+            img_str = cls._to_img_str_cv2(image)
+        else:
+            img_str = cls._to_img_str_pil(image)
         img_uri = f"data:image/png;base64,{img_str}"
         return cls(
             mimetype="image/png",
@@ -2419,7 +2453,6 @@ class TableItem(FloatingItem):
 
     def export_to_dataframe(self, doc: Optional["DoclingDocument"] = None) -> pd.DataFrame:
         """Export the table as a Pandas DataFrame."""
-
         return self._export_to_dataframe_with_options(doc=doc)
 
     def _export_to_dataframe_with_options(
@@ -2428,7 +2461,6 @@ class TableItem(FloatingItem):
         **kwargs: Any,
     ) -> pd.DataFrame:
         """Export the table as a Pandas DataFrame with contextual named arguments."""
-
         if doc is None:
             _logger.warning("Usage of TableItem.export_to_dataframe() without `doc` argument is deprecated.")
 
@@ -2590,10 +2622,11 @@ class TableItem(FloatingItem):
                     cell.start_col_offset_idx,
                 )
 
-                if len(doc.pages.keys()):
-                    page_w, page_h = doc.pages[page_no].size.as_tuple()
+                has_page_info = page_no in doc.pages
+
                 cell_loc = ""
-                if cell.bbox is not None:
+                if cell.bbox is not None and has_page_info:
+                    page_w, page_h = doc.pages[page_no].size.as_tuple()
                     cell_loc = DocumentToken.get_location(
                         bbox=cell.bbox.to_bottom_left_origin(page_h).as_tuple(),
                         page_w=page_w,
@@ -2891,6 +2924,142 @@ class DoclingDocument(BaseModel):
                 del dumped[field]
 
         return dumped
+
+    @staticmethod
+    def _clamp_location_coordinate(
+        *,
+        value: float,
+        lo: float,
+        hi: float,
+        tolerance: float,
+        page_no: int,
+        bbox_label: str,
+        coord_name: str,
+    ) -> float:
+        clamped = min(max(value, lo), hi)
+        if clamped != value and abs(value - clamped) > tolerance:
+            if value < lo:
+                warnings.warn(
+                    f"{bbox_label} coordinate {coord_name} on page {page_no} is outside page bounds: "
+                    f"{value=} < {lo=}; clamping to {lo}",
+                    stacklevel=3,
+                )
+            else:
+                warnings.warn(
+                    f"{bbox_label} coordinate {coord_name} on page {page_no} is outside page bounds: "
+                    f"{value=} > {hi=}; clamping to {hi}",
+                    stacklevel=3,
+                )
+        return clamped
+
+    @classmethod
+    def _clamp_bbox_to_page(
+        cls,
+        *,
+        bbox: BoundingBox,
+        page_size: Size,
+        page_no: int,
+        bbox_label: str,
+    ) -> BoundingBox:
+        page_width = page_size.width
+        page_height = page_size.height
+
+        tolerance_factor = 1e-2
+
+        return bbox.model_copy(
+            update={
+                "l": cls._clamp_location_coordinate(
+                    value=bbox.l,
+                    lo=0.0,
+                    hi=page_width,
+                    tolerance=page_width * tolerance_factor,
+                    page_no=page_no,
+                    bbox_label=bbox_label,
+                    coord_name="l",
+                ),
+                "r": cls._clamp_location_coordinate(
+                    value=bbox.r,
+                    lo=0.0,
+                    hi=page_width,
+                    tolerance=page_width * tolerance_factor,
+                    page_no=page_no,
+                    bbox_label=bbox_label,
+                    coord_name="r",
+                ),
+                "t": cls._clamp_location_coordinate(
+                    value=bbox.t,
+                    lo=0.0,
+                    hi=page_height,
+                    tolerance=page_height * tolerance_factor,
+                    page_no=page_no,
+                    bbox_label=bbox_label,
+                    coord_name="t",
+                ),
+                "b": cls._clamp_location_coordinate(
+                    value=bbox.b,
+                    lo=0.0,
+                    hi=page_height,
+                    tolerance=page_height * tolerance_factor,
+                    page_no=page_no,
+                    bbox_label=bbox_label,
+                    coord_name="b",
+                ),
+            }
+        )
+
+    @classmethod
+    def _clamp_provenance_bbox_to_page(cls, *, prov: ProvenanceItem, page_size: Size) -> None:
+        prov.bbox = cls._clamp_bbox_to_page(
+            bbox=prov.bbox,
+            page_size=page_size,
+            page_no=prov.page_no,
+            bbox_label="Provenance bbox",
+        )
+
+    def _clamp_provenance_bboxes_to_pages(self) -> None:
+        def clamp_prov(prov: ProvenanceItem) -> None:
+            page = self.pages.get(prov.page_no)
+            if page is not None:
+                self._clamp_provenance_bbox_to_page(prov=prov, page_size=page.size)
+
+        def clamp_table_cell_bboxes(table: TableItem) -> None:
+            page_nos = {prov.page_no for prov in table.prov}
+            if len(page_nos) != 1:
+                return
+            page_no = next(iter(page_nos))
+            page = self.pages.get(page_no)
+            if page is None:
+                return
+
+            for cell in table.data.table_cells:
+                if cell.bbox is not None:
+                    cell.bbox = self._clamp_bbox_to_page(
+                        bbox=cell.bbox,
+                        page_size=page.size,
+                        page_no=page_no,
+                        bbox_label="Table cell bbox",
+                    )
+
+        item_lists: tuple[Iterable[NodeItem], ...] = (
+            self.texts,
+            self.pictures,
+            self.tables,
+            self.key_value_items,
+            self.form_items,
+            self.field_regions,
+            self.field_items,
+        )
+        for item_list in item_lists:
+            for item in item_list:
+                if isinstance(item, DocItem):
+                    for prov in item.prov:
+                        clamp_prov(prov)
+                if isinstance(item, TableItem):
+                    clamp_table_cell_bboxes(item)
+                if isinstance(item, KeyValueItem | FormItem):
+                    for cell in item.graph.cells:
+                        if cell.prov is not None:
+                            clamp_prov(cell.prov)
 
     @model_validator(mode="before")
     @classmethod
@@ -6317,7 +6486,7 @@ class DoclingDocument(BaseModel):
         page_break_placeholder: Optional[str] = None,
         traverse_pictures: bool = False,
     ) -> str:
-        """Export to plain text.
+        r"""Export to plain text.
 
         Produces clean plain text without any Markdown decoration. Heading
         markers (``#``), bold/italic markers, and hyperlink syntax are all
@@ -6534,7 +6703,6 @@ class DoclingDocument(BaseModel):
         Returns:
             A string representation of the Docling document in WebVTT format.
         """
-
         from docling_core.transforms.serializer.webvtt import WebVTTDocSerializer, WebVTTParams
 
         my_layers = included_content_layers if included_content_layers is not None else DEFAULT_CONTENT_LAYERS
@@ -6624,7 +6792,11 @@ class DoclingDocument(BaseModel):
 
         def extract_inner_text(text_chunk: str) -> str:
             """Strip all <...> tags (except <_..._>) to get the raw text content."""
-            return re.sub(r"<(?!_.*?_>).*?>", "", text_chunk, flags=re.DOTALL).strip()
+            # The tag name must start with a letter or "/", and the match must
+            # not cross a ">" boundary. This avoids deleting spans of plain text
+            # that merely contain "<" followed by a later ">" (e.g. statistical
+            # notation like "P < 0.05 ... P > 0.05"). See #618.
+            return re.sub(r"<(?!_.*?_>)[a-zA-Z/][^>]*>", "", text_chunk).strip()
 
         def extract_caption(
             text_chunk: str,
@@ -7497,12 +7669,13 @@ class DoclingDocument(BaseModel):
     @model_validator(mode="after")
     def validate_document(self) -> Self:
         """validate_document."""
-
         with warnings.catch_warnings():
             # ignore warning from deprecated furniture
             warnings.filterwarnings("ignore", category=DeprecationWarning)
             self.validate_tree(self.body, raise_on_error=True)
             self.validate_tree(self.furniture, raise_on_error=True)
+
+        self._clamp_provenance_bboxes_to_pages()
 
         return self
 
@@ -7707,7 +7880,13 @@ class DoclingDocument(BaseModel):
                 self._max_page = new_max_page
 
         def get_name(self) -> str:
-            return " + ".join(self._names)
+            if not self._names:
+                return ""
+            squeezed: list[str] = [self._names[0]]
+            for name in self._names[1:]:
+                if name != squeezed[-1]:
+                    squeezed.append(name)
+            return " + ".join(squeezed)
 
     def _update_from_index(self, doc_index: "_DocIndex") -> None:
         if doc_index._body is not None:
@@ -7743,7 +7922,7 @@ class DoclingDocument(BaseModel):
         for doc in docs:
             doc_index.index(doc=doc)
 
-        res_doc = DoclingDocument(name=" + ".join([doc.name for doc in docs]))
+        res_doc = DoclingDocument(name=doc_index.get_name())
         res_doc._update_from_index(doc_index)
         return res_doc
 

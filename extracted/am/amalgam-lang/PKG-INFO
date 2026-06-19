@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amalgam-lang
-Version: 32.0.1
+Version: 33.0.0
 Summary: A direct interface with Amalgam compiled DLL, dylib, or so.
 Author: Howso Incorporated
 Author-email: support@howso.com
@@ -675,17 +675,17 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Operating System :: Microsoft :: Windows :: Windows 11
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
@@ -698,25 +698,20 @@ Requires-Dist: pytest-mock; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Dynamic: license-file
 
-# Amalgam&trade;
+# Amalgam&reg;
 
+Amalgam&reg; is an LLM-ready, tree-structured language for safe, sandboxed code generation, manipulation, and advanced information-theoretic inference.  Unlike traditional languages that prioritize developer shorthand, Amalgam focuses on code-data symmetry and semantic consistency.  These properties give it unique strengths in a wide variety of domains, including [genetic programming](https://en.wikipedia.org/wiki/Generic_programming), [instance-based machine learning](https://en.wikipedia.org/wiki/Instance-based_learning), simulation, agent-based modeling, data storage and retrieval, the mathematics of probability theory and information theory, and game content and AI.  This package supports directly calling the language via Python.
 
-Amalgam&trade; is a domain specific language ([DSL](https://en.wikipedia.org/wiki/Domain-specific_language)) developed primarily for [genetic programming](https://en.wikipedia.org/wiki/Generic_programming) and [instance based machine learning](https://en.wikipedia.org/wiki/Instance-based_learning), but also for simulation, agent based modeling, data storage and retrieval, the mathematics of probability theory and information theory, and game content and AI. The language format is somewhat LISP-like in that it uses parenthesized list format with prefix notation and is geared toward functional programming, where there is a one-to-one mapping between the code and the corresponding parse tree. The [Howso Engine](https://github.com/howsoai/howso-engine/tree/main) is an example of a program written in Amalgam.
-
-
-## Resources
-- [Amalgam](https://github.com/howsoai/amalgam)
-
-## General Overview
-Coding in [Amalgam](https://github.com/howsoai/amalgam) can be done natively as demonstrated in the [Amalgam User Guide](https://github.com/howsoai/amalgam/blob/main/AMALGAM-BEGINNER-GUIDE.md) or through this Amalgam&trade; Python wrapper. The Python wrapper handles the binaries for the user so the user just needs to worry about the code. 
+Coding in [Amalgam](https://github.com/howsoai/amalgam) can be done natively as demonstrated in the [Amalgam User Guide](https://github.com/howsoai/amalgam/blob/main/AMALGAM-BEGINNER-GUIDE.md) or through this Python wrapper.
 
 
 ## Supported Platforms
 
-Compatible with Python versions: 3.10, 3.11, 3.12, and 3.13.
+Compatible with Python versions: 3.11, 3.12, 3.13, and 3.14.
 
 #### Operating Systems
 
+Binaries are built for the following operating systems, though in theory they could be built for virtually any modern system.
 | OS      | x86_64 | arm64 |
 |---------|--------|-------|
 | Windows | Yes    | No    |

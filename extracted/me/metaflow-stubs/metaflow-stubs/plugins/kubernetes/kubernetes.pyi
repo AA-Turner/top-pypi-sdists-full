@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.33                                                                                #
-# Generated on 2026-06-09T19:39:31.624258                                                            #
+# MF version: 2.19.34                                                                                #
+# Generated on 2026-06-18T12:40:08.536654                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -106,9 +106,9 @@ class Kubernetes(object, metaclass=type):
         ...
     def launch_job(self, **kwargs):
         ...
-    def create_jobset(self, flow_name, run_id, step_name, task_id, attempt, user, code_package_metadata, code_package_sha, code_package_url, code_package_ds, docker_image, docker_image_pull_policy, image_pull_secrets = None, step_cli = None, service_account = None, secrets = None, node_selector = None, namespace = None, cpu = None, gpu = None, gpu_vendor = None, disk = None, memory = None, use_tmpfs = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, run_time_limit = None, env = None, persistent_volume_claims = None, tolerations = None, labels = None, annotations = None, shared_memory = None, port = None, num_parallel = None, qos = None, security_context = None):
+    def create_jobset(self, flow_name, run_id, step_name, task_id, attempt, user, code_package_metadata, code_package_sha, code_package_url, code_package_ds, docker_image, docker_image_pull_policy, image_pull_secrets = None, step_cli = None, service_account = None, secrets = None, node_selector = None, namespace = None, cpu = None, gpu = None, gpu_vendor = None, disk = None, memory = None, use_tmpfs = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, run_time_limit = None, env = None, persistent_volume_claims = None, tolerations = None, labels = None, annotations = None, shared_memory = None, port = None, num_parallel = None, qos = None, extended_resources = None, security_context = None):
         ...
-    def create_job_object(self, flow_name, run_id, step_name, task_id, attempt, user, code_package_metadata, code_package_sha, code_package_url, code_package_ds, step_cli, docker_image, docker_image_pull_policy, image_pull_secrets = None, service_account = None, secrets = None, node_selector = None, namespace = None, cpu = None, gpu = None, gpu_vendor = None, disk = None, memory = None, use_tmpfs = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, run_time_limit = None, env = None, persistent_volume_claims = None, tolerations = None, labels = None, shared_memory = None, port = None, name_pattern = None, qos = None, annotations = None, security_context = None):
+    def create_job_object(self, flow_name, run_id, step_name, task_id, attempt, user, code_package_metadata, code_package_sha, code_package_url, code_package_ds, step_cli, docker_image, docker_image_pull_policy, image_pull_secrets = None, service_account = None, secrets = None, node_selector = None, namespace = None, cpu = None, gpu = None, gpu_vendor = None, disk = None, memory = None, use_tmpfs = None, tmpfs_tempdir = None, tmpfs_size = None, tmpfs_path = None, run_time_limit = None, env = None, persistent_volume_claims = None, tolerations = None, labels = None, shared_memory = None, port = None, name_pattern = None, qos = None, annotations = None, extended_resources = None, security_context = None):
         ...
     def create_k8sjob(self, job):
         ...

@@ -45,6 +45,7 @@ from .audit import AuditLogger, audit_context
 from .bank_stats_cache import BankStatsCache
 from .db import DatabaseBackend, create_database_backend
 from .db_budget import budgeted_operation
+from .llm_interface import ProviderRateLimitResetError
 from .llm_trace import (
     LLMRequestEntry,
     LLMRequestListResponse,
@@ -352,6 +353,7 @@ from .reflect import run_reflect_agent
 from .reflect.tools import tool_expand, tool_recall, tool_search_mental_models, tool_search_observations
 from .response_models import (
     VALID_RECALL_FACT_TYPES,
+    DryRunExtractionResult,
     EntityState,
     LLMCallTrace,
     MemoryFact,
@@ -422,6 +424,12 @@ class _SubBatchSplit:
     sub_batches: list[list[RetainContentDict]]
     origin_indices: list[list[int]]
     document_body_overrides: list[str | None] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _RetainChunkingConfig:
+    chunk_size: int
+    structured_chunk_size: int | None
 
 
 def _split_contents_into_sub_batches(
@@ -737,6 +745,37 @@ def _resolve_refresh_tag_filtering(
     return RefreshTagFiltering(tags=model_tags, tags_match=tags_match, tag_groups=None)
 
 
+@dataclass
+class ResolvedDispositionMission:
+    """Disposition + mission after overlaying resolved bank config on the legacy columns."""
+
+    disposition: dict[str, int]
+    mission: str
+
+
+def _overlay_bank_config_disposition_mission(
+    disposition: dict[str, int], mission: str, config_dict: dict[str, Any]
+) -> ResolvedDispositionMission:
+    """Overlay resolved bank config on top of the legacy banks.disposition /
+    banks.mission column values.
+
+    ``reflect_mission`` and ``disposition_*`` in the resolved bank config take
+    precedence over the legacy DB columns. Shared by ``get_bank_profile`` and
+    ``list_banks`` so the single-bank and list paths return identical
+    disposition + mission for the same bank.
+    """
+    resolved_mission = config_dict.get("reflect_mission") or mission
+    cfg_skep = config_dict.get("disposition_skepticism")
+    cfg_lit = config_dict.get("disposition_literalism")
+    cfg_emp = config_dict.get("disposition_empathy")
+    resolved_disposition = {
+        "skepticism": cfg_skep if cfg_skep is not None else disposition["skepticism"],
+        "literalism": cfg_lit if cfg_lit is not None else disposition["literalism"],
+        "empathy": cfg_emp if cfg_emp is not None else disposition["empathy"],
+    }
+    return ResolvedDispositionMission(disposition=resolved_disposition, mission=resolved_mission)
+
+
 class MemoryEngine(MemoryEngineInterface):
     """
     Advanced memory system using temporal and semantic linking with PostgreSQL.
@@ -926,6 +965,7 @@ class MemoryEngine(MemoryEngineInterface):
             default_headers=config.llm_default_headers,
             litellmrouter_config=config.llm_litellmrouter_config,
             bedrock_service_tier=config.llm_bedrock_service_tier,
+            gemini_service_tier=config.llm_gemini_service_tier,
         )
 
         # Store client and model for convenience (deprecated: use _llm_config.call() instead)
@@ -959,6 +999,7 @@ class MemoryEngine(MemoryEngineInterface):
             default_headers=config.llm_default_headers,
             litellmrouter_config=config.retain_llm_litellmrouter_config or config.llm_litellmrouter_config,
             bedrock_service_tier=config.llm_bedrock_service_tier,
+            gemini_service_tier=config.llm_gemini_service_tier,
         )
 
         # Reflect LLM config - for think/observe operations (can use lighter models)
@@ -987,6 +1028,7 @@ class MemoryEngine(MemoryEngineInterface):
             default_headers=config.llm_default_headers,
             litellmrouter_config=config.reflect_llm_litellmrouter_config or config.llm_litellmrouter_config,
             bedrock_service_tier=config.llm_bedrock_service_tier,
+            gemini_service_tier=config.llm_gemini_service_tier,
         )
 
         # Consolidation LLM config - for mental model consolidation (can use efficient models)
@@ -1015,6 +1057,7 @@ class MemoryEngine(MemoryEngineInterface):
             default_headers=config.llm_default_headers,
             litellmrouter_config=config.consolidation_llm_litellmrouter_config or config.llm_litellmrouter_config,
             bedrock_service_tier=config.llm_bedrock_service_tier,
+            gemini_service_tier=config.llm_gemini_service_tier,
         )
 
         # Initialize cross-encoder reranker (cached for performance)
@@ -1745,6 +1788,9 @@ class MemoryEngine(MemoryEngineInterface):
 
                 audit_entry.response = {"status": "completed", "operation_id": operation_id}
 
+            except ProviderRateLimitResetError as e:
+                logger.warning(f"Task deferred until provider quota resets at {e.retry_at}: {e}")
+                raise DeferOperation(exec_date=e.retry_at, reason=str(e)) from e
             except RetryTaskAt:
                 # Task-owned retry: let the poller handle scheduling
                 raise
@@ -2605,50 +2651,39 @@ class MemoryEngine(MemoryEngineInterface):
             tenants = await self._tenant_extension.list_tenants()
             if tenants:
                 logger.info(f"Running migrations on {len(tenants)} schema(s)...")
-                for tenant in tenants:
-                    schema = tenant.schema
-                    if schema:
-                        schema = self._backend.normalize_schema(schema)
-                        self._backend.run_migrations(self.db_url, schema=schema)
+                if self._database_backend_type == "postgresql":
+                    # PG: fan out across schemas (up to migration_concurrency, each
+                    # in its own process) and fold the PG-specific post-migration
+                    # extension/dimension sync into the same per-schema unit. Run
+                    # off the event loop so the process pool's blocking joins don't
+                    # stall it.
+                    from ..migrations import run_migrations_for_schemas
+
+                    schemas = [tenant.schema for tenant in tenants if tenant.schema]
+                    await asyncio.to_thread(
+                        run_migrations_for_schemas,
+                        self.db_url,
+                        schemas,
+                        concurrency=config.migration_concurrency,
+                        migration_database_url=config.migration_database_url,
+                        embedding_dimension=self.embeddings.dimension,
+                        vector_extension=config.vector_extension,
+                        text_search_extension=config.text_search_extension,
+                        pg_search_tokenizer=config.text_search_extension_pg_search_tokenizer,
+                        ensure_extensions=self._backend.supports_bm25,
+                    )
+                else:
+                    # Oracle and other backends: Alembic's non-thread-safe globals
+                    # and the absence of per-schema extension steps make parallelism
+                    # unnecessary; run sequentially via the backend's own runner.
+                    # normalize_schema() maps PG's "public" default to None (the
+                    # connecting user's schema) on Oracle.
+                    for tenant in tenants:
+                        if tenant.schema:
+                            self._backend.run_migrations(
+                                self.db_url, schema=self._backend.normalize_schema(tenant.schema)
+                            )
                 logger.info("Schema migrations completed")
-
-            # PG-specific post-migration steps: ensure vector/text search extensions
-            # and embedding dimensions match configuration. These are no-ops for
-            # non-PG backends since they use different indexing strategies.
-            if self._backend.supports_bm25:
-                from ..migrations import (
-                    ensure_embedding_dimension,
-                    ensure_text_search_extension,
-                    ensure_vector_extension,
-                )
-
-                if tenants:
-                    for tenant in tenants:
-                        schema = tenant.schema
-                        if schema:
-                            ensure_embedding_dimension(
-                                self.db_url,
-                                self.embeddings.dimension,
-                                schema=schema,
-                                vector_extension=config.vector_extension,
-                            )
-
-                    for tenant in tenants:
-                        schema = tenant.schema
-                        if schema:
-                            ensure_vector_extension(
-                                self.db_url, vector_extension=config.vector_extension, schema=schema
-                            )
-
-                    for tenant in tenants:
-                        schema = tenant.schema
-                        if schema:
-                            ensure_text_search_extension(
-                                self.db_url,
-                                text_search_extension=config.text_search_extension,
-                                pg_search_tokenizer=config.text_search_extension_pg_search_tokenizer,
-                                schema=schema,
-                            )
 
         logger.info(f"Connecting to database at {mask_network_location(self.db_url)}")
 
@@ -2755,7 +2790,15 @@ class MemoryEngine(MemoryEngineInterface):
 
         self._parser_registry = FileParserRegistry()
         try:
-            self._parser_registry.register(MarkitdownParser())
+            self._parser_registry.register(
+                MarkitdownParser(
+                    ocr_enabled=config.file_parser_markitdown_ocr_enabled,
+                    ocr_api_key=config.file_parser_markitdown_ocr_api_key,
+                    ocr_base_url=config.file_parser_markitdown_ocr_base_url,
+                    ocr_model=config.file_parser_markitdown_ocr_model,
+                    ocr_prompt=config.file_parser_markitdown_ocr_prompt,
+                )
+            )
             logger.debug("Registered markitdown parser")
         except ImportError:
             logger.warning("markitdown not available - file parsing disabled")
@@ -3234,7 +3277,7 @@ class MemoryEngine(MemoryEngineInterface):
             # with, so the offsets match the chunk_index values it assigns.
             from .retain import fact_extraction, fact_storage
 
-            sub_chunk_size = await self._resolve_retain_chunk_size(bank_id, request_context, strategy)
+            chunking_config = await self._resolve_retain_chunking_config(bank_id, request_context, strategy)
             chunk_offsets: dict[str, int] = {}
 
             # In update_mode="append", retain_batch prepends the existing document
@@ -3257,7 +3300,11 @@ class MemoryEngine(MemoryEngineInterface):
                     existing_text = await fact_storage.get_document_content(conn, bank_id, append_doc_id)
                 if existing_text:
                     append_prepend_chunks[append_doc_id] = len(
-                        fact_extraction.chunk_text(existing_text, sub_chunk_size)
+                        fact_extraction.chunk_text(
+                            existing_text,
+                            chunking_config.chunk_size,
+                            structured_chunk_size=chunking_config.structured_chunk_size,
+                        )
                     )
 
             for i, (sub_batch, sub_origins) in enumerate(zip(sub_batches, origin_indices), 1):
@@ -3287,6 +3334,28 @@ class MemoryEngine(MemoryEngineInterface):
                 sub_doc_id = document_id or (sub_batch[0].get("document_id") if len(sub_batch) == 1 else None)
                 sub_offset = chunk_offsets.get(sub_doc_id, 0) if sub_doc_id else 0
 
+                # Count the chunks this sub-batch will produce BEFORE handing it
+                # to the orchestrator. retain_batch consumes (pops) each item's
+                # "content" while streaming, so reading it back after the call
+                # yields "" — and chunk_text("") returns [""] (count 1),
+                # advancing the per-document cursor by 1 regardless of the real
+                # chunk count. For slices that each span several chunks the next
+                # sub-batch then restarts ~1 slot in, colliding chunk_ids and
+                # overwriting earlier chunks (only ~1 new chunk survives per
+                # sub-batch). Capture it here while content is still present.
+                sub_chunk_count = 0
+                if sub_doc_id:
+                    sub_chunk_count = sum(
+                        len(
+                            fact_extraction.chunk_text(
+                                item.get("content", "") or "",
+                                chunking_config.chunk_size,
+                                structured_chunk_size=chunking_config.structured_chunk_size,
+                            )
+                        )
+                        for item in sub_batch
+                    )
+
                 sub_results, sub_usage, sub_processed = await self._retain_batch_async_internal(
                     bank_id=bank_id,
                     contents=sub_batch,
@@ -3306,14 +3375,10 @@ class MemoryEngine(MemoryEngineInterface):
                 )
 
                 # Advance the document's chunk_index cursor by the number of
-                # chunks this sub-batch produced (computed with the same chunk
-                # size the orchestrator uses), so the next sub-batch sharing the
-                # document continues the sequence.
+                # chunks this sub-batch produced (counted above, before the
+                # orchestrator consumed the content), so the next sub-batch
+                # sharing the document continues the sequence.
                 if sub_doc_id:
-                    sub_chunk_count = sum(
-                        len(fact_extraction.chunk_text(item.get("content", "") or "", sub_chunk_size))
-                        for item in sub_batch
-                    )
                     # retain_batch only prepends the existing body on the global
                     # first sub-batch (is_first_batch == i == 1), so fold its chunk
                     # count in only there.
@@ -3422,13 +3487,13 @@ class MemoryEngine(MemoryEngineInterface):
         except Exception as e:
             logger.warning(f"Failed to submit graph maintenance task for bank {bank_id}: {e}")
 
-    async def _resolve_retain_chunk_size(
+    async def _resolve_retain_chunking_config(
         self,
         bank_id: str,
         request_context: "RequestContext",
         strategy: str | None,
-    ) -> int:
-        """Resolve the effective ``retain_chunk_size`` for a bank.
+    ) -> _RetainChunkingConfig:
+        """Resolve the effective retain chunking settings for a bank.
 
         Mirrors the bank-config + strategy resolution that
         ``_retain_batch_async_internal`` applies before handing config to the
@@ -3442,7 +3507,10 @@ class MemoryEngine(MemoryEngineInterface):
         effective_strategy = strategy or resolved_config.retain_default_strategy
         if effective_strategy:
             resolved_config = apply_strategy(resolved_config, effective_strategy)
-        return getattr(resolved_config, "retain_chunk_size", 3000)
+        return _RetainChunkingConfig(
+            chunk_size=getattr(resolved_config, "retain_chunk_size", 3000),
+            structured_chunk_size=getattr(resolved_config, "retain_structured_chunk_size", None),
+        )
 
     async def _retain_batch_async_internal(
         self,
@@ -5983,9 +6051,10 @@ class MemoryEngine(MemoryEngineInterface):
           not ``memory_links``, so there is nothing to relink directly).
         - **Invalidate** (``state='invalidated'``): move the row to the archive
           (cascade-pruning its links/entity associations and re-deriving dependent
-          observations). The embedding + an entity-id snapshot travel with it.
+          observations). The archive is cold storage, so the embedding is dropped
+          (only an entity-id snapshot travels with it).
         - **Revert** (``state='valid'``): move the row back, restore its entity
-          associations, and re-consolidate.
+          associations, recompute its embedding, and re-consolidate.
 
         Only ``world``/``experience`` facts can be curated — observations are
         derived and regenerate from their sources. Returns the updated memory
@@ -6077,6 +6146,13 @@ class MemoryEngine(MemoryEngineInterface):
                     )
 
                 collist = await self._memory_unit_columns(conn)
+                # The archive is cold storage, never a recall surface, so the schema gives it
+                # no `embedding` column at all (dropped in d4f6a8c2e1b3). The move in/out is
+                # therefore over every memory_units column EXCEPT embedding; on revert the
+                # embedding is recomputed from the unit's text/dates/entities below. This makes
+                # a model switch (which re-dimensions memory_units) structurally unable to trip
+                # a vector-dimension mismatch on the INSERT … SELECT round-trip (#2209).
+                arch_cols = ", ".join(c for c in (s.strip() for s in collist.split(",")) if c != '"embedding"')
 
                 # --- Edit fields (live rows only): text / context / dates / fact_type / entities ---
                 doing_edit = any(
@@ -6168,8 +6244,8 @@ class MemoryEngine(MemoryEngineInterface):
                     # Capture relink victims BEFORE the row (and its links) disappear.
                     await enqueue_relink_victims(conn, bank_id, [memory_id], ops=backend.ops)
                     await conn.execute(
-                        f"INSERT INTO {arch} ({collist}, invalidation_reason, invalidated_at, entity_ids) "
-                        f"SELECT {collist}, $2, now(), $3::uuid[] FROM {mu} WHERE id = $1 AND bank_id = $4",
+                        f"INSERT INTO {arch} ({arch_cols}, invalidation_reason, invalidated_at, entity_ids) "
+                        f"SELECT {arch_cols}, $2, now(), $3::uuid[] FROM {mu} WHERE id = $1 AND bank_id = $4",
                         str(memory_uuid),
                         reason,
                         entity_ids,
@@ -6195,8 +6271,11 @@ class MemoryEngine(MemoryEngineInterface):
                     arch_row = await conn.fetchrow(
                         f"SELECT entity_ids FROM {arch} WHERE id = $1 AND bank_id = $2", str(memory_uuid), bank_id
                     )
+                    # The archive has no embedding column (see arch_cols above), so the live
+                    # row's embedding defaults to NULL on the way back and is recomputed below
+                    # once entities are restored.
                     await conn.execute(
-                        f"INSERT INTO {mu} ({collist}) SELECT {collist} FROM {arch} WHERE id = $1 AND bank_id = $2",
+                        f"INSERT INTO {mu} ({arch_cols}) SELECT {arch_cols} FROM {arch} WHERE id = $1 AND bank_id = $2",
                         str(memory_uuid),
                         bank_id,
                     )
@@ -6219,6 +6298,35 @@ class MemoryEngine(MemoryEngineInterface):
                             arch_row["entity_ids"],
                             bank_id,
                         )
+                    # Recompute the embedding (the archive doesn't keep one) so the reverted
+                    # unit is searchable again, using the now-current model's dimension and the
+                    # restored entity set — mirroring how an edit re-embeds.
+                    reverted = await conn.fetchrow(
+                        f"SELECT text, occurred_start, occurred_end, mentioned_at FROM {mu} "
+                        f"WHERE id = $1 AND bank_id = $2",
+                        str(memory_uuid),
+                        bank_id,
+                    )
+                    if reverted:
+                        ent_rows = await conn.fetch(
+                            f"SELECT e.canonical_name FROM {ue} ue JOIN {ent} e ON ue.entity_id = e.id "
+                            f"WHERE ue.unit_id = $1",
+                            str(memory_uuid),
+                        )
+                        new_emb = await self._reembed_memory_text(
+                            text=reverted["text"],
+                            occurred_start=reverted["occurred_start"],
+                            occurred_end=reverted["occurred_end"],
+                            mentioned_at=reverted["mentioned_at"],
+                            entities=[r["canonical_name"] for r in ent_rows],
+                        )
+                        if new_emb is not None:
+                            await conn.execute(
+                                f"UPDATE {mu} SET embedding = $3::vector WHERE id = $1 AND bank_id = $2",
+                                str(memory_uuid),
+                                bank_id,
+                                new_emb,
+                            )
                     await conn.execute(f"DELETE FROM {arch} WHERE id = $1 AND bank_id = $2", str(memory_uuid), bank_id)
                     need_consolidation = True
                     need_graph = True
@@ -6411,9 +6519,10 @@ class MemoryEngine(MemoryEngineInterface):
                     source_memory_ids.extend(unit["source_memory_ids"])
             source_memory_ids = list(set(source_memory_ids))  # Deduplicate
 
-            # Fetch non-entity links where BOTH endpoints are in the visible set (or
-            # source memories). Entity edges are derived below from unit_entities so
-            # we don't materialize them in memory_links anymore.
+            # Fetch links where BOTH endpoints are in the visible set (or source
+            # memories). Entity edges are derived below from unit_entities so we
+            # don't materialize them in memory_links anymore (dropped in migration
+            # e9b2c7d1f3a4) — no link_type filter is needed.
             # Cap at 10k edges — the UI can't usefully render more, and uncapped queries
             # on highly-connected graphs (e.g. 1000 nodes with 500k+ edges) are too slow.
             max_edges = 10000
@@ -6427,8 +6536,7 @@ class MemoryEngine(MemoryEngineInterface):
                            ml.weight,
                            NULL::text AS entity_name
                     FROM {fq_table("memory_links")} ml
-                    WHERE ml.link_type <> 'entity'
-                      AND ml.from_unit_id = ANY($1::uuid[])
+                    WHERE ml.from_unit_id = ANY($1::uuid[])
                       AND ml.to_unit_id = ANY($1::uuid[])
                     ORDER BY ml.weight DESC NULLS LAST
                     LIMIT $2
@@ -6704,6 +6812,84 @@ class MemoryEngine(MemoryEngineInterface):
             )
 
         return {"nodes": nodes, "edges": edges, "table_rows": table_rows, "total_units": total_count, "limit": limit}
+
+    # Prompt-affecting settings overridable per dry-run extraction call.
+    _EXTRACTION_OVERRIDE_FIELDS = frozenset(
+        {
+            "retain_mission",
+            "retain_extraction_mode",
+            "retain_custom_instructions",
+            "retain_extract_causal_links",
+            "retain_chunk_size",
+            "entity_labels",
+            "entities_allow_free_form",
+            "llm_output_language",
+        }
+    )
+
+    async def extract_dry_run(
+        self,
+        bank_id: str,
+        content: str,
+        *,
+        context: str = "",
+        event_date: "datetime | None" = None,
+        overrides: dict | None = None,
+        agent_name: str | None = None,
+        request_context: "RequestContext",
+    ) -> "DryRunExtractionResult":
+        """Run fact extraction ONLY — no entity resolution, links, embeddings, or persistence.
+
+        Returns candidate facts (a subset of the ``list_memory_units`` item shape) plus the LLM token
+        usage, so callers can diff a mission's extraction output against stored memories without
+        mutating the bank. Every prompt-affecting setting is overridable per call via ``overrides``
+        (e.g. to test a candidate retain mission); ``agent_name`` overrides the narrator.
+        Side-effect-free and idempotent.
+        """
+        from .response_models import ExtractedFact
+        from .retain import bank_utils, fact_extraction
+
+        # Resolve the tenant schema before touching any bank-scoped data (config, bank profile).
+        await self._authenticate_tenant(request_context)
+        resolved_config = await self._config_resolver.resolve_full_config(bank_id, request_context)
+        if self._llm_config.provider == "none":
+            resolved_config.retain_extraction_mode = "chunks"
+
+        for key, value in (overrides or {}).items():
+            if key not in self._EXTRACTION_OVERRIDE_FIELDS:
+                raise ValueError(
+                    f"Unsupported extraction override '{key}'. Allowed: {sorted(self._EXTRACTION_OVERRIDE_FIELDS)}"
+                )
+            setattr(resolved_config, key, value)
+
+        backend = await self._get_backend()
+        # Narrator primes the "Narrator:" line in the prompt — resolve it the same way retain does.
+        if agent_name is None:
+            profile = await bank_utils.get_bank_profile(backend, bank_id)
+            profile_name = profile["name"] if profile else bank_id
+            agent_name = None if profile_name == bank_id else profile_name
+
+        retain_llm = self._retain_llm_config.with_config(resolved_config, bank_id=bank_id, operation="retain")
+        facts, _chunks, usage = await fact_extraction.extract_facts_from_text(
+            text=content,
+            event_date=event_date,
+            llm_config=retain_llm,
+            agent_name=agent_name or "",
+            config=resolved_config,
+            context=context,
+        )
+
+        extracted = [
+            ExtractedFact(
+                text=fact.fact,
+                fact_type=fact.fact_type,
+                occurred_start=fact.occurred_start,
+                occurred_end=fact.occurred_end,
+                entities=[e.text for e in (fact.entities or []) if getattr(e, "text", None)],
+            )
+            for fact in facts
+        ]
+        return DryRunExtractionResult(facts=extracted, usage=usage)
 
     async def list_memory_units(
         self,
@@ -7985,25 +8171,15 @@ class MemoryEngine(MemoryEngineInterface):
 
         # reflect_mission and disposition in config take precedence over the legacy DB columns
         config_dict = await self._config_resolver.get_bank_config(bank_id, request_context)
-        mission = config_dict.get("reflect_mission") or profile["mission"]
-
-        # Overlay disposition from config if explicitly set; fall back to DB values
         db_disp = profile["disposition"]
         db_disp_dict = db_disp.model_dump() if hasattr(db_disp, "model_dump") else dict(db_disp)
-        cfg_skep = config_dict.get("disposition_skepticism")
-        cfg_lit = config_dict.get("disposition_literalism")
-        cfg_emp = config_dict.get("disposition_empathy")
-        disposition = {
-            "skepticism": cfg_skep if cfg_skep is not None else db_disp_dict["skepticism"],
-            "literalism": cfg_lit if cfg_lit is not None else db_disp_dict["literalism"],
-            "empathy": cfg_emp if cfg_emp is not None else db_disp_dict["empathy"],
-        }
+        resolved = _overlay_bank_config_disposition_mission(db_disp_dict, profile["mission"], config_dict)
 
         return {
             "bank_id": bank_id,
             "name": profile["name"],
-            "disposition": disposition,
-            "mission": mission,
+            "disposition": resolved.disposition,
+            "mission": resolved.mission,
         }
 
     async def _ensure_bank_exists(
@@ -8218,6 +8394,17 @@ class MemoryEngine(MemoryEngineInterface):
                 BankListContext(banks=banks, request_context=request_context)
             )
             banks = result.banks
+        # Overlay resolved bank config (reflect_mission + disposition_*) on top of the
+        # legacy banks.disposition / banks.mission columns, mirroring get_bank_profile so
+        # the list and get paths return identical disposition + mission for a bank.
+        # Resolve every bank's config in one batch (single config-column query + a single
+        # tenant-config resolve) rather than one round-trip per bank.
+        configs = await self._config_resolver.get_bank_configs([bank["bank_id"] for bank in banks], request_context)
+        for bank in banks:
+            resolved = _overlay_bank_config_disposition_mission(
+                bank["disposition"], bank["mission"], configs.get(bank["bank_id"], {})
+            )
+            bank["disposition"], bank["mission"] = resolved.disposition, resolved.mission
         return banks
 
     # ==================== Reflect Methods ====================
@@ -8249,11 +8436,14 @@ class MemoryEngine(MemoryEngineInterface):
         """
         Reflect and formulate an answer using an agentic loop with tools.
 
-        The reflect agent iteratively uses tools to:
+        The reflect agent iteratively uses read-only tools to:
         1. lookup: Get mental models (synthesized knowledge)
         2. recall: Search facts (semantic + temporal retrieval)
-        3. learn: Create/update mental models with new insights
+        3. search observations: Retrieve prior observations
         4. expand: Get chunk/document context for memories
+
+        Reflect is read-only: it synthesizes an answer from the bank's stored
+        memories and persists nothing.
 
         The agent starts with empty context and must call tools to gather
         information. On the last iteration, tools are removed to force a
@@ -9140,11 +9330,16 @@ class MemoryEngine(MemoryEngineInterface):
             # per-fact-type slice, and it tolerates empty maps (the section
             # prints with no rows). Response keys are kept populated below for
             # schema stability so existing SDK deserializers don't break.
+            # No link_type filter: entity edges are no longer stored in
+            # memory_links (dropped in migration e9b2c7d1f3a4 — derived on demand
+            # from unit_entities), so only temporal/semantic/caused_by rows exist
+            # here. Omitting the predicate lets the (bank_id, link_type) index
+            # serve this bank-scoped GROUP BY as an index-only scan.
             non_entity_link_rows = await conn.fetch(
                 f"""
                 SELECT link_type, COUNT(*) as count
                 FROM {fq_table("memory_links")}
-                WHERE bank_id = $1 AND link_type <> 'entity'
+                WHERE bank_id = $1
                 GROUP BY link_type
                 """,
                 bank_id,
@@ -9960,6 +10155,13 @@ class MemoryEngine(MemoryEngineInterface):
                         )
                 based_on_serialized_payload[fact_type] = serialized_facts
 
+            # Facts from this reflect only — for the structured-delta LLM prompt.
+            # Accumulated based_on below is audit/grounding; re-sending all historical
+            # facts each refresh blows past provider input limits (e.g. Z.ai 1261).
+            delta_supporting_facts: list[dict[str, Any]] = []
+            for _facts in based_on_serialized_payload.values():
+                delta_supporting_facts.extend(_facts)
+
             # In delta mode, based_on must accumulate: the mental model is
             # grounded on ALL facts ever used, not just the latest delta's new
             # ones. Merge previous based_on with current, deduplicating by id.
@@ -9986,8 +10188,8 @@ class MemoryEngine(MemoryEngineInterface):
             # drift is structurally impossible. Falls back to the full candidate
             # markdown if either the structuring or the LLM op call fails.
             from .reflect.delta_ops import (
-                DeltaOperationList,
                 apply_operations,
+                parse_delta_operation_list,
             )
             from .reflect.prompts import (
                 STRUCTURED_DELTA_SYSTEM_PROMPT,
@@ -10022,9 +10224,7 @@ class MemoryEngine(MemoryEngineInterface):
                     current_doc = None
 
                 if current_doc is not None:
-                    supporting_facts: list[dict[str, Any]] = []
-                    for _ftype, facts in based_on_serialized_payload.items():
-                        supporting_facts.extend(facts)
+                    supporting_facts = delta_supporting_facts
 
                     # No new facts since last refresh — skip the delta LLM call
                     # and preserve existing content unchanged.
@@ -10052,7 +10252,7 @@ class MemoryEngine(MemoryEngineInterface):
                     doc_max_tokens = mental_model.get("max_tokens") or 2048
                     delta_max_tokens = max(2048, int(doc_max_tokens * 1.5))
                     user_prompt = build_structured_delta_prompt(
-                        current_document_json=current_doc.model_dump_json(indent=2),
+                        current_document_json=current_doc.model_dump_json(),
                         candidate_markdown=reflect_result.text,
                         supporting_facts=supporting_facts,
                         source_query=current_source_query,
@@ -10073,19 +10273,7 @@ class MemoryEngine(MemoryEngineInterface):
                             temperature=0.0,
                             scope="mental_model_delta_ops",
                         )
-                        op_list: DeltaOperationList
-                        if isinstance(raw, DeltaOperationList):
-                            op_list = raw
-                        elif isinstance(raw, dict):
-                            op_list = DeltaOperationList.model_validate(raw)
-                        else:
-                            text = (raw or "").strip()
-                            # Strip optional fenced code block.
-                            if text.startswith("```"):
-                                text = text.split("\n", 1)[1] if "\n" in text else ""
-                                if text.endswith("```"):
-                                    text = text[:-3].rstrip()
-                            op_list = DeltaOperationList.model_validate_json(text)
+                        op_list = parse_delta_operation_list(raw)
                         outcome = apply_operations(current_doc, op_list.operations)
                         final_structured = outcome.document
                         final_content = render_document(outcome.document)

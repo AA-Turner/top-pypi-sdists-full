@@ -9,11 +9,12 @@ from pikepdf._core import (
     DataDecodingError,
     DeletedObjectError,
     ForeignObjectError,
+    JobUsageError,
     PasswordError,
     PdfError,
     ReferenceCycleError,
 )
-from pikepdf._exceptions import DependencyError
+from pikepdf._exceptions import DependencyError, PageCopyWarning
 from pikepdf.models._content_stream import PdfParsingError
 from pikepdf.models.image import (
     HifiPrintImageNotTranscodableError,
@@ -31,7 +32,9 @@ __all__ = [
     'HifiPrintImageNotTranscodableError',
     'ImageDecompressionError',
     'InvalidPdfImageError',
+    'JobUsageError',
     'OutlineStructureError',
+    'PageCopyWarning',
     'PasswordError',
     'PdfError',
     'PdfParsingError',

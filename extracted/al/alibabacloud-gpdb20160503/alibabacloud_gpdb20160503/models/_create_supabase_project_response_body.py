@@ -11,9 +11,9 @@ class CreateSupabaseProjectResponseBody(DaraModel):
         project_id: str = None,
         request_id: str = None,
     ):
-        # The order ID.
+        # The ID of the associated order.
         self.order_id = order_id
-        # The Supabase instance ID.
+        # The instance ID of the Supabase project.
         self.project_id = project_id
         # The request ID.
         self.request_id = request_id

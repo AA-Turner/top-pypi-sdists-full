@@ -128,6 +128,8 @@ class Trainer(BaseTrainer):
         update_args.pop("constituency_composition", None)
         update_args.pop("constituent_stack", None)
         update_args.pop("num_tree_lstm_layers", None)
+        update_args.pop("num_output_layers", None)
+        update_args.pop("output_layer_sizes", None)
         update_args.pop("transition_scheme", None)
         update_args.pop("transition_stack", None)
         update_args.pop("maxout_k", None)
@@ -178,7 +180,7 @@ class Trainer(BaseTrainer):
             if all(isinstance(x, str) for x in transitions):
                 transitions = [Transition.from_repr(x) for x in transitions]
 
-            model = LSTMModel(pretrain=pt,
+            model = LSTMModel(pt=pt,
                               forward_charlm=forward_charlm,
                               backward_charlm=backward_charlm,
                               bert_model=bert_model,
@@ -252,7 +254,7 @@ class Trainer(BaseTrainer):
                               trainer.model.rare_words,
                               trainer.model.root_labels,
                               trainer.model.constituent_opens,
-                              trainer.model.unary_limit(),
+                              trainer.model.unary_limit,
                               args)
             model = model.to(args['device'])
             model.copy_with_new_structure(trainer.model)

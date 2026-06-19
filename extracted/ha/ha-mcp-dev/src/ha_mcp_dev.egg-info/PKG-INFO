@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 7.8.1.dev715
+Version: 7.8.1.dev717
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
 Author-email: Julien <github@qc-h.net>
 License: MIT
@@ -27,6 +27,7 @@ Requires-Dist: websockets==16.0
 Requires-Dist: cryptography==49.0.0
 Requires-Dist: pydantic-monty==0.0.18
 Requires-Dist: tzdata>=2024.1
+Requires-Dist: packaging>=24.0
 Dynamic: license-file
 
 > **Breaking change (v7.3.0):** `ha_config_set_yaml` has been moved to [beta](docs/beta.md).

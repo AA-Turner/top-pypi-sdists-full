@@ -377,6 +377,83 @@ class TestTinyRegionDoesNotCrash(unittest.TestCase):
         self.assertEqual(result.best_mask.shape, (n_cells,))
 
 
+class TestParquetReadIsRegionScoped(unittest.TestCase):
+    """Regression: when ``CellOptimizer.load_region`` reads the per-cell
+    parquet, the resulting in-memory DataFrame must contain rows for the
+    REQUESTED region only — not every region in the file. Russia/
+    winter_wheat (~72 M rows, ~7 GB in pandas) blew up every joblib
+    worker with SIGKILL under n_jobs=-1 until we switched to
+    predicate-pushdown at read time. This test pins the fix.
+
+    We don't instantiate the full CellOptimizer (needs BaseGeo config),
+    but the contract we're testing is purely the read-time filter +
+    column projection. We replicate it with the same pyarrow primitives
+    the production code uses, so the assertion catches any future
+    regression that reintroduces a full-parquet read.
+    """
+
+    def test_pyarrow_filter_only_returns_one_region(self):
+        import tempfile
+        from pathlib import Path
+
+        # Build a tiny multi-region parquet so we can prove the filter
+        # actually scopes the read.
+        rng = np.random.default_rng(0)
+        rows = []
+        for region in ("region_a", "region_b", "region_c"):
+            for cell_id in range(5):
+                for year in range(2020, 2023):
+                    for doy in (90, 120, 150):
+                        rows.append({
+                            "country": "test",
+                            "region": region,
+                            "region_id": 1,
+                            "cell_id": cell_id,
+                            "lat": 30.0 + cell_id * 0.1,
+                            "lon": 75.0 + cell_id * 0.1,
+                            "afi": 50.0,
+                            "year": year,
+                            "doy": doy,
+                            "ndvi": float(rng.normal()),
+                            "extra_unused_col": "should_not_be_read",
+                        })
+        df_full = pd.DataFrame(rows)
+
+        with tempfile.TemporaryDirectory() as tmpd:
+            path = Path(tmpd) / "multi_region.parquet"
+            df_full.to_parquet(path)
+
+            # The production path is:
+            #   pd.read_parquet(path, columns=keep_cols, filters=[("region", "==", region)])
+            keep_cols = sorted({
+                "country", "region", "region_id", "cell_id",
+                "lat", "lon", "afi", "year", "doy", "ndvi",
+            })
+            df_b = pd.read_parquet(
+                path,
+                columns=keep_cols,
+                filters=[("region", "==", "region_b")],
+            )
+
+            # 1. Only region_b rows.
+            self.assertEqual(set(df_b["region"].unique()), {"region_b"})
+
+            # 2. Row count matches what we wrote for region_b (5 cells × 3 years × 3 doys = 45).
+            self.assertEqual(len(df_b), 5 * 3 * 3)
+
+            # 3. The unused column did NOT come along — column projection worked.
+            self.assertNotIn("extra_unused_col", df_b.columns)
+
+            # 4. Same query on an absent region returns empty (the guard
+            #    after the read is `if df.empty: return None`).
+            df_none = pd.read_parquet(
+                path,
+                columns=keep_cols,
+                filters=[("region", "==", "region_does_not_exist")],
+            )
+            self.assertTrue(df_none.empty)
+
+
 class TestProductionMaskParquetRoundTrip(unittest.TestCase):
     """Smoke-check the production-output schema we hand to geoextract.
     The path / atomic-rename / row-shape are all the file-system side

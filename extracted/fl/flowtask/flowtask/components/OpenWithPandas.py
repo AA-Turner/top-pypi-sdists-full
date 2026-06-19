@@ -251,21 +251,59 @@ class OpenWithPandas(OpenWithBase):
                 file_engine = self._params.get("file_engine", "xlrd")
             else:
                 file_engine = self._params.get("file_engine", "calamine")
-        skiprows = getattr(self, "skiprows", 0)
         rename = getattr(self, "rename", False)
+        # Forward pd_args to pandas.  Several of these (sheet_name, skiprows,
+        # parse_dates, na_values, ...) are *explicit* kwargs of
+        # read_to_dataframe, so spreading self.args naively raises
+        # "multiple values for keyword argument".  Build the call kwargs from
+        # component-level defaults and let pd_args entries that name an explicit
+        # parameter OVERRIDE them; everything else (header, usecols, names, ...)
+        # flows through to pandas.read_excel unchanged.  Each key thus has a
+        # single source in the final call — collisions are impossible.
+        extra = {k: v for k, v in self.args.items() if k != "dtype"}
+        # pandas uses ``engine``; our helper exposes it as ``file_engine``.
+        if "engine" in extra:
+            file_engine = extra.pop("engine")
+        call_kwargs = {
+            "file_engine": file_engine,
+            "sheet_name": self.sheet_name,
+            "dtypes": self.args.get("dtype"),
+            "parse_dates": self.parse_dates,
+            "na_values": self.na_values,
+            "filter_nan": self.filter_nan,
+            "add_columns": add_columns,
+            "limit": self._limit,
+            "skiprows": getattr(self, "skiprows", 0),
+            "rename": (hasattr(self, "add_columns") and rename is True),
+            # OpenWithPandas already governs empty-string handling through its
+            # na_values set (built from remove_empty_strings in run()), matching
+            # the pre-refactor behaviour where empty cells are PRESERVED as "".
+            # Disable pandas_io's extra ``df.replace("", NA)`` so it does not
+            # contradict that and turn all-empty columns into all-NA (which
+            # drop_empty would then drop).
+            "remove_empty_strings": False,
+        }
+        pandas_extra = {}
+        for key, value in extra.items():
+            if key in call_kwargs:
+                call_kwargs[key] = value
+            else:
+                pandas_extra[key] = value
+        # Surface which sheet/engine were actually used — helps diagnose
+        # "empty result" cases caused by reading the wrong sheet.
+        effective_sheet = call_kwargs["sheet_name"]
+        sheet_label = effective_sheet if effective_sheet is not None else "<default: first sheet>"
+        self._logger.notice(
+            f"OpenWithPandas: reading Excel sheet_name={sheet_label!r} "
+            f"engine={call_kwargs['file_engine']!r} from {filename}"
+        )
+        self.add_metric("SHEET_NAME", effective_sheet)
+        self.add_metric("EXCEL_ENGINE", call_kwargs["file_engine"])
         return read_to_dataframe(
             filename,
             mime=self.mime,
-            file_engine=file_engine,
-            sheet_name=self.sheet_name,
-            dtypes=self.args.get("dtype"),
-            parse_dates=self.parse_dates,
-            na_values=self.na_values,
-            filter_nan=self.filter_nan,
-            add_columns=add_columns,
-            limit=self._limit,
-            skiprows=skiprows,
-            rename=(hasattr(self, "add_columns") and rename is True),
+            **call_kwargs,
+            **pandas_extra,
         )
 
     async def open_html(
@@ -284,6 +322,8 @@ class OpenWithPandas(OpenWithBase):
             na_values=self.na_values,
             parse_dates=self.parse_dates,
             add_columns=add_columns,
+            dtypes=self.args.get("dtype"),
+            remove_empty_strings=False,  # na_values governs empty-string handling
             **args,
         )
 
@@ -301,7 +341,7 @@ class OpenWithPandas(OpenWithBase):
             A ``pandas.DataFrame``.
         """
         from .pandas_io import _read_parquet
-        return _read_parquet(filename)
+        return _read_parquet(filename, **self.args)
 
     async def open_sql(
         self, filename: str, add_columns: dict, encoding
@@ -316,11 +356,14 @@ class OpenWithPandas(OpenWithBase):
         )
         from .pandas_io import read_to_dataframe
         # TODO: add columns functionality.
+        # Filter encoding to avoid collision with the explicit param above.
+        extra = {k: v for k, v in self.args.items() if k != "encoding"}
         return read_to_dataframe(
             filename,
             mime="application/json",
             encoding=encoding,
-            **self.args,
+            remove_empty_strings=False,  # na_values governs empty-string handling
+            **extra,
         )
 
     async def open_csv(
@@ -391,6 +434,7 @@ class OpenWithPandas(OpenWithBase):
             add_columns=add_columns,
             limit=self._limit,
             engine=engine,
+            remove_empty_strings=False,  # na_values governs empty-string handling
             **{k: v for k, v in self.args.items() if k != "dtype"},
         )
 
@@ -469,6 +513,11 @@ class OpenWithPandas(OpenWithBase):
                         df = await self.open_json(filename, add_columns, encoding)
                     except Exception as err:
                         raise ComponentError(f"Error parsing JSON: {err}") from err
+                elif self.mime in ("application/parquet", "application/x-parquet"):
+                    try:
+                        df = await self.open_parquet(filename, add_columns, encoding)
+                    except Exception as err:
+                        raise ComponentError(f"Error parsing Parquet: {err}") from err
                 else:
                     raise ComponentError(f"Try to Open invalid MIME Type: {self.mime}")
                 if df is None or df.empty:
@@ -490,6 +539,34 @@ class OpenWithPandas(OpenWithBase):
                     raise ComponentError(
                         f"Error Combining Resultset Dataframes: {err}"
                     ) from err
+        # When --debug is on, print the RAW DataFrame exactly as read, BEFORE
+        # any post-processing (drop_empty/trim/dropna). This is the place to
+        # validate which columns came in and which are all-empty (and would be
+        # dropped below by drop_empty).
+        if self._debug is True:
+            try:
+                nonnull = df.notna().sum()
+                empty_cols = [c for c in df.columns if nonnull[c] == 0]
+                self._logger.debug(
+                    "OpenWithPandas RAW READ (pre drop_empty): shape=%s, columns=%s",
+                    df.shape, list(df.columns)
+                )
+                self._logger.debug(
+                    "OpenWithPandas RAW non-null counts per column:\n%s",
+                    nonnull.to_string()
+                )
+                if empty_cols:
+                    self._logger.warning(
+                        "OpenWithPandas: %d all-empty column(s) present in the "
+                        "raw read%s: %s",
+                        len(empty_cols),
+                        " — these WILL BE DROPPED by drop_empty" if hasattr(self, "drop_empty") else "",
+                        empty_cols,
+                    )
+            except Exception as err:  # pylint: disable=W0718
+                self._logger.warning(
+                    "OpenWithPandas raw debug print failed: %s", err
+                )
         # post-processing:
         if hasattr(self, "remove_scientific_notation"):
             pandas.set_option("display.float_format", lambda x: "%.3f" % x)
@@ -578,7 +655,7 @@ class OpenWithPandas(OpenWithBase):
         self._variables[f"{self.StepName}_NUMROWS"] = numrows
         self.add_metric("NUMROWS", numrows)
         self.add_metric("OPENED_FILES", self._filenames)
-        if self._debug is True:
+        if getattr(self, 'is_debug', False) is True:
             self._logger.debug("DataFrame result:\n%s", df.to_string())
             self._logger.debug("::: Column Information ===")
             for column, t in df.dtypes.items():

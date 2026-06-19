@@ -1,1 +1,0 @@
-import{S as e}from"./vendor-mermaid-CAd2sfWf.js";export{e as createArchitectureServices};

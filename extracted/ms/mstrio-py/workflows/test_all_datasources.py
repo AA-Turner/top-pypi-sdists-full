@@ -41,6 +41,6 @@ def test_all_datasources(conn: Connection, show_embedded: bool = False) -> None:
                 )
 
 
-conn = get_connection(workstationData)
+conn = get_connection(connectionData)
 
 test_all_datasources(conn=conn, show_embedded=True)

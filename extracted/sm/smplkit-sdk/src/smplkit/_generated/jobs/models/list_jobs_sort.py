@@ -1,28 +1,13 @@
 from typing import Literal, cast
 
-ListJobsSort = Literal[
-    "-created_at",
-    "-enabled",
-    "-name",
-    "-next_run_at",
-    "-updated_at",
-    "created_at",
-    "enabled",
-    "name",
-    "next_run_at",
-    "updated_at",
-]
+ListJobsSort = Literal["-created_at", "-name", "-updated_at", "created_at", "name", "updated_at"]
 
 LIST_JOBS_SORT_VALUES: set[ListJobsSort] = {
     "-created_at",
-    "-enabled",
     "-name",
-    "-next_run_at",
     "-updated_at",
     "created_at",
-    "enabled",
     "name",
-    "next_run_at",
     "updated_at",
 }
 

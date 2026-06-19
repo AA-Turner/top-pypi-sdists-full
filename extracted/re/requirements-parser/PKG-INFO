@@ -1,8 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: requirements-parser
-Version: 0.13.0
+Version: 0.13.1
 Summary: This is a small Python module for parsing Pip requirement files.
 License: Apache-2.0
+License-File: AUTHORS.md
+License-File: LICENSE
 Keywords: Pip,requirements,parse
 Author: Paul Horton
 Author-email: paul@hogr.dev
@@ -20,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Software Distribution

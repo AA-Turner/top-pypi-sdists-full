@@ -1,17 +1,20 @@
 import ssl
+import atexit
 import dataclasses
 from typing import Dict, Tuple, Optional
 
-from grpclib.client import Channel
+from grpc import Channel
 
-from qm.utils.async_utils import run_async
+from qm.exceptions import QMConnectionError
 from qm.api.models.info import QuaMachineInfo
 from qm.api.models.debug_data import DebugData
 from qm.api.models.channel import create_channel
 from qm.api.models.capabilities import ServerCapabilities
 
 MAX_MESSAGE_SIZE = 1024 * 1024 * 100  # 100 mb in bytes
-BASE_TIMEOUT = 60
+BASE_TIMEOUT = 120
+
+CLOSED_CONNECTION_MESSAGE = "QuantumMachinesManager has been closed. Create a new instance to issue further calls."
 
 
 @dataclasses.dataclass
@@ -25,17 +28,49 @@ class ConnectionDetails:
     timeout: float = dataclasses.field(default=BASE_TIMEOUT)
     debug_data: Optional[DebugData] = dataclasses.field(default=None)
     _channel: Optional[Channel] = dataclasses.field(repr=False, default=None)
+    _closed: bool = dataclasses.field(repr=False, default=False)
+
+    @property
+    def is_closed(self) -> bool:
+        """Whether ``close()`` has been called on this connection."""
+        return self._closed
+
+    def raise_if_closed(self) -> None:
+        """Raise ``QMConnectionError`` if this connection has been closed."""
+        if self._closed:
+            raise QMConnectionError(CLOSED_CONNECTION_MESSAGE)
 
     @property
     def channel(self) -> Channel:
+        """Lazily create (and cache) the gRPC channel for this connection.
+
+        Raises:
+            QMConnectionError: if the connection has been closed
+        """
+        self.raise_if_closed()
         if self._channel is None:
-            self._channel = run_async(
-                create_channel(
-                    self.host, self.port, self.ssl_context, self.max_message_size, self.headers, self.debug_data
-                )
+            self._channel = create_channel(
+                self.host, self.port, self.ssl_context, self.max_message_size, self.headers, self.debug_data
             )
 
         return self._channel
+
+    def close(self) -> None:
+        """Tear down the underlying gRPC channel and mark this connection unusable.
+
+        Drops the ``atexit`` registration done in ``create_channel`` so the
+        channel object can be garbage-collected within the lifetime of the
+        process. Idempotent.
+        """
+        if self._closed:
+            return
+        self._closed = True
+        if self._channel is not None:
+            # Without unregister, atexit keeps a strong reference to
+            # `channel.close` which transitively pins the channel and prevents GC.
+            atexit.unregister(self._channel.close)
+            self._channel.close()
+            self._channel = None
 
     def __hash__(self) -> int:
         return hash(

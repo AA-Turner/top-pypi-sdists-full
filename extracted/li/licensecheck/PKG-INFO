@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: licensecheck
-Version: 2026.0.6
+Version: 2026.0.8
 Summary: Output the licenses used by dependencies and check if these are compatible with the project license
 Project-URL: Homepage, https://github.com/FHPythonUtils/LicenseCheck
 Project-URL: Repository, https://github.com/FHPythonUtils/LicenseCheck

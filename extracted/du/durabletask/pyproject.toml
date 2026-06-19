@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "durabletask"
-version = "1.5.0"
+version = "1.6.0"
 description = "A Durable Task Client SDK for Python"
 keywords = [
     "durable",
@@ -37,6 +37,9 @@ opentelemetry = [
     "opentelemetry-sdk>=1.0.0"
 ]
 azure-blob-payloads = [
+    "azure-storage-blob[aio]>=12.0.0"
+]
+history-export-azure = [
     "azure-storage-blob[aio]>=12.0.0"
 ]
 

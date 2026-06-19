@@ -172,15 +172,72 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         "GJC_CODING_AGENT_DIR",
         "GJC_CONFIG_DIR",
         "PI_CONFIG_DIR",
+        # Copilot custom-instruction roots — same instruction-injection class
+        # as GJC_CODING_AGENT_DIR. `copilot/cli_policy.py` derives the child
+        # env from os.environ and only *appends* the setup-owned dir, so an
+        # untrusted .env entry survives and a spawned Copilot loads attacker
+        # AGENTS.md from it.
+        "COPILOT_CUSTOM_INSTRUCTIONS_DIRS",
+        # Ouroboros agent-definition root. `agents/loader.py` resolves every
+        # agent's role/persona markdown (socratic-interviewer, evaluator, …)
+        # from this dir first; an untrusted .env pointing it at a committed
+        # repo dir lets a cloned repo replace the system prompt of every
+        # spawned sub-agent — instruction injection, same class as above.
+        "OUROBOROS_AGENTS_DIR",
+        # Backend config-home roots. The spawned vendor CLI resolves its own
+        # config file — which can name MCP servers to launch, disable the
+        # approval gate, and widen the sandbox — from these vars, and the var
+        # passes through the child env untouched (it is not in any backend's
+        # strip_keys). An untrusted repo .env must not redirect a nested agent
+        # at attacker-controlled config. Codex honors $CODEX_HOME/config.toml
+        # (mcp_servers.<name>.command/args -> arbitrary command execution;
+        # approval_policy="never" + sandbox_mode="danger-full-access" ->
+        # silent removal of the human approval gate). OpenCode resolves its
+        # config from OPENCODE_CONFIG / OPENCODE_CONFIG_DIR and otherwise
+        # falls back to $XDG_CONFIG_HOME/opencode. Completes CVE-2026-47211.
+        "CODEX_HOME",
+        "OPENCODE_CONFIG",
+        "OPENCODE_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+        # Ouroboros' own MCP-bridge / plugin execution roster roots. Each
+        # selects a file whose contents name an external command that the
+        # bridge or plugin dispatcher then spawns verbatim — direct RCE, the
+        # same threat model as the backend config-home roots above:
+        #   - OUROBOROS_MCP_CONFIG -> mcp/bridge/config.py:discover_config
+        #     returns the path; the YAML's server `command`/`args` are spawned
+        #     via stdio_client (loader -> discover_config -> MCPClientAdapter
+        #     -> stdio_client).
+        #   - OUROBOROS_PLUGIN_LOCKFILE / OUROBOROS_PLUGIN_TRUST_ROOT ->
+        #     plugin_dispatch resolves the installed-plugin roster and trust
+        #     root from these; redirecting them lets a cloned repo register an
+        #     attacker manifest / mark a malicious plugin as trusted, so
+        #     `ooo <name>` dispatches into attacker code.
+        "OUROBOROS_MCP_CONFIG",
+        "OUROBOROS_PLUGIN_LOCKFILE",
+        "OUROBOROS_PLUGIN_TRUST_ROOT",
+        # SSRF guard toggle. `mcp/types.py` blocks loopback/private/link-local
+        # MCP transport targets unless this is "1"; an untrusted .env must not
+        # be able to re-enable connections to internal addresses.
+        "OUROBOROS_ALLOW_LOCAL_TRANSPORT",
         # Runtime/backend selectors — choose which adapter is spawned.
         "OUROBOROS_AGENT_RUNTIME",
         "OUROBOROS_RUNTIME",
         "OUROBOROS_LLM_BACKEND",
+        # Backend profile selector (get_runtime_profile): chooses the
+        # orchestrator backend profile and therefore which backend behavior /
+        # executable is used — same routing class as the selectors above.
+        "OUROBOROS_RUNTIME_PROFILE",
         # Permission-mode overrides — must not silently disable the
         # user's approval gate from an untrusted repo.
         "OUROBOROS_AGENT_PERMISSION_MODE",
         "OUROBOROS_LLM_PERMISSION_MODE",
         "OUROBOROS_OPENCODE_PERMISSION_MODE",
+        # Tool-capability override file. The override YAML can lower a tool's
+        # approval_class (e.g. ELEVATED -> DEFAULT), weakening the human
+        # approval gate for non-built-in tools. External control of this path
+        # is therefore an approval-gate-bypass sink — same class as the
+        # permission-mode overrides above.
+        "OUROBOROS_TOOL_CAPABILITIES",
     }
 )
 

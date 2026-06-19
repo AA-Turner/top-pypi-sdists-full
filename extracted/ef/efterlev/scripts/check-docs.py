@@ -164,6 +164,24 @@ def runtime_ksi_detector_counts() -> dict[str, int]:
     return counts
 
 
+def runtime_backend_count() -> int:
+    """Number of LLM backends the `LLMConfig.backend` Literal admits.
+
+    Source of truth is the `backend: Literal[...]` annotation in
+    `efterlev.config.LLMConfig` (anthropic / bedrock / claude_code /
+    openai / bedrock_openai = 5 today). The README's "N LLM backends"
+    prose drifted to "Three" long after the OpenAI (v0.1.213) and
+    `bedrock_openai` (v0.1.217) backends shipped — exactly the kind of
+    prose claim the count gate should pin (caught manually 2026-06-14).
+    """
+    import typing
+
+    from efterlev.config import LLMConfig
+
+    annotation = LLMConfig.model_fields["backend"].annotation
+    return len([a for a in typing.get_args(annotation) if isinstance(a, str)])
+
+
 def runtime_cli_commands() -> set[str]:
     """Every command/verb the CLI exposes. Used to validate prose references.
 
@@ -208,6 +226,31 @@ INDICATOR_COUNT_RE = re.compile(
 )
 SOURCE_FILES_RE = re.compile(r"\b(\d{1,4})\s+source\s+files?\b")
 CLI_REFERENCE_RE = re.compile(r"`efterlev\s+([a-z][a-z\- ]*?[a-z])(?:\s+[<\-]|\s*`)")
+
+# "N CLI commands" prose claim. The number itself isn't otherwise gate-
+# asserted (CLI_REFERENCE_RE validates that *named* commands exist, not a
+# count), so it drifted to "46" while runtime was 57 (caught 2026-06-14).
+CLI_COUNT_RE = re.compile(r"\b(\d{1,3})\s+CLI\s+commands?\b")
+
+# "N LLM backends" prose claim, number word OR digit. The README said
+# "Three LLM backends" two releases after the 4th + 5th shipped. Pinned
+# to the `LLMConfig.backend` Literal count (2026-06-14).
+_NUMBER_WORDS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+BACKEND_COUNT_RE = re.compile(
+    r"\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\s+LLM\s+backends?\b",
+    re.IGNORECASE,
+)
 
 # `.efterlev/reports/<name>/` shape claims must match the actual layout
 # the CLI emits. Today only POA&M lives in a subdirectory; gap, scan,
@@ -268,6 +311,23 @@ def check_doc(path: Path, expected: dict[str, int], cli_commands: set[str]) -> l
             findings.append(
                 f"{rel}:{line_no}: claims '{claimed} source files' but actual is "
                 f"{expected['source_files']}"
+            )
+    for m in CLI_COUNT_RE.finditer(text):
+        claimed = int(m.group(1))
+        if claimed != expected["cli_commands"]:
+            line_no = text[: m.start()].count("\n") + 1
+            findings.append(
+                f"{rel}:{line_no}: claims '{claimed} CLI commands' but CLI exposes "
+                f"{expected['cli_commands']}"
+            )
+    for m in BACKEND_COUNT_RE.finditer(text):
+        raw = m.group(1).lower()
+        claimed = _NUMBER_WORDS.get(raw, int(raw) if raw.isdigit() else None)
+        if claimed is not None and claimed != expected["backends"]:
+            line_no = text[: m.start()].count("\n") + 1
+            findings.append(
+                f"{rel}:{line_no}: claims '{m.group(1)} LLM backends' but "
+                f"LLMConfig admits {expected['backends']}"
             )
 
     # CLI references. Keep the verb conservative — the regex picks up
@@ -445,13 +505,15 @@ def all_markdown_files() -> list[Path]:
 
 
 def main() -> int:
+    cli_commands = runtime_cli_commands()
     expected = {
         "tests": runtime_test_count(),
         "detectors": runtime_detector_count(),
         "indicators": runtime_indicator_count(),
         "source_files": runtime_source_file_count(),
+        "cli_commands": len(cli_commands),
+        "backends": runtime_backend_count(),
     }
-    cli_commands = runtime_cli_commands()
 
     ksi_counts = runtime_ksi_detector_counts()
     print(

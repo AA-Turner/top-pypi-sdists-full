@@ -748,44 +748,11 @@ pub(crate) fn weighted_coefficient_sum_to_zero_transform(
             cross_rank: rank,
             coeff_dim: k,
             cross_frobenius: 1.0,
-            constrained_gram_max_eigenvalue: f64::NAN,
-            constrained_gram_min_eigenvalue: f64::NAN,
-            spectral_tolerance: f64::NAN,
+            gram_spectrum: "not computed (structural rank collapse before Gram eigendecomposition)"
+                .to_string(),
         });
     }
     Ok(z)
-}
-
-pub(crate) fn sphere_area_weights(centers: ArrayView2<'_, f64>, radians: bool) -> Array1<f64> {
-    let to_rad = if radians {
-        1.0
-    } else {
-        std::f64::consts::PI / 180.0
-    };
-    Array1::from_iter(
-        centers
-            .outer_iter()
-            .map(|row| (row[0] * to_rad).cos().max(0.0)),
-    )
-}
-
-#[inline]
-pub(crate) fn spherical_chord_distance2(
-    a: ArrayView1<'_, f64>,
-    b: ArrayView1<'_, f64>,
-    radians: bool,
-) -> f64 {
-    let to_rad = if radians {
-        1.0
-    } else {
-        std::f64::consts::PI / 180.0
-    };
-    let lat_a = a[0] * to_rad;
-    let lon_a = a[1] * to_rad;
-    let lat_b = b[0] * to_rad;
-    let lon_b = b[1] * to_rad;
-    let cos_gamma = lat_a.sin() * lat_b.sin() + lat_a.cos() * lat_b.cos() * (lon_a - lon_b).cos();
-    2.0 * (1.0 - cos_gamma.clamp(-1.0, 1.0))
 }
 
 pub fn select_spherical_farthest_point_centers(
@@ -794,73 +761,24 @@ pub fn select_spherical_farthest_point_centers(
     radians: bool,
 ) -> Result<Array2<f64>, BasisError> {
     validate_lat_lon_matrix(data, "spherical farthest-point centers", radians)?;
-    let n = data.nrows();
     if num_centers == 0 {
         crate::bail_invalid_basis!("spherical farthest-point center count must be positive");
     }
-    if num_centers > n {
-        crate::bail_invalid_basis!(
-            "requested {} spherical centers but only {} rows are available",
-            num_centers,
-            n
-        );
-    }
 
-    let mut seed_idx = 0usize;
-    for i in 1..n {
-        let lat_i = data[[i, 0]];
-        let lon_i = data[[i, 1]];
-        let lat_s = data[[seed_idx, 0]];
-        let lon_s = data[[seed_idx, 1]];
-        if lat_i < lat_s || (lat_i == lat_s && lon_i < lon_s) {
-            seed_idx = i;
-        }
-    }
-
-    let mut selected = Vec::with_capacity(num_centers);
-    let mut chosen = vec![false; n];
-    let mut min_dist2 = vec![f64::INFINITY; n];
-    selected.push(seed_idx);
-    chosen[seed_idx] = true;
-
-    min_dist2.par_iter_mut().enumerate().for_each(|(i, slot)| {
-        *slot = spherical_chord_distance2(data.row(i), data.row(seed_idx), radians);
-    });
-    min_dist2[seed_idx] = 0.0;
-
-    while selected.len() < num_centers {
-        let best_idx = min_dist2
-            .par_iter()
-            .enumerate()
-            .filter(|(i, _)| !chosen[*i])
-            .map(|(i, &cand)| (i, cand))
-            .reduce_with(|a, b| {
-                if b.1 > a.1 || (b.1 == a.1 && b.0 < a.0) {
-                    b
-                } else {
-                    a
-                }
-            })
-            .map(|(i, _)| i);
-        let Some(next_idx) = best_idx else {
-            break;
-        };
-        selected.push(next_idx);
-        chosen[next_idx] = true;
-        min_dist2.par_iter_mut().enumerate().for_each(|(i, slot)| {
-            if chosen[i] {
-                return;
-            }
-            let d2 = spherical_chord_distance2(data.row(i), data.row(next_idx), radians);
-            if d2 < *slot {
-                *slot = d2;
-            }
-        });
-    }
-
-    let mut centers = Array2::<f64>::zeros((selected.len(), 2));
-    for (r, &idx) in selected.iter().enumerate() {
-        centers.row_mut(r).assign(&data.row(idx));
+    let to_units = if radians {
+        1.0
+    } else {
+        180.0 / std::f64::consts::PI
+    };
+    let golden_angle = std::f64::consts::PI * (3.0 - 5.0_f64.sqrt());
+    let mut centers = Array2::<f64>::zeros((num_centers, 2));
+    for i in 0..num_centers {
+        let z = (2.0 * i as f64 + 1.0) / num_centers as f64 - 1.0;
+        let lon = ((i as f64) * golden_angle + std::f64::consts::PI)
+            .rem_euclid(std::f64::consts::TAU)
+            - std::f64::consts::PI;
+        centers[[i, 0]] = z.asin() * to_units;
+        centers[[i, 1]] = lon * to_units;
     }
     Ok(centers)
 }
@@ -889,75 +807,4 @@ pub fn auto_streaming_chunk_size_for_dense(n_rows: usize, n_basis_cols: usize) -
     let raw_chunk = TARGET_CHUNK_BYTES / row_bytes;
     let clamped = raw_chunk.max(MIN_CHUNK_ROWS).min(n_rows);
     Some(clamped)
-}
-
-/// GPU dispatch for the raw `(n × m)` Wahba truncated-spectral kernel
-/// matrix. Returns `None` when the kernel variant is not one of the
-/// `Truncated` forms (the GPU path matches only those exactly), when the
-/// `(n, m, lmax)` workload is too small to amortise H2D/D2H, or when the
-/// GPU runtime is unavailable. A transient GPU failure falls back to the
-/// CPU path (logged at warn level).
-pub(crate) fn try_build_truncated_sphere_design_gpu(
-    data: ArrayView2<'_, f64>,
-    centers: ArrayView2<'_, f64>,
-    kernel: SphereWahbaKernel,
-    penalty_order: usize,
-    radians: bool,
-) -> Option<Array2<f64>> {
-    let (lmax_u16, kind) = match kernel {
-        SphereWahbaKernel::SobolevTruncated { lmax } => (
-            lmax,
-            crate::terms::basis::sphere_gpu::SphereSpectralKernelKind::Sobolev,
-        ),
-        SphereWahbaKernel::PseudoTruncated { lmax } => (
-            lmax,
-            crate::terms::basis::sphere_gpu::SphereSpectralKernelKind::Pseudo,
-        ),
-        SphereWahbaKernel::Sobolev | SphereWahbaKernel::Pseudo => return None,
-    };
-    let lmax = lmax_u16 as usize;
-    if lmax == 0 {
-        return None;
-    }
-    let n = data.nrows();
-    let m = centers.nrows();
-    let decision = crate::terms::basis::sphere_gpu::sphere_kernel_decision(n, m, lmax);
-    if !decision.use_gpu {
-        return None;
-    }
-    let data_xyz = crate::terms::basis::sphere_gpu::latlon_to_xyz_host(data, radians).ok()?;
-    let centers_xyz = crate::terms::basis::sphere_gpu::latlon_to_xyz_host(centers, radians).ok()?;
-    let coeffs = kind.coefficients(lmax, penalty_order);
-    let inputs = crate::terms::basis::sphere_gpu::S2KernelBuildInputs {
-        n,
-        m,
-        lmax,
-        data_xyz: &data_xyz,
-        centers_xyz: &centers_xyz,
-        coeffs: &coeffs,
-        kind,
-        layout: crate::terms::basis::sphere_gpu::DeviceMatrixLayout::ColumnMajor,
-    };
-    let dev = match crate::terms::basis::sphere_gpu::build_kernel_matrix_device(inputs) {
-        Ok(d) => d,
-        Err(err) => {
-            log::warn!(
-                "sphere GPU kernel build fell back to CPU (n={n}, m={m}, lmax={lmax}): {err}"
-            );
-            return None;
-        }
-    };
-    match dev.to_host_array() {
-        Ok(arr) => {
-            log::info!(
-                "sphere GPU kernel matrix: n={n} m={m} lmax={lmax} kind={}",
-                kind.tag()
-            );
-            Some(arr)
-        }
-        Err(err) => {
-            log::warn!("sphere GPU dtoh fell back to CPU (n={n}, m={m}, lmax={lmax}): {err}");
-            None
-        }
-    }
 }

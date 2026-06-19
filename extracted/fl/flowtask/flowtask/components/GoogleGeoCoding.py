@@ -82,6 +82,9 @@ class GoogleGeoCoding(FlowComponent):
         self.chunk_size: int = kwargs.get('chunk_size', 100)
         self.check_field = kwargs.get('comparison_field', 'formatted_address')
         self.use_find_place: bool = kwargs.get('use_find_place', False)
+        # When True, perform ONLY the Geocoding API call and never fall back
+        # to the (second) Places "find_place" request to refine broad results.
+        self.only_geocoding: bool = kwargs.get('only_geocoding', False)
         self.return_pluscode: bool = kwargs.get('return_pluscode', False)
         self.place_prefix: str = kwargs.get('place_prefix', None)
         self._wait_time: float = kwargs.get('wait_time', 0.1)
@@ -115,59 +118,94 @@ class GoogleGeoCoding(FlowComponent):
         self,
         address: str,
         place_prefix: str = None,
-        fields: str = "name,place_id,plus_code,formatted_address,geometry,type",
+        fields: str = (
+            "places.id,places.displayName,places.formattedAddress,"
+            "places.location,places.types,places.plusCode,places.addressComponents"
+        ),
         get_plus_code: bool = True
     ) -> dict:
-        """Searches for a place using the Google Places API.
+        """Searches for a place using the Google Places API (New).
+
+        Migrated from the legacy ``place/findplacefromtext`` endpoint to the
+        Places API (New) ``places:searchText`` Text Search endpoint. The
+        request authenticates and selects fields through the
+        ``X-Goog-Api-Key`` and ``X-Goog-FieldMask`` headers (instead of the
+        legacy ``key``/``fields`` query parameters) and sends the query in a
+        JSON ``POST`` body.
 
         Args:
-            idx: row index
-            row: pandas row
-            return_pluscode: return the Google +Code
-            place_prefix: adding a prefix to address
+            address: the address string to search for.
+            place_prefix: optional prefix prepended to the text query.
+            fields: the ``X-Goog-FieldMask`` value (comma-separated fields).
+            get_plus_code: include the Google Plus Code in the result.
 
         Returns:
-            The Place ID of the first matching result, or None if no results are found.
+            A dict with the SAME keys produced by ``get_coordinates``
+            (``latitude``, ``longitude``, ``formatted_address``, ``place_id``,
+            ``zipcode`` and, optionally, ``plus_code``/``global_code``) to keep
+            backward-compatibility with the resulting DataFrame columns, or
+            ``None`` if no results are found.
         """
-        base_url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
-        params = {
-            "input": f"{place_prefix}, {address}",
-            "inputtype": "textquery",
-            "fields": fields,
-            "key": self.api_key
+        base_url = "https://places.googleapis.com/v1/places:searchText"
+        text_query = f"{place_prefix}, {address}" if place_prefix else address
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": self.api_key,
+            "X-Goog-FieldMask": fields,
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.get(base_url, params=params) as response:
+        payload = {"textQuery": text_query}
+        timeout = aiohttp.ClientTimeout(total=20)
+        session_args = {
+            "timeout": timeout,
+            "json_serialize": json_encoder,
+        }
+        async with aiohttp.ClientSession(**session_args) as session:
+            async with session.post(base_url, json=payload, headers=headers) as response:
                 if response.status == 200:
                     result = await response.json()
-                    if result['status'] == 'OK' and result.get("candidates"):
-                        data = result["candidates"][0]
-                        if not data.get('geometry'):
-                            self._logger.error(
-                                f"No geometry found for {address}"
-                            )
-                            return None
-                        # Extract all the same info as in get_coordinates
-                        postal_code = None
-                        result = {
-                            "latitude": data['geometry']['location']['lat'],
-                            "longitude": data['geometry']['location']['lng'],
-                            "formatted_address": data.get('formatted_address'),
-                            "place_id": data.get('place_id'),
-                            "zipcode": postal_code,
-                        }
-                        if get_plus_code:
-                            result |= {
-                                "plus_code": data.get("plus_code", {}).get('compound_code'),
-                                "global_code": data.get("plus_code", {}).get('global_code')
-                            }
-                        return result
-                    else:
-                        error_message = result.get('error_message', 'No results found')
+                    places = result.get("places") or []
+                    if not places:
                         self._logger.error(
-                            f"No results found for {address}: error_message: {error_message}"
+                            f"No results found for {address} (Places API New)"
                         )
                         return None
+                    data = places[0]
+                    location = data.get("location") or {}
+                    if not location:
+                        self._logger.error(
+                            f"No geometry found for {address}"
+                        )
+                        return None
+                    # Extract postal code from addressComponents (new schema)
+                    postal_code = None
+                    for component in data.get("addressComponents", []):
+                        if "postal_code" in component.get("types", []):
+                            postal_code = component.get("longText") or component.get("shortText")
+                            break
+                    place = {
+                        "latitude": location.get("latitude"),
+                        "longitude": location.get("longitude"),
+                        "formatted_address": data.get("formattedAddress"),
+                        "place_id": data.get("id"),
+                        "zipcode": postal_code,
+                    }
+                    if get_plus_code:
+                        plus_code = data.get("plusCode", {}) or {}
+                        place |= {
+                            "plus_code": plus_code.get("compoundCode"),
+                            "global_code": plus_code.get("globalCode")
+                        }
+                    return place
+                else:
+                    try:
+                        err = await response.json()
+                        error_message = err.get("error", {}).get("message", err)
+                    except Exception:  # pylint: disable=W0703
+                        error_message = await response.text()
+                    self._logger.error(
+                        f"Places API (New) error for {address}: {error_message}"
+                    )
+                    return None
         return None
 
     @backoff.on_exception(
@@ -253,11 +291,12 @@ class GoogleGeoCoding(FlowComponent):
                                     }
                                     # If the result is not a specific address type, try to refine it.
                                     if not result_types.intersection(specific_address_types):
-                                        self._logger.notice(
-                                            f"Initial result is too broad ({', '.join(result_types)}). Refining with find_place."
-                                        )
-                                        # Refine the search:
-                                        if self.use_find_place is True:
+                                        # Refine the search with a second Places call, unless
+                                        # geocoding-only mode is requested.
+                                        if self.use_find_place is True and self.only_geocoding is False:
+                                            self._logger.notice(
+                                                f"Initial result is too broad ({', '.join(result_types)}). Refining with find_place."
+                                            )
                                             place = await self.find_place(
                                                 address, place_prefix=place_prefix, get_plus_code=self.return_pluscode
                                             )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: txaio
-Version: 25.12.2
+Version: 26.6.1
 Summary: Compatibility API between asyncio/Twisted/Trollius
 Project-URL: Homepage, https://txaio.readthedocs.io/
 Project-URL: Documentation, https://txaio.readthedocs.io/
@@ -39,6 +39,7 @@ Requires-Dist: pytest-cov>=4.0.0; extra == 'dev'
 Requires-Dist: pytest>=8.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.4.0; extra == 'dev'
 Requires-Dist: twine>=5.0.0; extra == 'dev'
+Requires-Dist: ty>=0.0.44; extra == 'dev'
 Requires-Dist: wheel>=0.42.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: furo>=2024.7.0; extra == 'docs'

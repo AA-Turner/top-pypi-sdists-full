@@ -236,6 +236,31 @@ class TaskRunner:
             task_def = {"executor": getattr(self._options, "executor", None) or "default"}
             executor = resolve_executor(task_def, self._options)
             mode = determine_execution_mode(self._options)
+            # The executor builds a fresh Task WITHOUT the CLI parser, so options
+            # that the Task only reads from the parser (run_only, ignore,
+            # override_attributes, variables, conditions) would be silently lost
+            # — breaking flags like --run_only.  Forward them as serialisable
+            # kwargs (NOT the parser object, which remote executors can't
+            # serialise) so the Task picks them up via its kwargs fallbacks.
+            for _opt_attr, _kw_name in (
+                ("run_only", "run_only"),
+                ("ignore", "ignore_steps"),
+                ("override_attributes", "override_attributes"),
+                ("variables", "variables"),
+                ("conditions", "conditions"),
+                ("masks", "masks"),
+                ("args", "args"),
+                ("arguments", "arguments"),
+                # The executor builds a fresh Task that re-resolves its storage
+                # from kwargs; without forwarding the selected task/file storage
+                # the new Task silently falls back to "default" (TASK_PATH),
+                # breaking --storage=<name> (e.g. private).
+                ("storage", "storage"),
+                ("filestore", "filestore"),
+            ):
+                _val = getattr(self._options, _opt_attr, None)
+                if _val:
+                    self._kwargs.setdefault(_kw_name, _val)
             if mode == "dispatch":
                 handle = await executor.dispatch(
                     self._program,
@@ -259,6 +284,17 @@ class TaskRunner:
                     from flowtask.exceptions import TaskFailed
                     raise TaskFailed(task_result.error or "Task execution failed")
                 self._result = task_result.result
+                # Propagate the executor task's full TaskMonitor (with per-step
+                # stats) so ``runner.stats`` reflects the real execution instead
+                # of the runner's placeholder monitor.  Local (in-process) runs
+                # return the live TaskMonitor; remote executors return a
+                # serialised dict, which we leave on self.stat untouched.
+                if isinstance(task_result.stats, TaskMonitor):
+                    try:
+                        await self.stat.stop()  # stop placeholder's sampler
+                    except Exception:  # pylint: disable=W0718
+                        pass
+                    self.stat = task_result.stats
         except Exception as err:
             logging.error(err)
             raise

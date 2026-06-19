@@ -22,9 +22,11 @@ from plato.chronos.errors import NotFoundError
 from plato.chronos.models import UpdateSettingRequest
 from plato.chronos.sdk import Chronos
 from plato.cli.chronos.settings import get_settings
+from plato.cli.chronos.workspace_upload import download_session_workspace_archive, workspace_app
 from plato.cli.utils import console, safe_print
 
 chronos_app = typer.Typer(help="Chronos job management commands.")
+chronos_app.add_typer(workspace_app, name="workspace")
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -888,17 +890,34 @@ def download(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
     repo_name: Annotated[str, typer.Option("--repo", "-r", help="Workspace repo name")] = "code",
     step_name: Annotated[str | None, typer.Option("--step", "-s", help="Step name (uses latest if omitted)")] = None,
-    output: Annotated[
-        Path | None, typer.Option("--output", "-o", help="Output zip path (default: /tmp/<session>-<repo>.zip)")
-    ] = None,
+    output: Annotated[Path | None, typer.Option("--output", "-o", help="Output path")] = None,
+    session_workspace: Annotated[
+        bool, typer.Option("--session-workspace", help="Download the session workspace tarball instead of repo files")
+    ] = False,
+    workspace_name: Annotated[
+        str, typer.Option("--name", help="Session workspace object name for --session-workspace")
+    ] = "workspace",
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
 ):
-    """Download workspace files as a ZIP archive."""
+    """Download workspace files as a ZIP archive, or a session workspace tarball."""
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
     try:
+        if session_workspace:
+            out_path = output or Path(tempfile.gettempdir()) / f"{session_id[:12]}-{workspace_name}.tar"
+            size = download_session_workspace_archive(
+                out_path,
+                session_id=session_id,
+                name=workspace_name,
+                chronos_url=chronos_url,
+                api_key=api_key,
+            )
+            console.print(f"[green]Downloaded to {out_path}[/green]")
+            console.print(f"[dim]Size: {size / 1024 / 1024:.1f} MB[/dim]")
+            return
+
         with Chronos(base_url=chronos_url, api_key=api_key) as client:
             # First get refs to find the step name if not provided
             refs = client.get_workspace_refs(session_id, repo_name=repo_name)
@@ -911,6 +930,7 @@ def download(
                     console.print(f"[yellow]Available repos: {', '.join(available)}[/yellow]")
                 else:
                     console.print(f"[red]No workspace refs found for session {session_id}[/red]")
+                console.print("[dim]Hint: pass --session-workspace to download a session workspace tarball.[/dim]")
                 raise typer.Exit(1)
 
             if step_name is None:

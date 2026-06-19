@@ -105,6 +105,10 @@ class IdentityProviderConfigurationTypeDef(TypedDict):
     IdpLambdaArn: NotRequired[str]
 
 
+class NlpConfigurationTypeDef(TypedDict):
+    Status: NotRequired[NlpStatusType]
+
+
 class PreloadDataConfigTypeDef(TypedDict):
     PreloadDataType: Literal["SYNTHEA"]
 
@@ -128,10 +132,6 @@ TimestampTypeDef = Union[datetime, str]
 class ErrorCauseTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
     ErrorCategory: NotRequired[ErrorCategoryType]
-
-
-class NlpConfigurationTypeDef(TypedDict):
-    Status: NotRequired[NlpStatusType]
 
 
 class ProfileConfigurationOutputTypeDef(TypedDict):
@@ -307,16 +307,6 @@ class ListFHIRDatastoresRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
-class CreateFHIRDatastoreRequestTypeDef(TypedDict):
-    DatastoreTypeVersion: Literal["R4"]
-    DatastoreName: NotRequired[str]
-    SseConfiguration: NotRequired[SseConfigurationTypeDef]
-    PreloadDataConfig: NotRequired[PreloadDataConfigTypeDef]
-    ClientToken: NotRequired[str]
-    Tags: NotRequired[Sequence[TagTypeDef]]
-    IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
-
-
 class DatastorePropertiesTypeDef(TypedDict):
     DatastoreId: str
     DatastoreArn: str
@@ -379,11 +369,24 @@ class StartFHIRImportJobRequestTypeDef(TypedDict):
     ValidationLevel: NotRequired[ValidationLevelType]
 
 
+class CreateFHIRDatastoreRequestTypeDef(TypedDict):
+    DatastoreTypeVersion: Literal["R4"]
+    DatastoreName: NotRequired[str]
+    SseConfiguration: NotRequired[SseConfigurationTypeDef]
+    PreloadDataConfig: NotRequired[PreloadDataConfigTypeDef]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
+    AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
+    NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
+    ProfileConfiguration: NotRequired[ProfileConfigurationUnionTypeDef]
+
+
 class UpdateFHIRDatastoreRequestTypeDef(TypedDict):
     DatastoreId: str
     DatastoreName: NotRequired[str]
-    AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
     NlpConfiguration: NotRequired[NlpConfigurationTypeDef]
+    AnalyticsConfiguration: NotRequired[AnalyticsConfigurationTypeDef]
     ProfileConfiguration: NotRequired[ProfileConfigurationUnionTypeDef]
     IdentityProviderConfiguration: NotRequired[IdentityProviderConfigurationTypeDef]
 

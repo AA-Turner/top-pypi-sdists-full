@@ -77,7 +77,7 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
     let base = run_git_capture(Some(&repo_dir), &["merge-base", &trunk.refspec(), "HEAD"])?;
 
     let Some(commit_prefix) = opts.commit_prefix else {
-        spawn_rebase(&repo_dir, &base, None)?;
+        spawn_rebase(&repo_dir, &base, None, false)?;
         return Ok(Outcome::InteractiveCompleted);
     };
 
@@ -87,8 +87,18 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
     }
 
     let target = match_commit(commit_prefix, &commits)?;
+    // Print the editing notice *before* spawning the rebase so it
+    // precedes git's interactive-rebase output, matching Python's
+    // ordering (`console.print` then `_run_edit_rebase`). The
+    // "Amend the commit…" hint is printed by the caller after the
+    // rebase pauses.
+    let short = &target.sha[..target.sha.len().min(12)];
+    println!(
+        "Editing commit: {short} {subject}",
+        subject = target.subject
+    );
     let editor = build_sequence_editor(opts.mergify_binary, &target.sha);
-    spawn_rebase(&repo_dir, &base, Some(&editor))?;
+    spawn_rebase(&repo_dir, &base, Some(&editor), false)?;
 
     Ok(Outcome::PausedAt { commit: target })
 }
@@ -116,22 +126,21 @@ fn match_commit(
         )
     };
     match matches.as_slice() {
-        [] => Err(CliError::StackNotFound(format!(
-            "no commit found matching {field} prefix '{prefix}'"
-        ))),
+        [] => Err(crate::match_commit::not_found(field, prefix)),
         [only] => Ok(EditingCommit {
             sha: only.commit_sha.clone(),
             subject: only.title.clone(),
         }),
         many => {
-            let listing = many
+            let candidates: Vec<crate::match_commit::Candidate<'_>> = many
                 .iter()
-                .map(|c| format!("{} {}", &c.commit_sha[..7], c.title))
-                .collect::<Vec<_>>()
-                .join("\n  ");
-            Err(CliError::InvalidState(format!(
-                "{field} prefix '{prefix}' matches multiple commits:\n  {listing}"
-            )))
+                .map(|c| crate::match_commit::Candidate {
+                    commit_sha: &c.commit_sha,
+                    title: &c.title,
+                    change_id: &c.change_id,
+                })
+                .collect();
+            Err(crate::match_commit::ambiguous(field, prefix, &candidates))
         }
     }
 }

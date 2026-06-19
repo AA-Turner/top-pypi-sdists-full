@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "oarepo-runtime"
-version = "7.0.0"
+version = "7.1.0"
 description = "A set of runtime extensions of Invenio repository"
 readme = "README.md"
 license = "MIT"

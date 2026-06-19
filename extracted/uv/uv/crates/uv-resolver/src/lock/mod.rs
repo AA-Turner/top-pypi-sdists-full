@@ -765,9 +765,30 @@ impl Lock {
         &self.manifest.members
     }
 
-    /// Returns the dependency groups that were used to generate this lock.
+    /// Returns the root requirements that were used to generate this lock.
     fn requirements(&self) -> &BTreeSet<Requirement> {
         &self.manifest.requirements
+    }
+
+    /// Intersect a requirement marker with the forks that contain a package, then simplify it
+    /// under the lockfile's Python requirement.
+    pub(crate) fn root_requirement_marker(
+        &self,
+        requirement: &Requirement,
+        package: &Package,
+    ) -> Option<MarkerTree> {
+        let marker = if package.fork_markers.is_empty() {
+            requirement.marker
+        } else {
+            let mut combined = MarkerTree::FALSE;
+            for fork_marker in &package.fork_markers {
+                combined.or(fork_marker.pep508());
+            }
+            combined.and(requirement.marker);
+            combined
+        };
+
+        (!marker.is_false()).then(|| self.simplify_environment(marker))
     }
 
     /// Returns the dependency groups that were used to generate this lock.
@@ -3878,7 +3899,7 @@ impl PackageId {
     fn to_toml(&self, dist_count_by_name: Option<&FxHashMap<PackageName, u64>>, table: &mut Table) {
         let count = dist_count_by_name.and_then(|map| map.get(&self.name).copied());
         table.insert("name", value(self.name.to_string()));
-        if count.map(|count| count > 1).unwrap_or(true) {
+        if count.is_none_or(|count| count > 1) {
             if let Some(version) = &self.version {
                 table.insert("version", value(version.to_string()));
             }

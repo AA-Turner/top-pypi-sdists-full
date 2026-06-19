@@ -9,6 +9,7 @@ transport ownership, and the close/context-manager paths.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 
 import httpx
@@ -24,12 +25,15 @@ RUN_ID = "8f2b1c4a-0000-4a1b-9c3d-1e2f3a4b5c6d"
 _CFG = HttpConfig(url="https://api.example.com/hook", method="POST", headers=[("X-Api-Key", "secret")], body="{}")
 
 # Default environments map: ``production`` enabled with no override (inherits
-# base config), ``staging`` disabled with a per-env configuration override.
-# Exercises both JobEnvironment._from_dict branches (config absent / present).
+# base config) but reporting a read-only per-env ``next_run_at``, ``staging``
+# disabled with both a per-env ``schedule`` override and a configuration
+# override. Exercises both JobEnvironment._from_dict branches (config absent /
+# present) plus the per-env schedule and next_run_at fields.
 _DEFAULT_ENVIRONMENTS = {
-    "production": {"enabled": True},
+    "production": {"enabled": True, "next_run_at": "2026-06-05T00:00:00Z"},
     "staging": {
         "enabled": False,
+        "schedule": "0 3 * * *",
         "configuration": {
             "method": "POST",
             "url": "https://staging.example.com/hook",
@@ -40,17 +44,17 @@ _DEFAULT_ENVIRONMENTS = {
             "tls_verify": True,
             "ca_cert": None,
         },
+        "next_run_at": None,
     },
 }
 
 
-def _job_resource(job_id="my-job", *, created=True, version=1, enabled=True, environments="default"):
+def _job_resource(job_id="my-job", *, created=True, version=1, environments="default"):
     if environments == "default":
         environments = _DEFAULT_ENVIRONMENTS
     attributes = {
         "name": "My Job",
         "description": "does a thing",
-        "enabled": enabled,
         "recurring": True,
         "type": "http",
         "schedule": "0 * * * *",
@@ -65,7 +69,6 @@ def _job_resource(job_id="my-job", *, created=True, version=1, enabled=True, env
             "ca_cert": None,
         },
         "concurrency_policy": "ALLOW",
-        "next_run_at": "2026-06-05T00:00:00Z",
         "created_at": "2026-06-04T00:00:00Z" if created else None,
         "updated_at": "2026-06-04T00:00:00Z" if created else None,
         "deleted_at": None,
@@ -223,9 +226,19 @@ class TestSyncSurface:
         c = _sync()
         assert c.get("my-job").configuration.method == "POST"
         assert len(c.list()) == 2
-        assert len(c.list(enabled=True, page_number=1, page_size=10)) == 2
+        assert len(c.list(page_number=1, page_size=10)) == 2
         c.delete("my-job")
         c.get("my-job").delete()  # active-record delete with bound client
+
+    def test_list_recurring_and_name_filters(self):
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        c.list(recurring=True, name="health")
+        params = caps[-1]["params"]
+        assert params.get("filter[recurring]") == "true"
+        assert params.get("filter[name]") == "health"
+        # The dropped enabled filter is never emitted.
+        assert "filter[enabled]" not in params
 
     def test_run_runs_usage(self):
         c = _sync()
@@ -260,7 +273,7 @@ class TestAsyncSurface:
             await job.save()
             assert job.version == 2
             assert len(await c.list()) == 2
-            assert len(await c.list(enabled=False, page_number=1, page_size=5)) == 2
+            assert len(await c.list(page_number=1, page_size=5)) == 2
             assert (await c.get("my-job")).id == "my-job"
             await c.delete("my-job")
             await job.delete()
@@ -346,6 +359,7 @@ def _recording(captures: list[dict]):
             {
                 "method": req.method,
                 "path": req.url.path,
+                "params": dict(req.url.params),
                 "env_header": req.headers.get("X-Smplkit-Environment"),
                 "filter_env": req.url.params.get("filter[environment]"),
                 "body": json.loads(req.content) if req.content else None,
@@ -360,10 +374,35 @@ class TestEnvironmentModelsAndHelpers:
     def test_job_environment_from_dict_branches(self):
         bare = JobEnvironment._from_dict({"enabled": True})
         assert bare.enabled is True and bare.configuration is None
-        with_cfg = JobEnvironment._from_dict({"enabled": False, "configuration": {"url": "https://e.com"}})
+        assert bare.schedule is None and bare.next_run_at is None  # both absent
+        with_cfg = JobEnvironment._from_dict(
+            {
+                "enabled": False,
+                "schedule": "0 6 * * *",
+                "configuration": {"url": "https://e.com"},
+                "next_run_at": "2026-06-05T00:00:00Z",
+            }
+        )
         assert with_cfg.enabled is False
+        assert with_cfg.schedule == "0 6 * * *"  # per-env schedule read back
         assert isinstance(with_cfg.configuration, HttpConfig)
         assert with_cfg.configuration.url == "https://e.com"
+        # read-only next_run_at parsed back to a datetime
+        assert with_cfg.next_run_at is not None and with_cfg.next_run_at.year == 2026
+
+    def test_job_environment_to_payload_omits_next_run_at(self):
+        # next_run_at is read-only: it must never be written back on save, but a
+        # per-env schedule override must be.
+        env = JobEnvironment(
+            enabled=True,
+            schedule="0 7 * * *",
+            next_run_at=datetime.datetime(2026, 6, 5),
+        )
+        payload = env._to_payload()
+        assert payload == {"enabled": True, "schedule": "0 7 * * *"}
+        assert "next_run_at" not in payload
+        # with no schedule override, only enabled is written
+        assert JobEnvironment(enabled=False)._to_payload() == {"enabled": False}
 
     def test_join_environments(self):
         from smplkit.jobs.clients import UNSET, _join_environments
@@ -382,7 +421,7 @@ class TestEnvironmentModelsAndHelpers:
                 "production": JobEnvironment(enabled=True),  # passthrough instance
                 "staging": {"enabled": True, "configuration": _CFG},  # dict w/ HttpConfig instance
                 "dev": {"enabled": False, "configuration": {"url": "https://dev.example.com"}},  # dict w/ dict cfg
-                "qa": {"enabled": True},  # dict, no configuration
+                "qa": {"enabled": True, "schedule": "0 8 * * *"},  # dict w/ per-env schedule, no configuration
             }
         )
         assert out["production"].enabled is True
@@ -391,6 +430,7 @@ class TestEnvironmentModelsAndHelpers:
         assert isinstance(out["dev"].configuration, HttpConfig)
         assert out["dev"].configuration.url == "https://dev.example.com"
         assert out["qa"].configuration is None
+        assert out["qa"].schedule == "0 8 * * *"  # dict-form per-env schedule carried through
 
     def test_create_sends_dict_form_environment_configuration(self):
         # The documented plain-dict form (incl. a dict configuration override)
@@ -435,11 +475,31 @@ class TestEnvironmentModelsAndHelpers:
     def test_from_resource_parses_environments(self):
         c = _sync()
         job = c.get("my-job")
-        assert job.enabled is True  # derived roll-up
+        assert job.enabled is True  # derived roll-up (production enabled)
         assert job.recurring is True
         assert job.environments["production"].enabled is True
         assert job.environments["production"].configuration is None  # inherits base
+        assert job.environments["production"].schedule is None  # inherits base schedule
+        # read-only per-env next_run_at parsed back off the wire
+        assert job.environments["production"].next_run_at is not None
+        assert job.environments["production"].next_run_at.year == 2026
         assert job.environments["staging"].configuration.url == "https://staging.example.com/hook"
+        # per-env schedule override parsed back off the wire
+        assert job.environments["staging"].schedule == "0 3 * * *"
+        # next_run_at is null for the disabled environment
+        assert job.environments["staging"].next_run_at is None
+
+    def test_enabled_rollup_false_when_all_disabled(self):
+        # The derived roll-up is False when no environment is enabled.
+        def h(req):
+            if req.url.path.startswith("/api/v1/jobs/") and req.method == "GET":
+                envs = {"production": {"enabled": False}, "staging": {"enabled": False}}
+                return httpx.Response(200, json={"data": _job_resource(environments=envs)})
+            return _handler(req)
+
+        job = _sync(h).get("my-job")
+        assert job.enabled is False
+        assert job.is_enabled() is False
 
     def test_from_resource_without_environments(self):
         def h(req):
@@ -473,6 +533,30 @@ class TestEnvironmentsSync:
         assert envs["staging"]["configuration"]["url"] == "https://api.example.com/hook"  # config-present branch
         # base 'enabled' is never written
         assert "enabled" not in body["body"]["data"]["attributes"]
+
+    def test_create_sends_per_environment_schedule_and_omits_next_run_at(self):
+        # A per-env schedule override is sent on save; the read-only next_run_at
+        # round-tripped from a prior GET must never be written back.
+        caps: list[dict] = []
+        c = _sync(_recording(caps))
+        job = c.new(
+            "my-job",
+            name="My Job",
+            schedule="0 * * * *",
+            configuration=_CFG,
+            environments={
+                "production": JobEnvironment(
+                    enabled=True,
+                    schedule="0 9 * * *",
+                    next_run_at=datetime.datetime(2026, 6, 5),
+                ),
+            },
+        )
+        job.save()
+        body = next(c for c in caps if c["method"] == "POST" and c["path"] == "/api/v1/jobs")
+        prod = body["body"]["data"]["attributes"]["environments"]["production"]
+        assert prod["schedule"] == "0 9 * * *"
+        assert "next_run_at" not in prod  # read-only: never sent
 
     def test_runs_list_explicit_environments_filter(self):
         caps: list[dict] = []
@@ -558,12 +642,18 @@ class TestEnvironmentsAsync:
 class TestConvenienceGettersSetters:
     def test_is_enabled(self):
         job = Job(None, id="x", name="X", schedule="0 * * * *", configuration=_CFG)
-        assert job.is_enabled() is False  # roll-up default (no envs)
+        assert job.is_enabled() is False  # derived roll-up default (no envs)
+        assert job.enabled is False
         job.set_enabled(True, environment="production")
         assert job.is_enabled(environment="production") is True  # per-env present
         assert job.is_enabled(environment="staging") is False  # env absent from map
-        job.enabled = True  # simulate the server roll-up
+        # the roll-up is derived: enabling any environment flips it True
         assert job.is_enabled() is True
+        assert job.enabled is True
+        # disabling the only enabled environment flips it back
+        job.set_enabled(False, environment="production")
+        assert job.is_enabled() is False
+        assert job.enabled is False
 
     def test_get_configuration(self):
         base = HttpConfig(url="https://base.example.com")
@@ -579,7 +669,16 @@ class TestConvenienceGettersSetters:
 
     def test_set_schedule(self):
         job = Job(None, id="x", name="X", schedule="now", configuration=_CFG)
+        # base schedule (environment=None)
         job.set_schedule("0 2 * * *")
+        assert job.schedule == "0 2 * * *"
+        # per-environment schedule override — create-new-entry branch
+        job.set_schedule("0 4 * * *", environment="staging")
+        assert job.environments["staging"].schedule == "0 4 * * *"
+        # existing-entry branch (the env already has an override)
+        job.set_schedule("15 5 * * *", environment="staging")
+        assert job.environments["staging"].schedule == "15 5 * * *"
+        # the base schedule is untouched by per-env overrides
         assert job.schedule == "0 2 * * *"
 
 

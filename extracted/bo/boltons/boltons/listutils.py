@@ -121,7 +121,7 @@ class BarrelList(list):
     def _balance_list(self, list_idx):
         if list_idx < 0:
             list_idx += len(self.lists)
-        cur_list, len_self = self.lists[list_idx], len(self)
+        cur_list = self.lists[list_idx]
         size_limit = self._cur_size_limit
         if len(cur_list) > size_limit:
             half_limit = size_limit // 2
@@ -139,7 +139,7 @@ class BarrelList(list):
         else:
             list_idx, rel_idx = self._translate_index(index)
             if list_idx is None:
-                raise IndexError()
+                list_idx, rel_idx = 0, 0
             self.lists[list_idx].insert(rel_idx, item)
             self._balance_list(list_idx)
         return
@@ -308,7 +308,7 @@ class BarrelList(list):
                 li.sort()
             tmp_sorted = sorted(chain.from_iterable(self.lists))
             del self.lists[:]
-            self.lists[0] = tmp_sorted
+            self.lists.append(tmp_sorted)
             self._balance_list(0)
 
     def reverse(self):

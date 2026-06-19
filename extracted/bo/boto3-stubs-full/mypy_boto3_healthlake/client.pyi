@@ -243,7 +243,7 @@ class HealthLakeClient(BaseClient):
         self, **kwargs: Unpack[UpdateFHIRDatastoreRequestTypeDef]
     ) -> UpdateFHIRDatastoreResponseTypeDef:
         """
-        <para>Update the properties of a FHIR-enabled data store.</para>.
+        Update the properties of a FHIR-enabled data store.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/update_fhir_datastore.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_healthlake/client/#update_fhir_datastore)

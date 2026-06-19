@@ -186,6 +186,7 @@ LastUpdateStatusReasonCodeType = Literal[
     "InvalidZipFileException",
     "KMSKeyAccessDenied",
     "KMSKeyNotFound",
+    "ServiceQuotaExceededException",
     "SubnetOutOfIPAddresses",
     "VcpuLimitExceeded",
 ]
@@ -317,6 +318,7 @@ StateReasonCodeType = Literal[
     "KMSKeyAccessDenied",
     "KMSKeyNotFound",
     "Restoring",
+    "ServiceQuotaExceededException",
     "SubnetOutOfIPAddresses",
     "VcpuLimitExceeded",
 ]

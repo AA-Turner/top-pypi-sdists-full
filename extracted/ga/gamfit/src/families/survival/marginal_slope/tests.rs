@@ -2190,6 +2190,19 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
         d
     };
 
+    let q_geom = family
+        .row_dynamic_q_geometry(0, &block_states)
+        .expect("diagnostic q geometry");
+    let (_, _, prod_hess) = family
+        .compute_row_flex_primary_gradient_hessian_exact(0, &block_states, &q_geom, &primary)
+        .expect("diagnostic production flex hessian");
+    let witness_h_gw = central_rich(&[(gi, 1), (wi0, 1)], 6e-3);
+    eprintln!(
+        "#932 diagnostic base hess[g,w0]: production {:+.6e} witness {:+.6e}",
+        prod_hess[[gi, wi0]],
+        witness_h_gw
+    );
+
     // ── Third order: production D_dir H[u,v] vs witness ∂³ along (u,v,dir) ───
     // Contract along the logslope axis g; check cross blocks touching the
     // deviation coordinates (the channels Arm A cannot reach).
@@ -2232,6 +2245,261 @@ fn flex_contracted_tower_matches_independent_fd_witness_nonzero_deviation() {
             "fourth[{u},{v}] (contract g,β_w) production {got:+.6e} != independent FD witness {want:+.6e}"
         );
     }
+}
+
+#[test]
+#[ignore = "debug FD-localization harness for #932/#979 flex directional third"]
+fn debug_flex_directional_quantities_fd_localize() {
+    // FD-localize WHICH directional timepoint quantity (eta_uv_dir / chi_uv_dir
+    // / d_uv_dir) disagrees with a central difference of its base counterpart
+    // along `dir`, on the zero-deviation rigid fixture where the exit timepoint
+    // depends only on (q1, g). Prints per-quantity, per-(u,v) absolute gaps.
+    let score_runtime = test_deviation_runtime();
+    let link_runtime = test_deviation_runtime();
+    let event = 1.0_f64;
+    let weight = 0.75_f64;
+    let z_row = -0.2_f64;
+    let q0v = -0.4_f64;
+    let q1v = 0.6_f64;
+    let qd1v = 0.85_f64;
+    let gv = 0.32_f64;
+
+    let family = SurvivalMarginalSlopeFamily {
+        n: 1,
+        event: Arc::new(array![event]),
+        weights: Arc::new(array![weight]),
+        z: Arc::new(array![z_row].insert_axis(Axis(1))),
+        score_covariance: unit_score_covariance(),
+        gaussian_frailty_sd: None,
+        derivative_guard: 1e-6,
+        design_entry: DesignMatrix::from(Array2::zeros((1, 1))),
+        design_exit: DesignMatrix::from(Array2::zeros((1, 1))),
+        design_derivative_exit: DesignMatrix::from(Array2::zeros((1, 1))),
+        offset_entry: Arc::new(array![q0v]),
+        offset_exit: Arc::new(array![q1v]),
+        derivative_offset_exit: Arc::new(array![qd1v]),
+        marginal_design: DesignMatrix::from(Array2::zeros((1, 0))),
+        logslope_design: DesignMatrix::from(Array2::zeros((1, 0))),
+        logslope_surface_ranges: empty_logslope_surface_ranges(),
+        score_warp: Some(score_runtime.clone()),
+        link_dev: Some(link_runtime.clone()),
+        influence_absorber: None,
+        time_linear_constraints: None,
+        time_wiggle_knots: None,
+        time_wiggle_degree: None,
+        time_wiggle_ncols: 0,
+        intercept_warm_starts: None,
+        auto_subsample_phase_counter: Arc::new(AtomicUsize::new(0)),
+        auto_subsample_last_rho: Arc::new(Mutex::new(None)),
+    };
+    let primary = flex_primary_slices(&family);
+    let p = primary.total;
+    let h_dim = score_runtime.basis_dim();
+    let w_dim = link_runtime.basis_dim();
+    // NON-ZERO deviations so the link curvature is live (mirrors the
+    // flex_..._fd_witness test that still fails third[3,6]=[g,w0]).
+    let beta_h: Array1<f64> =
+        Array1::from_iter((0..h_dim).map(|k| 0.04 * ((k as f64 + 1.3).sin())));
+    let beta_w: Array1<f64> =
+        Array1::from_iter((0..w_dim).map(|k| 0.035 * ((k as f64 + 0.7).cos())));
+
+    // Contract along e_g ONLY (matches the failing third[3,6] check), so the
+    // FD perturbs g alone.
+    let w_range = primary.w.clone().unwrap();
+    let mut dir = Array1::<f64>::zeros(p);
+    dir[primary.g] = 1.0;
+
+    // Base + directional at the EXIT timepoint.
+    let (a1, d1) = family
+        .solve_row_survival_intercept_with_slot(
+            q1v,
+            gv,
+            Some(&beta_h),
+            Some(&beta_w),
+            Some((0, SurvivalInterceptSlotKind::Exit)),
+        )
+        .expect("exit intercept");
+    let base = family
+        .compute_survival_timepoint_exact(
+            0,
+            &primary,
+            q1v,
+            primary.q1,
+            a1,
+            gv,
+            d1,
+            Some(&beta_h),
+            Some(&beta_w),
+            0.0,
+            true,
+        )
+        .expect("exit base");
+    let ext = family
+        .compute_survival_timepoint_directional_exact(
+            0,
+            &primary,
+            q1v,
+            primary.q1,
+            a1,
+            gv,
+            Some(&beta_h),
+            Some(&beta_w),
+            &dir,
+            true,
+        )
+        .expect("exit directional");
+
+    // FD of base eta_uv/chi_uv/d_uv along dir: perturb (q1,g) by ±h·dir, re-solve a.
+    let base_at = |s: f64| -> SurvivalFlexTimepointExact {
+        let q = q1v + s * dir[primary.q1];
+        let g = gv + s * dir[primary.g];
+        let (a, d) = family
+            .solve_row_survival_intercept_with_slot(
+                q,
+                g,
+                Some(&beta_h),
+                Some(&beta_w),
+                Some((0, SurvivalInterceptSlotKind::Exit)),
+            )
+            .expect("perturbed exit intercept");
+        family
+            .compute_survival_timepoint_exact(
+                0,
+                &primary,
+                q,
+                primary.q1,
+                a,
+                g,
+                d,
+                Some(&beta_h),
+                Some(&beta_w),
+                0.0,
+                true,
+            )
+            .expect("perturbed exit base")
+    };
+    let fd = |sel: &dyn Fn(&SurvivalFlexTimepointExact) -> f64, h: f64| -> f64 {
+        let coarse = (sel(&base_at(h)) - sel(&base_at(-h))) / (2.0 * h);
+        let fine = (sel(&base_at(h * 0.5)) - sel(&base_at(-h * 0.5))) / h;
+        (4.0 * fine - coarse) / 3.0
+    };
+
+    let g = primary.g;
+    let q1 = primary.q1;
+    let w0 = w_range.start;
+    let probe = [(q1, q1), (g, q1), (g, g), (g, w0), (w0, w0)];
+    for &(u, v) in &probe {
+        let eta_fd = fd(&|b| b.eta_uv[[u, v]], 2e-3);
+        let chi_fd = fd(&|b| b.chi_uv[[u, v]], 2e-3);
+        let d_fd = fd(&|b| b.d_uv[[u, v]], 2e-3);
+        // Convergence check: a genuine bug holds the gap as h shrinks; a
+        // knot-crossing kink artifact moves the FD value as h changes.
+        let d_fd_fine = fd(&|b| b.d_uv[[u, v]], 8e-4);
+        eprintln!(
+            "[{u},{v}] eta_uv_dir prod {:+.6e} fd {:+.6e} gap {:.2e} | chi_uv_dir prod {:+.6e} fd {:+.6e} gap {:.2e} | d_uv_dir prod {:+.6e} fd {:+.6e} gap {:.2e} (fine {:+.6e} gap {:.2e})",
+            ext.eta_uv_dir[[u, v]],
+            eta_fd,
+            (ext.eta_uv_dir[[u, v]] - eta_fd).abs(),
+            ext.chi_uv_dir[[u, v]],
+            chi_fd,
+            (ext.chi_uv_dir[[u, v]] - chi_fd).abs(),
+            ext.d_uv_dir[[u, v]],
+            d_fd,
+            (ext.d_uv_dir[[u, v]] - d_fd).abs(),
+            d_fd_fine,
+            (ext.d_uv_dir[[u, v]] - d_fd_fine).abs(),
+        );
+    }
+    // d_u_dir localization too — INCLUDING w0 (the untested deviation index).
+    for &u in &[q1, g, w0] {
+        let d_u_fd = fd(&|b| b.d_u[u], 4e-3);
+        let d_u_fd_fine = fd(&|b| b.d_u[u], 1e-3);
+        eprintln!(
+            "[{u}] d_u_dir prod {:+.6e} fd {:+.6e} gap {:.2e} (fine {:+.6e} gap {:.2e})",
+            ext.d_u_dir[u],
+            d_u_fd,
+            (ext.d_u_dir[u] - d_u_fd).abs(),
+            d_u_fd_fine,
+            (ext.d_u_dir[u] - d_u_fd_fine).abs()
+        );
+    }
+    // Per-term d_uv_dir localization at the (w0,w0) probe block: FD each base
+    // term integral T_i (from the directional struct's debug_d_uv_terms.0) and
+    // compare to the analytic dir term integral T_i_dir (debug_d_uv_terms.1).
+    {
+        let dir_terms_base = |s: f64| -> [f64; 5] {
+            let q = q1v + s * dir[primary.q1];
+            let g = gv + s * dir[primary.g];
+            let (a, _d) = family
+                .solve_row_survival_intercept_with_slot(
+                    q,
+                    g,
+                    Some(&beta_h),
+                    Some(&beta_w),
+                    Some((0, SurvivalInterceptSlotKind::Exit)),
+                )
+                .expect("perturbed dir intercept");
+            let e = family
+                .compute_survival_timepoint_directional_exact(
+                    0,
+                    &primary,
+                    q,
+                    primary.q1,
+                    a,
+                    g,
+                    Some(&beta_h),
+                    Some(&beta_w),
+                    &dir,
+                    true,
+                )
+                .expect("perturbed dir");
+            e.debug_d_uv_terms.expect("debug terms").0
+        };
+        let dir_terms = ext.debug_d_uv_terms.expect("debug terms").1;
+        let h = 2e-3_f64;
+        let plus = dir_terms_base(h);
+        let minus = dir_terms_base(-h);
+        for i in 0..5 {
+            let fd_i = (plus[i] - minus[i]) / (2.0 * h);
+            eprintln!(
+                "[w0,w0] term t{}: T_i_dir(analytic)={:+.6e} D_dir(T_i)(fd)={:+.6e} gap={:.2e}",
+                i + 1,
+                dir_terms[i],
+                fd_i,
+                (dir_terms[i] - fd_i).abs()
+            );
+        }
+    }
+    // Scalar/first-order base quantities to localize the eta_uv_dir error:
+    // chi_dir (=D_dir chi), eta_dir (=D_dir eta), and D_dir eta_u[u].
+    eprintln!(
+        "scalar: chi base {:+.6e} D_dir(chi) fd {:+.6e} | eta base {:+.6e} D_dir(eta) fd {:+.6e}",
+        base.chi,
+        fd(&|b| b.chi, 4e-3),
+        base.eta,
+        fd(&|b| b.eta, 4e-3),
+    );
+    for &u in &[q1, g, w0] {
+        eprintln!(
+            "[{u}] eta_u base {:+.6e} D_dir(eta_u) prod {:+.6e} fd {:+.6e} gap {:.2e} | chi_u base {:+.6e} D_dir(chi_u) prod {:+.6e} fd {:+.6e} gap {:.2e}",
+            base.eta_u[u],
+            ext.eta_u_dir[u],
+            fd(&|b| b.eta_u[u], 4e-3),
+            (ext.eta_u_dir[u] - fd(&|b| b.eta_u[u], 4e-3)).abs(),
+            base.chi_u[u],
+            ext.chi_u_dir[u],
+            fd(&|b| b.chi_u[u], 4e-3),
+            (ext.chi_u_dir[u] - fd(&|b| b.chi_u[u], 4e-3)).abs(),
+        );
+    }
+    // Direct cross-check: FD of base eta_uv[q1,q1] sanity (recompute from a
+    // wider/narrower h to confirm the harness isn't aliasing the q-self term).
+    eprintln!(
+        "[q1,q1] eta_uv base {:+.6e} | eta_uv(+h) {:+.6e} eta_uv(-h) {:+.6e}",
+        base.eta_uv[[q1, q1]],
+        base_at(4e-3).eta_uv[[q1, q1]],
+        base_at(-4e-3).eta_uv[[q1, q1]],
+    );
 }
 
 #[test]
@@ -6734,6 +7002,8 @@ fn b10_pack_dir(
 ) -> crate::families::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointDirectional {
     crate::families::survival::marginal_slope::gpu::SurvivalFlexBlock10TimepointDirectional {
         eta_uv_dir: ext.eta_uv_dir.iter().copied().collect(),
+        eta_u_dir: ext.eta_u_dir.to_vec(),
+        chi_u_dir: ext.chi_u_dir.to_vec(),
         chi_uv_dir: ext.chi_uv_dir.iter().copied().collect(),
         d_u_dir: ext.d_u_dir.to_vec(),
         d_uv_dir: ext.d_uv_dir.iter().copied().collect(),
@@ -7355,14 +7625,30 @@ fn zz_diag_failure1_flex_vs_rigid_vs_fdhess() {
     };
     let rigid = derived_third_contracted(&program, 0, &dir4).unwrap();
 
-    eprintln!("=== FAILURE1 third-contracted (q0,q1,qd1,g) block ===");
+    const THIRD_CONTRACTED_TOL: f64 = 1e-5;
     for (u, &bu) in bidx.iter().enumerate() {
         for (v, &bv) in bidx.iter().enumerate() {
-            eprintln!(
-                "[{u},{v}] flex={:+.6e} fd_flexhess={:+.6e} rigid={:+.6e}",
-                flex_third[[bu, bv]],
-                fd_rich[[bu, bv]],
-                rigid[u][v]
+            let flex = flex_third[[bu, bv]];
+            let fd = fd_rich[[bu, bv]];
+            let rigid = rigid[u][v];
+
+            assert_close(
+                flex,
+                fd,
+                THIRD_CONTRACTED_TOL,
+                &format!("third-contracted flex vs FD at primary block ({u}, {v})"),
+            );
+            assert_close(
+                flex,
+                rigid,
+                THIRD_CONTRACTED_TOL,
+                &format!("third-contracted flex vs rigid at primary block ({u}, {v})"),
+            );
+            assert_close(
+                fd,
+                rigid,
+                THIRD_CONTRACTED_TOL,
+                &format!("third-contracted FD vs rigid at primary block ({u}, {v})"),
             );
         }
     }

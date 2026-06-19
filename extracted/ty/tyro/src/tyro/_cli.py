@@ -7,13 +7,14 @@ import shutil
 import sys
 import warnings
 from contextlib import nullcontext
-from typing import Callable, Literal, Sequence, TypeVar, cast, overload
+from typing import Callable, Literal, Sequence, Type, TypeVar, cast, overload
 
-from typing_extensions import Annotated, assert_never, deprecated
+from typing_extensions import Annotated, TypeForm, assert_never, deprecated
 
 from . import (
     _arguments,
     _calling,
+    _errors,
     _parsers,
     _resolver,
     _settings,
@@ -28,18 +29,57 @@ from ._singleton import (
     NonpropagatingMissingType,
     PropagatingMissingType,
 )
-from ._typing import TypeForm
 from .constructors import ConstructorRegistry
 from .constructors._primitive_spec import UnsupportedTypeAnnotationError
 
 OutT = TypeVar("OutT")
 
 
-# The overload here is necessary for pyright and pylance due to special-casing
-# related to using typing.Type[] as a temporary replacement for
-# typing.TypeForm[].
-#
-# https://github.com/microsoft/pyright/issues/4298
+# Two parallel sets of `f` overloads. `Type[OutT]` exists for pyright/pylance
+# (see microsoft/pyright#4298 and the comment in `_resolver.py`); `TypeForm`
+# exists for ty and any checker implementing PEP 747, and additionally covers
+# patterns the `Type[T]` hack misses (e.g. `Annotated[A] | Annotated[B]`).
+# Each checker picks the first overload it can match.
+
+
+@overload
+def cli(
+    f: Type[OutT],
+    *,
+    prog: None | str = None,
+    description: None | str = None,
+    args: None | Sequence[str] = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
+    return_unknown_args: Literal[False] = False,
+    use_underscores: bool = False,
+    console_outputs: bool = True,
+    add_help: bool = True,
+    compact_help: bool = False,
+    config: None | Sequence[conf._markers.Marker] = None,
+    registry: None | ConstructorRegistry = None,
+) -> OutT: ...
+
+
+@overload
+def cli(
+    f: Type[OutT],
+    *,
+    prog: None | str = None,
+    description: None | str = None,
+    args: None | Sequence[str] = None,
+    default: OutT
+    | NonpropagatingMissingType
+    | PropagatingMissingType = MISSING_NONPROP,
+    return_unknown_args: Literal[True],
+    use_underscores: bool = False,
+    console_outputs: bool = True,
+    add_help: bool = True,
+    compact_help: bool = False,
+    config: None | Sequence[conf._markers.Marker] = None,
+    registry: None | ConstructorRegistry = None,
+) -> tuple[OutT, list[str]]: ...
 
 
 @overload
@@ -124,8 +164,8 @@ def cli(
 ) -> tuple[OutT, list[str]]: ...
 
 
-def cli(
-    f: TypeForm[OutT] | Callable[..., OutT],
+def cli(  # pyright: ignore[reportInconsistentOverload]
+    f: Type[OutT] | Callable[..., OutT],
     *,
     prog: None | str = None,
     description: None | str = None,
@@ -288,7 +328,7 @@ def cli(
 @overload
 @deprecated("get_parser() is deprecated and will be removed in a future version.")
 def get_parser(
-    f: TypeForm[OutT],
+    f: Type[OutT],
     *,
     prog: None | str = None,
     description: None | str = None,
@@ -323,7 +363,7 @@ def get_parser(
 
 @deprecated("get_parser() is deprecated and will be removed in a future version.")
 def get_parser(
-    f: TypeForm[OutT] | Callable[..., OutT],
+    f: Type[OutT] | Callable[..., OutT],
     *,
     # We have no `args` argument, since this is only used when
     # parser.parse_args() is called.
@@ -388,7 +428,7 @@ def get_parser(
 
 
 def _cli_impl(
-    f: TypeForm[OutT] | Callable[..., OutT],
+    f: Type[OutT] | Callable[..., OutT],
     *,
     prog: None | str = None,
     description: None | str,
@@ -412,7 +452,10 @@ def _cli_impl(
 ):
     """Helper for stitching the `tyro` pipeline together."""
 
-    if config is not None and len(config) > 0:
+    # Combine markers passed via `config=` with any applied globally through the
+    # `global_markers` experimental option (PYTHON_TYRO_GLOBAL_MARKERS).
+    config = tuple(config or ()) + _settings.get_global_markers()
+    if len(config) > 0:
         f = Annotated[(f, *config)]  # type: ignore
 
     if "default_instance" in deprecated_kwargs:
@@ -538,8 +581,9 @@ def _cli_impl(
                 "bash",
                 "zsh",
                 "tcsh",
+                "fish",
             ), (
-                f"Shell should be one `bash`, `zsh`, or `tcsh`, but got {completion_shell}"
+                f"Shell should be one `bash`, `zsh`, `tcsh`, or `fish`, but got {completion_shell}"
             )
 
             # Determine program name for completion script.
@@ -550,13 +594,20 @@ def _cli_impl(
             # non-alphanumeric characters with underscores.
             safe_prog = "".join(c if c.isalnum() or c == "_" else "_" for c in prog)
 
-            # Generate completion script using the backend's method.
-            completion_script = backend.generate_completion(
-                parser_spec,
-                prog=prog,
-                shell=completion_shell,  # type: ignore
-                root_prefix=f"tyro_{safe_prog}",
-            )
+            # Generate completion script using the backend's method. A backend
+            # may not support every shell (e.g. the argparse/shtab backend
+            # cannot generate fish); surface that as a clean error rather than
+            # a raw traceback.
+            try:
+                completion_script = backend.generate_completion(
+                    parser_spec,
+                    prog=prog,
+                    shell=completion_shell,  # type: ignore
+                    root_prefix=f"tyro_{safe_prog}",
+                )
+            except (NotImplementedError, ValueError) as e:
+                print(f"Error: {e}", file=sys.stderr)
+                sys.exit(2)
 
             if write_completion and completion_target_path != pathlib.Path("-"):
                 assert completion_target_path is not None
@@ -602,65 +653,30 @@ def _cli_impl(
             # for the root callable. Relevant: the `field_name_prefix == ""`
             # condition in `callable_with_args()`!
 
-            # Emulate argparse's error behavior when invalid arguments are passed in.
-            error_box_rows: list[str | fmt.Element] = []
-            if isinstance(e.arg, _arguments.ArgumentDefinition):
-                display_name = (
-                    str(e.arg.lowered.metavar)
-                    if e.arg.is_positional()
-                    else "/".join(e.arg.lowered.name_or_flags)
-                )
-                error_box_rows.extend(
-                    [
-                        fmt.text(
-                            fmt.text["bright_red", "bold"](
-                                f"Error parsing {display_name}:"
-                            ),
-                            " ",
-                            e.message,
-                        ),
-                        fmt.hr["red"](),
-                        "Argument helptext:",
-                        fmt.cols(
-                            ("", 4),
-                            fmt.rows(
-                                e.arg.get_invocation_text()[1],
-                                _arguments.generate_argument_helptext(
-                                    e.arg, e.arg.lowered
-                                ),
-                            ),
-                        ),
-                    ]
-                )
-            else:
-                error_box_rows.append(
-                    fmt.text(
-                        fmt.text["bright_red", "bold"](
-                            f"Error parsing {e.arg}:",
-                        ),
-                        " ",
-                        e.message,
-                    )
-                )
-
-            if add_help:
-                error_box_rows.extend(
-                    [
-                        fmt.hr["red"](),
-                        fmt.text(
-                            "For full helptext, see ",
-                            fmt.text["bold"](f"{prog} --help"),
-                        ),
-                    ]
-                )
-            print(
-                fmt.box["red"](
-                    fmt.text["red"]("Value error"), fmt.rows(*error_box_rows)
+            # From the user's perspective, a failure constructing the output
+            # object from parsed values is just another way their input was
+            # rejected -- so it goes through the same parse-error hook.
+            #
+            # Unlike the backend failure sites, this one does NOT route through
+            # _errors._fire_and_exit: it draws a bespoke box (non-bold "Value
+            # error" title, "For full helptext, see ..." footer) that differs
+            # from the standard error_and_exit box, and it fires post-parse from
+            # here rather than mid-parse in the backend. Rendering lives with the
+            # other error renderers in `_errors` so this site only constructs the
+            # event; see `fire_and_exit_instantiation_failure`.
+            _errors.fire_and_exit_instantiation_failure(
+                _errors.InstantiationFailure(
+                    prog=prog,
+                    message=e.message,
+                    argument=(
+                        e.arg
+                        if isinstance(e.arg, _arguments.ArgumentDefinition)
+                        else None
+                    ),
                 ),
-                file=sys.stderr,
-                flush=True,
+                arg_fallback=e.arg,
+                add_help=add_help,
             )
-            sys.exit(2)
 
         assert len(value_from_prefixed_field_name.keys() - consumed_keywords) == 0, (
             f"Parsed {value_from_prefixed_field_name.keys()}, but only consumed"

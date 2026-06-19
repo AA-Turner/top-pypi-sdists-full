@@ -402,6 +402,11 @@ __all__ = (
     "ManagedTargetGroupTypeDef",
     "MemoryGiBPerVCpuRequestTypeDef",
     "MemoryMiBRequestTypeDef",
+    "MetricConfigurationOutputTypeDef",
+    "MetricConfigurationTypeDef",
+    "MonitoringConfigurationOutputTypeDef",
+    "MonitoringConfigurationTypeDef",
+    "MonitoringConfigurationUnionTypeDef",
     "MountPointTypeDef",
     "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkBindingTypeDef",
@@ -1419,6 +1424,14 @@ class ManagedInstancesNetworkConfigurationTypeDef(TypedDict):
     subnets: NotRequired[Sequence[str]]
     securityGroups: NotRequired[Sequence[str]]
 
+class MetricConfigurationOutputTypeDef(TypedDict):
+    metricNames: list[str]
+    resolutionSeconds: int
+
+class MetricConfigurationTypeDef(TypedDict):
+    metricNames: Sequence[str]
+    resolutionSeconds: int
+
 PlatformDeviceTypeDef = TypedDict(
     "PlatformDeviceTypeDef",
     {
@@ -2202,6 +2215,12 @@ ManagedInstancesNetworkConfigurationUnionTypeDef = Union[
     ManagedInstancesNetworkConfigurationTypeDef, ManagedInstancesNetworkConfigurationOutputTypeDef
 ]
 
+class MonitoringConfigurationOutputTypeDef(TypedDict):
+    metricConfigurations: NotRequired[list[MetricConfigurationOutputTypeDef]]
+
+class MonitoringConfigurationTypeDef(TypedDict):
+    metricConfigurations: NotRequired[Sequence[MetricConfigurationTypeDef]]
+
 class ResolvedConfigurationTypeDef(TypedDict):
     loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
 
@@ -2533,6 +2552,10 @@ class ECSManagedResourcesTypeDef(TypedDict):
     metricAlarms: NotRequired[list[ManagedMetricAlarmTypeDef]]
     serviceSecurityGroups: NotRequired[list[ManagedSecurityGroupTypeDef]]
     logGroups: NotRequired[list[ManagedLogGroupTypeDef]]
+
+MonitoringConfigurationUnionTypeDef = Union[
+    MonitoringConfigurationTypeDef, MonitoringConfigurationOutputTypeDef
+]
 
 class RegisterContainerInstanceRequestTypeDef(TypedDict):
     cluster: NotRequired[str]
@@ -3276,6 +3299,7 @@ class ServiceRevisionTypeDef(TypedDict):
     vpcLatticeConfigurations: NotRequired[list[VpcLatticeConfigurationTypeDef]]
     resolvedConfiguration: NotRequired[ResolvedConfigurationTypeDef]
     ecsManagedResources: NotRequired[ECSManagedResourcesTypeDef]
+    monitoring: NotRequired[MonitoringConfigurationOutputTypeDef]
 
 ServiceConnectConfigurationUnionTypeDef = Union[
     ServiceConnectConfigurationTypeDef, ServiceConnectConfigurationOutputTypeDef
@@ -3382,6 +3406,7 @@ class CreateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+    monitoring: NotRequired[MonitoringConfigurationUnionTypeDef]
 
 class UpdateServiceRequestTypeDef(TypedDict):
     service: str
@@ -3406,6 +3431,7 @@ class UpdateServiceRequestTypeDef(TypedDict):
     serviceConnectConfiguration: NotRequired[ServiceConnectConfigurationUnionTypeDef]
     volumeConfigurations: NotRequired[Sequence[ServiceVolumeConfigurationUnionTypeDef]]
     vpcLatticeConfigurations: NotRequired[Sequence[VpcLatticeConfigurationTypeDef]]
+    monitoring: NotRequired[MonitoringConfigurationUnionTypeDef]
 
 class CreateServiceResponseTypeDef(TypedDict):
     service: ServiceTypeDef

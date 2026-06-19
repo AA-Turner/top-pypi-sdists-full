@@ -93,6 +93,9 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
         self._project_id: str = kwargs.pop('project_id', BIGQUERY_PROJECT_ID)
         self._credentials: str = kwargs.pop('credentials', BIGQUERY_CREDENTIALS)
         self._record_columns: dict = kwargs.pop('record_columns', {})
+        # Columns to be stored as native BigQuery JSON. Any column listed here
+        # (or any object column whose values are dict/list) is created as JSON.
+        self._json_columns: list = kwargs.pop('json_columns', []) or []
         try:
             self.multi = bool(kwargs["multi"])
             del kwargs["multi"]
@@ -129,6 +132,31 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
             raise ComponentError(
                 f"Error configuring BigQuery Connection: {err!s}"
             ) from err
+
+    def _detect_json_columns(self) -> set:
+        """Return the set of DataFrame columns that must be stored as JSON.
+
+        A column is treated as JSON when it is explicitly declared in the
+        ``json_columns`` option or when it is an ``object`` column whose
+        first non-null value is a ``dict`` or ``list``. BigQuery's STRING
+        type cannot ingest dict/list values via pyarrow, so these columns
+        require the native JSON type and the NDJSON loader.
+        """
+        json_cols = set(self._json_columns)
+        if self.data is None:
+            return json_cols
+        for column, dtype in self.data.dtypes.items():
+            if column in json_cols:
+                continue
+            if str(dtype) != 'object':
+                continue
+            non_null = self.data[column].dropna()
+            if non_null.empty:
+                continue
+            sample = non_null.iloc[0]
+            if isinstance(sample, (dict, list)):
+                json_cols.add(column)
+        return json_cols
 
     def _build_record_schema(self) -> list:
         """Build schema including RECORD type columns."""
@@ -226,11 +254,18 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
                     'date': 'DATE'
                 }
 
+                # Columns that hold dict/list values (or are declared via
+                # json_columns) must be created as native BigQuery JSON.
+                json_columns = self._detect_json_columns()
+
                 # Build DDL for debugging
                 ddl_columns = []
 
                 for column, dtype in self.data.dtypes.items():
-                    bq_type = type_mapping.get(str(dtype), 'STRING')
+                    if column in json_columns:
+                        bq_type = 'JSON'
+                    else:
+                        bq_type = type_mapping.get(str(dtype), 'STRING')
                     # Create SchemaField object directly
                     field = bigquery.SchemaField(column, bq_type, mode="NULLABLE")
                     bq_schema.append(field)
@@ -635,11 +670,56 @@ class CopyToBigQuery(CopyTo, PandasDataframe):
                 if pd.api.types.is_datetime64_any_dtype(converted_df[col]):
                     converted_df[col] = converted_df[col].dt.tz_localize(None)
 
+            # Handle INTEGER type (GoogleSQL: INT64; legacy: INTEGER)
+            elif bq_type in ("INT64", "INTEGER"):
+                if not pd.api.types.is_integer_dtype(converted_df[col]):
+                    converted_df[col] = pd.to_numeric(
+                        converted_df[col], errors="coerce"
+                    ).astype("Int64")
+                    self._logger.debug(
+                        f'CopyTo: Coerced {col} to Int64 (BigQuery {bq_type})'
+                    )
+
+            # Handle FLOAT / NUMERIC types
+            elif bq_type in (
+                "FLOAT64", "FLOAT", "NUMERIC", "BIGNUMERIC", "DECIMAL", "BIGDECIMAL"
+            ):
+                if not pd.api.types.is_float_dtype(converted_df[col]):
+                    converted_df[col] = pd.to_numeric(
+                        converted_df[col], errors="coerce"
+                    ).astype("Float64")
+                    self._logger.debug(
+                        f'CopyTo: Coerced {col} to Float64 (BigQuery {bq_type})'
+                    )
+
+            # Handle BOOLEAN type
+            elif bq_type in ("BOOL", "BOOLEAN"):
+                if not pd.api.types.is_bool_dtype(converted_df[col]):
+                    converted_df[col] = converted_df[col].astype("boolean")
+                    self._logger.debug(
+                        f'CopyTo: Coerced {col} to boolean (BigQuery {bq_type})'
+                    )
+
             # Handle STRING type
             elif bq_type == "STRING":
                 if pd.api.types.is_datetime64_any_dtype(converted_df[col]):
                     converted_df[col] = converted_df[col].astype(str).replace('NaT', None)
                     self._logger.debug(f'CopyTo: Converted {col} to STRING (from datetime for BigQuery schema)')
+                elif not (
+                    converted_df[col].dtype == object
+                    or pd.api.types.is_string_dtype(converted_df[col])
+                ):
+                    # numeric/bool source -> string, preserving NA as None.
+                    # Cast integers via Int64 first to avoid a trailing ".0".
+                    series = converted_df[col]
+                    if pd.api.types.is_integer_dtype(series):
+                        series = series.astype("Int64")
+                    converted_df[col] = series.astype(str).where(
+                        pd.notnull(converted_df[col]), None
+                    )
+                    self._logger.debug(
+                        f'CopyTo: Converted {col} to STRING (BigQuery {bq_type})'
+                    )
 
         return converted_df
 

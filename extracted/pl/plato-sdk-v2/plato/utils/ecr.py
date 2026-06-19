@@ -39,47 +39,59 @@ ECR_REGISTRY = "383806609161.dkr.ecr.us-west-1.amazonaws.com"
 ECR_REGION = "us-west-1"
 
 
-def _retag_via_chronos(chronos_url: str, endpoint: str, source_tag: str, target_tag: str, api_key: str) -> bool:
-    """POST a retag request to a Chronos retag endpoint. Returns True on success.
+def _retag_via_chronos(
+    chronos_url: str, endpoint: str, source_tag: str, target_tag: str, api_key: str
+) -> tuple[bool, str | None]:
+    """POST a retag request to a Chronos retag endpoint.
 
     Chronos copies the image manifest using its own ECS task credentials, so the
     caller does not need local AWS credentials.
+
+    Returns ``(True, None)`` on success, or ``(False, reason)`` on failure, where
+    ``reason`` is a human-readable description of the actual error (network
+    failure, or HTTP status + response body) — so callers can surface the real
+    cause instead of a generic "unavailable" message. The reason is also logged
+    at WARNING so it is never silently swallowed.
     """
     chronos_url = chronos_url.rstrip("/")
+    url = f"{chronos_url}{endpoint}"
     try:
         response = httpx.post(
-            f"{chronos_url}{endpoint}",
+            url,
             json={"source_tag": source_tag, "target_tag": target_tag},
             headers={"X-API-Key": api_key},
             timeout=60.0,
         )
     except httpx.HTTPError as e:
-        logger.debug("Chronos retag request failed: %s", e)
-        return False
+        reason = f"request to {url} failed: {e!r}"
+        logger.warning("Chronos retag %s", reason)
+        return False, reason
     if response.status_code != 200:
-        logger.debug("Chronos retag returned HTTP %s: %s", response.status_code, response.text)
-        return False
-    return True
+        body = response.text.strip()
+        reason = f"{url} returned HTTP {response.status_code}: {body}"
+        logger.warning("Chronos retag %s", reason)
+        return False, reason
+    return True, None
 
 
 def retag_image_via_chronos(
     chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
-) -> bool:
+) -> tuple[bool, str | None]:
     """Retag a world image in ECR through the Chronos API.
 
     Server-side equivalent of retag_image(): the caller does not need local AWS
-    credentials. Returns True on success.
+    credentials. Returns ``(success, reason)`` — see ``_retag_via_chronos``.
     """
     return _retag_via_chronos(chronos_url, f"/api/worlds/{package_name}/retag-image", source_tag, target_tag, api_key)
 
 
 def retag_agent_image_via_chronos(
     chronos_url: str, package_name: str, source_tag: str, target_tag: str, api_key: str
-) -> bool:
+) -> tuple[bool, str | None]:
     """Retag an agent image in ECR through the Chronos API.
 
     Server-side equivalent of retag_image(): the caller does not need local AWS
-    credentials. Returns True on success.
+    credentials. Returns ``(success, reason)`` — see ``_retag_via_chronos``.
     """
     return _retag_via_chronos(chronos_url, f"/api/agents/{package_name}/retag-image", source_tag, target_tag, api_key)
 

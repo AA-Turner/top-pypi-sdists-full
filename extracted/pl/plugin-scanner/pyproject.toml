@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "2.0.795"
+version = "2.0.821"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10"
 authors = [
     { name = "HOL", email = "support@hol.org" },
 ]
@@ -23,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security",
     "Topic :: Software Development :: Quality Assurance",
 ]
@@ -32,7 +33,7 @@ dependencies = [
     "keyring>=25.0",
     "packaging>=24.0",
     "tomli>=2.0; python_version < '3.11'",
-    "cisco-ai-skill-scanner~=2.0.11",
+    "cisco-ai-skill-scanner~=2.0.11; python_version < '3.14'",
 ]
 
 [project.optional-dependencies]

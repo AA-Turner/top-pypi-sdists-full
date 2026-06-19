@@ -3,6 +3,7 @@ SMatrix_SELL.py
 
 SELL-C-sigma sparse matrix construction and operations.
 Supports both CPU (NumPy) and GPU (CuPy) implementations.
+Includes sigma sorting window for minimal zero-padding.
 """
 
 import warnings
@@ -26,22 +27,17 @@ except ImportError:
 class SMatrix_SELL(SMatrix):
     """
     Sparse matrix in SELL-C-sigma format for efficient GPU operations.
-
-    Usage:
-        S = SMatrix_SELL(experiment, device='gpu')
-        S.allocate()
     """
 
-    def __init__(self, block_rows: int = 64, relative_threshold: float = 0.01, slice_height: int = 64, **kwargs):
+    def __init__(self, block_rows: int = 256, relative_threshold: float = 0.01, slice_height: int = 32, sigma: int = 4096, **kwargs):
         """
         Initialize SELL sparse matrix.
         Args:
             **kwargs: Arguments passed to base SMatrix class
-                - experiment: Experiment object containing AcousticFields
-                - device: 'cpu' or 'gpu:{gpu_id}' (optional, defaults to GPU if available)
-            block_rows: Number of rows to process per block when building on GPU (default: 64)
-            relative_threshold: Relative threshold for sparsity (default: 0.01)
-            slice_height: Number of rows per slice in SELL format (default: 64)
+            block_rows: Number of rows to process per block when building on GPU
+            relative_threshold: Relative threshold for sparsity
+            slice_height: Number of rows per slice in SELL format (32 for NVIDIA warps)
+            sigma: Sorting window size for padding minimization (must be a multiple of slice_height)
         """
         super().__init__(**kwargs)
         self.matrix_type = SMatrixType.SELL
@@ -50,6 +46,7 @@ class SMatrix_SELL(SMatrix):
         self.block_rows = block_rows
         self.relative_threshold = relative_threshold
         self.slice_height = slice_height
+        self.sigma = sigma
 
         # Attributes specific to SELL
         self.sell_values = None
@@ -57,11 +54,39 @@ class SMatrix_SELL(SMatrix):
         self.slice_ptr = None
         self.slice_len = None
         self.total_storage = 0
+        
+        # Permutation arrays for SELL-C-sigma
+        self.row_perm = None
+        self.inv_row_perm = None
 
         self.sell_values_gpu = None
         self.sell_colinds_gpu = None
         self.slice_ptr_gpu = None
         self.slice_len_gpu = None
+        
+        self.row_perm_gpu = None
+        self.inv_row_perm_gpu = None
+
+    def _apply_sigma_sorting(self, row_nnz: np.ndarray, num_rows: int) -> np.ndarray:
+        """Applies local sorting within blocks of size sigma to minimize padding."""
+        self.row_perm = np.arange(num_rows, dtype=np.int32)
+        
+        for start_idx in range(0, num_rows, self.sigma):
+            end_idx = min(start_idx + self.sigma, num_rows)
+            chunk_nnz = row_nnz[start_idx:end_idx]
+            
+            # Sort descending
+            local_perm = np.argsort(chunk_nnz)[::-1]
+            self.row_perm[start_idx:end_idx] = self.row_perm[start_idx:end_idx][local_perm]
+            
+        self.inv_row_perm = np.empty_like(self.row_perm)
+        self.inv_row_perm[self.row_perm] = np.arange(num_rows)
+        
+        if CUPY_AVAILABLE:
+            self.row_perm_gpu = cp.asarray(self.row_perm)
+            self.inv_row_perm_gpu = cp.asarray(self.inv_row_perm)
+            
+        return row_nnz[self.row_perm]
 
     def _allocate_gpu(self):
         """Allocate and fill the SELL matrix on GPU using custom kernels."""
@@ -69,37 +94,44 @@ class SMatrix_SELL(SMatrix):
         num_cols = int(self.Z * self.X)
         C = int(self.slice_height)
         br = int(self.block_rows)
-        dense_host = np.empty((br, num_cols), dtype=np.float32)
 
-        # 1) Count NNZ per row
-        row_nnz = np.zeros(num_rows, dtype=np.int32)
-        block_size = 128
+        all_fields_gpu = cp.empty((self.N, self.T, num_cols), dtype=np.float32)
+        for n_idx in range(self.N):
+            for t_idx in range(self.T):
+                all_fields_gpu[n_idx, t_idx] = cp.asarray(
+                    self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+                )
+
+        # 1) Count NNZ per physical row
+        row_nnz_gpu = cp.zeros(num_rows, dtype=np.int32)
+        dense_gpu = cp.empty((br, num_cols), dtype=np.float32)
         count_kernel = self.sparse_mod.get_function("count_nnz_rows_kernel")
+        threads = 256
 
-        for b in trange(0, num_rows, br, desc="Count NNZ per row (GPU)"):
-            R = min(br, num_rows - b)
-            dense_host.fill(0.0)
-            for i in range(R):
-                rg = b + i
-                n_idx = rg // self.T
-                t_idx = rg % self.T
-                dense_host[i, :] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+        for b in trange(0, num_rows, br, desc="Count NNZ (GPU)"):
+            current_rows = min(br, num_rows - b)
+            for r in range(current_rows):
+                global_row = b + r
+                n_idx = global_row // self.T
+                t_idx = global_row % self.T
+                dense_gpu[r] = all_fields_gpu[n_idx, t_idx]
 
-            dense_gpu = cp.asarray(dense_host)
-            row_nnz_gpu_block = cp.zeros(R, dtype=np.int32)
-
-            grid = ((R + block_size - 1) // block_size, 1, 1)
+            grid = ((current_rows + threads - 1) // threads, 1, 1)
             count_kernel(
-                grid=grid, block=(block_size, 1, 1),
-                args=[dense_gpu, row_nnz_gpu_block, np.int32(R), np.int32(num_cols),
+                grid=grid, block=(threads, 1, 1),
+                args=[dense_gpu, row_nnz_gpu[b:], np.int32(current_rows), np.int32(num_cols),
                       np.float32(self.relative_threshold)]
             )
-            cp.cuda.Stream.null.synchronize()
-            row_nnz[b:b+R] = cp.asnumpy(row_nnz_gpu_block)
 
-        # 2) Compute per-slice maxlen and slice_ptr
+        row_nnz = cp.asnumpy(row_nnz_gpu)
+        
+        # 2) Apply SELL-C-sigma sorting
+        row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
+
+        # 3) Compute per-slice maxlen and slice_ptr based on sorted rows
         num_slices = (num_rows + C - 1) // C
         self.slice_len = np.zeros(num_slices, dtype=np.int32)
+        self.slice_ptr = np.zeros(num_slices + 1, dtype=np.int64)
 
         for s in range(num_slices):
             r0 = s * C
@@ -109,44 +141,37 @@ class SMatrix_SELL(SMatrix):
         if np.all(self.slice_len == 0):
             raise ValueError("slice_len contains only zeros. Check row_nnz.")
 
-        self.slice_ptr = np.zeros(num_slices + 1, dtype=np.int64)
+        self.slice_ptr[0] = 0
         for s in range(num_slices):
             self.slice_ptr[s+1] = self.slice_ptr[s] + (self.slice_len[s] * C)
-
         self.total_storage = int(self.slice_ptr[-1])
 
-        # Allocate device arrays
         self.sell_values_gpu = cp.zeros(self.total_storage, dtype=np.float32)
         self.sell_colinds_gpu = cp.zeros(self.total_storage, dtype=np.uint32)
         self.slice_ptr_gpu = cp.asarray(self.slice_ptr)
         self.slice_len_gpu = cp.asarray(self.slice_len)
 
-        # 3) Fill SELL arrays
-        fill_kernel = self.sparse_mod.get_function("fill_kernel__SELL")
-
+        # 4) Fill SELL arrays (fetching dense rows according to permutation)
+        fill_kernel = self.sparse_mod.get_function("fill_kernel__SELL") # Correction du nom
+        
         for b in trange(0, num_rows, br, desc="Fill SELL (GPU)"):
-            R = min(br, num_rows - b)
-            dense_host.fill(0.0)
-            for i in range(R):
-                rg = b + i
-                n_idx = rg // self.T
-                t_idx = rg % self.T
-                dense_host[i, :] = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+            current_rows = min(br, num_rows - b)
+            for r in range(current_rows):
+                sorted_row = b + r
+                physical_row = int(self.row_perm[sorted_row])
+                n_idx = physical_row // self.T
+                t_idx = physical_row % self.T
+                dense_gpu[r] = all_fields_gpu[n_idx, t_idx]
 
-            dense_gpu = cp.asarray(dense_host)
-            row_nnz_host_gpu = cp.asarray(row_nnz[b:b+R])
-
-            grid = ((R + block_size - 1) // block_size, 1, 1)
+            grid = ((current_rows + threads - 1) // threads, 1, 1)
+            count_offset = b
+            
+            # Correction stricte de l'ordre des arguments et des types
             fill_kernel(
-                grid=grid, block=(block_size, 1, 1),
-                args=[dense_gpu, row_nnz_host_gpu, self.slice_ptr_gpu, self.slice_len_gpu,
-                      self.sell_colinds_gpu, self.sell_values_gpu, np.int32(R), np.int32(num_cols),
-                      np.int32(b), np.int32(C), np.float32(self.relative_threshold)]
+                grid=grid, block=(threads, 1, 1),
+                args=[dense_gpu, row_nnz_gpu, self.slice_ptr_gpu, self.slice_len_gpu, self.sell_colinds_gpu, self.sell_values_gpu, np.int32(current_rows), np.int32(num_cols),  np.int32(count_offset), np.int32(C), np.float32(self.relative_threshold)]
             )
             cp.cuda.Stream.null.synchronize()
-
-        self.sell_values = cp.asnumpy(self.sell_values_gpu)
-        self.sell_colinds = cp.asnumpy(self.sell_colinds_gpu)
 
         self.compute_norm_factor()
 
@@ -156,7 +181,7 @@ class SMatrix_SELL(SMatrix):
         num_cols = int(self.Z * self.X)
         C = int(self.slice_height)
 
-        # 1) Count NNZ per row
+        # 1) Count NNZ per physical row
         row_nnz = np.zeros(num_rows, dtype=np.int32)
         for global_row in trange(num_rows, desc="Count NNZ per row (CPU)"):
             n_idx = global_row // self.T
@@ -165,8 +190,11 @@ class SMatrix_SELL(SMatrix):
             row_max = np.max(np.abs(row))
             thr = row_max * self.relative_threshold
             row_nnz[global_row] = int(np.count_nonzero(np.abs(row) > thr))
+            
+        # 2) Apply SELL-C-sigma sorting
+        row_nnz = self._apply_sigma_sorting(row_nnz, num_rows)
 
-        # 2) Compute per-slice maxlen and slice_ptr
+        # 3) Compute per-slice maxlen and slice_ptr
         num_slices = (num_rows + C - 1) // C
         self.slice_len = np.zeros(num_slices, dtype=np.int32)
 
@@ -186,16 +214,18 @@ class SMatrix_SELL(SMatrix):
         self.sell_values = np.zeros(self.total_storage, dtype=np.float32)
         self.sell_colinds = np.zeros(self.total_storage, dtype=np.uint32)
 
-        # 3) Fill SELL arrays
-        for global_row in trange(num_rows, desc="Fill SELL (CPU)"):
-            n_idx = global_row // self.T
-            t_idx = global_row % self.T
+        # 4) Fill SELL arrays using permuted order
+        for sorted_row in trange(num_rows, desc="Fill SELL (CPU)"):
+            physical_row = int(self.row_perm[sorted_row])
+            n_idx = physical_row // self.T
+            t_idx = physical_row % self.T
             row = self.experiment.AcousticFields[n_idx].field[t_idx].flatten()
+            
             row_max = np.max(np.abs(row))
             thr = row_max * self.relative_threshold
 
-            slice_id = global_row // C
-            row_in_slice = global_row % C
+            slice_id = sorted_row // C
+            row_in_slice = sorted_row % C
             base = int(self.slice_ptr[slice_id])
             len_slice = int(self.slice_len[slice_id])
 
@@ -217,10 +247,10 @@ class SMatrix_SELL(SMatrix):
         self.compute_norm_factor()
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
-        """Perform forward projection: q = A * theta"""
+        """Perform forward projection: q = P^-1 * (A_sell * theta)"""
         if check_gpu_available(self):
             theta_gpu = cp.asarray(theta) if not isinstance(theta, cp.ndarray) else theta
-            q_gpu = cp.zeros(self.N * self.T, dtype=np.float32)
+            q_gpu_permuted = cp.zeros(self.N * self.T, dtype=np.float32)
 
             proj_kernel = self.sparse_mod.get_function('forward_projection_kernel__SELL')
             threads = 256
@@ -228,40 +258,46 @@ class SMatrix_SELL(SMatrix):
 
             proj_kernel(
                 grid=(blocks, 1), block=(threads, 1, 1),
-                args=[q_gpu.data.ptr, self.sell_values_gpu, self.sell_colinds_gpu,
+                args=[q_gpu_permuted.data.ptr, self.sell_values_gpu, self.sell_colinds_gpu,
                       self.slice_ptr_gpu, self.slice_len_gpu, theta_gpu.data.ptr,
                       np.int32(self.N * self.T), np.int32(self.slice_height)]
             )
             cp.cuda.Stream.null.synchronize()
-            return q_gpu
+            
+            # Un-permute the output
+            return q_gpu_permuted[self.inv_row_perm_gpu]
         else:
             theta_cpu = np.asarray(theta) if not isinstance(theta, np.ndarray) else theta
             if isinstance(theta_cpu, cp.ndarray):
                 theta_cpu = cp.asnumpy(theta_cpu)
 
-            q = np.zeros(self.N * self.T, dtype=np.float32)
+            q_permuted = np.zeros(self.N * self.T, dtype=np.float32)
             for row in range(self.N * self.T):
                 slice_id = row // self.slice_height
                 row_in_slice = row % self.slice_height
                 base = int(self.slice_ptr[slice_id])
                 len_slice = int(self.slice_len[slice_id])
-
                 acc = 0.0
+                pos = base + row_in_slice
+                
                 for j in range(len_slice):
-                    pos = base + row_in_slice + j * self.slice_height
-                    if pos < self.total_storage:
-                        val = self.sell_values[pos]
+                    idx = pos + j * self.slice_height
+                    if idx < self.total_storage:
+                        val = self.sell_values[idx]
                         if val != 0.0:
-                            col = int(self.sell_colinds[pos])
+                            col = int(self.sell_colinds[idx])
                             acc += val * theta_cpu[col]
-                q[row] = acc
-
-            return q
+                q_permuted[row] = acc
+                
+            return q_permuted[self.inv_row_perm]
 
     def backward_projection(self, e: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
-        """Perform backprojection: c = A^T * e"""
+        """Perform backprojection: c = A_sell^T * (P * e)"""
         if check_gpu_available(self):
             e_gpu = cp.asarray(e) if not isinstance(e, cp.ndarray) else e
+            
+            # Permute the input error vector
+            e_gpu_permuted = e_gpu[self.row_perm_gpu]
             c_gpu = cp.zeros(self.Z * self.X, dtype=np.float32)
 
             bp_kernel = self.sparse_mod.get_function('backward_projection_kernel__SELL')
@@ -271,7 +307,7 @@ class SMatrix_SELL(SMatrix):
             bp_kernel(
                 grid=(blocks, 1), block=(threads, 1, 1),
                 args=[self.sell_values_gpu, self.sell_colinds_gpu, self.slice_ptr_gpu,
-                      self.slice_len_gpu, e_gpu.data.ptr, c_gpu.data.ptr,
+                      self.slice_len_gpu, e_gpu_permuted.data.ptr, c_gpu.data.ptr,
                       np.int32(self.N * self.T), np.int32(self.slice_height)]
             )
             cp.cuda.Stream.null.synchronize()
@@ -281,25 +317,26 @@ class SMatrix_SELL(SMatrix):
             if isinstance(e_cpu, cp.ndarray):
                 e_cpu = cp.asnumpy(e_cpu)
 
+            e_cpu_permuted = e_cpu[self.row_perm]
             c = np.zeros(self.Z * self.X, dtype=np.float32)
+            
             for row in range(self.N * self.T):
-                e_val = e_cpu[row]
+                e_val = e_cpu_permuted[row]
                 if e_val == 0.0:
                     continue
-
                 slice_id = row // self.slice_height
                 row_in_slice = row % self.slice_height
                 base = int(self.slice_ptr[slice_id])
                 len_slice = int(self.slice_len[slice_id])
-
+                pos = base + row_in_slice
+                
                 for j in range(len_slice):
-                    pos = base + row_in_slice + j * self.slice_height
-                    if pos < self.total_storage:
-                        val = self.sell_values[pos]
+                    idx = pos + j * self.slice_height
+                    if idx < self.total_storage:
+                        val = self.sell_values[idx]
                         if val != 0.0:
-                            col = int(self.sell_colinds[pos])
+                            col = int(self.sell_colinds[idx])
                             c[col] += val * e_val
-
             return c
 
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
@@ -369,7 +406,7 @@ class SMatrix_SELL(SMatrix):
 
     def get_matrix_size(self) -> dict:
         """Returns the total size of the SELL-C-sigma matrix in GB."""
-        if self.sell_values is None:
+        if self.sell_values is None and self.sell_values_gpu is None:
             return {"error": "The SELL-C-sigma matrix is not yet allocated."}
 
         total_bytes = 0
@@ -377,19 +414,27 @@ class SMatrix_SELL(SMatrix):
         if self.slice_len is not None: total_bytes += self.slice_len.nbytes
         if self.sell_values is not None: total_bytes += self.sell_values.nbytes
         if self.sell_colinds is not None: total_bytes += self.sell_colinds.nbytes
-        if self.norm_factor_inv is not None: total_bytes += self.norm_factor_inv.nbytes
+        if getattr(self, 'norm_factor_inv', None) is not None: total_bytes += self.norm_factor_inv.nbytes
+        if getattr(self, 'row_perm', None) is not None: total_bytes += self.row_perm.nbytes * 2
+        if getattr(self, 'inv_row_perm', None) is not None: total_bytes += self.inv_row_perm.nbytes
+        if self.sell_values_gpu is not None: total_bytes += self.sell_values_gpu.nbytes
+        if self.sell_colinds_gpu is not None: total_bytes += self.sell_colinds_gpu.nbytes
+        if getattr(self, 'slice_ptr_gpu', None) is not None: total_bytes += self.slice_ptr_gpu.nbytes
+        if getattr(self, 'slice_len_gpu', None) is not None: total_bytes += self.slice_len_gpu.nbytes
+        if getattr(self, 'norm_factor_inv_gpu', None) is not None: total_bytes += self.norm_factor_inv_gpu.nbytes
+        if getattr(self, 'row_perm_gpu', None) is not None: total_bytes += self.row_perm_gpu.nbytes
+        if getattr(self, 'inv_row_perm_gpu', None) is not None: total_bytes += self.inv_row_perm_gpu.nbytes
 
-        if self.sell_values_gpu is not None: total_bytes += self.sell_values.nbytes
-        if self.sell_colinds_gpu is not None: total_bytes += self.sell_colinds.nbytes
-        if self.slice_ptr_gpu is not None: total_bytes += self.slice_ptr.nbytes
-        if self.slice_len_gpu is not None: total_bytes += self.slice_len.nbytes
-        if self.norm_factor_inv_gpu is not None: total_bytes += self.norm_factor_inv.nbytes
+        return {
+            "total_bytes": total_bytes, 
+            "total_gb": total_bytes / (1024 ** 3), 
+            "device": self.device
+        }
 
-        return {"total_bytes": total_bytes, "total_gb": total_bytes / (1024 ** 3), "device": self.device}
 
     def _free_specific(self):
         """Free specific GPU memory allocated by SELL."""
-        attrs = ["sell_values_gpu", "sell_colinds_gpu", "slice_ptr_gpu", "slice_len_gpu"]
+        attrs = ["sell_values_gpu", "sell_colinds_gpu", "slice_ptr_gpu", "slice_len_gpu", "row_perm_gpu", "inv_row_perm_gpu"]
         for a in attrs:
             gpu_mem = getattr(self, a, None)
             if gpu_mem is not None:

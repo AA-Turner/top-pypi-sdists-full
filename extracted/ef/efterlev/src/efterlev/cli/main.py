@@ -5734,19 +5734,20 @@ def report_run(
         ),
     ),
 ) -> None:
-    """Run the full pipeline: init → scan → agent gap → agent document → poam → oscal.
+    """Run the full pipeline (scan → inventory → gap → poam → vdr → document → inspector).
 
     Each stage runs in sequence; if any stage exits non-zero, the
     pipeline stops and propagates the exit code. Per-stage flags
-    (--skip-init, --skip-document, --skip-poam, --skip-oscal) let you
-    tailor the pipeline to your situation. Add --watch to stay running
-    and re-execute the pipeline on file changes (debounced 2s).
+    (--skip-init, --skip-document, --skip-poam) let you tailor the
+    pipeline to your situation. Add --watch to stay running and
+    re-execute the pipeline on file changes (debounced 2s).
 
-    OSCAL graduated to default-on at v0.1.111: the pipeline emits both
-    OSCAL POA&M and Component-Definition JSON alongside the existing
-    markdown POA&M. Both OSCAL artifacts validate against NIST OSCAL
-    1.0.4 schema (v0.1.106) + FedRAMP rule layer (v0.1.107) + NIST
-    canonical oscal-cli (v0.1.110).
+    OSCAL is opt-in: pass --with-oscal to also emit OSCAL 1.0.4 POA&M +
+    Component-Definition JSON (the ADS standard is format-agnostic, so
+    20x does not require OSCAL). When emitted, both OSCAL artifacts
+    validate against NIST OSCAL 1.0.4 schema (v0.1.106) + FedRAMP rule
+    layer (v0.1.107) + NIST canonical oscal-cli (v0.1.110). --skip-oscal
+    is a deprecated no-op kept for backward compatibility.
     """
     target_resolved = target.resolve()
 

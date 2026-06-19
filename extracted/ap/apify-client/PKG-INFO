@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_client
-Version: 3.0.2
+Version: 3.0.3
 Summary: Apify API client for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Homepage, https://docs.apify.com/api/client/python/
@@ -225,7 +225,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.11
 Requires-Dist: colorama>=0.4.0
-Requires-Dist: impit>=0.9.2
+Requires-Dist: impit~=0.12.0
 Requires-Dist: more-itertools>=10.0.0
 Requires-Dist: pydantic[email]>=2.11.0
 Description-Content-Type: text/markdown
@@ -239,7 +239,8 @@ Description-Content-Type: text/markdown
 <p align="center">
   <a href="https://pypi.org/project/apify-client/"><img src="https://badge.fury.io/py/apify-client.svg" alt="PyPI version"></a>
   <a href="https://pypi.org/project/apify-client/"><img src="https://img.shields.io/pypi/dm/apify-client" alt="PyPI downloads"></a>
-  <a href="https://pypi.org/project/apify-client/"><img src="https://img.shields.io/pypi/pyversions/apify-client" alt="Python versions"></a>
+  <a href="https://pypi.org/project/apify-client/"><img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python versions"></a>
+  <a href="https://github.com/apify/apify-client-python/actions/workflows/on_master.yaml"><img src="https://github.com/apify/apify-client-python/actions/workflows/on_master.yaml/badge.svg?branch=master" alt="Build status"></a>
   <a href="https://codecov.io/gh/apify/apify-client-python"><img src="https://codecov.io/gh/apify/apify-client-python/graph/badge.svg?token=TYQQWYYZ7A" alt="Coverage"></a>
   <a href="https://github.com/apify/apify-client-python/blob/master/LICENSE"><img src="https://img.shields.io/pypi/l/apify-client" alt="License"></a>
   <a href="https://discord.gg/jyEM2PRvMU"><img src="https://img.shields.io/discord/801163717915574323?label=discord" alt="Chat on Discord"></a>

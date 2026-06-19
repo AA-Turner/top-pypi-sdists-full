@@ -185,6 +185,28 @@ class DataFrameSchema(Generic[TDataObject], BaseSchema):
                 "strict parameter must equal either `True`, `False`, or `'filter'`."
             )
 
+    def infer_columns(self, column_names: list) -> list:
+        """Return Column instances for the given column names using this schema's Column type.
+
+        Encapsulates the Column class lookup so backends need not reach into
+        framework-specific modules (pandera.api.polars.components, etc.).
+
+        If the schema already has column entries, infer the Column class from them.
+        Otherwise, fall back to importlib using the schema's own package — same
+        as the pattern this method replaces, but now encapsulated in the schema layer.
+
+        :param column_names: list of column name strings to create Column objects for.
+        :returns: list of Column objects constructed with (self.dtype, name=col_name).
+        """
+        if self.columns:
+            col_cls = type(next(iter(self.columns.values())))
+        else:
+            import importlib
+
+            _pkg = self.__class__.__module__.rsplit(".", 1)[0]
+            col_cls = importlib.import_module(f"{_pkg}.components").Column
+        return [col_cls(self.dtype, name=str(name)) for name in column_names]
+
     @property
     def dtype(
         self,
@@ -489,7 +511,7 @@ class DataFrameSchema(Generic[TDataObject], BaseSchema):
 
         :param cols_to_remove: Columns to be removed from the
             ``DataFrameSchema``
-        :type cols_to_remove: List
+        :type cols_to_remove: list[str]
         :returns: a new :class:`~pandera.api.dataframe.container.DataFrameSchema` without the cols_to_remove
         :raises: :class:`~pandera.errors.SchemaInitError`: if column not in
             schema.
@@ -762,13 +784,18 @@ class DataFrameSchema(Generic[TDataObject], BaseSchema):
         # remove any mapping to itself as this is a no-op
         rename_dict = {k: v for k, v in rename_dict.items() if k != v}
 
-        # ensure all new keys are not present in the current column names
-        already_in_columns: list[str] = [
-            x for x in rename_dict.values() if x in new_schema.columns.keys()
-        ]
-        if already_in_columns:
+        # ensure column names are unique after renaming
+        seen_cols: set[str] = set()
+        duplicate_cols: set[str] = set()
+        for x in new_schema.columns.keys():
+            new_col = rename_dict.get(x, x)
+            if new_col in seen_cols:
+                duplicate_cols.add(new_col)
+            seen_cols.add(new_col)
+
+        if duplicate_cols:
             raise errors.SchemaInitError(
-                f"Keys {already_in_columns} already found in schema columns!"
+                f"Columns {sorted(duplicate_cols)} would be duplicated after renaming!"
             )
 
         # We iterate over the existing columns dict and replace those keys

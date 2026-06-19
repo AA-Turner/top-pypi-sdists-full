@@ -207,10 +207,12 @@ class AlgebraicRecon(Recon):
         isCostFunction: bool = False,
         maxSaves: int = 5000,
         denominatorThreshold: float = 1e-6,
+        # Sparsing
         smatrixType: SMatrixType = SMatrixType.SELL,
         sparseThreshold: float = 0.1,
         blockRows: int = 64,
         sliceHeight: int = 64,
+        sigma_sell: int = 4096,
         isComplexeRecon: bool = False,
         device: Optional[str] = None,
         # Preconditioning
@@ -306,6 +308,7 @@ class AlgebraicRecon(Recon):
         self.sparseThreshold = sparseThreshold
         self.blockRows = blockRows
         self.sliceHeight = sliceHeight
+        self.sigma_sell = sigma_sell
         self.preconditionerType = preconditionerType
         self.useAdaptiveSteps = useAdaptiveSteps
 
@@ -1887,7 +1890,7 @@ class AlgebraicRecon(Recon):
         Frees all temporary memory at each step.
         """
         print("Building SELL SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
-        SMatrix = SMatrix_SELL(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, slice_height=self.sliceHeight)
+        SMatrix = SMatrix_SELL(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, slice_height=self.sliceHeight, sigma=self.sigma_sell)
         SMatrix.allocate()
         if isShowLogs:
             print(f"SELL SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")

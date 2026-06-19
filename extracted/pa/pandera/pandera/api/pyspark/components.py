@@ -8,6 +8,7 @@ from pandera.api.dataframe.components import ComponentSchema
 from pandera.backends.pyspark.register import register_pyspark_backends
 from pandera.dtypes import DataType
 from pandera.engines import pyspark_engine
+from pandera.utils import is_regex
 
 from .types import (
     PySparkDataFrameTypes,
@@ -103,7 +104,11 @@ class Column(ComponentSchema[PySparkDataFrameTypes]):
 
     @staticmethod
     def register_default_backends(check_obj_cls: type):
-        register_pyspark_backends()
+        from pandera.config import CONFIG
+
+        register_pyspark_backends(
+            use_narwhals_backend=CONFIG.use_narwhals_backend
+        )
 
     @property
     def _allow_groupby(self) -> bool:
@@ -121,6 +126,12 @@ class Column(ComponentSchema[PySparkDataFrameTypes]):
     def dtype(self, value: PySparkDtypeInputTypes) -> None:
         """Set the pyspark dtype property."""
         self._dtype = pyspark_engine.Engine.dtype(value) if value else None  # pylint:disable=no-value-for-parameter
+
+    @property
+    def selector(self):
+        if self.name is not None and not is_regex(self.name) and self.regex:
+            return f"^{self.name}$"
+        return self.name
 
     @property
     def properties(self) -> dict[str, Any]:

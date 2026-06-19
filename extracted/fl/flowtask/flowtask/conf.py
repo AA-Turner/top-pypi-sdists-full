@@ -1,5 +1,6 @@
 # Import Config Class
 import sys
+import os
 import base64
 from pathlib import Path
 from typing import Any
@@ -401,6 +402,16 @@ HUGGINGFACE_EMBEDDING_CACHE_DIR = config.get(
     'HUGGINGFACE_EMBEDDING_CACHE_DIR',
     fallback=Path.home().joinpath('.cache', 'huggingface', 'embeddings')
 )
+# Propagate the app-level cache dir to the *standard* HuggingFace env var so the
+# whole HF stack (huggingface_hub, transformers, langchain_huggingface) downloads
+# into this directory. flowtask loads HF models via HuggingFaceEmbeddings and
+# transformers.pipeline() without passing cache_folder, so HF_HOME is the only
+# lever — without this, snapshots land in the user's default ~/.cache/huggingface.
+#
+# IMPORTANT: huggingface_hub freezes HF_HUB_CACHE at import time, so this MUST run
+# before any HF library is imported. conf.py loads early enough to satisfy that.
+# `setdefault` lets an explicitly-set HF_HOME in the environment win.
+os.environ.setdefault('HF_HOME', str(HUGGINGFACE_EMBEDDING_CACHE_DIR))
 
 ## MILVUS DB ##:
 MAX_BATCH_SIZE = config.get('MAX_BATCH_SIZE', fallback=768)
@@ -490,9 +501,17 @@ AWS_CREDENTIALS = {
 }
 
 # Workday SOAP settings
+# WORKDAY_ENV selects which credential set WorkdayConfig resolves:
+#   "prod" (default) → WORKDAY_* ; "sandbox"/"impl" → WORKDAY_*_IMPL
+WORKDAY_ENV = config.get("WORKDAY_ENV", fallback="prod")
 WORKDAY_CLIENT_ID = config.get("WORKDAY_CLIENT_ID")
 WORKDAY_CLIENT_SECRET = config.get("WORKDAY_CLIENT_SECRET")
 WORKDAY_TOKEN_URL = config.get("WORKDAY_TOKEN_URL")
+# Sandbox / implementation tenant credentials (used when WORKDAY_ENV=sandbox)
+WORKDAY_CLIENT_ID_IMPL = config.get("WORKDAY_CLIENT_ID_IMPL", fallback=None)
+WORKDAY_CLIENT_SECRET_IMPL = config.get("WORKDAY_CLIENT_SECRET_IMPL", fallback=None)
+WORKDAY_TOKEN_URL_IMPL = config.get("WORKDAY_TOKEN_URL_IMPL", fallback=None)
+WORKDAY_REFRESH_TOKEN_IMPL = config.get("WORKDAY_REFRESH_TOKEN_IMPL", fallback=None)
 WORKDAY_WSDL_PATH = config.get("WORKDAY_WSDL_PATH", fallback=BASE_DIR.joinpath("env", "workday", "staffing_custom_44_2.wsdl"))
 WORKDAY_WSDL_TIME = config.get("WORKDAY_WSDL_TIME", fallback=BASE_DIR.joinpath("env", "workday", "timetracking_custom_44_2.wsdl"))
 WORKDAY_WSDL_HUMAN_RESOURCES = config.get("WORKDAY_WSDL_HUMAN_RESOURCES", fallback=BASE_DIR.joinpath("env", "workday", "humanresources_troc_44_2.wsdl"))

@@ -74,9 +74,7 @@ class Document:
         self.transport = transport
 
         # Dict with all definition objects within this WSDL
-        self._definitions = (
-            {}
-        )  # type: typing.Dict[typing.Tuple[str, str], "Definition"]
+        self._definitions = {}  # type: typing.Dict[typing.Tuple[str, str], "Definition"]
         self.types = Schema(
             node=None,
             transport=self.transport,
@@ -86,7 +84,7 @@ class Document:
         self.load(location)
 
     def load(self, location):
-        document = self._get_xml_document(location)
+        document = self._get_xml_document(location, _initial=True)
 
         root_definitions = Definition(self, document, self.location)
         root_definitions.resolve_imports()
@@ -138,16 +136,25 @@ class Document:
                     print("%s%s" % (" " * 12, str(operation)))
                 print("")
 
-    def _get_xml_document(self, location: typing.IO) -> etree._Element:
+    def _get_xml_document(
+        self, location: typing.IO, *, _initial: bool = False
+    ) -> etree._Element:
         """Load the XML content from the given location and return an
         lxml.Element object.
 
         :param location: The URL of the document to load
         :type location: string
+        :param _initial: True when loading the user-supplied entry-point WSDL;
+          False for transitive ``wsdl:import`` documents (which are gated by
+          ``settings.forbid_external``).
 
         """
         return load_external(
-            location, self.transport, self.location, settings=self.settings
+            location,
+            self.transport,
+            self.location,
+            settings=self.settings,
+            _initial=_initial,
         )
 
     def _add_definition(self, definition: "Definition"):
@@ -427,7 +434,6 @@ class Definition:
             binding = None
             for binding_class in binding_classes:
                 if binding_class.match(binding_node):
-
                     try:
                         binding = binding_class.parse(self, binding_node)
                     except NotImplementedError as exc:

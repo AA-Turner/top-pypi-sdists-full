@@ -52,6 +52,7 @@ from typing import Optional
 import arrow as ar
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 
 from geoprepare import base
 
@@ -624,26 +625,40 @@ class CellOptimizer(base.BaseGeo):
             )
             return None
 
-        df = pd.read_parquet(path)
-        missing = _REQUIRED_COLS - set(df.columns)
+        # Read schema first so we can both validate required columns AND
+        # decide which optional var columns to pull — without paying the
+        # cost of reading the full parquet body.
+        schema = pq.read_schema(path)
+        available = set(schema.names)
+        missing = _REQUIRED_COLS - available
         if missing:
             self.logger.warning(
                 f"  parquet {path} missing required columns {sorted(missing)}; skipping."
             )
             return None
-
-        df = df[df["region"] == region]
-        if df.empty:
-            self.logger.warning(
-                f"  no rows for region={region!r} in {path}; skipping."
-            )
-            return None
-
-        # Detect available var columns (config-gated upstream).
-        var_cols = tuple(v for v in _VAR_COLS if v in df.columns)
+        var_cols = tuple(v for v in _VAR_COLS if v in available)
         if not var_cols:
             self.logger.warning(
                 f"  no var columns ({_VAR_COLS}) in parquet — nothing to optimize."
+            )
+            return None
+
+        # Project + predicate-pushdown at read time: pull ONLY this region's
+        # rows and ONLY the columns we use. Without this, every joblib
+        # worker materialized the full multi-region parquet (~7 GB for
+        # russia/winter_wheat: 72 M rows × 10 cols in pandas) and the
+        # node OOM-killed workers under n_jobs=-1. With this, each
+        # worker's DataFrame is bounded by one region's rows — ~500 MB
+        # worst case, ~100 MB typical.
+        keep_cols = sorted(_REQUIRED_COLS | set(var_cols))
+        df = pd.read_parquet(
+            path,
+            columns=keep_cols,
+            filters=[("region", "==", region)],
+        )
+        if df.empty:
+            self.logger.warning(
+                f"  no rows for region={region!r} in {path}; skipping."
             )
             return None
 

@@ -1,0 +1,295 @@
+version: 2.1
+
+orbs:
+  codecov: codecov/codecov@3
+  macos: circleci/macos@2.4
+  win: circleci/windows@5.0
+
+commands:
+  run-cibuildwheel:
+    parameters:
+      cibw-version:
+        type: string
+        default: 3.4.0    # latest as of March 2026
+    steps:
+      - run:
+          name: run cibuildwheel
+          shell: bash -eo pipefail
+          command: |
+            python -m pip install --user cibuildwheel==<< parameters.cibw-version >>
+            python -m cibuildwheel --output-dir dist
+      - store_artifacts: &store-artifacts
+          path: ./dist
+      - persist_to_workspace: &persist-to-workspace
+          root: ./dist/
+          paths: .
+
+environment: &global-environment
+  PIP_PROGRESS_BAR: 'off'
+
+jobs:
+  build-and-test-linux:
+    docker:
+      - image: cimg/python:3.12
+
+    environment:
+      <<: *global-environment
+      CIBW_ARCHS_LINUX: x86_64
+
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run-cibuildwheel
+
+  build-and-test-linux-aarch64:
+    machine:
+      image: default
+
+    resource_class: arm.medium
+
+    environment:
+      <<: *global-environment
+      CIBW_ARCHS_LINUX: aarch64
+
+    steps:
+      - checkout
+      - run-cibuildwheel
+
+  build-and-test-osx:
+    macos:
+      xcode: 26.2.0  # latest as of Jan 2026
+
+    environment:
+      <<: *global-environment
+
+    steps:
+      - checkout
+      - macos/install-rosetta
+      - run-cibuildwheel
+
+  build-sdist:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+      - run:
+          name: build sdist
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install build pip --upgrade
+            python -m build --sdist
+      - store_artifacts: *store-artifacts
+      - persist_to_workspace: *persist-to-workspace
+
+  build-and-test-windows:
+    executor:
+      name: win/default
+
+    environment:
+      <<: *global-environment
+      CIBW_ARCHS_WINDOWS: AMD64
+
+    steps:
+      - checkout
+      - run-cibuildwheel
+
+  check-dist:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - attach_workspace:
+          at: dist
+
+      - run:
+          name: check package
+          command: |
+            python -m venv env
+            . env/bin/activate
+            python -m pip install twine
+            twine check ./dist/*
+
+  deploy-all:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - attach_workspace:
+          at: dist
+
+      - store_artifacts:
+          path: ./dist
+
+      - run:
+          name: deploy
+          command: |
+            python -m venv env
+            . env/bin/activate
+            python -m pip install twine
+            twine upload -u "$PYPI_USERNAME" -p "$PYPI_PASSWORD" --skip-existing ./dist/*
+
+  test-doctest:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+      - attach_workspace:
+          at: dist
+      - run:
+          name: install dependencies and package
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --group dev --group docs
+            pip install dwave-samplers --no-index -f dist/ --no-deps --force-reinstall
+      - run:
+          name: build docs
+          command: |
+            . env/bin/activate
+            make -C docs/ html
+      - store_artifacts:
+          path: ./docs/build/html
+      - run:
+          name: doctest
+          command: |
+            . env/bin/activate
+            make -C docs/ doctest
+      - run:
+          name: linkcheck
+          command: |
+            . env/bin/activate
+            make -C docs/ linkcheck
+
+  test-dependencies:
+    parameters:
+      python-version:
+        type: string
+      dependency-versions:
+        type: string
+      only-binary:
+        type: string
+
+    docker:
+      - image: python:<< parameters.python-version >>-slim
+
+    steps:
+      - checkout
+      - attach_workspace:
+          at: dist
+      - run:
+          name: install
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install << parameters.dependency-versions >> --upgrade --only-binary << parameters.only-binary >>
+            pip install dwave-samplers --no-index -f dist/ --no-deps --force-reinstall
+
+      - run: &unix-run-tests
+          name: run tests
+          command: |
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --group test
+            cd tests
+            python -m unittest
+
+  test-linux-cpp:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+
+      - run:
+          name: Install requirements
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install pip --upgrade
+            pip install --group dev --group test
+
+      - run:
+          name: run cpp tests
+          command: |
+            . env/bin/activate
+            meson setup _build -Dbuildtype=debug
+            meson test -C _build
+
+  test-sdist:
+    docker:
+      - image: cimg/python:3.12
+
+    steps:
+      - checkout
+      - attach_workspace:
+          at: dist
+      - run:
+          name: install from sdist
+          command: |
+            python -m venv env
+            . env/bin/activate
+            pip install dist/dwave?samplers*.tar.gz
+      - run: *unix-run-tests
+
+workflows:
+  tests:
+    jobs:
+      - build-and-test-linux:
+          filters: &tags
+            # also run on tags so the deploy pipeline works
+            tags:
+              only: &version-string /^[0-9]+(\.[0-9]+)*((\.dev|rc)([0-9]+)?)?$/
+      - build-and-test-linux-aarch64:
+          filters: *tags
+      - build-and-test-osx:
+          filters: *tags
+      - build-and-test-windows:
+          filters: *tags
+      - build-sdist:
+          filters: *tags
+      - test-doctest:
+          filters: *tags
+          requires:
+            - build-and-test-linux
+      - test-dependencies:
+          name: test-dependencies-python<< matrix.python-version >>-dependencies=<< matrix.dependency-versions >>
+          filters: *tags
+          requires:
+            - build-and-test-linux
+          matrix:
+            parameters:
+              dependency-versions: [dimod==0.12.21 oldest-supported-numpy networkx==3.0, dimod numpy networkx]
+              # Skip some of the intermediate Python versions for speed
+              python-version: ["3.10", "3.14"]
+              only-binary: ["numpy,dimod,networkx"]
+      - test-linux-cpp:
+          filters: *tags
+      - test-sdist:
+          filters: *tags
+          requires:
+            - build-sdist
+      - check-dist:
+          filters: *tags
+          requires:
+            - build-and-test-linux
+            - build-and-test-linux-aarch64
+            - build-and-test-osx
+            - build-and-test-windows
+            - build-sdist
+      - deploy-all:
+          filters:
+            tags:
+              only: *version-string
+            branches:
+              ignore: /.*/
+          requires:
+            - build-and-test-linux
+            - build-and-test-linux-aarch64
+            - build-and-test-osx
+            - build-and-test-windows
+            - build-sdist
+            - check-dist

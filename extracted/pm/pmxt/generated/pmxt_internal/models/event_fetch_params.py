@@ -40,7 +40,9 @@ class EventFetchParams(BaseModel):
     filter: Optional[EventFilterCriteria] = Field(default=None, description="Optional client-side filter applied after fetching")
     category: Optional[StrictStr] = Field(default=None, description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")
     tags: Optional[List[StrictStr]] = Field(default=None, description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")
-    __properties: ClassVar[List[str]] = ["query", "limit", "cursor", "offset", "sort", "status", "searchIn", "eventId", "slug", "series", "filter", "category", "tags"]
+    source_exchange: Optional[StrictStr] = Field(default=None, description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.", alias="sourceExchange")
+    exchange: Optional[StrictStr] = Field(default=None, description="Alias for `sourceExchange`.")
+    __properties: ClassVar[List[str]] = ["query", "limit", "cursor", "offset", "sort", "status", "searchIn", "eventId", "slug", "series", "filter", "category", "tags", "sourceExchange", "exchange"]
 
     @field_validator('sort')
     def sort_validate_enum(cls, value):
@@ -138,7 +140,9 @@ class EventFetchParams(BaseModel):
             "series": obj.get("series"),
             "filter": EventFilterCriteria.from_dict(obj["filter"]) if obj.get("filter") is not None else None,
             "category": obj.get("category"),
-            "tags": obj.get("tags")
+            "tags": obj.get("tags"),
+            "sourceExchange": obj.get("sourceExchange"),
+            "exchange": obj.get("exchange")
         })
         return _obj
 

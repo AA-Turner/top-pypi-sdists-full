@@ -19,6 +19,17 @@ def assert_tts_speak_frames_queued(mock_task, expected_texts):
         )
 
 
+def get_queued_tts_speak_frames(mock_task):
+    """Return the TTSSpeakFrames queued on the mock task, in order."""
+    from pipecat.frames.frames import TTSSpeakFrame
+
+    return [
+        call[0][0]
+        for call in mock_task.queue_frame.call_args_list
+        if isinstance(call[0][0], TTSSpeakFrame)
+    ]
+
+
 def assert_end_frame_queued(mock_task):
     """Assert that an EndFrame was queued."""
     from pipecat.frames.frames import EndFrame
@@ -27,6 +38,34 @@ def assert_end_frame_queued(mock_task):
         call for call in mock_task.queue_frame.call_args_list if isinstance(call[0][0], EndFrame)
     ]
     assert len(end_calls) == 1, "EndFrame not queued"
+
+
+def get_advertised_tools(mock_task):
+    """Return the tools from the most recent LLMSetToolsFrame queued (or NOT_GIVEN).
+
+    FlowManager advertises a node's tools via an LLMSetToolsFrame; the LLM service
+    registers the handlers they carry when it sees them.
+    """
+    from pipecat.frames.frames import LLMSetToolsFrame
+    from pipecat.processors.aggregators.llm_context import NOT_GIVEN
+
+    set_tools_frames = [
+        frame
+        for call in mock_task.queue_frames.call_args_list
+        for frame in call[0][0]
+        if isinstance(frame, LLMSetToolsFrame)
+    ]
+    return set_tools_frames[-1].tools if set_tools_frames else NOT_GIVEN
+
+
+def get_advertised_tool_handlers(mock_task):
+    """Return {name: handler} from the most recent LLMSetToolsFrame queued."""
+    from pipecat.processors.aggregators.llm_context import NOT_GIVEN
+
+    tools = get_advertised_tools(mock_task)
+    if tools is NOT_GIVEN:
+        return {}
+    return {schema.name: schema.handler for schema in tools.standard_tools}
 
 
 def make_mock_task():

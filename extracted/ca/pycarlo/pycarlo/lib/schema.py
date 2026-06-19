@@ -291,11 +291,12 @@ class AgentHealthCheckType(pycarlo.lib.types.Enum):
     Enumeration Choices:
 
     * `CODE_REF`None
+    * `COVERAGE`None
     * `PR`None
     """
 
     __schema__ = schema
-    __choices__ = ("CODE_REF", "PR")
+    __choices__ = ("CODE_REF", "COVERAGE", "PR")
 
 
 class AgentHealthCheckValidity(pycarlo.lib.types.Enum):
@@ -30686,6 +30687,7 @@ class EtlJobRunV3(sgqlc.types.Type):
         "error",
         "attributes",
         "job_mcon",
+        "group_global_id",
         "is_failure",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
@@ -30732,7 +30734,14 @@ class EtlJobRunV3(sgqlc.types.Type):
     attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
 
     job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
-    """MCON of the parent ETL job."""
+    """MCON of the job instance this run belongs to. Null when the run's
+    instance has not been resolved yet.
+    """
+
+    group_global_id = sgqlc.types.Field(String, graphql_name="groupGlobalId")
+    """Global ID of the group instance this run was attributed to. Null
+    when the run's instance has not been resolved yet.
+    """
 
     is_failure = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFailure")
     """Whether this run ended in a failure-terminal status."""
@@ -30783,6 +30792,7 @@ class EtlJobV3(sgqlc.types.Type):
         "deleted_at",
         "container_uuid",
         "group_global_id",
+        "group",
         "attributes",
         "last_run_date",
         "recent_run_count",
@@ -30824,6 +30834,11 @@ class EtlJobV3(sgqlc.types.Type):
     container_uuid = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="containerUuid")
 
     group_global_id = sgqlc.types.Field(String, graphql_name="groupGlobalId")
+
+    group = sgqlc.types.Field(EtlGroupV3, graphql_name="group")
+    """The group this job belongs to, resolved from `groupGlobalId`. Null
+    when the job has no group or it cannot be resolved.
+    """
 
     attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
 
@@ -30883,6 +30898,8 @@ class EtlTaskRunV3(sgqlc.types.Type):
         "error",
         "attributes",
         "job_mcon",
+        "task_mcon",
+        "group_global_id",
         "is_failure",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
@@ -30931,7 +30948,19 @@ class EtlTaskRunV3(sgqlc.types.Type):
     attributes = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="attributes")
 
     job_mcon = sgqlc.types.Field(String, graphql_name="jobMcon")
-    """MCON of the parent ETL job."""
+    """MCON of the job instance this run belongs to. Null when the run's
+    instance has not been resolved yet.
+    """
+
+    task_mcon = sgqlc.types.Field(String, graphql_name="taskMcon")
+    """MCON of the task instance this run belongs to. Null when the run's
+    task instance has not been resolved yet.
+    """
+
+    group_global_id = sgqlc.types.Field(String, graphql_name="groupGlobalId")
+    """Global ID of the group instance this run was attributed to. Null
+    when the run's instance has not been resolved yet.
+    """
 
     is_failure = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFailure")
     """Whether this run ended in a failure-terminal status."""
@@ -59001,10 +59030,9 @@ class Mutation(sgqlc.types.Type):
 
     * `asset_selection` (`AssetSelectionInput!`): Tables to monitor
     * `audiences` (`[String]`): Notification audiences
-    * `auto_enable_table_monitoring` (`Boolean`): For CBPV1 accounts,
-      automatically create or update a companion table monitor for the
-      selected scan-scope tables so PII scans can run. (default:
-      `false`)
+    * `auto_enable_table_monitoring` (`Boolean`): Deprecated legacy
+      option. PII monitors no longer create table monitors; CBPV1 PII
+      scans can run on unmonitored tables directly. (default: `false`)
     * `auto_prune_enabled` (`Boolean`): When true, automatically
       remove the child monitor after each table's first scan completes
       with no PII detected. Tables are re-scanned if new TEXT columns
@@ -59031,8 +59059,8 @@ class Mutation(sgqlc.types.Type):
       SCAN collects data without alerting (default: `"ALERT"`)
     * `notes` (`String`): Notes for the monitor
     * `pii_types` (`[PiiType!]`): PII types to monitor. Defaults to
-      the product-supported set. US_STATE_CODE is included only when
-      explicitly requested.
+      the product-supported set. US_ZIP_CODE and US_STATE_CODE are
+      included only when explicitly requested.
     * `priority` (`String`): Monitor priority (P1–P5)
     * `sampling_config` (`MonitorSamplingConfigInput`): Row sampling
       for child metric monitors.
@@ -59164,10 +59192,10 @@ class Mutation(sgqlc.types.Type):
       conditions
     * `asset_selection` (`AssetSelectionInput!`)None
     * `audiences` (`[String]`): Monitor audiences
-    * `auto_enable_table_monitoring` (`Boolean`): For CBPV1 PII
-      monitors, automatically create or update companion table
-      monitors for selected scan-scope tables so PII scans can run.
-      (default: `false`)
+    * `auto_enable_table_monitoring` (`Boolean`): Deprecated legacy
+      PII option. PII monitors no longer create table monitors; CBPV1
+      PII scans can run on unmonitored tables directly. (default:
+      `false`)
     * `auto_prune_enabled` (`Boolean`): For PII monitors,
       automatically remove child monitors after a successful first
       scan with no PII detected. Omitted values preserve the existing
@@ -86606,7 +86634,7 @@ class RelatedAlert(sgqlc.types.Type):
 
 class RelatedAsset(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("mcon", "asset", "role")
+    __field_names__ = ("mcon", "asset", "table_description", "role")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """MCON of the related asset. Preserved on the finding even when the
     underlying catalog row has been deleted (e.g., the table was
@@ -86617,6 +86645,12 @@ class RelatedAsset(sgqlc.types.Type):
     """Live catalog object resolved from the mcon. Null when the asset
     has been deleted from the catalog after the finding was produced,
     or when the caller does not have catalog read access.
+    """
+
+    table_description = sgqlc.types.Field(String, graphql_name="tableDescription")
+    """LLM-generated description of the table. Null when no description
+    has been generated for this asset, or when the caller does not
+    have asset read access.
     """
 
     role = sgqlc.types.Field(sgqlc.types.non_null(FindingAssetRole), graphql_name="role")

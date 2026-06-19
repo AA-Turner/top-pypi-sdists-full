@@ -98,6 +98,8 @@ class MultilayerFormatEDTF(BabelFormatField):
 
     def format_value(self, value: str) -> Any:
         """Format date value."""
+        if re.match(r"^\d{4}$", value):  # Year
+            return value
         try:
             return format_date(self.parse(value, as_date=True), format=self._format, locale=self.locale)
         except ValueError:
@@ -109,13 +111,11 @@ class MultilayerFormatEDTF(BabelFormatField):
         as_time: bool = False,
         as_date: bool = False,
         as_datetime: bool = False,
-        **kwargs: Any,
     ) -> Any:
         """Parse date value."""
-        _, _, _ = as_time, as_date, as_datetime
         # standard parsing is too lenient, for example returns "2000-01-01" for input "2000"
         if re.match("^[0-9]+-[0-9]+-[0-9]+", value):
-            return super().parse(value, **kwargs)
+            return super().parse(value, as_time=as_time, as_date=as_date, as_datetime=as_datetime)
         raise ValueError("Not a valid date")
 
 

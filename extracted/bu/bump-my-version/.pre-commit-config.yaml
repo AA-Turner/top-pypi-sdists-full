@@ -75,7 +75,9 @@ repos:
     rev: v0.2.18  # Use latest version
     hooks:
       - id: rumdl      # Lint only
+        exclude: CHANGELOG.md
       - id: rumdl-fmt  # Auto-format
+        exclude: CHANGELOG.md
 
 ci:
   autofix_prs: false

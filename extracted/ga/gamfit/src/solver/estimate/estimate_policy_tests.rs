@@ -39,11 +39,28 @@ fn high_dimensional_external_reml_skips_seed_screening() {
 }
 
 #[test]
+fn high_dimensional_glm_external_reml_requests_arc_seed_pair() {
+    let cfg = external_reml_seed_config(REML_SEED_SCREENING_RHO_CAP, LinkFunction::Logit);
+    assert_eq!(cfg.risk_profile, SeedRiskProfile::GeneralizedLinear);
+    assert_eq!(
+        cfg.max_seeds, 2,
+        "high-dimensional GLM REML must generate the alternate ARC startup basin"
+    );
+    assert_eq!(
+        cfg.seed_budget, 2,
+        "high-dimensional GLM REML must request both generated starts so ARC's GLM cap is not nullified"
+    );
+}
+
+#[test]
 fn generalized_external_reml_keeps_multistart_policy() {
     let cfg = external_reml_seed_config(2, LinkFunction::Logit);
     assert_eq!(cfg.risk_profile, SeedRiskProfile::GeneralizedLinear);
     assert!(cfg.max_seeds > 1);
-    assert_eq!(cfg.seed_budget, 1);
+    assert_eq!(
+        cfg.seed_budget, 2,
+        "GLM REML must request the alternate ARC startup basin"
+    );
 }
 
 #[test]

@@ -11430,6 +11430,7 @@ class Transform(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Transform"
         "exact_optional_property_types": "exactOptionalPropertyTypes",
         "experimental_decorators": "experimentalDecorators",
         "force_consistent_casing_in_file_names": "forceConsistentCasingInFileNames",
+        "ignore_deprecations": "ignoreDeprecations",
         "imports_not_used_as_values": "importsNotUsedAsValues",
         "incremental": "incremental",
         "inline_source_map": "inlineSourceMap",
@@ -11497,6 +11498,7 @@ class TypeScriptCompilerOptions:
         exact_optional_property_types: typing.Optional[builtins.bool] = None,
         experimental_decorators: typing.Optional[builtins.bool] = None,
         force_consistent_casing_in_file_names: typing.Optional[builtins.bool] = None,
+        ignore_deprecations: typing.Optional[builtins.str] = None,
         imports_not_used_as_values: typing.Optional["TypeScriptImportsNotUsedAsValues"] = None,
         incremental: typing.Optional[builtins.bool] = None,
         inline_source_map: typing.Optional[builtins.bool] = None,
@@ -11560,6 +11562,7 @@ class TypeScriptCompilerOptions:
         :param exact_optional_property_types: (experimental) Specifies that optional property types should be interpreted exactly as written, meaning that ``| undefined`` is not added to the type Available with TypeScript 4.4 and newer. Default: false
         :param experimental_decorators: (experimental) Enables experimental support for decorators, which is in stage 2 of the TC39 standardization process. Default: true
         :param force_consistent_casing_in_file_names: (experimental) Disallow inconsistently-cased references to the same file. Default: false
+        :param ignore_deprecations: (experimental) Silence deprecation warnings for options scheduled for removal in a future TypeScript release (for example ``moduleResolution: "node10"``, which became an error in TypeScript 6.0). Set to the TypeScript version that introduced the deprecation, e.g. ``"6.0"``. Default: undefined
         :param imports_not_used_as_values: (experimental) This flag works because you can use ``import type`` to explicitly create an ``import`` statement which should never be emitted into JavaScript. Default: "remove"
         :param incremental: (experimental) Tells TypeScript to save information about the project graph from the last compilation to files stored on disk. This creates a series of .tsbuildinfo files in the same folder as your compilation output. They are not used by your JavaScript at runtime and can be safely deleted. You can read more about the flag in the 3.4 release notes.
         :param inline_source_map: (experimental) When set, instead of writing out a .js.map file to provide source maps, TypeScript will embed the source map content in the .js files. Default: true
@@ -11626,6 +11629,7 @@ class TypeScriptCompilerOptions:
             check_type(argname="argument exact_optional_property_types", value=exact_optional_property_types, expected_type=type_hints["exact_optional_property_types"])
             check_type(argname="argument experimental_decorators", value=experimental_decorators, expected_type=type_hints["experimental_decorators"])
             check_type(argname="argument force_consistent_casing_in_file_names", value=force_consistent_casing_in_file_names, expected_type=type_hints["force_consistent_casing_in_file_names"])
+            check_type(argname="argument ignore_deprecations", value=ignore_deprecations, expected_type=type_hints["ignore_deprecations"])
             check_type(argname="argument imports_not_used_as_values", value=imports_not_used_as_values, expected_type=type_hints["imports_not_used_as_values"])
             check_type(argname="argument incremental", value=incremental, expected_type=type_hints["incremental"])
             check_type(argname="argument inline_source_map", value=inline_source_map, expected_type=type_hints["inline_source_map"])
@@ -11708,6 +11712,8 @@ class TypeScriptCompilerOptions:
             self._values["experimental_decorators"] = experimental_decorators
         if force_consistent_casing_in_file_names is not None:
             self._values["force_consistent_casing_in_file_names"] = force_consistent_casing_in_file_names
+        if ignore_deprecations is not None:
+            self._values["ignore_deprecations"] = ignore_deprecations
         if imports_not_used_as_values is not None:
             self._values["imports_not_used_as_values"] = imports_not_used_as_values
         if incremental is not None:
@@ -12043,6 +12049,20 @@ class TypeScriptCompilerOptions:
         '''
         result = self._values.get("force_consistent_casing_in_file_names")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def ignore_deprecations(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Silence deprecation warnings for options scheduled for removal in a future TypeScript release (for example ``moduleResolution: "node10"``, which became an error in TypeScript 6.0).
+
+        Set to the TypeScript version that introduced the deprecation, e.g. ``"6.0"``.
+
+        :default: undefined
+
+        :see: https://www.typescriptlang.org/tsconfig/#ignoreDeprecations
+        :stability: experimental
+        '''
+        result = self._values.get("ignore_deprecations")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def imports_not_used_as_values(
@@ -18270,6 +18290,7 @@ def _typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14
     exact_optional_property_types: typing.Optional[builtins.bool] = None,
     experimental_decorators: typing.Optional[builtins.bool] = None,
     force_consistent_casing_in_file_names: typing.Optional[builtins.bool] = None,
+    ignore_deprecations: typing.Optional[builtins.str] = None,
     imports_not_used_as_values: typing.Optional[TypeScriptImportsNotUsedAsValues] = None,
     incremental: typing.Optional[builtins.bool] = None,
     inline_source_map: typing.Optional[builtins.bool] = None,

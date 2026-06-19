@@ -29,19 +29,21 @@ class JobCreateResource:
             night at 02:00 UTC.', 'environments': {'production': {'enabled': True}, 'staging': {'configuration': {'body':
             '{"scope":"all"}', 'headers': [{'name': 'Authorization', 'value': 'Bearer staging'}], 'method': 'POST',
             'success_status': '2xx', 'timeout': 30, 'tls_verify': True, 'url': 'https://staging.example.com/cache/warm'},
-            'enabled': True}}, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type': 'http'}, 'id': 'nightly-cache-
-            warm', 'type': 'job'}
+            'enabled': True, 'schedule': '0 3 * * *'}}, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type':
+            'http'}, 'id': 'nightly-cache-warm', 'type': 'job'}
 
     Attributes:
         id (str): Client-supplied resource id.
         attributes (Job): A scheduled unit of work: an HTTP request run on a schedule.
 
             The job is the definition; each time it fires the service records a run
-            capturing the request, response, timing, and outcome. A job is enabled per
-            environment: set `environments[<env>].enabled` to schedule runs there. A
+            capturing the request, response, timing, and outcome. A job runs per
+            environment: set `environments[<env>].enabled` to schedule runs there, and
+            optionally give that environment its own `schedule` or `configuration`. A
             recurring (cron) job may be enabled in several environments at once and
-            fires once per enabled environment; a one-off (`now` or future datetime)
-            job runs a single time in the environment it was created in.
+            fires once per enabled environment, each on its own next-fire schedule; a
+            one-off (`now` or future datetime) job runs a single time in the environment
+            it was created in.
         type_ (Literal['job'] | Unset):  Default: 'job'.
     """
 

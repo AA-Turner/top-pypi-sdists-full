@@ -17,18 +17,28 @@ use mergify_core::CliError;
 use crate::change_id;
 use crate::git::{resolve_repo_toplevel, run_git_capture, shell_quote, spawn_rebase};
 use crate::local_commits::{self, LocalCommit};
+use crate::plan_display::PlanRow;
 use crate::trunk;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OrderedCommit {
-    pub sha: String,
-    pub subject: String,
+struct OrderedCommit {
+    sha: String,
+    subject: String,
+    change_id: String,
 }
 
 #[derive(Debug, Clone)]
 pub enum Outcome {
-    Squashed { plan: Vec<OrderedCommit> },
-    DryRun { plan: Vec<OrderedCommit> },
+    /// Squash ran to completion. `plan` is the reordered full stack
+    /// (sources folded behind the target) with `[fixup]` tags on
+    /// the source rows.
+    Squashed {
+        plan: Vec<PlanRow>,
+    },
+    /// `--dry-run` short-circuit. Same full-stack `plan`, no rebase.
+    DryRun {
+        plan: Vec<PlanRow>,
+    },
     EmptyStack,
 }
 
@@ -91,14 +101,27 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
         new_order.push(OrderedCommit {
             sha: c.commit_sha.clone(),
             subject: c.title.clone(),
+            change_id: c.change_id.clone(),
         });
         if c.commit_sha == target.sha {
             new_order.extend(srcs.iter().cloned());
         }
     }
 
+    let plan: Vec<PlanRow> = new_order
+        .iter()
+        .map(|c| PlanRow {
+            sha: c.sha.clone(),
+            subject: c.subject.clone(),
+            change_id: c.change_id.clone(),
+            action: src_sha_set
+                .contains(c.sha.as_str())
+                .then(|| "fixup".to_string()),
+        })
+        .collect();
+
     if opts.dry_run {
-        return Ok(Outcome::DryRun { plan: new_order });
+        return Ok(Outcome::DryRun { plan });
     }
 
     let ordered_shas: Vec<String> = new_order.iter().map(|c| c.sha.clone()).collect();
@@ -124,7 +147,7 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
         exec_after_sha.as_deref(),
         exec_command.as_deref(),
     )?;
-    Ok(Outcome::Squashed { plan: new_order })
+    Ok(Outcome::Squashed { plan })
 }
 
 fn match_commit(prefix: &str, commits: &[LocalCommit]) -> Result<OrderedCommit, CliError> {
@@ -146,22 +169,22 @@ fn match_commit(prefix: &str, commits: &[LocalCommit]) -> Result<OrderedCommit, 
         )
     };
     match matches.as_slice() {
-        [] => Err(CliError::StackNotFound(format!(
-            "no commit found matching {field} prefix '{prefix}'"
-        ))),
+        [] => Err(crate::match_commit::not_found(field, prefix)),
         [only] => Ok(OrderedCommit {
             sha: only.commit_sha.clone(),
             subject: only.title.clone(),
+            change_id: only.change_id.clone(),
         }),
         many => {
-            let listing = many
+            let candidates: Vec<crate::match_commit::Candidate<'_>> = many
                 .iter()
-                .map(|c| format!("{} {}", &c.commit_sha[..7], c.title))
-                .collect::<Vec<_>>()
-                .join("\n  ");
-            Err(CliError::InvalidState(format!(
-                "{field} prefix '{prefix}' matches multiple commits:\n  {listing}"
-            )))
+                .map(|c| crate::match_commit::Candidate {
+                    commit_sha: &c.commit_sha,
+                    title: &c.title,
+                    change_id: &c.change_id,
+                })
+                .collect();
+            Err(crate::match_commit::ambiguous(field, prefix, &candidates))
         }
     }
 }
@@ -203,5 +226,5 @@ fn spawn_squash_rebase(
         editor.push_str(" --command ");
         editor.push_str(&shell_quote(cmd));
     }
-    spawn_rebase(repo_dir, base, Some(&editor))
+    spawn_rebase(repo_dir, base, Some(&editor), false)
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-sambanova
-Version: 1.1.0
+Version: 1.1.1
 Summary: An integration package connecting SambaNova and LangChain
 License: MIT
 License-File: LICENSE
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: langchain-core (>0.3.0,<2.0.0)
-Requires-Dist: sambanova (>=1.4.0,<2.0.0)
+Requires-Dist: sambanova (>=1.9.1,<2.0.0)
 Requires-Dist: types-requests
 Project-URL: Repository, https://github.com/sambanova/langchain-sambanova
 Project-URL: Release Notes, https://github.com/sambanova/langchain-sambanova/releases

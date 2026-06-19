@@ -43,6 +43,7 @@ __all__ = (
     "ClusterVersionStatusType",
     "ConfigStatusType",
     "ConnectorConfigProviderType",
+    "ControlPlaneEgressModeTypeType",
     "DescribeAddonVersionsPaginatorName",
     "DescribeClusterVersionsPaginatorName",
     "EKSServiceName",
@@ -184,6 +185,7 @@ ConfigStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 ConnectorConfigProviderType = Literal[
     "AKS", "ANTHOS", "EC2", "EKS_ANYWHERE", "GKE", "OPENSHIFT", "OTHER", "RANCHER", "TANZU"
 ]
+ControlPlaneEgressModeTypeType = Literal["AWS_MANAGED", "CUSTOMER_ISOLATED", "CUSTOMER_ROUTED"]
 DescribeAddonVersionsPaginatorName = Literal["describe_addon_versions"]
 DescribeClusterVersionsPaginatorName = Literal["describe_cluster_versions"]
 EksAnywhereSubscriptionLicenseTypeType = Literal["Cluster"]
@@ -292,6 +294,7 @@ UpdateParamTypeType = Literal[
     "ClusterLogging",
     "ComputeConfig",
     "ConfigurationValues",
+    "ControlPlaneEgressMode",
     "DeletionProtection",
     "DesiredSize",
     "EncryptionConfig",
@@ -347,6 +350,7 @@ UpdateTypeType = Literal[
     "AutoModeUpdate",
     "CapabilityUpdate",
     "ConfigUpdate",
+    "ControlPlaneEgressUpdate",
     "ControlPlaneScalingConfigUpdate",
     "DeletionProtectionUpdate",
     "DisassociateIdentityProviderConfig",

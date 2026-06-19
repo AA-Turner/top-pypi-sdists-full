@@ -6,6 +6,7 @@ import argparse
 import base64
 import hashlib
 import hmac
+import inspect
 import io
 import json
 import mimetypes
@@ -102,6 +103,7 @@ from ..local_supply_chain import (
     managed_install_audit_workspace_dirs,
     resolve_package_firewall_entitlement_with_refresh,
     resolve_supply_chain_audit_workspace_dir,
+    sync_supply_chain_cloud_state,
 )
 from ..models import DECISION_SCOPE_VALUES, GUARD_ACTION_VALUES, DecisionScope, GuardAction, PolicyDecision
 from ..package_firewall_action_rate_limit import PackageFirewallActionRateLimiter
@@ -110,6 +112,7 @@ from ..package_firewall_entitlement import (
     package_firewall_available_actions,
     package_firewall_block_details,
     package_firewall_operation_allowed,
+    resolve_package_firewall_entitlement,
 )
 from ..package_firewall_receipts import package_firewall_receipt_metadata
 from ..package_shim_status import record_package_shim_audit_result
@@ -128,6 +131,7 @@ from ..runtime.runner import (
     _persist_cloud_exceptions,
     _policy_bundle_acknowledgement_payload,
     _policy_bundle_is_version_downgrade,
+    _resolve_guard_sync_auth_context,
     prepare_guard_cloud_connect_authorization,
     sync_local_guard_cloud_proof,
     sync_supply_chain_bundle,
@@ -544,7 +548,15 @@ def _run_headless_cloud_sync(
     recorded_at = _now()
     summary: dict[str, object]
     try:
-        sync_payload = sync_local_guard_cloud_proof(store)
+        auth_context = _resolve_guard_sync_auth_context(store)
+        sync_payload = _sync_local_guard_cloud_proof_with_optional_auth_context(
+            store,
+            auth_context,
+        )
+        supply_chain_payload = _sync_supply_chain_cloud_state_with_optional_auth_context(
+            store,
+            auth_context,
+        )
         summary = {
             "status": "synced",
             "synced_at": sync_payload.get("synced_at"),
@@ -552,6 +564,7 @@ def _run_headless_cloud_sync(
             "runtime_session_id": sync_payload.get("runtime_session_id"),
             "runtime_session_synced_at": sync_payload.get("runtime_session_synced_at"),
             "runtime_sessions_visible": sync_payload.get("runtime_sessions_visible"),
+            "supply_chain": supply_chain_payload,
         }
     except GuardSyncAuthorizationExpiredError as error:
         store.record_latest_guard_connect_sync_result(
@@ -948,6 +961,37 @@ def _guard_cloud_connect_succeeded(store: GuardStore) -> bool:
     return not _guard_cloud_connect_required_for_insights(store)
 
 
+def _sync_supply_chain_cloud_state_with_optional_auth_context(
+    store: GuardStore,
+    auth_context: dict[str, object] | None,
+    *,
+    workspace_dir: Path | None = None,
+) -> dict[str, object]:
+    try:
+        parameters = inspect.signature(sync_supply_chain_cloud_state).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+    kwargs: dict[str, Any] = {}
+    if auth_context is not None and "auth_context" in parameters:
+        kwargs["auth_context"] = auth_context
+    if workspace_dir is not None and "workspace_dir" in parameters:
+        kwargs["workspace_dir"] = workspace_dir
+    return sync_supply_chain_cloud_state(store, **kwargs)
+
+
+def _sync_local_guard_cloud_proof_with_optional_auth_context(
+    store: GuardStore,
+    auth_context: dict[str, object] | None,
+) -> dict[str, object]:
+    try:
+        parameters = inspect.signature(sync_local_guard_cloud_proof).parameters
+    except (TypeError, ValueError):
+        parameters = {}
+    if auth_context is not None and "auth_context" in parameters:
+        return sync_local_guard_cloud_proof(store, auth_context=auth_context)
+    return sync_local_guard_cloud_proof(store)
+
+
 def _finalize_daemon_guard_connect_payload(
     *,
     store: GuardStore,
@@ -1075,6 +1119,7 @@ def _finalize_daemon_guard_connect_payload(
     latest_state = store.record_latest_guard_connect_sync_success(
         sync_payload=sync_payload,
         now=str(sync_payload.get("synced_at") or now),
+        request_id=str(latest_state.get("request_id") or ""),
     )
     payload.update(
         {
@@ -1087,7 +1132,10 @@ def _finalize_daemon_guard_connect_payload(
         }
     )
     try:
-        payload["supply_chain"] = sync_supply_chain_bundle(store)
+        payload["supply_chain"] = _sync_supply_chain_cloud_state_with_optional_auth_context(
+            store,
+            resolved_sync_auth_context,
+        )
     except (GuardSyncNotConfiguredError, GuardSyncNotAvailableError, RuntimeError) as error:
         payload["supply_chain_error"] = str(error)
     return payload
@@ -1575,6 +1623,16 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
         if parsed.path == "/v1/update":
             force_pypi_reinstall = bool(payload.get("force_pypi_reinstall"))
             status_payload = build_guard_update_status_payload()
+            if status_payload.get("python_update_required") is True:
+                self._write_json(
+                    {
+                        "error": "update_not_supported",
+                        "message": status_payload.get("blocked_reason")
+                        or "Update requires a different Python runtime.",
+                    },
+                    status=400,
+                )
+                return
             recovery_reinstall_available = bool(status_payload.get("recovery_reinstall_available"))
             if force_pypi_reinstall and not recovery_reinstall_available:
                 self._write_json(
@@ -1665,6 +1723,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             self._write_json({"resolved": False, "error": "missing_required_fields"}, status=400)
             return
         try:
+            persist_policy = self._approval_persist_policy(payload)
             updated = apply_approval_resolution(
                 store=self.server.store,  # type: ignore[attr-defined]
                 request_id=request_id,
@@ -1675,6 +1734,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 return_queue_result=True,
                 resolve_scope_matches=False,
                 approval_gate_input=approval_gate_input_from_mapping(payload),
+                persist_policy=persist_policy,
             )
         except ApprovalRequestNotFoundError:
             self._write_json(
@@ -2087,7 +2147,11 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     device_name=device_name,
                 )
             )
-            self.server.store.replace_remote_policies(existing_remote_decisions, applied_at)  # type: ignore[attr-defined]
+            self.server.store.replace_remote_policies(  # type: ignore[attr-defined]
+                existing_remote_decisions,
+                applied_at,
+                remote_write_authorized=True,
+            )
             _persist_cloud_exceptions(
                 self.server.store,  # type: ignore[attr-defined]
                 policy_bundle=validated_policy_bundle,
@@ -2155,6 +2219,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 decision,
                 _now(),
                 approval_gate_grant=approval_gate_grant,
+                remote_write_authorized=True,
             )
         except ApprovalGateError as error:
             self._write_approval_gate_error(error)
@@ -2531,7 +2596,11 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                 record_package_shim_audit_result(context, audited_at=now)
             return audit_payload
         if operation == "sync":
-            return sync_supply_chain_bundle(self.server.store)  # type: ignore[attr-defined]
+            return _sync_supply_chain_cloud_state_with_optional_auth_context(
+                self.server.store,  # type: ignore[attr-defined]
+                None,
+                workspace_dir=context.workspace_dir,
+            )
         raise ValueError("unsupported_supply_chain_operation")
 
     def _resolve_supply_chain_workspace_dir(self, payload: dict[str, object]) -> Path | None:
@@ -2721,7 +2790,7 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
                     },
                     now=timestamp,
                 )
-                resolved_entitlement = resolve_package_firewall_entitlement_with_refresh(store)
+                resolved_entitlement = resolve_package_firewall_entitlement(store)
                 resolved_reason = str(resolved_entitlement.get("reason") or "")
                 if bool(resolved_entitlement.get("allowed")) or resolved_reason == "paid_guard_cloud_required":
                     _set_package_firewall_connect_state(self.server, None)  # type: ignore[arg-type]
@@ -3355,6 +3424,13 @@ class _GuardDaemonHandler(BaseHTTPRequestHandler):
             if normalized in {"false", "0", "no", "off", ""}:
                 return False
         raise ValueError("invalid boolean value")
+
+    def _approval_persist_policy(self, payload: dict[str, object]) -> bool | None:
+        if "persist_policy" in payload:
+            return True if self._optional_bool(payload.get("persist_policy"), default=False) else None
+        if "remember" in payload:
+            return True if self._optional_bool(payload.get("remember"), default=False) else None
+        return None
 
     def _write_approval_gate_error(self, error: ApprovalGateError, *, resolved: bool | None = None) -> None:
         payload = error.to_payload()
@@ -5185,7 +5261,7 @@ _DEFAULT_RETRY_COPY = "Return to your AI assistant and retry"
 
 
 def _build_resolution_copy(action: str, harness: str) -> dict[str, str]:
-    title = "Approved. Retry in chat." if action == "allow" else "Blocked. Guard will remember this decision."
+    title = "Approved. Retry in chat." if action == "allow" else "Blocked. Decision saved."
     return {"title": title, "body": _HARNESS_RETRY_COPY.get(harness, _DEFAULT_RETRY_COPY)}
 
 

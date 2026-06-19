@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.33                                                                                #
-# Generated on 2026-06-09T19:39:31.659266                                                            #
+# MF version: 2.19.34                                                                                #
+# Generated on 2026-06-18T12:40:08.568787                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import typing
 import metaflow
+import typing
 if typing.TYPE_CHECKING:
     import metaflow.plugins.argo.exit_hooks
 

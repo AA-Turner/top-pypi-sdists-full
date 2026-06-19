@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.4.2
+Version: 0.4.4
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License: AGPL-3.0
@@ -49,7 +49,7 @@ Requires-Dist: protobuf>=6.33.5
 Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: typer>=0.12.0
 Requires-Dist: litellm<1.86.3,>=1.83.7
-Requires-Dist: python-multipart>=0.0.27
+Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: tree-sitter>=0.23.0
 Requires-Dist: tree-sitter-python>=0.23.0
 Requires-Dist: tree-sitter-javascript>=0.23.0
@@ -67,7 +67,7 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.14
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.14
 Requires-Dist: opentelemetry-instrumentation-asyncio>=0.61b0
 Requires-Dist: loguru>=0.7.3
-Requires-Dist: cryptography>=42.0.0
+Requires-Dist: cryptography>=48.0.1
 Requires-Dist: argon2-cffi>=23.0.0
 Requires-Dist: lark-oapi>=1.5.3
 Requires-Dist: mcp>=1.27.0

@@ -31,8 +31,10 @@ __all__ = (
     "CanaryStateType",
     "DependencyTypeType",
     "EncryptionModeType",
+    "LocationTypeType",
     "ProvisionedResourceCleanupSettingType",
     "RegionName",
+    "ReplicationStateType",
     "ResourceServiceName",
     "ResourceToTagType",
     "RunTypeType",
@@ -72,7 +74,9 @@ CanaryStateType = Literal[
 ]
 DependencyTypeType = Literal["LambdaLayer"]
 EncryptionModeType = Literal["SSE_KMS", "SSE_S3"]
+LocationTypeType = Literal["Primary", "Replica"]
 ProvisionedResourceCleanupSettingType = Literal["AUTOMATIC", "OFF"]
+ReplicationStateType = Literal["InProgress", "InSync", "Inconsistent"]
 ResourceToTagType = Literal["lambda-function"]
 RunTypeType = Literal["CANARY_RUN", "DRY_RUN"]
 SyntheticsServiceName = Literal["synthetics"]
@@ -400,6 +404,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -427,6 +432,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

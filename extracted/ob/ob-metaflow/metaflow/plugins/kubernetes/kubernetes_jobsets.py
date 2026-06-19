@@ -77,12 +77,12 @@ def _basic_validation_for_js(jobset):
     if not jobset.get("status") or not _retrieve_replicated_job_statuses(jobset):
         return False
     worker_jobs = [
-        w for w in jobset.get("spec").get("replicatedJobs") if w["name"] == "worker"
+        w for w in jobset.get("spec").get("replicatedJobs") if w["name"] == "w"
     ]
     if len(worker_jobs) == 0:
         raise KubernetesJobsetException("No worker jobs found in the jobset manifest")
     control_job = [
-        w for w in jobset.get("spec").get("replicatedJobs") if w["name"] == "control"
+        w for w in jobset.get("spec").get("replicatedJobs") if w["name"] == "c"
     ]
     if len(control_job) == 0:
         raise KubernetesJobsetException("No control job found in the jobset manifest")
@@ -177,12 +177,12 @@ def _construct_jobset_logical_status(jobset, control_pod=None):
     total_worker_jobs = [
         w["replicas"]
         for w in jobset.get("spec").get("replicatedJobs", [])
-        if w["name"] == "worker"
+        if w["name"] == "w"
     ][0]
     total_control_jobs = [
         w["replicas"]
         for w in jobset.get("spec").get("replicatedJobs", [])
-        if w["name"] == "control"
+        if w["name"] == "c"
     ][0]
 
     if total_worker_jobs == 0 and total_control_jobs == 0:
@@ -193,13 +193,13 @@ def _construct_jobset_logical_status(jobset, control_pod=None):
         if job_status["active"] > 0:
             some_jobs_are_running = True
 
-        if job_status["name"] == "control":
+        if job_status["name"] == "c":
             control_started = job_status["active"] > 0 or job_status["succeeded"] > 0
             control_completed = job_status["succeeded"] > 0
             if job_status["failed"] > 0:
                 jobset_failed = True
 
-        if job_status["name"] == "worker":
+        if job_status["name"] == "w":
             workers_have_started = job_status["active"] == total_worker_jobs
             if "suspended" in job_status:
                 # `replicatedJobStatus` didn't have `suspend` field
@@ -307,17 +307,15 @@ class RunningJobSet(object):
         if pods:
             for pod in pods:
                 # check the labels of the pod to see if
-                # the `jobset.sigs.k8s.io/replicatedjob-name` is set to `control`
+                # the `jobset.sigs.k8s.io/replicatedjob-name` is set to `c` (control)
                 if (
                     pod["metadata"]["labels"].get(
                         "jobset.sigs.k8s.io/replicatedjob-name"
                     )
-                    == "control"
+                    == "c"
                 ):
                     return pod
         return {}
-
-
 
     @k8s_retry()
     def _fetch_control_job(self):
@@ -331,7 +329,7 @@ class RunningJobSet(object):
             )
             .to_dict()["items"]
         )
-         
+
         if jobs:
             for job in jobs:
                 # check the labels of the pod to see if
@@ -398,10 +396,13 @@ class RunningJobSet(object):
     def is_unschedulable(self):
         self._control_job = self._fetch_control_job()
         # Safely check if the metadata and annotations fields exist to avoid KeyError
-        return self._control_job.get("metadata", {}).get("annotations", {}).get("metaflow/job_status", "") in [
-                "Incompatible_Node_Selector",
-                "Unsatisfiable_Resource_Request",
-            ]
+        return self._control_job.get("metadata", {}).get("annotations", {}).get(
+            "metaflow/job_status", ""
+        ) in [
+            "Incompatible_Node_Selector",
+            "Unsatisfiable_Resource_Request",
+        ]
+
     @property
     def id(self):
         if self._pod_name:
@@ -475,8 +476,8 @@ class RunningJobSet(object):
     def reason(self):
         if self.is_unschedulable:
             return 1, self._control_job["metadata"]["annotations"].get(
-                        "metaflow/job_status_reason", ""
-                    )
+                "metaflow/job_status_reason", ""
+            )
         # return exit code and reason
         elif self.is_done and not self.has_succeeded:
             self._pod = self._fetch_pod()
@@ -604,6 +605,11 @@ class JobSetSpec(object):
             self._kwargs["memory"],
             self._kwargs["disk"],
         )
+
+        extended_resources = self._kwargs.get("extended_resources", {}) or {}
+        qos_requests = {**qos_requests, **extended_resources}
+        qos_limits = {**qos_limits, **extended_resources}
+
         security_context = self._kwargs.get("security_context", {})
         _security_context = {}
         if security_context is not None and len(security_context) > 0:
@@ -858,17 +864,19 @@ class KubernetesJobSet(object):
 
         self._jobset_control_addr = _make_domain_name(
             name,
-            "control",
+            "c",
             0,
             0,
             namespace,
         )
 
+        # Replicated-job names are kept to single characters ("c" for control,
+        # "w" for worker) to keep pod hostnames/FQDNs within DNS naming limits.
         self._control_spec = JobSetSpec(
-            client.get(), name="control", namespace=namespace, **kwargs
+            client.get(), name="c", namespace=namespace, **kwargs
         )
         self._worker_spec = JobSetSpec(
-            client.get(), name="worker", namespace=namespace, **kwargs
+            client.get(), name="w", namespace=namespace, **kwargs
         )
         assert (
             type(num_parallel) == int
@@ -1002,17 +1010,19 @@ class KubernetesArgoJobSet(object):
 
         self._jobset_control_addr = _make_domain_name(
             name,
-            "control",
+            "c",
             0,
             0,
             namespace,
         )
 
+        # Replicated-job names are kept to single characters ("c" for control,
+        # "w" for worker) to keep pod hostnames/FQDNs within DNS naming limits.
         self._control_spec = JobSetSpec(
-            kubernetes_sdk, name="control", namespace=namespace, **kwargs
+            kubernetes_sdk, name="c", namespace=namespace, **kwargs
         )
         self._worker_spec = JobSetSpec(
-            kubernetes_sdk, name="worker", namespace=namespace, **kwargs
+            kubernetes_sdk, name="w", namespace=namespace, **kwargs
         )
 
     @property

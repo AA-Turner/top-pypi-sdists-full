@@ -318,6 +318,37 @@ def test_build_runtime_snapshot_calls_oauth_health_once(tmp_path: Path, monkeypa
     assert calls == 1
 
 
+def test_runtime_snapshot_exposes_safe_trust_status(tmp_path: Path) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+
+    snapshot = build_runtime_snapshot(store=store, approval_center_url=None)
+
+    trust_status = snapshot["trust_status"]
+    assert trust_status["runtime_protection"] in {"protected", "degraded", "unknown"}
+    assert trust_status["remembered_rules"] in {"enforced", "disabled_degraded", "unknown"}
+    assert trust_status["cloud_policies"] in {"available", "setup_unavailable", "unknown"}
+    assert trust_status["last_proof"] is None
+    serialized = json.dumps(snapshot, sort_keys=True)
+    assert "key_id" not in serialized
+
+
+def test_runtime_snapshot_trust_status_does_not_refresh_integrity_state(tmp_path: Path) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    cached_state = {
+        "backend": "cached-backend",
+        "mode": "degraded",
+        "enforcement": "disabled",
+        "degraded_reasons": ["policy_integrity_key_unavailable"],
+    }
+    store.set_sync_payload("policy_integrity", cached_state, "2026-06-18T00:00:00+00:00")
+
+    snapshot = build_runtime_snapshot(store=store, approval_center_url=None)
+
+    assert snapshot["trust_status"]["runtime_protection"] == "degraded"
+    assert snapshot["trust_status"]["remembered_rules"] == "disabled_degraded"
+    assert store.get_sync_payload("policy_integrity") == cached_state
+
+
 def test_runtime_snapshot_treats_naive_sync_timestamps_as_utc(tmp_path: Path) -> None:
     store = GuardStore(tmp_path / "guard-home")
     _seed_guard_cloud(store, workspace_id="workspace-alpha")
@@ -807,6 +838,71 @@ def test_sync_runtime_session_emits_package_manager_coverage_payload(
             "lastSyncedAt": "2026-04-24T00:00:00+00:00",
             "nextRefreshAt": "2026-04-24T00:15:00+00:00",
         },
+    }
+
+
+def test_sync_runtime_session_prefers_latest_sync_summary_for_package_manager_coverage_freshness(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = GuardStore(tmp_path / "guard-home")
+    _seed_guard_cloud(store, workspace_id="workspace-alpha")
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir(parents=True, exist_ok=True)
+    context = HarnessContext(
+        home_dir=store.guard_home,
+        workspace_dir=workspace_dir,
+        guard_home=store.guard_home,
+    )
+    install_payload = install_package_shims(context, managers=("npm",))
+    shim_dir = Path(str(install_payload["shim_dir"]))
+    original_path = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", f"{shim_dir}{os.pathsep}{original_path}")
+    store.set_sync_payload(
+        "supply_chain_bundle_summary",
+        {
+            "synced_at": "2026-04-24T00:00:00+00:00",
+        },
+        "2026-04-24T00:00:00+00:00",
+    )
+    store.set_sync_payload(
+        "sync_summary",
+        {
+            "synced_at": "2026-04-24T00:20:00+00:00",
+        },
+        "2026-04-24T00:20:00+00:00",
+    )
+
+    captured_body: dict[str, object] = {}
+
+    def _runtime_sync_response(**kwargs):
+        request = kwargs["request"]
+        captured_body.update(json.loads(request.data.decode("utf-8")))
+        return {"syncedAt": "2026-04-24T00:21:00+00:00", "items": []}
+
+    monkeypatch.setattr(
+        guard_runner_module,
+        "_urlopen_json_with_timeout_retry",
+        _runtime_sync_response,
+    )
+
+    guard_runner_module.sync_runtime_session(
+        store,
+        session={
+            "harness": "codex",
+            "surface": "cli",
+            "status": "active",
+            "updatedAt": "2026-04-24T00:21:00+00:00",
+            "workspace": str(workspace_dir),
+        },
+    )
+
+    session_payload = captured_body["session"]
+    assert isinstance(session_payload, dict)
+    assert session_payload["packageManagerCoverage"]["staleIntel"] == {
+        "status": "fresh",
+        "lastSyncedAt": "2026-04-24T00:20:00+00:00",
+        "nextRefreshAt": "2026-04-24T00:35:00+00:00",
     }
 
 

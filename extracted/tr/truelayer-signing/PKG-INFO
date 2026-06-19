@@ -1,20 +1,22 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: truelayer-signing
-Version: 0.3.8
+Version: 0.4.0
 Summary: Produce & verify TrueLayer API requests signatures
 License: Apache-2.0 or MIT
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
 Keywords: truelayer
 Author: tl-flavio-barinas
 Author-email: flavio.barinas@truelayer.com
-Requires-Python: >=3.8.1,<4.0.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: cryptography (>=39,<45)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: cryptography (>=39,<50)
 Project-URL: Homepage, https://github.com/TrueLayer/truelayer-signing/tree/main/python
 Project-URL: Repository, https://github.com/TrueLayer/truelayer-signing
 Description-Content-Type: text/markdown

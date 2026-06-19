@@ -149,6 +149,21 @@ nw_vol_displayable_fields = (
 
 )
 
+# These fields are displayed for 'search benchmarks' (benchmarks table, AUTO-1418 schema)
+benchmarks_displayable_fields = (
+    ("id", "ID", "{}", None, True),
+    ("machine_id", "mach_id", "{}", None, True),
+    ("gpu_name", "Model", "{}", None, True),
+    ("num_gpus", "N", "{}x", None, False),
+    ("value", "Value", "{:0.2f}", None, True),
+    ("type", "Type", "{}", None, True),
+    ("template_hash", "Template", "{}", None, True),
+    ("template_id", "Templ_ID", "{}", None, True),
+    ("contract_id", "contract", "{}", None, True),
+    ("image", "Image", "{}", None, True),
+    ("last_update", "Date", "{}", lambda x: datetime.fromtimestamp(x, timezone.utc).strftime("%Y-%m-%d %H:%M"), True),
+)
+
 # These fields are displayed when you do 'show instances'
 instance_fields = (
     ("id", "ID", "{}", None, True),
@@ -264,6 +279,24 @@ audit_log_fields = (
     ("created_at", "created_at", "{}", None, True),
     ("api_route", "api_route", "{}", None, True),
     ("args", "args", "{}", None, True),
+)
+
+
+# Backend writes per-second costs (web/price_increase_pending.py:_serialize_pending_row).
+# Display matches the frontend convention: GPU per hour, storage per month, bandwidth per
+# GB, platform fee as a percentage. Pre-format `old → new` strings in the command before
+# rendering so a null `new_*` collapses to "-" via the empty-row fallback in display_table.
+pending_price_increase_fields = (
+    ("pending_id", "Pending ID", "{}", None, True),
+    ("instance_id", "Instance", "{}", None, True),
+    ("host_id", "Host", "{}", None, True),
+    ("current_end", "Current End (UTC)", "{}", None, True),
+    ("new_end", "New End (UTC)", "{}", None, True),
+    ("gpu", "GPU ($/GPU/hr)", "{}", None, True),
+    ("storage", "Storage ($/GB/mo)", "{}", None, True),
+    ("bw_up", "BW Up ($/GB)", "{}", None, True),
+    ("bw_down", "BW Down ($/GB)", "{}", None, True),
+    ("fee", "Platform Fee (%)", "{}", None, True),
 )
 
 

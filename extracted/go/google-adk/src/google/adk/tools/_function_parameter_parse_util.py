@@ -123,10 +123,15 @@ def _generate_json_schema_for_parameter(
 ) -> dict[str, Any]:
   """Generates a JSON schema for a parameter using pydantic.TypeAdapter."""
 
-  param_schema_adapter = pydantic.TypeAdapter(
-      param.annotation,
-      config=pydantic.ConfigDict(arbitrary_types_allowed=True),
-  )
+  if inspect.isclass(param.annotation) and issubclass(
+      param.annotation, pydantic.BaseModel
+  ):
+    param_schema_adapter = pydantic.TypeAdapter(param.annotation)
+  else:
+    param_schema_adapter = pydantic.TypeAdapter(
+        param.annotation,
+        config=pydantic.ConfigDict(arbitrary_types_allowed=True),
+    )
   json_schema_dict = param_schema_adapter.json_schema()
   json_schema_dict = _add_unevaluated_items_to_fixed_len_tuple_schema(
       json_schema_dict
@@ -149,7 +154,7 @@ def _raise_for_any_of_if_mldev(schema: types.Schema):
 
 def _update_for_default_if_mldev(schema: types.Schema):
   if schema.default is not None:
-    # TODO(kech): Remove this workaround once mldev supports default value.
+    # TODO: Remove this workaround once mldev supports default value.
     schema.default = None
     logger.warning(
         'Default value is not supported in function declaration schema for'

@@ -420,6 +420,58 @@ class TestReplaceTables(unittest.TestCase):
         """
         self.assertEqual(replaced, chquery.format(expected_query))
 
+    def test_column_uses_alias_source_different_from_from(self):
+        """When the same target table has multiple source keys registered
+        (e.g., workspace name and CH database name both pointing to the same
+        physical table), a column qualified with one alias must still be
+        rewritten even if the FROM matched a different alias key."""
+        sql = "SELECT acme.events.id FROM events"
+        replacements = {
+            ("d_userdb", "events"): ("d_userdb", "t_xxx"),
+            ("acme", "events"): ("d_userdb", "t_xxx"),
+        }
+        expected_query = "SELECT d_userdb.t_xxx.id FROM d_userdb.t_xxx AS events"
+        replaced = chquery.replace_tables(
+            sql, replacements, default_database="d_userdb"
+        )
+        self.assertEqual(replaced, chquery.format(expected_query))
+
+    def test_self_join_with_subquery_target(self):
+        """Self-join of a datasource that is replaced by a subquery. Each FROM
+        leg gets its own cloned subquery and its own SQL alias; columns
+        qualified by the SQL alias must keep their per-leg binding."""
+        sql = """
+            SELECT prev.value, curr.value
+            FROM workspace_name.events AS prev
+            JOIN workspace_name.events AS curr ON curr.id = prev.id + 1
+        """
+        replacements = {
+            ("workspace_name", "events"): ("", "(SELECT * FROM raw_events)"),
+            ("d_yyy", "events"): ("", "(SELECT * FROM raw_events)"),
+        }
+        expected_query = """
+            SELECT prev.value, curr.value
+            FROM (SELECT * FROM raw_events) AS prev
+            INNER JOIN (SELECT * FROM raw_events) AS curr ON curr.id = (prev.id + 1)
+        """
+        replaced = chquery.replace_tables(
+            sql, replacements, default_database="d_yyy"
+        )
+        self.assertEqual(replaced, chquery.format(expected_query))
+
+    def test_qualified_asterisk_uses_alias_source_different_from_from(self):
+        """Same as above but for qualified asterisks: SELECT acme.events.*"""
+        sql = "SELECT acme.events.* FROM events"
+        replacements = {
+            ("d_userdb", "events"): ("d_userdb", "t_xxx"),
+            ("acme", "events"): ("d_userdb", "t_xxx"),
+        }
+        expected_query = "SELECT d_userdb.t_xxx.* FROM d_userdb.t_xxx AS events"
+        replaced = chquery.replace_tables(
+            sql, replacements, default_database="d_userdb"
+        )
+        self.assertEqual(replaced, chquery.format(expected_query))
+
     def test_qualified_column_in_array(self):
         sql = """SELECT array(join_test.id) FROM default.join_test"""
 

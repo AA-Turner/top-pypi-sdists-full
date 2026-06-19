@@ -7,11 +7,18 @@ import builtins
 import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
+import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import sentry_protos.snuba.v1.request_common_pb2
 import sentry_protos.snuba.v1.trace_item_attribute_pb2
 import sentry_protos.snuba.v1.trace_item_filter_pb2
+import sys
 import typing
+
+if sys.version_info >= (3, 10):
+    import typing as typing_extensions
+else:
+    import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
@@ -27,6 +34,65 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing.final
+    class OrderBy(google.protobuf.message.Message):
+        """OrderBy controls how the returned attribute names are ordered.
+
+        When `order_by` is not set on the request, attribute names are returned
+        in alphabetical (ascending by name) order. This is the historical default
+        and is preserved for callers that predate this field.
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Column:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _ColumnEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[TraceItemAttributeNamesRequest.OrderBy._Column.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            COLUMN_UNSPECIFIED: TraceItemAttributeNamesRequest.OrderBy._Column.ValueType  # 0
+            """Defaults to ordering by COLUMN_NAME (alphabetical). This keeps the
+            behaviour backwards compatible when `order_by` is left unset.
+            """
+            COLUMN_NAME: TraceItemAttributeNamesRequest.OrderBy._Column.ValueType  # 1
+            """Order by the attribute name (alphabetical)."""
+            COLUMN_COUNT: TraceItemAttributeNamesRequest.OrderBy._Column.ValueType  # 2
+            """Order by how frequently the attribute occurs across the matched trace
+            items (its count).
+            """
+
+        class Column(_Column, metaclass=_ColumnEnumTypeWrapper):
+            """Column identifies which property of an attribute to order by."""
+
+        COLUMN_UNSPECIFIED: TraceItemAttributeNamesRequest.OrderBy.Column.ValueType  # 0
+        """Defaults to ordering by COLUMN_NAME (alphabetical). This keeps the
+        behaviour backwards compatible when `order_by` is left unset.
+        """
+        COLUMN_NAME: TraceItemAttributeNamesRequest.OrderBy.Column.ValueType  # 1
+        """Order by the attribute name (alphabetical)."""
+        COLUMN_COUNT: TraceItemAttributeNamesRequest.OrderBy.Column.ValueType  # 2
+        """Order by how frequently the attribute occurs across the matched trace
+        items (its count).
+        """
+
+        COLUMN_FIELD_NUMBER: builtins.int
+        DESCENDING_FIELD_NUMBER: builtins.int
+        column: global___TraceItemAttributeNamesRequest.OrderBy.Column.ValueType
+        """The column to order the returned attribute names by."""
+        descending: builtins.bool
+        """When true, results are returned in descending order. Defaults to
+        ascending. For example, to order by frequency with the most common
+        attributes first, set `column = COLUMN_COUNT` and `descending = true`.
+        """
+        def __init__(
+            self,
+            *,
+            column: global___TraceItemAttributeNamesRequest.OrderBy.Column.ValueType = ...,
+            descending: builtins.bool = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["column", b"column", "descending", b"descending"]) -> None: ...
+
     META_FIELD_NUMBER: builtins.int
     LIMIT_FIELD_NUMBER: builtins.int
     OFFSET_FIELD_NUMBER: builtins.int
@@ -34,6 +100,7 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
     VALUE_SUBSTRING_MATCH_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
     INTERSECTING_ATTRIBUTES_FILTER_FIELD_NUMBER: builtins.int
+    ORDER_BY_FIELD_NUMBER: builtins.int
     limit: builtins.int
     """maximum number of attributes to return"""
     offset: builtins.int
@@ -63,6 +130,14 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
         1 second, the endpoint returns without taking the intersecing attributes into account
         """
 
+    @property
+    def order_by(self) -> global___TraceItemAttributeNamesRequest.OrderBy:
+        """optional, controls how the returned attribute names are ordered.
+        When unset, names are returned alphabetically (ascending), which preserves
+        the historical default for existing callers. Set this to opt in to a
+        different ordering, e.g. by attribute frequency.
+        """
+
     def __init__(
         self,
         *,
@@ -73,9 +148,10 @@ class TraceItemAttributeNamesRequest(google.protobuf.message.Message):
         value_substring_match: builtins.str = ...,
         page_token: sentry_protos.snuba.v1.request_common_pb2.PageToken | None = ...,
         intersecting_attributes_filter: sentry_protos.snuba.v1.trace_item_filter_pb2.TraceItemFilter | None = ...,
+        order_by: global___TraceItemAttributeNamesRequest.OrderBy | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "limit", b"limit", "meta", b"meta", "offset", b"offset", "page_token", b"page_token", "type", b"type", "value_substring_match", b"value_substring_match"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "meta", b"meta", "order_by", b"order_by", "page_token", b"page_token"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["intersecting_attributes_filter", b"intersecting_attributes_filter", "limit", b"limit", "meta", b"meta", "offset", b"offset", "order_by", b"order_by", "page_token", b"page_token", "type", b"type", "value_substring_match", b"value_substring_match"]) -> None: ...
 
 global___TraceItemAttributeNamesRequest = TraceItemAttributeNamesRequest
 
@@ -93,15 +169,25 @@ class TraceItemAttributeNamesResponse(google.protobuf.message.Message):
 
         NAME_FIELD_NUMBER: builtins.int
         TYPE_FIELD_NUMBER: builtins.int
+        COUNT_FIELD_NUMBER: builtins.int
         name: builtins.str
         type: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey.Type.ValueType
+        count: builtins.int
+        """optional, how frequently this attribute occurs across the matched trace
+        items. Only populated when the request opts in to count ordering
+        (order_by.column = COLUMN_COUNT); unset otherwise. The presence of this
+        field distinguishes "not computed" from a genuine count of zero.
+        """
         def __init__(
             self,
             *,
             name: builtins.str = ...,
             type: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKey.Type.ValueType = ...,
+            count: builtins.int | None = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing.Literal["name", b"name", "type", b"type"]) -> None: ...
+        def HasField(self, field_name: typing.Literal["_count", b"_count", "count", b"count"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing.Literal["_count", b"_count", "count", b"count", "name", b"name", "type", b"type"]) -> None: ...
+        def WhichOneof(self, oneof_group: typing.Literal["_count", b"_count"]) -> typing.Literal["count"] | None: ...
 
     ATTRIBUTES_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
@@ -142,12 +228,74 @@ class TraceItemAttributeValuesRequest(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    @typing.final
+    class OrderBy(google.protobuf.message.Message):
+        """OrderBy controls how the returned values are ordered.
+
+        When `order_by` is not set on the request, values are returned in
+        alphabetical (ascending) order. This is the historical default and is
+        preserved for callers that predate this field.
+        """
+
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        class _Column:
+            ValueType = typing.NewType("ValueType", builtins.int)
+            V: typing_extensions.TypeAlias = ValueType
+
+        class _ColumnEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[TraceItemAttributeValuesRequest.OrderBy._Column.ValueType], builtins.type):
+            DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+            COLUMN_UNSPECIFIED: TraceItemAttributeValuesRequest.OrderBy._Column.ValueType  # 0
+            """Defaults to ordering by COLUMN_VALUE (alphabetical). This keeps the
+            behaviour backwards compatible when `order_by` is left unset.
+            """
+            COLUMN_VALUE: TraceItemAttributeValuesRequest.OrderBy._Column.ValueType  # 1
+            """Order by the value itself (alphabetical)."""
+            COLUMN_COUNT: TraceItemAttributeValuesRequest.OrderBy._Column.ValueType  # 2
+            """Order by how frequently the value occurs across the matched trace
+            items (its count). The counts are returned in the response's `counts`
+            field.
+            """
+
+        class Column(_Column, metaclass=_ColumnEnumTypeWrapper):
+            """Column identifies which property of a value to order by."""
+
+        COLUMN_UNSPECIFIED: TraceItemAttributeValuesRequest.OrderBy.Column.ValueType  # 0
+        """Defaults to ordering by COLUMN_VALUE (alphabetical). This keeps the
+        behaviour backwards compatible when `order_by` is left unset.
+        """
+        COLUMN_VALUE: TraceItemAttributeValuesRequest.OrderBy.Column.ValueType  # 1
+        """Order by the value itself (alphabetical)."""
+        COLUMN_COUNT: TraceItemAttributeValuesRequest.OrderBy.Column.ValueType  # 2
+        """Order by how frequently the value occurs across the matched trace
+        items (its count). The counts are returned in the response's `counts`
+        field.
+        """
+
+        COLUMN_FIELD_NUMBER: builtins.int
+        DESCENDING_FIELD_NUMBER: builtins.int
+        column: global___TraceItemAttributeValuesRequest.OrderBy.Column.ValueType
+        """The column to order the returned values by."""
+        descending: builtins.bool
+        """When true, results are returned in descending order. Defaults to
+        ascending. For example, to order by frequency with the most common
+        values first, set `column = COLUMN_COUNT` and `descending = true`.
+        """
+        def __init__(
+            self,
+            *,
+            column: global___TraceItemAttributeValuesRequest.OrderBy.Column.ValueType = ...,
+            descending: builtins.bool = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing.Literal["column", b"column", "descending", b"descending"]) -> None: ...
+
     META_FIELD_NUMBER: builtins.int
     KEY_FIELD_NUMBER: builtins.int
     NAME_FIELD_NUMBER: builtins.int
     VALUE_SUBSTRING_MATCH_FIELD_NUMBER: builtins.int
     LIMIT_FIELD_NUMBER: builtins.int
     PAGE_TOKEN_FIELD_NUMBER: builtins.int
+    ORDER_BY_FIELD_NUMBER: builtins.int
     name: builtins.str
     """deprecated, please use the `key` field instead"""
     value_substring_match: builtins.str
@@ -171,6 +319,15 @@ class TraceItemAttributeValuesRequest(google.protobuf.message.Message):
     def page_token(self) -> sentry_protos.snuba.v1.request_common_pb2.PageToken:
         """optional, used for pagination, the next page token will be returned in the response"""
 
+    @property
+    def order_by(self) -> global___TraceItemAttributeValuesRequest.OrderBy:
+        """optional, controls how the returned values are ordered.
+        When unset, values are returned alphabetically (ascending), which
+        preserves the historical default for existing callers. Set this to opt in
+        to a different ordering, e.g. by value frequency (the response already
+        returns the corresponding `counts`).
+        """
+
     def __init__(
         self,
         *,
@@ -180,9 +337,10 @@ class TraceItemAttributeValuesRequest(google.protobuf.message.Message):
         value_substring_match: builtins.str = ...,
         limit: builtins.int = ...,
         page_token: sentry_protos.snuba.v1.request_common_pb2.PageToken | None = ...,
+        order_by: global___TraceItemAttributeValuesRequest.OrderBy | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["key", b"key", "meta", b"meta", "page_token", b"page_token"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["key", b"key", "limit", b"limit", "meta", b"meta", "name", b"name", "page_token", b"page_token", "value_substring_match", b"value_substring_match"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["key", b"key", "meta", b"meta", "order_by", b"order_by", "page_token", b"page_token"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["key", b"key", "limit", b"limit", "meta", b"meta", "name", b"name", "order_by", b"order_by", "page_token", b"page_token", "value_substring_match", b"value_substring_match"]) -> None: ...
 
 global___TraceItemAttributeValuesRequest = TraceItemAttributeValuesRequest
 

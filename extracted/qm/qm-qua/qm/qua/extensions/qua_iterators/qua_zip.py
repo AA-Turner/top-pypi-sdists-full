@@ -1,0 +1,122 @@
+from typing import Any, List, Union, Optional, Sequence, cast
+
+from qm._loc import _get_loc
+from qm.exceptions import QmQuaException
+from qm.qua._dsl.scope_functions import for_each_
+from qm.qua._scope_management._core_scopes import _PythonScope
+from qm.qua.extensions.qua_iterators.qua_iterators import QuaIterableBase
+from qm.qua.extensions.qua_iterators.qua_iterators_base import IterableBase
+from qm.qua.extensions.qua_iterators.qua_python_iterators import PythonIterableBase
+from qm.qua.extensions.qua_iterators.qua_iterators_types import (
+    QuaNamedTuple,
+    MultiIteratorType,
+    AnyQuaIterableArrayType,
+    MultiIteratorsValuesType,
+)
+
+
+class QuaZip(IterableBase[Any]):
+    """
+    Combine iterables position-by-position, similarly to Python's built-in
+    ``zip``.
+
+    ``QuaZip`` advances multiple iterables together and yields one named tuple
+    per position.
+
+    It can zip either QUA iterables or Python iterables, but not both in the
+    same call.
+
+    Note:
+        When zipping QUA iterables, the zip is compiled as a single
+        [`for_each_`][qm.qua.for_each_] loop and all iterables must have the
+        same length; a `QmQuaException` is raised otherwise. When zipping Python
+        iterables, iteration happens in Python and follows the behavior of the
+        built-in `zip`, stopping at the shortest iterable.
+
+    Example:
+        ```python
+        with program() as prog:
+            for pair in QuaZip(
+                [
+                    QuaIterable("amp", [0.2, 0.5, 0.8]),
+                    QuaIterable("tau", [16, 32, 64]),
+                ]
+            ):
+                play("x90" * amp(pair.amp), "q1")
+                wait(pair.tau)
+        ```
+    """
+
+    def __init__(self, iterables: Sequence[IterableBase[Any]], name: Optional[str] = None):
+        is_qua = [isinstance(itr, QuaIterableBase) for itr in iterables]
+        is_python = [isinstance(itr, PythonIterableBase) for itr in iterables]
+
+        self.zip_iterable: Union[QuaZipIterable, PythonZipIterable]
+        if all(is_qua):
+            self.zip_iterable = QuaZipIterable(cast(Sequence[QuaIterableBase[Any]], iterables), name)
+        elif all(is_python):
+            self.zip_iterable = PythonZipIterable(cast(Sequence[PythonIterableBase[Any]], iterables), name)
+        else:
+            raise QmQuaException(
+                "QuaZip does not support mixing Qua and Python iterables. " "All iterables must be of the same kind."
+            )
+        super().__init__(name if name else self.zip_iterable.name)
+
+    @property
+    def values(self) -> MultiIteratorsValuesType:
+        """Return the underlying values of the zipped iterables."""
+        return self.zip_iterable.values
+
+    def __iter__(self) -> MultiIteratorType:
+        yield from self.zip_iterable
+
+    @property
+    def is_qua_iterable(self) -> bool:
+        return self.zip_iterable.is_qua_iterable
+
+
+class ZipIterableBase(IterableBase[Any]):
+    def __init__(self, iterables: Sequence[IterableBase[Any]], name: Optional[str] = None):
+        self._iterables = iterables
+        self._iterable_names = [itr.name for itr in self._iterables]
+        super().__init__(name if name else "_".join(self._iterable_names))
+
+    @property
+    def values(self) -> MultiIteratorsValuesType:
+        return list(zip(*[itr.values for itr in self._iterables]))
+
+
+class QuaZipIterable(ZipIterableBase):
+    _iterables: Sequence[QuaIterableBase[Any]]
+
+    def __init__(self, iterables: Sequence[QuaIterableBase[Any]], name: Optional[str]):
+        first_len = len(iterables[0])
+        if not all(len(itr) == first_len for itr in iterables):
+            lengths = {itr.name: len(itr) for itr in iterables}
+            raise QmQuaException(f"QuaZip requires all iterables to have the same length, got {lengths}.")
+        super().__init__(iterables, name)
+
+    def __iter__(self) -> MultiIteratorType:
+        qua_vars = [itr.declare_var() for itr in self._iterables]
+        qua_values = [itr.values for itr in self._iterables]
+        with (for_each_(qua_vars, cast(List[AnyQuaIterableArrayType], qua_values))):
+            self._add_to_current_scope()
+            yield QuaNamedTuple(self._iterable_names, qua_vars)
+            self._set_averaged_streams()
+
+    @property
+    def is_qua_iterable(self) -> bool:
+        return True
+
+
+class PythonZipIterable(ZipIterableBase):
+    def __init__(self, iterables: Sequence[PythonIterableBase[Any]], name: Optional[str]):
+        super().__init__(iterables, name)
+
+    def __iter__(self) -> MultiIteratorType:
+        python_scope = _PythonScope(_get_loc())
+        with (python_scope):
+            self._add_to_current_scope()
+            for i, args in enumerate(zip(*[itr.values for itr in self._iterables])):
+                python_scope.set_current_iteration_number(i)
+                yield QuaNamedTuple(self._iterable_names, args)

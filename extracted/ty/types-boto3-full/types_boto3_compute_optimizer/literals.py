@@ -138,8 +138,10 @@ DimensionType = Literal["SavingsValue", "SavingsValueAfterDiscount"]
 EBSFilterNameType = Literal["Finding"]
 EBSFindingType = Literal["NotOptimized", "Optimized"]
 EBSMetricNameType = Literal[
+    "VolumeIOPSExceeded",
     "VolumeReadBytesPerSecond",
     "VolumeReadOpsPerSecond",
+    "VolumeThroughputExceeded",
     "VolumeWriteBytesPerSecond",
     "VolumeWriteOpsPerSecond",
 ]
@@ -551,8 +553,10 @@ ExportableVolumeFieldType = Literal[
     "RecommendationOptionsSavingsOpportunityPercentage",
     "RootVolume",
     "Tags",
+    "UtilizationMetricsVolumeIOPSExceededMaximum",
     "UtilizationMetricsVolumeReadBytesPerSecondMaximum",
     "UtilizationMetricsVolumeReadOpsPerSecondMaximum",
+    "UtilizationMetricsVolumeThroughputExceededMaximum",
     "UtilizationMetricsVolumeWriteBytesPerSecondMaximum",
     "UtilizationMetricsVolumeWriteOpsPerSecondMaximum",
     "VolumeArn",

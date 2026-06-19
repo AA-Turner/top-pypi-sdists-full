@@ -134,6 +134,9 @@ class HTTPService(CredentialsInterface, PandasDataframe):
         self._proxies: list = []
         self.rotate_ua: bool = kwargs.pop("rotate_ua", False)
         self.use_async: bool = bool(kwargs.pop("use_async", True))
+        # When False, disable TLS certificate verification on the async path.
+        # Useful for hosts serving an incomplete certificate chain.
+        self.verify_ssl: bool = bool(kwargs.pop("verify_ssl", True))
         self.google_api_key: str = kwargs.pop('google_api_key', GOOGLE_SEARCH_API_KEY)
         self.google_cse: str = kwargs.pop('google_cse', GOOGLE_SEARCH_ENGINE_ID)
         self.as_binary: bool = kwargs.pop('as_binary', False)
@@ -440,18 +443,24 @@ class HTTPService(CredentialsInterface, PandasDataframe):
                 self.headers["Transfer-Encoding"] = "chunked"
                 args["stream"] = True
         timeout = aiohttp.ClientTimeout(total=self.timeout)
+        # Disable TLS verification when verify_ssl is False (e.g. hosts that
+        # serve an incomplete certificate chain). aiohttp treats ssl=False as
+        # "do not verify"; None keeps the default verifying behaviour.
+        ssl_arg = None if self.verify_ssl else False
         async with aiohttp.ClientSession(
             headers=self.headers, timeout=timeout, auth=auth
         ) as session:
             try:
                 if use_json is True:
                     async with session.request(
-                        method.upper(), url, json=data, proxy=proxy, **args
+                        method.upper(), url, json=data, proxy=proxy,
+                        ssl=ssl_arg, **args
                     ) as response:
                         result, error = await self.process_response(response, url)
                 else:
                     async with session.request(
-                        method.upper(), url, data=data, proxy=proxy, **args
+                        method.upper(), url, data=data, proxy=proxy,
+                        ssl=ssl_arg, **args
                     ) as response:
                         # Process the response
                         result, error = await self.process_response(response, url)

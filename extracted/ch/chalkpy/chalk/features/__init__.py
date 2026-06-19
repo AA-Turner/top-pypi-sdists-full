@@ -30,6 +30,7 @@ from chalk.features.resolver import (
     make_stream_resolver,
     offline,
     online,
+    resolver,
     sink,
 )
 from chalk.features.tag import Environments, Tags
@@ -252,6 +253,7 @@ __all__ = (
     "op",
     "override_feature_tags",
     "owner",
+    "resolver",
     "serialize_dtype",
     "select",
     "sink",

@@ -15,12 +15,16 @@ limitations under the License.
 """
 
 import contextlib
+import warnings
 
 import requests
+from packaging import version
+from packaging.version import InvalidVersion
 
 from pynetbox.core.app import App, PluginsApp
-from pynetbox.core.query import Request, TOKEN_PREFIX
+from pynetbox.core.query import Request, RequestError, TOKEN_PREFIX
 from pynetbox.core.response import Record
+from pynetbox.models.mapper import CONTENT_TYPE_MAPPER
 
 
 class Api:
@@ -56,6 +60,13 @@ class Api:
     * **url** (str): The base URL to the instance of NetBox you wish to connect to.
     * **token** (str): Your NetBox token.
     * **threading** (bool, optional): Set to True to use threading in `.all()` and `.filter()` requests.
+    * **thread_pool_executor** (callable, optional): A `concurrent.futures.ThreadPoolExecutor`
+      class (or any callable matching its `(max_workers=...)` signature and context-manager
+      protocol) used to build the pool for threaded requests. Defaults to
+      `concurrent.futures.ThreadPoolExecutor`. Inject a custom executor to propagate
+      thread-local state such as OpenTelemetry trace context into worker threads.
+    * **max_workers** (int, optional): Maximum number of worker threads used for threaded
+      `.all()` and `.filter()` requests. Defaults to 4. Only used when `threading=True`.
 
     ## Raises
 
@@ -80,6 +91,10 @@ class Api:
         token=None,
         threading=False,
         strict_filters=False,
+        extensions=None,
+        pagination="offset",
+        thread_pool_executor=None,
+        max_workers=4,
     ):
         """Initialize the API client.
 
@@ -88,13 +103,35 @@ class Api:
             token (str, optional): Your NetBox API token. If not provided, authentication will be required for each request.
             threading (bool, optional): Set to True to use threading in `.all()` and `.filter()` requests, defaults to False.
             strict_filters (bool, optional): Set to True to check GET call filters against OpenAPI specifications (intentionally not done in NetBox API), defaults to False.
+            extensions (list, optional): A list of `Extension` classes or instances that register custom `Record` subclasses and content-type mappings for NetBox plugins. See `pynetbox.core.extension`.
+            pagination (str, optional): Pagination strategy for `.all()` and `.filter()`, either `"offset"` (default) or `"cursor"`. Cursor pagination (NetBox 4.6+) offers better performance on very large result sets but omits the total count and cannot be combined with threading or `ordering`. On NetBox versions older than 4.6 it transparently falls back to offset pagination.
+            thread_pool_executor (callable, optional): A `concurrent.futures.ThreadPoolExecutor` class, or any callable matching its `(max_workers=...)` signature and context-manager protocol, used to build the pool for threaded requests. Defaults to `concurrent.futures.ThreadPoolExecutor`.
+            max_workers (int, optional): Maximum number of worker threads used for threaded requests, defaults to 4.
         """
+        if pagination not in ("offset", "cursor"):
+            raise ValueError(
+                "pagination must be 'offset' or 'cursor', got {!r}".format(pagination)
+            )
+        if max_workers <= 0:
+            raise ValueError("max_workers must be a positive integer")
+
         base_url = "{}/api".format(url if url[-1] != "/" else url[:-1])
         self.token = token
         self.base_url = base_url
         self.http_session = requests.Session()
         self.threading = threading
+        # Stored as ``None`` (the sentinel) when the caller did not supply a
+        # custom executor, so ``None`` distinguishes "use the default" from an
+        # explicit choice. ``Request`` resolves ``None`` to
+        # ``concurrent.futures.ThreadPoolExecutor`` at request time, so the
+        # value here is not necessarily the executor actually used.
+        self.thread_pool_executor = thread_pool_executor
+        self.max_workers = max_workers
         self.strict_filters = strict_filters
+        self.pagination = pagination
+        self._cursor_supported = None
+
+        self._register_extensions(extensions or [])
 
         # Initialize NetBox apps
         self.circuits = App(self, "circuits")
@@ -108,6 +145,57 @@ class Api:
         self.vpn = App(self, "vpn")
         self.wireless = App(self, "wireless")
         self.plugins = PluginsApp(self)
+
+    def _register_extensions(self, extensions):
+        """Build per-instance extension and content-type registries.
+
+        Stores extensions keyed by ``plugin_name`` so ``PluginsApp`` and
+        ``App._setmodel`` can look up the right ``models`` namespace, and
+        composes the built-in ``CONTENT_TYPE_MAPPER`` with each extension's
+        ``content_types`` overrides.
+
+        Two extensions cannot share a ``plugin_name`` or register the same
+        content-type key — both raise ``ValueError``, since a silent
+        last-wins would mask a configuration mistake. Overriding a key from
+        the built-in ``CONTENT_TYPE_MAPPER`` is allowed and intentional.
+
+        ``plugin_name`` is normalized by converting dashes to underscores
+        before lookup so the same plugin cannot register itself twice
+        under both spellings (e.g. ``"custom-objects"`` and
+        ``"custom_objects"``).
+        """
+        self._extensions = {}
+        for ext in extensions:
+            plugin_name = getattr(ext, "plugin_name", None)
+            if not plugin_name:
+                raise ValueError(
+                    "Extension {!r} is missing a 'plugin_name' attribute".format(ext)
+                )
+            plugin_name = plugin_name.replace("-", "_")
+            if plugin_name in self._extensions:
+                raise ValueError(
+                    "Duplicate extension for plugin_name {!r}: {!r} and {!r}".format(
+                        plugin_name, self._extensions[plugin_name], ext
+                    )
+                )
+            self._extensions[plugin_name] = ext
+
+        content_types = dict(CONTENT_TYPE_MAPPER)
+        seen_extension_keys = {}
+        for ext in self._extensions.values():
+            ext_content_types = getattr(ext, "content_types", None) or {}
+            for key, value in ext_content_types.items():
+                if key in seen_extension_keys:
+                    raise ValueError(
+                        "Duplicate content_type {!r} registered by extensions "
+                        "{!r} and {!r}".format(key, seen_extension_keys[key], ext)
+                    )
+                seen_extension_keys[key] = ext
+                content_types[key] = value
+        self._content_type_mapper = content_types
+        self._type_content_mapper = {
+            v: k for k, v in content_types.items() if v is not None
+        }
 
     @property
     def version(self):
@@ -137,6 +225,48 @@ class Api:
             http_session=self.http_session,
         ).get_version()
         return version
+
+    def _effective_pagination(self):
+        """Resolve the pagination strategy to use for list requests.
+
+        Returns ``"cursor"`` only when cursor pagination was requested *and*
+        the connected NetBox supports it (4.6+). Otherwise returns
+        ``"offset"``. The server version is probed once and cached, so only
+        the first `.all()`/`.filter()` on a cursor-mode `Api` pays the cost;
+        offset-mode instances never make the extra request.
+        """
+        if self.pagination != "cursor":
+            return "offset"
+        if self._cursor_supported is None:
+            try:
+                self._cursor_supported = version.parse(self.version) >= version.parse(
+                    "4.6"
+                )
+            except (RequestError, InvalidVersion, requests.exceptions.RequestException):
+                # RequestError covers a non-ok HTTP response from the version
+                # probe; requests.exceptions.RequestException covers transport
+                # failures (ConnectionError, Timeout, ...) raised before a
+                # response exists. In every case fall back to offset, as the
+                # docstring promises, and let the real list request surface any
+                # underlying connectivity error.
+                self._cursor_supported = False
+            if self._cursor_supported and self.threading:
+                # Cursor pagination follows next links sequentially and cannot
+                # be parallelised; the cursor path ignores self.threading.
+                # Warn so the no-op threading configuration is not a silent
+                # performance surprise.
+                # stacklevel=5 attributes the warning to the caller's list
+                # request rather than to pynetbox internals. The version probe
+                # is resolved lazily on the first page fetch, so the fixed
+                # frame chain at this point is:
+                #   _effective_pagination -> Request._resolve_pagination
+                #   -> Request.get -> RecordSet.__next__/__len__ -> caller.
+                warnings.warn(
+                    "threading=True has no effect with cursor pagination; "
+                    "cursor pages are fetched sequentially.",
+                    stacklevel=5,
+                )
+        return "cursor" if self._cursor_supported else "offset"
 
     def openapi(self):
         """Returns the OpenAPI spec.

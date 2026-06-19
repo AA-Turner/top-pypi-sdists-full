@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{s as t}from"./vendor-codemirror-BBJStocF.js";import{Jr as n}from"./index-ChxroLMn.js";var r=e(t(),1),i=`prefect-page-size`,a=10;function o(e,t){let[o,s]=n(i,a),c=(0,r.useRef)(!1);return(0,r.useEffect)(()=>{c.current||(c.current=!0,e===void 0&&t(o))},[e,o,t]),(0,r.useEffect)(()=>{e!==void 0&&e!==o&&s(e)},[e,o,s]),e??o}export{o as t};
+//# sourceMappingURL=use-page-size-preference-B47AEsYH.js.map

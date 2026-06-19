@@ -101,6 +101,7 @@ __all__ = (
     "ClusterKubernetesTaintEffectType",
     "ClusterNodeProvisioningModeType",
     "ClusterNodeRecoveryType",
+    "ClusterPatchingStrategyType",
     "ClusterSlurmConfigStrategyType",
     "ClusterSlurmNodeTypeType",
     "ClusterSortByType",
@@ -955,7 +956,9 @@ ClusterConfigModeType = Literal["Disable", "Enable"]
 ClusterEventLevelType = Literal["Error", "Info", "Warn"]
 ClusterEventResourceTypeType = Literal["Cluster", "Instance", "InstanceGroup"]
 ClusterFSxLustreDeletionPolicyType = Literal["DeleteIfNotUsed", "Keep"]
-ClusterImageVersionStatusType = Literal["UpToDate", "UpdateAvailable"]
+ClusterImageVersionStatusType = Literal[
+    "EndOfLife", "SecurityUpdateRequired", "UpToDate", "UpdateAvailable"
+]
 ClusterInstanceStatusType = Literal[
     "DeepHealthCheckInProgress",
     "Failure",
@@ -1094,6 +1097,7 @@ ClusterInterfaceTypeType = Literal["efa", "efa-only"]
 ClusterKubernetesTaintEffectType = Literal["NoExecute", "NoSchedule", "PreferNoSchedule"]
 ClusterNodeProvisioningModeType = Literal["Continuous"]
 ClusterNodeRecoveryType = Literal["Automatic", "None"]
+ClusterPatchingStrategyType = Literal["WhenAllIdle", "WhenIdle"]
 ClusterSlurmConfigStrategyType = Literal["Managed", "Merge", "Overwrite"]
 ClusterSlurmNodeTypeType = Literal["Compute", "Controller", "Login"]
 ClusterSortByType = Literal["CREATION_TIME", "NAME"]

@@ -651,8 +651,8 @@ class TestJobRunningWorker:
             registry_username="",
             registry_password="",
             image_name=(
-                f"dstackai/base:{settings.DSTACK_BASE_IMAGE_VERSION}-"
-                f"base-ubuntu{settings.DSTACK_BASE_IMAGE_UBUNTU_VERSION}"
+                f"dstackai/base:{settings.DSTACK_DOCKER_BASE_IMAGE_VERSION}-"
+                f"base-ubuntu{settings.DSTACK_DOCKER_BASE_IMAGE_UBUNTU_VERSION}"
             ),
             container_user="root",
             privileged=False,
@@ -745,8 +745,8 @@ class TestJobRunningWorker:
             registry_username="",
             registry_password="",
             image_name=(
-                f"dstackai/base:{settings.DSTACK_BASE_IMAGE_VERSION}-"
-                f"base-ubuntu{settings.DSTACK_BASE_IMAGE_UBUNTU_VERSION}"
+                f"dstackai/base:{settings.DSTACK_DOCKER_BASE_IMAGE_VERSION}-"
+                f"base-ubuntu{settings.DSTACK_DOCKER_BASE_IMAGE_UBUNTU_VERSION}"
             ),
             container_user="root",
             privileged=privileged,
@@ -1892,18 +1892,18 @@ class TestJobRunningWorker:
         project = await create_project(session=session, owner=user)
         repo = await create_repo(session=session, project_id=project.id)
         backend = await create_backend(session=session, project_id=project.id)
-        gateway_compute = await create_gateway_compute(
-            session=session,
-            backend_id=backend.id,
-        )
         gateway = await create_gateway(
             session=session,
             project_id=project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             name="test-gateway",
             wildcard_domain="example.com",
+        )
+        await create_gateway_compute(
+            session=session,
+            backend_id=backend.id,
+            gateway_id=gateway.id,
         )
         run = await create_run(
             session=session,
@@ -1985,18 +1985,18 @@ class TestJobRunningWorker:
         )
         repo = await create_repo(session=session, project_id=importer_project.id)
         backend = await create_backend(session=session, project_id=importer_project.id)
-        gateway_compute = await create_gateway_compute(
-            session=session,
-            backend_id=backend.id,
-        )
         gateway = await create_gateway(
             session=session,
             project_id=importer_project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             name="test-gateway",
             wildcard_domain="example.com",
+        )
+        await create_gateway_compute(
+            session=session,
+            backend_id=backend.id,
+            gateway_id=gateway.id,
         )
         run = await create_run(
             session=session,

@@ -265,7 +265,7 @@ fn invalid_pyproject_toml_option_unknown_field() -> Result<()> {
         |
       2 | unknown = "field"
         | ^^^^^^^
-      unknown field `unknown`, expected one of `required-version`, `system-certs`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `audit`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
+      unknown field `unknown`, expected one of `required-version`, `system-certs`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `preview-features`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `audit`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
 
     Resolved in [TIME]
     Checked in [TIME]
@@ -777,7 +777,7 @@ async fn install_remote_requirements_txt() -> Result<()> {
 
     let server_url = start_requirements_server(username, password, requirements_txt).await;
 
-    let mut requirements_url = Url::parse(&format!("{}/requirements.txt", &server_url))?;
+    let mut requirements_url = Url::parse(&format!("{server_url}/requirements.txt"))?;
 
     // Should fail without credentials
     uv_snapshot!(context.filters(), context.pip_install()
@@ -824,7 +824,7 @@ async fn install_remote_requirements_txt() -> Result<()> {
     let requirements_txt = "iniconfig";
     // Update the mock server to serve a new requirements.txt
     let server_url = start_requirements_server(username, password, requirements_txt).await;
-    let mut requirements_url = Url::parse(&format!("{}/requirements.txt", &server_url))?;
+    let mut requirements_url = Url::parse(&format!("{server_url}/requirements.txt"))?;
     let _ = requirements_url.set_username(username);
     let _ = requirements_url.set_password(Some(password));
 
@@ -6336,6 +6336,27 @@ async fn install_package_basic_auth_from_url() {
     );
 
     context.assert_command("import anyio").success();
+}
+
+/// Reject credentials that are not valid UTF-8.
+#[test]
+fn install_package_basic_auth_invalid_utf8() {
+    let context = uv_test::test_context!("3.12");
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("anyio")
+        .arg("--index-url")
+        .arg("https://user:%FF@example.com/simple")
+        .arg("--strict"), @"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Failed to parse credentials in index URL: https://user:****@example.com/simple
+      Caused by: URL password contains invalid UTF-8
+      Caused by: invalid utf-8 sequence of 1 bytes from index 0
+    ");
 }
 
 /// Install a package from an index that requires authentication
@@ -13367,6 +13388,122 @@ requires_python = "==3.13.*"
 
     For more information, try '--help'.
     "
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_lock_version() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pylock_toml = context.temp_dir.child("pylock.toml");
+    pylock_toml.write_str(
+        r#"
+        lock-version = "2.0"
+        created-by = "uv"
+        packages = []
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Not a valid `pylock.toml` file: pylock.toml
+      Caused by: TOML parse error at line 2, column 24
+      |
+    2 |         lock-version = "2.0"
+      |                        ^^^^^
+    unsupported lock version (`2.0`, but only major version 1 is supported)
+    "#
+    );
+
+    // Later minor versions are forwards-compatible with the supported major version.
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.1"
+        created-by = "uv"
+        packages = []
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Checked in [TIME]
+    "#
+    );
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_package_requires_python() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pylock_toml = context.temp_dir.child("pylock.toml");
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "example"
+        marker = "python_version < '3.0'"
+        requires-python = ">=99"
+        directory = { path = "." }
+        "#,
+    )?;
+
+    // Skip the Python requirement for packages excluded by their marker.
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+
+    ----- stderr -----
+    Checked in [TIME]
+    "#
+    );
+
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "example"
+        requires-python = ">=99"
+        directory = { path = "." }
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    success: false
+    exit_code: 2
+    ----- stdout -----
+
+    ----- stderr -----
+    error: Package `example` requires Python >=99, but the target Python version is 3.12.[X]
+    "#
     );
 
     Ok(())

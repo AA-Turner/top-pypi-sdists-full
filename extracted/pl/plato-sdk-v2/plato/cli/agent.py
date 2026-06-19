@@ -931,11 +931,12 @@ def _push_single_agent(
             # local fallback.
             retagged = False
             if api_key is not None:
-                retagged = retag_agent_image_via_chronos(
+                retagged, retag_err = retag_agent_image_via_chronos(
                     get_chronos_settings().chronos_url, package_name, "latest", version, api_key
                 )
                 if not retagged:
-                    console.print("[dim]Chronos retag API unavailable - falling back to local AWS credentials...[/dim]")
+                    console.print(f"[yellow]Chronos retag failed:[/yellow] {retag_err}")
+                    console.print("[dim]Falling back to local AWS credentials...[/dim]")
             if not retagged:
                 retagged = retag_image(repository, "latest", version)
             if retagged:

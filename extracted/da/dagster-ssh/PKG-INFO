@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: dagster-ssh
-Version: 0.29.9
+Version: 0.29.10
 Summary: Package for ssh Dagster framework components.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-ssh
 Author-email: Dagster Labs <hello@dagsterlabs.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
-Requires-Dist: dagster==1.13.9
+Requires-Dist: dagster==1.13.10
 Requires-Dist: paramiko
 Requires-Dist: sshtunnel

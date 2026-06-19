@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vastai
-Version: 1.0.13
+Version: 1.1.1
 Summary: CLI and SDK for Vast.ai GPU Cloud Service
 License: MIT
 License-File: LICENSE
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: aiodns (>=3.6.0)
-Requires-Dist: aiohttp (>=3.9.1)
+Requires-Dist: aiohttp (>=3.13.3)
 Requires-Dist: anyio (>=4.4,<5.0)
 Requires-Dist: argcomplete (>=2.0)
 Requires-Dist: borb (>=2.1.25,<2.2.0)
@@ -27,8 +27,9 @@ Requires-Dist: pycares (==4.11.0)
 Requires-Dist: pycryptodome (>=3.20,<4.0)
 Requires-Dist: pyparsing (>=3.1,<4.0)
 Requires-Dist: python-dateutil (>=2.8.2)
-Requires-Dist: requests (>=2.32.3)
+Requires-Dist: requests (>=2.33.0)
 Requires-Dist: rich (>=13.0)
+Requires-Dist: transformers (>=4.53.3)
 Requires-Dist: urllib3 (>=2.0,<3.0)
 Requires-Dist: xdg (>=1.0.0)
 Project-URL: Homepage, https://vast.ai

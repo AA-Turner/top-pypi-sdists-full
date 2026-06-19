@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inscriptis
-Version: 2.7.1
+Version: 2.7.2
 Summary: inscriptis - HTML to text converter.
 Project-URL: Homepage, https://github.com/weblyzard/inscriptis
 Project-URL: Repository, https://github.com/weblyzard/inscriptis
@@ -21,12 +21,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: Topic :: Utilities
-Requires-Python: <3.15,>=3.10
-Requires-Dist: lxml<6.1.0,>=5.4.0
+Requires-Python: >=3.10
+Requires-Dist: lxml<6.2.0,>=5.4.0
 Requires-Dist: requests<3.0.0,>=2.32.3
 Provides-Extra: web-service
-Requires-Dist: fastapi<1.0.0,>=0.115.11; extra == 'web-service'
-Requires-Dist: uvicorn<1.0.0,>=0.34.0; extra == 'web-service'
+Requires-Dist: fastapi<1.0.0,>=0.118.0; extra == 'web-service'
+Requires-Dist: uvicorn<1.0.0,>=0.38.0; extra == 'web-service'
 Description-Content-Type: text/x-rst
 
 ==================================================================================

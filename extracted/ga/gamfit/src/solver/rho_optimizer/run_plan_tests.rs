@@ -1253,6 +1253,8 @@ fn outer_second_order_bridge_separates_first_and_second_order_requests() {
         g_norm_initial: None,
         last_g_norm: None,
         last_value_grad_rho: None,
+        cost_stall: None,
+        cost_stall_bounds: None,
     };
     let grad_sample = FirstOrderObjective::eval_grad(&mut bridge, &array![1.0]).expect("grad eval");
     assert_eq!(grad_sample.value, 1.0);
@@ -1314,6 +1316,8 @@ fn analytic_route_unavailable_hessian_is_fatal() {
         g_norm_initial: None,
         last_g_norm: None,
         last_value_grad_rho: None,
+        cost_stall: None,
+        cost_stall_bounds: None,
     };
     let err = SecondOrderObjective::eval_hessian(&mut bridge, &array![1.0])
         .expect_err("Analytic route must reject Unavailable Hessian, not pass None to opt");
@@ -1329,6 +1333,460 @@ fn analytic_route_unavailable_hessian_is_fatal() {
                  got Recoverable: {message}"
         ),
     }
+}
+
+/// #1237 — On a near-separable multinomial fit the outer REML criterion
+/// decreases monotonically as λ→0, so several log-λ directions slam to the
+/// lower box bound and the ARC outer loop cycles to `max_iter` without ever
+/// certifying a stationary point (the #1082 multinomial timeout). The
+/// `OuterSecondOrderBridge` now carries the same cost-stall guard the BFGS
+/// bridge does: once the REML score has stopped improving over
+/// `COST_STALL_WINDOW` evals, the bridge returns the `Fatal` cost-stall
+/// sentinel so the runner halts ARC at the published best iterate. The guard
+/// fires from `eval_hessian` — `opt::Arc`'s per-iterate oracle evaluates the
+/// (value, grad, Hessian) triple there and NEVER calls `eval_grad` on the ARC
+/// route, so the guard must live where ARC actually steps. The converged
+/// verdict rides on the BOUND-PROJECTED gradient: a direction pinned at the
+/// bound with a persistent out-of-bounds ∂V/∂ρ is KKT-stationary even though
+/// its raw gradient never vanishes. This drives the ARC bridge directly (no
+/// 380s end-to-end fit) and asserts the stall is reached and certified.
+#[test]
+fn arc_bridge_cost_stall_certifies_at_bound_separation() {
+    // A flat objective at the lower bound `rho = -10` whose raw gradient is a
+    // constant `g = -1` (points further DOWN, out of the feasible box): the
+    // projected KKT residual there is 0, so a stall is a CONVERGED optimum —
+    // exactly the separation signature (the REML score has bottomed out but the
+    // unprojected gradient keeps pushing λ→0 forever).
+    let lo = array![-10.0];
+    let hi = array![10.0];
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Either);
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), _: &Array1<f64>| Ok(1.0),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval should not run".to_string(),
+            ))
+        },
+        move |_: &mut (), _: &Array1<f64>, order: OuterEvalOrder| {
+            Ok(OuterEval {
+                // Constant cost: the score has flat-lined (separation valley).
+                cost: 1.0,
+                // Gradient points out of the lower bound; raw norm = 1 forever,
+                // but the bound-projected residual at rho=-10 is 0.
+                gradient: array![-1.0],
+                hessian: match order {
+                    OuterEvalOrder::ValueGradientHessian => HessianResult::Analytic(array![[1.0]]),
+                    _ => HessianResult::Unavailable,
+                },
+                inner_beta_hint: None,
+            })
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    // Threshold the projected residual (0 here) must clear; any positive value
+    // certifies the at-bound stall as converged.
+    let guard = CostStallGuard::new(1.0e-6, COST_STALL_WINDOW, 1.0e-3, exit.clone());
+    let mut bridge = OuterSecondOrderBridge {
+        obj: &mut obj,
+        layout: OuterThetaLayout::new(1, 0),
+        hessian_source: HessianSource::Analytic,
+        materialize_operator_max_dim: OUTER_HVP_MATERIALIZE_MAX_DIM,
+        eval_count: 0,
+        outer_inner_cap: None,
+        g_norm_initial: None,
+        last_g_norm: None,
+        last_value_grad_rho: None,
+        cost_stall: Some(guard),
+        cost_stall_bounds: Some((lo.clone(), hi.clone())),
+    };
+    // Hammer eval_hessian at the lower bound — the ARC per-iterate oracle path.
+    // The guard tolerates the first `COST_STALL_WINDOW` no-improve steps, then
+    // halts with the sentinel.
+    let mut sentinel_fired = false;
+    for _ in 0..(COST_STALL_WINDOW + 2) {
+        match SecondOrderObjective::eval_hessian(&mut bridge, &lo) {
+            Ok(_) => {}
+            Err(ObjectiveEvalError::Fatal { message }) => {
+                assert_eq!(
+                    message, COST_STALL_CONVERGED_SENTINEL,
+                    "ARC cost-stall must halt via the shared convergence sentinel"
+                );
+                sentinel_fired = true;
+                break;
+            }
+            Err(other) => panic!("unexpected ARC bridge error: {other:?}"),
+        }
+    }
+    assert!(
+        sentinel_fired,
+        "ARC bridge must halt the cost-stall valley within {} evals (separation never settles otherwise)",
+        COST_STALL_WINDOW + 2
+    );
+    let published = exit.lock().unwrap().take().expect("best iterate published");
+    assert!(
+        published.converged,
+        "an at-bound stall with a ZERO projected KKT residual must certify CONVERGED \
+         (raw |g|=1 is the out-of-bounds separation gradient, not non-stationarity)"
+    );
+    assert_eq!(published.rho, lo, "best iterate is the bound-pinned ρ");
+    assert_eq!(published.value, 1.0);
+}
+
+/// Near-separable multinomial timeout (#1082/#1237), FEASIBLE bound-pinned arm.
+/// Here every trial is feasible and the raw cost keeps DECREASING (λ→0 lowers
+/// the REML criterion monotonically), but the bound-PROJECTED gradient is
+/// already zero — the iterate is KKT-stationary at the box bound and the
+/// remaining descent is pure bound-pinned drift. A naive cost-improvement test
+/// resets the no-improvement streak on every step (the cost really is dropping)
+/// and the loop never certifies; `opt::Arc`'s own gradient-tolerance check never
+/// trips either, because it tests the RAW gradient, which points out of the box
+/// forever. The guard now counts a KKT-stationary-at-bound trial as
+/// no-improvement, so the window fills and ARC halts at the best feasible
+/// iterate. This drives the ARC bridge directly and asserts the halt.
+#[test]
+fn arc_bridge_cost_stall_halts_on_kkt_stationary_bound_descent() {
+    let lo = array![-10.0];
+    let hi = array![10.0];
+    // Strictly-decreasing cost so the cost-improvement test alone would NEVER
+    // fire; the gradient points out of the lower bound (raw |g|=1, projected
+    // KKT residual at rho=-10 is 0), so the halt rides on stationarity.
+    let step = std::cell::Cell::new(0u32);
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Either);
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), _: &Array1<f64>| Ok(1.0),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval should not run".to_string(),
+            ))
+        },
+        move |_: &mut (), _: &Array1<f64>, order: OuterEvalOrder| {
+            let k = step.get();
+            step.set(k + 1);
+            Ok(OuterEval {
+                // Monotonically decreasing by far more than the rel-tol floor:
+                // a pure cost-stall test could never fill its window here.
+                cost: 1.0 - (k as f64),
+                // Out-of-bounds gradient at the lower bound: raw norm = 1 forever,
+                // bound-projected residual = 0 (KKT-stationary).
+                gradient: array![-1.0],
+                hessian: match order {
+                    OuterEvalOrder::ValueGradientHessian => HessianResult::Analytic(array![[1.0]]),
+                    _ => HessianResult::Unavailable,
+                },
+                inner_beta_hint: None,
+            })
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let guard = CostStallGuard::new(1.0e-6, COST_STALL_WINDOW, 1.0e-3, exit.clone());
+    let mut bridge = OuterSecondOrderBridge {
+        obj: &mut obj,
+        layout: OuterThetaLayout::new(1, 0),
+        hessian_source: HessianSource::Analytic,
+        materialize_operator_max_dim: OUTER_HVP_MATERIALIZE_MAX_DIM,
+        eval_count: 0,
+        outer_inner_cap: None,
+        g_norm_initial: None,
+        last_g_norm: None,
+        last_value_grad_rho: None,
+        cost_stall: Some(guard),
+        cost_stall_bounds: Some((lo.clone(), hi.clone())),
+    };
+    let mut sentinel_fired = false;
+    for _ in 0..(COST_STALL_WINDOW + 2) {
+        match SecondOrderObjective::eval_hessian(&mut bridge, &lo) {
+            Ok(_) => {}
+            Err(ObjectiveEvalError::Fatal { message }) => {
+                assert_eq!(
+                    message, COST_STALL_CONVERGED_SENTINEL,
+                    "KKT-stationary-at-bound halt must use the shared convergence sentinel"
+                );
+                sentinel_fired = true;
+                break;
+            }
+            Err(other) => panic!("unexpected ARC bridge error: {other:?}"),
+        }
+    }
+    assert!(
+        sentinel_fired,
+        "ARC bridge must halt the bound-pinned descent within {} evals even though the raw \
+         cost is still strictly decreasing (the projected KKT residual is zero)",
+        COST_STALL_WINDOW + 2
+    );
+    let published = exit.lock().unwrap().take().expect("best iterate published");
+    assert!(
+        published.converged,
+        "a KKT-stationary at-bound stall (projected |g|=0 ≤ 1e-3) must certify CONVERGED"
+    );
+    assert_eq!(published.rho, lo, "best iterate is the bound-pinned ρ");
+}
+
+/// Near-separable multinomial timeout (#1082/#1237), infeasible-trial arm. ARC
+/// finds one feasible iterate, then keeps probing the unbounded λ→0 separating
+/// region where the inner softmax solve does not converge and every trial comes
+/// back INFEASIBLE (cost = +∞). Those infeasible trials are rejected by the
+/// finite-eval validator BEFORE the finite cost-stall guard sees them, so the
+/// no-improvement window can never fill — and the outer loop used to grind to
+/// `max_iter` (the timeout). The bridge now feeds infeasible trials to the
+/// guard's dedicated infeasible-streak path: a run of `COST_STALL_WINDOW`
+/// consecutive infeasible trials after a feasible best halts ARC at that best
+/// feasible iterate. This drives the ARC bridge directly and asserts the halt.
+#[test]
+fn arc_bridge_cost_stall_halts_on_infeasible_separation_run() {
+    let lo = array![-10.0];
+    let hi = array![10.0];
+    // The single feasible point: a small projected gradient so the eventual
+    // halt certifies CONVERGED (a clean stationary optimum on the feasible side).
+    let feasible_rho = array![0.0];
+    let eval_idx = std::cell::Cell::new(0usize);
+    let problem = OuterProblem::new(1)
+        .with_gradient(Derivative::Analytic)
+        .with_hessian(DeclaredHessianForm::Either);
+    let feasible_for_obj = feasible_rho.clone();
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), _: &Array1<f64>| Ok(1.0),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval should not run".to_string(),
+            ))
+        },
+        move |_: &mut (), x: &Array1<f64>, order: OuterEvalOrder| {
+            let n = eval_idx.get();
+            eval_idx.set(n + 1);
+            // First call: the lone feasible iterate (finite cost, tiny gradient).
+            // Every later call: an infeasible λ→0 probe (cost = +∞).
+            if n == 0 && x == &feasible_for_obj {
+                Ok(OuterEval {
+                    cost: 1.0,
+                    gradient: array![1.0e-9],
+                    hessian: match order {
+                        OuterEvalOrder::ValueGradientHessian => {
+                            HessianResult::Analytic(array![[1.0]])
+                        }
+                        _ => HessianResult::Unavailable,
+                    },
+                    inner_beta_hint: None,
+                })
+            } else {
+                Ok(OuterEval::infeasible(1))
+            }
+        },
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let guard = CostStallGuard::new(1.0e-6, COST_STALL_WINDOW, 1.0e-3, exit.clone());
+    let mut bridge = OuterSecondOrderBridge {
+        obj: &mut obj,
+        layout: OuterThetaLayout::new(1, 0),
+        hessian_source: HessianSource::Analytic,
+        materialize_operator_max_dim: OUTER_HVP_MATERIALIZE_MAX_DIM,
+        eval_count: 0,
+        outer_inner_cap: None,
+        g_norm_initial: None,
+        last_g_norm: None,
+        last_value_grad_rho: None,
+        cost_stall: Some(guard),
+        cost_stall_bounds: Some((lo.clone(), hi.clone())),
+    };
+    // One feasible eval records the best; the next `COST_STALL_WINDOW` infeasible
+    // evals fill the infeasible-streak window and trip the sentinel.
+    let mut sentinel_fired = false;
+    // First: the feasible iterate.
+    SecondOrderObjective::eval_hessian(&mut bridge, &feasible_rho)
+        .expect("feasible iterate must evaluate cleanly");
+    let separating = array![-10.0];
+    for _ in 0..(COST_STALL_WINDOW + 2) {
+        match SecondOrderObjective::eval_hessian(&mut bridge, &separating) {
+            Ok(_) => panic!("an infeasible (cost=∞) trial must not return a finite sample"),
+            Err(ObjectiveEvalError::Fatal { message }) => {
+                assert_eq!(
+                    message, COST_STALL_CONVERGED_SENTINEL,
+                    "infeasible-run halt must use the shared convergence sentinel"
+                );
+                sentinel_fired = true;
+                break;
+            }
+            // Before the window fills, infeasible trials surface as the normal
+            // recoverable non-finite-cost error (the optimizer shrinks + retries).
+            Err(ObjectiveEvalError::Recoverable { .. }) => {}
+        }
+    }
+    assert!(
+        sentinel_fired,
+        "ARC bridge must halt after {} consecutive infeasible separating trials",
+        COST_STALL_WINDOW
+    );
+    let published = exit.lock().unwrap().take().expect("best iterate published");
+    assert!(
+        published.converged,
+        "halt back to the feasible iterate (projected |g|≈1e-9 ≤ 1e-3) must certify CONVERGED"
+    );
+    assert_eq!(
+        published.rho, feasible_rho,
+        "the published best must be the lone FEASIBLE iterate, not a separating λ→0 probe"
+    );
+    assert_eq!(published.value, 1.0, "published cost is the feasible cost");
+}
+
+/// Regression for the `with_initial_sample` ARC route: opt serves the seed
+/// sample from its internal cache, so the bridge never sees an `eval_hessian`
+/// call at that feasible point. The cost-stall guard must still know about the
+/// seed before infeasible λ→0 trial probes arrive; otherwise
+/// `observe_infeasible` has no best finite iterate to publish and ARC can grind
+/// to `max_iter`.
+#[test]
+fn arc_cost_stall_guard_uses_cached_initial_sample_as_feasible_best() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+    let seed = array![0.0, 0.0];
+    guard.observe_seed(&seed, 10.0, 5.0e-4);
+
+    let separating_probe = array![-10.0, -10.0];
+    assert!(
+        matches!(
+            guard.observe_infeasible(&separating_probe),
+            CostStallVerdict::Continue
+        ),
+        "first infeasible probe should only start the streak"
+    );
+    assert!(
+        matches!(
+            guard.observe_infeasible(&separating_probe),
+            CostStallVerdict::Continue
+        ),
+        "second infeasible probe should still be below the window"
+    );
+    assert!(
+        matches!(
+            guard.observe_infeasible(&separating_probe),
+            CostStallVerdict::Converged
+        ),
+        "third infeasible probe should halt back to the cached seed"
+    );
+
+    let published = exit.lock().unwrap().take().expect("seed best published");
+    assert_eq!(published.rho, seed);
+    assert_eq!(published.value, 10.0);
+    assert_eq!(published.grad_norm, 5.0e-4);
+    assert!(published.converged);
+}
+
+#[test]
+fn bfgs_bridge_halts_infeasible_probe_run_back_to_cached_seed() {
+    let seed = array![0.0];
+    let trial = array![1.0];
+    let problem = OuterProblem::new(1).with_gradient(Derivative::Analytic);
+    let mut obj = problem.build_objective_with_eval_order(
+        (),
+        |_: &mut (), _: &Array1<f64>| Ok(1.0),
+        |_: &mut (), _: &Array1<f64>| {
+            Err(EstimationError::InvalidInput(
+                "legacy eager eval should not run".to_string(),
+            ))
+        },
+        |_: &mut (), _: &Array1<f64>, _: OuterEvalOrder| Ok(OuterEval::infeasible(1)),
+        None::<fn(&mut ())>,
+        None::<fn(&mut (), &Array1<f64>) -> Result<EfsEval, EstimationError>>,
+    );
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, COST_STALL_WINDOW, 1.0e-3, exit.clone());
+    guard.observe_seed(&seed, 10.0, 5.0e-4);
+    let lo = array![-10.0];
+    let hi = array![10.0];
+    let mut bridge = OuterFirstOrderBridge {
+        obj: &mut obj,
+        layout: OuterThetaLayout::new(1, 0),
+        outer_inner_cap: None,
+        iter_count: 0,
+        g_norm_initial: None,
+        last_g_norm: None,
+        last_value_grad_rho: None,
+        value_probe_cache: Vec::new(),
+        cost_stall: Some(guard),
+        cost_stall_bounds: Some((lo, hi)),
+        consecutive_probe_refusals: 0,
+    };
+
+    let mut sentinel_fired = false;
+    for _ in 0..(COST_STALL_WINDOW + 2) {
+        match ZerothOrderObjective::eval_cost(&mut bridge, &trial) {
+            Ok(cost) => panic!("infeasible probe unexpectedly returned finite cost {cost}"),
+            Err(ObjectiveEvalError::Fatal { message }) => {
+                assert_eq!(
+                    message, COST_STALL_CONVERGED_SENTINEL,
+                    "BFGS infeasible-probe halt must use the shared cost-stall sentinel"
+                );
+                sentinel_fired = true;
+                break;
+            }
+            Err(ObjectiveEvalError::Recoverable { .. }) => {}
+        }
+    }
+    assert!(
+        sentinel_fired,
+        "BFGS bridge must halt after {} consecutive infeasible probes when a finite seed is cached",
+        COST_STALL_WINDOW
+    );
+    let published = exit.lock().unwrap().take().expect("seed best published");
+    assert_eq!(published.rho, seed);
+    assert_eq!(published.value, 10.0);
+    assert_eq!(published.grad_norm, 5.0e-4);
+    assert!(published.converged);
+}
+
+#[test]
+fn constrained_stationary_probe_replaces_stale_nonstationary_best() {
+    let exit: Arc<Mutex<Option<CostStallExit>>> = Arc::new(Mutex::new(None));
+    let mut guard = CostStallGuard::new(1.0e-6, 3, 1.0e-3, exit.clone());
+    let stale_seed = array![0.0, 0.0];
+    guard.observe_seed(&stale_seed, 1.0, 2.0);
+
+    let boundary_probe = array![-10.0, -10.0];
+    let verdict = guard.observe_constrained_stationary(&boundary_probe, 1.25, 0.0);
+    assert!(
+        matches!(verdict, CostStallVerdict::Converged),
+        "a finite constrained-stationary separation probe should halt immediately"
+    );
+
+    let published = exit
+        .lock()
+        .unwrap()
+        .take()
+        .expect("stationary probe published");
+    assert_eq!(
+        published.rho, boundary_probe,
+        "publish the KKT-certified boundary probe, not the older raw-cost best"
+    );
+    assert_eq!(published.value, 1.25);
+    assert_eq!(published.grad_norm, 0.0);
+    assert!(published.converged);
+}
+
+#[test]
+fn lower_bound_outward_axes_mark_separation_stationarity() {
+    let lower = array![-10.0, -10.0, -10.0, -10.0];
+    let upper = array![10.0, 10.0, 10.0, 10.0];
+    let rho = array![-10.0, -10.0, 0.25, 1.0];
+    let gradient = array![-2.0e-2, -4.0e-2, 3.0, -1.0];
+
+    assert_eq!(
+        lower_bound_outward_active_count(&rho, &gradient, Some(&(lower, upper)), 1.0e-3),
+        LOWER_BOUND_SEPARATION_ACTIVE_MIN,
+        "two lower-bound axes with outward gradients are enough to identify \
+         a separation-bound stationary probe"
+    );
 }
 
 // Phase 5 (Cargo dep at opt 0.3) replaces the gam-side bridge
@@ -2314,6 +2772,42 @@ fn gaussian_multistart_compares_converged_seed_costs() {
     assert_eq!(result.final_value, 0.0);
 }
 
+/// #1082 separable-multinomial guard: on an expensive-solver risk profile
+/// (ARC + GeneralizedLinear, `seed_budget = 2`), a first seed that lands a
+/// FEASIBLE cost-stall flat-valley result (the near-separable λ→0 ridge: finite
+/// cost, gradient never clears tolerance) must STOP the multi-start instead of
+/// paying a second expensive seed that cannot reach a stationary point.
+/// Regression for the penguin-species timeout where the wasted second seed
+/// crawled ~70s/eval.
+#[test]
+fn expensive_multistart_stops_after_feasible_nonstationary_seed() {
+    let plan = OuterPlan {
+        solver: Solver::Arc,
+        hessian_source: HessianSource::Analytic,
+    };
+    let mut result = OuterResult::new(array![0.0], 12.0, 9, false, plan);
+    result.final_grad_norm = Some(5.0);
+    result.operator_stop_reason = Some(OperatorTrustRegionStopReason::CostStallFlatValley);
+
+    assert!(
+        should_stop_expensive_multistart_after_best(Some(&result), Some(2), false),
+        "a finite cost-stall flat-valley result is the separable-fit signature; \
+         trying another expensive seed only repeats the λ→0 crawl (#1082)"
+    );
+
+    let mut plain_nonconverged = result.clone();
+    plain_nonconverged.operator_stop_reason = Some(OperatorTrustRegionStopReason::IterationBudget);
+    assert!(
+        !should_stop_expensive_multistart_after_best(Some(&plain_nonconverged), Some(2), false),
+        "ordinary finite nonconvergence may still be seed-sensitive and must keep the \
+         second expensive seed"
+    );
+    assert!(
+        !should_stop_expensive_multistart_after_best(Some(&result), Some(2), true),
+        "Gaussian quality-compare mode intentionally evaluates remaining seeds"
+    );
+}
+
 #[test]
 fn run_starts_solver_with_direct_startup_eval() {
     let mut seed_config = crate::seeding::SeedConfig::default();
@@ -2908,6 +3402,15 @@ fn effective_seed_budget_caps_expensive_solver_retries() {
     assert_eq!(
         effective_seed_budget(
             3,
+            Solver::Arc,
+            crate::seeding::SeedRiskProfile::GeneralizedLinear,
+            true,
+        ),
+        2
+    );
+    assert_eq!(
+        effective_seed_budget(
+            1,
             Solver::Arc,
             crate::seeding::SeedRiskProfile::GeneralizedLinear,
             true,

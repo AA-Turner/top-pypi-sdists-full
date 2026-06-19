@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oarepo-runtime
-Version: 7.0.0
+Version: 7.1.0
 Summary: A set of runtime extensions of Invenio repository
 Project-URL: Homepage, https://github.com/oarepo/oarepo-runtime
 License-Expression: MIT

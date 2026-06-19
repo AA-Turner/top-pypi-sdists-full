@@ -34,23 +34,26 @@ class Bundle(object):
         'id': 'str',
         'title': 'str',
         'description': 'str',
-        'operators': 'list[str]'
+        'operators': 'list[str]',
+        'optional_operators': 'list[str]'
     }
 
     attribute_map = {
         'id': 'id',
         'title': 'title',
         'description': 'description',
-        'operators': 'operators'
+        'operators': 'operators',
+        'optional_operators': 'optional_operators'
     }
 
-    def __init__(self, id=None, title=None, description=None, operators=None):  # noqa: E501
+    def __init__(self, id=None, title=None, description=None, operators=None, optional_operators=None):  # noqa: E501
         """Bundle - a model defined in Swagger"""  # noqa: E501
 
         self._id = None
         self._title = None
         self._description = None
         self._operators = None
+        self._optional_operators = None
         self.discriminator = None
 
         if id is not None:
@@ -61,6 +64,8 @@ class Bundle(object):
             self.description = description
         if operators is not None:
             self.operators = operators
+        if optional_operators is not None:
+            self.optional_operators = optional_operators
 
     @property
     def id(self):
@@ -135,7 +140,7 @@ class Bundle(object):
     def operators(self):
         """Gets the operators of this Bundle.  # noqa: E501
 
-        List of operators associated with the bundle.  # noqa: E501
+        List of operators always included in the bundle.  # noqa: E501
 
         :return: The operators of this Bundle.  # noqa: E501
         :rtype: list[str]
@@ -146,13 +151,36 @@ class Bundle(object):
     def operators(self, operators):
         """Sets the operators of this Bundle.
 
-        List of operators associated with the bundle.  # noqa: E501
+        List of operators always included in the bundle.  # noqa: E501
 
         :param operators: The operators of this Bundle.  # noqa: E501
         :type: list[str]
         """
 
         self._operators = operators
+
+    @property
+    def optional_operators(self):
+        """Gets the optional_operators of this Bundle.  # noqa: E501
+
+        List of operators that can be optionally selected by the user for this bundle. All are selected by default.  # noqa: E501
+
+        :return: The optional_operators of this Bundle.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._optional_operators
+
+    @optional_operators.setter
+    def optional_operators(self, optional_operators):
+        """Sets the optional_operators of this Bundle.
+
+        List of operators that can be optionally selected by the user for this bundle. All are selected by default.  # noqa: E501
+
+        :param optional_operators: The optional_operators of this Bundle.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._optional_operators = optional_operators
 
     def to_dict(self):
         """Returns the model properties as a dict"""

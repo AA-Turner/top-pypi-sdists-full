@@ -1,17 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pan-python
-Version: 0.25.0
+Version: 0.26.0
 Summary: Multi-tool set for Palo Alto Networks PAN-OS, Panorama, WildFire and AutoFocus
 Home-page: https://github.com/kevinsteves/pan-python
 Author: Kevin Steves
 Author-email: kevin.steves@pobox.com
 License: ISC
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: ISC License (ISCL)
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
+Dynamic: license-file
 
 pan-python
 ==========

@@ -411,14 +411,15 @@ def world_publish(
         elif skip_docker:
             console.print("[cyan]Retagging existing :latest image...[/cyan]")
             assert api_key is not None
-            retagged = retag_image_via_chronos(
+            retagged, retag_err = retag_image_via_chronos(
                 get_chronos_settings().chronos_url, package_name, "latest", version, api_key
             )
             if not retagged:
                 # TODO: remove this local-AWS fallback once the Chronos retag
                 # endpoint (POST /api/worlds/{package_name}/retag-image) is
                 # deployed everywhere.
-                console.print("[dim]Chronos retag API unavailable - falling back to local AWS credentials...[/dim]")
+                console.print(f"[yellow]Chronos retag failed:[/yellow] {retag_err}")
+                console.print("[dim]Falling back to local AWS credentials...[/dim]")
                 retagged = retag_image(repository, "latest", version)
             if retagged:
                 ecr_image = f"{ECR_REGISTRY}/{repository}:{version}"

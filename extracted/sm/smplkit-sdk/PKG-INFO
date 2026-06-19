@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smplkit-sdk
-Version: 3.2.170
+Version: 3.2.172
 Summary: Official Python SDK for the smplkit platform
 Project-URL: Homepage, https://www.smplkit.com
 Project-URL: Documentation, https://docs.smplkit.com
@@ -153,7 +153,10 @@ from smplkit import SmplAuditClient, SmplClient
 with SmplClient(api_key="sk_api_...", environment="production") as client:
     client.audit.events.record("invoice.created", "invoice", "inv-1", flush=True)
     forwarders = client.audit.forwarders.list()
-    client.jobs.new("nightly", schedule="0 2 * * *", configuration=...).save()
+    # jobs are enabled per environment:
+    job = client.jobs.new("nightly", schedule="0 2 * * *", configuration=...)
+    job.set_enabled(True, environment="production")
+    job.save()
 
 # audit-only? construct just the audit client (no environment needed):
 with SmplAuditClient(api_key="sk_api_...") as audit:

@@ -7,9 +7,15 @@ export function formatCloudBundleHashDisplay(hash: string | null | undefined): s
   const normalized = isSha256 ? value.slice(7) : value;
 
   if (isSha256) {
-    return normalized.length <= 4 ? value : `sha256:${normalized.slice(0, 4)}…`;
+    if (normalized.length <= 12) {
+      return value;
+    }
+    return `sha256:${normalized.slice(0, 6)}…${normalized.slice(-4)}`;
   }
-  return normalized.length <= 8 ? normalized : `${normalized.slice(0, 8)}…`;
+  if (normalized.length <= 16) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 8)}…${normalized.slice(-4)}`;
 }
 
 export function resolveCloudBundleStatusSubtitle(copy: {
@@ -21,7 +27,7 @@ export function resolveCloudBundleStatusSubtitle(copy: {
     return "All policies up to date";
   }
   if (copy.tone === "attention") {
-    return "Latest sync needs attention";
+    return "Sync needs attention";
   }
   return copy.label;
 }

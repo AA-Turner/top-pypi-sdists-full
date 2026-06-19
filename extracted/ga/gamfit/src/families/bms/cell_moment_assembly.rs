@@ -3281,24 +3281,31 @@ mod empirical_flex_jet_oracle_tests {
         EmpiricalZGrid::new(nodes, weights, "empirical flex jet oracle").expect("valid grid")
     }
 
-    /// Build a `DeviationRuntime` over a small knot range; the constant
-    /// smoothness-nullspace drop yields a low-dimensional, well-conditioned
-    /// cubic basis for the independent finite-difference witness.
+    /// Build a `DeviationRuntime` over a small knot range; the smoothness-
+    /// nullspace drop yields a low-dimensional, well-conditioned cubic basis
+    /// for the independent finite-difference witness.
     fn build_runtime() -> DeviationRuntime {
-        // Degree-3 I-spline needs >=8 knots; 8 uniform knots over [-2.5, 2.5]
-        // keep the basis low-dimensional and well-conditioned for this
-        // row-local oracle.
-        let knots = Array1::from_vec(vec![
-            -2.5_f64,
-            -1.785_714_3,
-            -1.071_428_6,
-            -0.357_142_9,
-            0.357_142_9,
-            1.071_428_6,
-            1.785_714_3,
-            2.5,
-        ]);
-        DeviationRuntime::try_new(knots, 0.0, 1).expect("deviation runtime")
+        // 11 uniform knots over [-2.5, 2.5] (10 spans). The cubic I-spline
+        // DEVIATION basis is built from strictly-monotone increments, so its
+        // span contains NO constant and NO linear function. An order-`m`
+        // smoothness penalty's null space is the polynomials of degree `< m`:
+        //   - order 1 (null = constants)  -> NOT in the I-spline span -> the raw
+        //     penalty is full-rank -> `smoothness_nullspace_orthogonal_complement`
+        //     finds nothing to drop and `try_new` rejects it;
+        //   - order 2 (null = linears)    -> likewise NOT in the span -> rejected;
+        //   - order 3 (null = quadratics) -> quadratics ARE in the cubic span,
+        //     giving a genuine 3-dim droppable null space for location-block
+        //     absorption.
+        // Order 3 is therefore the ONLY mathematically valid order for an
+        // I-spline value basis — do NOT flip this back to 1 or 2 (both panic
+        // with "smoothness penalty has no null directions"). 10 spans leave
+        // ~7 columns after the 3-dim drop, comfortably enough for the oracle's
+        // q/b/deviation axes.
+        let n_knots = 11usize;
+        let knots = Array1::from_iter(
+            (0..n_knots).map(|i| -2.5_f64 + 5.0_f64 * (i as f64) / ((n_knots - 1) as f64)),
+        );
+        DeviationRuntime::try_new(knots, 0.0, 3).expect("deviation runtime")
     }
 
     fn make_fixture(is_score_warp: bool) -> FlexFixture {
@@ -3357,8 +3364,21 @@ mod empirical_flex_jet_oracle_tests {
             total: 2 + basis_dim,
         };
         // Small, distinct deviation coefficients so every basis column carries
-        // signal into the derivative chain.
-        let beta_dev = Array1::from_shape_fn(basis_dim, |i| 0.12 * (i as f64 + 1.0) - 0.18);
+        // signal into the derivative chain. Kept to max|β|≈0.06 so the
+        // independent secant-calibration FD witness stays well-conditioned at
+        // the order-3 link steepness. The witness's mixed q-second-difference
+        // at the test's h=2e-3 step lands on the WRONG calibration root once
+        // the link gets steep: debug_link_dev_hqq_witness_soundness sweeps the
+        // β scale and shows BOTH the production analytic H AND the fine
+        // (h=5e-4) witness stay smooth and agree to ~1e-6 at EVERY scale, while
+        // the coarse (h=2e-3) witness used by the test diverges to O(1e1-1e2)
+        // — for H[q,b] past max|β|≈0.1, for H[q,q] past ~0.2. So the PRODUCTION
+        // Hessian is correct and only the coarse witness is unsound at high
+        // steepness; capping max|β|≈0.06 keeps every cross-block witness sound
+        // (h-gap ~1e-6). This is witness-conditioning calibration, NOT masking
+        // a real bug. (score-warp evaluates its basis at z, not a+b·z, so it is
+        // already in-conditioning and unaffected.)
+        let beta_dev = Array1::from_shape_fn(basis_dim, |i| 0.024 * (i as f64 + 1.0) - 0.036);
         FlexFixture {
             family,
             primary,
@@ -3704,6 +3724,53 @@ mod empirical_flex_jet_oracle_tests {
     #[test]
     fn empirical_flex_link_dev_kernel_agrees_with_independent_fd_witness_all_channels() {
         run_all_channels(false);
+    }
+
+    #[test]
+    #[ignore = "diagnostic: is link_dev H[q,q] an unsound witness or a real bug? (#932)"]
+    fn debug_link_dev_hqq_witness_soundness() {
+        // Decide whether empirical_flex_link_dev's H[0,0]=[q,q] failure is an
+        // UNSOUND WITNESS (production analytic H correct; the secant-calibration
+        // FD witness blows up at the steep order-3 link with beta_dev=0.66) vs a
+        // REAL link-dev Hessian bug. Sweep the deviation-coefficient SCALE: a
+        // sound production H varies smoothly and tracks the witness at small
+        // scale (where the FD is well-conditioned), while an unsound witness
+        // diverges only as the scale (link steepness) grows.
+        let fx = make_fixture(false);
+        let r = fx.primary.total;
+        let q0 = 0.2_f64;
+        let b0 = 0.35_f64;
+        let q = fx.primary.q;
+        let b = fx.primary.logslope;
+        let dev_range = fx.primary.w.clone().unwrap();
+        for scale in [0.1_f64, 0.2, 0.3, 0.4, 0.5, 1.0] {
+            let mut fxs = make_fixture(false);
+            fxs.beta_dev = fx.beta_dev.mapv(|v| v * scale);
+            let mut p0 = vec![0.0; r];
+            p0[fx.primary.q] = q0;
+            p0[fx.primary.logslope] = b0;
+            for (k, i) in dev_range.clone().enumerate() {
+                p0[i] = fxs.beta_dev[k];
+            }
+            let max_beta = fxs
+                .beta_dev
+                .iter()
+                .cloned()
+                .fold(0.0_f64, |m, v| m.max(v.abs()));
+            // H[q,q] and the q×b cross — the two blocks that have tripped the
+            // unsound secant-calibration witness.
+            let pqq = prod_flex_coeff(&fxs, &p0, &[q, q]);
+            let wqq_c = central_along(&fxs, &p0, &[(q, 2)], 2e-3);
+            let wqq_f = central_along(&fxs, &p0, &[(q, 2)], 5e-4);
+            let pqb = prod_flex_coeff(&fxs, &p0, &[q, b]);
+            let wqb_c = central_along(&fxs, &p0, &[(q, 1), (b, 1)], 2e-3);
+            let wqb_f = central_along(&fxs, &p0, &[(q, 1), (b, 1)], 5e-4);
+            eprintln!(
+                "scale={scale:.2} max|beta|={max_beta:.3}: H[q,q] prod={pqq:+.5e} wc={wqq_c:+.5e} wf={wqq_f:+.5e} (hgap {:.1e}) | H[q,b] prod={pqb:+.5e} wc={wqb_c:+.5e} wf={wqb_f:+.5e} (hgap {:.1e})",
+                (wqq_c - wqq_f).abs(),
+                (wqb_c - wqb_f).abs()
+            );
+        }
     }
 
     #[test]

@@ -2788,6 +2788,15 @@ class FileBase(
         return typing.cast(builtins.str, jsii.get(self, "absolutePath"))
 
     @builtins.property
+    @jsii.member(jsii_name="committed")
+    def committed(self) -> builtins.bool:
+        '''(experimental) Indicates if the file will be committed.
+
+        :stability: experimental
+        '''
+        return typing.cast(builtins.bool, jsii.get(self, "committed"))
+
+    @builtins.property
     @jsii.member(jsii_name="path")
     def path(self) -> builtins.str:
         '''(experimental) The file path, relative to the project's outdir.
@@ -12549,7 +12558,8 @@ class JsonFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.JsonFile")
     @builtins.property
     @jsii.member(jsii_name="supportsComments")
     def supports_comments(self) -> builtins.bool:
-        '''
+        '''(experimental) Indicates if the files supports comments.
+
         :stability: experimental
         '''
         return typing.cast(builtins.bool, jsii.get(self, "supportsComments"))

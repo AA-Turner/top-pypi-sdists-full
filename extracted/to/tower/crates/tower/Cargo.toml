@@ -1,0 +1,34 @@
+[package]
+name = "tower"
+publish = true
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+default-run = "tower"
+
+[package.metadata.wix]
+upgrade-guid = "327A8111-21DA-4EEB-8BD2-F24C437C071A"
+path-guid = "CB5E6AA5-5ACF-4A2A-963E-CB9EE1769979"
+license = false
+eula = false
+
+[features]
+pyo3 = ["dep:pyo3"]
+
+[dependencies]
+tokio = { workspace = true }
+tower-cmd = { workspace = true }
+tower-api = { workspace = true }
+pyo3 = { workspace = true, optional = true }
+tower-package = { workspace = true }
+config = { workspace = true }
+
+[lib]
+name = "_native"
+
+[[bin]]
+name = "tower"
+path = "src/main.rs"

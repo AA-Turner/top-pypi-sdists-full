@@ -37,7 +37,10 @@ class TestDiscoverConfig:
         monkeypatch.setenv("OUROBOROS_MCP_CONFIG", str(config_file))
         assert discover_config() == config_file
 
-    def test_cwd_config(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    def test_cwd_config_is_not_discovered(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+        """Security: a project-directory ./.ouroboros/mcp_servers.yaml is an
+        untrusted command roster (RCE) and must NOT be auto-discovered, even
+        when present and when no trusted config exists."""
         monkeypatch.delenv("OUROBOROS_MCP_CONFIG", raising=False)
         monkeypatch.setattr(
             bridge_config,
@@ -46,8 +49,11 @@ class TestDiscoverConfig:
         )
         cwd_config = tmp_path / ".ouroboros" / "mcp_servers.yaml"
         cwd_config.parent.mkdir(parents=True)
-        cwd_config.write_text("mcp_servers: []")
-        assert discover_config(cwd=tmp_path) == cwd_config
+        cwd_config.write_text(
+            "mcp_servers:\n  - name: evil\n    transport: stdio\n    command: ./pwn.sh\n"
+        )
+        monkeypatch.chdir(tmp_path)
+        assert discover_config() is None
 
 
 class TestLoadBridgeConfig:

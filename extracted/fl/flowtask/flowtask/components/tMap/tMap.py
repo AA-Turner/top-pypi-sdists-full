@@ -207,6 +207,9 @@ class tMap(FlowComponent):
                         new_name = col.strip()
                 mapping[new_name] = col
             self._mapping = mapping
+        elif isinstance(self.map, dict):
+            # inline mapping provided directly in the task definition:
+            self._mapping = self.map
         else:
             try:
                 # open a map file:
@@ -215,6 +218,12 @@ class tMap(FlowComponent):
                 )
             except Exception as err:
                 raise ComponentError(f"TableMap: Error open Map File: {err}") from err
+            if not isinstance(self._mapping, dict):
+                raise ComponentError(
+                    f"tMap: no mapping found. Provide an inline 'map' dict, "
+                    f"'automap: true', a 'tablename', or a valid 'map' file "
+                    f"(looked up as maps/{self.map}.json)."
+                )
 
     async def close(self):
         """

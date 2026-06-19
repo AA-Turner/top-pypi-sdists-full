@@ -937,28 +937,6 @@ impl SurvivalDesign {
             }
         }
     }
-
-    fn transpose_vector_multiply(
-        &self,
-        time_mat: &Array2<f64>,
-        vector: &Array1<f64>,
-        include_covariates: bool,
-    ) -> Array1<f64> {
-        match self {
-            Self::Flat { .. } => fast_atv(time_mat, vector),
-            Self::TimeCovariateShared { covariates, .. } => {
-                let p_time = time_mat.ncols();
-                let mut out = Array1::<f64>::zeros(p_time + covariates.ncols());
-                out.slice_mut(ndarray::s![..p_time])
-                    .assign(&fast_atv(time_mat, vector));
-                if include_covariates && covariates.ncols() > 0 {
-                    out.slice_mut(ndarray::s![p_time..])
-                        .assign(&fast_atv(covariates, vector));
-                }
-                out
-            }
-        }
-    }
 }
 
 /// Pre-allocated workspace buffers for `update_state` to avoid per-iteration allocations.
@@ -1162,26 +1140,6 @@ impl WorkingModelSurvival {
         }
     }
 
-    fn derivative_transpose_vector_multiply(&self, vector: &Array1<f64>) -> Array1<f64> {
-        let time_mat = match &self.design {
-            SurvivalDesign::Flat { x_derivative, .. } => x_derivative,
-            SurvivalDesign::TimeCovariateShared {
-                time_derivative, ..
-            } => time_derivative,
-        };
-        self.design
-            .transpose_vector_multiply(time_mat, vector, false)
-    }
-
-    fn exit_transpose_vector_multiply(&self, vector: &Array1<f64>) -> Array1<f64> {
-        let time_mat = match &self.design {
-            SurvivalDesign::Flat { x_exit, .. } => x_exit,
-            SurvivalDesign::TimeCovariateShared { time_exit, .. } => time_exit,
-        };
-        self.design
-            .transpose_vector_multiply(time_mat, vector, true)
-    }
-
     fn derivative_xt_diag_x(&self, weights: &Array1<f64>) -> Array2<f64> {
         match &self.design {
             SurvivalDesign::Flat { x_derivative, .. } => fast_xt_diag_x(x_derivative, weights),
@@ -1245,45 +1203,6 @@ impl WorkingModelSurvival {
                     h.slice_mut(ndarray::s![p_time.., p_time..]).assign(&cc);
                 }
                 h
-            }
-        }
-    }
-
-    /// Compute the gradient contribution for the interval terms:
-    ///   grad = X_exit^T w_exit_grad - X_entry^T w_entry_grad
-    fn interval_gradient_blas(
-        &self,
-        w_exit_grad: &Array1<f64>,
-        w_entry_grad: &Array1<f64>,
-    ) -> Array1<f64> {
-        match &self.design {
-            SurvivalDesign::Flat {
-                x_entry, x_exit, ..
-            } => {
-                let mut g = fast_atv(x_exit, w_exit_grad);
-                g -= &fast_atv(x_entry, w_entry_grad);
-                g
-            }
-            SurvivalDesign::TimeCovariateShared {
-                time_entry,
-                time_exit,
-                covariates,
-                ..
-            } => {
-                let p_time = time_exit.ncols();
-                let p_cov = covariates.ncols();
-                let mut g = Array1::<f64>::zeros(p_time + p_cov);
-                {
-                    let mut gt = fast_atv(time_exit, w_exit_grad);
-                    gt -= &fast_atv(time_entry, w_entry_grad);
-                    g.slice_mut(ndarray::s![..p_time]).assign(&gt);
-                }
-                if p_cov > 0 {
-                    let w_diff = w_exit_grad - w_entry_grad;
-                    g.slice_mut(ndarray::s![p_time..])
-                        .assign(&fast_atv(covariates, &w_diff));
-                }
-                g
             }
         }
     }
@@ -1990,10 +1909,44 @@ impl WorkingModelSurvival {
         //   H_interval = X_exit^T diag(w_exit) X_exit - X_entry^T diag(w_entry) X_entry
         //   grad_interval = X_exit^T w_exit - X_entry^T w_entry
         let mut h = self.interval_hessian_blas(w_hess_exit, w_hess_entry);
-        let mut grad = self.interval_gradient_blas(w_hess_exit, w_hess_entry);
-
-        grad -= &self.exit_transpose_vector_multiply(w_event);
-        grad -= &self.derivative_transpose_vector_multiply(w_event_inv_deriv);
+        // At large smoothing penalties the event-Jacobian score nearly cancels
+        // the interval score. Compensated row accumulation keeps the final KKT
+        // residual accurate enough for the outer LAML envelope check.
+        let mut grad = Array1::<f64>::zeros(p);
+        let mut grad_comp = Array1::<f64>::zeros(p);
+        let mut row_exit = vec![0.0_f64; p];
+        let mut row_entry = vec![0.0_f64; p];
+        let mut row_derivative = vec![0.0_f64; p];
+        for i in 0..n {
+            let w_interval_exit = w_hess_exit[i];
+            let w_interval_entry = w_hess_entry[i];
+            let w_event_exit = w_event[i];
+            let w_event_derivative = w_event_inv_deriv[i];
+            if w_interval_exit == 0.0
+                && w_interval_entry == 0.0
+                && w_event_exit == 0.0
+                && w_event_derivative == 0.0
+            {
+                continue;
+            }
+            self.fill_exit_row(i, &mut row_exit);
+            self.fill_entry_row(i, &mut row_entry);
+            self.fill_derivative_row(i, &mut row_derivative);
+            for j in 0..p {
+                let contribution = w_interval_exit * row_exit[j]
+                    - w_interval_entry * row_entry[j]
+                    - w_event_exit * row_exit[j]
+                    - w_event_derivative * row_derivative[j];
+                let t = grad[j] + contribution;
+                if grad[j].abs() >= contribution.abs() {
+                    grad_comp[j] += (grad[j] - t) + contribution;
+                } else {
+                    grad_comp[j] += (contribution - t) + grad[j];
+                }
+                grad[j] = t;
+            }
+        }
+        grad += &grad_comp;
 
         h += &self.derivative_xt_diag_x(w_event_outer);
 
@@ -2491,6 +2444,30 @@ impl WorkingModelSurvival {
         rho: &[f64],
         beta0: &Array1<f64>,
     ) -> Result<(f64, Array1<f64>), EstimationError> {
+        let (candidate, beta) = self.reconverge_survival_inner_mode(rho, beta0)?;
+        // Re-converged β̂(ρ); evaluate the unified survival LAML value and
+        // analytic ρ-gradient at that mode. The ρ passed to the unified
+        // evaluator enumerates active blocks in block order, exactly the input
+        // convention of this shim.
+        let rho_arr = Array1::from_vec(rho.to_vec());
+        let state = candidate.update_state(&beta)?;
+        candidate.unified_lamlobjective_and_rhogradient(&beta, &state, &rho_arr)
+    }
+
+    /// Re-converge the survival inner mode at `λ = exp(ρ)` from warm-start
+    /// `beta0`, returning the λ-set model candidate and the converged `β̂(ρ)`.
+    /// This is the shared inner-solve used by
+    /// [`evaluate_survival_lamlcost_and_gradient`](Self::evaluate_survival_lamlcost_and_gradient):
+    /// inner PIRLS to a tight relative certificate, followed by a
+    /// Levenberg–Marquardt / exact-Cholesky stationarity polish that drives the
+    /// absolute penalized residual `‖S β̂ − ∇ℓ‖` below the FD round-off floor so
+    /// the envelope ρ-gradient is exact. (Without the polish, PIRLS alone leaves
+    /// `‖r‖ ~ 1` at large λ where H is ill-conditioned.)
+    fn reconverge_survival_inner_mode(
+        &self,
+        rho: &[f64],
+        beta0: &Array1<f64>,
+    ) -> Result<(WorkingModelSurvival, Array1<f64>), EstimationError> {
         // Inner-PIRLS settings mirror the survival transformation outer loop's
         // constrained inner solve. Tighter convergence than the production
         // outer loop so the inner mode is converged well below the FD step's
@@ -2508,14 +2485,14 @@ impl WorkingModelSurvival {
             .count();
         if rho.len() != active_block_count {
             crate::bail_invalid_estim!(
-                "evaluate_survival_lamlcost_and_gradient: rho dimension {} does not match active penalty block count {}",
+                "reconverge_survival_inner_mode: rho dimension {} does not match active penalty block count {}",
                 rho.len(),
                 active_block_count
             );
         }
         if beta0.len() != self.coefficient_dim() {
             crate::bail_invalid_estim!(
-                "evaluate_survival_lamlcost_and_gradient: beta0 dimension {} does not match coefficient dimension {}",
+                "reconverge_survival_inner_mode: beta0 dimension {} does not match coefficient dimension {}",
                 beta0.len(),
                 self.coefficient_dim()
             );
@@ -2583,7 +2560,7 @@ impl WorkingModelSurvival {
         // rho = [-0.5 .. 8] range exercised by the consistency gates.
         {
             const POLISH_MAX_ITERS: usize = 400;
-            const POLISH_TOL: f64 = 1e-11;
+            const POLISH_TOL: f64 = 1e-13;
             // Armijo sufficient-decrease constant and backtracking factor.
             const ARMIJO_C: f64 = 1e-4;
             const BACKTRACK: f64 = 0.5;
@@ -2594,22 +2571,14 @@ impl WorkingModelSurvival {
             // `state.hessian`. `update_state` exposes the pieces directly.
             let penalized_objective =
                 |st: &WorkingState| -> f64 { -st.log_likelihood + st.penalty_term };
-            let dbg = std::env::var_os("GAM_931_RHOGRAD_DEBUG").is_some();
-            let mut iters_done = 0usize;
-            let mut exit_reason = "max_iters";
             for _ in 0..POLISH_MAX_ITERS {
-                iters_done += 1;
                 let st = match candidate.update_state(&beta) {
                     Ok(st) => st,
-                    Err(_) => {
-                        exit_reason = "update_state_err";
-                        break;
-                    }
+                    Err(_) => break,
                 };
                 let r = st.gradient.clone();
                 let r_norm = r.iter().map(|v| v * v).sum::<f64>().sqrt();
                 if !r_norm.is_finite() || r_norm < POLISH_TOL {
-                    exit_reason = "converged";
                     break;
                 }
                 let h = st.hessian.to_dense();
@@ -2709,52 +2678,12 @@ impl WorkingModelSurvival {
                     alpha *= BACKTRACK;
                 }
                 if !accepted {
-                    exit_reason = "linesearch_no_decrease";
                     break;
-                }
-            }
-            if dbg {
-                let final_r = candidate
-                    .update_state(&beta)
-                    .map(|st| st.gradient.iter().map(|v| v * v).sum::<f64>().sqrt())
-                    .unwrap_or(f64::NAN);
-                let line = format!(
-                    "[931-POLISH] rho={:?} iters={} exit_reason={} final_r_norm={:+.6e}\n",
-                    rho, iters_done, exit_reason, final_r
-                );
-                // Flush to stderr so a slow/killed sbatch job still surfaces the
-                // datum, and append to a file so it survives a scancel.
-                use std::io::Write;
-                let _ = std::io::stderr().write_all(line.as_bytes());
-                let _ = std::io::stderr().flush();
-                if let Ok(mut f) = std::fs::OpenOptions::new()
-                    .create(true)
-                    .append(true)
-                    .open("/tmp/931_polish.txt")
-                {
-                    let _ = f.write_all(line.as_bytes());
                 }
             }
         }
 
-        // Re-converged β̂(ρ); evaluate the unified survival LAML value and
-        // analytic ρ-gradient at that mode. The ρ passed to the unified
-        // evaluator enumerates active blocks in block order, exactly the input
-        // convention of this shim.
-        let rho_arr = Array1::from_vec(rho.to_vec());
-        let state = candidate.update_state(&beta)?;
-        let out = candidate.unified_lamlobjective_and_rhogradient(&beta, &state, &rho_arr);
-        if std::env::var_os("GAM_931_RHOGRAD_DEBUG").is_some() {
-            if let Ok((v, g)) = &out {
-                eprintln!(
-                    "[931-SHIM] rho={:?} laml_value={:+.12e} analytic_grad={:?}",
-                    rho,
-                    v,
-                    g.to_vec()
-                );
-            }
-        }
-        out
+        Ok((candidate, beta))
     }
 }
 

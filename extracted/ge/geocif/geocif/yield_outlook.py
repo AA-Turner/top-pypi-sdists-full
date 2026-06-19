@@ -572,7 +572,7 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
             for r in regions_sorted
         ]
         bp = ax_box.boxplot(
-            data_clipped, vert=False, labels=labels,
+            data_clipped, vert=False, tick_labels=labels,
             patch_artist=True, widths=0.6, showfliers=False,
             medianprops={"color": "black", "linewidth": 1.4},
         )

@@ -56,8 +56,21 @@ class App:
         "wireless": wireless,
     }
 
+    _PLUGINS_PREFIX = "plugins/"
+
     def _setmodel(self):
-        self.model = App.models[self.name] if self.name in App.models else None
+        if self.name.startswith(self._PLUGINS_PREFIX):
+            # Plugin apps may carry a custom models namespace registered
+            # via an Extension. The plugin attribute uses underscores while
+            # the URL slug uses dashes (PluginsApp.__getattr__), so convert
+            # back when looking up the registry.
+            plugin_slug = self.name[len(self._PLUGINS_PREFIX) :]
+            plugin_name = plugin_slug.replace("-", "_")
+            extensions = getattr(self.api, "_extensions", {})
+            ext = extensions.get(plugin_name)
+            self.model = getattr(ext, "models", None) if ext is not None else None
+        else:
+            self.model = App.models.get(self.name)
 
     def __getstate__(self):
         return {"api": self.api, "name": self.name}
@@ -68,6 +81,29 @@ class App:
 
     def __getattr__(self, name):
         return Endpoint(self.api, self, name, model=self.model)
+
+    def endpoint(self, name):
+        """Return an Endpoint using ``name`` as the literal URL slug.
+
+        Attribute access (``app.ip_addresses``) converts underscores to
+        dashes, which is correct for the vast majority of NetBox endpoints.
+        This method skips that conversion so endpoints whose slug genuinely
+        contains underscores can be reached.
+
+        ## Parameters
+
+        * **name** (str): The endpoint slug, used verbatim (no ``_`` → ``-``).
+
+        ## Returns
+        Endpoint matching the given slug.
+
+        ## Examples
+
+        ```python
+        nb.plugins.custom_objects.endpoint("my_custom_object").all()
+        ```
+        """
+        return Endpoint(self.api, self, name, model=self.model, literal_name=True)
 
     def config(self):
         """Returns config response from app.

@@ -7,6 +7,16 @@ pub fn build_spherical_spline_basis(
     if matches!(spec.method, SphereMethod::Harmonic) {
         return build_spherical_harmonic_basis(data, spec);
     }
+    if matches!(spec.wahba_kernel, SphereWahbaKernel::Pseudo) {
+        let mut harmonic_spec = spec.clone();
+        harmonic_spec.method = SphereMethod::Harmonic;
+        harmonic_spec.penalty_order = 2;
+        harmonic_spec.max_degree = Some(
+            spec.max_degree
+                .unwrap_or_else(|| harmonic_degree_for_wahba_basis_width(spec, data.nrows())),
+        );
+        return build_spherical_harmonic_basis(data, &harmonic_spec);
+    }
     validate_lat_lon_matrix(data, "spherical spline", spec.radians)?;
     if !(1..=4).contains(&spec.penalty_order) {
         crate::bail_invalid_basis!(
@@ -26,91 +36,70 @@ pub fn build_spherical_spline_basis(
             found: centers.nrows(),
         });
     }
-    let raw_penalty = spherical_wahba_kernel_matrix_with_kind(
+    let center_kernel = spherical_wahba_kernel_matrix_with_kind(
         centers.view(),
         centers.view(),
         spec.penalty_order,
         spec.radians,
         spec.wahba_kernel,
     )?;
-    // Realized-design constraint transform. At fit time this is the
-    // area-weighted center sum-to-zero `z` (the global identifiability pipeline
-    // then composes the parametric-orthogonalization onto it and freezes the
-    // result). At predict time the frozen composed transform `z · z_parametric`
-    // is replayed verbatim so the realized design reproduces the fit-time
-    // basis exactly (#532) — recomputing `z` from the centers would drop the
-    // parametric orthogonalization and resurrect the constant-vs-intercept
-    // collision.
+    let decomposition =
+        wahba_low_degree_decomposition(centers.view(), spec.radians, center_kernel.view())?;
+
+    let raw_kernel_design = spherical_wahba_kernel_matrix_with_kind(
+        data,
+        centers.view(),
+        spec.penalty_order,
+        spec.radians,
+        spec.wahba_kernel,
+    )?;
+    let raw_design =
+        build_wahba_decomposed_design(raw_kernel_design.view(), data, spec.radians, &decomposition);
+    let mut raw_penalty = build_wahba_decomposed_penalty(center_kernel.view(), &decomposition);
+    let kernel_rank = decomposition.kernel_basis.ncols();
+    let diag_scale = if kernel_rank > 0 {
+        (0..kernel_rank)
+            .map(|i| raw_penalty[[i, i]].abs())
+            .sum::<f64>()
+            / kernel_rank as f64
+    } else {
+        0.0
+    };
+    if diag_scale.is_finite() && diag_scale > 0.0 {
+        // The raw finite-center chart is intentionally not coefficient-gauged.
+        // Tie a small coefficient ridge to the primary RKHS penalty so REML
+        // cannot disable all raw-chart stabilization by driving the separate
+        // double-penalty block to zero. This damps sparse polar center leverage
+        // without adding another smoothing parameter.
+        for i in 0..kernel_rank {
+            raw_penalty[[i, i]] += 10.0 * diag_scale;
+        }
+    }
+    let raw_width = raw_design.ncols();
+    // Realized-design transform. The Wahba kernels are built without the l=0
+    // spherical-harmonic mode, so an additional finite-center coefficient
+    // sum-to-zero gauge is not intrinsic to the smooth and can distort sparse
+    // polar fits. Keep the raw center coefficients here; the global
+    // identifiability pipeline still composes the realized parametric
+    // orthogonalization onto this transform and freezes it for prediction.
     let z = match &spec.identifiability {
         SphericalSplineIdentifiability::FrozenTransform { transform } => {
-            if transform.nrows() != centers.nrows() {
+            if transform.nrows() != raw_width {
                 crate::bail_dim_basis!(
-                    "frozen spherical identifiability transform mismatch: {} centers but transform has {} rows",
-                    centers.nrows(),
+                    "frozen spherical identifiability transform mismatch: {} raw basis columns but transform has {} rows",
+                    raw_width,
                     transform.nrows()
                 );
             }
             transform.clone()
         }
-        SphericalSplineIdentifiability::CenterSumToZero => {
-            let weights = sphere_area_weights(centers.view(), spec.radians);
-            weighted_coefficient_sum_to_zero_transform(weights.view())?
-        }
+        SphericalSplineIdentifiability::CenterSumToZero => Array2::<f64>::eye(raw_width),
     };
     let gauge = crate::solver::gauge::Gauge::from_block_transforms(&[z.clone()]);
     let penalty = gauge.restrict_penalty(&raw_penalty);
-    // Prefer the device truncated-spectral kernel whenever
-    // `sphere_kernel_decision` reports the (n, m, lmax) workload is
-    // worth GPU dispatch — this short-circuits the CPU streaming
-    // evaluator at the same time. We still keep the streaming fallback
-    // for the (rare) case where the kernel is Sobolev/Pseudo (untruncated)
-    // or the GPU runtime refuses the call.
-    let gpu_raw_design = try_build_truncated_sphere_design_gpu(
-        data,
-        centers.view(),
-        spec.wahba_kernel,
-        spec.penalty_order,
-        spec.radians,
-    );
-    let sphere_auto_chunk = if gpu_raw_design.is_some() {
-        None
-    } else {
-        auto_streaming_chunk_size_for_dense(data.nrows(), z.ncols())
-    };
-    let design = if let Some(raw_design) = gpu_raw_design {
-        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
-            gauge.restrict_design(&raw_design),
-        ))
-    } else if let Some(chunk) = sphere_auto_chunk {
-        log::info!(
-            "Sphere basis auto-streaming evaluator: n={} p={} chunk_size={}",
-            data.nrows(),
-            z.ncols(),
-            chunk,
-        );
-        let op = StreamingSphereEvaluator::new(
-            Arc::new(data.as_standard_layout().to_owned()),
-            Arc::new(centers.clone()),
-            spec.penalty_order,
-            spec.radians,
-            spec.wahba_kernel,
-            Some(Arc::new(gauge.clone())),
-            Some(chunk),
-        )
-        .map_err(BasisError::InvalidInput)?;
-        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Arc::new(op)))
-    } else {
-        let raw_design = spherical_wahba_kernel_matrix_with_kind(
-            data,
-            centers.view(),
-            spec.penalty_order,
-            spec.radians,
-            spec.wahba_kernel,
-        )?;
-        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
-            gauge.restrict_design(&raw_design),
-        ))
-    };
+    let design = DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(
+        gauge.restrict_design(&raw_design),
+    ));
     let (penalty_norm, c_primary) = normalize_penalty(&((&penalty + &penalty.t()) * 0.5));
     let mut candidates = vec![PenaltyCandidate {
         matrix: penalty_norm,
@@ -121,7 +110,8 @@ pub fn build_spherical_spline_basis(
         op: None,
     }];
     if spec.double_penalty {
-        let ridge = Array2::<f64>::eye(design.ncols());
+        let null_shrinkage = build_wahba_decomposed_null_shrinkage(&decomposition);
+        let ridge = gauge.restrict_penalty(&null_shrinkage);
         let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
         candidates.push(PenaltyCandidate {
             matrix: ridge_norm,
@@ -152,6 +142,305 @@ pub fn build_spherical_spline_basis(
         null_eigenvectors,
         joint_null_rotation: None,
     })
+}
+
+const SPHERE_UNPENALIZED_LOW_DEGREE: usize = 1;
+
+fn harmonic_degree_for_wahba_basis_width(spec: &SphericalSplineBasisSpec, n_rows: usize) -> usize {
+    let target = match &spec.center_strategy {
+        CenterStrategy::Auto(inner) => match inner.as_ref() {
+            CenterStrategy::FarthestPoint { num_centers }
+            | CenterStrategy::EqualMass { num_centers }
+            | CenterStrategy::EqualMassCovarRepresentative { num_centers }
+            | CenterStrategy::KMeans { num_centers, .. } => *num_centers,
+            CenterStrategy::UniformGrid { points_per_dim } => points_per_dim.saturating_pow(2),
+            CenterStrategy::UserProvided(centers) => centers.nrows(),
+            CenterStrategy::Auto(_) => default_num_centers(n_rows, 2),
+        },
+        CenterStrategy::FarthestPoint { num_centers } => *num_centers,
+        CenterStrategy::EqualMass { num_centers } => *num_centers,
+        CenterStrategy::EqualMassCovarRepresentative { num_centers } => *num_centers,
+        CenterStrategy::KMeans { num_centers, .. } => *num_centers,
+        CenterStrategy::UniformGrid { points_per_dim } => points_per_dim.saturating_pow(2),
+        CenterStrategy::UserProvided(centers) => centers.nrows(),
+    }
+    .max(1);
+    (1..=32)
+        .find(|&l| l * (l + 2) >= target)
+        .unwrap_or_else(|| default_spherical_harmonic_degree(n_rows))
+        .max(8)
+}
+
+fn real_spherical_harmonic_design_up_to_degree(
+    data: ArrayView2<'_, f64>,
+    max_degree: usize,
+    radians: bool,
+) -> Array2<f64> {
+    let p = max_degree * (max_degree + 2);
+    let to_rad = if radians {
+        1.0
+    } else {
+        std::f64::consts::PI / 180.0
+    };
+    let norms = precompute_harmonic_norms(max_degree);
+    let l_cap = max_degree + 1;
+    let mut out = Array2::<f64>::zeros((data.nrows(), p));
+    let mut p_buf = vec![0.0_f64; l_cap * l_cap];
+    for (i, mut row) in out.outer_iter_mut().enumerate() {
+        let lat_raw = data[(i, 0)] * to_rad;
+        let lat = lat_raw.clamp(-std::f64::consts::FRAC_PI_2, std::f64::consts::FRAC_PI_2);
+        let lon = data[(i, 1)] * to_rad;
+        fill_real_spherical_harmonics_row(
+            lat,
+            lon,
+            max_degree,
+            p_buf.as_mut_slice(),
+            norms.as_slice(),
+            row.view_mut(),
+        );
+    }
+    out
+}
+
+fn orthonormal_column_basis(matrix: ArrayView2<'_, f64>, rel_tol: f64) -> Array2<f64> {
+    let n = matrix.nrows();
+    let mut cols: Vec<Vec<f64>> = Vec::new();
+    let mut scale = 0.0_f64;
+    for col in matrix.columns() {
+        scale = scale.max(col.iter().map(|v| v * v).sum::<f64>().sqrt());
+    }
+    let tol = rel_tol * scale.max(1.0);
+    for col in matrix.columns() {
+        let mut v = col.to_vec();
+        for _ in 0..2 {
+            for q in &cols {
+                let dot = v.iter().zip(q.iter()).map(|(a, b)| a * b).sum::<f64>();
+                for (vi, qi) in v.iter_mut().zip(q.iter()) {
+                    *vi -= dot * qi;
+                }
+            }
+        }
+        let norm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if norm > tol {
+            for vi in &mut v {
+                *vi /= norm;
+            }
+            cols.push(v);
+        }
+    }
+    let mut q = Array2::<f64>::zeros((n, cols.len()));
+    for (j, col) in cols.iter().enumerate() {
+        for i in 0..n {
+            q[(i, j)] = col[i];
+        }
+    }
+    q
+}
+
+fn orthonormal_complement(q: ArrayView2<'_, f64>, rel_tol: f64) -> Array2<f64> {
+    let n = q.nrows();
+    let mut cols: Vec<Vec<f64>> = Vec::new();
+    let tol = rel_tol.max(0.0);
+    for i in 0..n {
+        let mut v = vec![0.0_f64; n];
+        v[i] = 1.0;
+        for _ in 0..2 {
+            for q_col in q.columns() {
+                let dot = v.iter().zip(q_col.iter()).map(|(a, b)| a * b).sum::<f64>();
+                for (vi, qi) in v.iter_mut().zip(q_col.iter()) {
+                    *vi -= dot * qi;
+                }
+            }
+            for c in &cols {
+                let dot = v.iter().zip(c.iter()).map(|(a, b)| a * b).sum::<f64>();
+                for (vi, ci) in v.iter_mut().zip(c.iter()) {
+                    *vi -= dot * ci;
+                }
+            }
+        }
+        let norm = v.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if norm > tol {
+            for vi in &mut v {
+                *vi /= norm;
+            }
+            cols.push(v);
+        }
+    }
+    let mut out = Array2::<f64>::zeros((n, cols.len()));
+    for (j, col) in cols.iter().enumerate() {
+        for i in 0..n {
+            out[[i, j]] = col[i];
+        }
+    }
+    out
+}
+
+struct WahbaLowDegreeDecomposition {
+    kernel_basis: Array2<f64>,
+    low_degree_centers: Option<Array2<f64>>,
+    kernel_low_projection: Option<Array2<f64>>,
+    low_degree_cols: usize,
+}
+
+fn wahba_low_degree_decomposition(
+    centers: ArrayView2<'_, f64>,
+    radians: bool,
+    center_kernel: ArrayView2<'_, f64>,
+) -> Result<WahbaLowDegreeDecomposition, BasisError> {
+    let low_cols = SPHERE_UNPENALIZED_LOW_DEGREE * (SPHERE_UNPENALIZED_LOW_DEGREE + 2);
+    if centers.nrows() <= low_cols {
+        return Ok(WahbaLowDegreeDecomposition {
+            kernel_basis: Array2::<f64>::eye(centers.nrows()),
+            low_degree_centers: None,
+            kernel_low_projection: None,
+            low_degree_cols: 0,
+        });
+    }
+    let harmonics = real_spherical_harmonic_design_up_to_degree(
+        centers,
+        SPHERE_UNPENALIZED_LOW_DEGREE,
+        radians,
+    );
+    let low_degree_coefficients = solve_spd_columns_ridged(center_kernel, harmonics.view())?;
+    let low_coeff_basis = orthonormal_column_basis(low_degree_coefficients.view(), 1e-10);
+    let kernel_basis = orthonormal_complement(low_coeff_basis.view(), 1e-10);
+    let low_degree_centers = harmonics;
+    if low_degree_centers.ncols() == 0 || kernel_basis.ncols() == centers.nrows() {
+        return Ok(WahbaLowDegreeDecomposition {
+            kernel_basis,
+            low_degree_centers: None,
+            kernel_low_projection: None,
+            low_degree_cols: 0,
+        });
+    }
+    let center_kernel_reduced = center_kernel.dot(&kernel_basis);
+    let low_normal = low_degree_centers.t().dot(&low_degree_centers);
+    let low_cross = low_degree_centers.t().dot(&center_kernel_reduced);
+    let kernel_low_projection = solve_spd_columns_ridged(low_normal.view(), low_cross.view())?;
+    let low_degree_cols = low_degree_centers.ncols();
+    Ok(WahbaLowDegreeDecomposition {
+        kernel_basis,
+        low_degree_centers: Some(low_degree_centers),
+        kernel_low_projection: Some(kernel_low_projection),
+        low_degree_cols,
+    })
+}
+
+fn hstack_dense(left: ArrayView2<'_, f64>, right: ArrayView2<'_, f64>) -> Array2<f64> {
+    let n = left.nrows();
+    assert_eq!(right.nrows(), n);
+    let mut out = Array2::<f64>::zeros((n, left.ncols() + right.ncols()));
+    out.slice_mut(s![.., 0..left.ncols()]).assign(&left);
+    out.slice_mut(s![.., left.ncols()..]).assign(&right);
+    out
+}
+
+fn build_wahba_decomposed_design(
+    raw_kernel_design: ArrayView2<'_, f64>,
+    data: ArrayView2<'_, f64>,
+    radians: bool,
+    decomposition: &WahbaLowDegreeDecomposition,
+) -> Array2<f64> {
+    let mut kernel_design = raw_kernel_design.dot(&decomposition.kernel_basis);
+    match (
+        &decomposition.low_degree_centers,
+        &decomposition.kernel_low_projection,
+    ) {
+        (Some(low_degree_centers), Some(kernel_low_projection)) => {
+            let raw_low = real_spherical_harmonic_design_up_to_degree(
+                data,
+                SPHERE_UNPENALIZED_LOW_DEGREE,
+                radians,
+            );
+            debug_assert_eq!(raw_low.ncols(), low_degree_centers.ncols());
+            let low_design = raw_low;
+            kernel_design -= &low_design.dot(kernel_low_projection);
+            hstack_dense(kernel_design.view(), low_design.view())
+        }
+        _ => kernel_design,
+    }
+}
+
+fn build_wahba_decomposed_penalty(
+    center_kernel: ArrayView2<'_, f64>,
+    decomposition: &WahbaLowDegreeDecomposition,
+) -> Array2<f64> {
+    let kernel_penalty = decomposition
+        .kernel_basis
+        .t()
+        .dot(&center_kernel.dot(&decomposition.kernel_basis));
+    let p = kernel_penalty.nrows() + decomposition.low_degree_cols;
+    let mut out = Array2::<f64>::zeros((p, p));
+    out.slice_mut(s![0..kernel_penalty.nrows(), 0..kernel_penalty.ncols()])
+        .assign(&kernel_penalty);
+    (&out + &out.t()) * 0.5
+}
+
+fn build_wahba_decomposed_null_shrinkage(
+    decomposition: &WahbaLowDegreeDecomposition,
+) -> Array2<f64> {
+    let p = decomposition.kernel_basis.ncols() + decomposition.low_degree_cols;
+    let mut out = Array2::<f64>::zeros((p, p));
+    if decomposition.low_degree_cols == 0 {
+        for i in 0..p {
+            out[[i, i]] = 1.0;
+        }
+    } else {
+        for i in 0..decomposition.kernel_basis.ncols() {
+            out[[i, i]] = 1.0;
+        }
+    }
+    out
+}
+
+fn solve_spd_columns_ridged(
+    a: ArrayView2<'_, f64>,
+    b: ArrayView2<'_, f64>,
+) -> Result<Array2<f64>, BasisError> {
+    use crate::linalg::faer_ndarray::{FaerArrayView, FaerLlt, FaerSolve};
+    use faer::Side;
+
+    let n = a.nrows();
+    if n == 0 || a.ncols() != n || b.nrows() != n {
+        crate::bail_dim_basis!(
+            "ridged SPD solve needs square A and matching RHS rows, got A={}x{} and B={}x{}",
+            a.nrows(),
+            a.ncols(),
+            b.nrows(),
+            b.ncols()
+        );
+    }
+    let trace: f64 = (0..n).map(|i| a[[i, i]].abs()).sum();
+    let ridge = if trace.is_finite() && trace > 0.0 {
+        1e-8 * trace / n as f64
+    } else {
+        1e-12
+    };
+    let mut m = a.to_owned();
+    for i in 0..n {
+        m[[i, i]] += ridge;
+    }
+    let mview = FaerArrayView::new(&m);
+    let factor = FaerLlt::new(mview.as_ref(), Side::Lower).map_err(|err| {
+        BasisError::InvalidInput(format!(
+            "sphere Wahba low-degree Gram solve failed after ridge {ridge:.3e}: {err:?}"
+        ))
+    })?;
+    let rhs_owned = b.to_owned();
+    let rhs = FaerArrayView::new(&rhs_owned);
+    let solved = factor.solve(rhs.as_ref());
+    let mut out = Array2::<f64>::zeros((n, b.ncols()));
+    for j in 0..b.ncols() {
+        for i in 0..n {
+            out[[i, j]] = solved[(i, j)];
+        }
+    }
+    if !out.iter().all(|v| v.is_finite()) {
+        return Err(BasisError::InvalidInput(
+            "sphere Wahba low-degree Gram solve produced non-finite coefficients".to_string(),
+        ));
+    }
+    Ok(out)
 }
 
 /// Precomputed √(2)·N(l,m) coefficients for the real spherical-harmonic
@@ -338,6 +627,11 @@ pub(crate) fn build_spherical_harmonic_basis(
         })?;
     }
     // Diagonal Laplace-Beltrami eigenvalue penalty [l(l+1)]^m per (l, m).
+    // For explicit high-degree bases (L > 2), fold an extra [l(l+1)] factor
+    // into modes l > 2 in this same primary block. Keeping the shrinkage tied
+    // to the primary lambda prevents REML from fitting dense equatorial noise
+    // with separately under-penalized high-degree modes and then degrading in
+    // sparse polar latitude bands.
     //
     // This is already in the natural coefficient coordinates for the real
     // spherical harmonics: the basis is orthonormal on S², so X'X/n is O(1)
@@ -350,12 +644,63 @@ pub(crate) fn build_spherical_harmonic_basis(
     let mut penalty = Array2::<f64>::zeros((p, p));
     let mut col = 0usize;
     for l in 1..=l_max {
-        let eig = (l as f64 * (l as f64 + 1.0)).powi(spec.penalty_order as i32);
+        let laplace = l as f64 * (l as f64 + 1.0);
+        let eig = if l <= SPHERE_UNPENALIZED_LOW_DEGREE {
+            0.0
+        } else {
+            laplace.powi((spec.penalty_order + 1) as i32)
+        };
         for _ in 0..(2 * l + 1) {
             penalty[[col, col]] = eig;
             col += 1;
         }
     }
+    let mut ridge = Array2::<f64>::eye(p);
+    {
+        let mut col = 0usize;
+        for l in 1..=l_max {
+            for _ in 0..(2 * l + 1) {
+                if l <= SPHERE_UNPENALIZED_LOW_DEGREE {
+                    ridge[[col, col]] = 0.0;
+                }
+                col += 1;
+            }
+        }
+    }
+
+    // Realized-design identifiability gauge (#1246). The global smooth
+    // identifiability pipeline can residualize this harmonic term against the
+    // model intercept / overlapping parametric columns and FREEZES the resulting
+    // column transform onto `spec.identifiability` as a `FrozenTransform` so that
+    // prediction reproduces the exact fit-time basis. Unlike the Wahba path the
+    // harmonic builder used to ignore that frozen transform entirely: at predict
+    // time it rebuilt the RAW (un-residualized) harmonic design while the fitted
+    // coefficients lived in the transformed coordinate system. Applying those
+    // coefficients to the raw design produced finite-but-wrong predictions even
+    // on the training rows (observed RMSE-vs-truth ≈ 0.59 for a degree-≤2 truth
+    // that the basis recovers exactly, i.e. the coefficients were correct but the
+    // replayed design was not). Honor the frozen transform here exactly as the
+    // Wahba builder does: apply it to the design and every penalty through a
+    // `Gauge`, and re-freeze it into the metadata for the next rebuild. A
+    // `CenterSumToZero` (fresh-fit) spec carries the identity, so first-fit
+    // builds are unchanged.
+    let transform = match &spec.identifiability {
+        SphericalSplineIdentifiability::FrozenTransform { transform } => {
+            if transform.nrows() != p {
+                crate::bail_dim_basis!(
+                    "frozen spherical-harmonic identifiability transform mismatch: {p} basis columns but transform has {} rows",
+                    transform.nrows()
+                );
+            }
+            transform.clone()
+        }
+        SphericalSplineIdentifiability::CenterSumToZero => Array2::<f64>::eye(p),
+    };
+    let gauge = crate::solver::gauge::Gauge::from_block_transforms(&[transform.clone()]);
+    let design = gauge.restrict_design(&design);
+    let penalty = gauge.restrict_penalty(&penalty);
+    let ridge = gauge.restrict_penalty(&ridge);
+
     let mut candidates = vec![PenaltyCandidate {
         matrix: penalty,
         nullspace_dim_hint: 0,
@@ -365,7 +710,6 @@ pub(crate) fn build_spherical_harmonic_basis(
         op: None,
     }];
     if spec.double_penalty {
-        let ridge = Array2::<f64>::eye(p);
         let (ridge_norm, c_ridge) = normalize_penalty(&ridge);
         candidates.push(PenaltyCandidate {
             matrix: ridge_norm,
@@ -389,7 +733,7 @@ pub(crate) fn build_spherical_harmonic_basis(
             method: SphereMethod::Harmonic,
             max_degree: Some(l_max),
             wahba_kernel: spec.wahba_kernel,
-            constraint_transform: None,
+            constraint_transform: Some(transform),
         },
         kronecker_factored: None,
         ops,
@@ -2987,6 +3331,49 @@ pub fn build_matern_basis_log_kappa_aniso_derivatives(
         }
         result.penalties_cross_pairs = cross_pairs;
         result.penalties_cross_provider = Some(cross_provider);
+    }
+
+    if dim > 1 && !result.penalties_first.is_empty() {
+        // The forward anisotropic Matérn design uses the CENTERED contrast
+        // metric `w_a = exp(2·(η_a − mean(η)))` (see `centered_aniso_metric_weights`
+        // / `aniso_distance`): a uniform shift of every η_a leaves the mean-
+        // subtracted weights — and therefore the whole design, kernel, and
+        // penalty — unchanged. The optimizer's per-axis ψ-coordinate is the raw
+        // η_a, so the criterion is invariant along the all-ones direction and
+        // the analytic penalty derivative w.r.t. raw η_a must be the centering
+        // projection of the per-axis ψ-derivative:
+        //
+        //   ∂S/∂η_a = ∂S/∂ψ_a − (1/d) Σ_b ∂S/∂ψ_b   (η_a − mean(η) chain rule).
+        //
+        // The per-axis builders above produce `∂S/∂ψ_a`, treating each centered
+        // contrast as independent; subtracting the mean across axes removes the
+        // spurious common-mode. (#1259: the previous code added back a
+        // `scalar_share = (1/d)·∂S/∂log κ` term, which is the gradient of a
+        // GLOBAL length-scale move — but the centered forward design makes a
+        // uniform η shift a no-op, not a log-κ change, so that add-back injected
+        // a fake all-ones gradient component. The FD-audit of the outer REML
+        // criterion flagged it as a per-axis analytic≠FD desync that misdirected
+        // the κ-optimizer off the true signal-axis contrast.)
+        let inv_dim = 1.0 / dim as f64;
+        let num_blocks = result.penalties_first[0].len();
+        for block in 0..num_blocks {
+            let mut eta_mean = Array2::<f64>::zeros(result.penalties_first[0][block].raw_dim());
+            for axis in 0..dim {
+                if result.penalties_first[axis][block].raw_dim()
+                    != result.penalties_first[0][block].raw_dim()
+                {
+                    return Err(BasisError::InvalidInput(format!(
+                        "Matérn aniso raw-psi penalty derivative shape mismatch on axis {axis}, block {block}"
+                    )));
+                }
+                eta_mean += &result.penalties_first[axis][block];
+            }
+            eta_mean.mapv_inplace(|value| value * inv_dim);
+            for axis in 0..dim {
+                result.penalties_first[axis][block] =
+                    &result.penalties_first[axis][block] - &eta_mean;
+            }
+        }
     }
 
     Ok(result)

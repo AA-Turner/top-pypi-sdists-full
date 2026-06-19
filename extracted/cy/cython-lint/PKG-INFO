@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cython-lint
-Version: 0.19.0
+Version: 0.20.0
 Summary: Lint Cython files
 Project-URL: Homepage, https://github.com/MarcoGorelli/cython-lint
 Project-URL: Bug Tracker, https://github.com/MarcoGorelli/cython-lint
@@ -69,7 +69,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.19.0
+    rev: v0.20.0
     hooks:
     -   id: cython-lint
     -   id: double-quote-cython-strings
@@ -118,6 +118,7 @@ exclude = 'my_project/excluded_cython_file.pyx'
 - f-string without placeholders
 - if-statement with tuple condition (always true...)
 - late-binding closures https://docs.python-guide.org/writing/gotchas/#late-binding-closures
+- outer loop variable name overwritten by inner loop variable name
 - pointless string statement
 - ``pycodestyle`` nitpicks (which you can turn off with ``--no-pycodestyle``)
 - repeated element in set

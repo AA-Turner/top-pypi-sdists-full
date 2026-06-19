@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+import pikepdf
 from pikepdf import Annotation, Name, Pdf
 
 
@@ -77,6 +78,39 @@ def test_checkbox(form):
     assert not field.is_radio_button
     assert not field.is_pushbutton
     assert not field.is_choice
+
+
+def test_checkbox_is_checked_states(form):
+    """Pin is_checked semantics, which deliberately diverge from qpdf's
+    QPDFFormFieldObjectHelper::isChecked().
+
+    Per ISO 32000 a checkbox's /V is optional and an absent value defaults to
+    /Off (unchecked), matching PDFBox/pdf.js/Acrobat. qpdf's isChecked() instead
+    reports an absent or non-name /V as *checked* (any value != /Off). We require
+    /V to be a name other than /Off, so a name like /1 still reads as checked.
+    """
+    field = form.acroform.get_fields_with_qualified_name('Check Box3')[0]
+    assert field.is_checkbox
+
+    # Standard on-value -> checked
+    field.obj.V = Name.Yes
+    assert field.is_checked
+
+    # Explicit /Off -> unchecked
+    field.obj.V = Name.Off
+    assert not field.is_checked
+
+    # Non-standard on-value (any name other than /Off) -> checked
+    field.obj.V = Name('/1')
+    assert field.is_checked
+
+    # Absent /V -> unchecked (the key divergence; qpdf reports this as checked)
+    del field.obj.V
+    assert not field.is_checked
+
+    # Non-name /V (malformed) -> unchecked
+    field.obj.V = pikepdf.String('Yes')
+    assert not field.is_checked
 
 
 def test_radio_button(form):
@@ -188,7 +222,8 @@ def test_get_field_for_annotation(form):
 
 def test_copy_form(form, dd0293):
     orig_count = len(dd0293.acroform.fields)
-    dd0293.pages.extend(form.pages)
+    with pytest.warns(pikepdf.PageCopyWarning):
+        dd0293.pages.extend(form.pages)
     copied_fields = dd0293.acroform.fix_copied_annotations(
         dd0293.pages[-1], form.pages[0], form.acroform
     )
@@ -199,8 +234,6 @@ def test_copy_form(form, dd0293):
 
 def test_field_value_property_setter(form):
     """Test AcroFormField.value property setter (lines 68-70 of acroform.cpp)."""
-    import pikepdf
-
     field = form.acroform.get_fields_with_qualified_name('Text1')[0]
     # Set value using QPDFObjectHandle via property setter
     field.value = pikepdf.String("Test Value")
@@ -227,3 +260,32 @@ def test_remove_fields_objecthandle(form):
     form.acroform.remove_fields(objlist)
     fields = form.acroform.get_fields_with_qualified_name('Button2')
     assert len(fields) == 0
+
+
+def test_acroform_validate(form):
+    acro = form.acroform
+    acro.validate()
+    acro.validate(repair=True)
+    assert acro.exists
+
+
+def test_acroform_invalidate_cache(form):
+    acro = form.acroform
+    # Modify field structure then force cache regeneration
+    assert len(acro.fields) == 5
+    acro.invalidate_cache()
+    assert len(acro.fields) == 5
+
+
+def test_acroform_transform_annotations(form):
+    from pikepdf import Matrix
+
+    acro = form.acroform
+    old_annots = form.pages[0].obj.Annots
+    new_annots, new_fields, old_fields = acro.transform_annotations(
+        old_annots, Matrix()
+    )
+    assert len(new_annots) == len(old_annots)
+    # Each transformed widget annotation that had a field yields a new field
+    assert len(new_fields) == len(old_fields)
+    assert all(isinstance(og, tuple) and len(og) == 2 for og in old_fields)

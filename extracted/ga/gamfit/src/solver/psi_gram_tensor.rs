@@ -9,22 +9,26 @@
 //! window every design entry `X(ψ)[i, j]` is an ANALYTIC function of ψ on a
 //! compact interval (Matérn channels depend on (r, ℓ) only through κr and
 //! κ-power prefactors; Duchon power blocks are ψ-free; partial-fraction
-//! coefficients are analytic scalars), so the whole design admits a
-//! geometrically-convergent Chebyshev expansion
+//! coefficients are analytic scalars), so both the design and its Gaussian
+//! sufficient statistics admit geometrically-convergent Chebyshev expansions
 //!
 //! ```text
 //!   X(ψ) = Σ_{d=0}^{D} X_d · T_d(ψ̃),     ψ̃ = affine map of ψ to [−1, 1],
 //! ```
 //!
 //! with n×k coefficient slabs `X_d` computed ONCE from D+1 exact design
-//! evaluations at Chebyshev nodes (a first-kind DCT). Precomputing the
-//! expanded Gram `G̃[d][e] = X_dᵀ W X_e` and cross-products `c̃[d] = X_dᵀ W z`
-//! in ONE pass over the data makes every subsequent trial n-free:
+//! evaluations at Chebyshev nodes (a first-kind DCT). The design coefficients
+//! certify analyticity, while the shipped runtime series is fit directly to the
+//! exact node sufficient statistics `G(ψ_i)=X(ψ_i)ᵀ W X(ψ_i)` and
+//! `c(ψ_i)=X(ψ_i)ᵀ W z`. Interpolating the sufficient statistics directly avoids
+//! the extra product-truncation residual from forming `Σ_d,e X_dᵀWX_e T_dT_e`,
+//! which a weakly penalized radial solve can amplify into visible β̂ drift.
+//! Every subsequent trial is n-free:
 //!
 //! ```text
-//!   XᵀWX(ψ) = Σ_{d,e} T_d(ψ̃) T_e(ψ̃) G̃[d][e]          O(D²k²)
-//!   XᵀWz(ψ) = Σ_d T_d(ψ̃) c̃[d]                          O(D k)
-//!   ∂/∂ψ (XᵀWX) = Σ_{d,e} (T_d′T_e + T_dT_e′) G̃[d][e]   O(D²k²)
+//!   XᵀWX(ψ) = Σ_d T_d(ψ̃) G_d          O(D k²)
+//!   XᵀWz(ψ) = Σ_d T_d(ψ̃) c_d          O(D k)
+//!   ∂/∂ψ (XᵀWX) = Σ_d T_d′(ψ̃) G_d     O(D k²)
 //! ```
 //!
 //! The ψ-gradient comes from the SAME representation as the value — one
@@ -51,15 +55,13 @@ use ndarray::{Array1, Array2, ArrayView1};
 /// This is a cheap NECESSARY-CONDITION pre-filter, not the accuracy gate: the
 /// authoritative accuracy gate is the off-node `spot_check` on the ASSEMBLED
 /// Gram ([`PSI_GRAM_SPOT_RTOL`]). On the WIDE STANDARDIZED geometry default 1-D
-/// fits use (#1215) the realized radial design `kernel(r·e^ψ)` is accurate only
-/// to ~1e-11 relative over the wide ψ-window, so its Chebyshev tail PLATEAUS at
-/// ~2e-11 of column scale (flat, NOT decaying) — no node count drives it below a
-/// 1e-12 bar. Sizing this pre-filter just above that realized-design floor (and
-/// below the spot-check gate) lets an analytic design certify on production
-/// geometry while a genuinely non-analytic design (a true kink), whose tail
-/// plateaus orders higher, is still refused; the spot-check is the hard
-/// backstop either way. A Gram reconstructed to ~2e-11 is far inside the
-/// downstream gates' 1e-6 bar.
+/// fits use (#1215) the realized radial design needs the deeper ladder below to
+/// drive the tail beneath the beta-invariance bar. Keep this as a necessary
+/// pre-filter, not the final beta oracle: shallow 65-node tensors were fine for
+/// cost-only gates, but the weakly penalized radial solve amplified their
+/// residual into visible beta-hat drift across the reduced-basis rotation. A
+/// genuinely non-analytic design (a true kink) still refuses here or at the
+/// assembled-Gram spot check.
 pub const PSI_GRAM_CERT_RTOL: f64 = 1.0e-9;
 
 /// Relative agreement required at the off-node Gram spot checks.
@@ -100,37 +102,41 @@ pub const PSI_GRAM_GRAD_SCAN_POINTS: usize = 64;
 /// On the WIDE STANDARDIZED geometry default 1-D fits use (#1215) the tail
 /// decays cleanly but GEOMETRICALLY-slowly: measured per-column worst tail rel
 /// is ~3.2e-8 at m=33 and ~2.3e-11 at m=65 (a clean ~1300×/doubling decay, NOT a
-/// floor). m=65 certifies under [`PSI_GRAM_CERT_RTOL`], so the VALUE Gram is
-/// accurate to ~2.3e-11 — fine for the cost lane. But the inner penalized solve
-/// `β̂ = (G+λS)⁻¹r` AMPLIFIES that Gram error by the conditioning of the radial
-/// kernel Gram, which grows sharply with ψ (`‖XᵀX‖_F` rises from ~6e2 at ψ≈0 to
-/// ~1.7e7 at ψ≈2.1 on the gate fixture), so at the higher-ψ sweep points β̂ from
-/// the n-free Gram drifts from the streamed β̂ by ~6e-6 — over the gate's 1e-6
-/// bar. Extending the ladder to 129 nodes continues the geometric decay to
-/// ~1.7e-14, dropping the amplified β̂ drift to ~1e-9, comfortably bit-tight
-/// (#1216). The build frees the per-node realized designs right after the DCT so
-/// the deeper ladder does not balloon peak memory at large production `n`.
-pub const PSI_GRAM_NODE_LADDER: [usize; 5] = [9, 17, 33, 65, 129];
+/// floor). The old 65-node acceptance was fine for the cost lane but not for the
+/// beta-hat soundness gate: the inner penalized solve `β̂ = (G+λS)⁻¹r`
+/// amplifies Gram residuals by the radial-kernel conditioning, especially after
+/// the production skip was relaxed to cross a reduced-basis rotation. Start at
+/// 513 nodes so the production gate no longer accepts the shallower tensors that
+/// pass the Gram spot check but still move the weakly-penalized beta solve.
+pub const PSI_GRAM_NODE_LADDER: [usize; 1] = [513];
 
 /// Number of deterministic off-node spot-check ψ values.
 pub const PSI_GRAM_SPOT_POINTS: usize = 3;
 
-/// Minimum RRQR rank-verdict margin accepted for the fast-path skip frame.
-///
-/// The skip gate is intentionally conservative: a Gram-derived pivot frame is
-/// used only when the rank decision is well away from both the tolerance cliff
-/// and the Gram precision floor reported by `rrqr_from_gram_with_permutation`.
-/// Near-cliff frames fall back to the full `reset_surface` path.
-pub const PSI_GRAM_SKIP_RRQR_MARGIN_MIN: f64 = 16.0;
+/// Rank-revealing relative eigenvalue cutoff for the reduced-basis (range)
+/// projector witness [`PsiGramTensor::reduced_basis_equal`] (#1264). An
+/// eigendirection of the conditioned Gram `XᵀWX(ψ)` is counted in the range
+/// (reduced) basis when its eigenvalue exceeds `PSI_GRAM_SKIP_RANK_RTOL · λ_max`.
+/// Sized to match the inner solve's effective rank-revealing scale on the
+/// standardized radial-kernel Gram, whose conditioning sweeps several orders of
+/// magnitude across the ψ-window; a directly-below-cutoff direction is exactly
+/// the one whose inclusion flips with ψ and silently rotates the frozen reduced
+/// basis, which this witness must catch.
+pub const PSI_GRAM_SKIP_RANK_RTOL: f64 = 1.0e-10;
 
-/// Number of equispaced scan points used to locate the RRQR-pivot-stable skip
-/// sub-window at build (each probe is a k×k Gram-derived RRQR — cheap).
-pub const PSI_GRAM_SKIP_SCAN_POINTS: usize = 64;
+/// Max-norm tolerance on the range-PROJECTOR agreement between the pinning ψ and
+/// the candidate ψ in [`PsiGramTensor::reduced_basis_equal`] (#1264). The
+/// orthogonal projector onto the reduced subspace is gauge-invariant and O(1) in
+/// scale, so a tight absolute tolerance certifies the two reduced bases span the
+/// SAME subspace. A subspace that has measurably rotated (the basis the frozen
+/// fast-path surface would mis-pair with a re-keyed Gram) exceeds this by orders
+/// of magnitude, so it refuses the skip well before the ~1e-6 β̂ bar is at risk.
+pub const PSI_GRAM_SKIP_PROJ_ATOL: f64 = 1.0e-7;
 
 /// Certified Chebyshev-in-ψ expansion of a design-moving Gram (#1033b).
 ///
-/// Holds the one-time n-pass products; every per-trial accessor is O(D²k²)
-/// or cheaper and never touches n rows again.
+/// Holds the one-time Chebyshev sufficient-statistic series; every per-trial
+/// accessor is O(Dk²) or cheaper and never touches n rows again.
 pub struct PsiGramTensor {
     psi_lo: f64,
     psi_hi: f64,
@@ -147,11 +153,10 @@ pub struct PsiGramTensor {
     /// still spans the full window.
     grad_psi_lo: f64,
     grad_psi_hi: f64,
-    /// RRQR-pivot-stable sub-window `[skip_psi_lo, skip_psi_hi] ⊆ [psi_lo,
-    /// psi_hi]` over which the design's REDUCED BASIS is ψ-invariant enough that
-    /// the #1033 design-revision FAST PATH (which skips `reset_surface` and
-    /// re-keys only the Gram + penalty on a surface pinned at a reference ψ) is
-    /// SOUND (#1264).
+    /// Reduced-basis-equality sub-window `[skip_psi_lo, skip_psi_hi] ⊆
+    /// [psi_lo, psi_hi]` over which the #1033 design-revision FAST PATH (which
+    /// skips `reset_surface` and re-keys only the Gram + penalty on a surface
+    /// pinned at a reference ψ) is SOUND (#1264).
     ///
     /// The fast path keeps the conditioned reduced design / null-space basis
     /// frozen at the revision-pinning ψ and only swaps in `gram_at(ψ_new)` and
@@ -159,21 +164,21 @@ pub struct PsiGramTensor {
     /// the reduced basis are unchanged. On the WIDE standardized window (#1215)
     /// the radial-kernel frame can pivot while the conditioning ratio still looks
     /// tame, so a conditioning-only gate silently pairs a stale reduced basis
-    /// with a re-keyed Gram → a wrong β̂. This sub-window is the largest scanned
-    /// contiguous ψ-range whose Gram-derived RRQR rank and permutation match;
-    /// outside it the caller must take the full `reset_surface` slow path.
+    /// with a re-keyed Gram → a wrong β̂. Gram-derived RRQR rank/permutation is
+    /// only a necessary condition and has shipped β̂-rel ≈ 7.8e-2 on the
+    /// standardized gate fixture. Until the caller can prove the realized
+    /// reduced basis itself is equal, this sub-window is deliberately empty and
+    /// callers must take the full `reset_surface` slow path for moving-ψ trials.
     skip_psi_lo: f64,
     skip_psi_hi: f64,
-    /// Original row count of the design whose Gram was tensorized. Needed to run
-    /// the Gram-derived RRQR with the same rank tolerance as the tall design.
-    n_rows: usize,
     /// Number of Chebyshev coefficients (degree + 1).
     n_coeff: usize,
     k: usize,
-    /// `gram[d * n_coeff + e]` = `X_dᵀ W X_e` (k×k); symmetric in (d, e) up to
-    /// transpose: `gram[d][e] == gram[e][d]ᵀ`.
+    /// Chebyshev coefficients of `X(ψ)ᵀ W X(ψ)`, obtained by a first-kind DCT of
+    /// the exact node sufficient statistics. This keeps the per-trial path to a
+    /// single O(Dk²) series and avoids product-truncation drift in β̂.
     gram: Vec<Array2<f64>>,
-    /// `rhs[d]` = `X_dᵀ W z` (the caller's fixed weighted response/offset).
+    /// Chebyshev coefficients of `X(ψ)ᵀ W z`.
     rhs: Vec<Array1<f64>>,
     /// `zᵀWz` — ψ-free, captured at build so the Gaussian sufficient-statistic
     /// triple can be assembled per trial without any row access.
@@ -256,6 +261,34 @@ fn cheb_t_double_prime(x: f64, n: usize) -> Vec<f64> {
     tpp
 }
 
+fn kahan_scaled_add_array2(
+    out: &mut Array2<f64>,
+    comp: &mut Array2<f64>,
+    scale: f64,
+    x: &Array2<f64>,
+) {
+    for ((slot, c), &value) in out.iter_mut().zip(comp.iter_mut()).zip(x.iter()) {
+        let y = scale * value - *c;
+        let t = *slot + y;
+        *c = (t - *slot) - y;
+        *slot = t;
+    }
+}
+
+fn kahan_scaled_add_array1(
+    out: &mut Array1<f64>,
+    comp: &mut Array1<f64>,
+    scale: f64,
+    x: &Array1<f64>,
+) {
+    for ((slot, c), &value) in out.iter_mut().zip(comp.iter_mut()).zip(x.iter()) {
+        let y = scale * value - *c;
+        let t = *slot + y;
+        *c = (t - *slot) - y;
+        *slot = t;
+    }
+}
+
 impl PsiGramTensor {
     /// Build and certify the tensor over `psi ∈ [psi_lo, psi_hi]`.
     ///
@@ -290,7 +323,7 @@ impl PsiGramTensor {
                         // interior (the value lane keeps the full window).
                         candidate.certify_gradient_window(&mut eval_design, weights);
                         // Narrow the design-revision skip lane to the
-                        // RRQR-pivot-stable interior (#1264).
+                        // reduced-basis-equality interior (#1264).
                         candidate.compute_skip_window();
                         return Some(candidate);
                     }
@@ -339,18 +372,13 @@ impl PsiGramTensor {
         for d in 0..m {
             let gamma = if d == 0 { 1.0 } else { 2.0 };
             let mut slab = Array2::<f64>::zeros((n, k));
+            let mut slab_comp = Array2::<f64>::zeros((n, k));
             for (i, design) in designs.iter().enumerate() {
                 let wgt = gamma / m as f64 * t_at_nodes[i][d];
-                slab.scaled_add(wgt, design);
+                kahan_scaled_add_array2(&mut slab, &mut slab_comp, wgt, design);
             }
             coeff_slabs.push(slab);
         }
-        // The per-node realized designs are consumed by the DCT above and not
-        // needed again (the certificate, Gram products, and spot/gradient checks
-        // all work from `coeff_slabs` or fresh evals). Free them now so the
-        // deeper node ladder (#1216) does not balloon peak build memory at large
-        // production `n` — only `coeff_slabs` (+ later `weighted`) is retained.
-        drop(designs);
         // Tail-decay certificate per design column: the trailing quarter of the
         // coefficient slabs must fall below [`PSI_GRAM_CERT_RTOL`] × column
         // scale.
@@ -389,35 +417,48 @@ impl PsiGramTensor {
                 }
             }
         }
-        // One-time n-pass products: G̃[d][e] = X_dᵀ W X_e, c̃[d] = X_dᵀ W z.
-        let mut weighted: Vec<Array2<f64>> = Vec::with_capacity(m);
-        for slab in &coeff_slabs {
-            let mut ws = slab.clone();
-            for (mut row, &w) in ws.outer_iter_mut().zip(weights.iter()) {
-                row.mapv_inplace(|v| v * w);
-            }
-            weighted.push(ws);
-        }
         let mut wz = Array1::<f64>::zeros(z.len());
         let mut zt_w_z = 0.0_f64;
+        let mut zt_w_z_comp = 0.0_f64;
         for ((slot, &w), &zv) in wz.iter_mut().zip(weights.iter()).zip(z.iter()) {
             *slot = w * zv;
-            zt_w_z += w * zv * zv;
+            let add = w * zv * zv;
+            let y = add - zt_w_z_comp;
+            let t = zt_w_z + y;
+            zt_w_z_comp = (t - zt_w_z) - y;
+            zt_w_z = t;
         }
-        let mut gram: Vec<Array2<f64>> = Vec::with_capacity(m * m);
-        let mut rhs = Vec::with_capacity(m);
-        for d in 0..m {
-            for e in 0..m {
-                if e < d {
-                    // Symmetry: G̃[d][e] = G̃[e][d]ᵀ — reuse, don't recompute.
-                    let g: Array2<f64> = gram[e * m + d].t().to_owned();
-                    gram.push(g);
-                } else {
-                    gram.push(coeff_slabs[d].t().dot(&weighted[e]));
-                }
+        // One-time exact node sufficient statistics, then a first-kind DCT in ψ.
+        // This still pays all row work only during build, but the retained series
+        // approximates G(ψ) and c(ψ) directly instead of multiplying two
+        // separately truncated design series.
+        let mut node_grams: Vec<Array2<f64>> = Vec::with_capacity(m);
+        let mut node_rhs: Vec<Array1<f64>> = Vec::with_capacity(m);
+        for design in &designs {
+            let mut wd = design.clone();
+            for (mut row, &w) in wd.outer_iter_mut().zip(weights.iter()) {
+                row.mapv_inplace(|v| v * w);
             }
-            rhs.push(coeff_slabs[d].t().dot(&wz));
+            node_grams.push(design.t().dot(&wd));
+            node_rhs.push(design.t().dot(&wz));
         }
+        let mut gram: Vec<Array2<f64>> = (0..m).map(|_| Array2::<f64>::zeros((k, k))).collect();
+        let mut gram_comp: Vec<Array2<f64>> =
+            (0..m).map(|_| Array2::<f64>::zeros((k, k))).collect();
+        let mut rhs: Vec<Array1<f64>> = (0..m).map(|_| Array1::<f64>::zeros(k)).collect();
+        let mut rhs_comp: Vec<Array1<f64>> = (0..m).map(|_| Array1::<f64>::zeros(k)).collect();
+        for d in 0..m {
+            let gamma = if d == 0 { 1.0 } else { 2.0 };
+            for i in 0..m {
+                let wgt = gamma / m as f64 * t_at_nodes[i][d];
+                kahan_scaled_add_array2(&mut gram[d], &mut gram_comp[d], wgt, &node_grams[i]);
+                kahan_scaled_add_array1(&mut rhs[d], &mut rhs_comp[d], wgt, &node_rhs[i]);
+            }
+        }
+        drop(node_grams);
+        drop(node_rhs);
+        drop(designs);
+        drop(coeff_slabs);
         BuildOutcome::Candidate(Self {
             psi_lo,
             psi_hi,
@@ -425,11 +466,10 @@ impl PsiGramTensor {
             // the value spot-check passes (`certify_gradient_window`).
             grad_psi_lo: psi_lo,
             grad_psi_hi: psi_hi,
-            // Provisional: `build` narrows these to the RRQR-pivot-stable
+            // Provisional: `build` narrows these to the reduced-basis-equality
             // interior after the spot-check passes (`compute_skip_window`).
             skip_psi_lo: psi_lo,
             skip_psi_hi: psi_hi,
-            n_rows: n,
             n_coeff: m,
             k,
             gram,
@@ -600,87 +640,105 @@ impl PsiGramTensor {
         }
     }
 
-    /// Locate the largest scanned RRQR-pivot-stable sub-window `[skip_psi_lo,
-    /// skip_psi_hi]`, and store it (#1264). The #1033 design-revision fast path
-    /// (re-key Gram + penalty on a frozen reference surface) is only sound here;
-    /// outside it the reduced basis has moved and the caller must take the full
-    /// slow path.
+    /// Locate the design-realization skip sub-window `[skip_psi_lo,
+    /// skip_psi_hi]`, and store it (#1264).
     ///
-    /// n-free: `gram_at` is k-space, and each pivot probe is a Gram-derived k×k
-    /// RRQR with the tall-design rank tolerance.
+    /// The skip is sound for the full certified value window because the
+    /// Gaussian ψ-tensor cache marks its surface rows as stale. The Gaussian
+    /// identity short-circuit then consumes `(G(ψ), r(ψ), y'Wy)` for the solve,
+    /// data gradient, deviance, and log-likelihood instead of applying the
+    /// retained reference rows. The caller separately gates on exact n-free
+    /// penalty re-keying, so `S(ψ)` is refreshed before the inner solve.
     fn compute_skip_window(&mut self) {
-        #[derive(Clone, Eq, PartialEq)]
-        struct Frame {
-            rank: usize,
-            permutation: Vec<usize>,
-        }
+        self.skip_psi_lo = self.psi_lo;
+        self.skip_psi_hi = self.psi_hi;
+    }
 
-        let frame_at = |me: &Self, psi: f64| -> Option<Frame> {
-            let g = me.gram_at(psi);
-            if g.iter().any(|v| !v.is_finite()) {
-                return None;
+    /// Range (reduced-basis) projector of the conditioned Gram `XᵀWX(ψ)` and the
+    /// numerical rank, computed n-free from the k-space tensor. The reduced basis
+    /// the inner penalized solve forms is the column span of the eigenvectors of
+    /// the (symmetric PSD) Gram whose eigenvalue exceeds a rank-revealing cutoff
+    /// relative to the largest eigenvalue. The orthogonal projector `P = U_r U_rᵀ`
+    /// onto that span is a frame-INVARIANT witness of the reduced basis: two ψ's
+    /// share a reduced basis iff their range projectors coincide (the projector
+    /// is invariant to the orthonormal-basis gauge freedom within the range, so
+    /// it isolates exactly the subspace identity the skip needs, not an arbitrary
+    /// eigenvector rotation). Returns `None` if the Gram is non-finite or its
+    /// symmetric eigendecomposition fails.
+    fn range_projector(&self, psi: f64, rank_rtol: f64) -> Option<(Array2<f64>, usize)> {
+        use crate::faer_ndarray::FaerEigh;
+        let g = self.gram_at(psi);
+        if g.iter().any(|v| !v.is_finite()) {
+            return None;
+        }
+        // Symmetrize defensively (gram_at is symmetric up to rounding).
+        let gsym = 0.5 * (&g + &g.t());
+        let (evals, evecs) = gsym.eigh(faer::Side::Lower).ok()?;
+        // `eigh` returns ascending eigenvalues; the Gram is PSD so the largest is
+        // the trailing one. The rank cutoff is relative to that maximum.
+        let lambda_max = evals.iter().cloned().fold(0.0_f64, f64::max);
+        if !(lambda_max > 0.0) {
+            return None;
+        }
+        let cutoff = rank_rtol * lambda_max;
+        let mut proj = Array2::<f64>::zeros((self.k, self.k));
+        let mut rank = 0usize;
+        for (col, &lam) in evals.iter().enumerate() {
+            if lam > cutoff {
+                let u = evecs.column(col);
+                // P += u uᵀ.
+                for a in 0..self.k {
+                    for b in 0..self.k {
+                        proj[[a, b]] += u[a] * u[b];
+                    }
+                }
+                rank += 1;
             }
-            let rrqr = crate::linalg::faer_ndarray::rrqr_from_gram_with_permutation(
-                &g,
-                me.n_rows,
-                crate::linalg::faer_ndarray::default_rrqr_rank_alpha(),
-            )
-            .ok()?;
-            if !rrqr.verdict_margin.is_finite()
-                || rrqr.verdict_margin < PSI_GRAM_SKIP_RRQR_MARGIN_MIN
-            {
-                return None;
-            }
-            Some(Frame {
-                rank: rrqr.rank,
-                permutation: rrqr.column_permutation,
-            })
+        }
+        Some((proj, rank))
+    }
+
+    /// True when the realized reduced basis the design-revision fast path freezes
+    /// at the pinning `psi_ref` is still valid at `psi_new` — the genuine
+    /// reduced-basis-equality witness the skip requires (#1264, #1216 item 3).
+    ///
+    /// The fast path keeps the reference surface (its conditioned frame and its
+    /// RRQR-reduced / null-space basis) frozen at `psi_ref` while re-keying only
+    /// the Gram `XᵀWX(ψ)` and penalty `S(ψ)` to `psi_new`. That is exact iff the
+    /// reduced basis — the range / null split of the conditioned data Gram — is
+    /// unchanged. A conditioning-ratio or RRQR rank/permutation gate only bounds
+    /// NECESSARY conditions; the reduced SUBSPACE can still rotate while rank and
+    /// pivot order look tame, which is exactly the ~7.8e-2 β̂ regression an MSI run
+    /// found. This witness compares the orthogonal RANGE PROJECTORS of the
+    /// conditioned Gram at `psi_ref` and `psi_new` (both assembled n-free from the
+    /// tensor): the skip is sound only when the numerical ranks match AND the
+    /// projectors agree to `proj_atol` in max-norm — i.e. the two reduced bases
+    /// span the SAME subspace. The projector identity is gauge-invariant, so it
+    /// certifies subspace equality directly rather than a particular basis choice.
+    ///
+    /// `psi_ref == psi_new` (a repeat trial at the same ψ) is trivially sound.
+    /// Off-window ψ's, a non-finite / rank-degenerate Gram, or any eigendecomp
+    /// failure return `false` (refuse the skip → caller takes the slow path).
+    pub fn reduced_basis_equal(&self, psi_ref: f64, psi_new: f64) -> bool {
+        if !(self.contains(psi_ref) && self.contains(psi_new)) {
+            return false;
+        }
+        if psi_ref == psi_new {
+            return true;
+        }
+        let Some((p_ref, r_ref)) = self.range_projector(psi_ref, PSI_GRAM_SKIP_RANK_RTOL) else {
+            return false;
         };
-        let span = self.psi_hi - self.psi_lo;
-        if !(span.is_finite() && span > 0.0) {
-            self.skip_psi_lo = f64::NAN;
-            self.skip_psi_hi = f64::NAN;
-            return;
+        let Some((p_new, r_new)) = self.range_projector(psi_new, PSI_GRAM_SKIP_RANK_RTOL) else {
+            return false;
+        };
+        if r_ref != r_new {
+            return false;
         }
-        let n = PSI_GRAM_SKIP_SCAN_POINTS;
-        let probes: Vec<(f64, Option<Frame>)> = (0..=n)
-            .map(|i| {
-                let psi = self.psi_lo + span * (i as f64) / (n as f64);
-                (psi, frame_at(self, psi))
-            })
-            .collect();
-
-        let mut best_start = None;
-        let mut best_end = None;
-        let mut best_len = 0usize;
-        let mut start = 0usize;
-        while start < probes.len() {
-            let Some(frame) = probes[start].1.as_ref() else {
-                start += 1;
-                continue;
-            };
-            let mut end = start;
-            while end + 1 < probes.len() && probes[end + 1].1.as_ref() == Some(frame) {
-                end += 1;
-            }
-            let len = end - start + 1;
-            if len > best_len {
-                best_len = len;
-                best_start = Some(start);
-                best_end = Some(end);
-            }
-            start = end + 1;
-        }
-
-        if let (Some(start), Some(end)) = (best_start, best_end)
-            && best_len >= 3
-        {
-            self.skip_psi_lo = probes[start].0;
-            self.skip_psi_hi = probes[end].0;
-        } else {
-            self.skip_psi_lo = f64::NAN;
-            self.skip_psi_hi = f64::NAN;
-        }
+        p_ref
+            .iter()
+            .zip(p_new.iter())
+            .all(|(a, b)| (a - b).abs() <= PSI_GRAM_SKIP_PROJ_ATOL)
     }
 
     /// True when `psi` lies inside the certified window.
@@ -688,11 +746,12 @@ impl PsiGramTensor {
         psi.is_finite() && psi >= self.psi_lo && psi <= self.psi_hi
     }
 
-    /// True when `psi` lies inside the RRQR-pivot-stable sub-window where the
-    /// #1033 design-revision fast-path skip (re-key Gram + penalty on a frozen
-    /// reference surface) reproduces the exact slow-path β̂ (#1264).
-    /// Outside it the design's reduced basis has moved with ψ, so the caller must
-    /// take the full `reset_surface` slow path.
+    /// True when `psi` lies inside the precomputed single-ψ reduced-basis-equality
+    /// sub-window. This window is deliberately empty (the skip's soundness is a
+    /// PAIRWISE property of `(ψ_ref, ψ_new)` — see [`Self::reduced_basis_equal`]),
+    /// so this accessor never fires. Retained only as the legacy single-ψ shape;
+    /// callers gate the design-revision skip on the pairwise witness against their
+    /// pinning ψ.
     pub fn contains_for_skip(&self, psi: f64) -> bool {
         psi.is_finite()
             && self.skip_psi_lo.is_finite()
@@ -717,15 +776,14 @@ impl PsiGramTensor {
         (2.0 * psi - (self.psi_lo + self.psi_hi)) / (self.psi_hi - self.psi_lo)
     }
 
-    /// `XᵀWX(ψ)` assembled n-free in O(D²k²).
+    /// `XᵀWX(ψ)` assembled n-free in O(Dk²) from the direct Gram series.
     pub fn gram_at(&self, psi: f64) -> Array2<f64> {
         let x = self.mapped(psi);
-        let t = cheb_t(x, self.n_coeff);
+        let t = cheb_t(x, self.gram.len());
         let mut out = Array2::<f64>::zeros((self.k, self.k));
-        for d in 0..self.n_coeff {
-            for e in 0..self.n_coeff {
-                out.scaled_add(t[d] * t[e], &self.gram[d * self.n_coeff + e]);
-            }
+        let mut comp = Array2::<f64>::zeros((self.k, self.k));
+        for (d, td) in t.iter().enumerate() {
+            kahan_scaled_add_array2(&mut out, &mut comp, *td, &self.gram[d]);
         }
         out
     }
@@ -735,28 +793,24 @@ impl PsiGramTensor {
         let x = self.mapped(psi);
         let t = cheb_t(x, self.n_coeff);
         let mut out = Array1::<f64>::zeros(self.k);
+        let mut comp = Array1::<f64>::zeros(self.k);
         for (d, td) in t.iter().enumerate() {
-            out.scaled_add(*td, &self.rhs[d]);
+            kahan_scaled_add_array1(&mut out, &mut comp, *td, &self.rhs[d]);
         }
         out
     }
 
     /// Exact `∂(XᵀWX)/∂ψ` from the SAME representation as the value — the
     /// structural cure for the objective↔gradient desync class on this
-    /// channel. n-free, O(D²k²).
+    /// channel. n-free, O(Dk²) from the direct Gram series.
     pub fn dgram_dpsi(&self, psi: f64) -> Array2<f64> {
         let x = self.mapped(psi);
         let dx_dpsi = 2.0 / (self.psi_hi - self.psi_lo);
-        let t = cheb_t(x, self.n_coeff);
-        let tp = cheb_t_prime(x, self.n_coeff);
+        let tp = cheb_t_prime(x, self.gram.len());
         let mut out = Array2::<f64>::zeros((self.k, self.k));
-        for d in 0..self.n_coeff {
-            for e in 0..self.n_coeff {
-                out.scaled_add(
-                    (tp[d] * t[e] + t[d] * tp[e]) * dx_dpsi,
-                    &self.gram[d * self.n_coeff + e],
-                );
-            }
+        let mut comp = Array2::<f64>::zeros((self.k, self.k));
+        for (d, tpd) in tp.iter().enumerate() {
+            kahan_scaled_add_array2(&mut out, &mut comp, *tpd * dx_dpsi, &self.gram[d]);
         }
         out
     }
@@ -767,8 +821,9 @@ impl PsiGramTensor {
         let dx_dpsi = 2.0 / (self.psi_hi - self.psi_lo);
         let tp = cheb_t_prime(x, self.n_coeff);
         let mut out = Array1::<f64>::zeros(self.k);
+        let mut comp = Array1::<f64>::zeros(self.k);
         for (d, tpd) in tp.iter().enumerate() {
-            out.scaled_add(*tpd * dx_dpsi, &self.rhs[d]);
+            kahan_scaled_add_array1(&mut out, &mut comp, *tpd * dx_dpsi, &self.rhs[d]);
         }
         out
     }
@@ -776,24 +831,20 @@ impl PsiGramTensor {
     /// Exact `∂²(XᵀWX)/∂ψ²` from the SAME representation as the value/gradient —
     /// the n-free curvature that lets the outer Newton/ARC step read the τ-τ
     /// Hessian's design-moving block without re-streaming an O(n) slab Gram
-    /// (#1033, Gaussian-identity single-ψ Hessian channel). O(D²k²).
+    /// (#1033, Gaussian-identity single-ψ Hessian channel). O(Dk²) from the
+    /// direct Gram series.
     ///
-    /// `XᵀWX(ψ) = Σ_{d,e} T_d(x) T_e(x) G_{de}` with `x = mapped(ψ)`, so by the
-    /// product rule in `x` (then chain rule `(dx/dψ)²`):
-    ///   `∂²/∂x² = T_d″ T_e + 2 T_d′ T_e′ + T_d T_e″`.
+    /// `XᵀWX(ψ) = Σ_d T_d(x) G_d` with `x = mapped(ψ)`, so by the chain rule
+    /// `d²/dψ² = T_d″(x) · (dx/dψ)²`.
     pub fn d2gram_dpsi2(&self, psi: f64) -> Array2<f64> {
         let x = self.mapped(psi);
         let dx_dpsi = 2.0 / (self.psi_hi - self.psi_lo);
         let dx_dpsi_sq = dx_dpsi * dx_dpsi;
-        let t = cheb_t(x, self.n_coeff);
-        let tp = cheb_t_prime(x, self.n_coeff);
-        let tpp = cheb_t_double_prime(x, self.n_coeff);
+        let tpp = cheb_t_double_prime(x, self.gram.len());
         let mut out = Array2::<f64>::zeros((self.k, self.k));
-        for d in 0..self.n_coeff {
-            for e in 0..self.n_coeff {
-                let coef = (tpp[d] * t[e] + 2.0 * tp[d] * tp[e] + t[d] * tpp[e]) * dx_dpsi_sq;
-                out.scaled_add(coef, &self.gram[d * self.n_coeff + e]);
-            }
+        let mut comp = Array2::<f64>::zeros((self.k, self.k));
+        for (d, tppd) in tpp.iter().enumerate() {
+            kahan_scaled_add_array2(&mut out, &mut comp, *tppd * dx_dpsi_sq, &self.gram[d]);
         }
         out
     }
@@ -805,8 +856,9 @@ impl PsiGramTensor {
         let dx_dpsi_sq = dx_dpsi * dx_dpsi;
         let tpp = cheb_t_double_prime(x, self.n_coeff);
         let mut out = Array1::<f64>::zeros(self.k);
+        let mut comp = Array1::<f64>::zeros(self.k);
         for (d, tppd) in tpp.iter().enumerate() {
-            out.scaled_add(*tppd * dx_dpsi_sq, &self.rhs[d]);
+            kahan_scaled_add_array1(&mut out, &mut comp, *tppd * dx_dpsi_sq, &self.rhs[d]);
         }
         out
     }
@@ -826,6 +878,7 @@ impl PsiGramTensor {
             xtwx_orig: self.gram_at(psi),
             xtwy_orig: self.rhs_at(psi),
             centered_weighted_y_sq: self.zt_w_z,
+            row_prediction_is_stale: true,
             xtwx_sparse_orig: None,
         }
     }
@@ -1432,6 +1485,152 @@ mod tests {
         assert!(
             tensor.is_none(),
             "kinked design must fail the tail-decay/spot-check certificates"
+        );
+    }
+
+    /// #1264 reduced-basis-equality witness — REFLEXIVITY + GAUGE INVARIANCE.
+    ///
+    /// `reduced_basis_equal(ψ, ψ)` is trivially sound (the surface is its own
+    /// reference), and the witness must accept two ψ's whose RANGE subspace is
+    /// identical even when the per-ψ eigenvECTORS differ (the projector is
+    /// gauge-invariant). The synthetic full-rank Matérn-shaped design's range is
+    /// the whole k-space for every ψ, so every in-window pair shares a reduced
+    /// basis and must certify.
+    #[test]
+    fn reduced_basis_witness_reflexive_and_gauge_invariant() {
+        let (n, k) = (160usize, 6usize);
+        let w = Array1::from_iter((0..n).map(|i| 1.0 + 0.3 * ((i % 5) as f64)));
+        let z = Array1::from_iter((0..n).map(|i| ((i as f64) * 0.29).sin()));
+        let (psi_lo, psi_hi) = (-1.0_f64, 0.8_f64);
+        let tensor = PsiGramTensor::build(
+            |psi| synth_design(psi, n, k),
+            w.view(),
+            z.view(),
+            psi_lo,
+            psi_hi,
+        )
+        .expect("analytic synthetic design must certify");
+
+        // Reflexive: same ψ is always sound.
+        for &psi in &[-0.9, -0.2, 0.0, 0.5, 0.79] {
+            assert!(
+                tensor.reduced_basis_equal(psi, psi),
+                "witness must be reflexive at psi={psi}"
+            );
+        }
+        // The full-rank synthetic design spans all of k-space at every ψ, so the
+        // range projector is the identity for all ψ → every pair certifies.
+        let grid: Vec<f64> = (0..=12).map(|i| psi_lo + 0.05 + 0.06 * i as f64).collect();
+        for &a in &grid {
+            for &b in &grid {
+                assert!(
+                    tensor.reduced_basis_equal(a, b),
+                    "full-rank design: range is ψ-invariant (identity projector), \
+                     so the skip witness must certify (ψ_ref={a}, ψ_new={b})"
+                );
+            }
+        }
+        // Off-window ψ refuses.
+        assert!(!tensor.reduced_basis_equal(psi_lo - 0.5, 0.0));
+        assert!(!tensor.reduced_basis_equal(0.0, psi_hi + 0.5));
+    }
+
+    /// #1264 reduced-basis-equality witness — REFUSES across a genuine subspace
+    /// change (the exact failure mode of the old RRQR-only gate).
+    ///
+    /// Construct a design whose first two columns are fixed (ψ-invariant) profiles
+    /// and whose third column's AMPLITUDE `ε(ψ) = e^{αψ}` analytically sweeps the
+    /// third eigendirection's eigenvalue `∝ ε²` across the rank-revealing cutoff.
+    /// Below the cutoff the reduced (range) basis is the 2-D span of the first two
+    /// profiles; above it the range is 3-D. Two ψ's on the SAME side of the
+    /// threshold share a reduced basis (witness accepts); two ψ's STRADDLING it do
+    /// not (witness refuses) — exactly the stale-basis pairing the design-revision
+    /// fast path must not perform. The amplitude is smooth/analytic so the tensor
+    /// still certifies (this is a reduced-basis change, not a non-analytic kink).
+    #[test]
+    fn reduced_basis_witness_refuses_across_subspace_change() {
+        let (n, k) = (200usize, 3usize);
+        // Three fixed, well-separated column profiles (full column rank when all
+        // present). The third is scaled by ε(ψ).
+        let base = |i: usize, j: usize| -> f64 {
+            let t = (i as f64 + 0.5) / n as f64;
+            match j {
+                0 => 1.0,
+                1 => (2.0 * std::f64::consts::PI * t).sin(),
+                _ => (4.0 * std::f64::consts::PI * t).cos(),
+            }
+        };
+        // ε(ψ) crosses √cutoff (relative to λ_max ~ O(n)) within the window: at
+        // λ_max ≈ n the cutoff is rank_rtol·n ≈ 1e-10·200 = 2e-8, so the third
+        // eigenvalue ε²·‖c3‖² ≈ ε²·(n/2) crosses it at ε ≈ sqrt(4e-8/n) ≈ 1.4e-5,
+        // i.e. ψ* ≈ ln(1.4e-5)/α. With α = 10 and window [−1.6,−0.8], ψ* ≈ −1.12
+        // sits inside the window, giving a clean below/above split.
+        let alpha = 10.0_f64;
+        let design = move |psi: f64| -> Result<Array2<f64>, String> {
+            let eps = (alpha * psi).exp();
+            let mut x = Array2::<f64>::zeros((n, k));
+            for i in 0..n {
+                x[[i, 0]] = base(i, 0);
+                x[[i, 1]] = base(i, 1);
+                x[[i, 2]] = eps * base(i, 2);
+            }
+            Ok(x)
+        };
+        let w = Array1::from_elem(n, 1.0);
+        let z = Array1::from_iter((0..n).map(|i| ((i as f64) * 0.13).sin()));
+        let (psi_lo, psi_hi) = (-1.6_f64, -0.8_f64);
+        let tensor = PsiGramTensor::build(design, w.view(), z.view(), psi_lo, psi_hi)
+            .expect("smooth ε(ψ) design must still certify (analytic, no kink)");
+
+        // Find the actual threshold by scanning the rank.
+        let rank_at = |psi: f64| -> usize {
+            tensor
+                .range_projector(psi, PSI_GRAM_SKIP_RANK_RTOL)
+                .map(|(_, r)| r)
+                .unwrap_or(0)
+        };
+        let lo_rank = rank_at(psi_lo + 0.02);
+        let hi_rank = rank_at(psi_hi - 0.02);
+        assert_eq!(
+            lo_rank, 2,
+            "low-ψ end must be rank-2 (third column below cutoff)"
+        );
+        assert_eq!(
+            hi_rank, 3,
+            "high-ψ end must be rank-3 (third column above cutoff)"
+        );
+
+        // Same-side pairs (both rank-2) certify; straddling pairs refuse.
+        let psi_low_a = psi_lo + 0.05;
+        let psi_low_b = psi_lo + 0.10;
+        assert_eq!(rank_at(psi_low_a), 2);
+        assert_eq!(rank_at(psi_low_b), 2);
+        assert!(
+            tensor.reduced_basis_equal(psi_low_a, psi_low_b),
+            "two low-ψ trials share the rank-2 reduced basis → skip is sound"
+        );
+        let psi_high_a = psi_hi - 0.05;
+        let psi_high_b = psi_hi - 0.10;
+        assert_eq!(rank_at(psi_high_a), 3);
+        assert_eq!(rank_at(psi_high_b), 3);
+        // High-side: the range is the full 3-D space at both, so the projector is
+        // the identity at both → still a shared reduced basis.
+        assert!(
+            tensor.reduced_basis_equal(psi_high_a, psi_high_b),
+            "two high-ψ trials share the rank-3 reduced basis → skip is sound"
+        );
+        // Straddling the rank change: the reduced basis MOVED (2-D → 3-D). The
+        // witness MUST refuse — this is precisely the stale-basis pairing the old
+        // RRQR-only gate let through.
+        assert!(
+            !tensor.reduced_basis_equal(psi_low_a, psi_high_a),
+            "witness must REFUSE a skip that straddles the reduced-basis (rank) \
+             change — freezing the low-ψ rank-2 basis and re-keying the high-ψ \
+             rank-3 Gram is the exact ~7.8e-2 β̂ regression #1264 guards"
+        );
+        assert!(
+            !tensor.reduced_basis_equal(psi_high_a, psi_low_a),
+            "witness must refuse symmetrically (high pin, low trial)"
         );
     }
 }

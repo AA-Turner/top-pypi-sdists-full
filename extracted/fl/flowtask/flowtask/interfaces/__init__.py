@@ -59,6 +59,9 @@ _LAZY_IMPORTS = {
     "TableBase": (".table_base", "TableBase"),
     "QSBase": (".qs_base", "QSBase"),
     "Azure": (".azure_component", "Azure"),
+    # FEAT-026: Workday interface (lazy — pulls zeep/httpx/redis only on first use)
+    "WorkdayService": (".workday.service", "WorkdayService"),
+    "WorkdayConfig": (".workday.config", "WorkdayConfig"),
 }
 
 
@@ -113,4 +116,7 @@ __all__ = (
     "TableBase",
     "QSBase",
     "Azure",
+    # FEAT-026: Workday interface (lazy)
+    "WorkdayService",
+    "WorkdayConfig",
 )

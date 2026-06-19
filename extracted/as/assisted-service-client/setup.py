@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.53.0.post82",
+    version="2.53.0.post89",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",
@@ -208,6 +208,7 @@ Class | Method | HTTP request | Description
  - [BindHostParams](docs/BindHostParams.md)
  - [Boot](docs/Boot.md)
  - [Bundle](docs/Bundle.md)
+ - [BundleCreateParams](docs/BundleCreateParams.md)
  - [Cluster](docs/Cluster.md)
  - [ClusterCreateParams](docs/ClusterCreateParams.md)
  - [ClusterDefaultConfig](docs/ClusterDefaultConfig.md)

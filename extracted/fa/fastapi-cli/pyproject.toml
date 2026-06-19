@@ -38,7 +38,7 @@ dependencies = [
     "rich-toolkit >= 0.14.8",
     "tomli >= 2.0.0; python_version < '3.11'",
 ]
-version = "0.0.24"
+version = "0.0.27"
 
 [project.optional-dependencies]
 standard = [
@@ -63,6 +63,7 @@ Changelog = "https://github.com/fastapi/fastapi-cli/blob/main/release-notes.md"
 dev = [
     { include-group = "tests" },
     "prek>=0.2.24,<1.0.0",
+    "zizmor>=1.24.1",
 ]
 github-actions = [
     "smokeshow>=0.5.0",
@@ -70,10 +71,11 @@ github-actions = [
 tests = [
     "coverage[toml]>=6.2,<8.0",
     "fastapi>=0.128.0",
-    "mypy==1.19.1",
+    "mypy==2.1.0",
     "pytest>=7.4.0,<10.0.0",
-    "ruff==0.15.2",
+    "ruff>=0.15.15",
     "uvicorn>=0.39.0",
+    "ty>=0.0.25",
 ]
 
 [build-system]
@@ -161,3 +163,18 @@ known-third-party = [
 
 [tool.ruff.lint.pyupgrade]
 keep-runtime-typing = true
+
+[tool.ty.terminal]
+error-on-warning = true
+
+[tool.typos.files]
+extend-exclude = [
+    "coverage/",
+    "dist/",
+    "release-notes.md",
+    "htmlcov/",
+    "uv.lock",
+]
+
+[tool.typos.default.extend-identifiers]
+alls = "alls"

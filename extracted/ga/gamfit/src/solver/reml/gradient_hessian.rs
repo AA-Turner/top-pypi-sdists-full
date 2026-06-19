@@ -3556,9 +3556,8 @@ impl<'a> RemlState<'a> {
         let reparam_invariant =
             precompute_reparam_invariant_from_canonical(&canonical_penalties, p)?;
 
-        let sparse_penalty_blocks =
-            build_sparse_penalty_blocks_from_canonical(canonical_penalties.as_ref(), p)?
-                .map(Arc::new);
+        let sparse_penalty_block_count =
+            sparse_penalty_block_count_from_canonical(canonical_penalties.as_ref(), p)?;
 
         let runtime_mixture_link_state = config.link_kind.mixture_state().cloned();
         let runtime_sas_link_state = config.link_kind.sas_state().copied();
@@ -3571,7 +3570,7 @@ impl<'a> RemlState<'a> {
             canonical_penalties,
             balanced_penalty_root,
             reparam_invariant,
-            sparse_penalty_blocks,
+            sparse_penalty_block_count,
             p,
             config,
             runtime_mixture_link_state,
@@ -3604,6 +3603,7 @@ impl<'a> RemlState<'a> {
             gaussian_psi_gram_deriv: RwLock::new(None),
             glm_psi_gram_deriv: RwLock::new(None),
             glm_first_step_gram: RwLock::new(None),
+            flat_glm_first_step_gram: RwLock::new(None),
             alo_frozen_nuisance: RwLock::new(None),
             persistent_warm_start_key: RwLock::new(None),
             persistent_latent_values_fingerprint: None,
@@ -3643,15 +3643,14 @@ impl<'a> RemlState<'a> {
             create_balanced_penalty_root_from_canonical(&canonical_penalties, p)?;
         let reparam_invariant =
             precompute_reparam_invariant_from_canonical(&canonical_penalties, p)?;
-        let sparse_penalty_blocks =
-            build_sparse_penalty_blocks_from_canonical(canonical_penalties.as_ref(), p)?
-                .map(Arc::new);
+        let sparse_penalty_block_count =
+            sparse_penalty_block_count_from_canonical(canonical_penalties.as_ref(), p)?;
 
         self.x = x.into();
         self.canonical_penalties = canonical_penalties;
         self.balanced_penalty_root = balanced_penalty_root;
         self.reparam_invariant = reparam_invariant;
-        self.sparse_penalty_blocks = sparse_penalty_blocks;
+        self.sparse_penalty_block_count = sparse_penalty_block_count;
         self.p = p;
         self.nullspace_dims = nullspace_dims;
         self.coefficient_lower_bounds = coefficient_lower_bounds;
@@ -3671,6 +3670,9 @@ impl<'a> RemlState<'a> {
         // The frozen-W GLM first-step Gram is keyed to the same design + ψ; a
         // new design invalidates it. The installing trial repopulates it.
         *self.glm_first_step_gram.write().unwrap() = None;
+        // The flat-warm-start GLM first-step Gram is keyed to the previous
+        // surface's design and warm β; a surface reset invalidates both.
+        *self.flat_glm_first_step_gram.write().unwrap() = None;
         *self.alo_frozen_nuisance.write().unwrap() = None;
         *self.persistent_warm_start_key.write().unwrap() = None;
         self.persistent_warm_start_loaded
@@ -3702,7 +3704,7 @@ impl<'a> RemlState<'a> {
     /// — but for a spatial smooth ψ ALSO moves the penalty matrix `S(ψ)` (the
     /// Duchon/Matérn Hilbert scale is built as a function of the length scale).
     /// `reset_surface` is the only place the canonical penalty surface
-    /// (`balanced_penalty_root` / `reparam_invariant` / `sparse_penalty_blocks`)
+    /// (`balanced_penalty_root` / `reparam_invariant` / `sparse_penalty_block_count`)
     /// is rebuilt, and the fast path skips it — so without this the inner solve
     /// would pair `XᵀWX(ψ_new)` with the STALE `S(ψ_old)` and converge to the
     /// wrong β̂ / κ-optimum. This re-keys `S(ψ_new)` from the supplied canonical
@@ -3741,14 +3743,13 @@ impl<'a> RemlState<'a> {
             create_balanced_penalty_root_from_canonical(&canonical_penalties, p)?;
         let reparam_invariant =
             precompute_reparam_invariant_from_canonical(&canonical_penalties, p)?;
-        let sparse_penalty_blocks =
-            build_sparse_penalty_blocks_from_canonical(canonical_penalties.as_ref(), p)?
-                .map(Arc::new);
+        let sparse_penalty_block_count =
+            sparse_penalty_block_count_from_canonical(canonical_penalties.as_ref(), p)?;
 
         self.canonical_penalties = canonical_penalties;
         self.balanced_penalty_root = balanced_penalty_root;
         self.reparam_invariant = reparam_invariant;
-        self.sparse_penalty_blocks = sparse_penalty_blocks;
+        self.sparse_penalty_block_count = sparse_penalty_block_count;
         self.nullspace_dims = nullspace_dims;
         // The penalized Hessian / logdet depend on S(ψ); a new penalty
         // invalidates every memoized factorization and eval. The design-keyed
@@ -4319,6 +4320,7 @@ impl<'a> RemlState<'a> {
         }
         match pr.status {
             pirls::PirlsStatus::Converged | pirls::PirlsStatus::StalledAtValidMinimum => {
+                self.update_flat_glm_first_step_gram_from(pr);
                 let frame_was_original = matches!(
                     pr.coordinate_frame,
                     pirls::PirlsCoordinateFrame::OriginalSparseNative
@@ -4415,6 +4417,42 @@ impl<'a> RemlState<'a> {
                 // accounting), so we only clear predictor state here.
                 self.clear_warm_start_predictor_state();
             }
+        }
+    }
+
+    fn update_flat_glm_first_step_gram_from(&self, pr: &PirlsResult) {
+        if self.config.firth_bias_reduction
+            || matches!(
+                reml_spec(&self.config.likelihood).response,
+                ResponseFamily::Gaussian
+            )
+            || pr.cache_compacted
+            || pr.reparam_result.s_transformed.nrows() != pr.penalized_hessian_transformed.nrows()
+            || pr.reparam_result.s_transformed.ncols() != pr.penalized_hessian_transformed.ncols()
+        {
+            *self.flat_glm_first_step_gram.write().unwrap() = None;
+            return;
+        }
+
+        let mut gram_transformed = pr.penalized_hessian_transformed.to_dense();
+        gram_transformed -= &pr.reparam_result.s_transformed;
+        crate::matrix::symmetrize_in_place(&mut gram_transformed);
+
+        let mut gram_original = match pr.coordinate_frame {
+            pirls::PirlsCoordinateFrame::OriginalSparseNative => gram_transformed,
+            pirls::PirlsCoordinateFrame::TransformedQs => {
+                let left = crate::faer_ndarray::fast_ab(&pr.reparam_result.qs, &gram_transformed);
+                crate::faer_ndarray::fast_ab(&left, &pr.reparam_result.qs.t().to_owned())
+            }
+        };
+        crate::matrix::symmetrize_in_place(&mut gram_original);
+        if gram_original.nrows() == self.p
+            && gram_original.ncols() == self.p
+            && gram_original.iter().all(|value| value.is_finite())
+        {
+            *self.flat_glm_first_step_gram.write().unwrap() = Some(Arc::new(gram_original));
+        } else {
+            *self.flat_glm_first_step_gram.write().unwrap() = None;
         }
     }
 
@@ -4990,6 +5028,21 @@ impl<'a> RemlState<'a> {
         {
             return Some((cur_beta, WarmStartPredictionSource::Flat));
         }
+        // #1082 / #1033: fixed-design non-Gaussian outer trials can reuse the
+        // previous converged data-fit Gram for the next first Fisher step only
+        // when the seed is exactly the previous beta. Prefer that flat seed once
+        // the Gram exists; IFT/tangent predictions would change W(eta) and force
+        // the dense X'WX rebuild this cache is meant to retire.
+        if !self.config.firth_bias_reduction
+            && !matches!(
+                reml_spec(&self.config.likelihood).response,
+                ResponseFamily::Gaussian
+            )
+            && self.flat_glm_first_step_gram.read().unwrap().is_some()
+            && let Some(cur_beta) = self.warm_start_beta.read().unwrap().clone()
+        {
+            return Some((cur_beta, WarmStartPredictionSource::Flat));
+        }
         // Try the IFT-based predictor first. It uses the exact first-order
         // Jacobian of β(ρ) at the cached solve and beats the tangent-line
         // predictor whenever a converged H_pen is available — which is
@@ -5373,6 +5426,14 @@ impl<'a> RemlState<'a> {
             .map(Arc::clone)
     }
 
+    pub(crate) fn flat_glm_first_step_gram(&self) -> Option<Arc<ndarray::Array2<f64>>> {
+        self.flat_glm_first_step_gram
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(Arc::clone)
+    }
+
     /// Install the conditioned-frame exact ψ-derivative pair
     /// `(∂XᵀWX/∂ψ, ∂XᵀW(y−offset)/∂ψ)` for the single design-moving spatial
     /// hyperparameter (#1033b). Shapes must match the current `p` (k×k Gram
@@ -5475,6 +5536,20 @@ impl<'a> RemlState<'a> {
             .map(Arc::clone)
     }
 
+    /// Return the currently installed Gaussian sufficient-statistic cache
+    /// without constructing one from `self.x`. The ψ fast path uses this to
+    /// capture the exact slow-reset anchor cache, if the slow Gaussian solve
+    /// already built it, while preserving the no-new-row-pass contract.
+    pub(crate) fn installed_gaussian_fixed_cache(
+        &self,
+    ) -> Option<Arc<crate::pirls::GaussianFixedCache>> {
+        self.gaussian_fixed_cache
+            .read()
+            .unwrap()
+            .as_ref()
+            .map(Arc::clone)
+    }
+
     pub(crate) fn gaussian_fixed_cache_if_eligible(
         &self,
     ) -> Option<Arc<crate::pirls::GaussianFixedCache>> {
@@ -5553,6 +5628,7 @@ impl<'a> RemlState<'a> {
             xtwx_orig: xtwx,
             xtwy_orig: xtwy,
             centered_weighted_y_sq,
+            row_prediction_is_stale: false,
             xtwx_sparse_orig,
         });
         log::info!(
@@ -5567,39 +5643,6 @@ impl<'a> RemlState<'a> {
 
     pub(crate) fn canonical_penalties(&self) -> &[crate::construction::CanonicalPenalty] {
         &self.canonical_penalties
-    }
-
-    /// Compute the exact pseudo-logdet for the sparse penalty path.
-    ///
-    /// For each sparse penalty block k with precomputed positive eigenvalues
-    /// {σ_1, ..., σ_r}, the exact pseudo-logdet of λ_k S_k is:
-    ///
-    ///   L(λ_k S_k) = Σ_i log(λ_k σ_i) = r ρ_k + Σ_i log σ_i
-    ///
-    /// The first derivative is:
-    ///   ∂/∂ρ_k L = r  (the rank, i.e. number of positive eigenvalues)
-    pub(super) fn sparse_penalty_logdet_runtime(
-        &self,
-        rho: &Array1<f64>,
-        blocks: &[SparsePenaltyBlock],
-    ) -> (usize, f64, Array1<f64>) {
-        let mut logdet = 0.0_f64;
-        let mut det1 = Array1::<f64>::zeros(rho.len());
-        let mut penalty_rank = 0usize;
-        for block in blocks {
-            // L(λ_k S_k) = Σ_{positive} log(λ_k σ_i).
-            for &eig in block.positive_eigenvalues.iter() {
-                logdet += rho[block.penalty_idx.get()] + eig.ln();
-            }
-
-            penalty_rank += block.positive_eigenvalues.len();
-            // ∂/∂ρ_k L = rank (number of positive eigenvalues).
-            // Since ∂/∂ρ_k log(λ_k σ_i) = ∂/∂ρ_k (ρ_k + log σ_i) = 1.
-            if block.penalty_idx.get() < det1.len() {
-                det1[block.penalty_idx.get()] = block.positive_eigenvalues.len() as f64;
-            }
-        }
-        (penalty_rank.min(self.p), logdet, det1)
     }
 
     pub(super) fn prepare_dense_eval_bundlewithkey(
@@ -5721,15 +5764,11 @@ impl<'a> RemlState<'a> {
                 "sparse exact geometry requires sparse original design".to_string(),
             )
         })?;
-        let penalty_blocks = self
-            .sparse_penalty_blocks
-            .as_ref()
-            .ok_or_else(|| {
-                EstimationError::InvalidInput(
-                    "sparse exact geometry requires block-separable penalties".to_string(),
-                )
-            })?
-            .clone();
+        self.sparse_penalty_block_count.ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "sparse exact geometry requires block-separable penalties".to_string(),
+            )
+        })?;
 
         let lambdas = rho.mapv(f64::exp);
         let mut s_lambda = Array2::<f64>::zeros((self.p, self.p));
@@ -5767,8 +5806,22 @@ impl<'a> RemlState<'a> {
             ridge_passport.delta,
             precomputed_xtwx,
         )?;
-        let (penalty_rank, logdet_s_pos, det1_values) =
-            self.sparse_penalty_logdet_runtime(rho, penalty_blocks.as_ref());
+        let lambdas_slice = lambdas.as_slice().ok_or_else(|| {
+            EstimationError::InvalidInput(
+                "non-contiguous lambda storage in sparse penalty logdet".to_string(),
+            )
+        })?;
+        let penalty_logdet = super::penalty_logdet::PenaltyPseudologdet::from_penalties(
+            &self.canonical_penalties,
+            lambdas_slice,
+            ridge_passport.penalty_logdet_ridge(),
+            self.p,
+        )
+        .map_err(EstimationError::InvalidInput)?;
+        let penalty_rank = penalty_logdet.rank();
+        let logdet_s_pos = penalty_logdet.value();
+        let (det1_values, _) =
+            penalty_logdet.rho_derivatives_from_penalties(&self.canonical_penalties, lambdas_slice);
         let firth_dense_operator_original = if let Some(jeffreys_link) =
             reml_robust_jeffreys_link(&self.config)
         {
@@ -6057,7 +6110,19 @@ impl<'a> RemlState<'a> {
             // (installed by the spatial GLM ψ-trial when it covers ψ and the
             // working weight has not drifted) serves the GLM inner P-IRLS first
             // iteration's XᵀWX n-free.
-            let glm_first_step_handle = self.glm_first_step_gram();
+            let staged_glm_first_step_handle = self.glm_first_step_gram();
+            let flat_glm_first_step_handle = if staged_glm_first_step_handle.is_none()
+                && !in_screening
+                && !self.config.firth_bias_reduction
+                && warm_start_ref.is_some()
+                && (predicted_warm_start.is_none()
+                    || matches!(prediction_source, Some(WarmStartPredictionSource::Flat)))
+            {
+                self.flat_glm_first_step_gram()
+            } else {
+                None
+            };
+            let glm_first_step_handle = staged_glm_first_step_handle.or(flat_glm_first_step_handle);
             let problem = pirls::PirlsProblem {
                 x: &self.x,
                 offset: self.offset.view(),

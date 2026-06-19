@@ -26,37 +26,37 @@ class Job:
     """A scheduled unit of work: an HTTP request run on a schedule.
 
     The job is the definition; each time it fires the service records a run
-    capturing the request, response, timing, and outcome. A job is enabled per
-    environment: set `environments[<env>].enabled` to schedule runs there. A
+    capturing the request, response, timing, and outcome. A job runs per
+    environment: set `environments[<env>].enabled` to schedule runs there, and
+    optionally give that environment its own `schedule` or `configuration`. A
     recurring (cron) job may be enabled in several environments at once and
-    fires once per enabled environment; a one-off (`now` or future datetime)
-    job runs a single time in the environment it was created in.
+    fires once per enabled environment, each on its own next-fire schedule; a
+    one-off (`now` or future datetime) job runs a single time in the environment
+    it was created in.
 
         Attributes:
             name (str): Human-readable name for the job.
-            schedule (str): When the job runs. One of: an ISO-8601 datetime (a one-off run at that instant), a 5-field cron
-                expression evaluated in **UTC** (recurring), or the literal `now` (run once, as soon as possible). A datetime or
-                `now` job disables itself after it fires.
+            schedule (str): The base schedule every environment inherits unless it overrides it. One of: an ISO-8601
+                datetime (a one-off run at that instant), a 5-field cron expression evaluated in **UTC** (recurring), or the
+                literal `now` (run once, as soon as possible). A datetime or `now` job disables itself after it fires.
             configuration (JobHttpConfiguration): HTTP request a job performs when it fires.
 
                 Extends the shared forwarder configuration with the two fields a scheduled
                 job needs beyond a forwarder.
             description (None | str | Unset): Free-text description for the job.
-            enabled (bool | None | Unset): Whether the job is enabled in at least one environment. Read-only roll-up of
-                `environments[*].enabled`; set enablement per environment via `environments`.
             type_ (Literal['http'] | Unset): Job type. Only `http` is supported today. Default: 'http'.
             environments (JobEnvironments | Unset): Per-environment overrides keyed by environment key (e.g. `production`,
-                `staging`). Each entry sets `enabled` (whether the job schedules runs in that environment) and an optional
-                `configuration` override (omit to inherit the base `configuration`). A job with no entry for an environment is
-                disabled there. For a recurring job, supply this map to choose where it runs. For a one-off job, the environment
-                it is created in is recorded here automatically — name it with the `X-Smplkit-Environment` header. Every
-                referenced environment must exist for the account.
+                `staging`). Each entry sets `enabled` (whether the job schedules runs in that environment), an optional
+                `schedule` override (a cron expression for recurring jobs; omit to inherit the base `schedule`), and an optional
+                `configuration` override (omit to inherit the base `configuration`); it also reports the read-only `next_run_at`
+                for that environment. A job with no entry for an environment is disabled there. For a recurring job, supply this
+                map to choose where and how it runs. For a one-off job, the environment it is created in is recorded here
+                automatically — name it with the `X-Smplkit-Environment` header. Every referenced environment must exist for the
+                account.
             concurrency_policy (Literal['ALLOW'] | Unset): How overlapping runs are handled. `ALLOW` (the only value today)
                 permits them. Default: 'ALLOW'.
-            next_run_at (datetime.datetime | None | Unset): The next scheduled fire time. `null` once a one-off job has
-                fired.
             recurring (bool | None | Unset): Whether the job runs on a repeating schedule. `true` for a cron schedule;
-                `false` for a one-off datetime or `now` schedule, which runs a single time. Derived from `schedule`.
+                `false` for a one-off datetime or `now` schedule, which runs a single time. Derived from the base `schedule`.
             created_at (datetime.datetime | None | Unset): When the job was created.
             updated_at (datetime.datetime | None | Unset): When the job was last modified.
             deleted_at (datetime.datetime | None | Unset): When the job was deleted. `null` for active jobs.
@@ -67,11 +67,9 @@ class Job:
     schedule: str
     configuration: JobHttpConfiguration
     description: None | str | Unset = UNSET
-    enabled: bool | None | Unset = UNSET
     type_: Literal["http"] | Unset = "http"
     environments: JobEnvironments | Unset = UNSET
     concurrency_policy: Literal["ALLOW"] | Unset = "ALLOW"
-    next_run_at: datetime.datetime | None | Unset = UNSET
     recurring: bool | None | Unset = UNSET
     created_at: datetime.datetime | None | Unset = UNSET
     updated_at: datetime.datetime | None | Unset = UNSET
@@ -92,12 +90,6 @@ class Job:
         else:
             description = self.description
 
-        enabled: bool | None | Unset
-        if isinstance(self.enabled, Unset):
-            enabled = UNSET
-        else:
-            enabled = self.enabled
-
         type_ = self.type_
 
         environments: dict[str, Any] | Unset = UNSET
@@ -105,14 +97,6 @@ class Job:
             environments = self.environments.to_dict()
 
         concurrency_policy = self.concurrency_policy
-
-        next_run_at: None | str | Unset
-        if isinstance(self.next_run_at, Unset):
-            next_run_at = UNSET
-        elif isinstance(self.next_run_at, datetime.datetime):
-            next_run_at = self.next_run_at.isoformat()
-        else:
-            next_run_at = self.next_run_at
 
         recurring: bool | None | Unset
         if isinstance(self.recurring, Unset):
@@ -161,16 +145,12 @@ class Job:
         )
         if description is not UNSET:
             field_dict["description"] = description
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
         if type_ is not UNSET:
             field_dict["type"] = type_
         if environments is not UNSET:
             field_dict["environments"] = environments
         if concurrency_policy is not UNSET:
             field_dict["concurrency_policy"] = concurrency_policy
-        if next_run_at is not UNSET:
-            field_dict["next_run_at"] = next_run_at
         if recurring is not UNSET:
             field_dict["recurring"] = recurring
         if created_at is not UNSET:
@@ -205,15 +185,6 @@ class Job:
 
         description = _parse_description(d.pop("description", UNSET))
 
-        def _parse_enabled(data: object) -> bool | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(bool | None | Unset, data)
-
-        enabled = _parse_enabled(d.pop("enabled", UNSET))
-
         type_ = cast(Literal["http"] | Unset, d.pop("type", UNSET))
         if type_ != "http" and not isinstance(type_, Unset):
             raise ValueError(f"type must match const 'http', got '{type_}'")
@@ -228,23 +199,6 @@ class Job:
         concurrency_policy = cast(Literal["ALLOW"] | Unset, d.pop("concurrency_policy", UNSET))
         if concurrency_policy != "ALLOW" and not isinstance(concurrency_policy, Unset):
             raise ValueError(f"concurrency_policy must match const 'ALLOW', got '{concurrency_policy}'")
-
-        def _parse_next_run_at(data: object) -> datetime.datetime | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, str):
-                    raise TypeError()
-                next_run_at_type_0 = isoparse(data)
-
-                return next_run_at_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(datetime.datetime | None | Unset, data)
-
-        next_run_at = _parse_next_run_at(d.pop("next_run_at", UNSET))
 
         def _parse_recurring(data: object) -> bool | None | Unset:
             if data is None:
@@ -320,11 +274,9 @@ class Job:
             schedule=schedule,
             configuration=configuration,
             description=description,
-            enabled=enabled,
             type_=type_,
             environments=environments,
             concurrency_policy=concurrency_policy,
-            next_run_at=next_run_at,
             recurring=recurring,
             created_at=created_at,
             updated_at=updated_at,

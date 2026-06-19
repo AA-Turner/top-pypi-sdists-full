@@ -1292,19 +1292,117 @@ fn parse_tensor_periodic_axes(
     Ok(axes)
 }
 
-/// Parse a per-margin basis dimension list (`k=<scalar>` or `k=[k0, k1, ...]`).
-/// A scalar is broadcast across all axes; `None` returns the heuristic from the
-/// data column.
+fn tensor_k_axis_option_axis(
+    key: &str,
+    cols: &[usize],
+    ds: &Dataset,
+) -> Result<Option<usize>, String> {
+    let Some(suffix) = key.strip_prefix("k_") else {
+        return Ok(None);
+    };
+    if suffix.is_empty() {
+        return Err("tensor k axis option must be named k_<axis> or k_<variable>".to_string());
+    }
+    if let Ok(axis) = suffix.parse::<usize>() {
+        return if axis < cols.len() {
+            Ok(Some(axis))
+        } else {
+            Err(format!(
+                "tensor k axis option `{key}` references axis {axis}, but the smooth has {} margins",
+                cols.len()
+            ))
+        };
+    }
+
+    let mut matches = cols
+        .iter()
+        .enumerate()
+        .filter(|(_, col)| ds.headers.get(**col).is_some_and(|name| name == suffix))
+        .map(|(axis, _)| axis);
+    let first = matches.next();
+    if matches.next().is_some() {
+        return Err(format!(
+            "tensor k axis option `{key}` matches more than one margin named `{suffix}`"
+        ));
+    }
+    first.map(Some).ok_or_else(|| {
+        let margin_names = cols
+            .iter()
+            .enumerate()
+            .map(|(axis, col)| {
+                let name = ds
+                    .headers
+                    .get(*col)
+                    .map(String::as_str)
+                    .unwrap_or("<unnamed>");
+                format!("{axis}:{name}")
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "tensor k axis option `{key}` does not match a margin index or name; tensor margins are [{margin_names}]"
+        )
+    })
+}
+
+fn is_tensor_k_axis_option_key(key: &str) -> bool {
+    key.strip_prefix("k_")
+        .is_some_and(|suffix| !suffix.is_empty())
+}
+
+/// Parse a per-margin basis dimension list (`k=<scalar>`, `k=[k0, k1, ...]`,
+/// or axis aliases like `k_x=...` / `k_0=...`). A scalar is broadcast across
+/// all axes; `None` returns the heuristic from the data column.
 fn parse_tensor_k_list(
     options: &BTreeMap<String, String>,
     cols: &[usize],
     ds: &Dataset,
 ) -> Result<(Vec<usize>, bool), String> {
+    let mut axis_values = vec![None; cols.len()];
+    let mut saw_axis_alias = false;
+    for (key, value) in options {
+        let Some(axis) = tensor_k_axis_option_axis(key, cols, ds)? else {
+            continue;
+        };
+        saw_axis_alias = true;
+        if axis_values[axis].is_some() {
+            return Err(format!("tensor k axis {axis} is specified more than once"));
+        }
+        let k: usize = value
+            .parse()
+            .map_err(|err| format!("invalid tensor k option `{key}={value}`: {err}"))?;
+        axis_values[axis] = Some(k);
+    }
+
     let raw = options
         .get("k")
         .or_else(|| options.get("basis_dim"))
         .or_else(|| options.get("basis-dim"))
         .or_else(|| options.get("basisdim"));
+    if saw_axis_alias {
+        if raw.is_some() {
+            return Err(
+                "tensor k axis aliases cannot be combined with k= or basis_dim=".to_string(),
+            );
+        }
+        if let Some(missing_axis) = axis_values.iter().position(Option::is_none) {
+            let margin_name = cols
+                .get(missing_axis)
+                .and_then(|col| ds.headers.get(*col))
+                .map(String::as_str)
+                .unwrap_or("<unnamed>");
+            return Err(format!(
+                "tensor k axis aliases must specify every margin; missing axis {missing_axis} ({margin_name})"
+            ));
+        }
+        return Ok((
+            axis_values
+                .into_iter()
+                .map(|k| k.expect("missing axis values rejected above"))
+                .collect(),
+            false,
+        ));
+    }
     let Some(raw) = raw else {
         let inferred = heuristic_tensor_margin_knots(cols, ds);
         return Ok((inferred, true));
@@ -2222,12 +2320,18 @@ pub fn build_smooth_basis(
             } else {
                 None
             };
+            let penalty_order = option_usize(options, "penalty_order")
+                .or_else(|| option_usize(options, "m"))
+                .unwrap_or(DEFAULT_PENALTY_ORDER);
             let center_strategy = if matches!(method, SphereMethod::Wahba) {
-                let centers = parse_countwith_basis_alias(
+                let mut centers = parse_countwith_basis_alias(
                     options,
                     "centers",
                     default_num_centers(ds.values.nrows(), cols.len()),
                 )?;
+                if penalty_order >= 4 {
+                    centers = centers.max(30);
+                }
                 CenterStrategy::FarthestPoint {
                     num_centers: centers,
                 }
@@ -2238,9 +2342,7 @@ pub fn build_smooth_basis(
                 feature_cols: cols.to_vec(),
                 spec: SphericalSplineBasisSpec {
                     center_strategy,
-                    penalty_order: option_usize(options, "penalty_order")
-                        .or_else(|| option_usize(options, "m"))
-                        .unwrap_or(DEFAULT_PENALTY_ORDER),
+                    penalty_order,
                     double_penalty: smooth_double_penalty,
                     radians,
                     method,
@@ -3663,6 +3765,9 @@ pub fn validate_known_options(
     let known_set: std::collections::BTreeSet<&&str> = known.iter().collect();
     for key in options.keys() {
         if !known_set.contains(&key.as_str()) {
+            if term_name == "tensor" && is_tensor_k_axis_option_key(key) {
+                continue;
+            }
             // Suggest near-matches (substring or shared prefix ≥ 3).
             let key_l = key.to_ascii_lowercase();
             let mut suggestions: Vec<&str> = known
@@ -3688,7 +3793,7 @@ pub fn validate_known_options(
                 format!(" — did you mean one of [{}]?", suggestions.join(", "))
             };
             return Err(TermBuilderError::invalid_option(format!(
-                "{term_name}() does not accept option `{key}`{hint} Known options: [{}]",
+                "{term_name}() does not accept option `{key}`{hint}. Valid options: [{}]",
                 {
                     let mut sorted = known.to_vec();
                     sorted.sort_unstable();
@@ -4098,6 +4203,87 @@ mod tests {
                 }
             })
             .product()
+    }
+
+    fn tensor_margin_basis_sizes(ds: &Dataset, formula: &str) -> Vec<usize> {
+        let parsed = parse_formula(formula).expect("parse tensor formula");
+        let col_map = ds.column_map();
+        let mut notes = Vec::new();
+        let terms = build_termspec(
+            &parsed.terms,
+            ds,
+            &col_map,
+            &mut notes,
+            &ResourcePolicy::default_library(),
+        )
+        .expect("build tensor termspec");
+        let SmoothBasisSpec::TensorBSpline { spec, .. } = &terms.smooth_terms[0].basis else {
+            panic!("expected tensor smooth");
+        };
+        spec.marginalspecs
+            .iter()
+            .map(|marginal| match marginal.knotspec {
+                BSplineKnotSpec::Generate {
+                    num_internal_knots, ..
+                } => num_internal_knots + marginal.degree + 1,
+                BSplineKnotSpec::PeriodicUniform { num_basis, .. } => num_basis,
+                BSplineKnotSpec::Automatic {
+                    num_internal_knots: Some(num_internal_knots),
+                    ..
+                } => num_internal_knots + marginal.degree + 1,
+                BSplineKnotSpec::Automatic {
+                    num_internal_knots: None,
+                    ..
+                } => panic!("test helper cannot infer automatic knot count"),
+                BSplineKnotSpec::Provided(ref knots) => {
+                    knots.len().saturating_sub(marginal.degree + 1)
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn validate_known_options_lists_valid_option_names_for_unknown_parameter() {
+        let mut options = BTreeMap::new();
+        options.insert("lengt_scale".to_string(), "0.25".to_string());
+        let err = validate_known_options(
+            "matern",
+            &options,
+            &["type", "bs", "length_scale", "centers", "k", "nu"],
+        )
+        .expect_err("unknown smooth option should be rejected");
+        assert!(
+            err.contains("matern() does not accept option `lengt_scale`"),
+            "error should name the invalid option, got: {err}"
+        );
+        assert!(
+            err.contains("did you mean one of [length_scale]"),
+            "error should suggest the closest valid option, got: {err}"
+        );
+        assert!(
+            err.contains("Valid options: ["),
+            "error should list valid option names, got: {err}"
+        );
+    }
+
+    #[test]
+    fn tensor_k_accepts_square_bracket_per_margin_list() {
+        let ds = continuous_dataset(
+            &["y", "x", "z"],
+            (0..40)
+                .map(|i| {
+                    let x = i as f64 / 39.0;
+                    let z = ((i * 7) % 40) as f64 / 39.0;
+                    vec![x.sin() + z.cos(), x, z]
+                })
+                .collect(),
+        );
+
+        assert_eq!(
+            tensor_margin_basis_sizes(&ds, "y ~ te(x, z, k=[5, 6])"),
+            vec![5, 6],
+            "square-bracket k lists should materialize the requested per-margin values"
+        );
     }
 
     #[test]
@@ -4631,6 +4817,24 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(dims, vec![9, 5]);
+    }
+
+    #[test]
+    fn tensor_smooth_honors_per_margin_k_axis_aliases() {
+        let ds = continuous_dataset(
+            &["resp", "x", "y"],
+            (0..12)
+                .map(|i| {
+                    let t = i as f64 / 11.0;
+                    vec![t, t, 1.0 - t]
+                })
+                .collect(),
+        );
+        assert_eq!(
+            tensor_margin_basis_sizes(&ds, "resp ~ te(x, y, k_x=9, k_y=5)"),
+            vec![9, 5],
+            "k_<margin> aliases should materialize requested per-margin values"
+        );
     }
 
     #[test]

@@ -49,14 +49,14 @@ class BaseModel(ABC):
     def __init__(self, transition_scheme, unary_limit, reverse_sentence, root_labels, *args, **kwargs):
         super().__init__(*args, **kwargs)  # forwards all unused arguments
 
-        self._transition_scheme = transition_scheme
-        self._unary_limit = unary_limit
         self._reverse_sentence = reverse_sentence
         self._root_labels = sorted(list(root_labels))
 
-        self._is_top_down = (self._transition_scheme is TransitionScheme.TOP_DOWN or
-                             self._transition_scheme is TransitionScheme.TOP_DOWN_UNARY or
-                             self._transition_scheme is TransitionScheme.TOP_DOWN_COMPOUND)
+        self.unary_limit = unary_limit
+        self.transition_scheme = transition_scheme
+        self.is_top_down = (self.transition_scheme is TransitionScheme.TOP_DOWN or
+                            self.transition_scheme is TransitionScheme.TOP_DOWN_UNARY or
+                            self.transition_scheme is TransitionScheme.TOP_DOWN_COMPOUND)
 
     @abstractmethod
     def initial_word_queues(self, tagged_word_lists):
@@ -91,7 +91,7 @@ class BaseModel(ABC):
         """
 
     @abstractmethod
-    def dummy_constituent(self, dummy):
+    def dummy_constituents(self, dummy_list):
         """
         When using a dummy node as a sentinel, transform it to something usable by this model
         """
@@ -142,32 +142,6 @@ class BaseModel(ABC):
         (Danish uses 's', though)
         """
         return self._root_labels
-
-    def unary_limit(self):
-        """
-        Limit on the number of consecutive unary transitions
-        """
-        return self._unary_limit
-
-
-    def transition_scheme(self):
-        """
-        Transition scheme used - see parse_transitions
-        """
-        return self._transition_scheme
-
-    def has_unary_transitions(self):
-        """
-        Whether or not this model uses unary transitions, based on transition_scheme
-        """
-        return self._transition_scheme is TransitionScheme.TOP_DOWN_UNARY
-
-    @property
-    def is_top_down(self):
-        """
-        Whether or not this model is TOP_DOWN
-        """
-        return self._is_top_down
 
     @property
     def reverse_sentence(self):
@@ -252,7 +226,7 @@ class BaseModel(ABC):
         if len(state_batch) == 0:
             return state_batch
 
-        gold_sequences = transition_sequence.build_treebank([state.gold_tree for state in state_batch], self.transition_scheme(), self.reverse_sentence)
+        gold_sequences = transition_sequence.build_treebank([state.gold_tree for state in state_batch], self.transition_scheme, self.reverse_sentence)
         state_batch = [state._replace(gold_sequence=sequence) for state, sequence in zip(state_batch, gold_sequences)]
         return state_batch
 
@@ -512,8 +486,8 @@ class SimpleModel(BaseModel):
     def transform_word_to_constituent(self, state):
         return state.get_word(state.word_position)
 
-    def dummy_constituent(self, dummy):
-        return dummy
+    def dummy_constituents(self, dummy_list):
+        return dummy_list
 
     def build_constituents(self, labels, children_lists):
         constituents = []

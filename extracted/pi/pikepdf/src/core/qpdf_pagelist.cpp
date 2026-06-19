@@ -9,6 +9,70 @@
 #include <qpdf/QPDFPageLabelDocumentHelper.hh>
 #include <qpdf/QPDFPageObjectHelper.hh>
 
+static bool page_has_widget(QPDFObjectHandle page)
+{
+    if (!page.isDictionary())
+        return false;
+    auto annots = page.getKey("/Annots");
+    if (!annots.isArray())
+        return false;
+    for (auto &a : annots.aitems()) {
+        if (a.isDictionaryOfType("", "/Widget"))
+            return true;
+    }
+    return false;
+}
+
+static bool action_is_named_goto(QPDFObjectHandle a)
+{
+    if (!a.isDictionary())
+        return false;
+    if (!a.getKey("/S").isNameAndEquals("/GoTo"))
+        return false;
+    auto d = a.getKey("/D");
+    return d.isString() || d.isName();
+}
+
+static bool page_has_named_dest(QPDFObjectHandle page)
+{
+    if (!page.isDictionary())
+        return false;
+    auto annots = page.getKey("/Annots");
+    if (!annots.isArray())
+        return false;
+    for (auto &a : annots.aitems()) {
+        if (!a.isDictionary())
+            continue;
+        auto dest = a.getKey("/Dest");
+        if (dest.isString() || dest.isName())
+            return true;
+        if (action_is_named_goto(a.getKey("/A")))
+            return true;
+    }
+    return false;
+}
+
+static void warn_page_copy(bool forms, bool dests)
+{
+    if (!forms && !dests)
+        return;
+    std::string what;
+    if (forms && dests)
+        what = "interactive form fields or named destinations";
+    else if (forms)
+        what = "interactive form fields";
+    else
+        what = "named destinations";
+    std::string msg = "Copying pages from another Pdf with pages.extend() does not "
+                      "preserve " +
+                      what +
+                      "; form fields may not display in Adobe "
+                      "Acrobat and internal links may not resolve. Use "
+                      "Pdf.add_pages_from() to preserve them.";
+    auto category = py::module_::import_("pikepdf._exceptions").attr("PageCopyWarning");
+    python_warning(msg.c_str(), category.ptr(), /*stacklevel=*/1);
+}
+
 static QPDFPageObjectHelper as_page_helper(py::handle obj)
 {
     try {
@@ -284,6 +348,17 @@ void init_pagelist(py::module_ &m)
             [](PageList &pl, PageList &other) {
                 DualQpdfLockGuard lock(pl.qpdf.get(), other.qpdf.get());
                 auto other_pages = other.doc.getAllPages();
+                if (other.qpdf.get() != pl.qpdf.get()) {
+                    bool forms = false, dests = false;
+                    for (auto &page : other_pages) {
+                        auto h = page.getObjectHandle();
+                        forms = forms || page_has_widget(h);
+                        dests = dests || page_has_named_dest(h);
+                        if (forms && dests)
+                            break;
+                    }
+                    warn_page_copy(forms, dests);
+                }
                 for (auto &page : other_pages) {
                     pl.append_page(page);
                 }
@@ -293,11 +368,19 @@ void init_pagelist(py::module_ &m)
             "extend",
             [](PageList &pl, py::iterable iterable) {
                 QpdfLockGuard lock(pl.qpdf.get());
+                bool forms = false, dests = false;
                 py::iterator it = py::iter(iterable);
                 while (it != py::iterator::sentinel()) {
-                    pl.append_page(as_page_helper(*it));
+                    auto page = as_page_helper(*it);
+                    auto h = page.getObjectHandle();
+                    if (h.getOwningQPDF() != pl.qpdf.get()) {
+                        forms = forms || page_has_widget(h);
+                        dests = dests || page_has_named_dest(h);
+                    }
+                    pl.append_page(page);
                     ++it;
                 }
+                warn_page_copy(forms, dests);
             },
             py::arg("iterable"))
         .def("remove",

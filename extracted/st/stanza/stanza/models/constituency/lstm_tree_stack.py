@@ -14,12 +14,13 @@ from collections import namedtuple
 import torch
 import torch.nn as nn
 
+from stanza.models.common.utils import initialize_forget_gate_bias
 from stanza.models.constituency.tree_stack import TreeStack
 
-Node = namedtuple("Node", ['value', 'lstm_hx', 'lstm_cx'])
+Node = namedtuple("Node", ['value', 'lstm_hx', 'lstm_cx', 'output'])
 
 class LSTMTreeStack(nn.Module):
-    def __init__(self, input_size, hidden_size, num_lstm_layers, dropout, uses_boundary_vector, input_dropout):
+    def __init__(self, input_size, hidden_size, num_lstm_layers, dropout, uses_boundary_vector, input_dropout, forget_bias):
         """
         Prepare LSTM and parameters
 
@@ -38,12 +39,14 @@ class LSTMTreeStack(nn.Module):
         if uses_boundary_vector:
             self.register_parameter('start_embedding', torch.nn.Parameter(0.2 * torch.randn(input_size, requires_grad=True)))
         else:
-            self.register_buffer('input_zeros',  torch.zeros(num_lstm_layers, 1, input_size))
-            self.register_buffer('hidden_zeros', torch.zeros(num_lstm_layers, 1, hidden_size))
+            self.register_buffer('input_zeros',  torch.zeros(num_lstm_layers, input_size))
+            self.register_buffer('hidden_zeros', torch.zeros(num_lstm_layers, hidden_size))
 
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_lstm_layers, dropout=dropout)
         self.input_dropout = input_dropout
 
+        if forget_bias is not None:
+            initialize_forget_gate_bias(self.lstm, forget_bias)
 
     def initial_state(self, initial_value=None):
         """
@@ -58,12 +61,17 @@ class LSTMTreeStack(nn.Module):
         if self.uses_boundary_vector:
             start = self.start_embedding.unsqueeze(0).unsqueeze(0)
             output, (hx, cx) = self.lstm(start)
-            start = output[0, 0, :]
+            output = output[0, 0, :]
+            hx = hx.squeeze(1)
+            cx = cx.squeeze(1)
         else:
             start = self.input_zeros
             hx = self.hidden_zeros
             cx = self.hidden_zeros
-        return TreeStack(value=Node(initial_value, hx, cx), parent=None, length=1)
+            # for the initial state, last layer hx is hx[-1, 0, :]
+            output = hx[-1]
+
+        return TreeStack(value=Node(initial_value, hx, cx, output), parent=None, length=1)
 
     def push_states(self, stacks, values, inputs):
         """
@@ -75,10 +83,15 @@ class LSTMTreeStack(nn.Module):
         """
         inputs = self.input_dropout(inputs)
 
-        hx = torch.cat([t.value.lstm_hx for t in stacks], axis=1)
-        cx = torch.cat([t.value.lstm_cx for t in stacks], axis=1)
+        hx = torch.stack([t.value.lstm_hx for t in stacks], dim=1)
+        cx = torch.stack([t.value.lstm_cx for t in stacks], dim=1)
         output, (hx, cx) = self.lstm(inputs, (hx, cx))
-        new_stacks = [stack.push(Node(transition, hx[:, i:i+1, :], cx[:, i:i+1, :]))
+
+        # output shape: (1, batch, hidden_size) since input is one step
+        # squeeze the time dimension once rather than slicing per node
+        last_layer = output[0]  # (batch, hidden_size)
+
+        new_stacks = [stack.push(Node(transition, hx[:, i, :], cx[:, i, :], last_layer[i]))
                       for i, (stack, transition) in enumerate(zip(stacks, values))]
         return new_stacks
 
@@ -88,4 +101,4 @@ class LSTMTreeStack(nn.Module):
 
         Refactored so that alternate structures have an easy way of getting the output
         """
-        return stack.value.lstm_hx[-1, 0, :]
+        return stack.value.output

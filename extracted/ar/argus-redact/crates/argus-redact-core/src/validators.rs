@@ -4,6 +4,9 @@
 //! public so the binding/tests can reuse them.
 
 use std::sync::LazyLock;
+use base64::Engine as _;
+use base64::alphabet;
+use base64::engine::{DecodePaddingMode, GeneralPurpose, GeneralPurposeConfig};
 use fancy_regex::Regex;
 
 // ── Luhn ──────────────────────────────────────────────────────────────────
@@ -307,6 +310,117 @@ pub fn validate_jp_phone(value: &str) -> bool {
     (10..=11).contains(&n)
 }
 
+// ── JWT (deferred → Rust in v0.7.7) ─────────────────────────────────────────
+/// base64url engine matching Python `base64.urlsafe_b64decode` (binascii)
+/// LENIENT semantics: non-canonical trailing bits are allowed and padding is
+/// `Indifferent`. The default `URL_SAFE` engine is STRICT (RequireCanonical +
+/// rejects trailing bits), which rejected non-canonical headers that pre-port
+/// Python ACCEPTED — so a JWT with a non-canonical header that Python redacted
+/// silently LEAKED unredacted under the strict validator. This engine restores
+/// that parity. Canonical headers (the golden corpus) decode identically under
+/// both engines, so the only behavior change is ADDING acceptance of
+/// non-canonical headers — never removing a previously-accepted one.
+static JWT_B64: LazyLock<GeneralPurpose> = LazyLock::new(|| {
+    GeneralPurpose::new(
+        &alphabet::URL_SAFE,
+        GeneralPurposeConfig::new()
+            .with_decode_allow_trailing_bits(true)
+            .with_decode_padding_mode(DecodePaddingMode::Indifferent),
+    )
+});
+
+/// JWT format validation, ported 1:1 from `lang/shared/patterns.py::_validate_jwt`.
+///
+/// Splits on `.`, requires exactly 3 parts, base64url-decodes the header (part 0)
+/// with Python-equal padding (`-len % 4` pad `=`) and Python-equal LENIENT
+/// base64 (see `JWT_B64`), parses the bytes as JSON, and returns `true` iff the
+/// result is a JSON OBJECT containing the key `"alg"`. Any decode/parse error
+/// (the Python `(ValueError, UnicodeDecodeError)` branch) → `false`.
+pub fn validate_jwt(value: &str) -> bool {
+    let parts: Vec<&str> = value.split('.').collect();
+    if parts.len() != 3 {
+        return false;
+    }
+    let header_b64 = parts[0];
+    // Python: padded = header_b64 + "=" * (-len(header_b64) % 4)
+    let pad = (4 - header_b64.len() % 4) % 4;
+    let padded = format!("{header_b64}{}", "=".repeat(pad));
+    let decoded = match JWT_B64.decode(padded.as_bytes()) {
+        Ok(bytes) => bytes,
+        Err(_) => return false,
+    };
+    // json.loads + isinstance(header, dict) and "alg" in header
+    match serde_json::from_slice::<serde_json::Value>(&decoded) {
+        Ok(serde_json::Value::Object(map)) => map.contains_key("alg"),
+        _ => false,
+    }
+}
+
+// ── Chinese organization / school (deferred → Rust in v0.7.7) ────────────────
+/// Leading verbs/particles/questions stripped from org/school candidates before
+/// validation. Stripped one at a time (`has_name_before_suffix` restarts the scan
+/// after each match), and the first entry that matches in array order wins.
+/// ORDER IS LOAD-BEARING: entries are ordered longest-prefix-first so a specific
+/// prefix shadows its own substring (e.g. "请查一下" before "请查"); reordering can
+/// change results and break parity with the Python `_has_name_before_suffix`
+/// (mirrors `lang/zh/patterns.py::_LEADING_NOISE`).
+const LEADING_NOISE: &[&str] = &[
+    "请查一下", "请查下", "请查", "查一下", "查下", "就职于", "供职于", "任职于",
+    "毕业于", "就读于", "就读", "考入", "考上", "去过", "到过", "这是", "那是",
+    "这个", "那个", "那里", "这里", "在", "去", "从", "到", "被", "给", "让",
+    "有", "是", "的", "了", "和", "与", "把", "将", "已", "问", "看", "找", "一下",
+];
+
+const ORG_SUFFIXES: &[&str] = &[
+    "股份有限公司", "有限责任公司", "有限公司", "责任公司", "集团公司", "集团",
+    "公司", "企业", "工厂", "银行", "保险", "证券", "基金", "医院", "诊所", "药房",
+    "事务所", "研究院", "研究所", "实验室",
+];
+
+const SCHOOL_SUFFIXES: &[&str] = &[
+    "大学", "学院", "中学", "小学", "高中", "初中", "附中", "附小", "实验学校",
+    "外国语学校", "师范学校", "职业学校", "技术学校", "幼儿园", "书院", "学堂", "党校",
+];
+
+/// Port of `lang/zh/patterns.py::_has_name_before_suffix`.
+///
+/// Repeatedly strips a single leading-noise prefix (the Python `for ... else break`
+/// loop strips at most one prefix per pass, restarting from the top until none
+/// matches — note: only strips when `len(stripped) > len(noise)`, never consuming
+/// the whole string), then returns `true` iff the remainder ends with any suffix
+/// AND is strictly longer than that suffix (so a real name char precedes it).
+/// All length comparisons are in char-space (Python `len(str)` over CJK text).
+fn has_name_before_suffix(value: &str, suffixes: &[&str]) -> bool {
+    let mut stripped = value;
+    loop {
+        let mut stripped_any = false;
+        for noise in LEADING_NOISE {
+            if stripped.starts_with(noise)
+                && stripped.chars().count() > noise.chars().count()
+            {
+                stripped = &stripped[noise.len()..];
+                stripped_any = true;
+                break;
+            }
+        }
+        if !stripped_any {
+            break;
+        }
+    }
+    let stripped_len = stripped.chars().count();
+    suffixes.iter().any(|suffix| {
+        stripped.ends_with(suffix) && stripped_len > suffix.chars().count()
+    })
+}
+
+pub fn validate_organization(value: &str) -> bool {
+    has_name_before_suffix(value, ORG_SUFFIXES)
+}
+
+pub fn validate_school(value: &str) -> bool {
+    has_name_before_suffix(value, SCHOOL_SUFFIXES)
+}
+
 // ── Dispatch ──────────────────────────────────────────────────────────────
 pub fn resolve_validator(name: &str) -> Option<fn(&str) -> bool> {
     Some(match name {
@@ -328,6 +442,9 @@ pub fn resolve_validator(name: &str) -> Option<fn(&str) -> bool> {
         "de_phone" => validate_de_phone,
         "de_tax_id" => validate_de_tax_id,
         "jp_phone" => validate_jp_phone,
+        "jwt" => validate_jwt,
+        "organization" => validate_organization,
+        "school" => validate_school,
         _ => return None,
     })
 }
@@ -397,8 +514,59 @@ mod tests {
     #[test]
     fn resolve_known_and_unknown() {
         assert!(resolve_validator("ssn").is_some());
-        assert!(resolve_validator("jwt").is_none());        // deferred to Python
-        assert!(resolve_validator("organization").is_none());
+        assert!(resolve_validator("jwt").is_some());          // ported to Rust (v0.7.7)
+        assert!(resolve_validator("organization").is_some());
+        assert!(resolve_validator("school").is_some());
         assert!(resolve_validator("nonexistent").is_none());
+    }
+
+    #[test]
+    fn jwt_validator() {
+        // header {"alg":"HS256"} → valid object with "alg" key
+        assert!(validate_jwt("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.sig"));
+        // fewer than 3 parts → false
+        assert!(!validate_jwt("a.b"));
+        // header is valid base64 but a JSON array (not an object) → false
+        // base64url("[1,2,3]") == "WzEsMiwzXQ"
+        assert!(!validate_jwt("WzEsMiwzXQ.b.c"));
+        // header is a JSON object but lacks "alg" → false
+        // base64url('{"typ":"JWT"}') == "eyJ0eXAiOiJKV1QifQ"
+        assert!(!validate_jwt("eyJ0eXAiOiJKV1QifQ.b.c"));
+        // header decodes to a JSON string (not an object) → false
+        // base64url('"hello"') == "ImhlbGxvIg"
+        assert!(!validate_jwt("ImhlbGxvIg.b.c"));
+    }
+
+    #[test]
+    fn jwt_non_canonical_header_parity() {
+        // PARITY REGRESSION: a JWT whose header base64 carries NON-ZERO trailing
+        // bits (len%4==3, last char '1' instead of canonical '0'). Pre-port Python
+        // `base64.urlsafe_b64decode` (binascii) is LENIENT and decodes this to
+        // {"alg":"none"} → a valid header → Python REDACTED it. The default strict
+        // URL_SAFE engine returns InvalidLastSymbol → would REJECT → leak. With the
+        // lenient JWT_B64 engine this must now ACCEPT, matching pre-port Python.
+        //   base64url('{"alg":"none"}') canonical == "eyJhbGciOiJub25lIn0"
+        //   non-canonical (trailing bits set) == "eyJhbGciOiJub25lIn1"
+        assert!(validate_jwt("eyJhbGciOiJub25lIn1.payload.sig"));
+        // The canonical form is of course still accepted (golden corpus uses these).
+        assert!(validate_jwt("eyJhbGciOiJub25lIn0.payload.sig"));
+        // Leniency is ONLY about trailing bits/padding — structural rejects stay
+        // rejected: a JSON ARRAY header is still false even with a non-canonical
+        // last char. base64url('[1,2,3]') == "WzEsMiwzXQ"; flip last char to a
+        // non-canonical equivalent ('Q'=16 010000 -> 'R'=17 010001, same top4).
+        assert!(!validate_jwt("WzEsMiwzXR.payload.sig"));
+        // A 2-segment value is still rejected regardless of base64 leniency.
+        assert!(!validate_jwt("eyJhbGciOiJub25lIn1.payload"));
+    }
+
+    #[test]
+    fn organization_school_validators() {
+        assert!(validate_organization("阿里巴巴有限公司"));
+        assert!(!validate_organization("这是公司")); // all-noise prefix, no name before suffix
+        assert!(validate_school("北京大学"));
+        assert!(!validate_school("这是大学"));
+        // leading-particle-prefixed values (what the regex captures) still validate
+        assert!(validate_organization("在阿里巴巴有限公司"));
+        assert!(validate_school("毕业于北京大学"));
     }
 }

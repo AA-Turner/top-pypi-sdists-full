@@ -2863,6 +2863,8 @@ class DefaultApi:
         filter: Annotated[Optional[Any], Field(description="Optional client-side filter applied after fetching")] = None,
         category: Annotated[Optional[StrictStr], Field(description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -2908,6 +2910,10 @@ class DefaultApi:
         :type category: str
         :param tags: Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".
         :type tags: List[str]
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -2945,6 +2951,8 @@ class DefaultApi:
             filter=filter,
             category=category,
             tags=tags,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2982,6 +2990,8 @@ class DefaultApi:
         filter: Annotated[Optional[Any], Field(description="Optional client-side filter applied after fetching")] = None,
         category: Annotated[Optional[StrictStr], Field(description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3027,6 +3037,10 @@ class DefaultApi:
         :type category: str
         :param tags: Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".
         :type tags: List[str]
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3064,6 +3078,8 @@ class DefaultApi:
             filter=filter,
             category=category,
             tags=tags,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3101,6 +3117,8 @@ class DefaultApi:
         filter: Annotated[Optional[Any], Field(description="Optional client-side filter applied after fetching")] = None,
         category: Annotated[Optional[StrictStr], Field(description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3146,6 +3164,10 @@ class DefaultApi:
         :type category: str
         :param tags: Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".
         :type tags: List[str]
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3183,6 +3205,8 @@ class DefaultApi:
             filter=filter,
             category=category,
             tags=tags,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3215,6 +3239,8 @@ class DefaultApi:
         filter,
         category,
         tags,
+        source_exchange,
+        exchange2,
         _request_auth,
         _content_type,
         _headers,
@@ -3291,6 +3317,14 @@ class DefaultApi:
         if tags is not None:
             
             _query_params.append(('tags', tags))
+            
+        if source_exchange is not None:
+            
+            _query_params.append(('sourceExchange', source_exchange))
+            
+        if exchange2 is not None:
+            
+            _query_params.append(('exchange', exchange2))
             
         # process the header parameters
         # process the form parameters
@@ -3758,6 +3792,8 @@ class DefaultApi:
         filter: Annotated[Optional[Any], Field(description="Optional client-side filter applied after fetching")] = None,
         category: Annotated[Optional[StrictStr], Field(description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3803,6 +3839,10 @@ class DefaultApi:
         :type category: str
         :param tags: Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".
         :type tags: List[str]
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3840,6 +3880,8 @@ class DefaultApi:
             filter=filter,
             category=category,
             tags=tags,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3877,6 +3919,8 @@ class DefaultApi:
         filter: Annotated[Optional[Any], Field(description="Optional client-side filter applied after fetching")] = None,
         category: Annotated[Optional[StrictStr], Field(description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3922,6 +3966,10 @@ class DefaultApi:
         :type category: str
         :param tags: Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".
         :type tags: List[str]
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3959,6 +4007,8 @@ class DefaultApi:
             filter=filter,
             category=category,
             tags=tags,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3996,6 +4046,8 @@ class DefaultApi:
         filter: Annotated[Optional[Any], Field(description="Optional client-side filter applied after fetching")] = None,
         category: Annotated[Optional[StrictStr], Field(description="Filter by category. Each event belongs to a venue-assigned category such as \"Sports\", \"Politics\", \"Crypto\", \"Bitcoin\", \"Soccer\", \"Economic Policy\" (Polymarket) or \"Sports\", \"Mentions\" (Kalshi).")] = None,
         tags: Annotated[Optional[List[StrictStr]], Field(description="Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4041,6 +4093,10 @@ class DefaultApi:
         :type category: str
         :param tags: Filter by tags. Returns events matching ANY of the provided tags. Tags are more specific than categories -- for example a \"Politics\" event might carry tags [\"Politics\", \"Geopolitics\", \"Middle East\", \"Iran\"]. Common tags include \"Crypto\", \"Elections\", \"Fed Rates\", \"FIFA World Cup\", \"Trump\".
         :type tags: List[str]
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4078,6 +4134,8 @@ class DefaultApi:
             filter=filter,
             category=category,
             tags=tags,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4110,6 +4168,8 @@ class DefaultApi:
         filter,
         category,
         tags,
+        source_exchange,
+        exchange2,
         _request_auth,
         _content_type,
         _headers,
@@ -4186,6 +4246,14 @@ class DefaultApi:
         if tags is not None:
             
             _query_params.append(('tags', tags))
+            
+        if source_exchange is not None:
+            
+            _query_params.append(('sourceExchange', source_exchange))
+            
+        if exchange2 is not None:
+            
+            _query_params.append(('exchange', exchange2))
             
         # process the header parameters
         # process the form parameters
@@ -5014,6 +5082,8 @@ class DefaultApi:
         event_id: Annotated[Optional[StrictStr], Field(description="Find markets belonging to an event")] = None,
         page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For pagination (used by Limitless)")] = None,
         similarity_threshold: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For semantic search (used by Limitless)")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5057,6 +5127,10 @@ class DefaultApi:
         :type page: float
         :param similarity_threshold: For semantic search (used by Limitless)
         :type similarity_threshold: float
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5093,6 +5167,8 @@ class DefaultApi:
             event_id=event_id,
             page=page,
             similarity_threshold=similarity_threshold,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5129,6 +5205,8 @@ class DefaultApi:
         event_id: Annotated[Optional[StrictStr], Field(description="Find markets belonging to an event")] = None,
         page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For pagination (used by Limitless)")] = None,
         similarity_threshold: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For semantic search (used by Limitless)")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5172,6 +5250,10 @@ class DefaultApi:
         :type page: float
         :param similarity_threshold: For semantic search (used by Limitless)
         :type similarity_threshold: float
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5208,6 +5290,8 @@ class DefaultApi:
             event_id=event_id,
             page=page,
             similarity_threshold=similarity_threshold,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5244,6 +5328,8 @@ class DefaultApi:
         event_id: Annotated[Optional[StrictStr], Field(description="Find markets belonging to an event")] = None,
         page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For pagination (used by Limitless)")] = None,
         similarity_threshold: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For semantic search (used by Limitless)")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5287,6 +5373,10 @@ class DefaultApi:
         :type page: float
         :param similarity_threshold: For semantic search (used by Limitless)
         :type similarity_threshold: float
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -5323,6 +5413,8 @@ class DefaultApi:
             event_id=event_id,
             page=page,
             similarity_threshold=similarity_threshold,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -5354,6 +5446,8 @@ class DefaultApi:
         event_id,
         page,
         similarity_threshold,
+        source_exchange,
+        exchange2,
         _request_auth,
         _content_type,
         _headers,
@@ -5425,6 +5519,14 @@ class DefaultApi:
         if similarity_threshold is not None:
             
             _query_params.append(('similarityThreshold', similarity_threshold))
+            
+        if source_exchange is not None:
+            
+            _query_params.append(('sourceExchange', source_exchange))
+            
+        if exchange2 is not None:
+            
+            _query_params.append(('exchange', exchange2))
             
         # process the header parameters
         # process the form parameters
@@ -5942,6 +6044,8 @@ class DefaultApi:
         event_id: Annotated[Optional[StrictStr], Field(description="Find markets belonging to an event")] = None,
         page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For pagination (used by Limitless)")] = None,
         similarity_threshold: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For semantic search (used by Limitless)")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -5985,6 +6089,10 @@ class DefaultApi:
         :type page: float
         :param similarity_threshold: For semantic search (used by Limitless)
         :type similarity_threshold: float
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -6021,6 +6129,8 @@ class DefaultApi:
             event_id=event_id,
             page=page,
             similarity_threshold=similarity_threshold,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -6057,6 +6167,8 @@ class DefaultApi:
         event_id: Annotated[Optional[StrictStr], Field(description="Find markets belonging to an event")] = None,
         page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For pagination (used by Limitless)")] = None,
         similarity_threshold: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For semantic search (used by Limitless)")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6100,6 +6212,10 @@ class DefaultApi:
         :type page: float
         :param similarity_threshold: For semantic search (used by Limitless)
         :type similarity_threshold: float
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -6136,6 +6252,8 @@ class DefaultApi:
             event_id=event_id,
             page=page,
             similarity_threshold=similarity_threshold,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -6172,6 +6290,8 @@ class DefaultApi:
         event_id: Annotated[Optional[StrictStr], Field(description="Find markets belonging to an event")] = None,
         page: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For pagination (used by Limitless)")] = None,
         similarity_threshold: Annotated[Optional[Union[StrictFloat, StrictInt]], Field(description="For semantic search (used by Limitless)")] = None,
+        source_exchange: Annotated[Optional[StrictStr], Field(description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.")] = None,
+        exchange2: Annotated[Optional[StrictStr], Field(description="Alias for `sourceExchange`.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -6215,6 +6335,10 @@ class DefaultApi:
         :type page: float
         :param similarity_threshold: For semantic search (used by Limitless)
         :type similarity_threshold: float
+        :param source_exchange: Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.
+        :type source_exchange: str
+        :param exchange2: Alias for `sourceExchange`.
+        :type exchange2: str
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -6251,6 +6375,8 @@ class DefaultApi:
             event_id=event_id,
             page=page,
             similarity_threshold=similarity_threshold,
+            source_exchange=source_exchange,
+            exchange2=exchange2,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -6282,6 +6408,8 @@ class DefaultApi:
         event_id,
         page,
         similarity_threshold,
+        source_exchange,
+        exchange2,
         _request_auth,
         _content_type,
         _headers,
@@ -6353,6 +6481,14 @@ class DefaultApi:
         if similarity_threshold is not None:
             
             _query_params.append(('similarityThreshold', similarity_threshold))
+            
+        if source_exchange is not None:
+            
+            _query_params.append(('sourceExchange', source_exchange))
+            
+        if exchange2 is not None:
+            
+            _query_params.append(('exchange', exchange2))
             
         # process the header parameters
         # process the form parameters

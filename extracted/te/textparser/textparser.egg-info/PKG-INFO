@@ -1,17 +1,30 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: textparser
-Version: 0.24.0
-Summary: Text parser.
-Home-page: https://github.com/eerimoq/textparser
+Version: 0.26.1
+Summary: A text parser library for python.
 Author: Erik Moqvist
-Author-email: erik.moqvist@gmail.com
-License: MIT
+License-Expression: MIT
+Project-URL: homepage, https://github.com/cantools/textparser
+Project-URL: documentation, https://textparser.readthedocs.io/
+Project-URL: repository, https://github.com/cantools/textparser
 Keywords: parser,parsing
-Platform: UNKNOWN
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
+Provides-Extra: examples
+Requires-Dist: lark-parser; extra == "examples"
+Requires-Dist: pyparsing; extra == "examples"
+Requires-Dist: parsita; extra == "examples"
+Requires-Dist: funcparserlib; extra == "examples"
+Requires-Dist: parsy; extra == "examples"
+Requires-Dist: parsimonious; extra == "examples"
+Requires-Dist: textx; extra == "examples"
+Provides-Extra: test
+Requires-Dist: mypy>=2.1; extra == "test"
+Requires-Dist: ruff>=0.15.16; extra == "test"
+Requires-Dist: pytest>=9.0; extra == "test"
+Requires-Dist: coverage>=7.14; extra == "test"
+Dynamic: license-file
 
 About
 =====
@@ -133,5 +146,3 @@ Contributing
 .. _Hello World: https://github.com/eerimoq/textparser/blob/master/examples/hello_world.py
 .. _benchmark: https://github.com/eerimoq/textparser/blob/master/examples/benchmarks/json/speed.py
 .. _276 kb file: https://github.com/eerimoq/textparser/blob/master/examples/benchmarks/json/data.json
-
-

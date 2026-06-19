@@ -1,0 +1,2 @@
+import{Wi as e,Xi as t,_a as n,ea as r,gt as i}from"./index-BD_kIOMy-BXZ548hc.js";import"./prefect-ui-library-53jeA6QK.js";import{t as a}from"./usePageTitle-c6Q_8Wb2.js";var o=t({__name:`404`,setup(t){return a(`Page Not Found`),(t,a)=>(r(),e(n(i)))}});export{o as default};
+//# sourceMappingURL=404-6c7Mk1nM.js.map

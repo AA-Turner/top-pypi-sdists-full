@@ -18,6 +18,7 @@ import concurrent.futures as cf
 import io
 import os
 import json
+import warnings
 
 from packaging import version
 
@@ -223,7 +224,10 @@ class Request:
         key=None,
         token=None,
         threading=False,
+        thread_pool_executor=None,
+        max_workers=4,
         expect_json=True,
+        pagination="offset",
     ):
         """Instantiates a new Request object.
 
@@ -238,6 +242,14 @@ class Request:
         * **expect_json** (bool, optional): If True, expects JSON response
             and sets appropriate Accept header. If False, expects raw content
             (e.g., SVG, XML) and returns text. Defaults to True.
+        * **pagination** (str or callable, optional): Pagination strategy for
+            list views, either ``"offset"`` (default) or ``"cursor"``. May
+            also be a zero-argument callable returning one of those strings,
+            which is resolved lazily on the first list request so any work it
+            performs (e.g. a server version probe) is deferred until needed.
+            Cursor pagination (NetBox 4.6+) pages with the ``start`` parameter
+            and follows ``next`` links sequentially; it omits the total count
+            and is mutually exclusive with threading.
 
         ## Note
 
@@ -253,9 +265,16 @@ class Request:
         self.http_session = http_session
         self.url = self.base if not key else "{}{}/".format(self.base, key)
         self.threading = threading
+        self.thread_pool_executor = (
+            thread_pool_executor
+            if thread_pool_executor is not None
+            else cf.ThreadPoolExecutor
+        )
+        self.max_workers = max_workers
         self.limit = limit
         self.offset = offset
         self.expect_json = expect_json
+        self.pagination = pagination
 
     def get_openapi(self):
         """Gets the OpenAPI Spec."""
@@ -413,7 +432,7 @@ class Request:
 
     def concurrent_get(self, ret, page_size, page_offsets):
         futures_to_results = []
-        with cf.ThreadPoolExecutor(max_workers=4) as pool:
+        with self.thread_pool_executor(max_workers=self.max_workers) as pool:
             for offset in page_offsets:
                 new_params = {"offset": offset, "limit": page_size}
                 futures_to_results.append(
@@ -423,6 +442,18 @@ class Request:
             for future in cf.as_completed(futures_to_results):
                 result = future.result()
                 ret.extend(result["results"])
+
+    def _resolve_pagination(self):
+        """Resolve the configured pagination strategy.
+
+        ``pagination`` may be either a string (``"offset"``/``"cursor"``) or a
+        zero-argument callable returning one. Deferring the call to here keeps
+        any work it does (such as the NetBox version probe behind
+        ``Api._effective_pagination``) out of ``Request`` construction, so a
+        lazily-built ``RecordSet`` that is never iterated makes no extra call.
+        """
+        pagination = self.pagination
+        return pagination() if callable(pagination) else pagination
 
     def get(self, add_params=None):
         """Makes a GET request.
@@ -438,15 +469,52 @@ class Request:
         * ContentError if response is not json.
         """
 
+        # Cursor-based pagination (NetBox 4.6+) is used only for full
+        # iteration of a list view. An explicit offset (single requested
+        # page) or a detail route (add_params already set) falls back to
+        # the default offset behavior, since 'start' and 'offset' are
+        # mutually exclusive on the server.
+        use_cursor = (
+            self._resolve_pagination() == "cursor"
+            and self.offset is None
+            and add_params is None
+        )
+
+        if use_cursor and self.filters and "ordering" in self.filters:
+            # Cursor pagination derives the page boundaries from a fixed
+            # server-side ordering, so a caller-supplied 'ordering' filter is
+            # silently ignored by NetBox. Warn rather than let the result come
+            # back in an unexpected order.
+            # stacklevel=3: get() (generator body, resumed on the first
+            # next()) -> RecordSet.__next__/__len__ -> caller.
+            warnings.warn(
+                "ordering has no effect with cursor pagination; results are "
+                "returned in NetBox's fixed cursor order.",
+                stacklevel=3,
+            )
+
         if not add_params and self.limit is not None:
             add_params = {"limit": self.limit}
-            if self.limit and self.offset is not None:
+            if use_cursor:
+                # 'start' is the numeric id of the first object to return;
+                # begin at the start and follow the server's next links.
+                add_params["start"] = 0
+            elif self.limit and self.offset is not None:
                 # if non-zero limit and some offset -> add offset
                 add_params["offset"] = self.offset
         req = self._make_call(add_params=add_params)
         if isinstance(req, dict) and req.get("results") is not None:
+            # In cursor mode NetBox omits the count (returns null); it is
+            # fetched lazily by get_count() if len() is requested.
             self.count = req["count"]
-            if self.offset is not None:
+            if use_cursor:
+                # Sequentially follow next links; each link carries the
+                # next 'start' cursor (last pk + 1) computed by the server.
+                yield from req["results"]
+                while req.get("next"):
+                    req = self._make_call(url_override=req["next"])
+                    yield from req["results"]
+            elif self.offset is not None:
                 # only yield requested page results if paginating
                 for i in req["results"]:
                     yield i
@@ -595,6 +663,10 @@ class Request:
         * ContentError if response is not json.
         """
 
-        if not hasattr(self, "count"):
+        # ``count`` may be unset, or set to None when cursor pagination was
+        # used (NetBox omits the count in that mode). In both cases fetch it
+        # explicitly. This uses an offset-style request (no 'start' param),
+        # which always returns the total count.
+        if getattr(self, "count", None) is None:
             self.count = self._make_call(add_params={"limit": 1, "brief": 1})["count"]
         return self.count

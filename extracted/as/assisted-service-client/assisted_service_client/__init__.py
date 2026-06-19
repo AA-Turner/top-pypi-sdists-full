@@ -35,6 +35,7 @@ from assisted_service_client.models.architecture_support_level_id import Archite
 from assisted_service_client.models.bind_host_params import BindHostParams
 from assisted_service_client.models.boot import Boot
 from assisted_service_client.models.bundle import Bundle
+from assisted_service_client.models.bundle_create_params import BundleCreateParams
 from assisted_service_client.models.cluster import Cluster
 from assisted_service_client.models.cluster_create_params import ClusterCreateParams
 from assisted_service_client.models.cluster_default_config import ClusterDefaultConfig

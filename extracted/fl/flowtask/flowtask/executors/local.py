@@ -152,9 +152,12 @@ class LocalJobExecutor(AbstractJobExecutor):
         try:
             state = await task_obj.run()
 
-            # Collect stats
+            # Collect stats.  Return the full TaskMonitor object (not the flat
+            # ``.stats`` dict) so the per-step breakdown (StepMonitor list) is
+            # preserved for in-process callers that print ``runner.stats``.
+            # Remote executors serialise their own dict separately.
             try:
-                stats = task_obj.stats.stats
+                stats = task_obj.stats
             except AttributeError:
                 stats = None
 

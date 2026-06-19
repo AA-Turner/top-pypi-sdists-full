@@ -4,6 +4,7 @@ import pytest
 
 from boltons.dictutils import OMD
 from boltons.iterutils import (first,
+                               split,
                                pairwise,
                                pairwise_iter,
                                windowed,
@@ -22,6 +23,14 @@ isint = lambda x: isinstance(x, int)
 odd = lambda x: isint(x) and x % 2 != 0
 even = lambda x: isint(x) and x % 2 == 0
 is_meaning_of_life = lambda x: x == 42
+
+
+class TestSplit:
+    def test_maxsplit_zero_returns_unsplit_values(self):
+        values = [1, None, 2]
+
+        assert split(values, maxsplit=0) == [values]
+        assert split(iter(values), maxsplit=0) == [values]
 
 
 class TestFirst:
@@ -395,6 +404,24 @@ def test_research():
     # empty results with default, reraise=False
     assert research(root, broken_query) == []
 
+    # test that different branches with object identical values are
+    # still traversed and returned
+    literal_tree = {
+            "maybe" : ("hello",),
+            "another" : ("hello",),
+        }
+
+    assert id(literal_tree["maybe"]) == id(literal_tree["another"])
+    assert research(
+        root=literal_tree,
+    ) == [
+        ((None,), literal_tree),
+        (("maybe",), ("hello",)),
+        (("maybe", 0,), "hello"),
+        (("another",), ("hello",)),
+        (("another", 0,), "hello"),
+    ]
+
 
 def test_research_custom_enter():
     # see #368
@@ -598,3 +625,21 @@ def test_windowed_filled():
 
     assert list(windowed_iter(range(4), 3)) == [(0, 1, 2), (1, 2, 3)]
     assert list(windowed_iter(range(4), 3, fill=None)) == [(0, 1, 2), (1, 2, 3), (2, 3, None), (3, None, None)]
+# Tests for partition
+
+def test_partition_default():
+    from boltons.iterutils import partition
+
+    nonempty, empty = partition(['', '', 'hi', '', 'bye'])
+    assert nonempty == ['hi', 'bye']
+    assert empty == ["", "", ""]
+
+
+def test_partition_multiple():
+    from boltons.iterutils import partition
+
+    items = [2, -1, 0, 3, -2]
+    positive, negative, zero = partition(items, lambda i: i > 0, lambda i: i < 0)
+    assert positive == [2, 3]
+    assert negative == [-1, -2]
+    assert zero == [0]

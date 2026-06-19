@@ -40,7 +40,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from stanza.models.common.bert_embedding import extract_bert_embeddings
 from stanza.models.common.maxout_linear import MaxoutLinear
 from stanza.models.common.relative_attn import RelativeAttention
-from stanza.models.common.utils import attach_bert_model, build_nonlinearity, unsort
+from stanza.models.common.utils import attach_bert_model, build_nonlinearity, initialize_forget_gate_bias, unsort
 from stanza.models.common.vocab import PAD_ID, UNK_ID
 from stanza.models.constituency.base_model import BaseModel
 from stanza.models.constituency.label_attention import LabelAttentionModule
@@ -213,9 +213,9 @@ class ConstituencyComposition(Enum):
     UNTIED_KEY            = 10
 
 class LSTMModel(BaseModel, nn.Module):
-    def __init__(self, pretrain, forward_charlm, backward_charlm, bert_model, bert_tokenizer, force_bert_saved, peft_name, transitions, constituents, tags, words, rare_words, root_labels, constituent_opens, unary_limit, args):
+    def __init__(self, pt, forward_charlm, backward_charlm, bert_model, bert_tokenizer, force_bert_saved, peft_name, transitions, constituents, tags, words, rare_words, root_labels, constituent_opens, unary_limit, args):
         """
-        pretrain: a Pretrain object
+        pt: a Pretrain object
         transitions: a list of all possible transitions which will be
           used to build trees
         constituents: a list of all possible constituents in the treebank
@@ -241,15 +241,10 @@ class LSTMModel(BaseModel, nn.Module):
         self.args = args
         self.unsaved_modules = []
 
-        emb_matrix = pretrain.emb
+        emb_matrix = pt.emb
         self.add_unsaved_module('embedding', nn.Embedding.from_pretrained(emb_matrix, freeze=True))
 
-        # replacing NBSP picks up a whole bunch of words for VI
-        self.vocab_map = { word.replace('\xa0', ' '): i for i, word in enumerate(pretrain.vocab) }
-        # precompute tensors for the word indices
-        # the tensors should be put on the GPU if needed by calling to(device)
-        self.register_buffer('vocab_tensors', torch.tensor(range(len(pretrain.vocab)), requires_grad=False))
-        self.vocab_size = emb_matrix.shape[0]
+        self.emb_vocab = pt.vocab
         self.embedding_dim = emb_matrix.shape[1]
 
         self.constituents = sorted(list(constituents))
@@ -465,7 +460,13 @@ class LSTMModel(BaseModel, nn.Module):
             if self.args['rattn_reverse'] and self.args['rattn_cat']:
                 self.word_input_size += self.rel_attn_reverse.d_output
 
-        self.word_lstm = nn.LSTM(input_size=self.word_input_size, hidden_size=self.hidden_size, num_layers=self.num_lstm_layers, bidirectional=True, dropout=self.lstm_layer_dropout)
+        self.word_lstm = nn.LSTM(input_size=self.word_input_size,
+                                 hidden_size=self.hidden_size,
+                                 num_layers=self.num_lstm_layers,
+                                 bidirectional=True,
+                                 dropout=self.lstm_layer_dropout)
+        if self.args.get('lstm_forget_init') is not None:
+            initialize_forget_gate_bias(self.word_lstm, self.args['lstm_forget_init'])
 
         # after putting the word_delta_tag input through the word_lstm, we get back
         # hidden_size * 2 output with the front and back lstms concatenated.
@@ -475,8 +476,6 @@ class LSTMModel(BaseModel, nn.Module):
 
         self.transitions = sorted(list(transitions))
         self.transition_map = { t: i for i, t in enumerate(self.transitions) }
-        # precompute tensors for the transitions
-        self.register_buffer('transition_tensors', torch.tensor(range(len(transitions)), requires_grad=False))
         self.transition_embedding = nn.Embedding(num_embeddings = len(transitions),
                                                  embedding_dim = self.transition_embedding_dim)
         nn.init.normal_(self.transition_embedding.weight, std=0.25)
@@ -486,7 +485,8 @@ class LSTMModel(BaseModel, nn.Module):
                                                   num_lstm_layers=self.num_lstm_layers,
                                                   dropout=self.lstm_layer_dropout,
                                                   uses_boundary_vector=self.sentence_boundary_vectors is SentenceBoundary.EVERYTHING,
-                                                  input_dropout=self.lstm_input_dropout)
+                                                  input_dropout=self.lstm_input_dropout,
+                                                  forget_bias=self.args.get('lstm_forget_init'))
         elif args['transition_stack'] == StackHistory.ATTN:
             self.transition_stack = TransformerTreeStack(input_size=self.transition_embedding_dim,
                                                          output_size=self.transition_hidden_size,
@@ -512,7 +512,8 @@ class LSTMModel(BaseModel, nn.Module):
                                                    num_lstm_layers=self.num_lstm_layers,
                                                    dropout=self.lstm_layer_dropout,
                                                    uses_boundary_vector=self.sentence_boundary_vectors is SentenceBoundary.EVERYTHING,
-                                                   input_dropout=self.lstm_input_dropout)
+                                                   input_dropout=self.lstm_input_dropout,
+                                                   forget_bias=self.args.get('lstm_forget_init'))
         elif args['constituent_stack'] == StackHistory.ATTN:
             self.constituent_stack = TransformerTreeStack(input_size=self.hidden_size,
                                                           output_size=self.hidden_size,
@@ -657,8 +658,14 @@ class LSTMModel(BaseModel, nn.Module):
         # word_lstm:         hidden_size * num_tree_lstm_layers
         # transition_stack:  transition_hidden_size
         # constituent_stack: hidden_size
-        predict_input_size = [self.hidden_size + self.hidden_size * self.num_tree_lstm_layers + self.transition_hidden_size] + [self.hidden_size] * middle_layers
-        predict_output_size = [self.hidden_size] * middle_layers + [final_layer_size]
+        # output_layer_sizes stores the condensed output size of each middle layer.
+        # If absent (uncompressed model), default to hidden_size for all middle layers.
+        first_input_size = self.hidden_size + self.hidden_size * self.num_tree_lstm_layers + self.transition_hidden_size
+        middle_output_sizes = self.args.get('output_layer_sizes')
+        if middle_output_sizes is None:
+            middle_output_sizes = [self.hidden_size] * middle_layers
+        predict_input_size  = [first_input_size] + middle_output_sizes
+        predict_output_size = middle_output_sizes + [final_layer_size]
         if not maxout_k:
             output_layers = nn.ModuleList([nn.Linear(input_size, output_size)
                                            for input_size, output_size in zip(predict_input_size, predict_output_size)])
@@ -666,11 +673,12 @@ class LSTMModel(BaseModel, nn.Module):
                 initialize_linear(output_layer, self.args['nonlinearity'], input_size)
         else:
             output_layers = nn.ModuleList([MaxoutLinear(input_size, output_size, maxout_k)
-                                           for input_size, output_size in zip(predict_input_size, predict_output_size)])
+                                           for input_size, output_size in zip(predict_input_size[:-1], predict_output_size[:-1])])
+            output_layers.append(nn.Linear(predict_input_size[-1], predict_output_size[-1]))
         return output_layers
 
     def num_words_known(self, words):
-        return sum(word in self.vocab_map or word.lower() in self.vocab_map for word in words)
+        return sum(word in self.emb_vocab or word.lower() in self.emb_vocab for word in words)
 
     @property
     def retag_method(self):
@@ -737,12 +745,12 @@ class LSTMModel(BaseModel, nn.Module):
         """
         device = next(self.parameters()).device
 
-        vocab_map = self.vocab_map
+        emb_vocab = self.emb_vocab
         def map_word(word):
-            idx = vocab_map.get(word, None)
-            if idx is not None:
+            idx = emb_vocab.unit2id(word)
+            if idx != UNK_ID:
                 return idx
-            return vocab_map.get(word.lower(), UNK_ID)
+            return emb_vocab.unit2id(word.lower())
 
         all_word_inputs = []
         all_word_labels = [[word.children[0].label for word in tagged_words]
@@ -750,7 +758,7 @@ class LSTMModel(BaseModel, nn.Module):
 
         for sentence_idx, tagged_words in enumerate(tagged_word_lists):
             word_labels = all_word_labels[sentence_idx]
-            word_idx = torch.stack([self.vocab_tensors[map_word(word.children[0].label)] for word in tagged_words])
+            word_idx = torch.tensor([map_word(word.children[0].label) for word in tagged_words], device=device)
             word_input = self.embedding(word_idx)
 
             # this occasionally learns UNK at train time
@@ -769,7 +777,7 @@ class LSTMModel(BaseModel, nn.Module):
                     tag_labels = [None if random.random() < self.args['tag_unknown_frequency'] else word.label for word in tagged_words]
                 else:
                     tag_labels = [word.label for word in tagged_words]
-                tag_idx = torch.stack([self.tag_tensors[self.tag_map.get(tag, UNK_ID)] for tag in tag_labels])
+                tag_idx = torch.tensor([self.tag_map.get(tag, UNK_ID) for tag in tag_labels], device=device)
                 tag_input = self.tag_embedding(tag_idx)
                 word_inputs.append(tag_input)
 
@@ -904,12 +912,14 @@ class LSTMModel(BaseModel, nn.Module):
         else:
             return Constituent(word, word_node.hx[:self.hidden_size].unsqueeze(0), None)
 
-    def dummy_constituent(self, dummy):
-        label = dummy.label
-        open_index = self.constituent_open_tensors[self.constituent_open_map[label]]
-        hx = self.dummy_embedding(open_index)
+    def dummy_constituents(self, dummy_list):
+        constituents = []
+        labels = [self.constituent_open_map[dummy.label] for dummy in dummy_list]
+        open_idx = torch.tensor(labels, device=self.word_zeros.device)
+        open_hx = self.dummy_embedding(open_idx)
         # the cx doesn't matter: the dummy will be discarded when building a new constituent
-        return Constituent(dummy, hx.unsqueeze(0), None)
+        constituents = [Constituent(dummy, hx.unsqueeze(0), None) for dummy, hx in zip(dummy_list, open_hx)]
+        return constituents
 
     def build_constituents(self, labels, children_lists):
         """
@@ -952,10 +962,52 @@ class LSTMModel(BaseModel, nn.Module):
                 hx = self.reduce_forward(lstm_output[:, :self.hidden_size]) + self.reduce_backward(lstm_output[:, self.hidden_size:])
             lstm_hx = self.nonlinearity(hx).unsqueeze(0)
             lstm_cx = None
+
         elif self.constituency_composition == ConstituencyComposition.MAX:
-            node_hx = [[child.value.tree_hx for child in children] for children in children_lists]
-            unpacked_hx = [self.lstm_input_dropout(torch.max(torch.stack(nhx), 0).values) for nhx in node_hx]
-            packed_hx = torch.stack(unpacked_hx, axis=1)
+            # this block uses scatter_reduce to use scatter_reduce instead of
+            # running a loop over max
+            # should be slightly more efficient
+            # this was the original:
+            #node_hx = [[child.value.tree_hx for child in children] for children in children_lists]
+            #unpacked_hx = [self.lstm_input_dropout(torch.max(torch.stack(nhx), 0).values) for nhx in node_hx]
+            #packed_hx = torch.stack(unpacked_hx, axis=1)
+            #hx = self.reduce_linear(packed_hx)
+            #lstm_hx = self.nonlinearity(hx)
+            #lstm_cx = None
+            group_sizes = [len(children) for children in children_lists]
+
+            # tree_hx per child is (1, hidden_size); squeeze to (hidden_size,)
+            # then cat to (total_children, hidden_size) — keep 2D with reshape
+            flat_hx = torch.stack(
+                [child.value.tree_hx.squeeze(0) for children in children_lists
+                 for child in children],
+                dim=0
+            )
+
+            # TODO: an minor experiment to run would be to put the
+            # dropout here, instead of later.
+            # then for some dimensions, the second best children would
+            # get trained instead of the best children
+            # this may or may not make a difference
+            # dropout before the max: each child's coordinates compete
+            # after zeroing, so the winning child may vary stochastically
+            #flat_hx = self.lstm_input_dropout(flat_hx)
+
+            # which output group each child belongs to
+            # e.g. groups of size [2, 3, 1] → [0, 0, 1, 1, 1, 2]
+            index = torch.repeat_interleave(
+                torch.arange(len(children_lists), device=flat_hx.device),
+                torch.tensor(group_sizes, device=flat_hx.device)
+            )
+            index_expanded = index.unsqueeze(1).expand(-1, self.hidden_size)
+
+            # amax over each group: (num_groups, hidden_size)
+            out = torch.zeros(len(children_lists), self.hidden_size, device=flat_hx.device)
+            out.scatter_reduce_(0, index_expanded, flat_hx, reduce="amax", include_self=False)
+
+            out = self.lstm_input_dropout(out)
+
+            packed_hx = out.unsqueeze(0)
             hx = self.reduce_linear(packed_hx)
             lstm_hx = self.nonlinearity(hx)
             lstm_cx = None
@@ -1057,7 +1109,7 @@ class LSTMModel(BaseModel, nn.Module):
                 for value in reversed(label):
                     node = Tree(label=value, children=children)
                     children = node
-            constituents.append(Constituent(node, lstm_hx[:, idx, :], lstm_cx[:, idx, :] if lstm_cx is not None else None))
+            constituents.append(Constituent(node, lstm_hx[:, idx], lstm_cx[:, idx] if lstm_cx is not None else None))
         return constituents
 
     def push_constituents(self, constituent_stacks, constituents):
@@ -1070,9 +1122,7 @@ class LSTMModel(BaseModel, nn.Module):
         # averaged over 5 trials, had the following loss in accuracy:
         # 150 epochs: 0.8971 to 0.8953
         # 200 epochs: 0.8985 to 0.8964
-        current_nodes = [stack.value for stack in constituent_stacks]
-
-        constituent_input = torch.stack([x.tree_hx[-1:] for x in constituents], axis=1)
+        constituent_input = torch.stack([x.tree_hx[-1] for x in constituents], axis=0).unsqueeze(0)
         #constituent_input = constituent_input.unsqueeze(0)
         # the constituents are already Constituent(tree, tree_hx, tree_cx)
         return self.constituent_stack.push_states(constituent_stacks, constituents, constituent_input)
@@ -1092,7 +1142,8 @@ class LSTMModel(BaseModel, nn.Module):
 
         Significantly faster than doing one transition at a time.
         """
-        transition_idx = torch.stack([self.transition_tensors[self.transition_map[transition]] for transition in transitions])
+        transition_idx = torch.tensor([self.transition_map[transition] for transition in transitions],
+                                      device=self.word_zeros.device)
         transition_input = self.transition_embedding(transition_idx).unsqueeze(0)
         return self.transition_stack.push_states(transition_stacks, transitions, transition_input)
 
@@ -1126,8 +1177,7 @@ class LSTMModel(BaseModel, nn.Module):
         hx = torch.cat((word_hx, transition_hx, constituent_hx), axis=1)
         for idx, output_layer in enumerate(self.output_layers):
             hx = self.predict_dropout(hx)
-            # TODO: why self.output_layers - 1?
-            if not self.maxout_k and idx < len(self.output_layers) - 1:
+            if not self.maxout_k:
                 hx = self.nonlinearity(hx)
             hx = output_layer(hx)
         return hx
@@ -1227,7 +1277,7 @@ class LSTMModel(BaseModel, nn.Module):
             'rare_words': list(self.rare_words),
             'root_labels': self.root_labels,
             'constituent_opens': self.constituent_opens,
-            'unary_limit': self.unary_limit(),
+            'unary_limit': self.unary_limit,
         }
 
         return params

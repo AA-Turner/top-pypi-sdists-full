@@ -23,9 +23,46 @@ from vastai.api import storage as storage_api
 
 
 from vastai.cli.utils import get_parser as _get_parser, get_client  # noqa: F401
+from vastai.cli.self_test.machine_diagnostics import (
+    base_result,
+    compact_offer_metadata,
+    failed_checks,
+    no_offer_failure,
+    preflight_requirement_checks,
+    render_preflight_advisories,
+    render_preflight_failure,
+    requirement_failure,
+)
+from vastai.cli.self_test.runtime_diagnostics import (
+    DAEMON_STARTUP_FAILED,
+    INSTANCE_CREATE_FAILED,
+    INSTANCE_CREATE_MISSING_CONTRACT,
+    INSTANCE_OFFLINE_BEFORE_TEST,
+    INSTANCE_START_TIMEOUT,
+    INTERRUPTED,
+    LegacyProgressParser,
+    MISSING_PUBLIC_IP,
+    PROGRESS_CONTAINER_PORT,
+    PROGRESS_EMPTY_TIMEOUT,
+    PROGRESS_ENDPOINT_LOST,
+    PROGRESS_ENDPOINT_UNREACHABLE,
+    PROGRESS_PORT_NOT_MAPPED,
+    RUNTIME_TEST_TIMEOUT,
+    classify_status_msg,
+    make_progress_endpoint_diagnostic,
+    make_failure,
+    redact_secret_text,
+)
+from vastai.cli.self_test.support_bundle import (
+    create_support_bundle,
+    format_bundle_summary,
+    support_bundles_enabled,
+)
 
 
 parser = _get_parser()
+SELF_TEST_INSTANCE_LABEL_PREFIX = "vast-self-test-machine"
+INSTANCE_LOG_TAIL_LINES = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -213,10 +250,11 @@ def list_machine_impl(args, id):
         If your machine has an active client job and then goes offline, crashes, or has performance problems, this could permanently lower your reliability rating.
         We strongly recommend you test the machine first and only list when ready.
 
-        Raising --price_gpu above the current contract price is the supported way to
-        trigger a price-increase challenge: affected clients will receive an email
-        and can run `vastai accept price-increase <id>` (or --host <id>) to opt in
-        at the new rate. Until they accept, their auto-extend stops at the old price.
+        Raising any resource price above the current contract price writes a
+        pending row to `pending_price_increases` for each affected client.
+        Clients review and accept those rows via the console or
+        `vastai show pending-price-increases`; auto-extend stops at the old
+        price until they accept.
     """)
 )
 def list__machine(args):
@@ -524,6 +562,137 @@ def add__network_disk(args):
 
 
 # ---------------------------------------------------------------------------
+# dump-logs
+# ---------------------------------------------------------------------------
+
+def _diagnostic_error(error):
+    return redact_secret_text(error) or ""
+
+
+def _artifact_text(value):
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, indent=2, sort_keys=True, default=str)
+
+
+def collect_instance_log_artifacts(client, instance_id):
+    files = {}
+    errors = []
+
+    try:
+        instance_info = instances_api.show_instance(client, id=instance_id)
+        files["instance/show-instance.json"] = _artifact_text(instance_info)
+    except Exception as e:
+        errors.append({
+            "artifact": "instance/show-instance.json",
+            "error": _diagnostic_error(e),
+        })
+
+    for archive_name, daemon_logs in (
+        ("instance/container.log", False),
+        ("instance/daemon.log", True),
+    ):
+        try:
+            logs = instances_api.logs(
+                client,
+                instance_id=instance_id,
+                tail=INSTANCE_LOG_TAIL_LINES,
+                daemon_logs=daemon_logs,
+            )
+            files[archive_name] = _artifact_text(logs)
+        except Exception as e:
+            errors.append({
+                "artifact": archive_name,
+                "error": _diagnostic_error(e),
+            })
+
+    return files, errors
+
+
+@parser.command(
+    argument("machine_id", help="Machine ID", type=str),
+    argument("--instance-id", help="Instance ID to pull Vast instance logs from", type=int),
+    argument("--output-dir", help="Directory for the diagnostic bundle (default: /tmp)", type=str),
+    argument(
+        "--include-local-host-artifacts",
+        action="store_true",
+        help="Include local OS/kaalia artifacts; only use when running on the actual Vast host",
+    ),
+    usage=(
+        "vastai dump-logs <machine_id> [--instance-id INSTANCE_ID] "
+        "[--output-dir DIR] [--include-local-host-artifacts]"
+    ),
+    help="[Host] Bundle self-test diagnostics for support",
+    epilog=deindent("""
+        Creates a redacted diagnostic tarball containing CLI-visible self-test
+        evidence. If --instance-id is provided, the command also pulls container
+        and daemon logs from the Vast instance logs API.
+
+        Local OS/kaalia artifacts are only collected with
+        --include-local-host-artifacts. Use that option only when running this
+        command on the actual host machine; from a laptop, it would collect the
+        laptop's logs instead.
+
+        Example:
+         vastai dump-logs 12345 --instance-id 67890
+    """),
+)
+def dump_logs(args):
+    run_started_at = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    cli_output = [f"Manual diagnostic bundle requested for machine {args.machine_id}."]
+    extra_files = {}
+    extra_errors = []
+    if args.instance_id:
+        client = get_client(args)
+        cli_output.append(f"Requested Vast instance logs for instance {args.instance_id}.")
+        instance_files, instance_errors = collect_instance_log_artifacts(client, args.instance_id)
+        extra_files.update(instance_files)
+        extra_errors.extend(instance_errors)
+    else:
+        cli_output.append("No --instance-id provided; Vast instance logs were not requested.")
+
+    if not args.include_local_host_artifacts:
+        cli_output.append(
+            "Local host OS/kaalia artifacts were not collected. Use "
+            "--include-local-host-artifacts only when running on the actual host."
+        )
+
+    try:
+        bundle = create_support_bundle(
+            machine_id=args.machine_id,
+            output_dir=args.output_dir,
+            result={
+                "machine_id": args.machine_id,
+                "stage": "manual_dump_logs",
+                "reason": "Manual diagnostic bundle requested with vastai dump-logs.",
+                "instance_id": args.instance_id,
+                "includes_local_host_artifacts": args.include_local_host_artifacts,
+            },
+            cli_output=cli_output,
+            extra_files=extra_files,
+            extra_errors=extra_errors,
+            run_started_at=run_started_at,
+            command=sys.argv,
+            secrets=[getattr(args, "api_key", None), os.environ.get("VAST_API_KEY")],
+            include_local_host_artifacts=args.include_local_host_artifacts,
+        )
+    except Exception as e:
+        error = _diagnostic_error(e)
+        if getattr(args, "raw", False):
+            return {
+                "success": False,
+                "machine_id": args.machine_id,
+                "error": f"Failed to create diagnostic bundle: {error}",
+            }
+        print(f"WARNING: failed to create diagnostic bundle: {error}")
+        sys.exit(1)
+    if getattr(args, "raw", False):
+        return bundle
+    for line in format_bundle_summary(bundle):
+        print(line)
+
+
+# ---------------------------------------------------------------------------
 # self-test machine
 # ---------------------------------------------------------------------------
 
@@ -531,7 +700,10 @@ def add__network_disk(args):
     argument("machine_id", help="Machine ID", type=str),
     argument("--debugging", action="store_true", help="Enable debugging output"),
     argument("--ignore-requirements", action="store_true", help="Ignore the minimum system requirements and run the self test regardless"),
-    usage="vastai self-test machine <machine_id> [--debugging] [--ignore-requirements]",
+    argument("--test-image", help="Use a custom self-test image for testing custom self-test images. Overrides VAST_SELF_TEST_IMAGE and CUDA mapping.", type=str),
+    argument("--support-bundle-dir", help="Directory for failure diagnostic bundles (default: /tmp)", type=str),
+    argument("--no-support-bundle", action="store_true", help="Do not create a diagnostic tarball when the self-test fails"),
+    usage="vastai self-test machine <machine_id> [--debugging] [--ignore-requirements] [--test-image IMAGE]",
     help="[Host] Perform a self-test on the specified machine",
     epilog=deindent("""
         This command tests if a machine meets specific requirements and
@@ -548,182 +720,400 @@ def self_test__machine(args):
     required specifications and functionality.
     """
     instance_id = None
-    result = {"success": False, "reason": ""}
+    result = base_result(args.machine_id)
+    run_started_at = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    cli_output = []
+    instance_log_files = {}
+    instance_log_errors = []
+    instance_log_collected = set()
+    ignore_requirements_warning = (
+        "WARNING: --ignore-requirements is set. Requirement checks are skipped as a "
+        "pass/fail gate, and passing this self-test does not qualify this machine for verification."
+    )
 
     if not hasattr(args, 'debugging'):
         args.debugging = False
+    if not hasattr(args, 'test_image'):
+        args.test_image = None
+    if not hasattr(args, 'support_bundle_dir'):
+        args.support_bundle_dir = None
+    if not hasattr(args, 'no_support_bundle'):
+        args.no_support_bundle = False
+    if getattr(args, "ignore_requirements", False):
+        result["warning"] = ignore_requirements_warning
+        result["diagnostics"]["requirements_ignored"] = True
+
+    def output_line(*args_to_print):
+        return " ".join(str(item) for item in args_to_print)
 
     def progress_print(*args_to_print):
+        cli_output.append(output_line(*args_to_print))
         if not args.raw:
             print(*args_to_print)
 
     def debug_print(*args_to_print):
+        if args.debugging:
+            cli_output.append(f"DEBUG: {output_line(*args_to_print)}")
         if args.debugging and not args.raw:
             print(*args_to_print)
 
-    def safe_float(value):
-        if value is None:
-            return 0
+    def collect_instance_logs(inst_id):
+        if args.no_support_bundle or not support_bundles_enabled():
+            return
+        if not inst_id or inst_id in instance_log_collected:
+            return
+        instance_log_collected.add(inst_id)
+        files, errors = collect_instance_log_artifacts(client, inst_id)
+        instance_log_files.update(files)
+        instance_log_errors.extend(errors)
+        result["diagnostics"]["instance_log_collection"] = {
+            "instance_id": inst_id,
+            "files": sorted(instance_log_files.keys()),
+            "collection_errors": instance_log_errors,
+        }
+
+    def ensure_support_bundle():
+        if result.get("success"):
+            return None
+        if result.get("diagnostics", {}).get("support_bundle"):
+            return result["diagnostics"]["support_bundle"]
+        if args.no_support_bundle or not support_bundles_enabled():
+            return None
+        if instance_id:
+            collect_instance_logs(instance_id)
         try:
-            return float(value)
-        except (ValueError, TypeError):
-            return 0
+            bundle = create_support_bundle(
+                machine_id=args.machine_id,
+                output_dir=args.support_bundle_dir,
+                result=result,
+                cli_output=cli_output,
+                extra_files=instance_log_files,
+                extra_errors=instance_log_errors,
+                run_started_at=run_started_at,
+                command=sys.argv,
+                secrets=[getattr(args, "api_key", None), os.environ.get("VAST_API_KEY")],
+                include_local_host_artifacts=False,
+            )
+        except Exception as e:
+            error = redact_secret_text(e) or ""
+            result["diagnostics"]["support_bundle_error"] = error
+            progress_print(f"WARNING: failed to create self-test diagnostic bundle: {error}")
+            return None
+        result["diagnostics"]["support_bundle"] = bundle
+        return bundle
+
+    def finish_failure():
+        if args.raw:
+            ensure_support_bundle()
+            return result
+        if result.get("warning"):
+            print(result["warning"])
+        render_runtime_failure()
+        bundle = ensure_support_bundle()
+        if bundle:
+            for line in format_bundle_summary(bundle):
+                print(line)
+        print(f"Test failed: {result['reason']}")
+        sys.exit(1)
+
+    def set_runtime_failure(diagnostic, fallback_reason=None):
+        result["failure"] = diagnostic
+        result["failure_code"] = diagnostic["code"]
+        result["stage"] = diagnostic.get("stage") or result.get("stage")
+        result["reason"] = fallback_reason or diagnostic.get("summary") or ""
+        result["diagnostics"]["runtime_failure"] = diagnostic
+
+    def safe_error(error):
+        return redact_secret_text(error) or ""
+
+    def render_runtime_failure():
+        diagnostic = result.get("diagnostics", {}).get("runtime_failure")
+        if not diagnostic:
+            return
+        progress_print("Runtime failure diagnostics:")
+        progress_print(f"- code: {diagnostic.get('code')}")
+        if diagnostic.get("summary"):
+            progress_print(f"- summary: {diagnostic['summary']}")
+        if diagnostic.get("underlying_error"):
+            progress_print(f"- underlying error: {diagnostic['underlying_error']}")
+        endpoint = diagnostic.get("progress_endpoint") or result.get("diagnostics", {}).get("progress_endpoint")
+        if endpoint:
+            if endpoint.get("url"):
+                progress_print(f"- tried: {endpoint['url']}")
+            external_port = endpoint.get("external_port") or endpoint.get("host_port")
+            if external_port:
+                progress_print(f"- external port tested: {external_port}")
+            last_bits = []
+            if endpoint.get("last_status_code") is not None:
+                last_bits.append(f"HTTP {endpoint['last_status_code']}")
+            if endpoint.get("last_error_type"):
+                last_bits.append(str(endpoint["last_error_type"]))
+            if endpoint.get("last_error"):
+                last_bits.append(str(endpoint["last_error"]))
+            if last_bits:
+                progress_print(f"- last result: {' - '.join(last_bits)}")
+            if endpoint.get("mapped_ports"):
+                progress_print(f"- mapped container ports: {', '.join(endpoint['mapped_ports'])}")
+        if diagnostic.get("remediation"):
+            progress_print(f"- remediation: {diagnostic['remediation']}")
+        steps = diagnostic.get("suggested_steps") or []
+        if steps:
+            progress_print("- suggested steps:")
+            for step in steps:
+                progress_print(f"  - {step}")
 
     client = get_client(args)
 
     try:
-        # ----- check requirements -----
-        def check_requirements(machine_id):
-            unmet_reasons = []
-            query = {
+        def http_status_code(error):
+            response = getattr(error, "response", None)
+            return getattr(response, "status_code", None)
+
+        def offer_search_error_summary(error):
+            return {
+                "status_code": http_status_code(error),
+                "error": safe_error(error),
+            }
+
+        def lookup_machine_for_offer_failure(machine_id):
+            try:
+                rows = machines_api.show_machine(client, id=machine_id)
+                if isinstance(rows, dict):
+                    rows_for_status = [rows] if rows else []
+                else:
+                    rows_for_status = rows or []
+                return {
+                    "status": "visible" if rows_for_status else "empty",
+                    "rows": rows_for_status,
+                    "row_count": len(rows_for_status),
+                }
+            except requests.exceptions.HTTPError as e:
+                status_code = http_status_code(e)
+                status = "permission_denied" if status_code in (401, 403) else "not_found" if status_code == 404 else "error"
+                return {
+                    "status": status,
+                    "status_code": status_code,
+                    "error": safe_error(e),
+                    "rows": [],
+                    "row_count": 0,
+                }
+            except requests.exceptions.RequestException as e:
+                return {
+                    "status": "lookup_error",
+                    "status_code": http_status_code(e),
+                    "error": safe_error(e),
+                    "rows": [],
+                    "row_count": 0,
+                }
+
+        def compact_machine_lookup(machine_lookup):
+            if not machine_lookup:
+                return None
+            return {
+                "status": machine_lookup.get("status"),
+                "status_code": machine_lookup.get("status_code"),
+                "row_count": machine_lookup.get("row_count", len(machine_lookup.get("rows") or [])),
+                "error": machine_lookup.get("error"),
+            }
+
+        def selected_offer_for_self_test(machine_id):
+            strict_query = {
                 "machine_id": {"eq": machine_id},
                 "verified": {"eq": "any"},
                 "rentable": {"eq": True},
+                "rented": {"eq": "any"},
+            }
+            diagnostics = {
+                "strict_offer_count": None,
+                "broader_offer_count": None,
+                "broader_offers": [],
+                "search_error": None,
+                "machine_lookup": None,
+            }
+            try:
+                strict_offers = offers_api.search_offers(
+                    client, query=strict_query, offer_type="on-demand",
+                    order=[["score", "desc"]], storage=5.0, no_default=True,
+                )
+            except requests.exceptions.HTTPError as e:
+                if http_status_code(e) in (401, 403):
+                    diagnostics["search_error"] = offer_search_error_summary(e)
+                    check, failure = no_offer_failure(machine_id, [], search_error=e)
+                    return None, (check, failure), diagnostics
+                raise
+            debug_print("Captured strict offers from search_offers:", strict_offers)
+            diagnostics["strict_offer_count"] = len(strict_offers or [])
+            if strict_offers:
+                sorted_offers = sorted(strict_offers, key=lambda x: x.get("dlperf", 0), reverse=True)
+                selected = dict(sorted_offers[0])
+                selected["machine_id"] = selected.get("machine_id") or machine_id
+                debug_print("Selected offer found:", selected)
+                return selected, None, diagnostics
+
+            broader_query = {
+                "machine_id": {"eq": machine_id},
+                "verified": {"eq": "any"},
+                "rentable": {"eq": "any"},
                 "rented": {"eq": "any"},
             }
             try:
-                offers = offers_api.search_offers(
-                    client, query=query, offer_type="on-demand",
+                broader_offers = offers_api.search_offers(
+                    client, query=broader_query, offer_type="on-demand",
                     order=[["score", "desc"]], storage=5.0, no_default=True,
                 )
-                debug_print("Captured offers from search_offers:", offers)
+            except requests.exceptions.HTTPError as e:
+                if http_status_code(e) in (401, 403):
+                    diagnostics["search_error"] = offer_search_error_summary(e)
+                    check, failure = no_offer_failure(machine_id, [], search_error=e)
+                    return None, (check, failure), diagnostics
+                raise
+            diagnostics["broader_offer_count"] = len(broader_offers or [])
+            diagnostics["broader_offers"] = [
+                compact_offer_metadata(dict(offer, machine_id=offer.get("machine_id", machine_id)))
+                for offer in (broader_offers or [])[:5]
+            ]
+            machine_lookup = None
+            if not broader_offers:
+                machine_lookup = lookup_machine_for_offer_failure(machine_id)
+                diagnostics["machine_lookup"] = compact_machine_lookup(machine_lookup)
+            check, failure = no_offer_failure(machine_id, broader_offers, machine_lookup=machine_lookup)
+            return None, (check, failure), diagnostics
 
-                if not offers:
-                    msg = f"Machine ID {machine_id} not found or not rentable."
-                    unmet_reasons.append(msg)
-                    progress_print(msg)
-                    progress_print("Possible reasons:")
-                    progress_print("  1. Machine is already rented — try: vastai show machines --filter 'machine_id={machine_id} rented=true'")
-                    progress_print("  2. Machine is offline — try: vastai show machines")
-                    progress_print("  3. No active offer for this machine — try: vastai search offers --filter 'machine_id={machine_id} rentable=any'")
-                    progress_print("  4. Bid price may be too low — compare prices with: vastai search offers --filter 'machine_id={machine_id} rentable=any'")
-                    return False, unmet_reasons
+        selected_offer, offer_failure, offer_diagnostics = selected_offer_for_self_test(args.machine_id)
+        result["diagnostics"]["offer_search"] = offer_diagnostics
+        if offer_failure:
+            check, failure = offer_failure
+            result["checks"] = [check]
+            result["failure"] = failure
+            result["failure_code"] = failure["code"]
+            result["stage"] = "select_offer"
+            result["reason"] = failure["summary"]
+            render_preflight_failure(args.machine_id, result["checks"], failure, progress_print)
+            return finish_failure()
 
-                sorted_offers = sorted(offers, key=lambda x: x.get('dlperf', 0), reverse=True)
-                top_offer = sorted_offers[0]
-                debug_print("Top offer found:", top_offer)
-
-                if safe_float(top_offer.get('cuda_max_good')) < 11.8:
-                    unmet_reasons.append("CUDA version < 11.8")
-                if safe_float(top_offer.get('reliability')) <= 0.90:
-                    unmet_reasons.append("Reliability <= 0.90")
-                if safe_float(top_offer.get('direct_port_count')) <= 3:
-                    unmet_reasons.append("Direct port count <= 3")
-                if safe_float(top_offer.get('pcie_bw')) <= 2.85:
-                    unmet_reasons.append("PCIe bandwidth <= 2.85")
-                if safe_float(top_offer.get('inet_down')) < 500:
-                    unmet_reasons.append("Download speed < 500 Mb/s")
-                if safe_float(top_offer.get('inet_up')) < 500:
-                    unmet_reasons.append("Upload speed < 500 Mb/s")
-                if safe_float(top_offer.get('gpu_ram')) <= 7:
-                    unmet_reasons.append("GPU RAM <= 7 GB")
-
-                gpu_total_ram = safe_float(top_offer.get('gpu_total_ram'))
-                cpu_ram = safe_float(top_offer.get('cpu_ram'))
-                if cpu_ram < 0.95 * gpu_total_ram:
-                    unmet_reasons.append("System RAM is less than total VRAM.")
-                debug_print(f"CPU RAM: {cpu_ram} MB")
-                debug_print(f"Total GPU RAM: {gpu_total_ram} MB")
-
-                cpu_cores = int(safe_float(top_offer.get('cpu_cores')))
-                num_gpus = int(safe_float(top_offer.get('num_gpus')))
-                if cpu_cores < 2 * num_gpus:
-                    unmet_reasons.append("Number of CPU cores is less than twice the number of GPUs.")
-                debug_print(f"CPU Cores: {cpu_cores}")
-                debug_print(f"Number of GPUs: {num_gpus}")
-
-                if unmet_reasons:
-                    progress_print(f"Machine ID {machine_id} does not meet the requirements:")
-                    for reason in unmet_reasons:
-                        progress_print(f"- {reason}")
-                    return False, unmet_reasons
-                else:
-                    progress_print(f"Machine ID {machine_id} meets all the requirements.")
-                    return True, []
-
-            except Exception as e:
-                progress_print(f"An unexpected error occurred: {str(e)}")
-                debug_print(f"Exception details: {e}")
-                return False, [f"Unexpected error: {str(e)}"]
-
-        meets_requirements, unmet_reasons = check_requirements(args.machine_id)
-        if not meets_requirements and not args.ignore_requirements:
-            progress_print(f"Machine ID {args.machine_id} does not meet the following requirements:")
-            for reason in unmet_reasons:
-                progress_print(f"- {reason}")
-            result["reason"] = "; ".join(unmet_reasons)
-            return result
-        if not meets_requirements and args.ignore_requirements:
-            progress_print(f"Machine ID {args.machine_id} does not meet the following requirements:")
-            for reason in unmet_reasons:
-                progress_print(f"- {reason}")
+        result["offer"] = compact_offer_metadata(selected_offer)
+        checks = preflight_requirement_checks(selected_offer)
+        result["checks"] = checks
+        unmet_checks = failed_checks(checks)
+        if unmet_checks:
+            failure = requirement_failure(checks)
+            result["diagnostics"]["preflight_failure"] = failure
+            render_preflight_failure(args.machine_id, checks, failure, progress_print)
+            render_preflight_advisories(args.machine_id, checks, progress_print)
+            if not args.ignore_requirements:
+                result["failure"] = failure
+                result["failure_code"] = failure["code"]
+                result["stage"] = "preflight_requirements"
+                result["reason"] = failure["summary"]
+                return finish_failure()
             progress_print("Continuing despite unmet requirements because --ignore-requirements is set.")
+        else:
+            progress_print(f"Machine ID {args.machine_id} meets all the requirements.")
+            render_preflight_advisories(args.machine_id, checks, progress_print)
+        if args.ignore_requirements:
+            progress_print(ignore_requirements_warning)
 
         # ----- CUDA version to docker image mapping -----
-        def cuda_map_to_image(cuda_version):
+        def cuda_map_to_image(cuda_version, compute_cap=None):
+            """Return (image, reason). Reason explains why this image was picked."""
             docker_repo = "vastai/test"
+            image_tag_prefix = "self-test-v2-cuda"
+
+            def image_for(version):
+                return f"{docker_repo}:{image_tag_prefix}-{version}"
+
             if isinstance(cuda_version, float):
                 cuda_version = str(cuda_version)
+            original_cuda = cuda_version
+
+            # cuda-12.8 (torch 2.10) still ships sm_70 (Volta); cuda-13.0
+            # (torch 2.11) never did. Neither builds sm_50/sm_60 kernels.
+            # Anything pre-Volta (compute_cap < 700) must use the cuda-11.8
+            # legacy image.
+            if compute_cap is not None and compute_cap < 700:
+                return (
+                    image_for("11.8"),
+                    f"compute_cap={compute_cap} below sm_70 -> forced {image_tag_prefix}-11.8",
+                )
+
+            # Volta sm_70/sm_72 hosts: cuda-12.8 wheels include sm_70 but
+            # cuda-13.0 wheels never did. Cap the driver-reported CUDA version
+            # at 12.8 so the map below resolves to cuda-12.8 even if the
+            # operator has installed a CUDA 13 driver on a V100.
+            clamped_for_volta = False
+            if compute_cap is not None and compute_cap < 750:
+                if float(cuda_version) > 12.8:
+                    cuda_version = "12.8"
+                    clamped_for_volta = True
 
             docker_tag_map = {
-                "11.8": "cu118",
-                "12.1": "cu121",
-                "12.4": "cu124",
-                "12.6": "cu126",
-                "12.8": "cu128",
+                "11.8": image_for("11.8"),
+                "12.8": image_for("12.8"),
+                "13.0": image_for("13.0"),
+                "13.3": image_for("13.3"),
             }
 
-            if cuda_version in docker_tag_map:
-                return f"{docker_repo}:self-test-{docker_tag_map[cuda_version]}"
+            cap_hint = f"compute_cap={compute_cap}" if compute_cap is not None else "compute_cap=unknown"
 
             cuda_float = float(cuda_version)
-            next_version = round(cuda_float - 0.1, 1)
-            while next_version >= min(float(v) for v in docker_tag_map.keys()):
-                next_version_str = str(next_version)
-                if next_version_str in docker_tag_map:
-                    return f"{docker_repo}:self-test-{docker_tag_map[next_version_str]}"
-                next_version = round(next_version - 0.1, 1)
+            compatible_versions = sorted(float(version) for version in docker_tag_map)
+            selected_version = max(
+                (version for version in compatible_versions if version <= cuda_float),
+                default=None,
+            )
+
+            if selected_version is not None:
+                selected_version_str = f"{selected_version:.1f}"
+                image = docker_tag_map[selected_version_str]
+                if clamped_for_volta:
+                    reason = f"{cap_hint} (Volta) + cuda_max_good={original_cuda} -> clamped to {cuda_version} -> {image}"
+                elif selected_version_str == cuda_version:
+                    reason = f"{cap_hint}, cuda_max_good={cuda_version} -> exact match -> {image}"
+                else:
+                    reason = (
+                        f"{cap_hint}, cuda_max_good={original_cuda} -> "
+                        f"selected newest image <= host CUDA ({selected_version_str}) -> {image}"
+                    )
+                return image, reason
 
             raise KeyError(f"No CUDA version found for {cuda_version} or any lower version")
 
-        # ----- search offers and get top -----
-        def search_offers_and_get_top(machine_id):
-            query = {
-                "machine_id": {"eq": machine_id},
-                "verified": {"eq": "any"},
-                "rentable": {"eq": True},
-                "rented": {"eq": "any"},
-            }
-            offers = offers_api.search_offers(
-                client, query=query, offer_type="on-demand",
-                order=[["score", "desc"]], storage=5.0, no_default=True,
-            )
-            if not offers:
-                progress_print(f"Machine ID {machine_id} not found or not rentable.")
-                progress_print("Possible reasons:")
-                progress_print(f"  1. Machine is already rented — try: vastai show machines --filter 'machine_id={machine_id} rented=true'")
-                progress_print("  2. Machine is offline — try: vastai show machines")
-                progress_print(f"  3. No active offer for this machine — try: vastai search offers --filter 'machine_id={machine_id} rentable=any'")
-                progress_print(f"  4. Bid price may be too low — compare prices with: vastai search offers --filter 'machine_id={machine_id} rentable=any'")
-                return None
-            sorted_offers = sorted(offers, key=lambda x: x.get("dlperf", 0), reverse=True)
-            return sorted_offers[0] if sorted_offers else None
-
-        top_offer = search_offers_and_get_top(args.machine_id)
+        top_offer = selected_offer
         if not top_offer:
             progress_print(f"No valid offers found for Machine ID {args.machine_id}")
             result["reason"] = "No valid offers found."
         else:
             ask_contract_id = top_offer["id"]
             cuda_version = top_offer["cuda_max_good"]
-            docker_image = cuda_map_to_image(cuda_version)
+            compute_cap = top_offer.get("compute_cap")
+            image_override = args.test_image or os.environ.get("VAST_SELF_TEST_IMAGE")
+            if image_override:
+                docker_image = image_override
+                image_reason = "custom self-test image override"
+            else:
+                docker_image, image_reason = cuda_map_to_image(cuda_version, compute_cap)
+            result["diagnostics"]["image"] = {
+                "image": docker_image,
+                "reason": image_reason,
+                "override": bool(image_override),
+            }
 
             # ----- create the test instance -----
             try:
+                result["phase"] = "rental"
+                result["stage"] = "create_instance"
                 from vastai.cli.util import parse_env
                 env = parse_env("-e TZ=PDT -e XNAME=XX4 -p 5000:5000 -p 1234:1234")
+                runtype = "ssh_direc ssh_proxy"
+                self_test_label = f"{SELF_TEST_INSTANCE_LABEL_PREFIX}-{args.machine_id}"
+                result["diagnostics"]["launch"] = {
+                    "runtype": runtype,
+                    "jupyter_lab": False,
+                    "ports": ["5000/tcp", "1234/tcp"],
+                    "label": self_test_label,
+                }
 
-                progress_print(f"Starting test with {docker_image}")
+                progress_print(f"Starting test with {docker_image} ({image_reason})")
                 rj = instances_api.create_instance(
                     client,
                     id=ask_contract_id,
@@ -731,7 +1121,7 @@ def self_test__machine(args):
                     disk=40,
                     env=env,
                     price=None,
-                    label=None,
+                    label=self_test_label,
                     extra=None,
                     onstart_cmd="/verification/remote.sh",
                     login=None,
@@ -743,19 +1133,36 @@ def self_test__machine(args):
                     cancel_unavail=False,
                     template_hash=None,
                     user=None,
-                    runtype="jupyter_direc ssh_direc ssh_proxy",
+                    runtype=runtype,
                     args=None,
                 )
                 debug_print("Captured instance_info from create_instance:", rj)
             except Exception as e:
-                progress_print(f"Error creating instance: {e}")
-                result["reason"] = "Failed to create instance. Check the docker configuration. Use the self-test machine function in vast cli"
-                return result
+                error = safe_error(e)
+                progress_print(f"Error creating instance: {error}")
+                set_runtime_failure(
+                    make_failure(
+                        INSTANCE_CREATE_FAILED,
+                        stage="create_instance",
+                        summary="Failed to create instance. Check the docker configuration.",
+                        error=error,
+                        underlying_error=error,
+                    )
+                )
+                result["error"] = error
+                return finish_failure()
 
             instance_id = rj.get("new_contract")
             if not instance_id:
                 progress_print("Instance creation response did not contain 'new_contract'.")
-                result["reason"] = "Instance creation failed."
+                set_runtime_failure(
+                    make_failure(
+                        INSTANCE_CREATE_MISSING_CONTRACT,
+                        stage="create_instance",
+                        details=f"Create-instance response: {rj}",
+                    ),
+                    "Instance creation failed.",
+                )
             else:
                 # ----- helper: check if instance exists -----
                 def instance_exist(inst_id):
@@ -770,14 +1177,16 @@ def self_test__machine(args):
                     except requests.exceptions.HTTPError as e:
                         if e.response.status_code == 404:
                             return False
-                        debug_print(f"HTTPError when checking instance existence: {e}")
+                        debug_print(f"HTTPError when checking instance existence: {safe_error(e)}")
                         return False
                     except Exception as e:
-                        debug_print(f"No instance found or Unexpected error checking instance existence: {e}")
+                        debug_print(f"No instance found or Unexpected error checking instance existence: {safe_error(e)}")
                         return False
 
                 # ----- helper: destroy instance silently with retries -----
-                def destroy_instance_silent(inst_id):
+                def destroy_instance_silent(inst_id, collect_logs=False):
+                    if collect_logs:
+                        collect_instance_logs(inst_id)
                     max_retries = 10
                     for attempt in range(1, max_retries + 1):
                         try:
@@ -791,7 +1200,7 @@ def self_test__machine(args):
                             return {"success": True}
                         except Exception as e:
                             if not args.raw:
-                                print(f"Error destroying instance {inst_id}: {e}")
+                                print(f"Error destroying instance {inst_id}: {safe_error(e)}")
                         if attempt < max_retries:
                             if not args.raw:
                                 print(f"Retrying in 10 seconds... (Attempt {attempt}/{max_retries})")
@@ -815,48 +1224,124 @@ def self_test__machine(args):
                                 continue
 
                             status_msg = instance_info.get('status_msg', '')
-                            if status_msg and 'Error' in status_msg:
-                                reason = f"Instance {inst_id} encountered an error: {status_msg.strip()}"
+                            status_msg_clean = status_msg.strip() if isinstance(status_msg, str) else ""
+                            status_msg_lower = status_msg_clean.lower()
+                            status_msg_is_error = any(
+                                token in status_msg_lower
+                                for token in (
+                                    "error",
+                                    "failed",
+                                    "failure",
+                                    "exception",
+                                    "traceback",
+                                    "oci runtime",
+                                    "permission denied",
+                                )
+                            )
+                            if status_msg_clean and status_msg_is_error:
+                                diagnostic = classify_status_msg(status_msg_clean) or make_failure(
+                                    DAEMON_STARTUP_FAILED,
+                                    stage="startup",
+                                    error=status_msg_clean,
+                                    underlying_error=status_msg_clean,
+                                )
+                                reason = f"Instance {inst_id} encountered an error: {status_msg_clean}"
                                 progress_print(reason)
                                 if instance_exist(inst_id):
-                                    destroy_instance_silent(inst_id)
+                                    destroy_instance_silent(inst_id, collect_logs=True)
                                     progress_print(f"Instance {inst_id} has been destroyed due to error.")
                                 else:
                                     progress_print(f"Instance {inst_id} could not be destroyed or does not exist.")
-                                return False, reason
+                                return False, reason, diagnostic
 
                             actual_status = instance_info.get('actual_status', 'unknown')
+                            intended_status = instance_info.get('intended_status', 'unknown')
                             if actual_status == 'offline':
                                 reason = "Instance offline during testing"
+                                diagnostic = make_failure(INSTANCE_OFFLINE_BEFORE_TEST, stage="startup")
                                 progress_print(reason)
                                 if instance_exist(inst_id):
-                                    destroy_instance_silent(inst_id)
+                                    destroy_instance_silent(inst_id, collect_logs=True)
                                     progress_print(f"Instance {inst_id} has been destroyed due to being offline.")
                                 else:
                                     progress_print(f"Instance {inst_id} could not be destroyed or does not exist.")
-                                return False, reason
+                                return False, reason, diagnostic
 
-                            if instance_info.get('intended_status') == 'running' and actual_status == 'running':
+                            if intended_status in ('stopped', 'exited') or actual_status in ('stopped', 'exited'):
+                                reason = f"Instance {inst_id} stopped before reaching running status"
+                                if status_msg_clean:
+                                    reason = f"{reason}: {status_msg_clean}"
+                                diagnostic = classify_status_msg(status_msg_clean) if status_msg_clean else None
+                                if diagnostic is None:
+                                    diagnostic = make_failure(
+                                        DAEMON_STARTUP_FAILED,
+                                        stage="startup",
+                                        summary="Instance stopped before the self-test runtime started.",
+                                        details=reason,
+                                        error=status_msg_clean or None,
+                                        underlying_error=status_msg_clean or None,
+                                    )
+                                progress_print(reason)
+                                if instance_exist(inst_id):
+                                    destroy_instance_silent(inst_id, collect_logs=True)
+                                    progress_print(f"Instance {inst_id} has been destroyed due to startup failure.")
+                                else:
+                                    progress_print(f"Instance {inst_id} could not be destroyed or does not exist.")
+                                return False, reason, diagnostic
+
+                            if intended_status == 'running' and actual_status == 'running':
                                 debug_print(f"Instance {inst_id} is now running.")
-                                return instance_info, None
+                                return instance_info, None, None
 
                             progress_print(f"Instance {inst_id} status: {actual_status}... waiting for 'running' status.")
                             time.sleep(interval)
 
                         except Exception as e:
-                            progress_print(f"Error retrieving instance info for {inst_id}: {e}. Retrying...")
-                            debug_print(f"Exception details: {str(e)}")
+                            error = safe_error(e)
+                            progress_print(f"Error retrieving instance info for {inst_id}: {error}. Retrying...")
+                            debug_print(f"Exception details: {error}")
                             time.sleep(interval)
 
                     reason = f"Instance did not become running within {timeout} seconds. Verify network configuration. Use the self-test machine function in vast cli"
                     progress_print(reason)
-                    return False, reason
+                    return False, reason, make_failure(
+                        INSTANCE_START_TIMEOUT,
+                        stage="startup",
+                        details=reason,
+                    )
 
                 # ----- run machine tester -----
-                def run_machinetester(ip_address, port, inst_id, machine_id, delay):
+                def run_machinetester(ip_address, port, inst_id, machine_id, delay, mapped_ports=None):
                     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
                     delay = int(delay)
                     message = ''
+                    legacy_parser = LegacyProgressParser()
+                    progress_url = f"https://{ip_address}:{port}/progress"
+                    request_timeout = 10
+                    attempt_count = 0
+                    last_error_type = None
+                    last_error = None
+                    last_status_code = None
+                    first_connection_established = False
+
+                    def update_progress_endpoint():
+                        endpoint = make_progress_endpoint_diagnostic(
+                            url=progress_url,
+                            public_ip=ip_address,
+                            container_port=PROGRESS_CONTAINER_PORT,
+                            host_port=port,
+                            timeout_seconds=request_timeout,
+                            attempt_count=attempt_count,
+                            first_connection_established=first_connection_established,
+                            last_error_type=last_error_type,
+                            last_error=last_error,
+                            last_status_code=last_status_code,
+                            mapped_ports=mapped_ports,
+                        )
+                        result["diagnostics"]["progress_endpoint"] = endpoint
+                        return endpoint
+
+                    update_progress_endpoint()
 
                     def is_instance(iid):
                         try:
@@ -868,7 +1353,7 @@ def self_test__machine(args):
                             actual_status = info.get('actual_status', 'unknown')
                             return actual_status if actual_status in ['running', 'offline', 'exited', 'created'] else 'unknown'
                         except Exception as e:
-                            debug_print(f"is_instance(): Error: {e}")
+                            debug_print(f"is_instance(): Error: {safe_error(e)}")
                             return 'unknown'
 
                     if delay > 0:
@@ -878,7 +1363,6 @@ def self_test__machine(args):
                     start_time = time.time()
                     no_response_seconds = 0
                     printed_lines = set()
-                    first_connection_established = False
                     instance_destroyed = False
                     try:
                         while time.time() - start_time < 600:
@@ -888,40 +1372,54 @@ def self_test__machine(args):
                             if status == 'offline':
                                 reason = "Instance offline during testing"
                                 progress_print(f"Instance {inst_id} went offline. {reason}")
-                                destroy_instance_silent(inst_id)
+                                destroy_instance_silent(inst_id, collect_logs=True)
                                 instance_destroyed = True
-                                return False, reason
+                                return False, reason, make_failure(INSTANCE_OFFLINE_BEFORE_TEST, stage="runtime")
 
                             try:
-                                debug_print(f"Sending GET request to https://{ip_address}:{port}/progress")
-                                response = requests.get(f'https://{ip_address}:{port}/progress', verify=False, timeout=10)
+                                debug_print(f"Sending GET request to {progress_url}")
+                                attempt_count += 1
+                                response = requests.get(progress_url, verify=False, timeout=request_timeout)
+                                last_status_code = response.status_code
+                                last_error_type = None
+                                last_error = None
 
                                 if response.status_code == 200 and not first_connection_established:
                                     progress_print("Successfully established HTTPS connection to the server.")
                                     first_connection_established = True
 
-                                message = response.text.strip()
+                                if response.status_code == 200:
+                                    message = response.text.strip()
+                                else:
+                                    last_error_type = "HTTPStatus"
+                                    last_error = f"HTTP {response.status_code} from progress endpoint"
+                                    message = ''
                                 debug_print(f"Received message: '{message}'")
                             except requests.exceptions.RequestException as e:
-                                debug_print(f"Error making HTTPS request: {e}")
+                                last_status_code = None
+                                last_error_type = e.__class__.__name__
+                                last_error = safe_error(e)
+                                debug_print(f"Error making HTTPS request: {last_error}")
                                 message = ''
+                            update_progress_endpoint()
 
                             if message:
                                 lines = message.split('\n')
                                 new_lines = [line for line in lines if line not in printed_lines]
                                 for line in new_lines:
+                                    diagnostic = legacy_parser.process_line(line)
                                     if line == 'DONE':
                                         progress_print("Test completed successfully.")
                                         progress_print("Test passed.")
                                         destroy_instance_silent(inst_id)
                                         instance_destroyed = True
-                                        return True, ""
+                                        return True, "", None
                                     elif line.startswith('ERROR'):
                                         progress_print(line)
                                         progress_print(f"Test failed with error: {line}.")
-                                        destroy_instance_silent(inst_id)
+                                        destroy_instance_silent(inst_id, collect_logs=True)
                                         instance_destroyed = True
-                                        return False, line
+                                        return False, line, diagnostic
                                     else:
                                         progress_print(line)
                                     printed_lines.add(line)
@@ -931,89 +1429,216 @@ def self_test__machine(args):
                                 debug_print(f"No message received. Incremented no_response_seconds to {no_response_seconds}.")
 
                             if status == 'running' and no_response_seconds >= 120:
+                                endpoint = update_progress_endpoint()
                                 if not first_connection_established:
                                     progress_print("No response for 120s — port was never reachable.")
+                                    progress_print(f"Tried: {endpoint.get('url')}")
+                                    if endpoint.get("external_port"):
+                                        progress_print(f"External port tested: {endpoint.get('external_port')}")
+                                    if endpoint.get("last_error_type") or endpoint.get("last_status_code") is not None:
+                                        last_result = endpoint.get("last_error_type") or f"HTTP {endpoint.get('last_status_code')}"
+                                        if endpoint.get("last_error"):
+                                            last_result = f"{last_result}: {endpoint.get('last_error')}"
+                                        progress_print(f"Last result: {last_result}")
                                     progress_print("Possible causes:")
-                                    progress_print("  1. Port not accessible from outside — check firewall and direct_port_count")
-                                    progress_print("  2. Container crashed on startup — check docker logs")
-                                    progress_print(f"  3. direct_port_count too low — check with: vastai search offers --filter 'machine_id={machine_id}'")
+                                    progress_print("  1. TCP firewall/NAT forwarding is blocking the mapped public port")
+                                    progress_print("  2. Container did not start or did not bind the progress server")
+                                    progress_print("  3. NAT loopback/hairpinning may fail when testing from the same LAN as the host")
+                                    progress_print(f"  4. direct_port_count below the 3 ports/GPU minimum - check with: vastai search offers 'machine_id={machine_id} rentable=any rented=any'")
                                     return_reason = "Port never reachable within 120 seconds"
+                                    diagnostic = make_failure(
+                                        PROGRESS_ENDPOINT_UNREACHABLE,
+                                        stage="runtime_connect",
+                                        details=return_reason,
+                                        progress_endpoint=endpoint,
+                                    )
+                                elif endpoint.get("last_status_code") == 200 and not endpoint.get("last_error_type"):
+                                    progress_print("Progress endpoint was reachable but returned no output for 120s.")
+                                    progress_print(f"Tried: {endpoint.get('url')}")
+                                    if endpoint.get("external_port"):
+                                        progress_print(f"External port tested: {endpoint.get('external_port')}")
+                                    progress_print("Possible causes:")
+                                    progress_print("  1. Runtime script stalled before writing progress")
+                                    progress_print("  2. Container process is alive but the test worker is hung")
+                                    progress_print("  3. Host stall, GPU hang, or slow I/O prevented progress updates")
+                                    return_reason = "Progress endpoint returned no output for 120 seconds"
+                                    diagnostic = make_failure(
+                                        PROGRESS_EMPTY_TIMEOUT,
+                                        stage="runtime_progress",
+                                        details=return_reason,
+                                        progress_endpoint=endpoint,
+                                    )
                                 else:
                                     progress_print("Connection lost after initial success — instance may have crashed.")
+                                    progress_print(f"Tried: {endpoint.get('url')}")
+                                    if endpoint.get("external_port"):
+                                        progress_print(f"External port tested: {endpoint.get('external_port')}")
+                                    if endpoint.get("last_error_type") or endpoint.get("last_status_code") is not None:
+                                        last_result = endpoint.get("last_error_type") or f"HTTP {endpoint.get('last_status_code')}"
+                                        if endpoint.get("last_error"):
+                                            last_result = f"{last_result}: {endpoint.get('last_error')}"
+                                        progress_print(f"Last result: {last_result}")
                                     progress_print("Possible causes:")
-                                    progress_print("  1. Out of RAM/VRAM — check docker logs")
-                                    progress_print("  2. GPU errors — check dmesg for Xid errors")
-                                    progress_print("  3. Try running individual tests to isolate the failure")
+                                    progress_print("  1. Container crash, OOM, or runtime process exit — check docker logs")
+                                    progress_print("  2. GPU errors or reset — check dmesg for Xid errors")
+                                    progress_print("  3. Host stall or network loss after the progress server started")
                                     return_reason = "Connection lost after 120 seconds — possible crash during stress test"
-                                destroy_instance_silent(inst_id)
+                                    diagnostic = make_failure(
+                                        PROGRESS_ENDPOINT_LOST,
+                                        stage="runtime_connect",
+                                        details=return_reason,
+                                        progress_endpoint=endpoint,
+                                    )
+                                destroy_instance_silent(inst_id, collect_logs=True)
                                 instance_destroyed = True
-                                return False, return_reason
+                                return False, return_reason, diagnostic
 
                             debug_print("Waiting for 20 seconds before the next check.")
                             time.sleep(20)
 
                         debug_print(f"Time limit reached. Destroying instance {inst_id}.")
-                        return False, "Test did not complete within the time limit"
+                        return False, "Test did not complete within the time limit", make_failure(
+                            RUNTIME_TEST_TIMEOUT,
+                            stage="runtime",
+                        )
                     finally:
                         if not instance_destroyed and inst_id and instance_exist(inst_id):
-                            destroy_instance_silent(inst_id)
+                            destroy_instance_silent(inst_id, collect_logs=True)
                         progress_print(f"Machine: {machine_id} Done with testing remote.py results {message}")
                         warnings.simplefilter('default')
 
                 # ----- main orchestration: wait then test -----
-                instance_info, wait_reason = wait_for_instance(instance_id)
+                result["phase"] = "wait"
+                result["stage"] = "wait_for_instance"
+                instance_info, wait_reason, wait_diagnostic = wait_for_instance(instance_id)
                 if not instance_info:
-                    result["reason"] = wait_reason
+                    set_runtime_failure(wait_diagnostic, wait_reason)
                 else:
                     ip_address = instance_info.get("public_ipaddr")
                     if not ip_address:
-                        result["reason"] = "Failed to retrieve public IP address."
+                        set_runtime_failure(
+                            make_failure(MISSING_PUBLIC_IP, stage="instance_network"),
+                            "Failed to retrieve public IP address.",
+                        )
                     else:
                         all_ports = instance_info.get("ports", {})
                         port_mappings = all_ports.get("5000/tcp", [])
                         port = port_mappings[0].get("HostPort") if port_mappings else None
                         if not port:
+                            endpoint = make_progress_endpoint_diagnostic(
+                                public_ip=ip_address,
+                                container_port=PROGRESS_CONTAINER_PORT,
+                                host_port=None,
+                                timeout_seconds=10,
+                                mapped_ports=all_ports,
+                            )
+                            result["diagnostics"]["progress_endpoint"] = endpoint
                             progress_print(f"Port 5000/tcp not found in mapped ports. Available ports: {list(all_ports.keys())}")
                             progress_print("Possible causes:")
-                            progress_print("  1. Firewall blocking the port")
-                            progress_print(f"  2. direct_port_count too low — check with: vastai search offers --filter 'machine_id={args.machine_id}'")
-                            progress_print("  3. Container is not exposing port 5000")
-                            result["reason"] = "Failed to retrieve mapped port."
+                            progress_print("  1. The instance launch did not map the self-test progress port")
+                            progress_print(f"  2. direct_port_count below the 3 ports/GPU minimum - check with: vastai search offers 'machine_id={args.machine_id} rentable=any rented=any'")
+                            progress_print("  3. Container is not exposing port 5000/tcp")
+                            set_runtime_failure(
+                                make_failure(
+                                    PROGRESS_PORT_NOT_MAPPED,
+                                    stage="instance_network",
+                                    details=f"Available ports: {list(all_ports.keys())}",
+                                    progress_endpoint=endpoint,
+                                ),
+                                "Failed to retrieve mapped port.",
+                            )
                         else:
                             delay = "15"
-                            success, reason = run_machinetester(
-                                ip_address, port, instance_id, args.machine_id, delay,
+                            result["phase"] = "test"
+                            result["stage"] = "run_machinetester"
+                            success, reason, runtime_diagnostic = run_machinetester(
+                                ip_address, port, instance_id, args.machine_id, delay, mapped_ports=all_ports,
                             )
                             result["success"] = success
                             result["reason"] = reason
+                            if success:
+                                result["phase"] = "complete"
+                                result["stage"] = "complete"
+                            else:
+                                set_runtime_failure(runtime_diagnostic, reason)
 
-    except Exception as e:
+    except KeyboardInterrupt:
         result["success"] = False
-        result["reason"] = str(e)
+        set_runtime_failure(
+            make_failure(INTERRUPTED, stage=result.get("stage")),
+            "Interrupted by user (Ctrl+C)",
+        )
+        result["error"] = result["reason"]
+        progress_print("\nInterrupted — cleaning up test instance...")
+    except Exception as e:
+        error = safe_error(e)
+        result["success"] = False
+        result["reason"] = error
+        result["failure_code"] = "unexpected_error"
+        result["failure"] = {
+            "code": "unexpected_error",
+            "summary": error,
+            "remediation": "Retry with --debugging and inspect the error details.",
+        }
+        result["error"] = error
 
     finally:
-        try:
-            if instance_id:
-                # Helper might not be defined if we failed early, so use API directly
-                try:
-                    info = instances_api.show_instance(client, id=instance_id)
-                    if info:
-                        status = info.get('intended_status') or info.get('actual_status')
-                        if status not in ['destroyed', 'terminated', 'offline']:
-                            instances_api.destroy_instance(client, id=instance_id)
-                except Exception:
-                    pass
-        except Exception as e:
-            if args.debugging:
-                print(f"Error during cleanup: {e}")
+        # Always attempt to destroy the test instance, including on Ctrl+C.
+        # KeyboardInterrupt is BaseException (not Exception) so it skips the
+        # typed except above and lands here. Surface failures loudly: a
+        # silently-leaked instance keeps billing the host.
+        if instance_id:
+            try:
+                info = instances_api.show_instance(client, id=instance_id)
+                if not info:
+                    debug_print(f"Test instance {instance_id} already gone during cleanup.")
+                    info = {}
+                status = (info or {}).get('intended_status') or (info or {}).get('actual_status')
+                if info and status not in ('destroyed', 'terminated', 'offline'):
+                    if not result.get("success"):
+                        collect_instance_logs(instance_id)
+                    progress_print(f"Destroying test instance {instance_id} (status: {status})...")
+                    instances_api.destroy_instance(client, id=instance_id)
+                    progress_print(f"Test instance {instance_id} destroyed.")
+            except KeyboardInterrupt:
+                progress_print(
+                    f"\nSecond interrupt during cleanup — instance {instance_id} may still be running.\n"
+                    f"  Destroy it manually: vastai destroy instance {instance_id}"
+                )
+                raise
+            except requests.exceptions.HTTPError as e:
+                if e.response is not None and e.response.status_code == 404:
+                    debug_print(f"Test instance {instance_id} already gone during cleanup.")
+                else:
+                    progress_print(
+                        f"WARNING: failed to destroy test instance {instance_id}: {safe_error(e)}\n"
+                        f"  Destroy it manually: vastai destroy instance {instance_id}"
+                    )
+            except Exception as e:
+                progress_print(
+                    f"WARNING: failed to destroy test instance {instance_id}: {safe_error(e)}\n"
+                    f"  Destroy it manually: vastai destroy instance {instance_id}"
+                )
 
     if args.raw:
-        print(json.dumps(result))
-        sys.exit(0)
+        if not result.get("success"):
+            ensure_support_bundle()
+        return result
     else:
+        if result.get("warning"):
+            print(result["warning"])
         if result["success"]:
-            print("Test completed successfully.")
+            if result.get("diagnostics", {}).get("preflight_failure"):
+                print("Runtime checks passed, but minimum requirement checks were ignored.")
+                print("This run does not qualify the machine for verification.")
+            else:
+                print("Test completed successfully.")
             sys.exit(0)
         else:
+            render_runtime_failure()
+            bundle = ensure_support_bundle()
+            if bundle:
+                for line in format_bundle_summary(bundle):
+                    print(line)
             print(f"Test failed: {result['reason']}")
             sys.exit(1)

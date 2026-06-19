@@ -1,4 +1,4 @@
-from typing import List, Literal, TypedDict, Union, Any, Tuple, Required, Dict
+from typing import Tuple, List, Literal, Any, TypedDict, Dict, Required, Union
 
 
 ClientSdkInfo = Union["_ClientSdkInfoAnyof0"]
@@ -90,7 +90,12 @@ class _AppContextAnyof0(TypedDict, total=False):
 
 
 
-class _Breakdowns(TypedDict, total=False):
+_Breakdowns = Union["_BreakdownsObject", None]
+""" additionalProperties: True """
+
+
+
+class _BreakdownsObject(TypedDict, total=False):
     span_ops: Required[Dict[str, "_NumOfSpans"]]
     """ Required property """
 
@@ -369,8 +374,10 @@ class _Data(TypedDict, total=False):
     spans: Required[List["_Span"]]
     """ Required property """
 
-    measurements: "_Measurements"
+    measurements: Union["_MeasurementsObject", None]
     breakdowns: "_Breakdowns"
+    """ additionalProperties: True """
+
     culprit: str
     title: str
     location: str
@@ -737,7 +744,7 @@ anyOf:
 
 
 
-class _Measurements(TypedDict, total=False):
+class _MeasurementsObject(TypedDict, total=False):
     num_of_spans: "_NumOfSpans"
 
 

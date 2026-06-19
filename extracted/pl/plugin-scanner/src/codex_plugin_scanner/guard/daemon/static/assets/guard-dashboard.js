@@ -12775,6 +12775,9 @@ function HiMiniInformationCircle(props) {
 function HiMiniInbox(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M1 11.27c0-.246.033-.492.099-.73l1.523-5.521A2.75 2.75 0 0 1 5.273 3h9.454a2.75 2.75 0 0 1 2.651 2.019l1.523 5.52c.066.239.099.485.099.732V15a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-3.73Zm3.068-5.852A1.25 1.25 0 0 1 5.273 4.5h9.454a1.25 1.25 0 0 1 1.205.918l1.523 5.52c.006.02.01.041.015.062H14a1 1 0 0 0-.86.49l-.606 1.02a1 1 0 0 1-.86.49H8.236a1 1 0 0 1-.894-.553l-.448-.894A1 1 0 0 0 6 11H2.53l.015-.062 1.523-5.52Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
+function HiMiniIdentification(props) {
+  return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M1 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V6Zm4 1.5a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm2 3a4 4 0 0 0-3.665 2.395.75.75 0 0 0 .416 1A8.98 8.98 0 0 0 7 14.5a8.98 8.98 0 0 0 3.249-.604.75.75 0 0 0 .416-1.001A4.001 4.001 0 0 0 7 10.5Zm5-3.75a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm0 6.5a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Zm.75-4a.75.75 0 0 0 0 1.5h2.5a.75.75 0 0 0 0-1.5h-2.5Z", "clipRule": "evenodd" }, "child": [] }] })(props);
+}
 function HiMiniHome(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 20 20", "fill": "currentColor", "aria-hidden": "true" }, "child": [{ "tag": "path", "attr": { "fillRule": "evenodd", "d": "M9.293 2.293a1 1 0 0 1 1.414 0l7 7A1 1 0 0 1 17 11h-1v6a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-6H3a1 1 0 0 1-.707-1.707l7-7Z", "clipRule": "evenodd" }, "child": [] }] })(props);
 }
@@ -13522,10 +13525,10 @@ function filterQueueByDateRange(items, range) {
     return true;
   });
 }
-const queueDateFormatter = new Intl.DateTimeFormat("en", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
+const queueDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "2-digit",
+  day: "2-digit",
+  year: "2-digit",
   hour: "numeric",
   minute: "2-digit"
 });
@@ -16535,7 +16538,7 @@ function normalizePackageFirewallConnectFlow(value) {
     return null;
   }
   const state = value.state;
-  if (state !== "idle" && state !== "running" && state !== "failed") {
+  if (state !== "idle" && state !== "starting" && state !== "running" && state !== "failed") {
     return null;
   }
   const title = stringValue(value.title);
@@ -17401,6 +17404,12 @@ function Surface(props) {
 }
 function SectionLabel(props) {
   return /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-blue", children: props.children });
+}
+function PolicyStatField(props) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: `min-w-0 ${props.className ?? ""}`, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("dt", { className: "text-[10px] font-semibold uppercase tracking-wider text-slate-500", children: props.label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("dd", { className: "mt-1 min-w-0", children: props.children })
+  ] });
 }
 function Badge(props) {
   const toneClass = badgeToneClass(props.tone);
@@ -20154,7 +20163,7 @@ function resolveConnectUnlockCopy(purpose) {
   };
 }
 function resolveConnectSteps(connectFlow, purpose = "package_firewall") {
-  const running = connectFlow.state === "running";
+  const running = connectFlow.state === "running" || connectFlow.state === "starting";
   const failed = connectFlow.state === "failed";
   const browserOpened = connectFlow.browser_opened === true;
   const unlockCopy = resolveConnectUnlockCopy(purpose);
@@ -20233,9 +20242,9 @@ function ConnectFlowCard({
   onStartConnect,
   purpose = "package_firewall"
 }) {
-  const manualHref = connectFlow.authorize_url ?? connectFlow.connect_url;
-  const running = connectFlow.state === "running";
+  const running = connectFlow.state === "running" || connectFlow.state === "starting";
   const failed = connectFlow.state === "failed";
+  const manualHref = connectFlow.authorize_url ?? (failed ? connectFlow.connect_url : null);
   const primaryBusy = connectStarting || running;
   const primaryLabel = resolveConnectPrimaryLabel({
     actionLabel: connectFlow.action_label,
@@ -20245,7 +20254,7 @@ function ConnectFlowCard({
   const steps = resolveConnectSteps(connectFlow, purpose);
   const statusTone = running ? "blue" : mode === "repair" ? "attention" : "blue";
   const statusLabel = running ? "Waiting for approval" : mode === "repair" ? "Repair required" : "Connection required";
-  const showManualLink = connectFlow.authorize_url !== null || running || failed;
+  const showManualLink = manualHref !== null;
   const titleCopy = headline ?? connectFlow.title;
   const detailCopy = detail ?? connectFlow.detail;
   if (minimal) {
@@ -20510,6 +20519,12 @@ function openPackageFirewallAuthorizeWindow(authorizeUrl) {
   }
   return false;
 }
+function openPackageFirewallAuthorizeFallback(authorizeUrl, browserOpened) {
+  if (browserOpened === true) {
+    return true;
+  }
+  return openPackageFirewallAuthorizeWindow(authorizeUrl);
+}
 function FiShare2(props) {
   return GenIcon({ "attr": { "viewBox": "0 0 24 24", "fill": "none", "stroke": "currentColor", "strokeWidth": "2", "strokeLinecap": "round", "strokeLinejoin": "round" }, "child": [{ "tag": "circle", "attr": { "cx": "18", "cy": "5", "r": "3" }, "child": [] }, { "tag": "circle", "attr": { "cx": "6", "cy": "12", "r": "3" }, "child": [] }, { "tag": "circle", "attr": { "cx": "18", "cy": "19", "r": "3" }, "child": [] }, { "tag": "line", "attr": { "x1": "8.59", "y1": "13.51", "x2": "15.42", "y2": "17.49" }, "child": [] }, { "tag": "line", "attr": { "x1": "15.41", "y1": "6.51", "x2": "8.59", "y2": "10.49" }, "child": [] }] })(props);
 }
@@ -20747,7 +20762,7 @@ function EvidenceInsightsShareModal({
     });
   }, [cloudConnected, refreshConnectState]);
   reactExports.useEffect(() => {
-    if (connectFlow?.state !== "running") {
+    if (connectFlow?.state !== "running" && connectFlow?.state !== "starting") {
       return;
     }
     const handle = window.setTimeout(() => {
@@ -20761,7 +20776,10 @@ function EvidenceInsightsShareModal({
     try {
       const status = await startGuardCloudConnect();
       setConnectFlow(status.connect_flow);
-      if (status.connect_flow?.authorize_url && !openPackageFirewallAuthorizeWindow(status.connect_flow.authorize_url)) {
+      if (status.connect_flow?.authorize_url && !openPackageFirewallAuthorizeFallback(
+        status.connect_flow.authorize_url,
+        status.connect_flow.browser_opened
+      )) {
         setConnectError(PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE);
       }
       if (!status.connect_required) {
@@ -26215,7 +26233,7 @@ export {
   resolveSupplyChainAuditFailure as aR,
   runPackageSync as aS,
   startPackageFirewallConnect as aT,
-  openPackageFirewallAuthorizeWindow as aU,
+  openPackageFirewallAuthorizeFallback as aU,
   PACKAGE_FIREWALL_CONNECT_POPUP_BLOCKED_MESSAGE as aV,
   runPackageFirewallAction as aW,
   parseInterceptProofSnapshot as aX,
@@ -26259,33 +26277,36 @@ export {
   HiMiniClipboardDocument as b7,
   HiMiniUsers as b8,
   HiMiniFolder as b9,
-  HiMiniSignal as bA,
+  HiMiniArrowDown as bA,
+  HiMiniArrowUp as bB,
+  runAuditRemediation as bC,
+  HiMiniSignal as bD,
   HiMiniInformationCircle as ba,
-  createCloudExceptionRequest as bb,
-  HiMiniPuzzlePiece as bc,
-  HiMiniGlobeAlt as bd,
-  policyActionLabel as be,
-  fetchCloudExceptions as bf,
-  fetchCloudExceptionRequests as bg,
-  downloadBlob as bh,
-  PaginationControls as bi,
-  HiMiniNoSymbol as bj,
-  HiMiniCube as bk,
-  HiMiniArrowDownTray as bl,
-  HiMiniQueueList as bm,
-  HiMiniArrowRight as bn,
-  HiMiniPlay as bo,
-  Surface as bp,
-  HiMiniCheckBadge as bq,
-  fetchSupplyChainBundle as br,
-  isSupplyChainScannerEvidence as bs,
-  HiMiniDocumentMagnifyingGlass as bt,
-  HiMiniShieldExclamation as bu,
-  HiMiniComputerDesktop as bv,
-  HiMiniChevronLeft as bw,
-  HiMiniArrowDown as bx,
-  HiMiniArrowUp as by,
-  runAuditRemediation as bz,
+  HiMiniIdentification as bb,
+  policyActionLabel as bc,
+  createCloudExceptionRequest as bd,
+  HiMiniArrowRight as be,
+  HiMiniPuzzlePiece as bf,
+  HiMiniGlobeAlt as bg,
+  fetchCloudExceptions as bh,
+  fetchCloudExceptionRequests as bi,
+  downloadBlob as bj,
+  PolicyStatField as bk,
+  PaginationControls as bl,
+  HiMiniNoSymbol as bm,
+  HiMiniCube as bn,
+  HiMiniArrowDownTray as bo,
+  HiMiniQueueList as bp,
+  HiMiniPlay as bq,
+  Surface as br,
+  HiMiniCheckBadge as bs,
+  fetchSupplyChainBundle as bt,
+  isSupplyChainScannerEvidence as bu,
+  HiMiniDocumentMagnifyingGlass as bv,
+  HiMiniShieldExclamation as bw,
+  HiMiniComputerDesktop as bx,
+  HiMiniChevronLeft as by,
+  HiMiniFunnel as bz,
   EvidenceInsightsShareModal as c,
   HiMiniCheckCircle as d,
   GuardHero as e,

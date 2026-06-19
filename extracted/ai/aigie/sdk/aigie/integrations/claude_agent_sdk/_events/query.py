@@ -17,7 +17,6 @@ from ..cost_tracking import calculate_claude_cost
 from ..monitoring import DriftDetector
 from ..native_callback import (
     _pick_error_message,
-    _utc_isoformat,
     _utc_now,
 )
 
@@ -26,8 +25,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-class QueryEvents:
 
+class QueryEvents:
     async def handle_query_start(  # noqa: C901, PLR0912, PLR0915
         self,
         prompt: str,
@@ -170,7 +169,7 @@ class QueryEvents:
 
                 set_active_trace_id(self.trace_id)
             except Exception as exc:  # noqa: BLE001
-                logger.debug('set_active_trace_id failed' + ': %s', exc)
+                logger.debug("set_active_trace_id failed" + ": %s", exc)
             if self._session_context:
                 self._session_context.mark_trace_created()
 
@@ -479,7 +478,7 @@ class QueryEvents:
                 "parent_id": None,
                 "name": getattr(self, "_root_name", self.trace_name),
                 "type": "agent",
-                "status": "success" if success else "failed",
+                "status": "success" if success else "error",
                 "is_error": not success,
                 "output": query_output,
                 "metadata": query_metadata,
@@ -518,4 +517,3 @@ class QueryEvents:
         if self._session_context:
             self._session_context.current_query_span_id = None
             self._session_context.set_current_parent(None)
-

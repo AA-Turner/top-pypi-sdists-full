@@ -79,7 +79,25 @@ pub fn build_thin_plate_basiswithworkspace(
     let internal_kernel_transform =
         thin_plate_kernel_constraint_nullspace(centers.view(), &mut workspace.cache)?;
     let poly_cols = thin_plate_polynomial_basis_dimension(centers.ncols());
-    let base_cols = internal_kernel_transform.ncols() + poly_cols;
+    let radial_reparam = if let Some(v) = spec.radial_reparam.as_ref() {
+        if v.nrows() != internal_kernel_transform.ncols() {
+            crate::bail_dim_basis!(
+                "thin-plate radial reparam shape {:?} does not match constrained radial dimension {}",
+                v.dim(),
+                internal_kernel_transform.ncols()
+            );
+        }
+        v.clone()
+    } else {
+        thin_plate_radial_reparam_from_centers(
+            centers.view(),
+            spec.length_scale,
+            &internal_kernel_transform,
+        )?
+        .0
+    };
+    let reduced_kernel_transform = fast_ab(&internal_kernel_transform, &radial_reparam);
+    let base_cols = reduced_kernel_transform.ncols() + poly_cols;
     let dense_bytes = dense_design_bytes(data.nrows(), base_cols);
     let use_lazy = should_use_lazy_spatial_design(data.nrows(), base_cols, workspace.policy());
     if use_lazy {
@@ -111,7 +129,7 @@ pub fn build_thin_plate_basiswithworkspace(
             kernel_fn,
             Some(Arc::new(
                 crate::solver::gauge::Gauge::from_block_transforms(&[
-                    internal_kernel_transform.clone()
+                    reduced_kernel_transform.clone()
                 ]),
             )),
             Some(Arc::new(poly_block)),
@@ -121,7 +139,7 @@ pub fn build_thin_plate_basiswithworkspace(
             DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Arc::new(base_op)));
         let identifiability_transform = thin_plate_identifiability_transform_from_design_matrix(
             &base_design,
-            internal_kernel_transform.ncols(),
+            reduced_kernel_transform.ncols(),
             poly_cols,
             &spec.identifiability,
         )?;
@@ -133,7 +151,7 @@ pub fn build_thin_plate_basiswithworkspace(
         let (penalty_bending, penalty_ridge) = build_thin_plate_penalty_matrices(
             centers.view(),
             spec.length_scale,
-            &internal_kernel_transform,
+            &reduced_kernel_transform,
             spec.double_penalty,
         )?;
         let (penalty_bending_norm, c_bending) = normalize_penalty(&penalty_bending);
@@ -156,7 +174,12 @@ pub fn build_thin_plate_basiswithworkspace(
                 op: None,
             });
         }
-        (design, identifiability_transform, candidates, None)
+        (
+            design,
+            identifiability_transform,
+            candidates,
+            Some(radial_reparam.clone()),
+        )
     } else {
         let tps = create_thin_plate_spline_basis_scaledwithworkspace(
             data,
@@ -264,17 +287,35 @@ pub fn build_thin_plate_basiswithworkspace(
 pub(crate) fn thin_plate_penalties_at_length_scale(
     centers: ArrayView2<'_, f64>,
     identifiability_transform: Option<&Array2<f64>>,
+    radial_reparam: Option<&Array2<f64>>,
     length_scale: f64,
     double_penalty: bool,
     workspace: &mut BasisWorkspace,
 ) -> Result<(Vec<Array2<f64>>, Vec<usize>), BasisError> {
     let internal_kernel_transform =
         thin_plate_kernel_constraint_nullspace(centers, &mut workspace.cache)?;
+    let reduced_kernel_transform = if let Some(v) = radial_reparam {
+        if v.nrows() != internal_kernel_transform.ncols() {
+            crate::bail_dim_basis!(
+                "thin-plate radial reparam shape {:?} does not match constrained radial dimension {}",
+                v.dim(),
+                internal_kernel_transform.ncols()
+            );
+        }
+        fast_ab(&internal_kernel_transform, v)
+    } else {
+        let (v, _) = thin_plate_radial_reparam_from_centers(
+            centers,
+            length_scale,
+            &internal_kernel_transform,
+        )?;
+        fast_ab(&internal_kernel_transform, &v)
+    };
     let poly_cols = thin_plate_polynomial_basis_dimension(centers.ncols());
     let (penalty_bending, penalty_ridge) = build_thin_plate_penalty_matrices(
         centers,
         length_scale,
-        &internal_kernel_transform,
+        &reduced_kernel_transform,
         double_penalty,
     )?;
     let (penalty_bending_norm, c_bending) = normalize_penalty(&penalty_bending);
@@ -315,73 +356,6 @@ pub(crate) fn thin_plate_penalties_at_length_scale(
             })
             .collect::<Result<Vec<_>, _>>()?;
     }
-    let (penalties, nullspace_dims, _info, _eig, _ops) =
-        filter_active_penalty_candidates_with_ops(candidates)?;
-    Ok((penalties, nullspace_dims))
-}
-
-/// Rebuild the Matérn penalty list at a NEW `length_scale` from FROZEN basis
-/// geometry — no data rows touched (#1033, n-free per-ψ penalty re-key). Mirrors
-/// the centers-based penalty assembly used by the streaming / lazy arms of
-/// `build_matern_basiswithworkspace` (the only arms a large-n κ fit takes): the
-/// `double_penalty` path builds the projected kernel penalty via
-/// [`build_matern_kernel_penalty`] + [`project_penalty_matrix`] and decides the
-/// nullspace-shrinkage candidate from the FROZEN
-/// `nullspace_shrinkage_survived` decision; the single-penalty path builds the
-/// collocation operator candidates. Both are pure functions of the frozen
-/// centers + identifiability transform + `(nu, include_intercept,
-/// aniso_log_scales)` — only `length_scale` moves.
-///
-/// `full_transform` is reconstructed from the frozen `identifiability_transform`
-/// (= the metadata `z_opt`) exactly as the cold build does: append the intercept
-/// column when `include_intercept`.
-///
-/// Returns the per-block penalty matrices (term-local frame, same order/count
-/// the cold build emits) and the active per-block nullspace dims.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn matern_penalties_at_length_scale(
-    centers: ArrayView2<'_, f64>,
-    identifiability_transform: Option<&Array2<f64>>,
-    nu: MaternNu,
-    include_intercept: bool,
-    aniso_log_scales: Option<&[f64]>,
-    nullspace_shrinkage_survived: bool,
-    double_penalty: bool,
-    length_scale: f64,
-) -> Result<(Vec<Array2<f64>>, Vec<usize>), BasisError> {
-    let full_transform = identifiability_transform.map(|z| {
-        if include_intercept {
-            append_intercept_to_transform(z)
-        } else {
-            z.clone()
-        }
-    });
-    let candidates = if double_penalty {
-        let penalty_kernel = build_matern_kernel_penalty(
-            centers,
-            length_scale,
-            nu,
-            include_intercept,
-            aniso_log_scales,
-        )?;
-        let primary = project_penalty_matrix(&penalty_kernel, full_transform.as_ref());
-        // Honor the frozen bootstrap-κ shrinkage decision so the learned-penalty
-        // count stays invariant across the κ-optimizer's per-trial rebuilds.
-        let (candidates, _survived) = matern_double_penalty_candidates_with_decision(
-            &primary,
-            Some(nullspace_shrinkage_survived),
-        )?;
-        candidates
-    } else {
-        build_matern_operator_penalty_candidates(
-            centers,
-            length_scale,
-            nu,
-            include_intercept,
-            identifiability_transform,
-            aniso_log_scales,
-        )?
-    };
     let (penalties, nullspace_dims, _info, _eig, _ops) =
         filter_active_penalty_candidates_with_ops(candidates)?;
     Ok((penalties, nullspace_dims))
@@ -3380,7 +3354,9 @@ pub fn build_matern_collocation_operator_matrices(
                 if r > R_EPS {
                     for c in 0..d {
                         let delta = centers[[k, c]] - centers[[j, c]];
-                        d1_chunk[[local_k * d + c, j]] = scale_k * phi_r_over_r * delta;
+                        let axis_scale = metric_weights.as_ref().map(|w| w[c]).unwrap_or(1.0);
+                        d1_chunk[[local_k * d + c, j]] =
+                            scale_k * phi_r_over_r * axis_scale * delta;
                     }
                 } else {
                     // Symmetry at center-center coincidence.

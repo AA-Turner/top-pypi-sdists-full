@@ -117,6 +117,26 @@ def _mount_tenant_resolution_middleware(
     if not tenant_entities:
         return
 
+    # #1407: idempotency guard. A custom ASGI wrapper can run both the
+    # create_app_factory mount and combined_server.run_unified_server mount on
+    # the *same* app, which would stack TenantResolutionMiddleware (and a second
+    # TenantCache) twice. The two call sites are mutually exclusive in normal
+    # use; this protects only the abnormal same-`app` reuse path. We use an
+    # app.state sentinel as the primary check (works before the middleware stack
+    # is materialised) plus a user_middleware class scan as belt-and-suspenders.
+    if getattr(app.state, "_tenant_resolution_mounted", False):
+        logger.debug("TenantResolutionMiddleware already mounted; skipping double-mount (#1407)")
+        return
+    _already_in_stack = any(
+        getattr(getattr(mw, "cls", None), "__name__", "") == "TenantResolutionMiddleware"
+        for mw in getattr(app, "user_middleware", [])
+    )
+    if _already_in_stack:
+        logger.debug("TenantResolutionMiddleware already in stack; skipping double-mount (#1407)")
+        app.state._tenant_resolution_mounted = True
+        return
+    app.state._tenant_resolution_mounted = True
+
     from collections import defaultdict
 
     from dazzle.back.runtime.tenant.cache import TenantCache
@@ -1149,7 +1169,12 @@ def create_app_factory(
     if redis_url:
         logger.info("Redis URL configured")
 
-    # Determine environment
+    # Determine environment. This factory (uvicorn --factory) treats an unset
+    # DAZZLE_ENV as production — pin it so the downstream fail-closed auth guard
+    # (which reads DAZZLE_ENV directly) sees the same intent (#1420).
+    from dazzle.core.environment import pin_production_env
+
+    pin_production_env()
     dazzle_env = os.environ.get("DAZZLE_ENV", "production")
     enable_dev_mode = dazzle_env == "development"
     enable_test_mode = dazzle_env in ("development", "test")

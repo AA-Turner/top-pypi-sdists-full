@@ -963,8 +963,8 @@ class RpcDevice:
 
     @property
     def model(self) -> str:
-        """Device model."""
-        return cast(str, self.shelly["model"])
+        """Device model or empty string if not provisioned."""
+        return cast(str, self.shelly.get("model", ""))
 
     @property
     def xmod_info(self) -> dict[str, Any]:
@@ -1017,6 +1017,17 @@ class RpcDevice:
             raise NotInitialized
 
         return "zigbee" in self._config
+
+    async def add_on_info(self) -> dict[str, Any]:
+        """Return add-on info."""
+        add_on_type = self.config["sys"]["device"].get("addon_type")
+
+        rpc_info: dict[str, Any] = {}
+        methods = await self.methods_list()
+        if "AddOn.GetInfo" in methods:
+            rpc_info = await self.call_rpc("AddOn.GetInfo")
+
+        return {"type": add_on_type, **rpc_info}
 
     async def get_dynamic_components(self) -> None:
         """Return a list of dynamic components."""

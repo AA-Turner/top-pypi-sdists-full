@@ -15,13 +15,16 @@ pub mod masks;
 pub mod shake_rng;
 pub mod fakers;
 pub mod person_data;
+pub mod hints_data;
+pub mod hints;
 pub mod person_zh;
 pub mod person_en;
 pub mod reserved_range;
 pub mod replace;
+pub mod redact_l1;
 
 pub use types::PatternMatch;
-pub use merger::merge_entities;
+pub use merger::{merge_entities, merge_entities_with_text};
 pub use restore::{restore, restore_full, check_restore_safety, RestoreError};
 pub use patterns::{match_patterns, PatternConfig, PatternError};
 pub use pseudonym::{PseudonymGenerator, RandomSource};
@@ -36,6 +39,13 @@ pub use fakers::{generate_unique_fake, resolve_faker, FakerFn};
 pub use person_data::{
     common_words_zh, compound_surnames_zh, given_names_en, not_names_zh, surnames_en, surnames_zh,
 };
+pub use hints_data::{
+    command_patterns, command_prefixes, command_suffixes, kinship_exact, kinship_prefixes,
+};
+pub use hints::{
+    filter_self_reference, get_person_threshold, produce_hints_l1, Hint, HintKind,
+};
 pub use person_zh::SCORE_THRESHOLD;
 pub use reserved_range::{scan_for_pollution, reserved_range_patterns};
 pub use replace::{replace, FakerFactory, FakerResolution, PseudoFactory, ReplaceArgs, ReplaceResult, TypeInfo};
+pub use redact_l1::{detect_l1, redact_l1, DetectL1Result, RedactL1Args};

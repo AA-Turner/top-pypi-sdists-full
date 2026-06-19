@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-pipes
-Version: 1.13.9
+Version: 1.13.10
 Summary: Toolkit for Dagster integrations with transform logic outside of Dagster
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/dagster-pipes
 Author-email: Dagster Labs <hello@dagsterlabs.com>

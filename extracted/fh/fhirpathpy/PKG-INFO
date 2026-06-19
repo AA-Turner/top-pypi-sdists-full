@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhirpathpy
-Version: 2.2.1
+Version: 2.2.2
 Summary: FHIRPath implementation in Python
 Keywords: fhir,fhirpath
 Author-email: "beda.software" <fhirpath@beda.software>

@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "13.0.0"
+version = "13.0.1"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -235,12 +235,6 @@ classifiers = [
   "Topic :: Utilities",
   "Typing :: Typed",
 ]
-
-[project.entry-points]
-# Make additional fixtures available to pytest.
-# See: https://docs.pytest.org/en/latest/how-to/writing_plugins.html#making-your-plugin-installable-by-others
-pytest11.extra-platforms = "extra_platforms.pytest"
-
 # Semantic versioning works in theory. In practice, it is hard to guarantee.
 # That's why we rely on >= specifier instead of ~= to relax constraints. This gives more freedom to packagers to
 # release hotfixes for security vulnerabilities in the future.
@@ -250,23 +244,21 @@ pytest11.extra-platforms = "extra_platforms.pytest"
 # - new code path we depends on,
 # - aligns minimal Python requirements to ours,
 # - adds new explicit support Python version.
-[project.optional-dependencies]
-pytest = [
+optional-dependencies.pytest = [
   # pytest 8.2.1 is the first version to support Python 3.13.
   "pytest>=8.2.1",
 ]
-
-[project.scripts]
-extra-platforms = "extra_platforms.__main__:main"
-
-[project.urls]
-"Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
-"Documentation" = "https://kdeldycke.github.io/extra-platforms"
-"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.0.0"
-"Funding" = "https://github.com/sponsors/kdeldycke"
-"Homepage" = "https://github.com/kdeldycke/extra-platforms"
-"Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
-"Repository" = "https://github.com/kdeldycke/extra-platforms"
+urls.Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
+urls.Documentation = "https://kdeldycke.github.io/extra-platforms"
+urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.0.1"
+urls.Funding = "https://github.com/sponsors/kdeldycke"
+urls.Homepage = "https://github.com/kdeldycke/extra-platforms"
+urls.Issues = "https://github.com/kdeldycke/extra-platforms/issues"
+urls.Repository = "https://github.com/kdeldycke/extra-platforms"
+scripts.extra-platforms = "extra_platforms.__main__:main"
+# Make additional fixtures available to pytest.
+# See: https://docs.pytest.org/en/latest/how-to/writing_plugins.html#making-your-plugin-installable-by-others
+entry-points.pytest11.extra-platforms = "extra_platforms.pytest"
 
 [dependency-groups]
 test = [
@@ -315,7 +307,6 @@ dependency-groups.docs = { requires-python = ">= 3.12" }
 # Relative dates are fine here because the Renovate lock-maintenance job
 # (sync-uv-lock) reverts uv.lock when the only diff is timestamp noise.
 exclude-newer = "1 week"
-exclude-newer-package = { idna = "0 day" }
 # Package is at root level, not in "./src/".
 build-backend.module-root = ""
 
@@ -376,13 +367,22 @@ default.extend-ignore-identifiers-re = [
   "certifi",
 ]
 
+[tool.mypy]
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+warn_unreachable = true
+pretty = true
+warn_unused_configs = true
+
 [tool.pytest]
+addopts = [
+  "--durations=10",
+]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
 markers = [
   "network: Tests that require network access (excluded with -m 'not network').",
-]
-addopts = [
-  "--durations=10",
 ]
 # Make sure tests that are expected to fail do not resurrect and start working all of a sudden.
 xfail_strict = true
@@ -394,20 +394,20 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "13.0.0"
-allow_dirty = true
-ignore_missing_files = true
+current_version = "13.0.1"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [
   "{major}.{minor}.{patch}.dev{dev}",
   "{major}.{minor}.{patch}",
 ]
+ignore_missing_files = true
+allow_dirty = true
+parts.dev.optional_value = "release"
 # When dev is "release" (its optional value), the .devN suffix is omitted.
 # Bumping patch/minor/major resets dev to "0", producing X.Y.Z.dev0.
 # Bumping dev goes from "0" to "release", stripping the suffix for release.
 parts.dev.values = [ "0", "release" ]
-parts.dev.optional_value = "release"
 
 [[tool.bumpversion.files]]
 # Update Python package version in any __init__.py file.
@@ -460,15 +460,6 @@ filename = "./citation.cff"
 regex = true
 search = "date-released: \\d{{4}}-\\d{{2}}-\\d{{2}}"
 replace = "date-released: {utcnow:%Y-%m-%d}"
-
-[tool.mypy]
-check_untyped_defs = true
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_return_any = true
-warn_unreachable = true
-pretty = true
 
 [tool.lychee]
 exclude = [

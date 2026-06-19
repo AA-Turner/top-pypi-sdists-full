@@ -5,6 +5,7 @@ from enum import Enum, Flag, auto
 from io import BufferedWriter, RawIOBase
 from typing import IO, Any, Dict, List, OrderedDict, Union
 
+from .__init__ import __version__
 from .exceptions import UnsupportedCompressionError
 
 try:
@@ -16,8 +17,6 @@ try:
     import zstandard
 except ImportError:
     zstandard = None
-
-from mcap import __version__
 
 from ._chunk_builder import ChunkBuilder
 from .data_stream import RecordBuilder
@@ -40,7 +39,7 @@ from .records import (
 )
 
 MCAP0_MAGIC = struct.pack("<8B", 137, 77, 67, 65, 80, 48, 13, 10)
-LIBRARY_IDENTIFIER = f"python mcap {__version__}"
+LIBRARY_IDENTIFIER = f"mcap-python/{__version__}"
 
 
 class CompressionType(Enum):
@@ -500,4 +499,4 @@ class Writer:
             self.__finalize_chunk()
 
 
-__all__ = ["CompressionType", "IndexType", "Writer"]
+__all__ = ["CompressionType", "IndexType", "LIBRARY_IDENTIFIER", "Writer"]

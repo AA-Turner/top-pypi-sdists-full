@@ -43,7 +43,8 @@ class MonitoredOperator(object):
         'status_info': 'str',
         'status_updated_at': 'datetime',
         'bundles': 'list[str]',
-        'dependency_only': 'bool'
+        'dependency_only': 'bool',
+        'source_bundles': 'list[str]'
     }
 
     attribute_map = {
@@ -59,10 +60,11 @@ class MonitoredOperator(object):
         'status_info': 'status_info',
         'status_updated_at': 'status_updated_at',
         'bundles': 'bundles',
-        'dependency_only': 'dependency_only'
+        'dependency_only': 'dependency_only',
+        'source_bundles': 'source_bundles'
     }
 
-    def __init__(self, cluster_id=None, name=None, version=None, namespace=None, subscription_name=None, operator_type=None, properties=None, timeout_seconds=None, status=None, status_info=None, status_updated_at=None, bundles=None, dependency_only=None):  # noqa: E501
+    def __init__(self, cluster_id=None, name=None, version=None, namespace=None, subscription_name=None, operator_type=None, properties=None, timeout_seconds=None, status=None, status_info=None, status_updated_at=None, bundles=None, dependency_only=None, source_bundles=None):  # noqa: E501
         """MonitoredOperator - a model defined in Swagger"""  # noqa: E501
 
         self._cluster_id = None
@@ -78,6 +80,7 @@ class MonitoredOperator(object):
         self._status_updated_at = None
         self._bundles = None
         self._dependency_only = None
+        self._source_bundles = None
         self.discriminator = None
 
         if cluster_id is not None:
@@ -106,6 +109,8 @@ class MonitoredOperator(object):
             self.bundles = bundles
         if dependency_only is not None:
             self.dependency_only = dependency_only
+        if source_bundles is not None:
+            self.source_bundles = source_bundles
 
     @property
     def cluster_id(self):
@@ -401,6 +406,29 @@ class MonitoredOperator(object):
         """
 
         self._dependency_only = dependency_only
+
+    @property
+    def source_bundles(self):
+        """Gets the source_bundles of this MonitoredOperator.  # noqa: E501
+
+        IDs of the bundles this operator was selected through. Empty for standalone selections. An operator can belong to multiple bundles.  # noqa: E501
+
+        :return: The source_bundles of this MonitoredOperator.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._source_bundles
+
+    @source_bundles.setter
+    def source_bundles(self, source_bundles):
+        """Sets the source_bundles of this MonitoredOperator.
+
+        IDs of the bundles this operator was selected through. Empty for standalone selections. An operator can belong to multiple bundles.  # noqa: E501
+
+        :param source_bundles: The source_bundles of this MonitoredOperator.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._source_bundles = source_bundles
 
     def to_dict(self):
         """Returns the model properties as a dict"""

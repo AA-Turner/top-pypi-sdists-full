@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai-flows
-Version: 1.2.0
+Version: 1.3.0
 Summary: Conversation Flow management for Pipecat AI applications
 License: BSD 2-Clause License
 Project-URL: Source, https://github.com/pipecat-ai/pipecat-flows
@@ -15,7 +15,7 @@ Classifier: Topic :: Multimedia :: Sound/Audio
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pipecat-ai<2,>=1.3.0
+Requires-Dist: pipecat-ai<2,>=1.4.0
 Requires-Dist: loguru~=0.7.3
 Requires-Dist: docstring_parser<1,>=0.16
 Dynamic: license-file

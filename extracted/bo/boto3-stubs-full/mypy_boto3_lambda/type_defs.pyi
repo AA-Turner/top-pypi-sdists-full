@@ -423,13 +423,13 @@ class AddPermissionRequestTypeDef(TypedDict):
     Action: str
     Principal: str
     SourceArn: NotRequired[str]
+    FunctionUrlAuthType: NotRequired[FunctionUrlAuthTypeType]
+    InvokedViaFunctionUrl: NotRequired[bool]
     SourceAccount: NotRequired[str]
     EventSourceToken: NotRequired[str]
     Qualifier: NotRequired[str]
     RevisionId: NotRequired[str]
     PrincipalOrgID: NotRequired[str]
-    FunctionUrlAuthType: NotRequired[FunctionUrlAuthTypeType]
-    InvokedViaFunctionUrl: NotRequired[bool]
 
 class AliasRoutingConfigurationOutputTypeDef(TypedDict):
     AdditionalVersionWeights: NotRequired[dict[str, float]]
@@ -862,9 +862,9 @@ class LayerVersionsListItemTypeDef(TypedDict):
     Version: NotRequired[int]
     Description: NotRequired[str]
     CreatedDate: NotRequired[str]
+    CompatibleArchitectures: NotRequired[list[ArchitectureType]]
     CompatibleRuntimes: NotRequired[list[RuntimeType]]
     LicenseInfo: NotRequired[str]
-    CompatibleArchitectures: NotRequired[list[ArchitectureType]]
 
 class ListAliasesRequestTypeDef(TypedDict):
     FunctionName: str
@@ -915,16 +915,16 @@ class ListFunctionsRequestTypeDef(TypedDict):
 
 class ListLayerVersionsRequestTypeDef(TypedDict):
     LayerName: str
+    CompatibleArchitecture: NotRequired[ArchitectureType]
     CompatibleRuntime: NotRequired[RuntimeType]
     Marker: NotRequired[str]
     MaxItems: NotRequired[int]
-    CompatibleArchitecture: NotRequired[ArchitectureType]
 
 class ListLayersRequestTypeDef(TypedDict):
+    CompatibleArchitecture: NotRequired[ArchitectureType]
     CompatibleRuntime: NotRequired[RuntimeType]
     Marker: NotRequired[str]
     MaxItems: NotRequired[int]
-    CompatibleArchitecture: NotRequired[ArchitectureType]
 
 class ListProvisionedConcurrencyConfigsRequestTypeDef(TypedDict):
     FunctionName: str
@@ -1084,8 +1084,8 @@ class GetProvisionedConcurrencyConfigResponseTypeDef(TypedDict):
 
 class GetRuntimeManagementConfigResponseTypeDef(TypedDict):
     UpdateRuntimeOn: UpdateRuntimeOnType
-    RuntimeVersionArn: str
     FunctionArn: str
+    RuntimeVersionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InvocationResponseTypeDef(TypedDict):
@@ -1125,8 +1125,8 @@ class PutFunctionScalingConfigResponseTypeDef(TypedDict):
 
 class PutProvisionedConcurrencyConfigResponseTypeDef(TypedDict):
     RequestedProvisionedConcurrentExecutions: int
-    AvailableProvisionedConcurrentExecutions: int
     AllocatedProvisionedConcurrentExecutions: int
+    AvailableProvisionedConcurrentExecutions: int
     Status: ProvisionedConcurrencyStatusEnumType
     StatusReason: str
     LastModified: str
@@ -1212,12 +1212,12 @@ class UpdateFunctionCodeRequestTypeDef(TypedDict):
     S3Key: NotRequired[str]
     S3ObjectVersion: NotRequired[str]
     ImageUri: NotRequired[str]
+    Architectures: NotRequired[Sequence[ArchitectureType]]
     Publish: NotRequired[bool]
+    PublishTo: NotRequired[Literal["LATEST_PUBLISHED"]]
     DryRun: NotRequired[bool]
     RevisionId: NotRequired[str]
-    Architectures: NotRequired[Sequence[ArchitectureType]]
     SourceKMSKeyArn: NotRequired[str]
-    PublishTo: NotRequired[Literal["LATEST_PUBLISHED"]]
 
 class CallbackDetailsTypeDef(TypedDict):
     CallbackId: NotRequired[str]
@@ -1446,13 +1446,13 @@ class ListFunctionsRequestPaginateTypeDef(TypedDict):
 
 class ListLayerVersionsRequestPaginateTypeDef(TypedDict):
     LayerName: str
-    CompatibleRuntime: NotRequired[RuntimeType]
     CompatibleArchitecture: NotRequired[ArchitectureType]
+    CompatibleRuntime: NotRequired[RuntimeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListLayersRequestPaginateTypeDef(TypedDict):
-    CompatibleRuntime: NotRequired[RuntimeType]
     CompatibleArchitecture: NotRequired[ArchitectureType]
+    CompatibleRuntime: NotRequired[RuntimeType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProvisionedConcurrencyConfigsRequestPaginateTypeDef(TypedDict):
@@ -1514,9 +1514,9 @@ class GetLayerVersionResponseTypeDef(TypedDict):
     Description: str
     CreatedDate: str
     Version: int
+    CompatibleArchitectures: list[ArchitectureType]
     CompatibleRuntimes: list[RuntimeType]
     LicenseInfo: str
-    CompatibleArchitectures: list[ArchitectureType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PublishLayerVersionResponseTypeDef(TypedDict):
@@ -1526,9 +1526,9 @@ class PublishLayerVersionResponseTypeDef(TypedDict):
     Description: str
     CreatedDate: str
     Version: int
+    CompatibleArchitectures: list[ArchitectureType]
     CompatibleRuntimes: list[RuntimeType]
     LicenseInfo: str
-    CompatibleArchitectures: list[ArchitectureType]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ImageConfigResponseTypeDef(TypedDict):
@@ -1621,9 +1621,9 @@ class PublishLayerVersionRequestTypeDef(TypedDict):
     LayerName: str
     Content: LayerVersionContentInputTypeDef
     Description: NotRequired[str]
+    CompatibleArchitectures: NotRequired[Sequence[ArchitectureType]]
     CompatibleRuntimes: NotRequired[Sequence[RuntimeType]]
     LicenseInfo: NotRequired[str]
-    CompatibleArchitectures: NotRequired[Sequence[ArchitectureType]]
 
 class CallbackFailedDetailsTypeDef(TypedDict):
     Error: EventErrorTypeDef
@@ -1804,6 +1804,7 @@ class CreateFunctionRequestTypeDef(TypedDict):
     Timeout: NotRequired[int]
     MemorySize: NotRequired[int]
     Publish: NotRequired[bool]
+    PublishTo: NotRequired[Literal["LATEST_PUBLISHED"]]
     VpcConfig: NotRequired[VpcConfigTypeDef]
     PackageType: NotRequired[PackageTypeType]
     DeadLetterConfig: NotRequired[DeadLetterConfigTypeDef]
@@ -1813,16 +1814,15 @@ class CreateFunctionRequestTypeDef(TypedDict):
     Tags: NotRequired[Mapping[str, str]]
     Layers: NotRequired[Sequence[str]]
     FileSystemConfigs: NotRequired[Sequence[FileSystemConfigTypeDef]]
-    ImageConfig: NotRequired[ImageConfigUnionTypeDef]
     CodeSigningConfigArn: NotRequired[str]
+    ImageConfig: NotRequired[ImageConfigUnionTypeDef]
     Architectures: NotRequired[Sequence[ArchitectureType]]
     EphemeralStorage: NotRequired[EphemeralStorageTypeDef]
     SnapStart: NotRequired[SnapStartTypeDef]
     LoggingConfig: NotRequired[LoggingConfigTypeDef]
-    CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
-    PublishTo: NotRequired[Literal["LATEST_PUBLISHED"]]
-    DurableConfig: NotRequired[DurableConfigTypeDef]
     TenancyConfig: NotRequired[TenancyConfigTypeDef]
+    CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
+    DurableConfig: NotRequired[DurableConfigTypeDef]
 
 class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
     FunctionName: str
@@ -1903,19 +1903,19 @@ class FunctionConfigurationResponseTypeDef(TypedDict):
     LastUpdateStatusReason: str
     LastUpdateStatusReasonCode: LastUpdateStatusReasonCodeType
     FileSystemConfigs: list[FileSystemConfigTypeDef]
-    PackageType: PackageTypeType
-    ImageConfigResponse: ImageConfigResponseTypeDef
     SigningProfileVersionArn: str
     SigningJobArn: str
+    PackageType: PackageTypeType
+    ImageConfigResponse: ImageConfigResponseTypeDef
     Architectures: list[ArchitectureType]
     EphemeralStorage: EphemeralStorageTypeDef
     SnapStart: SnapStartResponseTypeDef
     RuntimeVersionConfig: RuntimeVersionConfigTypeDef
     LoggingConfig: LoggingConfigTypeDef
+    TenancyConfig: TenancyConfigTypeDef
     CapacityProviderConfig: CapacityProviderConfigTypeDef
     ConfigSha256: str
     DurableConfig: DurableConfigTypeDef
-    TenancyConfig: TenancyConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FunctionConfigurationTypeDef(TypedDict):
@@ -1946,19 +1946,19 @@ class FunctionConfigurationTypeDef(TypedDict):
     LastUpdateStatusReason: NotRequired[str]
     LastUpdateStatusReasonCode: NotRequired[LastUpdateStatusReasonCodeType]
     FileSystemConfigs: NotRequired[list[FileSystemConfigTypeDef]]
-    PackageType: NotRequired[PackageTypeType]
-    ImageConfigResponse: NotRequired[ImageConfigResponseTypeDef]
     SigningProfileVersionArn: NotRequired[str]
     SigningJobArn: NotRequired[str]
+    PackageType: NotRequired[PackageTypeType]
+    ImageConfigResponse: NotRequired[ImageConfigResponseTypeDef]
     Architectures: NotRequired[list[ArchitectureType]]
     EphemeralStorage: NotRequired[EphemeralStorageTypeDef]
     SnapStart: NotRequired[SnapStartResponseTypeDef]
     RuntimeVersionConfig: NotRequired[RuntimeVersionConfigTypeDef]
     LoggingConfig: NotRequired[LoggingConfigTypeDef]
+    TenancyConfig: NotRequired[TenancyConfigTypeDef]
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     ConfigSha256: NotRequired[str]
     DurableConfig: NotRequired[DurableConfigTypeDef]
-    TenancyConfig: NotRequired[TenancyConfigTypeDef]
 
 class EventTypeDef(TypedDict):
     EventType: NotRequired[EventTypeType]
@@ -2058,6 +2058,11 @@ class EventSourceMappingConfigurationResponseTypeDef(TypedDict):
     ParallelizationFactor: int
     EventSourceArn: str
     FilterCriteria: FilterCriteriaOutputTypeDef
+    FilterCriteriaError: FilterCriteriaErrorTypeDef
+    KMSKeyArn: str
+    MetricsConfig: EventSourceMappingMetricsConfigOutputTypeDef
+    LoggingConfig: EventSourceMappingLoggingConfigTypeDef
+    ScalingConfig: ScalingConfigTypeDef
     FunctionArn: str
     LastModified: datetime
     LastProcessingResult: str
@@ -2075,13 +2080,8 @@ class EventSourceMappingConfigurationResponseTypeDef(TypedDict):
     FunctionResponseTypes: list[Literal["ReportBatchItemFailures"]]
     AmazonManagedKafkaEventSourceConfig: AmazonManagedKafkaEventSourceConfigOutputTypeDef
     SelfManagedKafkaEventSourceConfig: SelfManagedKafkaEventSourceConfigOutputTypeDef
-    ScalingConfig: ScalingConfigTypeDef
     DocumentDBEventSourceConfig: DocumentDBEventSourceConfigTypeDef
-    KMSKeyArn: str
-    FilterCriteriaError: FilterCriteriaErrorTypeDef
     EventSourceMappingArn: str
-    MetricsConfig: EventSourceMappingMetricsConfigOutputTypeDef
-    LoggingConfig: EventSourceMappingLoggingConfigTypeDef
     ProvisionedPollerConfig: ProvisionedPollerConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2094,6 +2094,11 @@ class EventSourceMappingConfigurationTypeDef(TypedDict):
     ParallelizationFactor: NotRequired[int]
     EventSourceArn: NotRequired[str]
     FilterCriteria: NotRequired[FilterCriteriaOutputTypeDef]
+    FilterCriteriaError: NotRequired[FilterCriteriaErrorTypeDef]
+    KMSKeyArn: NotRequired[str]
+    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigOutputTypeDef]
+    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
+    ScalingConfig: NotRequired[ScalingConfigTypeDef]
     FunctionArn: NotRequired[str]
     LastModified: NotRequired[datetime]
     LastProcessingResult: NotRequired[str]
@@ -2113,13 +2118,8 @@ class EventSourceMappingConfigurationTypeDef(TypedDict):
         AmazonManagedKafkaEventSourceConfigOutputTypeDef
     ]
     SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigOutputTypeDef]
-    ScalingConfig: NotRequired[ScalingConfigTypeDef]
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
-    KMSKeyArn: NotRequired[str]
-    FilterCriteriaError: NotRequired[FilterCriteriaErrorTypeDef]
     EventSourceMappingArn: NotRequired[str]
-    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigOutputTypeDef]
-    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
 
 AmazonManagedKafkaEventSourceConfigUnionTypeDef = Union[
@@ -2168,6 +2168,10 @@ class CreateEventSourceMappingRequestTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     BatchSize: NotRequired[int]
     FilterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
+    KMSKeyArn: NotRequired[str]
+    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
+    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
+    ScalingConfig: NotRequired[ScalingConfigTypeDef]
     MaximumBatchingWindowInSeconds: NotRequired[int]
     ParallelizationFactor: NotRequired[int]
     StartingPosition: NotRequired[EventSourcePositionType]
@@ -2187,11 +2191,7 @@ class CreateEventSourceMappingRequestTypeDef(TypedDict):
         AmazonManagedKafkaEventSourceConfigUnionTypeDef
     ]
     SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigUnionTypeDef]
-    ScalingConfig: NotRequired[ScalingConfigTypeDef]
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
-    KMSKeyArn: NotRequired[str]
-    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
-    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]
 
 class UpdateEventSourceMappingRequestTypeDef(TypedDict):
@@ -2200,22 +2200,22 @@ class UpdateEventSourceMappingRequestTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     BatchSize: NotRequired[int]
     FilterCriteria: NotRequired[FilterCriteriaUnionTypeDef]
+    KMSKeyArn: NotRequired[str]
+    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
+    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
+    ScalingConfig: NotRequired[ScalingConfigTypeDef]
     MaximumBatchingWindowInSeconds: NotRequired[int]
+    ParallelizationFactor: NotRequired[int]
     DestinationConfig: NotRequired[DestinationConfigTypeDef]
     MaximumRecordAgeInSeconds: NotRequired[int]
     BisectBatchOnFunctionError: NotRequired[bool]
     MaximumRetryAttempts: NotRequired[int]
-    ParallelizationFactor: NotRequired[int]
-    SourceAccessConfigurations: NotRequired[Sequence[SourceAccessConfigurationTypeDef]]
     TumblingWindowInSeconds: NotRequired[int]
+    SourceAccessConfigurations: NotRequired[Sequence[SourceAccessConfigurationTypeDef]]
     FunctionResponseTypes: NotRequired[Sequence[Literal["ReportBatchItemFailures"]]]
-    ScalingConfig: NotRequired[ScalingConfigTypeDef]
     AmazonManagedKafkaEventSourceConfig: NotRequired[
         AmazonManagedKafkaEventSourceConfigUnionTypeDef
     ]
     SelfManagedKafkaEventSourceConfig: NotRequired[SelfManagedKafkaEventSourceConfigUnionTypeDef]
     DocumentDBEventSourceConfig: NotRequired[DocumentDBEventSourceConfigTypeDef]
-    KMSKeyArn: NotRequired[str]
-    MetricsConfig: NotRequired[EventSourceMappingMetricsConfigUnionTypeDef]
-    LoggingConfig: NotRequired[EventSourceMappingLoggingConfigTypeDef]
     ProvisionedPollerConfig: NotRequired[ProvisionedPollerConfigTypeDef]

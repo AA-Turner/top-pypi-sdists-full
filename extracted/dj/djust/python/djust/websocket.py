@@ -131,6 +131,75 @@ def _is_allowed_origin(origin: Optional[bytes]) -> bool:
     return validate_host(match_host, allowed_hosts)
 
 
+def _validate_mount_url(url: Optional[str]) -> str:
+    """
+    Validate a client-supplied mount/redirect URL, falling back to ``"/"``.
+
+    The client sends the current page URL in the WebSocket ``mount`` /
+    ``live_redirect`` frames so the server can rebuild a faithful
+    ``HttpRequest`` (via ``RequestFactory``). That value is fully
+    attacker-controlled, so it must be a *site-relative path* before it is
+    fed to ``RequestFactory.get()``, ``resolve()``, log statements, or string
+    concatenation with a query string.
+
+    This is defense-in-depth. Django's WSGI path parsing already strips bare
+    ``\\r``/``\\n`` from the path and discards the scheme/host of an absolute
+    URL, but it does NOT normalize ``..`` segments (``"../../admin/"`` lands
+    in ``request.path`` as ``/..../admin/`` and in ``request.path_info``
+    verbatim as ``../../admin/``), and it silently *accepts* an absolute or
+    protocol-relative URL by dropping the authority. A view that inspects
+    ``request.path`` for an auth/routing decision would see the traversed
+    path. We reject all of those shapes here rather than relying on every
+    downstream consumer to re-sanitize.
+
+    Rejected (all fall back to ``"/"``):
+      * empty / non-string / not starting with ``"/"`` (relative path,
+        traversal such as ``"../../admin/"``)
+      * protocol-relative (``"//evil.com/page"``) -- ``urlparse`` reports a netloc
+      * absolute (``"https://evil.com/page"``) -- ``urlparse`` reports a scheme
+      * contains a ``\\r`` or ``\\n`` (CRLF / header / log injection)
+      * contains a ``".."`` path segment (path traversal)
+
+    Accepted (returned unchanged): a site-relative path, optionally with a
+    query string and/or fragment, e.g. ``"/dashboard?q=1"``.
+
+    See #1819 (unvalidated mount URL -- path traversal / CRLF / log injection).
+    """
+    if not url or not isinstance(url, str):
+        return "/"
+    # CRLF / log / header injection -- reject before any further parsing.
+    if "\r" in url or "\n" in url:
+        return "/"
+    # Must be a site-relative absolute path. Rejects relative paths
+    # ("../../admin/", "foo") and is the first half of the protocol-relative
+    # ("//evil.com") rejection (completed by the netloc check below).
+    if not url.startswith("/"):
+        return "/"
+    from urllib.parse import unquote, urlparse
+
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return "/"
+    # Absolute ("https://evil.com/page") or protocol-relative ("//evil.com").
+    if parsed.scheme or parsed.netloc:
+        return "/"
+    # Path traversal: reject any ".." path segment. ``RequestFactory.get()``
+    # percent-DECODES the path once, so a raw-segment check on ``parsed.path``
+    # would miss "/%2e%2e/admin/" — which lands in ``request.path`` as
+    # "/../admin/" after Django decodes it (#1819 review: encoded-traversal
+    # bypass). Decode once here (matching RequestFactory's single decode)
+    # before the segment check, and reject backslashes / control bytes that
+    # decode into alternate separators or null bytes ("/..%5cadmin",
+    # "/foo/..%00/admin").
+    decoded_path = unquote(parsed.path)
+    if "\\" in decoded_path or any(ord(ch) < 0x20 for ch in decoded_path):
+        return "/"
+    if ".." in decoded_path.split("/"):
+        return "/"
+    return url
+
+
 def _should_expose_timing() -> bool:
     """
     Whether VDOM patch responses may include server-side timing/performance data.
@@ -401,6 +470,19 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         # applied class swap and is echoed to the client for telemetry.
         self._hvr_version: int = 0
         self._hvr_last_reload_id: Optional[str] = None
+        # Consumer-owned monotonic VDOM wire version (#1788). This is the
+        # SINGLE SOURCE OF TRUTH for the ``version`` field on every
+        # client-checked outbound frame (patch / html_update / mount /
+        # html_recovery). It is decoupled from the Rust view's internal
+        # ``self.version`` (which resets to 0 on baseline loss — e.g. a
+        # patch-compression ``_rust_view.reset()``). Stamping the consumer
+        # counter keeps the wire sequence strictly monotonic per-CONNECTION,
+        # so a post-baseline-loss ``html_update`` still satisfies the client's
+        # ``clientVdomVersion === data.version - 1`` check
+        # (``static/djust/src/02-response-handler.js:58``) and the client
+        # accepts it directly without a ``request_html`` recovery round-trip.
+        # SEPARATE from ``_hvr_version`` above (telemetry for ``hvr-applied``).
+        self._last_sent_version: int = 0
         # Sticky LiveViews (Phase B): per-connection stash of preserved
         # sticky children staged in handle_live_redirect_mount BEFORE the
         # old view is torn down. Re-registered on the new parent after
@@ -955,7 +1037,11 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # _recovery_html leaves it None, the next request_html returns
                 # "Recovery HTML unavailable", and the client freezes at the
                 # transitional state even though the backend advanced (#1636).
-                self._arm_recovery(html, version)
+                # Stamp the consumer-owned wire version (#1788), discarding the
+                # Rust ``version`` for the wire. Order: _next_version() THEN
+                # _arm_recovery (so _recovery_version == this frame's version).
+                version = self._next_version()
+                self._arm_recovery(html)
                 await self._send_update(
                     patches=patch_list,
                     version=version,
@@ -973,8 +1059,10 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     )
                 )(html)
                 # The fallback sends the full render to the client, so the
-                # recovery baseline must track it too (#1636).
-                self._arm_recovery(html, version)
+                # recovery baseline must track it too (#1636). Consumer-owned
+                # wire version (#1788); order: _next_version() THEN _arm_recovery.
+                version = self._next_version()
+                self._arm_recovery(html)
                 await self._send_update(
                     html=html_content,
                     version=version,
@@ -1011,7 +1099,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         patch_list = fast_json_loads(patches) if patches else []
                         await self._send_update(
                             patches=patch_list,
-                            version=version,
+                            version=self._next_version(),  # consumer-owned (#1788)
                             event_name=event_name,
                             source="async",
                         )
@@ -1026,7 +1114,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         )(html)
                         await self._send_update(
                             html=html_content,
-                            version=version,
+                            version=self._next_version(),  # consumer-owned (#1788)
                             event_name=event_name,
                             source="async",
                         )
@@ -1036,7 +1124,26 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         "[djust] Error in handle_async_result for task '%s'", task_name
                     )
 
-    def _arm_recovery(self, html: str, version: int) -> None:
+    def _next_version(self) -> int:
+        """Single source of truth for the outbound VDOM wire version (#1788).
+
+        Monotonic per-CONNECTION; decoupled from the Rust view's ``self.version``
+        (which resets to 0 on baseline loss — e.g. a patch-compression
+        ``_rust_view.reset()``). Every client-checked frame stamps THIS so the
+        wire sequence stays strictly monotonic across a Rust baseline reset, and
+        a post-baseline-loss ``html_update`` still satisfies the client's
+        ``clientVdomVersion === data.version - 1`` check — no ``request_html``
+        recovery round-trip.
+
+        Uses ``getattr`` for the read so consumers built via a partial
+        constructor (test fakes that override ``__init__``, or any edge path
+        that bypasses the base ``__init__``) still get a valid monotonic
+        sequence starting at 1.
+        """
+        self._last_sent_version = getattr(self, "_last_sent_version", 0) + 1
+        return self._last_sent_version
+
+    def _arm_recovery(self, html: str) -> None:
         """Arm the on-demand VDOM recovery baseline.
 
         Single source of truth for the ``request_html`` recovery state
@@ -1047,9 +1154,18 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         centralizing it here (#1645) makes a new send path inherit correct arming
         by calling one method. The one-time clear (``_recovery_html = None`` in
         ``handle_request_html``) is the only other writer.
+
+        The recovery version is the consumer's CURRENT ``_last_sent_version``
+        (#1788) — NOT a Rust version. Recovery (``html_recovery``) sets
+        ``clientVdomVersion = data.version`` directly on the client
+        (``static/djust/src/03-websocket.js:727``), so the recovery frame MUST
+        carry the consumer version of the frame it replaces. The canonical call
+        ordering at every arming site is therefore: allocate ``v`` from
+        ``_next_version()`` FIRST, THEN arm recovery (which captures
+        ``_last_sent_version == v``), THEN send the frame with ``version=v``.
         """
         self._recovery_html = html
-        self._recovery_version = version
+        self._recovery_version = getattr(self, "_last_sent_version", 0)
 
     async def _send_update(
         self,
@@ -1310,7 +1426,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         if patch_list is not None:
             await self._send_update(
                 patches=patch_list,
-                version=version,
+                version=self._next_version(),  # consumer-owned (#1788)
                 event_name=event_name,
                 async_pending=has_async,
                 source="event",
@@ -1334,7 +1450,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 return
             await self._send_update(
                 html=html_content,
-                version=version,
+                version=self._next_version(),  # consumer-owned (#1788)
                 event_name=event_name,
                 async_pending=has_async,
                 source="event",
@@ -1904,8 +2020,10 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             factory = RequestFactory()
             # Include URL query params (e.g., ?sender=80) in the request
             query_string = urlencode(params) if params else ""
-            # Use the actual page URL from the client, not hardcoded "/"
-            page_url = data.get("url", "/")
+            # Use the actual page URL from the client, not hardcoded "/".
+            # The client-supplied URL is attacker-controlled — validate it
+            # against path traversal / CRLF / absolute-URL injection (#1819).
+            page_url = _validate_mount_url(data.get("url", "/"))
             path_with_query = f"{page_url}?{query_string}" if query_string else page_url
             request = factory.get(path_with_query)
 
@@ -2351,6 +2469,14 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
         # Send success response (HTML only if generated)
         logger.info("Successfully mounted view: %s", view_path)
+        # Stamp the consumer-owned wire version (#1788) rather than the Rust
+        # ``version`` (or the actor ``result['version']``). On a fresh
+        # connection this is 1, so the client baseline = 1 and the first event
+        # (version 2) satisfies ``clientVdomVersion === data.version - 1``. The
+        # client sets ``clientVdomVersion = data.version`` directly on mount
+        # (``static/djust/src/03-websocket.js:382``), so the source MUST be the
+        # consumer counter to keep every subsequent frame in sequence.
+        version = self._next_version()
         response = {
             "type": "mount",
             "session_id": self.session_id,
@@ -2901,10 +3027,12 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 # Call actor event handler (will call Python handler internally)
                 result = await self.actor_handle.event(event_name, params)
 
-                # Send patches if available, otherwise full HTML
+                # Send patches if available, otherwise full HTML.
+                # Ignore the actor ``result['version']`` for the wire — the
+                # consumer owns the monotonic wire version (#1788). The actor's
+                # internal version still drives its diff-baselining server-side.
                 patches = result.get("patches")
                 html = result.get("html")
-                version = result.get("version", 0)
 
                 if patches:
                     # Parse patches JSON string to list
@@ -2921,7 +3049,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                 await self._send_update(
                     patches=patches,
                     html=html,
-                    version=version,
+                    version=self._next_version(),  # consumer-owned (#1788)
                     cache_request_id=cache_request_id,
                     event_name=event_name,
                 )
@@ -3736,11 +3864,15 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # Store rendered HTML for on-demand recovery.
                         # Client sends request_html when applyPatches() fails
                         # (e.g., {% if %} blocks shifting DOM structure).
-                        self._arm_recovery(html, version)
+                        # Consumer-owned wire version (#1788): allocate it, THEN
+                        # arm recovery (so _recovery_version == this frame's
+                        # version — recovery sets clientVdomVersion directly).
+                        wire_version = self._next_version()
+                        self._arm_recovery(html)
 
                         await self._send_update(
                             patches=patch_list,
-                            version=version,
+                            version=wire_version,
                             cache_request_id=cache_request_id,
                             reset_form=should_reset_form,
                             timing=timing,
@@ -3762,7 +3894,15 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         # ``_recovery_html`` expects the pre-strip HTML (it strips +
                         # extracts on demand in ``handle_request_html``), matching the
                         # value the patches branch passes.
-                        self._arm_recovery(html, version)
+                        # Consumer-owned wire version (#1788) — THIS is the
+                        # #1788 path: a baseline loss makes the Rust ``version``
+                        # non-sequential, but ``wire_version`` stays monotonic so
+                        # the client accepts the html_update without recovery.
+                        # Allocate it BEFORE _arm_recovery (so _recovery_version
+                        # == this frame's version). The Rust ``version`` is still
+                        # used below for the DJE-053 warning + telemetry reason.
+                        wire_version = self._next_version()
+                        self._arm_recovery(html)
 
                         # Batch strip + extract into a single thread hop
                         # to avoid two separate sync_to_async crossings.
@@ -3831,7 +3971,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
 
                         await self._send_update(
                             html=html_content,
-                            version=version,
+                            version=wire_version,  # consumer-owned (#1788)
                             cache_request_id=cache_request_id,
                             reset_form=should_reset_form,
                             event_name=event_name,
@@ -4319,10 +4459,17 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     )
                     return
 
-                # Send the patches to the client
+                # Send the patches to the client.
+                # HIDDEN #1 (#1788): the hotreload patch frame is EXEMPT from the
+                # client version *check* (``!data.hotreload`` in
+                # ``02-response-handler.js:58``) but it still WRITES
+                # ``clientVdomVersion = data.version`` (line 77). So it MUST stamp
+                # the consumer counter — otherwise the NEXT normal event would be
+                # rejected against a stale client version. The separate
+                # ``_hvr_version`` (``hvr-applied`` telemetry frame) is untouched.
                 await self._send_update(
                     patches=patches,
-                    version=version,
+                    version=self._next_version(),  # consumer-owned (#1788, HIDDEN #1)
                     hotreload=True,
                     file_path=file_path,
                 )
@@ -4612,7 +4759,10 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
         from django.urls import resolve, Resolver404
 
         factory = RequestFactory()
-        page_url = data.get("url", "/")
+        # The client-supplied URL is attacker-controlled — validate it against
+        # path traversal / CRLF / absolute-URL injection before it reaches
+        # RequestFactory.get(), resolve(), and the log statements below (#1819).
+        page_url = _validate_mount_url(data.get("url", "/"))
         request = factory.get(page_url)
         # Session — same source as handle_mount.
         try:
@@ -4717,21 +4867,30 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self.send_error("View not mounted")
             return
 
+        # The html_recovery frame carries the CONSUMER version of the frame it
+        # replaces (#1788): the client sets ``clientVdomVersion = data.version``
+        # directly on html_recovery (``static/djust/src/03-websocket.js:727``),
+        # so it MUST equal ``_recovery_version`` (captured by _arm_recovery from
+        # _last_sent_version). The fresh re-render below produces a NEW Rust
+        # version which is DISCARDED for the wire — sending it would desync the
+        # client against the consumer counter.
         version = getattr(self, "_recovery_version", 0)
 
         if self._has_live_sticky_children():
             # Re-render the parent fresh so the recovery HTML reflects the live
             # sticky child's CURRENT state (#1813). Mirrors the sync/render
             # sequence used by the async-result path (sync state to Rust, then
-            # render_with_diff for the full raw HTML).
+            # render_with_diff for the full raw HTML). The fresh Rust version is
+            # DISCARDED (#1788) — only the HTML is taken; ``version`` stays the
+            # consumer-owned ``_recovery_version``.
             def _sync_and_render():
                 if hasattr(self.view_instance, "_sync_state_to_rust"):
                     self.view_instance._sync_state_to_rust()
-                fresh_html, _patches, fresh_version = self.view_instance.render_with_diff()
-                return fresh_html, fresh_version
+                fresh_html, _patches, _fresh_version = self.view_instance.render_with_diff()
+                return fresh_html
 
             try:
-                html, version = await sync_to_async(_sync_and_render)()
+                html = await sync_to_async(_sync_and_render)()
             except Exception:  # noqa: BLE001 — fall back to cached snapshot
                 logger.exception(
                     "[djust] request_html fresh re-render failed; falling back "
@@ -4937,7 +5096,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self._send_update(
                 patches=patch_list,
                 html=html,
-                version=version,
+                version=self._next_version(),  # consumer-owned (#1788)
                 event_name="__time_travel_jump__",
             )
         except Exception as exc:  # noqa: BLE001 — dev-only, log + report
@@ -5010,7 +5169,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self._send_update(
                 patches=patch_list,
                 html=html,
-                version=version,
+                version=self._next_version(),  # consumer-owned (#1788)
                 event_name="__time_travel_component_jump__",
             )
         except Exception as exc:  # noqa: BLE001 — dev-only, log + report
@@ -5102,7 +5261,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
             await self._send_update(
                 patches=patch_list,
                 html=html,
-                version=version,
+                version=self._next_version(),  # consumer-owned (#1788)
                 event_name="__forward_replay__",
             )
         except Exception as exc:  # noqa: BLE001 — dev-only, log + report
@@ -5235,10 +5394,14 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                     # handle_event. Without this, request_html after a failed
                     # broadcast-triggered patch finds _recovery_html=None and
                     # forces a page reload. See #1202.
-                    self._arm_recovery(html, version)
+                    # Consumer-owned wire version (#1788); order: _next_version()
+                    # THEN _arm_recovery (so _recovery_version == this frame's
+                    # version).
+                    wire_version = self._next_version()
+                    self._arm_recovery(html)
                     await self._send_update(
                         patches=patches,
-                        version=version,
+                        version=wire_version,
                         broadcast=True,
                         source="broadcast",
                     )
@@ -5347,7 +5510,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                         patches = fast_json_loads(patches)
                     await self._send_update(
                         patches=patches,
-                        version=version,
+                        version=self._next_version(),  # consumer-owned (#1788)
                         broadcast=True,
                         source="broadcast",
                     )
@@ -5440,7 +5603,7 @@ class LiveViewConsumer(AsyncWebsocketConsumer):
                                 patches = fast_json_loads(patches)
                             await self._send_update(
                                 patches=patches,
-                                version=version,
+                                version=self._next_version(),  # consumer-owned (#1788)
                                 event_name="tick",
                                 source="tick",
                             )

@@ -14,9 +14,11 @@ import logging
 import os
 import threading
 from collections.abc import Callable
-from functools import wraps
+from functools import cache, wraps
 from importlib.util import find_spec
 from typing import Any, ClassVar, TypeVar
+
+import torch
 
 logger = logging.getLogger(__name__)
 F = TypeVar('F', bound=Callable)
@@ -31,12 +33,20 @@ class BaseBackend:
     """Base class for operation-specific backends.
 
     Attributes:
-        backend_type: Identifier for the backend type, used to distinguish different backend implementations.
-        package_name: Name of the external package required by the backend. None indicates no external dependency.
-        env_var: Environment variable name that controls whether the backend is enabled. None means always enabled.
-        default_enable: Controls whether the backend is enabled by default when env_var is not set.
-                       Defaults to True (enabled). Set to False to require explicit user opt-in.
-        priority: Backend priority, lower values indicate higher priority (default is 5).
+        backend_type (str, Optional):
+            Identifier for the backend type, used to distinguish different backend implementations.
+            Default: `"base"`.
+        package_name (str, Optional):
+            Name of the external package required by the backend.
+            `None` indicates no external dependency. Default: `None`.
+        env_var (str, Optional):
+            Environment variable name that controls whether the backend is enabled.
+            `None` means always enabled. Default: `None`.
+        default_enable (bool, Optional):
+            Whether the backend is enabled by default when `env_var` is not set.
+            Set to `False` to require explicit user opt-in. Default: `True`.
+        priority (int, Optional):
+            Backend priority. Lower values indicate higher priority. Default: 5.
     """
 
     backend_type: ClassVar[str] = "base"
@@ -60,6 +70,7 @@ class BaseBackend:
         return os.environ.get(cls.env_var, default_value) != "0"
 
     @classmethod
+    @cache
     def can_use(cls) -> bool:
         return cls.is_available() and cls.is_enabled()
 
@@ -74,6 +85,11 @@ class BaseBackend:
             return verifier(*args, **kwargs)
         except Exception as e:
             return False, str(e)
+
+
+_OPERATION_BACKEND_MODULES: dict[str, str] = {
+    'modules': 'fla.modules.backends',
+}
 
 
 class BackendRegistry:
@@ -130,8 +146,12 @@ class BackendRegistry:
                 return
 
             # Import backend module to trigger registration
+            module_path = _OPERATION_BACKEND_MODULES.get(
+                operation,
+                f'fla.ops.{operation}.backends',
+            )
             with contextlib.suppress(ImportError):
-                __import__(f'fla.ops.{operation}.backends', fromlist=[''])
+                __import__(module_path, fromlist=[''])
 
             cls._initialized.add(operation)
 
@@ -161,7 +181,8 @@ def dispatch(operation: str):
             backends_list = registry._get_sorted_backends()
 
             for be in backends_list:
-                if not be.can_use():
+                # Avoid be.can_use(): its @cache wrapper breaks torch.compile tracing.
+                if not (be.is_available() and be.is_enabled()):
                     continue
 
                 can_use, reason = be.verify(func_name, *args, **kwargs)
@@ -190,6 +211,9 @@ def dispatch(operation: str):
 
             # No backend can handle this call, use default implementation
             return func(*args, **kwargs)
+
+        # Dispatch performs runtime backend selection; keep it out of torch.compile graphs.
+        wrapper = torch.compiler.disable(wrapper)
 
         return wrapper
     return decorator

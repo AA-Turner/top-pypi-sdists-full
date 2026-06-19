@@ -1447,6 +1447,7 @@ args = ["workspace-skill.js"]
             },
         )
         _write_text(home_dir / ".config" / "opencode" / "plugins" / "global-local.mjs", "export default {};\n")
+        _write_text(home_dir / ".config" / "opencode" / "plugins" / "hol-guard-pretool.ts", "export default {};\n")
         _write_text(workspace_dir / ".opencode" / "plugins" / "project-local.mjs", "export default {};\n")
         _write_text(home_dir / ".config" / "opencode" / "commands" / "global-cmd.md", "# global\n")
         _write_text(workspace_dir / ".opencode" / "commands" / "triage.md", "# triage\n")
@@ -1482,6 +1483,7 @@ args = ["workspace-skill.js"]
         assert "opencode:global:plugin:opencode-global-plugin" in artifacts
         assert "opencode:project:plugin:opencode-project-plugin" in artifacts
         assert "opencode:global:plugin-file:plugins/global-local.mjs" in artifacts
+        assert "opencode:global:plugin-file:plugins/hol-guard-pretool.ts" in artifacts
         assert "opencode:project:plugin-file:plugins/project-local.mjs" in artifacts
         assert "opencode:global:config-command:global-review" in artifacts
         assert "opencode:project:config-command:project-review" in artifacts
@@ -1491,6 +1493,7 @@ args = ["workspace-skill.js"]
         assert "opencode:project:skill:opencode:skills/repo-skill" in artifacts
         assert "opencode:project:skill:claude:skills/claude-skill" in artifacts
         assert artifacts["opencode:project:plugin-file:plugins/project-local.mjs"]["artifact_type"] == "plugin"
+        assert artifacts["opencode:global:plugin-file:plugins/hol-guard-pretool.ts"]["artifact_type"] == "daemon_plugin"
         assert artifacts["opencode:project:config-command:project-review"]["metadata"]["template"] == (
             "Review the workspace change set."
         )
@@ -6425,6 +6428,66 @@ url = http://127.0.0.1:8787/guard-canary
         assert rc == 2
         assert "Guard install requires a harness or --all." in stderr
 
+    def test_guard_uninstall_requires_harness_all_or_self(self, tmp_path, capsys):
+        home_dir = tmp_path / "home"
+        workspace_dir = tmp_path / "workspace"
+        _build_guard_fixture(home_dir, workspace_dir)
+
+        rc = main(
+            [
+                "guard",
+                "uninstall",
+                "--home",
+                str(home_dir),
+                "--workspace",
+                str(workspace_dir),
+            ]
+        )
+        stderr = capsys.readouterr().err
+
+        assert rc == 2
+        assert "Guard uninstall requires a harness or --all or --self." in stderr
+
+    def test_guard_uninstall_self_runs_full_package_removal(self, tmp_path, monkeypatch, capsys):
+        home_dir = tmp_path / "home"
+        uninstall_calls: list[dict[str, object]] = []
+
+        monkeypatch.setattr(
+            guard_commands_module,
+            "run_guard_self_uninstall",
+            lambda **kwargs: (
+                uninstall_calls.append(kwargs)
+                or {
+                    "self_uninstall": True,
+                    "status": "removed",
+                    "current_version": "2.0.764",
+                    "installer": "pipx",
+                    "dry_run": False,
+                    "command": ["pipx", "uninstall", "hol-guard"],
+                    "message": "Removed HOL Guard from this environment.",
+                },
+                0,
+            ),
+        )
+
+        rc = main(["guard", "uninstall", "--self", "--home", str(home_dir), "--json"])
+        output = json.loads(capsys.readouterr().out)
+
+        assert rc == 0
+        assert uninstall_calls and uninstall_calls[0]["dry_run"] is False
+        assert output["self_uninstall"] is True
+        assert output["status"] == "removed"
+        assert output["command"] == ["pipx", "uninstall", "hol-guard"]
+
+    def test_guard_uninstall_self_rejects_harness_or_all(self, tmp_path, capsys):
+        home_dir = tmp_path / "home"
+
+        rc = main(["guard", "uninstall", "codex", "--self", "--home", str(home_dir)])
+        stderr = capsys.readouterr().err
+
+        assert rc == 2
+        assert "Guard self uninstall does not accept a harness or --all." in stderr
+
     @pytest.mark.parametrize("command", ["install", "uninstall"])
     def test_guard_install_commands_reject_harness_with_all(self, tmp_path, capsys, command: str):
         home_dir = tmp_path / "home"
@@ -6786,14 +6849,25 @@ url = http://127.0.0.1:8787/guard-canary
                 },
             }
 
-        def fake_sync_supply_chain_bundle(store: GuardStore) -> dict[str, object]:
+        def fake_sync_supply_chain_cloud_state(
+            store: GuardStore,
+            *,
+            auth_context: dict[str, object] | None = None,
+            workspace_dir: Path | None = None,
+        ) -> dict[str, object]:
             del store
+            assert auth_context is None
+            assert workspace_dir is None
             bundle_calls.append("bundle")
-            return {"synced_at": "2026-06-04T18:31:05+00:00", "status": "synced"}
+            return {
+                "synced_at": "2026-06-04T18:31:05+00:00",
+                "status": "synced",
+                "workspace_audits": {"status": "synced", "completed_jobs": 1},
+            }
 
         monkeypatch.setattr(guard_commands_module, "_run_guard_device_connect_flow", fake_device_flow)
         monkeypatch.setattr(guard_commands_module, "sync_local_guard_cloud_proof", fake_sync_local_guard_cloud_proof)
-        monkeypatch.setattr(guard_commands_module, "sync_supply_chain_bundle", fake_sync_supply_chain_bundle)
+        monkeypatch.setattr(guard_commands_module, "sync_supply_chain_cloud_state", fake_sync_supply_chain_cloud_state)
 
         rc = main(
             [
@@ -8884,12 +8958,12 @@ url = http://127.0.0.1:8787/guard-canary
     def test_guard_sync_surfaces_auth_expired_reauth_message(self, tmp_path, capsys, monkeypatch):
         home_dir = tmp_path / "home"
 
-        def _fail_sync(_store: GuardStore, **_kwargs: object) -> dict[str, object]:
+        def _fail_auth(_store: GuardStore) -> dict[str, object]:
             raise guard_commands_module.GuardSyncAuthorizationExpiredError(
                 "Guard authorization expired. Run `hol-guard connect` to sign in again."
             )
 
-        monkeypatch.setattr(guard_commands_module, "sync_receipts", _fail_sync)
+        monkeypatch.setattr(guard_commands_module, "_resolve_guard_sync_auth_context", _fail_auth)
 
         rc = main(["guard", "sync", "--home", str(home_dir), "--json"])
         output = json.loads(capsys.readouterr().out)
@@ -8900,17 +8974,77 @@ url = http://127.0.0.1:8787/guard-canary
             "error": "Guard authorization expired. Run `hol-guard connect` to sign in again.",
         }
 
+    def test_guard_sync_includes_supply_chain_workspace_audits(self, tmp_path, capsys, monkeypatch):
+        home_dir = tmp_path / "home"
+        workspace_dir = tmp_path / "workspace"
+        workspace_dir.mkdir()
+        captured_auth_context: list[dict[str, object]] = []
+
+        monkeypatch.setattr(
+            guard_commands_module,
+            "_resolve_guard_sync_auth_context",
+            lambda _store: {
+                "access_token": "token",
+                "sync_url": "https://hol.org/api/guard/receipts/sync",
+            },
+        )
+        monkeypatch.setattr(
+            guard_commands_module,
+            "_require_guard_context",
+            lambda _context: HarnessContext(home_dir=home_dir, workspace_dir=workspace_dir, guard_home=home_dir),
+        )
+
+        def _fake_sync_receipts(_store: GuardStore, **kwargs: object) -> dict[str, object]:
+            auth_context = kwargs.get("auth_context")
+            assert isinstance(auth_context, dict)
+            captured_auth_context.append(auth_context)
+            assert kwargs.get("workspace_dir") == workspace_dir
+            return {
+                "synced_at": "2026-06-18T22:00:00Z",
+                "receipts_stored": 2,
+            }
+
+        def _fake_sync_supply_chain_cloud_state(_store: GuardStore, **kwargs: object) -> dict[str, object]:
+            auth_context = kwargs.get("auth_context")
+            assert isinstance(auth_context, dict)
+            captured_auth_context.append(auth_context)
+            assert kwargs.get("workspace_dir") == workspace_dir
+            return {
+                "synced_at": "2026-06-18T22:00:01Z",
+                "status": "synced",
+                "workspace_audits": {
+                    "status": "synced",
+                    "completed_jobs": 1,
+                },
+            }
+
+        monkeypatch.setattr(guard_commands_module, "sync_receipts", _fake_sync_receipts)
+        monkeypatch.setattr(
+            guard_commands_module,
+            "sync_supply_chain_cloud_state",
+            _fake_sync_supply_chain_cloud_state,
+        )
+
+        sync_rc = main(["guard", "sync", "--home", str(home_dir), "--json"])
+        output = json.loads(capsys.readouterr().out)
+
+        assert sync_rc == 0
+        assert output["receipts_stored"] == 2
+        assert output["supply_chain"]["workspace_audits"]["completed_jobs"] == 1
+        assert len(captured_auth_context) == 2
+        assert captured_auth_context[0] == captured_auth_context[1]
+
     def test_refresh_cloud_policy_bundle_records_auth_expired_reason(self, tmp_path, monkeypatch):
         home_dir = tmp_path / "home"
         store = GuardStore(home_dir)
         _seed_guard_cloud(store)
 
-        def _fail_sync(_store: GuardStore, **_kwargs: object) -> dict[str, object]:
+        def _fail_auth(_store: GuardStore) -> dict[str, object]:
             raise guard_commands_module.GuardSyncAuthorizationExpiredError(
                 "Guard authorization expired. Run `hol-guard connect` to sign in again."
             )
 
-        monkeypatch.setattr(guard_commands_module, "sync_receipts", _fail_sync)
+        monkeypatch.setattr(guard_commands_module, "_resolve_guard_sync_auth_context", _fail_auth)
 
         guard_commands_module._refresh_cloud_policy_bundle(store)
 
@@ -8932,8 +9066,20 @@ url = http://127.0.0.1:8787/guard-canary
             )
             return {"synced": True}
 
+        monkeypatch.setattr(
+            guard_commands_module,
+            "_resolve_guard_sync_auth_context",
+            lambda _store: {
+                "access_token": "token",
+                "sync_url": "https://hol.org/api/guard/receipts/sync",
+            },
+        )
         monkeypatch.setattr(guard_commands_module, "sync_receipts", _bundle_rejected)
-        monkeypatch.setattr(guard_commands_module, "sync_supply_chain_bundle", lambda _store: None)
+        monkeypatch.setattr(
+            guard_commands_module,
+            "sync_supply_chain_cloud_state",
+            lambda _store, **_kwargs: {"synced_at": "2026-04-09T00:00:00Z"},
+        )
 
         guard_commands_module._refresh_cloud_policy_bundle(store)
 
@@ -8955,7 +9101,11 @@ url = http://127.0.0.1:8787/guard-canary
             return {"synced": True}
 
         monkeypatch.setattr(guard_commands_module, "sync_receipts", _bundle_rejected)
-        monkeypatch.setattr(guard_commands_module, "sync_supply_chain_bundle", lambda _store: None)
+        monkeypatch.setattr(
+            guard_commands_module,
+            "sync_supply_chain_cloud_state",
+            lambda _store, **_kwargs: {"synced_at": "2026-04-09T00:00:00Z"},
+        )
 
         guard_commands_module._refresh_cloud_policy_bundle(store)
 
@@ -8978,7 +9128,19 @@ url = http://127.0.0.1:8787/guard-canary
             "sync_receipts",
             lambda _store, **_kwargs: {"synced": True},
         )
-        monkeypatch.setattr(guard_commands_module, "sync_supply_chain_bundle", lambda _store: None)
+        monkeypatch.setattr(
+            guard_commands_module,
+            "_resolve_guard_sync_auth_context",
+            lambda _store: {
+                "access_token": "token",
+                "sync_url": "https://hol.org/api/guard/receipts/sync",
+            },
+        )
+        monkeypatch.setattr(
+            guard_commands_module,
+            "sync_supply_chain_cloud_state",
+            lambda _store, **_kwargs: {"synced_at": "2026-04-09T00:00:00Z"},
+        )
 
         guard_commands_module._refresh_cloud_policy_bundle(store)
 

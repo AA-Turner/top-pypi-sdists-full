@@ -63,6 +63,7 @@ from ..javascript import (
     PrettierOptions as _PrettierOptions_41a5f203,
     ProjenrcOptions as _ProjenrcOptions_179dd39f,
     ScopedPackagesOptions as _ScopedPackagesOptions_52f0a477,
+    TypescriptConfig as _TypescriptConfig_e4a2920d,
     TypescriptConfigOptions as _TypescriptConfigOptions_8c5492cd,
     UpgradeDependenciesOptions as _UpgradeDependenciesOptions_1d8ce4da,
     YarnBerryOptions as _YarnBerryOptions_b6942539,
@@ -586,6 +587,8 @@ class JsiiBuild(metaclass=jsii.JSIIMeta, jsii_type="projen.cdk.JsiiBuild"):
         "publish_to_pypi": "publishToPypi",
         "release_to_npm": "releaseToNpm",
         "stability": "stability",
+        "tsconfig": "tsconfig",
+        "validate_tsconfig": "validateTsconfig",
         "workflow_bootstrap_steps": "workflowBootstrapSteps",
         "workflow_node_version": "workflowNodeVersion",
         "workspace_directory": "workspaceDirectory",
@@ -610,6 +613,8 @@ class JsiiBuildOptions:
         publish_to_pypi: typing.Optional[typing.Union["JsiiPythonTarget", typing.Dict[builtins.str, typing.Any]]] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         stability: typing.Optional[builtins.str] = None,
+        tsconfig: typing.Optional["_TypescriptConfig_e4a2920d"] = None,
+        validate_tsconfig: typing.Optional["ValidateTsconfig"] = None,
         workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_Step_da34ecb4", typing.Dict[builtins.str, typing.Any]]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workspace_directory: typing.Optional[builtins.str] = None,
@@ -631,6 +636,8 @@ class JsiiBuildOptions:
         :param publish_to_pypi: (experimental) Publish to pypi. Default: - no publishing
         :param release_to_npm: (experimental) Whether to publish to npm. Default: true
         :param stability: (experimental) The stability of the package. Default: "stable"
+        :param tsconfig: (experimental) The TypescriptConfig that jsii compiles against. Provide a dedicated config (e.g. one named ``tsconfig.jsii.json``) to keep jsii compilation separate from the project's editor-facing ``tsconfig.json``. jsii requires a comment-free, strict-valid config, so ``JsiiBuild`` disables comments on whichever config it is given. Default: - the project's tsconfig (i.e. ``project.tsconfig``)
+        :param validate_tsconfig: (experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig. Only relevant when the project synthesizes its own tsconfig (i.e. ``disableTsconfig`` is not set on the TypeScriptProject). Default: ValidateTsconfig.STRICT
         :param workflow_bootstrap_steps: (experimental) Additional steps to run before packaging in workflows. Default: []
         :param workflow_node_version: (experimental) The node version to use in packaging workflows. Default: "lts/*"
         :param workspace_directory: (experimental) Relative path of the package within the repository. This is used in monorepo setups where the package is not at the root. Packaging steps will extract build artifacts into this subdirectory. Default: "." - root of the repository
@@ -664,6 +671,8 @@ class JsiiBuildOptions:
             check_type(argname="argument publish_to_pypi", value=publish_to_pypi, expected_type=type_hints["publish_to_pypi"])
             check_type(argname="argument release_to_npm", value=release_to_npm, expected_type=type_hints["release_to_npm"])
             check_type(argname="argument stability", value=stability, expected_type=type_hints["stability"])
+            check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
+            check_type(argname="argument validate_tsconfig", value=validate_tsconfig, expected_type=type_hints["validate_tsconfig"])
             check_type(argname="argument workflow_bootstrap_steps", value=workflow_bootstrap_steps, expected_type=type_hints["workflow_bootstrap_steps"])
             check_type(argname="argument workflow_node_version", value=workflow_node_version, expected_type=type_hints["workflow_node_version"])
             check_type(argname="argument workspace_directory", value=workspace_directory, expected_type=type_hints["workspace_directory"])
@@ -698,6 +707,10 @@ class JsiiBuildOptions:
             self._values["release_to_npm"] = release_to_npm
         if stability is not None:
             self._values["stability"] = stability
+        if tsconfig is not None:
+            self._values["tsconfig"] = tsconfig
+        if validate_tsconfig is not None:
+            self._values["validate_tsconfig"] = validate_tsconfig
         if workflow_bootstrap_steps is not None:
             self._values["workflow_bootstrap_steps"] = workflow_bootstrap_steps
         if workflow_node_version is not None:
@@ -884,6 +897,37 @@ class JsiiBuildOptions:
         '''
         result = self._values.get("stability")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tsconfig(self) -> typing.Optional["_TypescriptConfig_e4a2920d"]:
+        '''(experimental) The TypescriptConfig that jsii compiles against.
+
+        Provide a dedicated config (e.g. one named ``tsconfig.jsii.json``) to keep
+        jsii compilation separate from the project's editor-facing ``tsconfig.json``.
+        jsii requires a comment-free, strict-valid config, so ``JsiiBuild`` disables
+        comments on whichever config it is given.
+
+        :default: - the project's tsconfig (i.e. ``project.tsconfig``)
+
+        :stability: experimental
+        '''
+        result = self._values.get("tsconfig")
+        return typing.cast(typing.Optional["_TypescriptConfig_e4a2920d"], result)
+
+    @builtins.property
+    def validate_tsconfig(self) -> typing.Optional["ValidateTsconfig"]:
+        '''(experimental) Level of tsconfig validation jsii should perform on the user-provided tsconfig.
+
+        Only relevant when the project synthesizes its own tsconfig
+        (i.e. ``disableTsconfig`` is not set on the TypeScriptProject).
+
+        :default: ValidateTsconfig.STRICT
+
+        :see: https://aws.github.io/jsii/user-guides/lib-author/configuration/#validatetsconfig
+        :stability: experimental
+        '''
+        result = self._values.get("validate_tsconfig")
+        return typing.cast(typing.Optional["ValidateTsconfig"], result)
 
     @builtins.property
     def workflow_bootstrap_steps(
@@ -6009,6 +6053,37 @@ class Stability(enum.Enum):
     '''
 
 
+@jsii.enum(jsii_type="projen.cdk.ValidateTsconfig")
+class ValidateTsconfig(enum.Enum):
+    '''(experimental) Level of tsconfig validation jsii should perform.
+
+    :stability: experimental
+    '''
+
+    STRICT = "STRICT"
+    '''(experimental) Validates against a strict rule set designed for widespread support and backwards-compatibility.
+
+    :stability: experimental
+    '''
+    GENERATED = "GENERATED"
+    '''(experimental) Enforces a tsconfig as if it were generated by jsii.
+
+    :stability: experimental
+    '''
+    MINIMAL = "MINIMAL"
+    '''(experimental) Only reject options known to be incompatible with jsii.
+
+    :stability: experimental
+    '''
+    OFF = "OFF"
+    '''(experimental) Disables all config validation.
+
+    Use at your own risk.
+
+    :stability: experimental
+    '''
+
+
 class ConstructLibrary(
     JsiiProject,
     metaclass=jsii.JSIIAbstractClass,
@@ -9946,6 +10021,7 @@ __all__ = [
     "JsiiProjectOptions",
     "JsiiPythonTarget",
     "Stability",
+    "ValidateTsconfig",
 ]
 
 publication.publish()
@@ -10045,6 +10121,8 @@ def _typecheckingstub__2be890418c6835b6b4f6b427bf7274ec62dd8b848b74f2b17167b2a51
     publish_to_pypi: typing.Optional[typing.Union[JsiiPythonTarget, typing.Dict[builtins.str, typing.Any]]] = None,
     release_to_npm: typing.Optional[builtins.bool] = None,
     stability: typing.Optional[builtins.str] = None,
+    tsconfig: typing.Optional[_TypescriptConfig_e4a2920d] = None,
+    validate_tsconfig: typing.Optional[ValidateTsconfig] = None,
     workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_Step_da34ecb4, typing.Dict[builtins.str, typing.Any]]]] = None,
     workflow_node_version: typing.Optional[builtins.str] = None,
     workspace_directory: typing.Optional[builtins.str] = None,

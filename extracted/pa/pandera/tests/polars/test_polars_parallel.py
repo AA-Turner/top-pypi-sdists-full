@@ -1,13 +1,20 @@
 """Test parallelization with polars using joblib."""
 
 import polars as pl
+import pytest
 from joblib import Parallel, delayed
 
+from pandera.config import CONFIG
 from pandera.polars import Column, DataFrameSchema
 
 schema = DataFrameSchema({"a": Column(pl.Int32)}, coerce=True)
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals backend does not support dtype coercion (schema uses coerce=True)",
+    strict=True,
+)
 def test_polars_parallel():
     def fn():
         return schema.validate(pl.DataFrame({"a": [1]}))

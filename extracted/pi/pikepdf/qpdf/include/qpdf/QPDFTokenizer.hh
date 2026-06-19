@@ -1,5 +1,5 @@
 // Copyright (c) 2005-2021 Jay Berkenbilt
-// Copyright (c) 2022-2025 Jay Berkenbilt and Manfred Holger
+// Copyright (c) 2022-2026 Jay Berkenbilt and Manfred Holger
 //
 // This file is part of qpdf.
 //
@@ -31,6 +31,10 @@
 namespace qpdf
 {
     class Tokenizer;
+    namespace impl
+    {
+        class Parser;
+    }
 } // namespace qpdf
 
 class QPDFTokenizer
@@ -203,7 +207,7 @@ class QPDFTokenizer
     void expectInlineImage(InputSource& input);
 
   private:
-    friend class QPDFParser;
+    friend class qpdf::impl::Parser;
 
     QPDFTokenizer(QPDFTokenizer const&) = delete;
     QPDFTokenizer& operator=(QPDFTokenizer const&) = delete;

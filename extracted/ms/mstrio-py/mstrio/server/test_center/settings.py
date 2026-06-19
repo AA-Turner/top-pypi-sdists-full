@@ -16,6 +16,8 @@ class TestCenterSettings:
     (representing settings) can be modified manually.
     """
 
+    __test__ = False  # marks this as not a pytest test class
+
     def __init__(self, connection: Connection):
         self._connection = connection
 

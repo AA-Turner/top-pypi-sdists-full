@@ -31,8 +31,9 @@ pow_op = { "^" }
 unary = { unary_op* ~ primary }
 unary_op = _{ "+" | "-" }
 
-primary = { function_call | list_lit | ident | number | string_lit | "(" ~ expr ~ ")" }
+primary = { function_call | list_lit | tuple_lit | ident | number | string_lit | "(" ~ expr ~ ")" }
 list_lit = @{ "[" ~ (!"]" ~ ANY)* ~ "]" }
+tuple_lit = @{ "(" ~ (!")" ~ ANY)* ~ "," ~ (!")" ~ ANY)* ~ ")" }
 function_call = { ident ~ "(" ~ arg_list? ~ ")" }
 arg_list = { arg ~ ("," ~ arg)* }
 arg = { named_arg | expr }
@@ -906,6 +907,14 @@ mod tests {
                 value: "['periodic', 'periodic']".to_string(),
             }
         );
+        let tuple_call = parse_function_call("te(x, y, k=(20, 12))").expect("tuple-valued k");
+        assert_eq!(
+            tuple_call.args[2],
+            CallArgSpec::Named {
+                key: "k".to_string(),
+                value: "(20, 12)".to_string(),
+            }
+        );
     }
 
     #[test]
@@ -918,6 +927,17 @@ mod tests {
     fn parse_function_call_reports_unbalanced_parentheses() {
         let err = parse_function_call("s(x, k=10").expect_err("expected parse failure");
         assert!(err.contains("unbalanced parentheses"));
+    }
+
+    #[test]
+    fn parse_formula_accepts_tuple_smooth_options() {
+        let parsed = parse_formula("z ~ te(x, y, k=(20, 20))")
+            .expect("tuple-valued smooth option should parse");
+        assert_eq!(parsed.terms.len(), 1);
+
+        let dsl = parse_formula_dsl("z ~ te(x, y, k=(20, 20))")
+            .expect("tuple-valued smooth option should parse in the DSL layer");
+        assert_eq!(dsl.rhs_terms, vec!["te(x, y, k=(20, 20))"]);
     }
 
     #[test]

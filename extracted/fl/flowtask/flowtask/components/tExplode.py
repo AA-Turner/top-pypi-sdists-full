@@ -1,4 +1,5 @@
 import asyncio
+import json
 from typing import Any
 from collections.abc import Callable
 import pandas
@@ -94,6 +95,18 @@ class tExplode(FlowComponent):
             raise DataNotFound("Data Was Not Found on Dataframe 1")
 
         try:
+            # Parse JSON strings to Python objects when the column contains serialized lists/dicts
+            col_series = self.data[self.column]
+            if col_series.dropna().apply(lambda x: isinstance(x, str)).any():
+                def _try_parse(x):
+                    if isinstance(x, str):
+                        try:
+                            return json.loads(x)
+                        except (ValueError, TypeError):
+                            return x
+                    return x
+                self.data[self.column] = col_series.apply(_try_parse)
+
             if self.advanced_mode:
                 # Enhanced mode with advanced features
                 if self.explode_dataset is True:

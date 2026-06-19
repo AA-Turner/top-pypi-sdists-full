@@ -58,6 +58,8 @@ new CertbotDnsRoute53JobPython(stack, 'Testtask', {
 
 ![](./images/s3-bucket.png)
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -76,14 +78,36 @@ from jsii._type_checking import check_type
 
 from ._jsii import *
 
-import aws_cdk as _aws_cdk_ceddda9d
-import aws_cdk.aws_events as _aws_cdk_aws_events_ceddda9d
-import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import aws_cdk.aws_lambda_python_alpha as _aws_cdk_aws_lambda_python_alpha_49328424
-import aws_cdk.aws_route53 as _aws_cdk_aws_route53_ceddda9d
-import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk as _aws_cdk_ceddda9d
+    import aws_cdk.aws_events as _aws_cdk_aws_events_ceddda9d
+    import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import aws_cdk.aws_lambda_python_alpha as _aws_cdk_aws_lambda_python_alpha_49328424
+    import aws_cdk.aws_route53 as _aws_cdk_aws_route53_ceddda9d
+    import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_events_ceddda9d = _LazyImport("aws_cdk.aws_events")
+    _aws_cdk_aws_iam_ceddda9d = _LazyImport("aws_cdk.aws_iam")
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _aws_cdk_aws_lambda_python_alpha_49328424 = _LazyImport("aws_cdk.aws_lambda_python_alpha")
+    _aws_cdk_aws_route53_ceddda9d = _LazyImport("aws_cdk.aws_route53")
+    _aws_cdk_aws_s3_ceddda9d = _LazyImport("aws_cdk.aws_s3")
+    _aws_cdk_ceddda9d = _LazyImport("aws_cdk")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 @jsii.data_type(

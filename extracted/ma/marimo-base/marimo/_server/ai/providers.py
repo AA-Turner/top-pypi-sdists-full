@@ -1,15 +1,16 @@
 # Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
+import functools
 import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    Any,
     Generic,
     Literal,
     TypeVar,
+    cast,
     get_args,
 )
 from urllib.parse import parse_qs, urlparse
@@ -30,11 +31,12 @@ from marimo._plugins.ui._impl.chat.chat import (
 )
 from marimo._server.ai.config import AnyProviderConfig
 from marimo._server.ai.constants import ANTHROPIC_DEFAULT_MAX_TOKENS
-from marimo._server.ai.ids import AiModelId
+from marimo._server.ai.ids import AiModelId, AiProviderId
 from marimo._server.ai.tools.tool_manager import get_tool_manager
 from marimo._server.ai.tools.types import ToolDefinition
 from marimo._server.models.completion import UIMessage as ServerUIMessage
 from marimo._utils.http import HTTPStatus
+from marimo._utils.typing import override
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator, AsyncIterator
@@ -49,6 +51,7 @@ if TYPE_CHECKING:
         OpenAIResponsesModel,
         OpenAIResponsesModelSettings,
     )
+    from pydantic_ai.output import OutputSpec
     from pydantic_ai.providers import Provider
     from pydantic_ai.providers.anthropic import (
         AnthropicProvider as PydanticAnthropic,
@@ -80,7 +83,7 @@ class ActiveToolCall:
     tool_call_args: str
 
 
-ProviderT = TypeVar("ProviderT", bound="Provider[Any]")
+ProviderT = TypeVar("ProviderT", bound="Provider", covariant=True)
 
 
 class PydanticProvider(ABC, Generic[ProviderT]):
@@ -106,9 +109,9 @@ class PydanticProvider(ABC, Generic[ProviderT]):
         )
         require_vercel_ai_sdk_support()
 
-        self.model = model
-        self.config = config
-        self.provider = self.create_provider(config)
+        self.model: str = model
+        self.config: AnyProviderConfig = config
+        self.provider: ProviderT = self.create_provider(config)
 
     @abstractmethod
     def create_provider(self, config: AnyProviderConfig) -> ProviderT:
@@ -246,7 +249,7 @@ class PydanticProvider(ABC, Generic[ProviderT]):
 
     def _get_toolsets_and_output_type(
         self, tools: list[ToolDefinition]
-    ) -> tuple[FunctionToolset, list[Any] | type[str]]:
+    ) -> tuple[FunctionToolset, OutputSpec[str | DeferredToolRequests]]:
         from pydantic_ai import DeferredToolRequests
 
         tool_manager = get_tool_manager()
@@ -260,6 +263,7 @@ class PydanticProvider(ABC, Generic[ProviderT]):
 
 
 class GoogleProvider(PydanticProvider["PydanticGoogle"]):
+    @override
     def create_provider(self, config: AnyProviderConfig) -> PydanticGoogle:
         from pydantic_ai.providers.google import (
             GoogleProvider as PydanticGoogle,
@@ -278,11 +282,12 @@ class GoogleProvider(PydanticProvider["PydanticGoogle"]):
             # Upstream (pydantic-ai) defaults to us-central1 if not set
             location = os.getenv("GOOGLE_CLOUD_LOCATION") or None
             if location is None:
-                LOGGER.info(
+                location_msg = (
                     "GOOGLE_CLOUD_LOCATION is not set. "
                     "The upstream provider will default to 'us-central1'. "
                     "Set this env var if your project has region restrictions."
                 )
+                LOGGER.info(location_msg)
             # The type stubs don't have an overload that combines vertexai
             # with project/location, but the runtime supports it
             provider: PydanticGoogle = PydanticGoogle(  # type: ignore[call-overload]
@@ -295,6 +300,7 @@ class GoogleProvider(PydanticProvider["PydanticGoogle"]):
             provider = PydanticGoogle()
         return provider
 
+    @override
     def create_model(self, max_tokens: int | None) -> GoogleModel:
         from pydantic_ai.models.google import GoogleModel, GoogleModelSettings
 
@@ -395,6 +401,7 @@ class OpenAIProvider(OpenAIClientMixin, PydanticProvider["PydanticOpenAI"]):
     # marimo wants reasoning summaries surfaced for display.
     DEFAULT_REASONING_SUMMARY: Literal["detailed", "concise", "auto"] = "auto"
 
+    @override
     def create_provider(self, config: AnyProviderConfig) -> PydanticOpenAI:
         from pydantic_ai.providers.openai import (
             OpenAIProvider as PydanticOpenAI,
@@ -403,6 +410,7 @@ class OpenAIProvider(OpenAIClientMixin, PydanticProvider["PydanticOpenAI"]):
         client = self.get_openai_client(config)
         return PydanticOpenAI(openai_client=client)
 
+    @override
     def create_model(self, max_tokens: int | None) -> OpenAIResponsesModel:
         from pydantic_ai.models.openai import (
             OpenAIResponsesModel,
@@ -417,6 +425,7 @@ class OpenAIProvider(OpenAIClientMixin, PydanticProvider["PydanticOpenAI"]):
             settings=settings,
         )
 
+    @override
     def _build_agent_settings(self, model: Model) -> ModelSettings | None:
         # `reasoning.summary` is only valid for OpenAI reasoning models (gpt-5
         # and the o-series).
@@ -428,6 +437,7 @@ class OpenAIProvider(OpenAIClientMixin, PydanticProvider["PydanticOpenAI"]):
             settings.update(extra)
         return settings
 
+    @override
     def _default_thinking(self, model: Model) -> ThinkingLevel | None:
         # OpenAI-compatible third-party endpoints (custom base_url) may not
         # accept `reasoning_effort` even when the model name looks like a
@@ -443,6 +453,7 @@ class OpenAIProvider(OpenAIClientMixin, PydanticProvider["PydanticOpenAI"]):
 class AzureOpenAIProvider(OpenAIProvider):
     # Only custom Azure deployments support `reasoning_effort`, and we don't expose that config yet.
     # https://learn.microsoft.com/en-us/answers/questions/5519548/does-gpt-5-via-azure-support-reasoning-effort-and
+    @override
     def _default_thinking(self, model: Model) -> ThinkingLevel | None:
         del model
         return None
@@ -466,6 +477,7 @@ class AzureOpenAIProvider(OpenAIProvider):
         endpoint = f"{parsed_url.scheme}://{parsed_url.hostname}"
         return api_version, deployment_name, endpoint
 
+    @override
     def get_openai_client(self, config: AnyProviderConfig) -> AsyncOpenAI:
         from openai import AsyncAzureOpenAI
 
@@ -506,7 +518,91 @@ class AzureOpenAIProvider(OpenAIProvider):
         )
 
 
-class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
+def _normalize_base_url(base_url: str | None) -> str | None:
+    """Normalize a base URL for cross-provider comparison.
+
+    Strips the scheme, a trailing `/v1` path segment, and trailing slashes so
+    that e.g. `https://api.provider.com` and `https://api.provider.com/v1/`
+    compare equal.
+    """
+    if not base_url:
+        return None
+    normalized = base_url.strip().lower()
+    normalized = normalized.removeprefix("https://").removeprefix("http://")
+    normalized = normalized.rstrip("/").removesuffix("/v1")
+    return normalized.rstrip("/") or None
+
+
+def _try_infer_provider_class(
+    provider_name: str,
+) -> type[Provider] | None:
+    """Resolve a pydantic-ai provider class by name, or `None` if unknown."""
+    from pydantic_ai.providers import infer_provider_class
+
+    try:
+        return infer_provider_class(provider_name)
+    except ValueError:
+        return None
+
+
+@functools.lru_cache(maxsize=1)
+def _openai_compatible_provider_names() -> tuple[
+    frozenset[str], frozenset[str]
+]:
+    """(responses-compatible, chat-compatible) provider names from pydantic-ai."""
+    from pydantic_ai.models import (
+        OpenAIChatCompatibleProvider,
+        OpenAIResponsesCompatibleProvider,
+    )
+
+    # TypeAliasType objects; `.__value__` exposes the underlying Literal.
+    return (
+        frozenset(
+            get_args(cast(object, OpenAIResponsesCompatibleProvider.__value__))
+        ),
+        frozenset(
+            get_args(cast(object, OpenAIChatCompatibleProvider.__value__))
+        ),
+    )
+
+
+@functools.lru_cache(maxsize=1)
+def _known_provider_base_urls() -> dict[str, str]:
+    """Map normalized base URLs to pydantic-ai provider names.
+
+    Discovered from pydantic-ai's OpenAI-compatible providers so that a custom
+    provider whose *name* we don't recognize, but whose *base URL* points at a
+    known service (e.g. `https://api.deepseek.com`) points to the correct provider.
+    """
+    responses, chat = _openai_compatible_provider_names()
+    mapping: dict[str, str] = {}
+    # Sorted so that, if two providers normalize alike, the first wins.
+    for name in sorted(responses | chat):
+        provider_class = _try_infer_provider_class(name)
+        if provider_class is None:
+            continue
+        try:
+            base_url = object.__new__(provider_class).base_url
+        except Exception as e:
+            LOGGER.debug(
+                f"Skipping provider '{name}' during base URL discovery: {e}"
+            )
+            continue
+        normalized = _normalize_base_url(base_url)
+        if normalized:
+            mapping.setdefault(normalized, name)
+    return mapping
+
+
+def _infer_provider_name_from_base_url(base_url: str | None) -> str | None:
+    """Resolve a known pydantic-ai provider name from a base URL, if any."""
+    normalized = _normalize_base_url(base_url)
+    if not normalized:
+        return None
+    return _known_provider_base_urls().get(normalized)
+
+
+class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider"]):
     """Support for custom providers which may or may not be OpenAI-compatible.
 
     Note:
@@ -515,35 +611,29 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
         us create custom providers. They rely on env vars to be set.
     """
 
+    _responses_compatible: frozenset[str]
+    _chat_compatible: frozenset[str]
+
     def __init__(
         self,
         model_id: AiModelId,
         config: AnyProviderConfig,
         deps: list[Dependency] | None = None,
     ):
-        self._provider_name = model_id.provider
+        self._provider_name: AiProviderId = model_id.provider
+        if _try_infer_provider_class(self._provider_name) is None:
+            matched = _infer_provider_name_from_base_url(config.base_url)
+            if matched is not None:
+                match_msg = (
+                    f"Custom provider '{self._provider_name}' matched known "
+                    + f"provider '{matched}' by base URL; using its profile."
+                )
+                LOGGER.debug(match_msg)
+                self._provider_name = AiProviderId(matched)
         self._responses_compatible, self._chat_compatible = (
-            self._get_openai_compatible_providers()
+            _openai_compatible_provider_names()
         )
         super().__init__(model_id.model, config, deps)
-
-    def _get_openai_compatible_providers(self) -> tuple[set[str], set[str]]:
-        """Get the sets of OpenAI-compatible providers from pydantic_ai.
-
-        Returns:
-            Tuple of (responses_compatible, chat_compatible) provider names.
-        """
-        from pydantic_ai.models import (
-            OpenAIChatCompatibleProvider,
-            OpenAIResponsesCompatibleProvider,
-        )
-
-        # These are TypeAliasType objects, so we need .__value__ to get the Literal
-        responses_compatible = set(
-            get_args(OpenAIResponsesCompatibleProvider.__value__)
-        )
-        chat_compatible = set(get_args(OpenAIChatCompatibleProvider.__value__))
-        return responses_compatible, chat_compatible
 
     def _is_openai_compatible(self) -> bool:
         """Check if the provider uses an OpenAI-compatible API."""
@@ -557,7 +647,8 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
         """Check if the provider supports the OpenAI Responses API. We currently default to Pydantic's inferred model"""
         return self._provider_name.lower() in self._responses_compatible
 
-    def create_provider(self, config: AnyProviderConfig) -> Provider[Any]:
+    @override
+    def create_provider(self, config: AnyProviderConfig) -> Provider:
         """Create a provider based on the provider name.
 
         1. Try to infer the provider class from the name
@@ -567,22 +658,21 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
 
         Reference: https://ai.pydantic.dev/models/openai/#openai-compatible-models
         """
-        from pydantic_ai.providers import infer_provider_class
         from pydantic_ai.providers.openai import (
             OpenAIProvider as PydanticOpenAI,
         )
 
         # Try to infer the provider class
-        try:
-            provider_class = infer_provider_class(self._provider_name)
-            LOGGER.debug(f"Inferred provider class: {provider_class.__name__}")
-        except ValueError:
+        provider_class = _try_infer_provider_class(self._provider_name)
+        if provider_class is None:
             # Unknown provider, fall back to OpenAI-compatible
             LOGGER.debug(
                 f"Unknown provider: {self._provider_name}. Falling back to OpenAIProvider."
             )
             client = self.get_openai_client(config)
             return PydanticOpenAI(openai_client=client)
+
+        LOGGER.debug(f"Inferred provider class: {provider_class.__name__}")
 
         if self._is_openai_compatible():
             client = self.get_openai_client(config)
@@ -596,8 +686,8 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
         return self._create_custom_provider(provider_class, config)
 
     def _create_custom_provider(
-        self, provider_class: type[Provider[Any]], config: AnyProviderConfig
-    ) -> Provider[Any]:
+        self, provider_class: type[Provider], config: AnyProviderConfig
+    ) -> Provider:
         """
         Create a custom provider based on the provider class. These providers are not OpenAI-compatible.
         Import on-demand to avoid requiring the provider packages to be installed.
@@ -644,13 +734,15 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
                 OpenAIProvider as PydanticOpenAI,
             )
 
-            LOGGER.warning(
+            fallback_msg = (
                 f"Failed to create provider {provider_class.__name__}: {e}. "
                 f"Falling back to OpenAIProvider."
             )
+            LOGGER.warning(fallback_msg)
             client = self.get_openai_client(config)
             return PydanticOpenAI(openai_client=client)
 
+    @override
     def create_model(self, max_tokens: int | None) -> OpenAIChatModel:
         """Default to OpenAIChatModel"""
 
@@ -668,6 +760,7 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
             settings=settings,
         )
 
+    @override
     def create_agent(
         self,
         max_tokens: int | None,
@@ -684,10 +777,11 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
                 provider_factory=lambda _: self.provider,
             )
         except UserError:
-            LOGGER.debug(
+            model_not_found_msg = (
                 f"Model {self.model} not found in pydantic-ai's model registry. "
                 "Falling back to OpenAIChatModel."
             )
+            LOGGER.debug(model_not_found_msg)
             model = self.create_model(max_tokens)
         except Exception as e:
             LOGGER.error(
@@ -709,6 +803,7 @@ class CustomProvider(OpenAIClientMixin, PydanticProvider["Provider[Any]"]):
             output_type=output_type,
         )
 
+    @override
     def _default_thinking(self, model: Model) -> ThinkingLevel | None:
         # Custom OpenAI-compatible endpoints (Together, vLLM, LM Studio, ...)
         # often don't honor `reasoning_effort`
@@ -721,12 +816,13 @@ class AnthropicProvider(PydanticProvider["PydanticAnthropic"]):
     # Temperature of 0.2 was recommended for coding and data science in these links:
     # https://community.openai.com/t/cheat-sheet-mastering-temperature-and-top-p-in-chatgpt-api/172683
     # https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/reduce-latency?utm_source=chatgpt.com
-    DEFAULT_TEMPERATURE = 0.2
+    DEFAULT_TEMPERATURE: float = 0.2
 
     # Extended thinking requires temperature of 1.
     # https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
-    DEFAULT_EXTENDED_THINKING_TEMPERATURE = 1
+    DEFAULT_EXTENDED_THINKING_TEMPERATURE: float = 1
 
+    @override
     def create_provider(self, config: AnyProviderConfig) -> PydanticAnthropic:
         from pydantic_ai.providers.anthropic import (
             AnthropicProvider as PydanticAnthropic,
@@ -734,6 +830,7 @@ class AnthropicProvider(PydanticProvider["PydanticAnthropic"]):
 
         return PydanticAnthropic(api_key=config.api_key)
 
+    @override
     def create_model(self, max_tokens: int | None) -> Model:
         from pydantic_ai.models.anthropic import (
             AnthropicModel,
@@ -772,6 +869,7 @@ class AnthropicProvider(PydanticProvider["PydanticAnthropic"]):
             settings=settings,
         )
 
+    @override
     def convert_messages(
         self, messages: list[ServerUIMessage]
     ) -> list[UIMessage]:
@@ -817,6 +915,7 @@ class BedrockProvider(PydanticProvider["PydanticBedrock"]):
                 detail="Error setting up AWS credentials",
             ) from e
 
+    @override
     def create_provider(self, config: AnyProviderConfig) -> PydanticBedrock:
         from pydantic_ai.providers.bedrock import (
             BedrockProvider as PydanticBedrock,
@@ -826,6 +925,7 @@ class BedrockProvider(PydanticProvider["PydanticBedrock"]):
         # For bedrock, the config sets the region name as the base_url
         return PydanticBedrock(region_name=config.base_url)
 
+    @override
     def create_model(self, max_tokens: int | None) -> BedrockConverseModel:
         from pydantic_ai.models.bedrock import (
             BedrockConverseModel,
@@ -844,7 +944,7 @@ class BedrockProvider(PydanticProvider["PydanticBedrock"]):
 
 def get_completion_provider(
     config: AnyProviderConfig, model: str
-) -> PydanticProvider[Any]:
+) -> PydanticProvider[Provider]:
     model_id = AiModelId.from_model(model)
 
     if model_id.provider == "anthropic":

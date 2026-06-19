@@ -669,7 +669,10 @@ class _SkillScriptCodeExecutor:
         "      full_path = os.path.join(os.path.abspath(td), norm_rel)",
         "      os.makedirs(os.path.dirname(full_path), exist_ok=True)",
         "      mode = 'wb' if isinstance(content, bytes) else 'w'",
-        "      with open(full_path, mode) as f:",
+        (
+            "      with open(full_path, mode, encoding='utf-8' if mode == 'w'"
+            " else None) as f:"
+        ),
         "        f.write(content)",
         "    os.chdir(td)",
         "    try:",
@@ -838,6 +841,7 @@ class RunSkillScriptTool(BaseTool):
       }
 
     errors = []
+
     if script_args is not None and not isinstance(script_args, (dict, list)):
       errors.append(
           "'args' must be a JSON object (dict) or a list of strings,"
@@ -1118,6 +1122,26 @@ class SkillToolset(BaseToolset):
   def _list_skills(self) -> list[models.Skill]:
     """Lists all available skills."""
     return list(self._skills.values())
+
+  @property
+  def skills(self) -> list[models.Skill]:
+    """Returns the list of available skills."""
+    return self._list_skills()
+
+  def clone_with_updated_skills(
+      self, skills: list[models.Skill]
+  ) -> SkillToolset:
+    """Creates a new SkillToolset with identical configuration but modified skills."""
+    additional_tools = (
+        list(self._provided_tools_by_name.values()) + self._provided_toolsets
+    )
+    return SkillToolset(
+        skills=skills,
+        registry=self._registry,
+        code_executor=self._code_executor,
+        script_timeout=self._script_timeout,
+        additional_tools=additional_tools,
+    )
 
   async def process_llm_request(
       self, *, tool_context: ToolContext, llm_request: LlmRequest

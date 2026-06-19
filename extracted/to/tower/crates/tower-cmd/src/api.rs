@@ -1,0 +1,1343 @@
+use config::Config;
+use futures_util::StreamExt;
+use http::StatusCode;
+use reqwest_eventsource::{Event, EventSource};
+use std::collections::HashMap;
+use std::future::Future;
+use tokio::sync::mpsc;
+use tower_api::apis::configuration;
+use tower_api::apis::Error;
+use tower_api::apis::ResponseContent;
+use tower_api::models::Pagination;
+use tower_api::models::RunParameter;
+use tower_telemetry::debug;
+
+/// Helper trait to extract the successful response data from API responses
+pub trait ResponseEntity {
+    /// The type of data contained in the successful response
+    type Data;
+
+    /// Extract the data from the response, returning None if it's not the expected type
+    fn extract_data(self) -> Option<Self::Data>;
+}
+
+/// Trait for API responses that contain paginated items.
+trait PaginatedResponse {
+    type Item;
+    fn pagination(&self) -> &Pagination;
+    fn into_items(self) -> Vec<Self::Item>;
+}
+
+impl PaginatedResponse for tower_api::models::ListAppsResponse {
+    type Item = tower_api::models::AppSummary;
+    fn pagination(&self) -> &Pagination {
+        &self.pages
+    }
+    fn into_items(self) -> Vec<Self::Item> {
+        self.apps
+    }
+}
+
+impl PaginatedResponse for tower_api::models::ListTeamsResponse {
+    type Item = tower_api::models::Team;
+    fn pagination(&self) -> &Pagination {
+        &self.pages
+    }
+    fn into_items(self) -> Vec<Self::Item> {
+        self.teams
+    }
+}
+
+impl PaginatedResponse for tower_api::models::ListSecretsResponse {
+    type Item = tower_api::models::Secret;
+    fn pagination(&self) -> &Pagination {
+        &self.pages
+    }
+    fn into_items(self) -> Vec<Self::Item> {
+        self.secrets
+    }
+}
+
+impl PaginatedResponse for tower_api::models::ListCatalogsResponse {
+    type Item = tower_api::models::Catalog;
+    fn pagination(&self) -> &Pagination {
+        &self.pages
+    }
+    fn into_items(self) -> Vec<Self::Item> {
+        self.catalogs
+    }
+}
+
+impl PaginatedResponse for tower_api::models::ListEnvironmentsResponse {
+    type Item = tower_api::models::Environment;
+    fn pagination(&self) -> &Pagination {
+        &self.pages
+    }
+    fn into_items(self) -> Vec<Self::Item> {
+        self.environments
+    }
+}
+
+impl PaginatedResponse for tower_api::models::ListSchedulesResponse {
+    type Item = tower_api::models::Schedule;
+    fn pagination(&self) -> &Pagination {
+        &self.pages
+    }
+    fn into_items(self) -> Vec<Self::Item> {
+        self.schedules
+    }
+}
+
+/// Fetches pages from a paginated API endpoint, honoring the caller's
+/// page_size / paginate / page / max_items settings on Config.
+///
+/// Page numbers follow the API convention: pages are 1-indexed, and `page = 0`
+/// (or unset on the server side) means "no pagination, return everything in one
+/// response". The loop sends `page = 0` exactly once if the caller did not opt
+/// into a starting page, otherwise it iterates 1..=num_pages.
+async fn fetch_all_pages<R, E, F, Fut>(config: &Config, fetch: F) -> Result<Vec<R::Item>, Error<E>>
+where
+    R: PaginatedResponse,
+    F: Fn(i64, i64) -> Fut,
+    Fut: Future<Output = Result<R, Error<E>>>,
+{
+    let page_size = config.page_size();
+    let mut all_items = Vec::new();
+    let mut page: i64 = config.page.unwrap_or(0);
+
+    loop {
+        let response = fetch(page, page_size).await?;
+        let num_pages = response.pagination().num_pages;
+        all_items.extend(response.into_items());
+
+        if let Some(max) = config.max_items {
+            if all_items.len() as i64 >= max {
+                all_items.truncate(max as usize);
+                break;
+            }
+        }
+
+        // page == 0 means the server returned all items in a single response.
+        if page == 0 {
+            break;
+        }
+
+        if !config.paginate {
+            break;
+        }
+
+        page += 1;
+        if page > num_pages || page > 100 {
+            break;
+        }
+    }
+
+    Ok(all_items)
+}
+
+pub async fn describe_app(
+    config: &Config,
+    name: &str,
+    environment: Option<&str>,
+) -> Result<
+    tower_api::models::DescribeAppResponse,
+    Error<tower_api::apis::default_api::DescribeAppError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeAppParams {
+        name: name.to_string(),
+        runs: None,
+        start_at: None,
+        end_at: None,
+        timezone: None,
+        environment: environment.map(|s| s.to_string()),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_app(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn list_apps(
+    config: &Config,
+    environment: Option<&str>,
+) -> Result<Vec<tower_api::models::AppSummary>, Error<tower_api::apis::default_api::ListAppsError>>
+{
+    let api_config: configuration::Configuration = config.into();
+    let environment = environment.map(|s| s.to_string());
+
+    fetch_all_pages(config, |page, page_size| {
+        let api_config = &api_config;
+        let environment = &environment;
+        async move {
+            let params = tower_api::apis::default_api::ListAppsParams {
+                query: None,
+                page: Some(page),
+                page_size: Some(page_size),
+                num_runs: Some(0),
+                sort: None,
+                filter: None,
+                environment: environment.clone(),
+            };
+            unwrap_api_response(tower_api::apis::default_api::list_apps(api_config, params)).await
+        }
+    })
+    .await
+}
+
+pub async fn create_app(
+    config: &Config,
+    name: &str,
+    description: &str,
+) -> Result<tower_api::models::CreateAppResponse, Error<tower_api::apis::default_api::CreateAppError>>
+{
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::CreateAppParams {
+        create_app_params: tower_api::models::CreateAppParams {
+            schema: None,
+            name: name.to_string(),
+            // API create expects short_description; CLI/Towerfile expose "description".
+            short_description: Some(description.to_string()),
+            slug: None,
+            is_externally_accessible: None,
+            subdomain: None,
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::create_app(api_config, params)).await
+}
+
+pub async fn delete_app(
+    config: &Config,
+    name: &str,
+) -> Result<tower_api::models::DeleteAppResponse, Error<tower_api::apis::default_api::DeleteAppError>>
+{
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DeleteAppParams {
+        name: name.to_string(),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::delete_app(api_config, params)).await
+}
+
+pub async fn describe_run(
+    config: &Config,
+    app_name: &str,
+    seq: i64,
+) -> Result<
+    tower_api::models::DescribeRunResponse,
+    Error<tower_api::apis::default_api::DescribeRunError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeRunParams {
+        name: app_name.to_string(),
+        seq,
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_run(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn describe_run_logs(
+    config: &Config,
+    name: &str,
+    seq: i64,
+) -> Result<
+    tower_api::models::DescribeRunLogsResponse,
+    Error<tower_api::apis::default_api::DescribeRunLogsError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeRunLogsParams {
+        name: name.to_string(),
+        seq,
+        start_at: None,
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_run_logs(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn run_app(
+    config: &Config,
+    name: &str,
+    env: &str,
+    params: HashMap<String, String>,
+) -> Result<tower_api::models::RunAppResponse, Error<tower_api::apis::default_api::RunAppError>> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::RunAppParams {
+        name: name.to_string(),
+        run_app_params: tower_api::models::RunAppParams {
+            schema: None,
+            environment: env.to_string(),
+            parameters: params,
+            parent_run_id: None,
+            initiator: None,
+            retry_policy: None,
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::run_app(api_config, params)).await
+}
+
+pub async fn export_secrets(
+    config: &Config,
+    env: &str,
+    all: bool,
+    public_key: rsa::RsaPublicKey,
+) -> Result<
+    tower_api::models::ExportSecretsResponse,
+    Error<tower_api::apis::default_api::ExportSecretsError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::ExportSecretsParams {
+        export_secrets_params: tower_api::models::ExportSecretsParams {
+            schema: None,
+            all,
+            public_key: crypto::serialize_public_key(public_key),
+            environment: env.to_string(),
+            page: 1,
+            page_size: 100,
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::export_secrets(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn export_catalogs(
+    config: &Config,
+    env: &str,
+    all: bool,
+    public_key: rsa::RsaPublicKey,
+) -> Result<
+    tower_api::models::ExportCatalogsResponse,
+    Error<tower_api::apis::default_api::ExportCatalogsError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::ExportCatalogsParams {
+        export_catalogs_params: tower_api::models::ExportCatalogsParams {
+            schema: None,
+            all,
+            public_key: crypto::serialize_public_key(public_key),
+            environment: env.to_string(),
+            page: 1,
+            page_size: 100,
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::export_catalogs(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn list_catalogs(
+    config: &Config,
+    env: &str,
+    all: bool,
+) -> Result<Vec<tower_api::models::Catalog>, Error<tower_api::apis::default_api::ListCatalogsError>>
+{
+    let api_config: configuration::Configuration = config.into();
+    let env = env.to_string();
+
+    fetch_all_pages(config, |page, page_size| {
+        let api_config = &api_config;
+        let env = &env;
+        async move {
+            let params = tower_api::apis::default_api::ListCatalogsParams {
+                environment: Some(env.to_string()),
+                all: Some(all),
+                page: Some(page),
+                page_size: Some(page_size),
+                r#type: None,
+            };
+            unwrap_api_response(tower_api::apis::default_api::list_catalogs(
+                api_config, params,
+            ))
+            .await
+        }
+    })
+    .await
+}
+
+pub async fn describe_catalog(
+    config: &Config,
+    name: &str,
+    env: &str,
+) -> Result<
+    tower_api::models::DescribeCatalogResponse,
+    Error<tower_api::apis::default_api::DescribeCatalogError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeCatalogParams {
+        name: name.to_string(),
+        environment: Some(env.to_string()),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_catalog(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn list_secrets(
+    config: &Config,
+    env: &str,
+    all: bool,
+) -> Result<Vec<tower_api::models::Secret>, Error<tower_api::apis::default_api::ListSecretsError>> {
+    let api_config: configuration::Configuration = config.into();
+    let env = env.to_string();
+
+    fetch_all_pages(config, |page, page_size| {
+        let api_config = &api_config;
+        let env = &env;
+        async move {
+            let params = tower_api::apis::default_api::ListSecretsParams {
+                environment: Some(env.to_string()),
+                all: Some(all),
+                page: Some(page),
+                page_size: Some(page_size),
+            };
+            unwrap_api_response(tower_api::apis::default_api::list_secrets(
+                api_config, params,
+            ))
+            .await
+        }
+    })
+    .await
+}
+
+pub async fn create_secret(
+    config: &Config,
+    name: &str,
+    env: &str,
+    encrypted_value: &str,
+    preview: &str,
+) -> Result<
+    tower_api::models::CreateSecretResponse,
+    Error<tower_api::apis::default_api::CreateSecretError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::CreateSecretParams {
+        create_secret_params: tower_api::models::CreateSecretParams {
+            name: name.to_string(),
+            environment: env.to_string(),
+            encrypted_value: encrypted_value.to_string(),
+            preview: preview.to_string(),
+            schema: None,
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::create_secret(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn describe_secrets_key(
+    config: &Config,
+) -> Result<
+    tower_api::models::DescribeSecretsKeyResponse,
+    Error<tower_api::apis::default_api::DescribeSecretsKeyError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeSecretsKeyParams { format: None };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_secrets_key(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn delete_secret(
+    config: &Config,
+    name: &str,
+    env: &str,
+) -> Result<
+    tower_api::models::DeleteSecretResponse,
+    Error<tower_api::apis::default_api::DeleteSecretError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DeleteSecretParams {
+        name: name.to_string(),
+        environment: Some(env.to_string()),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::delete_secret(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn create_device_login_ticket(
+    config: &Config,
+) -> Result<
+    tower_api::models::CreateDeviceLoginTicketResponse,
+    Error<tower_api::apis::default_api::CreateDeviceLoginTicketError>,
+> {
+    let api_config = &config.into();
+    unwrap_api_response(tower_api::apis::default_api::create_device_login_ticket(
+        api_config,
+    ))
+    .await
+}
+
+pub async fn describe_device_login_session(
+    config: &Config,
+    device_code: &str,
+) -> Result<
+    tower_api::models::DescribeDeviceLoginSessionResponse,
+    Error<tower_api::apis::default_api::DescribeDeviceLoginSessionError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeDeviceLoginSessionParams {
+        device_code: device_code.to_string(),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_device_login_session(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn refresh_session(
+    config: &Config,
+) -> Result<
+    tower_api::models::RefreshSessionResponse,
+    Error<tower_api::apis::default_api::RefreshSessionError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::RefreshSessionParams {
+        refresh_session_params: tower_api::models::RefreshSessionParams::new(),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::refresh_session(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn list_teams(
+    config: &Config,
+) -> Result<Vec<tower_api::models::Team>, Error<tower_api::apis::default_api::ListTeamsError>> {
+    let api_config: configuration::Configuration = config.into();
+
+    fetch_all_pages(config, |page, page_size| {
+        let api_config = &api_config;
+        async move {
+            let params = tower_api::apis::default_api::ListTeamsParams {
+                page: Some(page),
+                page_size: Some(page_size),
+            };
+            unwrap_api_response(tower_api::apis::default_api::list_teams(api_config, params)).await
+        }
+    })
+    .await
+}
+
+pub enum LogStreamEvent {
+    EventLog(tower_api::models::RunLogLine),
+    EventWarning(tower_api::models::EventWarning),
+}
+
+#[derive(Debug)]
+pub enum LogStreamError {
+    Reqwest(reqwest::Error),
+    Unknown,
+}
+
+impl std::fmt::Display for LogStreamError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LogStreamError::Reqwest(err) => write!(f, "{err}"),
+            LogStreamError::Unknown => write!(f, "unknown log stream error"),
+        }
+    }
+}
+
+impl std::error::Error for LogStreamError {}
+
+impl From<reqwest_eventsource::CannotCloneRequestError> for LogStreamError {
+    fn from(err: reqwest_eventsource::CannotCloneRequestError) -> Self {
+        debug!("Failed to clone request {:?}", err);
+        LogStreamError::Unknown
+    }
+}
+
+async fn drain_run_logs_stream(mut source: EventSource, tx: mpsc::Sender<LogStreamEvent>) {
+    while let Some(event) = source.next().await {
+        match event {
+            Ok(reqwest_eventsource::Event::Open) => {
+                panic!("Received unexpected open event in log stream. This shouldn't happen.");
+            }
+            Ok(Event::Message(message)) => {
+                match message.event.as_str() {
+                    "log" => {
+                        let event_log = serde_json::from_str(&message.data);
+
+                        match event_log {
+                            Ok(event) => {
+                                tx.send(LogStreamEvent::EventLog(event)).await.ok();
+                            }
+                            Err(err) => {
+                                debug!(
+                                    "Failed to parse log message: {}. Error: {}",
+                                    message.data, err
+                                );
+                            }
+                        };
+                    }
+                    "warning" => {
+                        let event_warning = serde_json::from_str(&message.data);
+                        match event_warning {
+                            Ok(event) => {
+                                tx.send(LogStreamEvent::EventWarning(event)).await.ok();
+                            }
+                            Err(err) => {
+                                let warning_data = serde_json::from_str(&message.data);
+                                match warning_data {
+                                    Ok(data) => {
+                                        let event = tower_api::models::EventWarning {
+                                            data,
+                                            event: tower_api::models::event_warning::Event::Warning,
+                                            id: None,
+                                            retry: None,
+                                        };
+                                        tx.send(LogStreamEvent::EventWarning(event)).await.ok();
+                                    }
+                                    Err(_) => {
+                                        debug!(
+                                            "Failed to parse warning message: {:?}. Error: {}",
+                                            message.data, err
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    _ => {
+                        debug!("Unknown or unsupported log message: {:?}", message);
+                    }
+                };
+            }
+            Err(err) => {
+                debug!("Error in log stream: {}", err);
+                break; // Exit on error
+            }
+        }
+    }
+}
+
+pub async fn stream_run_logs(
+    config: &Config,
+    app_name: &str,
+    seq: i64,
+) -> Result<mpsc::Receiver<LogStreamEvent>, LogStreamError> {
+    let api_config: configuration::Configuration = config.into();
+
+    // These represent the messages that we'll stream to the client.
+    let (tx, rx) = mpsc::channel(1);
+
+    // This code is copied from tower-api. Since that code is generated, there's not really a good
+    // way to share this code between here and the rest of the app.
+    let name = tower_api::apis::urlencode(app_name);
+    let uri = format!(
+        "{}/apps/{name}/runs/{seq}/logs/stream",
+        api_config.base_path,
+        name = name,
+        seq = seq
+    );
+    let mut builder = api_config.client.request(reqwest::Method::GET, &uri);
+
+    if let Some(ref user_agent) = api_config.user_agent {
+        builder = builder.header(reqwest::header::USER_AGENT, user_agent.clone());
+    }
+
+    // Mirrors the generated tower-api client: prefer a bearer token (interactive session),
+    // otherwise fall back to the API key header set when TOWER_API_KEY is configured.
+    if let Some(ref token) = api_config.bearer_access_token {
+        builder = builder.bearer_auth(token.to_owned());
+    } else if let Some(ref apikey) = api_config.api_key {
+        let value = match &apikey.prefix {
+            Some(prefix) => format!("{} {}", prefix, apikey.key),
+            None => apikey.key.clone(),
+        };
+        builder = builder.header("X-API-Key", value);
+    };
+
+    // Now let's try to open the event source with the server.
+    let mut source = EventSource::new(builder)?;
+
+    if let Some(event) = source.next().await {
+        match event {
+            Ok(Event::Open) => {
+                tokio::spawn(drain_run_logs_stream(source, tx));
+                Ok(rx)
+            }
+            Ok(Event::Message(message)) => {
+                // This is a bug in the program and should never happen.
+                panic!(
+                    "Received message when expected an open event. Message: {:?}",
+                    message
+                );
+            }
+            Err(err) => match err {
+                reqwest_eventsource::Error::Transport(e) => Err(LogStreamError::Reqwest(e)),
+                reqwest_eventsource::Error::StreamEnded => {
+                    drop(tx);
+                    Ok(rx)
+                }
+                _ => Err(LogStreamError::Unknown),
+            },
+        }
+    } else {
+        // If we didn't get an event, we can't stream logs.
+        Err(LogStreamError::Unknown)
+    }
+}
+
+/// Helper function to handle Tower API responses and extract the relevant data
+async fn unwrap_api_response<T, F, V>(api_call: F) -> Result<T::Data, Error<V>>
+where
+    F: std::future::Future<Output = Result<ResponseContent<T>, Error<V>>>,
+    T: ResponseEntity,
+    T::Data: serde::de::DeserializeOwned,
+{
+    match api_call.await {
+        Ok(response) => {
+            if response.status.is_client_error() || response.status.is_server_error() {
+                return Err(Error::ResponseError(tower_api::apis::ResponseContent {
+                    tower_trace_id: response.tower_trace_id,
+                    status: response.status,
+                    content: response.content,
+                    entity: None,
+                }));
+            }
+
+            debug!("tower trace ID: {}", response.tower_trace_id);
+            debug!("Response from server: {}", response.content);
+
+            if let Some(entity) = response.entity {
+                if let Some(data) = entity.extract_data() {
+                    Ok(data)
+                } else {
+                    let truncated = if response.content.len() > 500 {
+                        format!("{}...(truncated)", &response.content[..500])
+                    } else {
+                        response.content.clone()
+                    };
+                    // Try explicit deserialization to get the actual error message
+                    let deser_error = serde_json::from_str::<T::Data>(&response.content)
+                        .err()
+                        .map(|e| format!(" Deserialization error: {}", e))
+                        .unwrap_or_default();
+                    debug!(
+                        "Failed to extract data from API response:{} Content: {}",
+                        deser_error, truncated
+                    );
+                    let err = Error::ResponseError(
+                        tower_api::apis::ResponseContent {
+                            tower_trace_id: "".to_string(),
+                            status: StatusCode::NO_CONTENT,
+                            content: format!(
+                                "Received a response from the server that the CLI wasn't able to understand.{} Response: {}",
+                                deser_error, truncated
+                            ),
+                            entity: None,
+                        },
+                    );
+                    Err(err)
+                }
+            } else {
+                let err = Error::ResponseError(tower_api::apis::ResponseContent {
+                    tower_trace_id: "".to_string(),
+                    status: StatusCode::NO_CONTENT,
+                    content: "Empty response from server".to_string(),
+                    entity: None,
+                });
+                Err(err)
+            }
+        }
+        Err(err) => Err(err),
+    }
+}
+
+// Implement ResponseEntity for the specific API response types
+impl ResponseEntity for tower_api::apis::default_api::ListSecretsSuccess {
+    type Data = tower_api::models::ListSecretsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ExportSecretsSuccess {
+    type Data = tower_api::models::ExportSecretsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ExportCatalogsSuccess {
+    type Data = tower_api::models::ExportCatalogsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ListCatalogsSuccess {
+    type Data = tower_api::models::ListCatalogsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeCatalogSuccess {
+    type Data = tower_api::models::DescribeCatalogResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::CreateSecretSuccess {
+    type Data = tower_api::models::CreateSecretResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status201(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeSecretsKeySuccess {
+    type Data = tower_api::models::DescribeSecretsKeyResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ListTeamsSuccess {
+    type Data = tower_api::models::ListTeamsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ListAppsSuccess {
+    type Data = tower_api::models::ListAppsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(data) => match serde_json::from_value(data) {
+                Ok(obj) => Some(obj),
+                Err(err) => {
+                    debug!("Failed to deserialize ListAppsResponse from value: {}", err);
+                    None
+                }
+            },
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeAppSuccess {
+    type Data = tower_api::models::DescribeAppResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::RunAppSuccess {
+    type Data = tower_api::models::RunAppResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status201(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DeleteAppSuccess {
+    type Data = tower_api::models::DeleteAppResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(res) => Some(res),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DeleteSecretSuccess {
+    type Data = tower_api::models::DeleteSecretResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(res) => Some(res),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeRunLogsSuccess {
+    type Data = tower_api::models::DescribeRunLogsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::CreateAppSuccess {
+    type Data = tower_api::models::CreateAppResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status201(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::CreateDeviceLoginTicketSuccess {
+    type Data = tower_api::models::CreateDeviceLoginTicketResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeDeviceLoginSessionSuccess {
+    type Data = tower_api::models::DescribeDeviceLoginSessionResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::RefreshSessionSuccess {
+    type Data = tower_api::models::RefreshSessionResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeSessionSuccess {
+    type Data = tower_api::models::DescribeSessionResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeRunSuccess {
+    type Data = tower_api::models::DescribeRunResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DescribeEnvironmentSuccess {
+    type Data = tower_api::models::DescribeEnvironmentResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ListEnvironmentsSuccess {
+    type Data = tower_api::models::ListEnvironmentsResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DeleteEnvironmentSuccess {
+    type Data = tower_api::models::DeleteEnvironmentResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(resp) => Some(resp),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+pub async fn list_environments(
+    config: &Config,
+) -> Result<
+    Vec<tower_api::models::Environment>,
+    Error<tower_api::apis::default_api::ListEnvironmentsError>,
+> {
+    let api_config: configuration::Configuration = config.into();
+
+    fetch_all_pages(config, |page, page_size| {
+        let api_config = &api_config;
+        async move {
+            let params = tower_api::apis::default_api::ListEnvironmentsParams {
+                page: Some(page),
+                page_size: Some(page_size),
+            };
+            unwrap_api_response(tower_api::apis::default_api::list_environments(
+                api_config, params,
+            ))
+            .await
+        }
+    })
+    .await
+}
+
+pub async fn describe_environment(
+    config: &Config,
+    name: &str,
+) -> Result<
+    tower_api::models::DescribeEnvironmentResponse,
+    Error<tower_api::apis::default_api::DescribeEnvironmentError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DescribeEnvironmentParams {
+        name: name.to_string(),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::describe_environment(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn create_environment(
+    config: &Config,
+    name: &str,
+) -> Result<
+    tower_api::models::CreateEnvironmentResponse,
+    Error<tower_api::apis::default_api::CreateEnvironmentError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::CreateEnvironmentParams {
+        create_environment_params: tower_api::models::CreateEnvironmentParams {
+            schema: None,
+            name: name.to_string(),
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::create_environment(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn delete_environment(
+    config: &Config,
+    name: &str,
+) -> Result<
+    tower_api::models::DeleteEnvironmentResponse,
+    Error<tower_api::apis::default_api::DeleteEnvironmentError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DeleteEnvironmentParams {
+        name: name.to_string(),
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::delete_environment(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn list_schedules(
+    config: &Config,
+    app_name: Option<&str>,
+    environment: Option<&str>,
+) -> Result<Vec<tower_api::models::Schedule>, Error<tower_api::apis::default_api::ListSchedulesError>>
+{
+    let api_config: configuration::Configuration = config.into();
+    let environment = environment.map(String::from);
+
+    fetch_all_pages(config, |page, page_size| {
+        let api_config = &api_config;
+        let environment = &environment;
+        let app = app_name.map(String::from);
+
+        async move {
+            let params = tower_api::apis::default_api::ListSchedulesParams {
+                environment: environment.clone(),
+                page: Some(page),
+                page_size: Some(page_size),
+                app: app,
+            };
+            unwrap_api_response(tower_api::apis::default_api::list_schedules(
+                api_config, params,
+            ))
+            .await
+        }
+    })
+    .await
+}
+
+pub async fn create_schedule(
+    config: &Config,
+    app_name: &str,
+    environment: &str,
+    cron: &str,
+    parameters: Option<HashMap<String, String>>,
+) -> Result<
+    tower_api::models::CreateScheduleResponse,
+    Error<tower_api::apis::default_api::CreateScheduleError>,
+> {
+    let api_config = &config.into();
+
+    let run_parameters = parameters.map(|params| {
+        params
+            .into_iter()
+            .map(|(key, value)| RunParameter {
+                is_override: None,
+                name: key,
+                value,
+                hidden: None,
+            })
+            .collect()
+    });
+
+    let params = tower_api::apis::default_api::CreateScheduleParams {
+        create_schedule_params: tower_api::models::CreateScheduleParams {
+            app_name: app_name.to_string(),
+            cron: cron.to_string(),
+            environment: Some(environment.to_string()),
+            parameters: run_parameters,
+            ..Default::default()
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::create_schedule(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn update_schedule(
+    config: &Config,
+    schedule_id: &str,
+    cron: Option<&String>,
+    parameters: Option<HashMap<String, String>>,
+) -> Result<
+    tower_api::models::UpdateScheduleResponse,
+    Error<tower_api::apis::default_api::UpdateScheduleError>,
+> {
+    let api_config = &config.into();
+
+    let run_parameters = parameters.map(|params| {
+        params
+            .into_iter()
+            .map(|(key, value)| RunParameter {
+                is_override: None,
+                name: key,
+                value,
+                hidden: None,
+            })
+            .collect()
+    });
+
+    let params = tower_api::apis::default_api::UpdateScheduleParams {
+        id_or_name: schedule_id.to_string(),
+        update_schedule_params: tower_api::models::UpdateScheduleParams {
+            schema: None,
+            cron: cron.cloned(),
+            environment: None,
+            app_version: None,
+            parameters: run_parameters,
+            ..Default::default()
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::update_schedule(
+        api_config, params,
+    ))
+    .await
+}
+
+pub async fn delete_schedule(
+    config: &Config,
+    schedule_id: &str,
+) -> Result<
+    tower_api::models::DeleteScheduleResponse,
+    Error<tower_api::apis::default_api::DeleteScheduleError>,
+> {
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::DeleteScheduleParams {
+        delete_schedule_params: tower_api::models::DeleteScheduleParams {
+            schema: None,
+            ids: vec![schedule_id.to_string()],
+        },
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::delete_schedule(
+        api_config, params,
+    ))
+    .await
+}
+
+impl ResponseEntity for tower_api::apis::default_api::ListSchedulesSuccess {
+    type Data = tower_api::models::ListSchedulesResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::CreateEnvironmentSuccess {
+    type Data = tower_api::models::CreateEnvironmentResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status201(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::CreateScheduleSuccess {
+    type Data = tower_api::models::CreateScheduleResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status201(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::UpdateScheduleSuccess {
+    type Data = tower_api::models::UpdateScheduleResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+impl ResponseEntity for tower_api::apis::default_api::DeleteScheduleSuccess {
+    type Data = tower_api::models::DeleteScheduleResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}
+
+pub async fn cancel_run(
+    config: &Config,
+    name: &str,
+    seq: i64,
+) -> Result<tower_api::models::CancelRunResponse, Error<tower_api::apis::default_api::CancelRunError>>
+{
+    let api_config = &config.into();
+
+    let params = tower_api::apis::default_api::CancelRunParams {
+        name: name.to_string(),
+        seq,
+    };
+
+    unwrap_api_response(tower_api::apis::default_api::cancel_run(api_config, params)).await
+}
+
+impl ResponseEntity for tower_api::apis::default_api::CancelRunSuccess {
+    type Data = tower_api::models::CancelRunResponse;
+
+    fn extract_data(self) -> Option<Self::Data> {
+        match self {
+            Self::Status200(data) => Some(data),
+            Self::UnknownValue(_) => None,
+        }
+    }
+}

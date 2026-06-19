@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: wikitextparser
-Version: 1.0.0
+Version: 1.0.1
 Summary: A simple parsing tool for MediaWiki's wikitext markup.
 Keywords: MediaWiki,wikitext,parser
 Author: 5j9

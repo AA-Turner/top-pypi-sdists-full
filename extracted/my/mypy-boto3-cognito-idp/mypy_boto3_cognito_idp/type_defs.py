@@ -64,6 +64,7 @@ from .literals import (
     ReplicaStatusTypeType,
     RiskDecisionTypeType,
     RiskLevelTypeType,
+    SecurityPolicyTypeType,
     StatusTypeType,
     TimeUnitsTypeType,
     UpdateReplicaStatusTypeType,
@@ -798,6 +799,7 @@ class TokenValidityUnitsTypeTypeDef(TypedDict):
 
 class CustomDomainConfigTypeTypeDef(TypedDict):
     CertificateArn: str
+    SecurityPolicy: NotRequired[SecurityPolicyTypeType]
 
 
 CreateUserPoolReplicaRequestTypeDef = TypedDict(

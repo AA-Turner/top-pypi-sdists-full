@@ -1,8 +1,3 @@
-# distutils: language = c++
-# distutils: include_dirs = dwave/samplers/sa/src/
-# distutils: sources = dwave/samplers/sa/src/cpu_sa.cpp
-# cython: language_level = 3
-
 # Copyright 2018 D-Wave Systems Inc.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +19,7 @@ import numpy as np
 cimport numpy as np
 
 
-cdef extern from "cpu_sa.h":
+cdef extern from "cpu_sa.h" namespace "dwave::samplers::sa":
     ctypedef bool (*callback)(void *function)
     ctypedef enum Proposal:
         Gibbs, Metropolis

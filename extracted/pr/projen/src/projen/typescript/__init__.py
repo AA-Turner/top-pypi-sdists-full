@@ -765,6 +765,7 @@ class TsJestTsconfig(
         exact_optional_property_types: typing.Optional[builtins.bool] = None,
         experimental_decorators: typing.Optional[builtins.bool] = None,
         force_consistent_casing_in_file_names: typing.Optional[builtins.bool] = None,
+        ignore_deprecations: typing.Optional[builtins.str] = None,
         imports_not_used_as_values: typing.Optional["_TypeScriptImportsNotUsedAsValues_95cb8527"] = None,
         incremental: typing.Optional[builtins.bool] = None,
         inline_source_map: typing.Optional[builtins.bool] = None,
@@ -829,6 +830,7 @@ class TsJestTsconfig(
         :param exact_optional_property_types: (experimental) Specifies that optional property types should be interpreted exactly as written, meaning that ``| undefined`` is not added to the type Available with TypeScript 4.4 and newer. Default: false
         :param experimental_decorators: (experimental) Enables experimental support for decorators, which is in stage 2 of the TC39 standardization process. Default: true
         :param force_consistent_casing_in_file_names: (experimental) Disallow inconsistently-cased references to the same file. Default: false
+        :param ignore_deprecations: (experimental) Silence deprecation warnings for options scheduled for removal in a future TypeScript release (for example ``moduleResolution: "node10"``, which became an error in TypeScript 6.0). Set to the TypeScript version that introduced the deprecation, e.g. ``"6.0"``. Default: undefined
         :param imports_not_used_as_values: (experimental) This flag works because you can use ``import type`` to explicitly create an ``import`` statement which should never be emitted into JavaScript. Default: "remove"
         :param incremental: (experimental) Tells TypeScript to save information about the project graph from the last compilation to files stored on disk. This creates a series of .tsbuildinfo files in the same folder as your compilation output. They are not used by your JavaScript at runtime and can be safely deleted. You can read more about the flag in the 3.4 release notes.
         :param inline_source_map: (experimental) When set, instead of writing out a .js.map file to provide source maps, TypeScript will embed the source map content in the .js files. Default: true
@@ -895,6 +897,7 @@ class TsJestTsconfig(
             exact_optional_property_types=exact_optional_property_types,
             experimental_decorators=experimental_decorators,
             force_consistent_casing_in_file_names=force_consistent_casing_in_file_names,
+            ignore_deprecations=ignore_deprecations,
             imports_not_used_as_values=imports_not_used_as_values,
             incremental=incremental,
             inline_source_map=inline_source_map,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-environ
-Version: 0.13.0
+Version: 0.14.0
 Summary: A package that allows you to utilize 12factor inspired environment variables to configure your Django application.
 Home-page: https://django-environ.readthedocs.org
 Author: Daniele Faraglia
@@ -48,6 +48,7 @@ Requires-Python: >=3.9,<4
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
+Requires-Dist: typing_extensions>=3.10.0; python_version < "3.10"
 Provides-Extra: testing
 Requires-Dist: coverage[toml]>=5.0a4; extra == "testing"
 Requires-Dist: pytest>=4.6.11; extra == "testing"
@@ -79,6 +80,7 @@ Dynamic: maintainer-email
 Dynamic: platform
 Dynamic: project-url
 Dynamic: provides-extra
+Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
@@ -285,34 +287,27 @@ Resources
 Release Information
 ===================
 
-v0.13.0 - 18-February-2026
------------------------------
+v0.14.0 - 18-June-2026
+-------------------------
 Added
 +++++
-- Added optional warnings when defaults are used
-  `#582 <https://github.com/joke2k/django-environ/pull/582>`_.
-- Added `choices` argument support for value validation in ``Env.str(...)``
-  `#555 <https://github.com/joke2k/django-environ/pull/555>`_.
-- Added Valkey support via ``valkey://`` and ``valkeys://`` cache URL schemes
-  `#554 <https://github.com/joke2k/django-environ/pull/554>`_.
-- Added support for ``rediss://`` scheme in channels URL parsing
-  `#573 <https://github.com/joke2k/django-environ/pull/573>`_.
-- Added django-prometheus database backend aliases to DB URL parsing schemes
-  `#559 <https://github.com/joke2k/django-environ/pull/559>`_.
+- Added type annotations and matching docstring information to ``Env`` methods
+  `#633 <https://github.com/joke2k/django-environ/pull/633>`_.
+- Added a Python 3.9 compatibility dependency on ``typing_extensions`` for
+  ``TypeAlias``
+  `#633 <https://github.com/joke2k/django-environ/pull/633>`_.
 
 Changed
 +++++++
-- Declared support for Python 3.14
-  `#580 <https://github.com/joke2k/django-environ/pull/580>`_.
-- Declared support for Django 5.2 and Django 6.0
-  `#578 <https://github.com/joke2k/django-environ/pull/578>`_.
+- Updated ``Env.read_env()`` to accept path-like and file-like objects without
+  closing file-like objects supplied by the caller
+  `#633 <https://github.com/joke2k/django-environ/pull/633>`_.
 
 Fixed
 +++++
-- Improved type hint coverage and related lint issues
-  `#546 <https://github.com/joke2k/django-environ/pull/546>`_.
-- Fixed typos in the FAQ page
-  `#445 <https://github.com/joke2k/django-environ/pull/445>`_.
+- Added an explicit error when ``Env.read_env()`` cannot determine its caller
+  frame while resolving the default ``.env`` path
+  `#633 <https://github.com/joke2k/django-environ/pull/633>`_.
 
 `Full changelog <https://django-environ.readthedocs.org/en/latest/changelog.html>`_.
 

@@ -340,8 +340,7 @@ fn latent_aux_prior_stats(
 /// (`"penalized_loss_score"` on the in-sample fit, `"oos_penalized_loss"` on the
 /// fixed-decoder OOS path). The full component breakdown is written under
 /// `"penalized_loss_breakdown"` so a consumer can see exactly what the score is
-/// (and is not). `"reml_score"` is also written as a deprecated back-compat alias
-/// for existing readers; new code should read `primary_key`.
+/// (and is not).
 fn sae_set_penalized_loss_items(
     out: &Bound<'_, PyDict>,
     loss: &gam::terms::sae::manifold::SaeManifoldLoss,
@@ -349,8 +348,6 @@ fn sae_set_penalized_loss_items(
 ) -> PyResult<()> {
     let b = loss.breakdown();
     out.set_item(primary_key, b.penalized_loss_score)?;
-    // Deprecated alias: the field was historically (mis)named `reml_score`.
-    out.set_item("reml_score", b.penalized_loss_score)?;
     let breakdown = PyDict::new(out.py());
     breakdown.set_item("penalized_loss_score", b.penalized_loss_score)?;
     breakdown.set_item("total_penalized_loss", b.total_penalized_loss)?;
@@ -2670,8 +2667,20 @@ fn sae_manifold_fit_inner<'py>(
             max_fissions: fissions_per_round,
             max_births: births_per_round,
         };
+        // The per-candidate scoring refit is capped well below the outer fit's
+        // `max_iter`: a structural move yields a WARM child (the parent's
+        // converged dictionary with one atom restructured), so only the touched
+        // atom must re-equilibrate before the held-out evidence gate can rank the
+        // candidate. The dominant cost of the search is ≈ (moves · rounds)
+        // full-dictionary refits over all N rows; capping the SCORING budget cuts
+        // it several-fold. Each round's accepted winner is re-refit at the full
+        // `max_iter` before adoption, so the returned dictionary still converges
+        // to the full-iter inner optimum — only the gate's ranking reads the
+        // capped score (#1026, verified move-equivalent on a tractable proxy).
+        const STRUCTURE_SCORING_INNER_MAX_ITER: usize = 8;
         let refit_params = gam::solver::structure_harvest::ProductionRefitParams {
             inner_max_iter: max_iter,
+            scoring_inner_max_iter: STRUCTURE_SCORING_INNER_MAX_ITER.min(max_iter),
             learning_rate,
             ridge_ext_coord,
             ridge_beta,
@@ -3407,19 +3416,10 @@ fn sae_hybrid_split_dict<'py>(
         // frontier. Computed during fit on the TRAINING reconstruction target
         // (`per_atom_loao_explained_variance(target, rho)` in
         // `compute_hybrid_split_report`), so it is an in-sample LOAO ΔEV, NOT a
-        // held-out generalization number (#1226). Emitted under the honest key
-        // `train_loao_delta_ev`; the legacy `held_out_delta_ev` key carried the
-        // SAME in-sample value under a misleading name and is retained only as a
-        // deprecated alias for one release so existing readers don't break.
-        match verdict.held_out_delta_ev {
-            Some(dev) => {
-                a.set_item("train_loao_delta_ev", dev)?;
-                a.set_item("held_out_delta_ev", dev)?;
-            }
-            None => {
-                a.set_item("train_loao_delta_ev", py.None())?;
-                a.set_item("held_out_delta_ev", py.None())?;
-            }
+        // held-out generalization number (#1226).
+        match verdict.train_loao_delta_ev {
+            Some(dev) => a.set_item("train_loao_delta_ev", dev)?,
+            None => a.set_item("train_loao_delta_ev", py.None())?,
         }
         // #1228 — the fitted straight sub-model `b₀ + (t − t̄)·b₁` for a slot the
         // verdict collapsed to LINEAR. Serialized so a held-out reconstruction

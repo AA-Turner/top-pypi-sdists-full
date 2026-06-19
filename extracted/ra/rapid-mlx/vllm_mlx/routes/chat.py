@@ -52,9 +52,11 @@ from ..service.helpers import (
     _extract_streaming_token_logprobs,
     _finalize_content_and_reasoning,
     _inject_json_instruction,
+    _is_structured_output_requested,
     _maybe_pin_system_prompt,
     _parse_tool_calls_with_parser,
     _release_admission_unless_committed,
+    _rescue_silent_drop_from_reasoning,
     _resolve_enable_thinking,
     _resolve_max_tokens,
     _resolve_model_name,
@@ -118,6 +120,43 @@ def _tool_call_name(tc) -> str | None:
         return getattr(fn, "name", None)
     # Flat attr-shape — no ``function`` attribute.
     return getattr(tc, "name", None)
+
+
+def _synthesize_forced_tool_call(name: str, arguments: str = "{}"):
+    """Build a single ``ToolCall`` for a forced ``tool_choice`` whose
+    text parser surfaced no calls (#571).
+
+    Text-parser paths (hermes / qwen3_coder / minimax / glm47 / …) only
+    surface a tool_call when the model emits the parser's wire markers.
+    Channel-routed paths (harmony / gemma4) bypass the text parser
+    entirely — the ``OutputRouter`` extracts structured tool_calls
+    directly. The two surfaces therefore diverge on the same request:
+    a forced ``tool_choice`` succeeds on harmony because the model
+    produced the structured channel, but 422s on hermes when the model
+    produced text that the parser failed to recognise.
+
+    The OpenAI ``tool_choice`` contract is parser-agnostic: when the
+    client forces a tool call, the response MUST carry one. To restore
+    symmetry we synthesise a tool_call server-side when the target tool
+    is unambiguous (named-function, or ``"required"`` with a single
+    tool). Arguments default to ``"{}"`` because we have no signal
+    about what the model intended to pass; downstream
+    ``_validate_tool_call_params`` logs a warning when required
+    parameters are missing, mirroring the diagnostic surface clients
+    already see for model-generated calls with bad arguments. The
+    contract guarantee is "a tool_call is present", not "the arguments
+    are correct".
+    """
+    # Lazy import — ToolCall / FunctionCall live alongside the request
+    # model in ``api.models``. The lazy form keeps the synthesis path
+    # scoped to forced-choice requests; the common case pays nothing.
+    from ..api.models import FunctionCall, ToolCall
+
+    return ToolCall(
+        id=f"call_{uuid.uuid4().hex[:8]}",
+        type="function",
+        function=FunctionCall(name=name, arguments=arguments),
+    )
 
 
 def _engine_supports_channel_routed_tool_calls(engine) -> bool:
@@ -426,7 +465,6 @@ async def _create_chat_completion_impl(
         total_chars += len(content)
         if m.role == "user":
             last_user_preview = content[:300]
-    has_tools = bool(request.tools)
     n_tools = len(request.tools) if request.tools else 0
     logger.info(
         f"[REQUEST] POST /v1/chat/completions stream={request.stream} "
@@ -1143,28 +1181,60 @@ async def _create_chat_completion_impl(
     if tool_calls and len(tool_calls) > 1 and request.parallel_tool_calls is False:
         tool_calls = tool_calls[:1]
 
-    # ``tool_choice="required"`` post-parse enforcement (#468). The system
-    # suffix injected above (``_TOOL_USE_REQUIRED_SUFFIX``) makes the model
-    # overwhelmingly likely to comply, but local inference has no
-    # decoder-level guarantee. When the parser comes back empty we 422
-    # rather than ship a contract-violating response (OpenAI spec: a
-    # tool_call is GUARANTEED present in the response when ``required``
-    # is set). For the named-function form we also verify the right tool
-    # fired. Streaming path is best-effort prompt-injection only; once
-    # SSE chunks are out we can't 422 mid-flight.
+    # ``tool_choice="required"`` post-parse enforcement (#468 / #571).
+    # The system suffix injected above (``_TOOL_USE_REQUIRED_SUFFIX``)
+    # makes the model overwhelmingly likely to comply, but local
+    # inference has no decoder-level guarantee.
+    #
+    # Channel-routed engines (harmony / gemma4) bypass the text parser
+    # entirely: the ``OutputRouter`` lifts structured tool_calls out of
+    # a dedicated channel, so a forced ``tool_choice`` is satisfied
+    # whenever the model fires the tool — the parser path is irrelevant.
+    #
+    # Text-parser engines (hermes / qwen3_coder / minimax / glm47 / …)
+    # only surface a tool_call when the model emits the parser's wire
+    # markers. The same model behaviour that produces a structured call
+    # on harmony can produce text that the hermes regex fails to
+    # recognise — and pre-#571 the 422 here fired for hermes while
+    # harmony returned 200, breaking parser-agnostic contracts.
+    #
+    # The OpenAI ``tool_choice`` contract is parser-agnostic: when the
+    # client forces a tool call, the response MUST carry one. To
+    # restore symmetry we synthesise a tool_call server-side when the
+    # target tool is unambiguous — named-function form (the name is
+    # the choice), or ``"required"`` with a single tool entry (the
+    # name is unique). When ``"required"`` is paired with multiple
+    # tools and the parser returned nothing, we genuinely cannot pick
+    # — fall back to 422 with a message that points to the
+    # ``{type:"function",function:{name:X}}`` form as the escape
+    # hatch, matching pre-#571 wording for that diagnostic.
+    # Streaming path is best-effort prompt-injection only; once SSE
+    # chunks are out we can't 422 mid-flight.
     if request.tool_choice is not None and request.tools:
         if request.tool_choice == "required" and not tool_calls:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    'tool_choice="required" but the model returned a text response '
-                    "with no tool_calls. Local inference has no decoder-level "
-                    "constraint; the system-prompt enforcement was insufficient "
-                    "for this prompt. Retry with a more concrete user message or "
-                    'use tool_choice={"type":"function","function":{"name":...}} '
-                    "to pin a specific tool."
-                ),
-            )
+            if len(request.tools) == 1:
+                _solo_name = request.tools[0].function.get("name")
+                if _solo_name:
+                    logger.warning(
+                        "tool_choice='required' on a parser-only path produced "
+                        "no tool_calls; synthesising a call to the sole "
+                        "available tool %r with empty arguments to honor the "
+                        "OpenAI tool_call-guaranteed contract (#571).",
+                        _solo_name,
+                    )
+                    tool_calls = [_synthesize_forced_tool_call(_solo_name)]
+            if not tool_calls:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        'tool_choice="required" but the model returned a text response '
+                        "with no tool_calls. Local inference has no decoder-level "
+                        "constraint; the system-prompt enforcement was insufficient "
+                        "for this prompt. Retry with a more concrete user message or "
+                        'use tool_choice={"type":"function","function":{"name":...}} '
+                        "to pin a specific tool."
+                    ),
+                )
         if (
             isinstance(request.tool_choice, dict)
             and request.tool_choice.get("type") == "function"
@@ -1181,12 +1251,62 @@ async def _create_chat_completion_impl(
             if _target:
                 _names = [_tool_call_name(tc) for tc in tool_calls or []]
                 _mismatched = [n for n in _names if n != _target]
-                if not _names or _mismatched:
+                # Codex R1 BLOCKING (#675): defense-in-depth — never
+                # synthesise a call to a function the client did not
+                # submit. The early prompt-level validation (~line 488)
+                # already 400s when ``_target`` is absent from
+                # ``request.tools``, but a future refactor could shift
+                # or bypass that gate, and the synthesis branch must
+                # not trust ``_target`` blindly. Gate on the submitted
+                # tool-name set; on miss, raise 422 rather than
+                # fabricating a call to a tool the client never
+                # defined.
+                _submitted_tool_names = {
+                    t.function.get("name")
+                    for t in (request.tools or [])
+                    if t.type == "function"
+                }
+                _target_is_submitted = _target in _submitted_tool_names
+                # #571: when the parser returned NOTHING (``_names`` is
+                # empty), the request still has a deterministic target
+                # — the named-function form names it. Synthesise rather
+                # than 422 so hermes matches harmony on the same input.
+                # A non-empty-but-wrong list (the model called a
+                # different tool) is a different failure mode: the
+                # model actively defied the choice, which we still
+                # surface as 422 — synthesising over a real wrong call
+                # would silently drop the model's output and is a worse
+                # client experience than the explicit failure.
+                if not _names and _target_is_submitted:
+                    logger.warning(
+                        "tool_choice pinned function %r on a parser-only path "
+                        "produced no tool_calls; synthesising a call with "
+                        "empty arguments to honor the OpenAI tool_call-"
+                        "guaranteed contract (#571).",
+                        _target,
+                    )
+                    tool_calls = [_synthesize_forced_tool_call(_target)]
+                elif not _names and not _target_is_submitted:
+                    # Codex R1 BLOCKING (#675): named tool_choice points
+                    # at a function that is not in ``request.tools`` —
+                    # we must not fabricate a call to it. The early 400
+                    # gate normally catches this; reaching here implies
+                    # the gate was bypassed (e.g. cloud-fallback rewrite
+                    # or future refactor). Refuse rather than synthesise.
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"tool_choice pinned function {_target!r} but it is "
+                            "not present in the request's 'tools' array; refusing "
+                            "to synthesise a call to an undefined tool."
+                        ),
+                    )
+                elif _mismatched:
                     raise HTTPException(
                         status_code=422,
                         detail=(
                             f"tool_choice pinned function {_target!r} but the model "
-                            f"emitted calls to {_mismatched or 'no tool'}. Local "
+                            f"emitted calls to {_mismatched}. Local "
                             "inference cannot decoder-enforce a specific function; "
                             "retry with a more direct user message."
                         ),
@@ -1221,6 +1341,9 @@ async def _create_chat_completion_impl(
         enable_thinking=_effective_enable_thinking(
             resolved_thinking, cfg.model_path or cfg.model_name
         ),
+        # Per-request reasoning cap (upstream vLLM PR #20859 backport).
+        # None → back-compat no-op.
+        reasoning_max_tokens=getattr(request, "reasoning_max_tokens", None),
     )
 
     # Process response_format if specified (after reasoning parser cleaned the text)
@@ -1255,6 +1378,35 @@ async def _create_chat_completion_impl(
         final_content = sanitize_output(final_content)
         if response_format and final_content:
             final_content = extract_json_from_response(final_content)
+
+    # Issue #569: never silently drop. If the assistant turn would
+    # otherwise have ``content=null`` AND ``tool_calls=null`` but the
+    # engine surfaced ``reasoning_text`` (gemma-4-26b-4bit multi-turn
+    # where the model got stuck inside ``<|channel>thought\n…`` and
+    # ran out of tokens before emitting a closer / final / tool call),
+    # surface the reasoning trace as ``content`` so OpenAI-compat
+    # agentic clients reading only ``content``/``tool_calls`` don't
+    # see an empty message.
+    #
+    # Codex round-1 BLOCKING on #676: skip the rescue when the client
+    # requested structured output (``response_format`` =
+    # ``json_object`` / ``json_schema``). Reasoning prose is almost
+    # never valid JSON, so surfacing it as ``content`` would break
+    # the OpenAI-compat structured-output contract and feed the
+    # client garbage prose instead of validated JSON. The existing
+    # empty/error path lets a structured-output client retry rather
+    # than be surprise-fed unstructured text. Agentic (no
+    # ``response_format``) clients still get the rescue.
+    #
+    # Codex round-2 BLOCKING on #676: the predicate is now factored
+    # into ``_is_structured_output_requested`` so the streaming
+    # rescue path (chat.py:~1580) can call the SAME predicate. Round
+    # 1 inlined the check here only; codex round 2 caught the
+    # streaming path drifting because it had no gate at all.
+    if not _is_structured_output_requested(response_format):
+        final_content = _rescue_silent_drop_from_reasoning(
+            final_content, reasoning_text, tool_calls
+        )
 
     # Build logprobs for response if requested
     choice_logprobs = None
@@ -1378,6 +1530,9 @@ async def stream_chat_completion(
                 and getattr(request.response_format, "type", "text") != "text"
             ),
             request=request_dict,
+            # Per-request reasoning cap (upstream vLLM PR #20859 backport).
+            # When None the postprocessor is a no-op for the cap path.
+            reasoning_max_tokens=getattr(request, "reasoning_max_tokens", None),
         )
         processor.set_thinking_model(request.model)
         processor.reset()
@@ -1530,6 +1685,90 @@ async def stream_chat_completion(
             # plain-text streams (deltas already drained content during
             # the loop), so this typically just adds the held suffix.
             terminal_content = (finish_event.content or "") + finalize_content
+
+            # Issue #569 streaming rescue: if NOTHING was streamed as
+            # ``content`` across the whole turn AND no ``tool_calls``
+            # fired AND the model produced reasoning, surface the
+            # accumulated reasoning trace as ``content`` in the
+            # terminal chunk. Mirrors the non-streaming rescue in
+            # ``_rescue_silent_drop_from_reasoning`` so streaming
+            # clients (Cline, Cursor, Codex CLI) reading the
+            # assembled ``content`` stream don't end the turn on an
+            # empty buffer when gemma-4 (etc.) got stuck inside
+            # ``<|channel>thought\n…`` and never emitted any closer
+            # / final / tool call. Per-delta ``reasoning_content``
+            # chunks have already been sent during the loop; this
+            # adds a NEW ``content`` chunk at the end (duplication of
+            # the same text across the two channels is the lesser
+            # evil vs. a silently empty content stream).
+            #
+            # Codex round-2 BLOCKING on #676: gate on the SAME
+            # ``_is_structured_output_requested`` predicate as the
+            # non-streaming path (chat.py:~1283). Without this, a
+            # ``stream=true`` request with
+            # ``response_format={"type": "json_object"|"json_schema"}``
+            # would still receive reasoning prose in
+            # ``delta.content`` despite the non-streaming path
+            # explicitly suppressing exactly that. Structured-output
+            # clients expect validated JSON or the existing empty
+            # path so they can retry — never surprise prose.
+            #
+            # Codex round-3 BLOCKING on #676: route the streaming
+            # rescue through ``_rescue_silent_drop_from_reasoning``
+            # instead of promoting ``processor.accumulated_reasoning``
+            # directly. The previous direct-promotion branch bypassed
+            # the helper's whitespace guard, so a reasoning-only
+            # stream of ``"   \n"`` would emit a semantically empty
+            # ``delta.content`` while non-streaming correctly
+            # suppressed it. Funneling both paths through the same
+            # helper means the predicate (whitespace + content
+            # presence + tool-call absence) is defined ONCE and the
+            # two paths cannot drift. The structured-output gate
+            # stays here at the call site (parallel to non-streaming
+            # at chat.py:~1285), because it depends on per-request
+            # ``response_format`` which the rescue helper has no
+            # access to.
+            already_streamed_content = bool(processor.accumulated_text)
+            has_any_tool_calls = bool(fallback_tool_calls) or (
+                finish_event.finish_reason == "tool_calls"
+            )
+            structured_output_requested = _is_structured_output_requested(
+                request.response_format
+            )
+            if (
+                not already_streamed_content
+                and not has_any_tool_calls
+                and not structured_output_requested
+            ):
+                # Pass ``terminal_content or None`` so the helper
+                # sees the same "empty vs whitespace vs real"
+                # distinction the non-streaming path does. Pass
+                # ``None`` for ``tool_calls`` because we've already
+                # checked ``has_any_tool_calls`` above — the helper's
+                # tool-call branch would never fire here regardless,
+                # but keeping the call symmetric with non-streaming
+                # is the point.
+                rescued_content = _rescue_silent_drop_from_reasoning(
+                    terminal_content or None,
+                    processor.accumulated_reasoning,
+                    None,
+                )
+                # The helper returns the rescued reasoning ONLY when
+                # all four predicates pass (empty/whitespace content,
+                # no tool calls, non-empty/non-whitespace reasoning).
+                # Otherwise it returns the original input — for our
+                # pass it returns ``terminal_content or None``. We
+                # only want to overwrite when the helper actually
+                # promoted reasoning to content, i.e. the returned
+                # value differs from what we passed in.
+                if rescued_content and rescued_content != (terminal_content or None):
+                    terminal_content = rescued_content
+                    logger.info(
+                        "[SSE-RESCUE-#569] terminal chunk content empty + no "
+                        "tool calls; surfacing %d-char reasoning trace as "
+                        "content",
+                        len(terminal_content),
+                    )
             final_chunk = ChatCompletionChunk(
                 id=response_id,
                 created=_sse_created,

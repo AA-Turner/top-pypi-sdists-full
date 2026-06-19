@@ -7,6 +7,41 @@
 
 use super::*;
 
+#[inline]
+fn eval_poly_slice(coefficients: &[f64], z: f64) -> f64 {
+    let mut acc = 0.0;
+    for &coefficient in coefficients.iter().rev() {
+        acc = acc * z + coefficient;
+    }
+    acc
+}
+
+#[inline]
+fn eval_poly_derivative_slice(coefficients: &[f64], z: f64) -> f64 {
+    let mut acc = 0.0;
+    for (power, &coefficient) in coefficients.iter().enumerate().skip(1).rev() {
+        acc = acc * z + (power as f64) * coefficient;
+    }
+    acc
+}
+
+#[inline]
+fn reciprocal_bilinear_jet(value: MultiDirJet) -> MultiDirJet {
+    let x0 = value.coeff(0);
+    let x1 = value.coeff(1);
+    let x2 = value.coeff(2);
+    let x12 = value.coeff(3);
+    let inv = 1.0 / x0;
+    let inv2 = inv * inv;
+    let inv3 = inv2 * inv;
+    MultiDirJet::bilinear(
+        inv,
+        -x1 * inv2,
+        -x2 * inv2,
+        2.0 * x1 * x2 * inv3 - x12 * inv2,
+    )
+}
+
 impl SurvivalMarginalSlopeFamily {
     /// Exact mixed bidirectional extension D_{d1} D_{d2} of the timepoint
     /// quantities. This carries the calibration solve, observed eta/chi
@@ -42,9 +77,28 @@ impl SurvivalMarginalSlopeFamily {
         dir1: &Array1<f64>,
         dir2: &Array1<f64>,
     ) -> Result<SurvivalFlexTimepointBiDirectionalExact, String> {
+        let cached = self.build_cached_partition(primary, a, b, beta_h, beta_w)?;
+        self.compute_survival_timepoint_bidirectional_exact_from_cached(
+            row, primary, q, q_index, a, b, beta_h, beta_w, &cached, dir1, dir2,
+        )
+    }
+
+    pub(crate) fn compute_survival_timepoint_bidirectional_exact_from_cached(
+        &self,
+        row: usize,
+        primary: &FlexPrimarySlices,
+        q: f64,
+        q_index: usize,
+        a: f64,
+        b: f64,
+        beta_h: Option<&Array1<f64>>,
+        beta_w: Option<&Array1<f64>>,
+        cached: &CachedPartitionCells,
+        dir1: &Array1<f64>,
+        dir2: &Array1<f64>,
+    ) -> Result<SurvivalFlexTimepointBiDirectionalExact, String> {
         let p = primary.total;
         let zero4 = [0.0; 4];
-        let cached = self.build_cached_partition(primary, a, b, beta_h, beta_w)?;
 
         struct BiDirectionalTimepointCellAccum {
             f_a: f64,
@@ -110,6 +164,21 @@ impl SurvivalMarginalSlopeFamily {
                 let mut caa2 = [0.0; 4];
                 let mut cd12 = [0.0; 4];
                 let mut ca12 = [0.0; 4];
+                let coeff_view = SparsePrimaryCoeffJetView::new(
+                    primary.g,
+                    primary.h.as_ref(),
+                    primary.w.as_ref(),
+                    &fx.coeff_u,
+                    &fx.coeff_au,
+                    &fx.coeff_bu,
+                    &fx.coeff_aau,
+                    &fx.coeff_abu,
+                    &fx.coeff_bbu,
+                    &fx.coeff_aaau,
+                    &fx.coeff_aabu,
+                    &fx.coeff_abbu,
+                    &fx.coeff_bbbu,
+                );
                 for c in 0..p {
                     for k in 0..4 {
                         if dir1[c] != 0.0 {
@@ -140,6 +209,9 @@ impl SurvivalMarginalSlopeFamily {
                         }
                     }
                 }
+                let caa12 = coeff_view
+                    .mixed_directional_from_b_family(&fx.coeff_aabu, dir1, dir2, COEFF_SUPPORT_GHW)
+                    .map(|value| -value);
 
                 f_a_d1 += exact_kernel::cell_second_derivative_from_moments(
                     nc,
@@ -204,7 +276,7 @@ impl SurvivalMarginalSlopeFamily {
                     &caa2,
                     &ca12,
                     &ca12,
-                    &[0.0; 4],
+                    &caa12,
                     &st.moments,
                 )?;
 
@@ -223,6 +295,18 @@ impl SurvivalMarginalSlopeFamily {
                     let mut cau1 = [0.0; 4];
                     let mut cu2 = [0.0; 4];
                     let mut cau2 = [0.0; 4];
+                    let cu12 = coeff_view
+                        .param_mixed_from_bb_family(&fx.coeff_bbu, u, dir1, dir2, COEFF_SUPPORT_GHW)
+                        .map(|value| -value);
+                    let cau12 = coeff_view
+                        .param_mixed_from_bb_family(
+                            &fx.coeff_abbu,
+                            u,
+                            dir1,
+                            dir2,
+                            COEFF_SUPPORT_GHW,
+                        )
+                        .map(|value| -value);
                     for c in 0..p {
                         let sc = self.cell_pair_second_coeff(primary, &fx.coeff_bu, u, c);
                         let sca = self.cell_pair_third_coeff_a(primary, &fx.coeff_abu, u, c);
@@ -274,8 +358,8 @@ impl SurvivalMarginalSlopeFamily {
                         &cau1,
                         &cau2,
                         &ca12,
-                        &[0.0; 4],
-                        &[0.0; 4],
+                        &cu12,
+                        &cau12,
                         &st.moments,
                     )?;
                 }
@@ -301,6 +385,36 @@ impl SurvivalMarginalSlopeFamily {
                         let mut cv1 = [0.0; 4];
                         let mut cu2 = [0.0; 4];
                         let mut cv2 = [0.0; 4];
+                        let mut cuv1 = [0.0; 4];
+                        let mut cuv2 = [0.0; 4];
+                        let cu12 = coeff_view
+                            .param_mixed_from_bb_family(
+                                &fx.coeff_bbu,
+                                u,
+                                dir1,
+                                dir2,
+                                COEFF_SUPPORT_GHW,
+                            )
+                            .map(|value| -value);
+                        let cv12 = coeff_view
+                            .param_mixed_from_bb_family(
+                                &fx.coeff_bbu,
+                                v,
+                                dir1,
+                                dir2,
+                                COEFF_SUPPORT_GHW,
+                            )
+                            .map(|value| -value);
+                        let cuv12 = coeff_view
+                            .pair_mixed_from_bbb_family(
+                                &fx.coeff_bbbu,
+                                u,
+                                v,
+                                dir1,
+                                dir2,
+                                COEFF_SUPPORT_GHW,
+                            )
+                            .map(|value| -value);
                         for c in 0..p {
                             let suc = self.cell_pair_second_coeff(primary, &fx.coeff_bu, u, c);
                             let svc = self.cell_pair_second_coeff(primary, &fx.coeff_bu, v, c);
@@ -315,6 +429,24 @@ impl SurvivalMarginalSlopeFamily {
                                 }
                             }
                         }
+                        self.add_cell_pair_third_coeff_dir(
+                            primary,
+                            &fx.coeff_bbu,
+                            u,
+                            v,
+                            dir1,
+                            -1.0,
+                            &mut cuv1,
+                        );
+                        self.add_cell_pair_third_coeff_dir(
+                            primary,
+                            &fx.coeff_bbu,
+                            u,
+                            v,
+                            dir2,
+                            -1.0,
+                            &mut cuv2,
+                        );
                         let d1v = exact_kernel::cell_third_derivative_from_moments(
                             nc,
                             &cu,
@@ -323,7 +455,7 @@ impl SurvivalMarginalSlopeFamily {
                             &sc,
                             &cu1,
                             &cv1,
-                            &[0.0; 4],
+                            &cuv1,
                             &st.moments,
                         )?;
                         f_uv_d1[[u, v]] += d1v;
@@ -338,7 +470,7 @@ impl SurvivalMarginalSlopeFamily {
                             &sc,
                             &cu2,
                             &cv2,
-                            &[0.0; 4],
+                            &cuv2,
                             &st.moments,
                         )?;
                         f_uv_d2[[u, v]] += d2v;
@@ -357,11 +489,11 @@ impl SurvivalMarginalSlopeFamily {
                             &cv1,
                             &cv2,
                             &cd12,
-                            &[0.0; 4],
-                            &[0.0; 4],
-                            &[0.0; 4],
-                            &[0.0; 4],
-                            &[0.0; 4],
+                            &cuv1,
+                            &cuv2,
+                            &cu12,
+                            &cv12,
+                            &cuv12,
                             &st.moments,
                         )?;
                         f_uv_d12[[u, v]] += d12v;
@@ -438,9 +570,16 @@ impl SurvivalMarginalSlopeFamily {
         let phi_q = crate::probability::normal_pdf(q);
         f_u[q_index] += phi_q;
         f_uv[[q_index, q_index]] += -q * phi_q;
-        f_uv_d1[[q_index, q_index]] += dir1[q_index] * (1.0 - q * q) * phi_q;
-        f_uv_d2[[q_index, q_index]] += dir2[q_index] * (1.0 - q * q) * phi_q;
-        f_uv_d12[[q_index, q_index]] += dir1[q_index] * dir2[q_index] * q * (q * q - 3.0) * phi_q;
+        // q-marginal calibration RHS self-coupling, differentiated along the two
+        // independent directions. Base: `f_uv[[q,q]] = -q·φ(q)`. Its first and
+        // second q-derivatives (the d1/d2 single-direction and d12 cross terms)
+        // are `∂_q(-qφ) = (q²-1)φ` and `∂²_q(-qφ) = q·(3-q²)φ`. The previous
+        // `(1-q²)` / `q·(q²-3)` were both sign-flipped relative to the shared
+        // base, corrupting the (q,·) blocks of the contracted fourth tower
+        // (gam#932/#979).
+        f_uv_d1[[q_index, q_index]] += dir1[q_index] * (q * q - 1.0) * phi_q;
+        f_uv_d2[[q_index, q_index]] += dir2[q_index] * (q * q - 1.0) * phi_q;
+        f_uv_d12[[q_index, q_index]] += dir1[q_index] * dir2[q_index] * q * (3.0 - q * q) * phi_q;
 
         let inv = 1.0 / f_a;
         let mut au = Array1::<f64>::zeros(p);
@@ -493,28 +632,28 @@ impl SurvivalMarginalSlopeFamily {
         let ad12 = aud2.dot(dir1);
         let aud12 = auvd2.dot(dir1);
         let mut auvd12 = Array2::<f64>::zeros((p, p));
+        let f_a_jet = MultiDirJet::bilinear(f_a, f_a_d1, f_a_d2, f_a_d12);
+        let f_a_recip_jet = reciprocal_bilinear_jet(f_a_jet);
+        let f_aa_jet = MultiDirJet::bilinear(f_aa, f_aa_d1, f_aa_d2, f_aa_d12);
         for u in 0..p {
             for v in u..p {
-                let n = f_uv_d12[[u, v]]
-                    + f_au_d12[u] * au[v]
-                    + f_au_d1[u] * aud2[v]
-                    + f_au_d2[u] * aud1[v]
-                    + f_au[u] * aud12[v]
-                    + f_au_d12[v] * au[u]
-                    + f_au_d1[v] * aud2[u]
-                    + f_au_d2[v] * aud1[u]
-                    + f_au[v] * aud12[u]
-                    + f_aa_d12 * au[u] * au[v]
-                    + f_aa_d1 * (aud2[u] * au[v] + au[u] * aud2[v])
-                    + f_aa_d2 * (aud1[u] * au[v] + au[u] * aud1[v])
-                    + f_aa
-                        * (aud12[u] * au[v]
-                            + aud1[u] * aud2[v]
-                            + aud2[u] * aud1[v]
-                            + au[u] * aud12[v]);
-                let val =
-                    -(n + f_a_d12 * auv[[u, v]] + f_a_d1 * auvd2[[u, v]] + f_a_d2 * auvd1[[u, v]])
-                        * inv;
+                let f_uv_jet = MultiDirJet::bilinear(
+                    f_uv[[u, v]],
+                    f_uv_d1[[u, v]],
+                    f_uv_d2[[u, v]],
+                    f_uv_d12[[u, v]],
+                );
+                let f_au_u_jet =
+                    MultiDirJet::bilinear(f_au[u], f_au_d1[u], f_au_d2[u], f_au_d12[u]);
+                let f_au_v_jet =
+                    MultiDirJet::bilinear(f_au[v], f_au_d1[v], f_au_d2[v], f_au_d12[v]);
+                let a_u_jet = MultiDirJet::bilinear(au[u], aud1[u], aud2[u], aud12[u]);
+                let a_v_jet = MultiDirJet::bilinear(au[v], aud1[v], aud2[v], aud12[v]);
+                let numerator = f_uv_jet
+                    .add(&f_au_u_jet.mul(&a_v_jet))
+                    .add(&f_au_v_jet.mul(&a_u_jet))
+                    .add(&f_aa_jet.mul(&a_u_jet.mul(&a_v_jet)));
+                let val = numerator.mul(&f_a_recip_jet).scale(-1.0).coeff(3);
                 auvd12[[u, v]] = val;
                 auvd12[[v, u]] = val;
             }
@@ -1271,6 +1410,7 @@ impl SurvivalMarginalSlopeFamily {
                         );
 
                         let i_base = poly_coeff_mask(&i_base_jet, 0);
+                        let i_base_d1 = poly_coeff_mask(&i_base_jet, 1);
                         let i_base_d2 = poly_coeff_mask(&i_base_jet, 2);
                         let i_base_d12 = poly_coeff_mask(&i_base_jet, 3);
                         let eta_poly = poly_coeff_mask(&eta_poly_jet, 0);
@@ -1295,6 +1435,68 @@ impl SurvivalMarginalSlopeFamily {
                             "survival D_t second derivative bidirectional",
                         )?;
                         d_uv_uv[[u, v]] += value;
+                        if b != 0.0 {
+                            let part = &ce.partition_cell;
+                            let dir_g1 = dir1[primary.g];
+                            let dir_g2 = dir2[primary.g];
+                            let edge_velocity = |
+                                edge: crate::families::cubic_cell_kernel::PartitionEdge,
+                                z: f64,
+                            | -> (f64, f64, f64) {
+                                match edge {
+                                    crate::families::cubic_cell_kernel::PartitionEdge::Crossing {
+                                        ..
+                                    } => {
+                                        let z1 = -(ad1 + z * dir_g1) / b;
+                                        let z2 = -(ad2 + z * dir_g2) / b;
+                                        let z12 = -(ad12 + z2 * dir_g1 + z1 * dir_g2) / b;
+                                        (z1, z2, z12)
+                                    }
+                                    crate::families::cubic_cell_kernel::PartitionEdge::Fixed(_) => {
+                                        (0.0, 0.0, 0.0)
+                                    }
+                                }
+                            };
+                            let density_z_derivative = |z: f64| -> f64 {
+                                let eta = cell.eta(z);
+                                let eta_z = cell.c1
+                                    + 2.0 * cell.c2 * z
+                                    + 3.0 * cell.c3 * z * z;
+                                let amp = eval_poly_slice(&i_base, z);
+                                let amp_z = eval_poly_derivative_slice(&i_base, z);
+                                let q_z = z + eta * eta_z;
+                                (amp_z - amp * q_z) * (-cell.q(z)).exp()
+                                    / std::f64::consts::TAU
+                            };
+                            let i_d1_poly = poly_sub(
+                                &i_base_d1,
+                                &poly_mul(&poly_mul(&eta_poly, &eta_d1_poly), &i_base),
+                            );
+                            let i_d2_poly = poly_sub(
+                                &i_base_d2,
+                                &poly_mul(&poly_mul(&eta_poly, &eta_d2_poly), &i_base),
+                            );
+                            let boundary = |z: f64, z1: f64, z2: f64, z12: f64| -> f64 {
+                                z12 * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                                    cell, &i_base, z,
+                                )
+                                    + z2 * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                                        cell, &i_d1_poly, z,
+                                    )
+                                    + z1 * crate::families::cubic_cell_kernel::cell_density_boundary_integrand(
+                                        cell, &i_d2_poly, z,
+                                    )
+                                    + z1 * z2 * density_z_derivative(z)
+                            };
+                            let (r1, r2, r12) = edge_velocity(part.right_edge, cell.right);
+                            if r1 != 0.0 || r2 != 0.0 || r12 != 0.0 {
+                                d_uv_uv[[u, v]] += boundary(cell.right, r1, r2, r12);
+                            }
+                            let (l1, l2, l12) = edge_velocity(part.left_edge, cell.left);
+                            if l1 != 0.0 || l2 != 0.0 || l12 != 0.0 {
+                                d_uv_uv[[u, v]] -= boundary(cell.left, l1, l2, l12);
+                            }
+                        }
                         d_uv_uv[[v, u]] = d_uv_uv[[u, v]];
                     }
                 }

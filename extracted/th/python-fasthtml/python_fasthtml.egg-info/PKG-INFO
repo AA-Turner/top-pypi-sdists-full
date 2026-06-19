@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-fasthtml
-Version: 0.14.2
+Version: 0.14.3
 Summary: The fastest way to create an HTML app
 Author-email: Jeremy Howard and contributors <github@jhoward.fastmail.fm>
 License: Apache-2.0
@@ -21,7 +21,7 @@ Requires-Dist: starlette>=1.0.1
 Requires-Dist: oauthlib
 Requires-Dist: itsdangerous
 Requires-Dist: uvicorn[standard]>=0.30
-Requires-Dist: httpx
+Requires-Dist: httpx2
 Requires-Dist: fastlite>=0.1.1
 Requires-Dist: python-multipart
 Requires-Dist: beautifulsoup4

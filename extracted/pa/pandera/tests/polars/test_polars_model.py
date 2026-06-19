@@ -16,6 +16,7 @@ from hypothesis import strategies as st
 from polars.testing.parametric import column, dataframes
 
 import pandera.engines.polars_engine as pe
+from pandera.config import CONFIG
 from pandera.errors import SchemaError
 from pandera.polars import (
     Column,
@@ -56,6 +57,11 @@ def ldf_model_with_fields():
     return ModelWithFields
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="coerce_dtype not implemented in Narwhals backend (used by DataFrameModel.empty())",
+    strict=True,
+)
 def test_empty() -> None:
     """Test to generate an empty DataFrameModel."""
 
@@ -68,6 +74,17 @@ def test_empty() -> None:
     df = Schema.empty()
     assert df.is_empty()
     assert Schema.validate(df).is_empty()  # type: ignore [attr-defined]
+
+
+def test_empty_no_columns() -> None:
+    """Test empty() on a DataFrameModel with no field annotations."""
+
+    class EmptySchema(DataFrameModel):
+        pass
+
+    df = EmptySchema.empty()
+    assert isinstance(df, pl.DataFrame)
+    assert df.shape == (0, 0)
 
 
 @pytest.fixture
@@ -150,7 +167,15 @@ ErrorCls = (
     [
         # this modification will cause a InvalidOperationError since casting the
         # values in ldf_basic will cause the error outside of pandera validation
-        ({"string_col": pl.Int64}, ErrorCls),
+        pytest.param(
+            {"string_col": pl.Int64},
+            ErrorCls,
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals raises narwhals.exceptions.InvalidOperationError, not polars.exceptions.InvalidOperationError",
+                strict=True,
+            ),
+        ),
         # this modification will cause a SchemaError since schema validation
         # can actually catch the type mismatch
         ({"int_col": pl.Utf8}, SchemaError),
@@ -204,6 +229,11 @@ def test_model_with_custom_column_checks(
         invalid_df.pipe(ldf_model_with_custom_column_checks.validate).collect()
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Polars-style custom check functions incompatible with Narwhals backend",
+    strict=True,
+)
 def test_model_with_custom_dataframe_checks(
     ldf_model_with_custom_dataframe_checks,
     ldf_basic,
@@ -248,9 +278,30 @@ def test_polars_python_list_df_model(schema_with_list_type):
     "time_zone",
     [
         None,
-        "UTC",
-        "GMT",
-        "EST",
+        pytest.param(
+            "UTC",
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals engine dtype comparison fails for tz-aware polars Datetime",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "GMT",
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals engine dtype comparison fails for tz-aware polars Datetime",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "EST",
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals engine dtype comparison fails for tz-aware polars Datetime",
+                strict=True,
+            ),
+        ),
     ],
 )
 @given(st.data())
@@ -294,3 +345,95 @@ def test_dataframe_schema_with_tz_agnostic_dates(time_zone, data):
         if time_zone:
             with pytest.raises(SchemaError):
                 tz_sensitive_model.validate(lf)
+
+
+def test_model_field_access_returns_string():
+    """Test that accessing DataFrameModel fields returns column names as strings.
+
+    Regression test for issue #2297.
+    """
+    from pandera.typing.polars import Series
+
+    class ModelWithSeries(DataFrameModel):
+        a: Series[int]
+        b: Series[float]
+
+    class ModelWithBareTypes(DataFrameModel):
+        x: int
+        y: float
+
+    # Both Series and bare type annotations should return strings
+    assert isinstance(ModelWithSeries.a, str)
+    assert isinstance(ModelWithSeries.b, str)
+    assert isinstance(ModelWithBareTypes.x, str)
+    assert isinstance(ModelWithBareTypes.y, str)
+
+    # Verify the actual column names
+    assert ModelWithSeries.a == "a"
+    assert ModelWithSeries.b == "b"
+    assert ModelWithBareTypes.x == "x"
+    assert ModelWithBareTypes.y == "y"
+
+
+def test_annotated_field_metadata_propagation():
+    """``Annotated[T, pa.Field(...)]`` should propagate the embedded
+    ``FieldInfo`` metadata (description, title, unique, checks, etc.) to
+    the polars schema. See
+    https://github.com/unionai-oss/pandera/issues/2110.
+    """
+
+    class Schema(DataFrameModel):
+        name: Annotated[str, Field(description="Name of the person")]
+        age: int = Field(ge=0, description="Age of the person")
+        val: Annotated[float, Field(ge=0.0, description="A value")]
+        identifier: Annotated[int, Field(unique=True, title="Identifier")]
+        tag: Annotated[str, Field(metadata={"k": "v"})]
+
+    schema = Schema.to_schema()
+
+    assert schema.columns["name"].description == "Name of the person"
+    assert schema.columns["age"].description == "Age of the person"
+    assert schema.columns["val"].description == "A value"
+    assert schema.columns["identifier"].unique is True
+    assert schema.columns["identifier"].title == "Identifier"
+    assert schema.columns["tag"].metadata == {"k": "v"}
+
+    # ``ge`` check defined inside the Annotated FieldInfo should also
+    # be applied during validation.
+    valid = pl.DataFrame(
+        {
+            "name": ["Alice"],
+            "age": [25],
+            "val": [1.0],
+            "identifier": [1],
+            "tag": ["x"],
+        }
+    )
+    Schema.validate(valid)
+
+    invalid = valid.with_columns(pl.lit(-1.0).alias("val"))
+    with pytest.raises(SchemaError):
+        Schema.validate(invalid)
+
+
+def test_annotated_field_no_metadata_dedup():
+    """Two ``Annotated`` annotations using independent ``Field(...)``
+    calls must not be deduplicated by Python's ``typing.Annotated`` cache.
+    Without unique hashing on un-named ``FieldInfo`` instances, the second
+    model would inadvertently inherit the first model's field configuration.
+    """
+
+    class ModelA(DataFrameModel):
+        value: Annotated[int, Field(ge=18, le=100)]
+
+    class ModelB(DataFrameModel):
+        value: Annotated[int, Field(unique=True, title="ID")]
+
+    schema_a = ModelA.to_schema()
+    schema_b = ModelB.to_schema()
+
+    assert len(schema_a.columns["value"].checks) == 2
+    assert schema_b.columns["value"].unique is True
+    assert schema_b.columns["value"].title == "ID"
+    # ModelB should not have inherited ModelA's range checks.
+    assert schema_b.columns["value"].checks == []

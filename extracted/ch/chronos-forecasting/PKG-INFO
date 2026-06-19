@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chronos-forecasting
-Version: 2.2.2
+Version: 2.3.0
 Summary: Chronos: Pretrained models for time series forecasting
 Project-URL: Homepage, https://github.com/amazon-science/chronos-forecasting
 Project-URL: Issues, https://github.com/amazon-science/chronos-forecasting/issues
@@ -189,32 +189,30 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
-Requires-Dist: accelerate<2,>=0.34
+Requires-Dist: accelerate<2,>=1.1.0
 Requires-Dist: einops<1,>=0.7.0
 Requires-Dist: numpy<3,>=1.21
-Requires-Dist: scikit-learn<2,>=1.6.0
+Requires-Dist: pandas<4,>=2.0
 Requires-Dist: torch<3,>=2.2
-Requires-Dist: transformers<5,>=4.41
+Requires-Dist: transformers<6,>=4.41
 Provides-Extra: dev
-Requires-Dist: datasets<4,>=3.0; extra == 'dev'
-Requires-Dist: fev>=0.6.1; extra == 'dev'
+Requires-Dist: datasets<5,>=3.0; extra == 'dev'
+Requires-Dist: fev<1,>=0.8.0; extra == 'dev'
 Requires-Dist: gluonts[pro]~=0.16; extra == 'dev'
 Requires-Dist: joblib; extra == 'dev'
-Requires-Dist: pandas<2.4,>=2.0; extra == 'dev'
 Requires-Dist: rich; extra == 'dev'
 Requires-Dist: tensorboard; extra == 'dev'
 Requires-Dist: typer; extra == 'dev'
 Requires-Dist: typer-config; extra == 'dev'
 Provides-Extra: extras
 Requires-Dist: boto3<2,>=1.10; extra == 'extras'
-Requires-Dist: fev>=0.6.1; extra == 'extras'
-Requires-Dist: pandas[pyarrow]<2.4,>=2.0; extra == 'extras'
-Requires-Dist: peft<0.18,>=0.13.0; extra == 'extras'
+Requires-Dist: fev<1,>=0.8.0; extra == 'extras'
+Requires-Dist: pandas[pyarrow]<4,>=2.0; extra == 'extras'
+Requires-Dist: peft<1,>=0.18.1; extra == 'extras'
 Provides-Extra: test
 Requires-Dist: boto3<2,>=1.10; extra == 'test'
-Requires-Dist: fev>=0.6.1; extra == 'test'
-Requires-Dist: pandas[pyarrow]<2.4,>=2.0; extra == 'test'
-Requires-Dist: peft<1,>=0.13.0; extra == 'test'
+Requires-Dist: fev<1,>=0.8.0; extra == 'test'
+Requires-Dist: peft<1,>=0.18.1; extra == 'test'
 Requires-Dist: pytest~=8.0; extra == 'test'
 Provides-Extra: typecheck
 Requires-Dist: mypy~=1.9; extra == 'typecheck'
@@ -237,8 +235,9 @@ Description-Content-Type: text/markdown
 
 
 ## 🚀 News
+- **5 Jun 2026**: ☁️ Deploy Chronos-2 to AWS with [AutoGluon-Cloud](https://github.com/autogluon/autogluon-cloud) — real-time, serverless, or batch inference in 3 lines of code, pandas DataFrames in, forecasts out. See the [new deployment guide](https://auto.gluon.ai/cloud/stable/tutorials/foundation-model-timeseries.html).
+- **30 Dec 2025**: 🧠 Deploy Chronos-2 to AWS with Amazon SageMaker JumpStart — production-ready real-time endpoints on CPU or GPU, ready to integrate into your existing AWS workflows. See the [deployment tutorial](notebooks/deploy-chronos-to-amazon-sagemaker.ipynb).
 - **20 Oct 2025**: 🚀 [Chronos-2](https://huggingface.co/amazon/chronos-2) released. It offers _zero-shot_ support for univariate, multivariate, and covariate-informed forecasting tasks. Chronos-2 achieves the best performance on fev-bench, GIFT-Eval and Chronos Benchmark II amongst pretrained models. Check out [this notebook](notebooks/chronos-2-quickstart.ipynb) to get started with Chronos-2.
-- **14 Feb 2025**: 🚀 Chronos-Bolt is now available on Amazon SageMaker JumpStart! Check out the [tutorial notebook](notebooks/deploy-chronos-to-amazon-sagemaker.ipynb) to learn how to deploy Chronos endpoints for production use in 3 lines of code.
 - **12 Dec 2024**: 📊 We released [`fev`](https://github.com/autogluon/fev), a lightweight package for benchmarking time series forecasting models based on the [Hugging Face `datasets`](https://huggingface.co/docs/datasets/en/index) library.
 - **26 Nov 2024**: ⚡️ Chronos-Bolt models released [on HuggingFace](https://huggingface.co/collections/amazon/chronos-models-65f1791d630a8d57cb718444). Chronos-Bolt models are more accurate (5% lower error), up to 250x faster and 20x more memory efficient than the original Chronos models of the same size!
 - **13 Mar 2024**: 🚀 Chronos [paper](https://arxiv.org/abs/2403.07815) and inference code released.
@@ -258,6 +257,8 @@ This package provides an interface to the Chronos family of **pretrained time se
 | Model ID                                                               | Parameters |
 | ---------------------------------------------------------------------- | ---------- |
 | [`amazon/chronos-2`](https://huggingface.co/amazon/chronos-2)   | 120M         |
+| [`autogluon/chronos-2-synth`](https://huggingface.co/autogluon/chronos-2-synth)   | 120M         |
+| [`autogluon/chronos-2-small`](https://huggingface.co/autogluon/chronos-2-small)   | 28M         |
 | [`amazon/chronos-bolt-tiny`](https://huggingface.co/amazon/chronos-bolt-tiny)   | 9M         |
 | [`amazon/chronos-bolt-mini`](https://huggingface.co/amazon/chronos-bolt-mini)   | 21M        |
 | [`amazon/chronos-bolt-small`](https://huggingface.co/amazon/chronos-bolt-small) | 48M        |
@@ -279,7 +280,9 @@ pip install chronos-forecasting
 ```
 
 > [!TIP]
-> For reliable production use, we recommend using Chronos-2 models through [Amazon SageMaker JumpStart](https://aws.amazon.com/sagemaker/ai/jumpstart/). Check out [this tutorial](notebooks/deploy-chronos-to-amazon-sagemaker.ipynb) to learn how to deploy Chronos-2 inference endpoints to AWS with just a few lines of code.
+> For production use, we recommend deploying Chronos-2 to Amazon SageMaker. Two options:
+> - **[AutoGluon-Cloud](https://auto.gluon.ai/cloud/stable/tutorials/foundation-model-timeseries.html)** (recommended) — high-level Python API. Pandas DataFrames in, forecasts out. Real-time, serverless, and batch inference out of the box.
+> - **[SageMaker JumpStart](notebooks/deploy-chronos-to-amazon-sagemaker.ipynb)** — production-ready real-time endpoints on CPU or GPU, ready to integrate into your existing AWS workflows.
 
 
 ### Forecasting
@@ -345,7 +348,8 @@ plt.legend()
   <a href="https://colab.research.google.com/github/amazon-science/chronos-forecasting/blob/main/notebooks/chronos-2-quickstart.ipynb">
     <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" height="18" align="absmiddle">
   </a>
-- [Deploy Chronos-2 on Amazon SageMaker](notebooks/deploy-chronos-to-amazon-sagemaker.ipynb)
+- [Deploy Chronos-2 to AWS with AutoGluon-Cloud](https://auto.gluon.ai/cloud/stable/tutorials/foundation-model-timeseries.html) (recommended)
+- [Deploy Chronos-2 to AWS with SageMaker JumpStart](notebooks/deploy-chronos-to-amazon-sagemaker.ipynb)
 
 ## 📝 Citation
 

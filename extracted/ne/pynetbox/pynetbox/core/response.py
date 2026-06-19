@@ -24,6 +24,11 @@ from pynetbox.core.util import Hashabledict
 # List of fields that are lists but should be treated as sets.
 LIST_AS_SET = ("tags", "tagged_vlans")
 
+# List fields whose item type is announced via a sibling "<field>_type"
+# content-type string (NetBox's CableTerminationModelSerializerMixin pattern).
+# Items are cast to the Record subclass named by that sibling content type.
+SIBLING_TYPED_LIST_FIELDS = ("link_peers", "connected_endpoints")
+
 
 def get_return(lookup, return_fields=None):
     """Returns simple representations for items passed to lookup.
@@ -131,13 +136,18 @@ class RecordSet:
 
     def __len__(self):
         try:
-            return self.request.count
+            count = self.request.count
         except AttributeError:
             try:
                 self._response_cache.append(next(self.response))
             except StopIteration:
                 return 0
-            return self.request.count
+            count = self.request.count
+        if count is None:
+            # Cursor-based pagination omits the total count; fetch it
+            # explicitly with a separate (offset-based) count request.
+            count = self.request.get_count()
+        return count
 
     def update(self, **kwargs):
         """Updates kwargs onto all Records in the RecordSet and saves these.
@@ -329,7 +339,16 @@ class Record:
 
         In order to prevent non-explicit behavior,`k='keys'` is
         excluded because casting to dict() calls this attr.
+
+        Dunder attributes are excluded as well: they are never NetBox
+        fields, and probing for them (e.g. pydantic's isinstance check
+        calling `hasattr(obj, '__pydantic_decorators__')`, or copy and
+        pickle machinery) must not trigger a network fetch that would
+        also clobber local modifications.
         """
+        if k.startswith("__") and k.endswith("__"):
+            raise AttributeError('object has no attribute "{}"'.format(k))
+
         if self.url:
             if self.has_details is False and k != "keys":
                 if self.full_details():
@@ -448,13 +467,17 @@ class Record:
         def generic_list_parser(key_name, list_item):
             from pynetbox.models.mapper import CONTENT_TYPE_MAPPER
 
+            content_type_mapper = getattr(
+                self.api, "_content_type_mapper", CONTENT_TYPE_MAPPER
+            )
+
             if (
                 isinstance(list_item, dict)
                 and "object_type" in list_item
                 and "object" in list_item
             ):
                 lookup = list_item["object_type"]
-                if model := CONTENT_TYPE_MAPPER.get(lookup, None):
+                if model := content_type_mapper.get(lookup, None):
                     record = model(list_item["object"], self.api, self.endpoint)
                     return GenericListObject(record)
 
@@ -473,6 +496,19 @@ class Record:
 
             return list_item
 
+        def sibling_typed_list_parser(list_item, content_type):
+            from pynetbox.models.mapper import CONTENT_TYPE_MAPPER
+
+            content_type_mapper = getattr(
+                self.api, "_content_type_mapper", CONTENT_TYPE_MAPPER
+            )
+
+            if isinstance(list_item, dict):
+                if model := content_type_mapper.get(content_type, None):
+                    return model(list_item, self.api, self.endpoint)
+                return self.default_ret(list_item, self.api, self.endpoint)
+            return list_item
+
         for k, v in values.items():
             if isinstance(v, dict):
                 lookup = getattr(self.__class__, k, None)
@@ -482,20 +518,48 @@ class Record:
                     self._add_cache((k, copy.deepcopy(v)))
                     setattr(self, k, v)
                     continue
-                if lookup:
+                if isinstance(lookup, type) and issubclass(lookup, Record):
                     v = lookup(v, self.api, self.endpoint)
                 else:
                     v = self.default_ret(v, self.api, self.endpoint)
                 self._add_cache((k, v))
 
             elif isinstance(v, list):
+                lookup = getattr(self.__class__, k, None)
+                # An explicit JsonField marker means the column is raw JSON
+                # (e.g. a plugin field holding a list of dicts). Keep it as-is
+                # instead of coercing each dict into a nested Record, which
+                # would break serialize()/save() (no id on plain JSON dicts).
+                if hasattr(lookup, "_json_field"):
+                    self._add_cache((k, copy.deepcopy(v)))
+                    setattr(self, k, v)
+                    continue
                 # check if GFK
                 if len(v) and isinstance(v[0], dict) and "object_type" in v[0]:
                     v = [generic_list_parser(k, i) for i in v]
-                    to_cache = [i.serialize() for i in v]
+                    # An unmapped object_type (e.g. a plugin whose extension
+                    # hasn't been registered) falls through as the raw dict,
+                    # so cache it directly instead of assuming .serialize().
+                    to_cache = [
+                        i.serialize() if hasattr(i, "serialize") else copy.deepcopy(i)
+                        for i in v
+                    ]
                 elif k == "constraints":
                     # Permissions constraints can be either dict or list
                     to_cache = copy.deepcopy(v)
+                elif (
+                    k in SIBLING_TYPED_LIST_FIELDS
+                    and len(v)
+                    and isinstance(v[0], dict)
+                    and isinstance(values.get(f"{k}_type"), str)
+                ):
+                    # NetBox cable-termination pattern: link_peers/
+                    # connected_endpoints carry their item type in the sibling
+                    # link_peers_type/connected_endpoints_type field rather
+                    # than per-item. Cast each item to the model named by
+                    # that sibling content type.
+                    v = [sibling_typed_list_parser(i, values[f"{k}_type"]) for i in v]
+                    to_cache = list(v)
                 else:
                     v = [list_parser(k, i) for i in v]
                     to_cache = list(v)
@@ -577,18 +641,23 @@ class Record:
             fields_to_serialize = init_cache_dict.keys()
             init_vals = init_cache_dict
         else:
-            # For current state, include all fields (original + modified)
-            init_cache_keys = {k for k, _ in self._init_cache}
+            # For current state, include all fields (original + modified).
+            # Preserve init_cache insertion order, then append any new
+            # attributes set after init, so the serialized dict has a
+            # deterministic key order across init=True/False calls (the
+            # str-based list comparison in _diff() depends on it).
+            init_cache_keys = [k for k, _ in self._init_cache]
+            init_cache_key_set = set(init_cache_keys)
 
-            # Get all non-internal field names from object's __dict__
-            obj_keys = {
+            extra_keys = [
                 k
                 for k in self.__dict__.keys()
-                if not k.startswith("_") and k not in self._INTERNAL_ATTRS
-            }
+                if not k.startswith("_")
+                and k not in self._INTERNAL_ATTRS
+                and k not in init_cache_key_set
+            ]
 
-            # Combine both sets
-            fields_to_serialize = init_cache_keys | obj_keys
+            fields_to_serialize = init_cache_keys + extra_keys
             init_vals = {}  # Not used when init=False
 
         ret = {}
@@ -607,7 +676,12 @@ class Record:
                         if isinstance(v, GenericListObject):
                             v = v.serialize()
                         elif isinstance(v, Record):
-                            v = v.id
+                            # FK-style list items (e.g. tagged_vlans) collapse to
+                            # their id. NetBox 4.5+ also returns nested mapping
+                            # objects without an id of their own (e.g.
+                            # FrontPort.rear_ports items); preserve those as dicts
+                            # so the API round-trips correctly.
+                            v = v.id if hasattr(v, "id") else v.serialize(init=init)
                         serialized_list.append(v)
                     current_val = serialized_list
                     if i in LIST_AS_SET and (
@@ -627,9 +701,29 @@ class Record:
                 return k, ",".join(map(str, v))
             return k, v
 
-        current = Hashabledict({fmt_dict(k, v) for k, v in self.serialize().items()})
+        current_serialized = self.serialize()
+        init_serialized = self.serialize(init=True)
+
+        # custom_fields use merge semantics on PATCH: NetBox leaves any custom
+        # field omitted from an update unchanged. Restrict the comparison to the
+        # keys present in the current value so that assigning a subset of custom
+        # fields isn't seen as removing the others (issue #748). To clear a
+        # custom field the caller still sets it explicitly to None. Assigning an
+        # empty dict is therefore a no-op (it touches no keys), matching NetBox's
+        # merge semantics where an empty custom_fields body changes nothing.
+        current_cf = current_serialized.get("custom_fields")
+        init_cf = init_serialized.get("custom_fields")
+        if isinstance(current_cf, dict) and isinstance(init_cf, dict):
+            init_serialized = {
+                **init_serialized,
+                "custom_fields": {
+                    k: v for k, v in init_cf.items() if k in current_cf
+                },
+            }
+
+        current = Hashabledict({fmt_dict(k, v) for k, v in current_serialized.items()})
         init = Hashabledict(
-            {fmt_dict(k, v) for k, v in self.serialize(init=True).items()}
+            {fmt_dict(k, v) for k, v in init_serialized.items()}
         )
         return set([i[0] for i in set(current.items()) ^ set(init.items())])
 
@@ -796,9 +890,13 @@ class GenericListObject:
     def __init__(self, record):
         from pynetbox.models.mapper import TYPE_CONTENT_MAPPER
 
+        type_content_mapper = getattr(
+            record.api, "_type_content_mapper", TYPE_CONTENT_MAPPER
+        )
+
         self.object = record
         self.object_id = record.id
-        self.object_type = TYPE_CONTENT_MAPPER.get(record.__class__)
+        self.object_type = type_content_mapper.get(record.__class__)
 
     def __repr__(self):
         return str(self.object)

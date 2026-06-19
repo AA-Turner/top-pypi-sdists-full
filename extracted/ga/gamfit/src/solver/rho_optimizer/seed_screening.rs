@@ -139,13 +139,12 @@ pub(crate) fn effective_seed_budget(
     _screening_enabled: bool,
 ) -> usize {
     let requested_budget = requested_budget.max(1);
-    let capped = match (solver, risk_profile) {
+    match (solver, risk_profile) {
         (Solver::Efs | Solver::HybridEfs, _) => 1,
         (Solver::Arc, crate::seeding::SeedRiskProfile::Survival) => 1,
         (Solver::Arc, crate::seeding::SeedRiskProfile::GeneralizedLinear) => 2,
         _ => requested_budget,
-    };
-    requested_budget.min(capped)
+    }
 }
 
 #[inline]
@@ -486,4 +485,22 @@ pub(crate) fn candidate_improves_best(candidate: &OuterResult, best: Option<&Out
         Some(best) if candidate.converged != best.converged => candidate.converged,
         Some(best) => candidate.final_value < best.final_value,
     }
+}
+
+#[inline]
+pub(crate) fn should_stop_expensive_multistart_after_best(
+    best: Option<&OuterResult>,
+    expensive_seed_limit: Option<usize>,
+    quality_compare_remaining_gaussian_seeds: bool,
+) -> bool {
+    !quality_compare_remaining_gaussian_seeds
+        && expensive_seed_limit.is_some()
+        && best.is_some_and(|b| {
+            b.final_value.is_finite()
+                && !b.converged
+                && matches!(
+                    b.operator_stop_reason,
+                    Some(OperatorTrustRegionStopReason::CostStallFlatValley)
+                )
+        })
 }

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "atdd"
-version = "3.116.0"
+version = "3.122.0"
 description = "ATDD Platform - Acceptance Test Driven Development toolkit"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -60,10 +60,10 @@ exclude = ["atdd.*.validators.fixtures*"]
 "atdd.coach.templates.workflows" = ["*.yml"]
 "atdd.coach.schemas" = ["*.json"]
 "atdd.coach.prompts" = ["**/*.yaml"]
-"atdd.coach.conventions" = ["*.yaml"]
+"atdd.coach.conventions" = ["*.yaml", "nodes/*.yaml"]
 "atdd.coach.overlays" = ["*.md"]
-"atdd.planner.conventions" = ["*.yaml"]
-"atdd.planner.schemas" = ["*.json"]
+"atdd.planner.conventions" = ["*.yaml", "nodes/*.yaml"]
+"atdd.planner.schemas" = ["*.json", "author/*.json"]
 "atdd.tester.conventions" = ["*.yaml"]
 "atdd.tester.schemas" = ["*.json"]
 "atdd.coder.conventions" = ["*.yaml"]

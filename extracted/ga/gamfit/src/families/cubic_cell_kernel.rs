@@ -1913,6 +1913,67 @@ pub fn cell_second_derivative_from_moments(
     Ok((second_term - eta_term) * INV_TWO_PI)
 }
 
+/// Pointwise value of the cell second-derivative integrand
+/// `(∂²/∂r∂s) exp(-q(z))/2π` at a single `z`, evaluated from the SAME
+/// `(r, s, rs)` coefficient polynomials the moment reduction
+/// [`cell_second_derivative_from_moments`] integrates:
+///
+/// ```text
+///   F_rs(z) = ( c_rs(z) - η(z)·c_r(z)·c_s(z) ) · exp(-q(z)) · 1/2π ,
+/// ```
+///
+/// with `c_•(z) = Σ_k coeff_•[k]·zᵏ`, `η(z)` the cell cubic, and
+/// `q(z) = ½(z² + η(z)²)`. This is the integrand whose `[cell.left,
+/// cell.right]` integral the from-moments form returns — needed for the
+/// Leibniz boundary term when a cell edge (a link-knot crossing
+/// `z=(τ-a)/b`) moves with a parameter (the slope `b`): the directional
+/// derivative of `∫_{z_L}^{z_R} F_rs dz` picks up
+/// `F_rs(z_R)·z_R'(dir) - F_rs(z_L)·z_L'(dir)` on top of the fixed-domain
+/// part. Coefficient sign convention matches the simpson reference
+/// (`numeric_ab`): pass the ACTUAL derivative-coefficient polynomials
+/// `∂c/∂r` etc. (not the negated `neg_dc_d•` the moment path consumes).
+#[inline]
+pub fn cell_second_derivative_boundary_integrand(
+    cell: DenestedCubicCell,
+    first_coefficients_r: &[f64],
+    first_coefficients_s: &[f64],
+    second_coefficients_rs: &[f64],
+    z: f64,
+) -> f64 {
+    let eta = cell.eta(z);
+    let c_r = poly_eval_at(first_coefficients_r, z);
+    let c_s = poly_eval_at(first_coefficients_s, z);
+    let c_rs = poly_eval_at(second_coefficients_rs, z);
+    (c_rs - eta * c_r * c_s) * (-cell.q(z)).exp() * INV_TWO_PI
+}
+
+/// Pointwise value of the density-weighted integrand `g(z)·exp(-q(z))/2π` at a
+/// single `z`, for an arbitrary integrand polynomial `g`.
+///
+/// This is the boundary value needed for the moving-domain (Leibniz) term of a
+/// density-normalization integral `∫ g(z)·exp(-q(z))/2π dz` whose cell edge is a
+/// link-knot crossing `z=(τ-a)/b` that moves with a parameter direction: the
+/// directional derivative of the integral picks up
+/// `g(z_R)·w(z_R)·z_R'(dir) - g(z_L)·w(z_L)·z_L'(dir)` on top of the
+/// fixed-domain part, with `w(z)=exp(-q(z))/2π` the same weight the moment
+/// reductions integrate. Unlike the Hessian-integral boundary term (which is
+/// shared by adjacent cells and cancels across each interior knot), the
+/// ln-density integrand `D_t`/`D_t,uv` carries a non-shared `g`, so this
+/// Leibniz term does NOT cancel and must be added (gam#932/#979).
+pub fn cell_density_boundary_integrand(cell: DenestedCubicCell, g: &[f64], z: f64) -> f64 {
+    poly_eval_at(g, z) * (-cell.q(z)).exp() * INV_TWO_PI
+}
+
+/// Horner evaluation of `Σ_k coefficients[k]·zᵏ`.
+#[inline]
+fn poly_eval_at(coefficients: &[f64], z: f64) -> f64 {
+    let mut acc = 0.0_f64;
+    for &c in coefficients.iter().rev() {
+        acc = acc.mul_add(z, c);
+    }
+    acc
+}
+
 #[inline]
 fn moment_dot_with_coefficients(
     coefficients: &[f64],
@@ -7152,6 +7213,205 @@ mod tests {
         assert!(
             rel <= 1e-5,
             "third kernel vs FD-of-second mismatch: analytic={analytic:.12e} fd={fd:.12e} rel={rel:.3e}"
+        );
+    }
+
+    #[test]
+    fn moving_shared_edge_second_integral_derivative_has_leibniz_jump_sign() {
+        let edge0 = 0.2_f64;
+        let edge_velocity = -0.37_f64;
+
+        let left_eta = [0.22_f64, -0.18, 0.09, 0.03];
+        let right_eta = [-0.11_f64, 0.26, -0.04, 0.02];
+        let left_r = [0.08_f64, -0.05, 0.03, 0.01];
+        let left_s = [-0.06_f64, 0.04, 0.02, -0.015];
+        let left_rs = [0.025_f64, -0.012, 0.006, 0.004];
+        let right_r = [-0.03_f64, 0.07, -0.02, 0.012];
+        let right_s = [0.05_f64, -0.025, 0.018, 0.007];
+        let right_rs = [-0.018_f64, 0.014, -0.005, 0.003];
+
+        let integral_at = |shift: f64| -> f64 {
+            let edge = edge0 + edge_velocity * shift;
+            let left = DenestedCubicCell {
+                left: -0.7,
+                right: edge,
+                c0: left_eta[0],
+                c1: left_eta[1],
+                c2: left_eta[2],
+                c3: left_eta[3],
+            };
+            let right = DenestedCubicCell {
+                left: edge,
+                right: 1.1,
+                c0: right_eta[0],
+                c1: right_eta[1],
+                c2: right_eta[2],
+                c3: right_eta[3],
+            };
+            let left_state = evaluate_cell_moments(left, 12).expect("left moments");
+            let right_state = evaluate_cell_moments(right, 12).expect("right moments");
+            cell_second_derivative_from_moments(
+                left,
+                &left_r,
+                &left_s,
+                &left_rs,
+                &left_state.moments,
+            )
+            .expect("left second")
+                + cell_second_derivative_from_moments(
+                    right,
+                    &right_r,
+                    &right_s,
+                    &right_rs,
+                    &right_state.moments,
+                )
+                .expect("right second")
+        };
+
+        let h = 1e-5;
+        let fd = (integral_at(h) - integral_at(-h)) / (2.0 * h);
+
+        let left = DenestedCubicCell {
+            left: -0.7,
+            right: edge0,
+            c0: left_eta[0],
+            c1: left_eta[1],
+            c2: left_eta[2],
+            c3: left_eta[3],
+        };
+        let right = DenestedCubicCell {
+            left: edge0,
+            right: 1.1,
+            c0: right_eta[0],
+            c1: right_eta[1],
+            c2: right_eta[2],
+            c3: right_eta[3],
+        };
+        let f_left =
+            cell_second_derivative_boundary_integrand(left, &left_r, &left_s, &left_rs, edge0);
+        let f_right =
+            cell_second_derivative_boundary_integrand(right, &right_r, &right_s, &right_rs, edge0);
+        let analytic = edge_velocity * (f_left - f_right);
+
+        let denom = analytic.abs().max(1e-8);
+        let rel = (fd - analytic).abs() / denom;
+        assert!(
+            rel <= 5e-8,
+            "moving edge sign mismatch: fd={fd:.12e} analytic={analytic:.12e} rel={rel:.3e}"
+        );
+    }
+
+    #[test]
+    fn moving_shared_edge_second_integral_mixed_derivative_has_full_leibniz_terms() {
+        let edge0 = -0.15_f64;
+        let edge_d1 = 0.31_f64;
+        let edge_d2 = -0.27_f64;
+        let edge_d12 = 0.19_f64;
+
+        let left_eta = [0.16_f64, -0.21, 0.07, -0.025];
+        let right_eta = [-0.09_f64, 0.18, -0.055, 0.018];
+        let left_r = [0.075_f64, -0.045, 0.018, 0.009];
+        let left_s = [-0.052_f64, 0.033, 0.014, -0.011];
+        let left_rs = [0.021_f64, -0.009, 0.005, 0.0025];
+        let right_r = [-0.028_f64, 0.063, -0.017, 0.010];
+        let right_s = [0.047_f64, -0.023, 0.016, 0.006];
+        let right_rs = [-0.015_f64, 0.012, -0.004, 0.002];
+
+        let integral_at = |s1: f64, s2: f64| -> f64 {
+            let edge = edge0 + edge_d1 * s1 + edge_d2 * s2 + edge_d12 * s1 * s2;
+            let left = DenestedCubicCell {
+                left: -0.8,
+                right: edge,
+                c0: left_eta[0],
+                c1: left_eta[1],
+                c2: left_eta[2],
+                c3: left_eta[3],
+            };
+            let right = DenestedCubicCell {
+                left: edge,
+                right: 0.9,
+                c0: right_eta[0],
+                c1: right_eta[1],
+                c2: right_eta[2],
+                c3: right_eta[3],
+            };
+            let left_state = evaluate_cell_moments(left, 12).expect("left moments");
+            let right_state = evaluate_cell_moments(right, 12).expect("right moments");
+            cell_second_derivative_from_moments(
+                left,
+                &left_r,
+                &left_s,
+                &left_rs,
+                &left_state.moments,
+            )
+            .expect("left second")
+                + cell_second_derivative_from_moments(
+                    right,
+                    &right_r,
+                    &right_s,
+                    &right_rs,
+                    &right_state.moments,
+                )
+                .expect("right second")
+        };
+
+        let h = 2e-4;
+        let fd = (integral_at(h, h) - integral_at(h, -h) - integral_at(-h, h)
+            + integral_at(-h, -h))
+            / (4.0 * h * h);
+
+        let left = DenestedCubicCell {
+            left: -0.8,
+            right: edge0,
+            c0: left_eta[0],
+            c1: left_eta[1],
+            c2: left_eta[2],
+            c3: left_eta[3],
+        };
+        let right = DenestedCubicCell {
+            left: edge0,
+            right: 0.9,
+            c0: right_eta[0],
+            c1: right_eta[1],
+            c2: right_eta[2],
+            c3: right_eta[3],
+        };
+
+        let boundary_z_derivative =
+            |cell: DenestedCubicCell, r: &[f64], s: &[f64], rs: &[f64]| -> f64 {
+                let eta = cell.eta(edge0);
+                let eta_z = cell.c1 + 2.0 * cell.c2 * edge0 + 3.0 * cell.c3 * edge0 * edge0;
+                let cr = poly_eval_at(r, edge0);
+                let cs = poly_eval_at(s, edge0);
+                let crs = poly_eval_at(rs, edge0);
+                let cr_z = r.iter().enumerate().skip(1).fold(0.0, |acc, (k, val)| {
+                    acc + (k as f64) * val * edge0.powi(k as i32 - 1)
+                });
+                let cs_z = s.iter().enumerate().skip(1).fold(0.0, |acc, (k, val)| {
+                    acc + (k as f64) * val * edge0.powi(k as i32 - 1)
+                });
+                let crs_z = rs.iter().enumerate().skip(1).fold(0.0, |acc, (k, val)| {
+                    acc + (k as f64) * val * edge0.powi(k as i32 - 1)
+                });
+                let amp = crs - eta * cr * cs;
+                let amp_z = crs_z - eta_z * cr * cs - eta * cr_z * cs - eta * cr * cs_z;
+                let q_z = edge0 + eta * eta_z;
+                (amp_z - amp * q_z) * (-cell.q(edge0)).exp() * INV_TWO_PI
+            };
+
+        let f_left =
+            cell_second_derivative_boundary_integrand(left, &left_r, &left_s, &left_rs, edge0);
+        let f_right =
+            cell_second_derivative_boundary_integrand(right, &right_r, &right_s, &right_rs, edge0);
+        let fz_left = boundary_z_derivative(left, &left_r, &left_s, &left_rs);
+        let fz_right = boundary_z_derivative(right, &right_r, &right_s, &right_rs);
+        let analytic = edge_d12 * (f_left - f_right) + edge_d1 * edge_d2 * (fz_left - fz_right);
+
+        let denom = analytic.abs().max(1e-8);
+        let rel = (fd - analytic).abs() / denom;
+        assert!(
+            rel <= 2e-7,
+            "moving edge mixed term mismatch: fd={fd:.12e} analytic={analytic:.12e} rel={rel:.3e}"
         );
     }
 }

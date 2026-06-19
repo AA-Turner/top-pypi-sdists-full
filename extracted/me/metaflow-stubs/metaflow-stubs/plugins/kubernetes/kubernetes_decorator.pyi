@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.33                                                                                #
-# Generated on 2026-06-09T19:39:31.625013                                                            #
+# MF version: 2.19.34                                                                                #
+# Generated on 2026-06-18T12:40:08.537466                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -148,6 +148,9 @@ class KubernetesDecorator(metaflow.decorators.StepDecorator, metaclass=type):
         Only applicable when @parallel is used.
     qos: str, default: Burstable
         Quality of Service class to assign to the pod. Supported values are: Guaranteed, Burstable, BestEffort
+    extended_resources: Dict[str, str], optional, default {}
+        Extended resources to be requested for the pod.
+        https://kubernetes.io/docs/tasks/administer-cluster/extended-resource-node/
     
     security_context: Dict[str, Any], optional, default None
         Container security context. Applies to the task container. Allows the following keys:

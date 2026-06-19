@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import logging
 import random
 import uuid
 import warnings
 from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 from functools import partial
 from typing import (
+    TYPE_CHECKING,
     Any,
     Literal,
     Optional,
@@ -24,6 +26,7 @@ from langsmith import client as ls_client
 from langsmith import schemas as ls_schemas
 from langsmith import utils as ls_utils
 from langsmith._internal import _profiles
+from langsmith._internal._backend_version import _check_backend_version
 from langsmith._internal._hub import (
     HUB,
     REPO_HANDLE_PATTERN,
@@ -33,7 +36,14 @@ from langsmith._internal._hub import (
 )
 from langsmith.prompt_cache import AsyncPromptCache, async_prompt_cache_singleton
 
+logger = logging.getLogger(__name__)
+
 ID_TYPE = Union[uuid.UUID, str]
+
+if TYPE_CHECKING:
+    from langsmith._openapi_client.resources.online_evaluators import (
+        AsyncOnlineEvaluatorsResource,
+    )
 
 
 class AsyncClient:
@@ -48,15 +58,19 @@ class AsyncClient:
         "_custom_headers",
         "_api_key",
         "_oauth_access_token",
+        "_workspace_id",
         "_profile_auth",
         "_profile_auth_headers",
+        "_info",
     )
 
     _custom_headers: dict[str, str]
     _api_key: Optional[str]
     _oauth_access_token: Optional[str]
+    _workspace_id: Optional[str]
     _profile_auth: Optional[_profiles.ProfileAuth]
     _profile_auth_headers: dict[str, str]
+    _info: Optional[ls_schemas.LangSmithInfo]
 
     def _compute_headers(self) -> dict[str, str]:
         headers = {**self._custom_headers}
@@ -68,6 +82,8 @@ class AsyncClient:
             headers.update(self._profile_auth_headers)
         elif self._oauth_access_token:
             headers["Authorization"] = f"Bearer {self._oauth_access_token}"
+        if self._workspace_id:
+            headers["X-Tenant-Id"] = self._workspace_id
         return headers
 
     @property
@@ -95,6 +111,46 @@ class AsyncClient:
         self._api_key = value
         self._client.headers = httpx.Headers(self._compute_headers())
 
+    @property
+    def workspace_id(self) -> Optional[str]:
+        """Return the workspace ID used for API requests."""
+        return self._workspace_id
+
+    @workspace_id.setter
+    def workspace_id(self, value: Optional[str]) -> None:
+        self._workspace_id = ls_utils.get_workspace_id(value)
+        self._client.headers = httpx.Headers(self._compute_headers())
+
+    async def info(self) -> ls_schemas.LangSmithInfo:
+        """Get information about the LangSmith server."""
+        if self._info is not None:
+            return self._info
+        try:
+            response = await self._arequest_with_retries(
+                "GET",
+                "/info",
+                headers={"Accept": "application/json"},
+            )
+            ls_utils.raise_for_status_with_text(response)
+            self._info = ls_schemas.LangSmithInfo(**response.json())
+        except BaseException as e:
+            logger.warning(f"Failed to get info from {self._api_url}: {repr(e)}")
+            self._info = ls_schemas.LangSmithInfo()
+        return self._info
+
+    @property
+    def online_evaluators(self) -> AsyncOnlineEvaluatorsResource:
+        """Access generated async online evaluator CRUD methods."""
+        from langsmith._openapi_client import AsyncLangsmith as AsyncOpenAPILangsmith
+
+        return AsyncOpenAPILangsmith(
+            api_key=self.api_key,
+            tenant_id=self.workspace_id,
+            base_url=ls_client._get_openapi_base_url(self._api_url),
+            timeout=self._client.timeout,
+            default_headers=self._headers,
+        ).online_evaluators
+
     def __init__(
         self,
         api_url: Optional[str] = None,
@@ -107,6 +163,7 @@ class AsyncClient:
         retry_config: Optional[Mapping[str, Any]] = None,
         web_url: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
+        workspace_id: Optional[str] = None,
         disable_prompt_cache: bool = False,
         cache: Optional[Union[bool, AsyncPromptCache]] = None,
     ):
@@ -123,6 +180,7 @@ class AsyncClient:
                 These headers will be merged with the default headers
                 (Content-Type, x-api-key, etc.). Custom headers will not override
                 the default required headers.
+            workspace_id: The workspace ID. Required for org-scoped API keys.
             disable_prompt_cache: Disable prompt caching for this client.
             cache: **[Deprecated]** Control prompt caching behavior.
 
@@ -137,6 +195,7 @@ class AsyncClient:
         self._custom_headers = headers or {}
         env_api_url = ls_client._get_langsmith_env_var_uncached("ENDPOINT")
         env_api_key = ls_client._get_langsmith_env_var_uncached("API_KEY")
+        env_workspace_id = ls_client._get_langsmith_env_var_uncached("WORKSPACE_ID")
         profile_config = _profiles.load_profile_client_config()
         api_url_ = (
             api_url if api_url is not None else env_api_url or profile_config.api_url
@@ -154,8 +213,14 @@ class AsyncClient:
         self._oauth_access_token = (
             profile_config.oauth_access_token if use_profile_oauth else None
         )
+        workspace_id_ = (
+            workspace_id
+            if workspace_id is not None
+            else env_workspace_id or profile_config.workspace_id
+        )
         api_key = ls_utils.get_api_key(api_key_)
         api_url = ls_utils.get_api_url(api_url_)
+        self._workspace_id = ls_utils.get_workspace_id(workspace_id_)
         self._profile_auth = None
         self._profile_auth_headers = {}
         if use_profile_oauth:
@@ -189,6 +254,7 @@ class AsyncClient:
         )
         self._web_url = web_url
         self._settings: Optional[ls_schemas.LangSmithSettings] = None
+        self._info: Optional[ls_schemas.LangSmithInfo] = None
 
         # Initialize prompt cache
         # Handle backwards compatibility for deprecated `cache` parameter
@@ -231,6 +297,8 @@ class AsyncClient:
         """Enter the async client."""
         if self._cache is not None:
             await self._cache.start()
+        info = await self.info()
+        _check_backend_version(info.version)
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):

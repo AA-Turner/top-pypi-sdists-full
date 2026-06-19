@@ -50,16 +50,11 @@ def _json_or_empty(value: Any) -> str:
 
 
 def _fill_error(error_pb: pb.KytteError, error: dict[str, Any]) -> None:
-    if "type" in error:
-        error_pb.type = str(error["type"])
-    if "message" in error:
-        error_pb.message = str(error["message"])
-    if "severity" in error:
-        error_pb.severity = str(error["severity"])
-    if "is_transient" in error:
-        error_pb.is_transient = bool(error["is_transient"])
-    if "source" in error:
-        error_pb.source = str(error["source"])
+    error_pb.type = str(error.get("type") or "error")
+    error_pb.message = str(error.get("message") or "")
+    error_pb.severity = str(error.get("severity") or "medium")
+    error_pb.is_transient = bool(error.get("is_transient", False))
+    error_pb.source = str(error.get("source") or "framework")
     raw = error.get("raw")
     if raw is not None:
         error_pb.raw = raw if isinstance(raw, str) else json.dumps(raw, default=str)
@@ -100,7 +95,7 @@ def _build_metadata(payload: dict[str, Any]) -> dict[str, Any]:
     return metadata
 
 
-def span_to_proto(payload: dict[str, Any]) -> pb.Span:
+def span_to_proto(payload: dict[str, Any]) -> pb.Span:  # noqa: C901, PLR0915
     """Map a ``Span.to_dict()`` payload to a proto ``Span``."""
     span = pb.Span(
         span_id=str(payload.get("id", "")),

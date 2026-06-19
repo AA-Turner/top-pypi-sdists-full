@@ -51,6 +51,25 @@ def test_barrel_list():
     bl3[:20:2] = range(0, -10, -1)
     assert bl3[6] == -3  # some truly tricky stepping/slicing works
 
+
+def test_barrel_list_insert_before_start_matches_list():
+    bl = BarrelList(range(int(1e5)))
+    bl._balance_list(0)
+
+    bl.insert(-int(1e9), 'start')
+
+    assert bl[0] == 'start'
+    assert len(bl) == int(1e5) + 1
+
+
+def test_sort_barrel_list():
+    bl = BarrelList(reversed(range(100000)))
+    bl.pop(50000)
+    assert len(bl.lists) > 1
+    bl.sort()
+    assert bl[0] == 0
+    assert bl[-1] == 99999
+
 # roughly increasing random integers
 # [ord(i) * x for i, x in zip(os.urandom(1024), range(1024))]
 TEST_INTS = [0, 74, 96, 183, 456, 150, 1098, 665, 1752, 1053, 190,

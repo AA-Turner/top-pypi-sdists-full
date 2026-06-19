@@ -51,6 +51,43 @@ def get_baseline_test(
     return connection.get(endpoint=f"/api/testCenters/integrityTests/{id}")
 
 
+@ErrorHandler(err_msg="Error creating Baseline Test.")
+def create_baseline_test(
+    connection: Connection,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Create a Baseline Test object.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        body (dict): Dictionary containing Baseline Test definition
+        error_msg (str, optional): Custom error message for error handling
+    """
+
+    return connection.post(endpoint="/api/testCenters/integrityTests", json=body)
+
+
+@ErrorHandler(err_msg="Error updating Baseline Test object with ID: {id}.")
+def update_baseline_test(
+    connection: Connection,
+    id: str,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Update a Baseline Test object.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        id (str): ID of a Baseline Test object
+        body (dict): Dictionary containing Baseline Test updates
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.put(endpoint=f"/api/testCenters/integrityTests/{id}", json=body)
+
+
 @ErrorHandler(err_msg="Error deleting Baseline Test object with ID: {id}.")
 def delete_baseline_test(
     connection: Connection,
@@ -89,6 +126,7 @@ def get_baseline_results_by_test(
 def run_baseline_test(
     connection: Connection,
     id: str,
+    body: dict | None = None,
     error_msg: str | None = None,
 ) -> Response:
     """Trigger Baseline Test execution and create a Baseline result.
@@ -97,9 +135,33 @@ def run_baseline_test(
         connection (Connection): Strategy One connection object returned by
             `connection.Connection()`
         id (str): ID of a Baseline Test object
+        body (dict, optional): Dictionary containing Baseline Test execution
+            parameters.
         error_msg (str, optional): Custom error message for error handling
     """
-    return connection.post(endpoint=f"/api/testCenters/integrityTests/{id}/baselines")
+    return connection.post(
+        endpoint=f"/api/testCenters/integrityTests/{id}/baselines", json=body
+    )
+
+
+@ErrorHandler(err_msg="Error bulk deleting Baseline Test objects.")
+def bulk_delete_baseline_tests(
+    connection: Connection,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Bulk delete Baseline Test objects.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        body (dict): JSON-formatted payload containing Baseline Test IDs
+            to delete
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.post(
+        endpoint="/api/testCenters/integrityTests/bulkDelete", json=body
+    )
 
 
 # endregion
@@ -214,6 +276,34 @@ def get_baseline_result_summary(
     return connection.get(
         endpoint=f"/api/testCenters/integrityTests/{test_id}/baselines/{id}/summary"
     )
+
+
+@ErrorHandler(
+    err_msg="Error syncing Baseline result with ID: {id}:{test_id} to Storage Service."
+)
+def sync_baseline_result(
+    connection: Connection,
+    test_id: str,
+    id: str,
+    error_msg: str | None = None,
+) -> Response:
+    """Sync a Baseline result to Storage Service.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        test_id (str): ID of a Baseline Test object
+        id (str): ID of a Baseline execution result object
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.post(
+        endpoint=f"/api/testCenters/integrityTests/{test_id}/baselines/{id}/storageSync"
+    )
+
+
+# endregion
+
+# region baseline result details
 
 
 @ErrorHandler(
@@ -403,6 +493,26 @@ def get_baseline_visualization_result_sql(
     )
 
 
+@ErrorHandler(err_msg="Error bulk deleting Baseline Test execution results.")
+def bulk_delete_baseline_results(
+    connection: Connection,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Bulk delete Baseline Test execution results.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        body (dict): JSON-formatted payload containing Baseline result IDs
+            to delete
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.post(
+        endpoint="/api/testCenters/integrityTests/baselines/bulkDelete", json=body
+    )
+
+
 # endregion
 
 # region comparison tests
@@ -453,6 +563,44 @@ def get_comparison_test(
     return connection.get(endpoint=f"/api/testCenters/integrityComparisons/{id}")
 
 
+@ErrorHandler(err_msg="Error creating Comparison Test.")
+def create_comparison_test(
+    connection: Connection,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Create a Comparison Test object.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        body (dict): Dictionary containing Comparison Test definition.
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.post(endpoint="/api/testCenters/integrityComparisons", json=body)
+
+
+@ErrorHandler(err_msg="Error updating Comparison Test object with ID: {id}.")
+def update_comparison_test(
+    connection: Connection,
+    id: str,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Update a Comparison Test object.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        id (str): ID of a Comparison Test object
+        body (dict): Dictionary containing Comparison Test updates.
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.put(
+        endpoint=f"/api/testCenters/integrityComparisons/{id}", json=body
+    )
+
+
 @ErrorHandler(err_msg="Error deleting Comparison Test object with ID: {id}.")
 def delete_comparison_test(
     connection: Connection,
@@ -493,6 +641,7 @@ def get_comparison_results_by_test(
 def run_comparison_test(
     connection: Connection,
     id: str,
+    body: dict | None = None,
     error_msg: str | None = None,
 ) -> Response:
     """Trigger a Comparison Test execution.
@@ -501,10 +650,32 @@ def run_comparison_test(
         connection (Connection): Strategy One connection object returned by
             `connection.Connection()`
         id (str): ID of a Comparison Test object
+        body (dict, optional): Dictionary containing Comparison Test
+            execution parameters.
         error_msg (str, optional): Custom error message for error handling
     """
     return connection.post(
-        endpoint=f"/api/testCenters/integrityComparisons/{id}/comparisons"
+        endpoint=f"/api/testCenters/integrityComparisons/{id}/comparisons", json=body
+    )
+
+
+@ErrorHandler(err_msg="Error bulk deleting Comparison Test objects.")
+def bulk_delete_comparison_tests(
+    connection: Connection,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Bulk delete Comparison Test objects.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        body (dict): JSON-formatted payload containing Comparison Test IDs
+            to delete
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.post(
+        endpoint="/api/testCenters/integrityComparisons/bulkDelete", json=body
     )
 
 
@@ -760,6 +931,27 @@ def get_comparison_result_object_summary(
     return connection.get(
         endpoint=f"/api/testCenters/integrityComparisons/{test_id}"
         f"/comparisons/{id}/testObjectComparisons/{object_id}/summary"
+    )
+
+
+@ErrorHandler(err_msg="Error bulk deleting Comparison Test execution results.")
+def bulk_delete_comparison_results(
+    connection: Connection,
+    body: dict,
+    error_msg: str | None = None,
+) -> Response:
+    """Bulk delete Comparison Test execution results.
+
+    Args:
+        connection (Connection): Strategy One connection object returned by
+            `connection.Connection()`
+        body (dict): JSON-formatted payload containing Comparison result IDs
+            to delete
+        error_msg (str, optional): Custom error message for error handling
+    """
+    return connection.post(
+        endpoint="/api/testCenters/integrityComparisons/comparisons/bulkDelete",
+        json=body,
     )
 
 

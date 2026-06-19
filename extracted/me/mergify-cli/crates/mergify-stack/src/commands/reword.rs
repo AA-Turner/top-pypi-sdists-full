@@ -24,6 +24,7 @@ use mergify_core::CliError;
 use crate::change_id;
 use crate::git::{resolve_repo_toplevel, run_git_capture, shell_quote, spawn_rebase};
 use crate::local_commits::{self, LocalCommit};
+use crate::plan_display::PlanRow;
 use crate::trunk;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,15 +35,15 @@ pub struct RewordedCommit {
 
 #[derive(Debug, Clone)]
 pub enum Outcome {
+    /// Reword ran to completion. `plan` is the full stack in
+    /// `base..HEAD` order with a `[reword]`/`[amend]` tag on the
+    /// target row.
     Reworded {
-        commit: RewordedCommit,
+        plan: Vec<PlanRow>,
     },
-    /// `--dry-run` short-circuit. `inline_message` is true when the
-    /// caller passed `-m`, which the printer surfaces as `amend`
-    /// instead of `reword` in the plan.
+    /// `--dry-run` short-circuit. Same full-stack `plan`, no rebase.
     DryRun {
-        commit: RewordedCommit,
-        inline_message: bool,
+        plan: Vec<PlanRow>,
     },
     EmptyStack,
 }
@@ -76,11 +77,25 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
 
     let target = match_commit(opts.commit_prefix, &commits)?;
 
+    // No `-m` opens an editor (`reword` verb); `-m` amends the
+    // message non-interactively (`amend`).
+    let action = if opts.message.is_some() {
+        "amend"
+    } else {
+        "reword"
+    };
+    let plan: Vec<PlanRow> = commits
+        .iter()
+        .map(|c| PlanRow {
+            sha: c.commit_sha.clone(),
+            subject: c.title.clone(),
+            change_id: c.change_id.clone(),
+            action: (c.commit_sha == target.sha).then(|| action.to_string()),
+        })
+        .collect();
+
     if opts.dry_run {
-        return Ok(Outcome::DryRun {
-            commit: target,
-            inline_message: opts.message.is_some(),
-        });
+        return Ok(Outcome::DryRun { plan });
     }
 
     let editor = if let Some(msg) = opts.message {
@@ -95,8 +110,8 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
     } else {
         build_sequence_editor_reword(opts.mergify_binary, &target.sha)
     };
-    spawn_rebase(&repo_dir, &base, Some(&editor))?;
-    Ok(Outcome::Reworded { commit: target })
+    spawn_rebase(&repo_dir, &base, Some(&editor), false)?;
+    Ok(Outcome::Reworded { plan })
 }
 
 fn write_temp_message(message: &str) -> Result<PathBuf, CliError> {
@@ -137,22 +152,21 @@ fn match_commit(prefix: &str, commits: &[LocalCommit]) -> Result<RewordedCommit,
         )
     };
     match matches.as_slice() {
-        [] => Err(CliError::StackNotFound(format!(
-            "no commit found matching {field} prefix '{prefix}'"
-        ))),
+        [] => Err(crate::match_commit::not_found(field, prefix)),
         [only] => Ok(RewordedCommit {
             sha: only.commit_sha.clone(),
             subject: only.title.clone(),
         }),
         many => {
-            let listing = many
+            let candidates: Vec<crate::match_commit::Candidate<'_>> = many
                 .iter()
-                .map(|c| format!("{} {}", &c.commit_sha[..7], c.title))
-                .collect::<Vec<_>>()
-                .join("\n  ");
-            Err(CliError::InvalidState(format!(
-                "{field} prefix '{prefix}' matches multiple commits:\n  {listing}"
-            )))
+                .map(|c| crate::match_commit::Candidate {
+                    commit_sha: &c.commit_sha,
+                    title: &c.title,
+                    change_id: &c.change_id,
+                })
+                .collect();
+            Err(crate::match_commit::ambiguous(field, prefix, &candidates))
         }
     }
 }
@@ -245,13 +259,13 @@ mod tests {
         })
         .unwrap();
         match outcome {
-            Outcome::DryRun {
-                commit,
-                inline_message,
-            } => {
-                assert_eq!(commit.sha, commits[1]);
-                assert_eq!(commit.subject, "Commit B");
-                assert!(!inline_message);
+            Outcome::DryRun { plan } => {
+                // Full stack (A, B); B is the reworded target.
+                assert_eq!(plan.len(), 2);
+                assert_eq!(plan[1].sha, commits[1]);
+                assert_eq!(plan[1].subject, "Commit B");
+                assert_eq!(plan[1].action.as_deref(), Some("reword"));
+                assert_eq!(plan[0].action, None);
             }
             other => panic!("unexpected: {other:?}"),
         }
@@ -270,10 +284,10 @@ mod tests {
         })
         .unwrap();
         match outcome {
-            Outcome::DryRun {
-                inline_message: true,
-                ..
-            } => {}
+            Outcome::DryRun { plan } => {
+                // `-m` tags the target as `amend` rather than `reword`.
+                assert_eq!(plan[1].action.as_deref(), Some("amend"));
+            }
             other => panic!("unexpected: {other:?}"),
         }
     }

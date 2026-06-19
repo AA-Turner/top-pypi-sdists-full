@@ -22,6 +22,8 @@ try:
 except NameError:
     from polars.type_aliases import PolarsDataType  # type: ignore
 
+from pandera.config import CONFIG
+
 
 @pytest.fixture
 def ldf_basic():
@@ -139,6 +141,43 @@ def test_basic_polars_lazyframe_check_error(
     assert validated_df.equals(ldf_basic.collect())
 
 
+def test_coerce_dtype_preserves_lazyframe(ldf_basic, ldf_schema_basic):
+    """coerce_dtype called with a LazyFrame returns a LazyFrame at runtime."""
+    ldf_schema_basic._coerce = True
+    result = ldf_schema_basic.coerce_dtype(ldf_basic)
+    assert isinstance(result, pl.LazyFrame)
+
+
+def test_coerce_dtype_with_dataframe(ldf_schema_basic):
+    """coerce_dtype preserves a DataFrame input as a DataFrame at runtime."""
+    ldf_schema_basic._coerce = True
+    df = pl.DataFrame(schema=[*ldf_schema_basic.columns])
+    result = ldf_schema_basic.coerce_dtype(df)
+    assert isinstance(result, pl.DataFrame)
+
+
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals backend does not support dtype coercion",
+    strict=True,
+)
+def test_coerce_dtype_dataframe_actually_coerces():
+    """coerce_dtype with a DataFrame input both coerces and stays a DataFrame."""
+    schema = DataFrameSchema(
+        {"a": Column(int, coerce=True)},
+    )
+    df = pl.DataFrame({"a": ["1", "2", "3"]})
+    result = schema.coerce_dtype(df)
+    assert isinstance(result, pl.DataFrame)
+    assert result.schema == {"a": pl.Int64}
+    assert result["a"].to_list() == [1, 2, 3]
+
+
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals backend does not support dtype coercion",
+    strict=True,
+)
 def test_coerce_column_dtype(ldf_basic, ldf_schema_basic):
     """Test coerce dtype via column-level dtype specification."""
     ldf_schema_basic._coerce = True
@@ -159,6 +198,11 @@ def test_coerce_column_dtype_error(ldf_basic, ldf_schema_basic):
         modified_ldf.pipe(ldf_schema_basic.validate)
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals backend does not support dtype coercion",
+    strict=True,
+)
 def test_coerce_df_dtype(ldf_basic, ldf_schema_basic):
     """Test coerce dtype via dataframe-level dtype specification."""
     ldf_schema_basic._coerce = True
@@ -209,6 +253,11 @@ def test_strict_filter(ldf_basic, ldf_schema_basic):
     filtered_data.collect().equals(ldf_basic.collect())
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="add_missing_columns parser not implemented in Narwhals backend",
+    strict=True,
+)
 def test_add_missing_columns_with_default(ldf_basic, ldf_schema_basic):
     """Test add_missing_columns argument with a default value."""
     ldf_schema_basic.add_missing_columns = True
@@ -220,6 +269,11 @@ def test_add_missing_columns_with_default(ldf_basic, ldf_schema_basic):
     )
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="add_missing_columns parser not implemented in Narwhals backend",
+    strict=True,
+)
 def test_add_missing_columns_with_nullable(ldf_basic, ldf_schema_basic):
     """Test add_missing_columns argument with a nullable value."""
     ldf_schema_basic.add_missing_columns = True
@@ -394,6 +448,11 @@ def test_drop_invalid_rows_nullable(
     assert validated_data.collect().equals(expected_valid_data.collect())
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="set_default not implemented in Narwhals backend",
+    strict=True,
+)
 def test_set_defaults(ldf_basic, ldf_schema_basic):
     ldf_schema_basic.columns["int_col"].default = 1
     ldf_schema_basic.columns["string_col"].default = "a"
@@ -434,10 +493,15 @@ def _failure_type(column: str):
             lambda ldf, col: ldf.with_columns(**{col: pl.lit(None)}),
             None,
         ],
-        [
+        pytest.param(
             lambda ldf, col: ldf.with_columns(**{col: _failure_value(col)}),
             "Column '.+' failed validator number",
-        ],
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Regex column selection broken in Narwhals backend",
+                strict=True,
+            ),
+        ),
         [
             lambda ldf, col: ldf.with_columns(**{col: _failure_type(col)}),
             "expected column '.+' to have type",
@@ -476,12 +540,43 @@ def test_regex_selector(
                 f"got: {error_text[:500]}"
             )
 
-        # dropping all columns should fail
+        # Dropping all columns is allowed here: these regex columns are
+        # optional (required=False), so a regex that matches no columns simply
+        # has nothing to validate, matching the pandas backend.
+        # See https://github.com/unionai-oss/pandera/issues/2364
         modified_data = ldf_for_regex_match.drop(
             get_lazyframe_column_names(ldf_for_regex_match)
         )
-        with pytest.raises((pa.errors.SchemaError, pa.errors.SchemaErrors)):
-            modified_data.pipe(schema.validate).collect()
+        modified_data.pipe(schema.validate).collect()  # should not raise
+
+
+def test_regex_optional_column_no_match():
+    """An optional regex column that matches no columns must not raise.
+
+    Regression test for https://github.com/unionai-oss/pandera/issues/2364:
+    pandera.polars raised on a ``regex=True, required=False`` column when no
+    column matched, while pandera.pandas tolerates it.
+    """
+    df = pl.DataFrame({"data": [1, 2, 3]})
+
+    # required=False + no match: nothing to validate, validation passes.
+    optional_schema = DataFrameSchema(
+        {
+            "data": Column(pl.Int64, required=False),
+            r"^bla_\d+$": Column(pl.Float64, regex=True, required=False),
+        }
+    )
+    assert optional_schema.validate(df).equals(df)
+
+    # required=True + no match: still an error.
+    required_schema = DataFrameSchema(
+        {r"^bla_\d+$": Column(pl.Float64, regex=True, required=True)}
+    )
+    with pytest.raises(
+        (pa.errors.SchemaError, pa.errors.SchemaErrors),
+        match="did not match any columns",
+    ):
+        required_schema.validate(df)
 
 
 def test_regex_column_name_in_error_message():
@@ -522,6 +617,39 @@ def test_regex_column_name_in_error_message():
         )
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="narwhals backend does not coerce regex columns",
+    strict=True,
+)
+def test_regex_coerce_column_name_in_error_message():
+    """Regex column coercion errors must report the actual column name,
+    not the pattern (#2363, mirroring the check path fixed in #2221)."""
+    dataframe = pl.DataFrame(
+        {
+            "var_1": [0.4, 0.3, 0.9],
+            "var_2": ["0.5", "0.7", "0.8"],
+            "var_3": ["1.2", "bla", "0.2"],  # 'bla' cannot coerce to float
+        }
+    )
+    schema = pa.DataFrameSchema(
+        {
+            "var_.+": pa.Column(float, regex=True, coerce=True),
+        }
+    )
+    with pytest.raises(
+        (pa.errors.SchemaError, pa.errors.SchemaErrors)
+    ) as exc_info:
+        schema.validate(dataframe)
+    error_text = str(exc_info.value)
+    assert "var_3" in error_text, (
+        f"Expected error to name actual column 'var_3', got: {error_text}"
+    )
+    assert "^var_.+$" not in error_text, (
+        f"Error should not report the regex pattern, got: {error_text}"
+    )
+
+
 def test_regex_coerce(
     ldf_for_regex_match: pl.LazyFrame,
     ldf_schema_with_regex_name: DataFrameSchema,
@@ -541,6 +669,11 @@ def test_ordered(ldf_basic, ldf_schema_basic):
         invalid_order.pipe(ldf_schema_basic.validate).collect()
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="sample= parameter not supported in Narwhals backend",
+    strict=True,
+)
 def test_sample_dataframe_schema(df_basic, ldf_basic, ldf_schema_basic):
     with pytest.raises(NotImplementedError):
         ldf_schema_basic.validate(ldf_basic, sample=1, random_state=1)
@@ -598,6 +731,11 @@ def test_dataframe_validation_errors_nullable():
         assert exc.failure_cases.shape[0] == 2
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Unique violation count differs in Narwhals backend",
+    strict=True,
+)
 def test_dataframe_validation_errors_unique():
     schema = DataFrameSchema(
         {"a": Column(str, pa.Check.isin([*"abc"]), unique=True)}
@@ -611,6 +749,11 @@ def test_dataframe_validation_errors_unique():
         assert exc.failure_cases.shape[0] == 4
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Unique violation count differs in Narwhals backend",
+    strict=True,
+)
 def test_dataframe_validation_errors_unique_key():
     """
     Test unique key constraint validation.
@@ -677,6 +820,11 @@ def lf_with_nested_types():
     )
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals engine dtype comparison fails for nested polars types",
+    strict=True,
+)
 def test_dataframe_schema_with_nested_types(lf_with_nested_types):
     schema = DataFrameSchema(
         {
@@ -693,6 +841,11 @@ def test_dataframe_schema_with_nested_types(lf_with_nested_types):
     assert validated_lf.collect().equals(lf_with_nested_types.collect())
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals engine dtype comparison fails for nested polars types",
+    strict=True,
+)
 def test_dataframe_model_with_annotated_nested_types(lf_with_nested_types):
     class ModelWithAnnotated(DataFrameModel):
         list_col: Annotated[pl.List, pl.Int64()]
@@ -706,6 +859,11 @@ def test_dataframe_model_with_annotated_nested_types(lf_with_nested_types):
     assert validated_lf.collect().equals(validated_lf.collect())
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals engine dtype comparison fails for nested polars types",
+    strict=True,
+)
 def test_dataframe_schema_with_kwargs_nested_types(lf_with_nested_types):
     class ModelWithDtypeKwargs(DataFrameModel):
         list_col: pl.List = pa.Field(dtype_kwargs={"inner": pl.Int64()})
@@ -729,9 +887,30 @@ def test_dataframe_schema_with_kwargs_nested_types(lf_with_nested_types):
     "time_zone",
     [
         None,
-        "UTC",
-        "GMT",
-        "EST",
+        pytest.param(
+            "UTC",
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals engine dtype comparison fails for tz-aware polars Datetime",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "GMT",
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals engine dtype comparison fails for tz-aware polars Datetime",
+                strict=True,
+            ),
+        ),
+        pytest.param(
+            "EST",
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Narwhals engine dtype comparison fails for tz-aware polars Datetime",
+                strict=True,
+            ),
+        ),
     ],
 )
 @given(st.data())
@@ -758,6 +937,11 @@ def test_dataframe_schema_with_tz_agnostic_dates(time_zone, data):
             schema_tz_sensitive.validate(lf)
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals backend does not support dtype coercion",
+    strict=True,
+)
 def test_dataframe_coerce_col_with_null_in_other_column():
     class Model(DataFrameModel):
         col1: int = pa.Field(nullable=False, coerce=True)
@@ -783,6 +967,11 @@ def test_dataframe_coerce_col_with_null_in_other_column():
         ]
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Narwhals backend does not support dtype coercion",
+    strict=True,
+)
 def test_dataframe_column_level_coerce():
     schema = DataFrameSchema(
         {
@@ -802,6 +991,11 @@ def test_dataframe_column_level_coerce():
     assert_frame_equal(schema.validate(df), df.cast({"a": int, "b": float}))
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="Custom check signature incompatible with Narwhals backend",
+    strict=True,
+)
 def test_dataframe_level_check():
     schema = DataFrameSchema(
         {

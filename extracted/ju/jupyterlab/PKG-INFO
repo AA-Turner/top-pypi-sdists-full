@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyterlab
-Version: 4.5.9
+Version: 4.6.0
 Summary: JupyterLab computational environment
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Changelog, https://jupyterlab.readthedocs.io/en/stable/getting_started/changelog.html
@@ -37,12 +37,6 @@ License: Copyright (c) 2015-2025 Project Jupyter Contributors
         CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-        
-        Semver File License
-        ===================
-        
-        The semver.py file is from https://github.com/podhmo/python-semver
-        which is licensed under the "MIT" license.  See the semver.py file for details.
 License-File: LICENSE
 Keywords: ipython,jupyter
 Classifier: Development Status :: 5 - Production/Stable
@@ -54,24 +48,23 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: async-lru>=1.0.0
 Requires-Dist: httpx<1,>=0.25.0
-Requires-Dist: importlib-metadata>=4.8.3; python_version < '3.10'
 Requires-Dist: ipykernel!=6.30.0,>=6.5.0
 Requires-Dist: jinja2>=3.0.3
+Requires-Dist: jupyter-builder>=1.0.2
 Requires-Dist: jupyter-core
 Requires-Dist: jupyter-lsp>=2.0.0
-Requires-Dist: jupyter-server<3,>=2.4.0
+Requires-Dist: jupyter-server<3,>=2.19.0
 Requires-Dist: jupyterlab-server<3,>=2.28.0
 Requires-Dist: notebook-shim>=0.2
 Requires-Dist: packaging>=23.2
-Requires-Dist: setuptools>=41.1.0
 Requires-Dist: tomli>=1.2.2; python_version < '3.11'
 Requires-Dist: tornado>=6.2.0
 Requires-Dist: traitlets
@@ -82,18 +75,11 @@ Requires-Dist: coverage; extra == 'dev'
 Requires-Dist: hatch; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
-Requires-Dist: ruff==0.11.12; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: jsx-lexer; extra == 'docs'
-Requires-Dist: myst-parser; extra == 'docs'
-Requires-Dist: pydata-sphinx-theme>=0.13.0; extra == 'docs'
-Requires-Dist: pytest; extra == 'docs'
-Requires-Dist: pytest-check-links; extra == 'docs'
-Requires-Dist: pytest-jupyter; extra == 'docs'
-Requires-Dist: sphinx-copybutton; extra == 'docs'
-Requires-Dist: sphinx<8.2.0,>=1.8; extra == 'docs'
+Requires-Dist: ruff==0.15.15; extra == 'dev'
+Requires-Dist: shellcheck-py; extra == 'dev'
 Provides-Extra: docs-screenshots
 Requires-Dist: altair==6.0.0; extra == 'docs-screenshots'
+Requires-Dist: ipykernel<7.0; extra == 'docs-screenshots'
 Requires-Dist: ipython==8.16.1; extra == 'docs-screenshots'
 Requires-Dist: ipywidgets==8.1.5; extra == 'docs-screenshots'
 Requires-Dist: jupyterlab-geojson==3.4.0; extra == 'docs-screenshots'
@@ -110,6 +96,7 @@ Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-jupyter>=0.5.3; extra == 'test'
 Requires-Dist: pytest-timeout; extra == 'test'
 Requires-Dist: pytest-tornasync; extra == 'test'
+Requires-Dist: pytest-xdist; extra == 'test'
 Requires-Dist: pytest>=7.0; extra == 'test'
 Requires-Dist: requests; extra == 'test'
 Requires-Dist: requests-cache; extra == 'test'
@@ -159,12 +146,12 @@ via [PyPI](https://pypi.org/search/?q=jupyterlab&o=-created&c=Framework+%3A%3A+J
 conda, and other package managers. The _source_ extensions can be installed
 directly from npm (search for [jupyterlab-extension](https://www.npmjs.com/search?q=keywords:jupyterlab-extension)) but require an additional build step.
 You can also find JupyterLab extensions exploring GitHub topic [jupyterlab-extension](https://github.com/topics/jupyterlab-extension).
-To learn more about extensions, see the [user documentation](https://jupyterlab.readthedocs.io/en/stable/user/extensions.html).
+To learn more about extensions, see the [user documentation](https://jupyterlab.readthedocs.io/en/latest/user/extensions.html).
 
 Read the current JupyterLab documentation on [ReadTheDocs](http://jupyterlab.readthedocs.io/en/stable/).
 
 > [!IMPORTANT]
-> JupyterLab 3 reached its end of maintenance date on May 15, 2024. Fixes for critical issues will still be backported until December 31, 2024. If you are still running JupyterLab 3, we strongly encourage you to **upgrade to JupyterLab 4 as soon as possible.** For more information, see [JupyterLab 3 end of maintenance](https://blog.jupyter.org/jupyterlab-3-end-of-maintenance-879778927db2) on the Jupyter Blog.
+> JupyterLab 3 reached its end of maintenance date on May 15, 2024. Fixes for critical issues were backported until December 31, 2024. If you are still running JupyterLab 3, we strongly encourage you to **upgrade to JupyterLab 4 as soon as possible.** For more information, see [JupyterLab 3 end of maintenance](https://blog.jupyter.org/jupyterlab-3-end-of-maintenance-879778927db2) on the Jupyter Blog.
 
 ---
 
@@ -188,7 +175,7 @@ If you use [conda](https://docs.conda.io/en/latest/), [mamba](https://mamba.read
   ```
   If installing using `pip install --user`, you must add the user-level `bin` directory to your `PATH` environment variable in order to launch `jupyter lab`. If you are using a Unix derivative (e.g., FreeBSD, GNU/Linux, macOS), you can do this by running `export PATH="$HOME/.local/bin:$PATH"`.
 
-For more detailed instructions, consult the [installation guide](http://jupyterlab.readthedocs.io/en/stable/getting_started/installation.html). Project installation instructions from the git sources are available in the [contributor documentation](CONTRIBUTING.md).
+For more detailed instructions, consult the [installation guide](http://jupyterlab.readthedocs.io/en/latest/getting_started/installation.html). Project installation instructions from the git sources are available in the [contributor documentation](CONTRIBUTING.md).
 
 #### Installing with Previous Versions of Jupyter Notebook
 
@@ -206,7 +193,7 @@ Start up JupyterLab using:
 jupyter lab
 ```
 
-JupyterLab will open automatically in the browser. See the [documentation](http://jupyterlab.readthedocs.io/en/stable/getting_started/starting.html) for additional details.
+JupyterLab will open automatically in the browser. See the [documentation](http://jupyterlab.readthedocs.io/en/latest/getting_started/starting.html) for additional details.
 
 If you encounter an error like "Command 'jupyter' not found", please make sure `PATH` environment variable is set correctly. Alternatively, you can start up JupyterLab using `~/.local/bin/jupyter lab` without changing the `PATH` environment variable.
 
@@ -218,7 +205,7 @@ The latest versions of the following browsers are currently _known to work_:
 - Chrome
 - Safari
 
-See our [documentation](http://jupyterlab.readthedocs.io/en/stable/getting_started/installation.html) for additional details.
+See our [documentation](http://jupyterlab.readthedocs.io/en/latest/getting_started/installation.html) for additional details.
 
 ---
 
@@ -228,7 +215,7 @@ We encourage you to ask questions on the [Discourse forum](https://discourse.jup
 
 ### Bug report
 
-To report a bug please read the [guidelines](https://jupyterlab.readthedocs.io/en/stable/getting_started/issue.html) and then open a [Github issue](https://github.com/jupyterlab/jupyterlab/issues/new?labels=bug%2C+status%3ANeeds+Triage&template=bug_report.md). To keep resolved issues self-contained, the [lock bot](https://github.com/apps/lock) will lock closed issues as resolved after a period of inactivity. If a related discussion is still needed after an issue is locked, please open a new issue and reference the old issue.
+To report a bug please read the [guidelines](https://jupyterlab.readthedocs.io/en/latest/getting_started/issue.html) and then open a [Github issue](https://github.com/jupyterlab/jupyterlab/issues/new?labels=bug%2C+status%3ANeeds+Triage&template=bug_report.md). To keep resolved issues self-contained, the [lock bot](https://github.com/apps/lock) will lock closed issues as resolved after a period of inactivity. If a related discussion is still needed after an issue is locked, please open a new issue and reference the old issue.
 
 ### Feature request
 
@@ -240,24 +227,33 @@ We also welcome suggestions for new features as they help make the project more 
 
 ### Extending JupyterLab
 
-To start developing an extension for JupyterLab, see the [developer documentation](https://jupyterlab.readthedocs.io/en/stable/extension/extension_dev.html) and the [API docs](https://jupyterlab.readthedocs.io/en/stable/api/).
+To start developing an extension for JupyterLab, see the [developer documentation](https://jupyterlab.readthedocs.io/en/latest/extension/extension_dev.html) and the [API docs](https://jupyterlab.readthedocs.io/en/latest/api/).
 
 ### Contributing
 
-To contribute code or documentation to JupyterLab itself, please read the [contributor documentation](https://jupyterlab.readthedocs.io/en/stable/developer/contributing.html).
+To contribute code or documentation to JupyterLab itself, please read the [contributor documentation](https://jupyterlab.readthedocs.io/en/latest/developer/contributing.html).
 
 JupyterLab follows the Jupyter [Community Guides](https://jupyter.readthedocs.io/en/latest/community/content-community.html).
 
 ### License
 
 JupyterLab uses a shared copyright model that enables all contributors to maintain the
-copyright on their contributions. All code is licensed under the terms of the revised [BSD license](https://github.com/jupyterlab/jupyterlab/blob/4.5.x/LICENSE).
+copyright on their contributions. All code is licensed under the terms of the revised [BSD license](https://github.com/jupyterlab/jupyterlab/blob/main/LICENSE).
 
 ### Team
 
-JupyterLab is part of [Project Jupyter](https://jupyter.org/) and is developed by an open community. The maintenance team is assisted by a much larger group of contributors to JupyterLab and Project Jupyter as a whole.
+JupyterLab is part of [Project Jupyter](https://jupyter.org/) and is developed by an open community. The maintenance team is assisted by a much larger group of contributors to JupyterLab and Project Jupyter as a whole. JupyterLab falls under the [Jupyter Frontends Council](https://jupyterlab-team-compass.readthedocs.io/en/latest/index.html).
 
-JupyterLab's current maintainers are listed in alphabetical order, with affiliation, and main areas of contribution:
+The team of maintainers includes:
+
+- decision-making contributors listed on the [council team members](https://jupyterlab-team-compass.readthedocs.io/en/latest/team.html) page
+- code contributors listed on the [contributors graph](https://github.com/jupyterlab/jupyterlab/graphs/contributors) page
+
+<details>
+
+<summary>Archival list of maintainers</summary>
+
+Prior to transition to the new governance model with the JupyterLab and then Frontends council, these people contributed to and maintained JupyterLab:
 
 - Mehmet Bektas, Netflix (general development, extensions).
 - Alex Bozarth, IBM (general development, extensions).
@@ -276,10 +272,7 @@ JupyterLab's current maintainers are listed in alphabetical order, with affiliat
 - Fernando Perez, UC Berkeley (co-creator, vision).
 - Steven Silvester, MongoDB (co-creator, release management, packaging,
   prolific contributions throughout the code base).
-- Jeremy Tuloup, QuantStack (general development, extensions).
-
-Maintainer emeritus:
-
+- Jeremy Tuloup, QuantStack (general development, extensions)
 - Chris Colbert, Project Jupyter (co-creator, application/low-level architecture,
   technical leadership, vision, PhosphorJS)
 - Jessica Forde, Project Jupyter (demo, documentation)
@@ -290,14 +283,13 @@ Maintainer emeritus:
 - Andrew Schlaepfer, Bloomberg (general development, extensions).
 - Saul Shanabrook, Quansight (general development, extensions)
 
-This list is provided to give the reader context on who we are and how our team functions.
-To be listed, please submit a pull request with your information.
+</details>
 
 ---
 
 ### Weekly Dev Meeting
 
-We have videoconference meetings every week where we discuss what we have been working on and get feedback from one another.
+We have video conference meetings every week where we discuss what we have been working on and get feedback from one another.
 
 Anyone is welcome to attend, if they would like to discuss a topic or just listen in.
 

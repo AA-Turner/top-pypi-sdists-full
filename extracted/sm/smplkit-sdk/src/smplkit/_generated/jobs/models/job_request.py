@@ -26,8 +26,8 @@ class JobRequest:
             night at 02:00 UTC.', 'environments': {'production': {'enabled': True}, 'staging': {'configuration': {'body':
             '{"scope":"all"}', 'headers': [{'name': 'Authorization', 'value': 'Bearer staging'}], 'method': 'POST',
             'success_status': '2xx', 'timeout': 30, 'tls_verify': True, 'url': 'https://staging.example.com/cache/warm'},
-            'enabled': True}}, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type': 'http'}, 'id': 'nightly-cache-
-            warm', 'type': 'job'}.
+            'enabled': True, 'schedule': '0 3 * * *'}}, 'name': 'Nightly cache warm', 'schedule': '0 2 * * *', 'type':
+            'http'}, 'id': 'nightly-cache-warm', 'type': 'job'}.
     """
 
     data: JobResource

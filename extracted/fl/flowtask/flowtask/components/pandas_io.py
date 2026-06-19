@@ -102,6 +102,7 @@ def _read_csv(
     add_columns: dict | None = None,
     limit: int | None = None,
     engine: str = "c",
+    skiprows: int | list | None = None,
     **extra: Any,
 ) -> pandas.DataFrame:
     """Read a CSV file/BytesIO into a DataFrame.
@@ -127,6 +128,8 @@ def _read_csv(
         if new_enc and new_enc != resolved_encoding:
             resolved_encoding = new_enc
 
+    if skiprows is not None:
+        extra["skiprows"] = skiprows
     try:
         return pandas.read_csv(
             buf,
@@ -142,6 +145,7 @@ def _read_csv(
             **add_columns,
             **parse_dates_arg,
             **args,
+            **extra,
         )
     except UnicodeDecodeError:
         # Encoding fallback chain (mirrors OpenWithPandas behaviour).
@@ -166,6 +170,7 @@ def _read_csv(
                     **add_columns,
                     **parse_dates_arg,
                     **args,
+                    **extra,
                 )
             except Exception:
                 continue
@@ -189,6 +194,7 @@ def _read_excel(
     filter_nan: bool = True,
     limit: int | None = None,
     add_columns: dict | None = None,
+    skiprows: int | list | None = None,
     **extra: Any,
 ) -> pandas.DataFrame:
     """Read an Excel file (xlsx / xls / xlsb) into a DataFrame.
@@ -197,9 +203,13 @@ def _read_excel(
     """
     add_columns = add_columns or {}
     parse_dates_arg = parse_dates or {}
-    arguments: dict[str, Any] = {**add_columns, **parse_dates_arg}
+    arguments: dict[str, Any] = {**extra, **add_columns, **parse_dates_arg}
     if dtypes is not None:
         arguments["dtype"] = dtypes
+    # Only forward skiprows when explicitly set (preserves prior behaviour of
+    # not passing skiprows=0 to pandas.read_excel for plain Excel reads).
+    if skiprows is not None and skiprows != 0:
+        arguments["skiprows"] = skiprows
     if limit is not None and isinstance(limit, int):
         arguments["nrows"] = limit
     if sheet_name is not None:
@@ -272,7 +282,7 @@ def _read_parquet(
 ) -> pandas.DataFrame:
     """Read a Parquet file/BytesIO into a DataFrame."""
     try:
-        return pandas.read_parquet(buf)
+        return pandas.read_parquet(buf, **extra)
     except Exception as err:
         raise ComponentError(f"Error reading Parquet: {err}") from err
 
@@ -424,6 +434,7 @@ def read_to_dataframe(
             filter_nan=filter_nan,
             add_columns=add_columns,
             limit=limit,
+            skiprows=skiprows if skiprows else None,
             **extra,
         )
     elif fmt in {"xlsx", "xls", "xlsb"}:
@@ -438,6 +449,7 @@ def read_to_dataframe(
             filter_nan=filter_nan,
             limit=limit,
             add_columns=add_columns,
+            skiprows=skiprows,
             **extra,
         )
     elif fmt == "xml":

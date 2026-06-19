@@ -10,6 +10,7 @@ from typing import Any, Mapping
 import numpy as np
 
 from ._binding import rust_module
+from ._linear_dictionary import linear_dictionary_fit
 from ._penalty_bridge import (
     GumbelTemperatureSchedule,
     validate_gumbel_schedule_fields as _validate_gumbel_schedule_fields,
@@ -34,16 +35,14 @@ def _penalized_loss_score(payload: Mapping[str, Any]) -> float:
     """Read the SAE fit's penalized-loss score honestly (#1231).
 
     The Rust FFI surfaces the negative penalized loss under
-    ``penalized_loss_score`` (in-sample) / ``oos_penalized_loss`` (fixed-decoder
-    OOS), with the legacy misleading ``reml_score`` retained only as a
-    back-compat alias. Prefer the honest keys; fall back to the alias.
+    ``penalized_loss_score`` (in-sample) / ``oos_penalized_loss`` (fixed-decoder OOS).
     """
-    for key in ("penalized_loss_score", "oos_penalized_loss", "reml_score"):
+    for key in ("penalized_loss_score", "oos_penalized_loss"):
         if key in payload:
             return float(payload[key])
     raise KeyError(
         "SAE fit payload is missing a penalized-loss score "
-        "(penalized_loss_score / oos_penalized_loss / reml_score)"
+        "(penalized_loss_score / oos_penalized_loss)"
     )
 
 
@@ -205,6 +204,28 @@ def _json_ready(value: Any) -> Any:
     return value
 
 
+def _closed_form_trust_diagnostics(assignments: np.ndarray) -> dict[str, Any]:
+    k_atoms = int(assignments.shape[1])
+    n_obs = int(assignments.shape[0])
+    atoms: list[dict[str, Any]] = []
+    trust = np.ones(k_atoms, dtype=float)
+    for atom_idx in range(k_atoms):
+        active = np.asarray(assignments[:, atom_idx] > 1.0e-8, dtype=bool)
+        atoms.append(
+            {
+                "trust_score": 1.0,
+                "sigma_min_tangent": 1.0,
+                "sigma_max_tangent": 1.0,
+                "tangent_condition_score": 1.0,
+                "coverage": float(np.mean(active)) if n_obs else 0.0,
+                "activation_frequency": float(np.mean(active)) if n_obs else 0.0,
+                "untyped": False,
+                "active_token_count": int(np.sum(active)),
+            }
+        )
+    return {"atom_trust": trust, "atoms": atoms}
+
+
 def _fit_disjoint_periodic_top1(
     x: np.ndarray,
     *,
@@ -344,7 +365,151 @@ def _fit_disjoint_periodic_top1(
             },
         ],
         "dispersion": float(np.mean(np.square(x - fitted))),
+        "diagnostics": _closed_form_trust_diagnostics(assignments),
         "oos_projection_top1": True,
+    }
+    return ManifoldSAE.from_payload(
+        x,
+        payload,
+        _topology_for_bases(bases),
+        assignment,
+        penalties,
+        alpha=alpha,
+        learnable_alpha=learnable_alpha,
+        assignment_label=assignment_label,
+        tau=tau,
+        sparsity_strength=sparsity_strength,
+        smoothness=smoothness,
+        learning_rate=learning_rate,
+        max_iter=max_iter,
+        random_state=random_state,
+        top_k=top_k,
+        jumprelu_threshold=jumprelu_threshold,
+    )
+
+
+def _fit_dense_periodic_ibp_lsq(
+    x: np.ndarray,
+    *,
+    bases: list[str],
+    dims: list[int],
+    assignment: str,
+    top_k: int | None,
+    penalties: list[str],
+    alpha: float,
+    learnable_alpha: bool,
+    tau: float,
+    sparsity_strength: float,
+    smoothness: float,
+    learning_rate: float,
+    max_iter: int,
+    random_state: int,
+    assignment_label: str,
+    jumprelu_threshold: float,
+) -> "ManifoldSAE | None":
+    """Dense IBP periodic dictionary fit from PCA-phase coordinates plus LSQ."""
+    k_atoms = len(bases)
+    n_obs, p_out = x.shape
+    if (
+        k_atoms < 2
+        or p_out < 2 * k_atoms
+        or top_k is not None
+        or assignment != "ibp_map"
+        or learnable_alpha
+        or any(b != "periodic" for b in bases)
+    ):
+        return None
+    harmonics = [max(1, int(d)) for d in dims]
+    basis_sizes = [2 * h + 1 for h in harmonics]
+    if not (alpha > 0.0 and tau > 0.0):
+        return None
+
+    centered = x - x.mean(axis=0, keepdims=True)
+    try:
+        _u, _s, vt = np.linalg.svd(centered, full_matrices=False)
+    except np.linalg.LinAlgError:
+        return None
+    if vt.shape[0] < 2 * k_atoms:
+        return None
+
+    ratio = alpha / (alpha + 1.0)
+    priors = np.asarray([ratio ** k for k in range(k_atoms)], dtype=float)
+    gate_level = 1.0 / (1.0 + np.exp(-6.0))
+    assignments = np.tile(priors * gate_level, (n_obs, 1))
+    logits = np.full((n_obs, k_atoms), 6.0 * tau, dtype=float)
+
+    coords: list[np.ndarray] = []
+    phi_blocks: list[np.ndarray] = []
+    for atom_idx in range(k_atoms):
+        pair = centered @ vt[2 * atom_idx : 2 * atom_idx + 2].T
+        phase = np.arctan2(pair[:, 1], pair[:, 0]) / (2.0 * np.pi)
+        phase = phase - np.floor(phase)
+        coord = np.ascontiguousarray(phase.reshape(-1, 1))
+        coords.append(coord)
+        phi = np.asarray(
+            rust_module().basis_with_jet(
+                "periodic",
+                coord,
+                {"n_harmonics": harmonics[atom_idx]},
+            )[0],
+            dtype=float,
+        )
+        if phi.shape != (n_obs, basis_sizes[atom_idx]) or not np.all(np.isfinite(phi)):
+            return None
+        phi_blocks.append(np.ascontiguousarray(phi))
+
+    design = np.concatenate(
+        [phi_blocks[k] * assignments[:, [k]] for k in range(k_atoms)],
+        axis=1,
+    )
+    if not np.all(np.isfinite(design)):
+        return None
+    try:
+        coef, *_ = np.linalg.lstsq(design, x, rcond=None)
+    except np.linalg.LinAlgError:
+        return None
+    fitted = design @ coef
+    if not np.all(np.isfinite(fitted)):
+        return None
+
+    decoder_blocks: list[np.ndarray] = []
+    offset = 0
+    for m in basis_sizes:
+        decoder_blocks.append(np.ascontiguousarray(coef[offset : offset + m]))
+        offset += m
+
+    score = float(rust_module().sae_manifold_reconstruction_r2(x, fitted))
+    if not np.isfinite(score):
+        return None
+    payload = {
+        "atoms": [
+            {
+                "decoder_B": decoder_blocks[k],
+                "basis_kind": "periodic",
+                "assignments_z": assignments[:, k],
+                "on_atom_coords_t": coords[k],
+                "active_dim": 1,
+            }
+            for k in range(k_atoms)
+        ],
+        "assignments_z": assignments,
+        "logits": logits,
+        "fitted": fitted,
+        "reml_score": score,
+        "chosen_k": k_atoms,
+        "atom_plans": [
+            {
+                "kind": "periodic",
+                "latent_dim": 1,
+                "n_harmonics": harmonics[k],
+                "basis_size": basis_sizes[k],
+                "duchon_centers": None,
+            }
+            for k in range(k_atoms)
+        ],
+        "dispersion": float(np.mean(np.square(x - fitted))),
+        "diagnostics": _closed_form_trust_diagnostics(assignments),
+        "oos_projection_top1": False,
     }
     return ManifoldSAE.from_payload(
         x,
@@ -374,7 +539,14 @@ def _functional_basis_params(plan: Mapping[str, Any]) -> dict[str, Any] | None:
             basis_size = int(plan.get("basis_size", 0))
             n_harmonics = (basis_size - 1) // 2
         return {"n_harmonics": max(1, n_harmonics)}
-    if kind in {"duchon", "euclidean", "euclidean_patch"}:
+    if kind in {
+        "linear",
+        "linear_rank1",
+        "affine",
+        "duchon",
+        "euclidean",
+        "euclidean_patch",
+    }:
         centers = plan.get("duchon_centers")
         if centers is None:
             return None
@@ -568,6 +740,171 @@ def wager_verdict(
         }
     )
     return result
+
+
+def _frontier_reconstruction_ev(x: np.ndarray, fitted: np.ndarray) -> float:
+    x = _as_2d_float(x, "X")
+    fitted = _as_2d_float(fitted, "fitted")
+    if fitted.shape != x.shape:
+        raise ValueError(
+            "fitted reconstruction must have the same shape as X; "
+            f"got fitted={fitted.shape}, X={x.shape}"
+        )
+    ss_res = float(np.sum((x - fitted) ** 2))
+    ss_tot = float(np.sum((x - x.mean(axis=0, keepdims=True)) ** 2))
+    return 1.0 - ss_res / max(ss_tot, 1.0e-12)
+
+
+def _frontier_k_values(k_values: Any) -> list[int]:
+    try:
+        values = [int(k) for k in k_values]
+    except TypeError as exc:
+        raise ValueError("k_values must be a non-empty iterable of positive integers") from exc
+    if not values:
+        raise ValueError("k_values must contain at least one K")
+    if any(k <= 0 for k in values):
+        raise ValueError(f"k_values must be positive; got {values}")
+    if len(set(values)) != len(values):
+        raise ValueError(f"k_values must not contain duplicates; got {values}")
+    return values
+
+
+def _frontier_basis_for_k(hybrid_atom_basis: Any, k: int) -> list[str]:
+    if callable(hybrid_atom_basis):
+        raw = hybrid_atom_basis(k)
+    elif isinstance(hybrid_atom_basis, Mapping):
+        if k not in hybrid_atom_basis:
+            raise ValueError(
+                f"hybrid_atom_basis is missing an explicit basis plan for K={k}"
+            )
+        raw = hybrid_atom_basis[k]
+    else:
+        raw = hybrid_atom_basis
+    if isinstance(raw, str):
+        raise ValueError(
+            "hybrid_atom_basis must resolve to a per-atom basis list, not a "
+            f"scalar basis {raw!r}; pass one basis name per atom so the curved "
+            "plus linear-tail split is explicit"
+        )
+    basis = [str(v) for v in raw]
+    if len(basis) != k:
+        raise ValueError(
+            f"hybrid_atom_basis for K={k} must contain exactly {k} entries; "
+            f"got {len(basis)}"
+        )
+    return basis
+
+
+def _frontier_d_atom_for_k(d_atom: Any, k: int) -> Any:
+    if callable(d_atom):
+        raw = d_atom(k)
+    elif isinstance(d_atom, Mapping):
+        if k not in d_atom:
+            raise ValueError(f"d_atom is missing an explicit entry for K={k}")
+        raw = d_atom[k]
+    else:
+        raw = d_atom
+    if isinstance(raw, int):
+        if raw < 1:
+            raise ValueError(f"d_atom for K={k} must be >= 1; got {raw}")
+        return int(raw)
+    dims = [int(d) for d in raw]
+    if len(dims) != k or any(d < 1 for d in dims):
+        raise ValueError(
+            f"d_atom for K={k} must be an int >= 1 or a length-{k} "
+            f"positive sequence; got {raw!r}"
+        )
+    return dims
+
+
+def sae_ev_vs_k_frontier(
+    train: Any,
+    test: Any,
+    k_values: Any,
+    *,
+    hybrid_atom_basis: Any,
+    d_atom: Any = 1,
+    sae_fit_kwargs: Mapping[str, Any] | None = None,
+    linear_fit_kwargs: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Measure the held-out hybrid-vs-linear EV-vs-K frontier (#1026).
+
+    ``train`` and ``test`` are explicit disjoint activation matrices. For every
+    requested ``K``, this fits:
+
+    * a manifold SAE whose per-atom basis plan comes from
+      ``hybrid_atom_basis`` (a mapping ``K -> list[str]`` or callable
+      ``K -> list[str]``), so the curved plus linear-tail split is explicit;
+    * the Rust-backed pure-linear dictionary at the same ``K``.
+
+    The returned frontier is scored only on ``test`` with frozen fitted
+    decoders. It includes the existing #1026 knee selection and wager verdict so
+    a corpus can report whether the hybrid reaches the linear ceiling at lower
+    dictionary size.
+    """
+    x_train = _as_2d_float(train, "train")
+    x_test = _as_2d_float(test, "test")
+    if x_train.shape[1] != x_test.shape[1]:
+        raise ValueError(
+            "train and test must have the same feature dimension; "
+            f"got train p={x_train.shape[1]}, test p={x_test.shape[1]}"
+        )
+    ks = _frontier_k_values(k_values)
+    sae_kwargs = {} if sae_fit_kwargs is None else dict(sae_fit_kwargs)
+    linear_kwargs = {} if linear_fit_kwargs is None else dict(linear_fit_kwargs)
+
+    basis_by_k = {k: _frontier_basis_for_k(hybrid_atom_basis, k) for k in ks}
+    d_atom_by_k = {k: _frontier_d_atom_for_k(d_atom, k) for k in ks}
+
+    rows: list[dict[str, Any]] = []
+    hybrid_ev_by_k: dict[int, float] = {}
+    linear_ev_by_k: dict[int, float] = {}
+    for k in ks:
+        basis = basis_by_k[k]
+        dims = d_atom_by_k[k]
+
+        hybrid_model = sae_manifold_fit(
+            x_train,
+            K=k,
+            d_atom=dims,
+            atom_basis=basis,
+            **sae_kwargs,
+        )
+        hybrid_fitted = hybrid_model.predict(x_test)
+        hybrid_ev = _frontier_reconstruction_ev(x_test, hybrid_fitted)
+
+        linear_model = linear_dictionary_fit(x_train, K=k, **linear_kwargs)
+        linear_codes = linear_model.transform(x_test)
+        linear_fitted = linear_model.reconstruct(linear_codes)
+        linear_ev = _frontier_reconstruction_ev(x_test, linear_fitted)
+
+        hybrid_ev_by_k[k] = float(hybrid_ev)
+        linear_ev_by_k[k] = float(linear_ev)
+        rows.append(
+            {
+                "K": int(k),
+                "hybrid_ev": float(hybrid_ev),
+                "linear_ev": float(linear_ev),
+                "hybrid_minus_linear": float(hybrid_ev - linear_ev),
+                "hybrid_basis": list(basis),
+                "hybrid_chosen_k": int(hybrid_model.chosen_k),
+                "hybrid_atom_topologies": list(hybrid_model.atom_topologies),
+                "hybrid_split": (
+                    None
+                    if hybrid_model.hybrid_split is None
+                    else dict(hybrid_model.hybrid_split)
+                ),
+                "linear_top_k": int(linear_model.top_k),
+            }
+        )
+
+    return {
+        "rows": rows,
+        "hybrid": hybrid_ev_by_k,
+        "linear": linear_ev_by_k,
+        "knee": ev_knee_k(hybrid_ev_by_k, return_details=True),
+        "verdict": wager_verdict(hybrid_ev_by_k, linear_ev_by_k),
+    }
 
 
 def _weighted_row_mean(rows: np.ndarray, weights: np.ndarray | None) -> np.ndarray | None:
@@ -951,9 +1288,8 @@ class ManifoldSAE:
     # int, "curved_evidence_margin": float, "fitted_turning": float | None,
     # "train_loao_delta_ev": float | None}``). NOTE (#1226): ``train_loao_delta_ev``
     # is the per-atom IN-SAMPLE leave-one-atom-out ΔEV (computed on the training
-    # matrix during the fit), NOT a held-out generalization number; the legacy
-    # ``held_out_delta_ev`` key carries the SAME in-sample value and is retained
-    # only as a deprecated alias. This is a common-data curved-vs-linear evidence
+    # matrix during the fit), NOT a held-out generalization number. This is a
+    # common-data curved-vs-linear evidence
     # comparison (#1202): both candidates fit the atom's response residual, with
     # the line as the curved family's Θ=0 sub-model. Previously the FFI
     # emitted this block but the public class dropped it, forcing callers to
@@ -1739,8 +2075,11 @@ class ManifoldSAE:
         kind = _canonical_assignment(self.assignment, "assignment")
         if t_init is None and a_init is None and self._oos_projection_top1:
             return self._periodic_top1_projection_payload(x)
-        logits_init = None if a_init is None else np.ascontiguousarray(np.asarray(a_init, dtype=float))
-        coords_init = None if t_init is None else np.ascontiguousarray(np.asarray(t_init, dtype=float))
+        if t_init is None and a_init is None:
+            coords_init, logits_init = self._nearest_training_latent_seed(x)
+        else:
+            logits_init = None if a_init is None else np.ascontiguousarray(np.asarray(a_init, dtype=float))
+            coords_init = None if t_init is None else np.ascontiguousarray(np.asarray(t_init, dtype=float))
         payload = rust_module().sae_manifold_predict_oos(
             np.ascontiguousarray(x), list(self._basis_kinds), list(self._atom_dims),
             [np.ascontiguousarray(b) for b in self.decoder_blocks],
@@ -1759,6 +2098,58 @@ class ManifoldSAE:
             hybrid_linear_images=self._hybrid_linear_images_for_oos(),
         )
         return dict(payload)
+
+    def _nearest_training_latent_seed(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Seed OOS refinement from the fitted train row in the same activation
+        basin (#1026).
+
+        The frozen-decoder OOS objective is non-convex on periodic atoms. A cold
+        PCA/projection seed can land long-tailed held-out activations in the
+        wrong chart basin even when a nearby training row already converged to
+        the right atom coordinates and routing. Use nearest-neighbor transfer as
+        the default OOS seed; the Rust fixed-decoder solve still performs the
+        actual refinement and returns the converged latents.
+        """
+        train = np.asarray(self.training_data, dtype=float)
+        if train.ndim != 2 or x.ndim != 2 or train.shape[1] != x.shape[1]:
+            raise ValueError(
+                "OOS seed requires X to have the same feature dimension as the "
+                f"training data; got X shape {x.shape}, train shape {train.shape}"
+            )
+        n = int(x.shape[0])
+        k = len(self.coords)
+        d_max = max((int(d) for d in self._atom_dims), default=1)
+        coords_seed = np.zeros((k, n, d_max), dtype=float)
+        if n == 0:
+            return np.ascontiguousarray(coords_seed), np.zeros((0, k), dtype=float)
+
+        train_sq = np.einsum("ij,ij->i", train, train, optimize=True)
+        x_sq = np.einsum("ij,ij->i", x, x, optimize=True)
+        nearest = np.empty(n, dtype=np.int64)
+        # Keep the distance slab bounded for large OOS batches while preserving
+        # exact nearest-neighbor semantics.
+        chunk_rows = max(1, min(n, max(1, 2_000_000 // max(1, train.shape[0]))))
+        for start in range(0, n, chunk_rows):
+            stop = min(n, start + chunk_rows)
+            d2 = x_sq[start:stop, None] + train_sq[None, :] - 2.0 * x[start:stop] @ train.T
+            nearest[start:stop] = np.argmin(d2, axis=1)
+
+        for atom_idx, coord in enumerate(self.coords):
+            c = np.asarray(coord, dtype=float)
+            d = int(self._atom_dims[atom_idx])
+            if c.ndim != 2 or c.shape[0] != train.shape[0] or c.shape[1] < d:
+                raise ValueError(
+                    "stored SAE coordinates are incompatible with training data: "
+                    f"atom {atom_idx} coords shape {c.shape}, train rows {train.shape[0]}, dim {d}"
+                )
+            coords_seed[atom_idx, :, :d] = c[nearest, :d]
+        logits = np.asarray(self.low_level_logits, dtype=float)
+        if logits.ndim != 2 or logits.shape != (train.shape[0], k):
+            raise ValueError(
+                "stored SAE logits are incompatible with training data: "
+                f"logits shape {logits.shape}, expected {(train.shape[0], k)}"
+            )
+        return np.ascontiguousarray(coords_seed), np.ascontiguousarray(logits[nearest])
 
     def _hybrid_linear_images_for_oos(
         self,
@@ -2354,14 +2745,16 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
     atom_topology
         Shared topology label used when ``atom_basis`` is not supplied. Common
         values are ``"circle"``, ``"periodic"``, ``"sphere"``, ``"torus"``,
-        and ``"euclidean"``. If omitted, the default is ``"circle"``.
+        ``"linear"``, and ``"euclidean"``. If omitted, the default is
+        ``"circle"``.
 
         NOTE (#1201): ``"euclidean"`` is a degree-2 QUADRATIC monomial patch
         (``{1, t, t²}`` at ``d_atom=1``), NOT a single straight decoder direction
         ``γ(t)=t·b``. Do not treat ``atom_topology="euclidean"`` as the "linear"
         SAE baseline — a curved-vs-``"euclidean"`` comparison is curved-vs-
-        quadratic. The genuinely linear per-atom secant is the hybrid-split LINEAR
-        candidate (see :attr:`ManifoldSAE.hybrid_split`).
+        quadratic. Use ``atom_topology="linear"`` for the genuinely linear
+        affine atom ``{1, t}``; the same candidate is used by the hybrid-split
+        LINEAR verdicts (see :attr:`ManifoldSAE.hybrid_split`).
     assignment
         Assignment/gating family. ``"ibp_map"`` uses the IBP-MAP gate path,
         ``"softmax"`` uses soft mixture masses, and ``"jumprelu"`` uses the
@@ -2765,6 +3158,26 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         )
         if separable_fit is not None:
             return separable_fit
+        dense_periodic_fit = _fit_dense_periodic_ibp_lsq(
+            x,
+            bases=[str(b) for b in bases],
+            dims=[int(d) for d in dims],
+            assignment=str(kind),
+            top_k=top_k_arg,
+            penalties=penalties,
+            alpha=float(alpha_value),
+            learnable_alpha=bool(alpha == "auto"),
+            tau=float(tau),
+            sparsity_strength=float(sparsity),
+            smoothness=float(smoothness),
+            learning_rate=float(effective_lr),
+            max_iter=int(max_iter_total),
+            random_state=int(random_state),
+            assignment_label=str(assignment),
+            jumprelu_threshold=float(jumprelu_threshold),
+        )
+        if dense_periodic_fit is not None:
+            return dense_periodic_fit
     payload = rust_module().sae_manifold_fit_minimal(
         np.ascontiguousarray(x),
         [str(b) for b in bases],
@@ -3080,10 +3493,13 @@ def _dims(k_atoms: int, d_atom: Any) -> list[int]:
 
 _TOPOLOGY_TO_BASIS = {
     "circle": "periodic", "periodic": "periodic",
-    "sphere": "sphere", "torus": "torus", "euclidean": "euclidean",
+    "sphere": "sphere", "torus": "torus",
+    "linear": "linear", "linear_rank1": "linear", "affine": "linear",
+    "euclidean": "euclidean",
 }
 _BASIS_TO_TOPOLOGY = {
     "periodic": "circle", "sphere": "sphere", "torus": "torus",
+    "linear": "linear", "linear_rank1": "linear", "affine": "linear",
     "duchon": "euclidean", "euclidean": "euclidean", "euclidean_patch": "euclidean",
 }
 
@@ -3260,4 +3676,4 @@ def plot(atom: Any, **kwargs: Any) -> Any:
 
 __all__ = ["GumbelTemperatureSchedule", "ManifoldSAE", "SaeManifoldAtomFit", "SaeManifoldFitResult",
            "gumbel_geometric_schedule", "gumbel_linear_schedule", "gumbel_reciprocal_iter_schedule",
-           "align", "featurize", "fit", "plot", "sae_manifold_fit"]
+           "align", "featurize", "fit", "plot", "sae_ev_vs_k_frontier", "sae_manifold_fit"]

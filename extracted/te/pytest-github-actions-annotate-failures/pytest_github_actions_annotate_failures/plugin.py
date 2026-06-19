@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import contextlib
 import os
 import sys
 from typing import TYPE_CHECKING
 
 import pytest
 from _pytest._code.code import ExceptionRepr, ReprEntry
-from packaging import version
 
 if TYPE_CHECKING:
     from warnings import WarningMessage
@@ -24,55 +22,54 @@ if TYPE_CHECKING:
 # https://github.com/pytest-dev/pytest/blob/master/src/_pytest/terminal.py
 
 
-PYTEST_VERSION = version.parse(pytest.__version__)
+class _AnnotateErrors:
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_runtest_logreport(self, report: TestReport):
+        """Handle test reporting for all pytest versions."""
 
+        # enable only in a workflow of GitHub Actions
+        # ref: https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables
+        if os.environ.get("GITHUB_ACTIONS") != "true":
+            return
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_runtest_logreport(report: TestReport):
-    """Handle test reporting for all pytest versions."""
+        # Only handle failed tests in call phase.
+        # Also handle 'rerun' outcome set by pytest-rerunfailures on intermediate failures.
+        if report.when == "call" and (report.failed or report.outcome == "rerun"):
+            filesystempath, lineno, _ = report.location
 
-    # enable only in a workflow of GitHub Actions
-    # ref: https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables
-    if os.environ.get("GITHUB_ACTIONS") != "true":
-        return
+            if lineno is not None:
+                # 0-index to 1-index
+                lineno += 1
 
-    # Only handle failed tests in call phase
-    if report.when == "call" and report.failed:
-        filesystempath, lineno, _ = report.location
+            longrepr = report.head_line or "test"
 
-        if lineno is not None:
-            # 0-index to 1-index
-            lineno += 1
+            # get the error message and line number from the actual error
+            if isinstance(report.longrepr, ExceptionRepr):
+                if report.longrepr.reprcrash is not None:
+                    longrepr += "\n\n" + report.longrepr.reprcrash.message
+                tb_entries = report.longrepr.reprtraceback.reprentries
+                if tb_entries:
+                    entry = tb_entries[0]
+                    # Handle third-party exceptions
+                    if isinstance(entry, ReprEntry) and entry.reprfileloc is not None:
+                        lineno = entry.reprfileloc.lineno
+                        filesystempath = entry.reprfileloc.path
 
-        longrepr = report.head_line or "test"
+                elif report.longrepr.reprcrash is not None:
+                    lineno = report.longrepr.reprcrash.lineno
+            elif isinstance(report.longrepr, tuple):
+                filesystempath, lineno, message = report.longrepr
+                longrepr += "\n\n" + message
+            elif isinstance(report.longrepr, str):
+                longrepr += "\n\n" + report.longrepr
 
-        # get the error message and line number from the actual error
-        if isinstance(report.longrepr, ExceptionRepr):
-            if report.longrepr.reprcrash is not None:
-                longrepr += "\n\n" + report.longrepr.reprcrash.message
-            tb_entries = report.longrepr.reprtraceback.reprentries
-            if tb_entries:
-                entry = tb_entries[0]
-                # Handle third-party exceptions
-                if isinstance(entry, ReprEntry) and entry.reprfileloc is not None:
-                    lineno = entry.reprfileloc.lineno
-                    filesystempath = entry.reprfileloc.path
-
-            elif report.longrepr.reprcrash is not None:
-                lineno = report.longrepr.reprcrash.lineno
-        elif isinstance(report.longrepr, tuple):
-            filesystempath, lineno, message = report.longrepr
-            longrepr += "\n\n" + message
-        elif isinstance(report.longrepr, str):
-            longrepr += "\n\n" + report.longrepr
-
-        workflow_command = _build_workflow_command(
-            "error",
-            compute_path(filesystempath),
-            lineno,
-            message=longrepr,
-        )
-        print(workflow_command, file=sys.stderr)
+            workflow_command = _build_workflow_command(
+                "error",
+                compute_path(filesystempath),
+                lineno,
+                message=longrepr,
+            )
+            print(workflow_command, file=sys.stderr)
 
 
 def compute_path(filesystempath: str) -> str:
@@ -110,25 +107,9 @@ class _AnnotateWarnings:
         if os.environ.get("GITHUB_ACTIONS") != "true":
             return
 
-        filesystempath = warning_message.filename
-        workspace = os.environ.get("GITHUB_WORKSPACE")
-
-        if workspace:
-            try:
-                rel_path = os.path.relpath(filesystempath, workspace)
-            except ValueError:
-                # os.path.relpath() will raise ValueError on Windows
-                # when full_path and workspace have different mount points.
-                rel_path = filesystempath
-            if not rel_path.startswith(".."):
-                filesystempath = rel_path
-        else:
-            with contextlib.suppress(ValueError):
-                filesystempath = os.path.relpath(filesystempath)
-
         workflow_command = _build_workflow_command(
             "warning",
-            filesystempath,
+            compute_path(os.path.relpath(warning_message.filename)),
             warning_message.lineno,
             message=str(warning_message.message),
         )
@@ -141,13 +122,21 @@ def pytest_addoption(parser):
         "--exclude-warning-annotations",
         action="store_true",
         default=False,
-        help="Annotate failures in GitHub Actions.",
+        help="Exclude annotating warnings in GitHub Actions.",
     )
 
 
 def pytest_configure(config):
+    # Plugins should not be registered for workers.
+    # On xdist workers the controller re-emits reports,
+    # so register only there to avoid duplicates.
+    if config.pluginmanager.hasplugin("xdist") and hasattr(config, "workerinput"):
+        return
+
     if not config.option.exclude_warning_annotations:
         config.pluginmanager.register(_AnnotateWarnings(), "annotate_warnings")
+
+    config.pluginmanager.register(_AnnotateErrors(), "annotate_errors")
 
 
 def _build_workflow_command(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugin-scanner
-Version: 2.0.795
+Version: 2.0.821
 Summary: Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard
@@ -18,10 +18,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: <3.14,>=3.10
-Requires-Dist: cisco-ai-skill-scanner~=2.0.11
+Requires-Python: >=3.10
+Requires-Dist: cisco-ai-skill-scanner~=2.0.11; python_version < '3.14'
 Requires-Dist: cryptography>=49.0.0
 Requires-Dist: keyring>=25.0
 Requires-Dist: packaging>=24.0
@@ -150,6 +151,8 @@ See [docs/guard/get-started.md](docs/guard/get-started.md) for the full local fl
   Shows what Guard is watching now.
 - `hol-guard install <harness>`
   Creates the launcher shim for that harness.
+- `hol-guard uninstall --self`
+  Removes Guard-managed harness wiring, package shims, local Guard state, and uninstalls the current `hol-guard` package.
 - `hol-guard update`
   Updates the installed `hol-guard` package in the current environment.
 - `hol-guard run <harness> --dry-run`
@@ -344,7 +347,7 @@ Scanner package:
 pip install plugin-scanner
 ```
 
-The lean baseline keeps Python 3.10 support intact and includes the shipped `cisco-ai-skill-scanner` integration on Python 3.10 through 3.13.
+The lean baseline keeps Python 3.10+ support intact. It includes the shipped `cisco-ai-skill-scanner` integration on Python 3.10 through 3.13; on Python 3.14+ Guard installs without the LiteLLM-dependent Cisco scanner path and reports Cisco evidence as unavailable until patched LiteLLM releases support that runtime.
 
 ### Resolver-safe Cisco extra
 

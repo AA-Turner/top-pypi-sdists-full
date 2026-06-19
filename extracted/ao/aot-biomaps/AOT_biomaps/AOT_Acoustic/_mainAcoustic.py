@@ -19,6 +19,7 @@ import logging
 import warnings
 import sys
 import platform
+import uuid
 
 # Optional kwave imports - will be None if kwave is not installed
 KWAVE_AVAILABLE = False
@@ -432,6 +433,7 @@ class AcousticField(ABC):
         Base function to generate a 2D acoustic field using k-Wave.
         Handles common setup, simulation, and post-processing.
         """
+        unique_id = uuid.uuid4().hex
         source = kSource()
         source.p_mask = np.zeros(( self.medium.Nx_reshaped, self.medium.Nz_reshaped))
         # Appel à la méthode spécialisée
@@ -442,15 +444,14 @@ class AcousticField(ABC):
         sensor.mask = np.ones((self.medium.Nx_reshaped, self.medium.Nz_reshaped))
         # ---
         pml_size = 50 
-
         # ---
         simulation_options = SimulationOptions(
         pml_inside=False, # PML ajoutée autour de la grille Air+PVA
         pml_size=[1, pml_size],
         use_sg=False,
         save_to_disk=True,
-        input_filename=os.path.join(gettempdir(), f"{tempFieldName}IN.h5"),
-        output_filename=os.path.join(gettempdir(), f"{tempFieldName}OUT.h5"),
+        input_filename=os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_IN.h5"),
+        output_filename=os.path.join(gettempdir(), f"{tempFieldName}_{unique_id}_OUT.h5"),
         smooth_c0 = True,
         smooth_rho0 = True,
         smooth_p0 = True,
@@ -479,6 +480,12 @@ class AcousticField(ABC):
 
         # ---
         data = sensor_data['p'].reshape(self.medium.kgrid.Nt, self.medium.Nz_reshaped, self.medium.Nx_reshaped    )
+        try:
+            if os.path.exists(in_file): os.remove(in_file)
+            if os.path.exists(out_file): os.remove(out_file)
+        except Exception as e:
+            pass
+
         if self.medium.factorT != 1 or self.medium.factorX != 1 or self.medium.factorZ != 1:
             data = reshape_field(data, [self.medium.factorT, self.medium.factorX, self.medium.factorZ])
             xStart = (self.medium.Nx_reshaped//2)//self.medium.factorX - (self.params.general['Nx']//2)

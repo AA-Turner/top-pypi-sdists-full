@@ -9,12 +9,13 @@ import shutil
 import sys
 from typing import TYPE_CHECKING, NoReturn
 
-from tyro.conf._markers import CascadeSubcommandArgs
+from tyro.conf._markers import CascadeSubcommandArgs, ShowSourcePath
 from tyro.conf._mutex_group import _MutexGroupConfig
 
 from .. import _fmtlib as fmt
 from .. import _settings, conf
 from ..constructors._primitive_spec import UnsupportedTypeAnnotationError
+from ._argparse_help_formatting import _get_source_location
 
 
 @dataclasses.dataclass(frozen=True)
@@ -39,7 +40,7 @@ def format_help(
     verbose: bool = False,
 ) -> list[str]:
     usage_strings = []
-    group_description: dict[str, str] = {}
+    group_description: dict[str, str | fmt._Text] = {}
 
     # Compact mode is the inverse of verbose mode.
     compact_mode = not verbose
@@ -140,7 +141,22 @@ def format_help(
                 arg_group not in group_description
                 and arg_ctx.source_parser.extern_prefix != ""
             ):
-                group_description[arg_group] = arg_ctx.source_parser.description
+                description: str | fmt._Text = arg_ctx.source_parser.description
+                if ShowSourcePath in arg_ctx.source_parser.markers:
+                    source_location = _get_source_location(arg_ctx.source_parser.f)
+                    if source_location is not None:
+                        # Match the color of the "(default: ...)" hint.
+                        source_text = fmt.text[
+                            _settings.ACCENT_COLOR
+                            if _settings.ACCENT_COLOR != "white"
+                            else "cyan"
+                        ](source_location)
+                        description = (
+                            fmt.text(description, "\n", source_text)
+                            if description
+                            else source_text
+                        )
+                group_description[arg_group] = description
             # Default subcommand args use a separate group key so they get
             # their own box with a source label, even if a regular arg shares
             # the same extern_prefix.
@@ -313,11 +329,14 @@ def format_help(
             )
 
         for name, child_parser_spec in parser_from_name.items():
-            if len(name) <= (ljust_width - 4 - 2):  #  -4 for bullet, -2 for space.
+            display_name = subparser_spec.display_name(name)
+            if len(display_name) <= (
+                ljust_width - 4 - 2
+            ):  #  -4 for bullet, -2 for space.
                 subcommands_box_lines.append(
                     fmt.cols(
                         (fmt.text["dim"]("  • "), 4),
-                        (name, ljust_width - 4),
+                        (display_name, ljust_width - 4),
                         fmt.text["dim"](child_parser_spec.description.strip() or ""),
                     )
                 )
@@ -325,7 +344,7 @@ def format_help(
                 subcommands_box_lines.append(
                     fmt.cols(
                         (fmt.text["dim"]("  • "), 4),
-                        name.strip(),
+                        display_name.strip(),
                     )
                 )
                 desc = child_parser_spec.description.strip()
@@ -786,61 +805,6 @@ def unrecognized_args_error(
         message_fmt,
         *extra_info,
         prog=prog,
-        console_outputs=console_outputs,
-        add_help=add_help,
-    )
-
-
-def required_args_error(
-    prog: str,
-    required_args: list[ArgWithContext],
-    unrecognized_args_and_progs: list[tuple[str, str]],
-    console_outputs: bool,
-    add_help: bool,
-) -> NoReturn:
-    # Organized by prog.
-    args_from_prog: dict[str, list[ArgumentDefinition]] = {}
-    for arg_ctx in required_args:
-        arg_prog = (
-            prog
-            if arg_ctx.source_parser.prog_suffix == ""
-            else f"{prog} {arg_ctx.source_parser.prog_suffix}"
-        )
-        args_from_prog.setdefault(arg_prog, []).append(arg_ctx.arg)
-
-    content: list[fmt.Element | str] = []
-
-    for argprog, arglist in args_from_prog.items():
-        content.append(fmt.text("Missing from ", fmt.text["green"](argprog), ":"))
-
-        # Try to print help text for required arguments.
-        for arg in arglist:
-            content.append(
-                fmt.cols(
-                    ("", 4),
-                    fmt.text["bold"](arg.get_invocation_text()[1]),
-                )
-            )
-            from .._arguments import generate_argument_helptext
-
-            helptext = generate_argument_helptext(arg, arg.lowered)
-            if len(helptext) > 0:
-                content.append(fmt.cols(("", 8), helptext))
-
-    if len(unrecognized_args_and_progs) > 0:
-        content.append(fmt.hr["red"]())
-        content.append("Unrecognized options:")
-        content.append(
-            fmt.cols(
-                ("", 4),
-                fmt.rows(*[x[0] for x in unrecognized_args_and_progs]),
-            )
-        )
-
-    error_and_exit(
-        "Required options",
-        *content,
-        prog=list(args_from_prog.keys()),
         console_outputs=console_outputs,
         add_help=add_help,
     )

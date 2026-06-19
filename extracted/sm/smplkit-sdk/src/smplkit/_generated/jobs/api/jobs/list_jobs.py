@@ -14,7 +14,6 @@ from ...types import Unset
 
 def _get_kwargs(
     *,
-    filterenabled: bool | None | Unset = UNSET,
     filterrecurring: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
@@ -24,13 +23,6 @@ def _get_kwargs(
 ) -> dict[str, Any]:
 
     params: dict[str, Any] = {}
-
-    json_filterenabled: bool | None | Unset
-    if isinstance(filterenabled, Unset):
-        json_filterenabled = UNSET
-    else:
-        json_filterenabled = filterenabled
-    params["filter[enabled]"] = json_filterenabled
 
     json_filterrecurring: bool | None | Unset
     if isinstance(filterrecurring, Unset):
@@ -93,7 +85,6 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    filterenabled: bool | None | Unset = UNSET,
     filterrecurring: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
@@ -105,23 +96,20 @@ def sync_detailed(
 
      List this account's jobs.
 
-    Default sort is `name` ascending. Sort by `name`, `created_at`,
-    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
-    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
-    substring match on the name); filters compose with AND. A scoped caller
-    sees each job's `environments` map narrowed to the environments it may
-    access.
+    Default sort is `name` ascending. Sort by `name`, `created_at`, or
+    `updated_at`, ascending or descending (prefix `-` for descending). Filter
+    with `filter[recurring]` and `filter[name]` (case-insensitive substring
+    match on the name); filters compose with AND. Each job reports its
+    per-environment enablement and `next_run_at` inside its `environments` map;
+    a scoped caller sees that map narrowed to the environments it may access.
 
     Args:
-        filterenabled (bool | None | Unset):
         filterrecurring (bool | None | Unset):
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
-            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
-            'name'.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`,
+            `updated_at`, `-updated_at`. Default: 'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -142,7 +130,6 @@ def sync_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterenabled=filterenabled,
         filterrecurring=filterrecurring,
         filtername=filtername,
         sort=sort,
@@ -161,7 +148,6 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    filterenabled: bool | None | Unset = UNSET,
     filterrecurring: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
@@ -173,23 +159,20 @@ def sync(
 
      List this account's jobs.
 
-    Default sort is `name` ascending. Sort by `name`, `created_at`,
-    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
-    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
-    substring match on the name); filters compose with AND. A scoped caller
-    sees each job's `environments` map narrowed to the environments it may
-    access.
+    Default sort is `name` ascending. Sort by `name`, `created_at`, or
+    `updated_at`, ascending or descending (prefix `-` for descending). Filter
+    with `filter[recurring]` and `filter[name]` (case-insensitive substring
+    match on the name); filters compose with AND. Each job reports its
+    per-environment enablement and `next_run_at` inside its `environments` map;
+    a scoped caller sees that map narrowed to the environments it may access.
 
     Args:
-        filterenabled (bool | None | Unset):
         filterrecurring (bool | None | Unset):
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
-            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
-            'name'.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`,
+            `updated_at`, `-updated_at`. Default: 'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -211,7 +194,6 @@ def sync(
 
     return sync_detailed(
         client=client,
-        filterenabled=filterenabled,
         filterrecurring=filterrecurring,
         filtername=filtername,
         sort=sort,
@@ -224,7 +206,6 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    filterenabled: bool | None | Unset = UNSET,
     filterrecurring: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
@@ -236,23 +217,20 @@ async def asyncio_detailed(
 
      List this account's jobs.
 
-    Default sort is `name` ascending. Sort by `name`, `created_at`,
-    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
-    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
-    substring match on the name); filters compose with AND. A scoped caller
-    sees each job's `environments` map narrowed to the environments it may
-    access.
+    Default sort is `name` ascending. Sort by `name`, `created_at`, or
+    `updated_at`, ascending or descending (prefix `-` for descending). Filter
+    with `filter[recurring]` and `filter[name]` (case-insensitive substring
+    match on the name); filters compose with AND. Each job reports its
+    per-environment enablement and `next_run_at` inside its `environments` map;
+    a scoped caller sees that map narrowed to the environments it may access.
 
     Args:
-        filterenabled (bool | None | Unset):
         filterrecurring (bool | None | Unset):
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
-            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
-            'name'.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`,
+            `updated_at`, `-updated_at`. Default: 'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -273,7 +251,6 @@ async def asyncio_detailed(
     """
 
     kwargs = _get_kwargs(
-        filterenabled=filterenabled,
         filterrecurring=filterrecurring,
         filtername=filtername,
         sort=sort,
@@ -290,7 +267,6 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    filterenabled: bool | None | Unset = UNSET,
     filterrecurring: bool | None | Unset = UNSET,
     filtername: None | str | Unset = UNSET,
     sort: ListJobsSort | Unset = "name",
@@ -302,23 +278,20 @@ async def asyncio(
 
      List this account's jobs.
 
-    Default sort is `name` ascending. Sort by `name`, `created_at`,
-    `updated_at`, `next_run_at`, or `enabled`, ascending or descending (prefix
-    `-` for descending). Filter with `filter[enabled]` (enabled in at least one
-    environment), `filter[recurring]`, and `filter[name]` (case-insensitive
-    substring match on the name); filters compose with AND. A scoped caller
-    sees each job's `environments` map narrowed to the environments it may
-    access.
+    Default sort is `name` ascending. Sort by `name`, `created_at`, or
+    `updated_at`, ascending or descending (prefix `-` for descending). Filter
+    with `filter[recurring]` and `filter[name]` (case-insensitive substring
+    match on the name); filters compose with AND. Each job reports its
+    per-environment enablement and `next_run_at` inside its `environments` map;
+    a scoped caller sees that map narrowed to the environments it may access.
 
     Args:
-        filterenabled (bool | None | Unset):
         filterrecurring (bool | None | Unset):
         filtername (None | str | Unset): Case-insensitive substring match on the job `name`
             (matches when the name contains the given text).
         sort (ListJobsSort | Unset): Field to sort by. Prefix with `-` for descending order.
-            Default: `name`. Allowed values: `created_at`, `-created_at`, `enabled`, `-enabled`,
-            `name`, `-name`, `next_run_at`, `-next_run_at`, `updated_at`, `-updated_at`. Default:
-            'name'.
+            Default: `name`. Allowed values: `created_at`, `-created_at`, `name`, `-name`,
+            `updated_at`, `-updated_at`. Default: 'name'.
         pagenumber (int | Unset): 1-based page number to return. Optional; defaults to `1` when
             omitted. Must be `>= 1` — requests with a smaller value are rejected with a 400 error.
             Default: 1.
@@ -341,7 +314,6 @@ async def asyncio(
     return (
         await asyncio_detailed(
             client=client,
-            filterenabled=filterenabled,
             filterrecurring=filterrecurring,
             filtername=filtername,
             sort=sort,

@@ -142,6 +142,7 @@ ENV_LLM_REASONING_EFFORT = "HINDSIGHT_API_LLM_REASONING_EFFORT"
 ENV_LLM_GROQ_SERVICE_TIER = "HINDSIGHT_API_LLM_GROQ_SERVICE_TIER"
 ENV_LLM_OPENAI_SERVICE_TIER = "HINDSIGHT_API_LLM_OPENAI_SERVICE_TIER"
 ENV_LLM_BEDROCK_SERVICE_TIER = "HINDSIGHT_API_LLM_BEDROCK_SERVICE_TIER"
+ENV_LLM_GEMINI_SERVICE_TIER = "HINDSIGHT_API_LLM_GEMINI_SERVICE_TIER"
 ENV_LLM_EXTRA_BODY = "HINDSIGHT_API_LLM_EXTRA_BODY"
 ENV_LLM_DEFAULT_HEADERS = "HINDSIGHT_API_LLM_DEFAULT_HEADERS"
 ENV_LLM_STRICT_SCHEMA = "HINDSIGHT_API_LLM_STRICT_SCHEMA"
@@ -159,10 +160,24 @@ ENV_LLM_LITELLMROUTER_CONFIG = "HINDSIGHT_API_LLM_LITELLMROUTER_CONFIG"
 DEFAULT_LLM_GROQ_SERVICE_TIER = "auto"  # "on_demand", "flex", or "auto"
 DEFAULT_LLM_OPENAI_SERVICE_TIER = None  # None (default) or "flex" (50% cheaper)
 DEFAULT_LLM_BEDROCK_SERVICE_TIER = None  # None (default), "flex", "priority", or "reserved"
+DEFAULT_LLM_GEMINI_SERVICE_TIER = None  # None (default) or "flex" (50% cheaper best-effort tier)
 DEFAULT_LLM_EXTRA_BODY = None  # None = no extra body params; JSON dict merged into OpenAI extra_body
 DEFAULT_LLM_DEFAULT_HEADERS = (
     None  # None = no extra headers; JSON dict passed as default_headers to provider SDK clients
 )
+
+
+def parse_gemini_service_tier(value: str | None) -> str | None:
+    """Normalize and validate the Gemini service tier."""
+    tier = value or None
+    valid_tiers = (None, "flex")
+    if tier not in valid_tiers:
+        raise ValueError(
+            f"Invalid HINDSIGHT_API_LLM_GEMINI_SERVICE_TIER: "
+            f"{tier!r}. Must be one of: {', '.join(t for t in valid_tiers if t is not None)}."
+        )
+    return tier
+
 
 # Per-operation LLM configuration (optional, falls back to global LLM config)
 ENV_RETAIN_LLM_PROVIDER = "HINDSIGHT_API_RETAIN_LLM_PROVIDER"
@@ -354,8 +369,10 @@ ENV_ACCESS_LOG = "HINDSIGHT_API_ACCESS_LOG"
 ENV_MCP_ENABLED = "HINDSIGHT_API_MCP_ENABLED"
 ENV_MCP_ENABLED_TOOLS = "HINDSIGHT_API_MCP_ENABLED_TOOLS"
 ENV_MCP_STATELESS = "HINDSIGHT_API_MCP_STATELESS"
+ENV_MCP_INSTRUCTIONS = "HINDSIGHT_API_MCP_INSTRUCTIONS"
 ENV_ENABLE_BANK_CONFIG_API = "HINDSIGHT_API_ENABLE_BANK_CONFIG_API"
 ENV_ENABLE_BANK_LLM_HEALTH = "HINDSIGHT_API_ENABLE_BANK_LLM_HEALTH"
+ENV_ENABLE_DRY_RUN_EXTRACT = "HINDSIGHT_API_ENABLE_DRY_RUN_EXTRACT"
 ENV_DEFAULT_BANK_TEMPLATE = "HINDSIGHT_API_DEFAULT_BANK_TEMPLATE"
 ENV_GRAPH_RETRIEVER = "HINDSIGHT_API_GRAPH_RETRIEVER"
 ENV_RECALL_MAX_CONCURRENT = "HINDSIGHT_API_RECALL_MAX_CONCURRENT"
@@ -374,6 +391,7 @@ ENV_OTEL_EXPORTER_OTLP_HEADERS = "HINDSIGHT_API_OTEL_EXPORTER_OTLP_HEADERS"
 ENV_OTEL_SERVICE_NAME = "HINDSIGHT_API_OTEL_SERVICE_NAME"
 ENV_OTEL_DEPLOYMENT_ENVIRONMENT = "HINDSIGHT_API_OTEL_DEPLOYMENT_ENVIRONMENT"
 ENV_METRICS_INCLUDE_BANK_ID = "HINDSIGHT_API_METRICS_INCLUDE_BANK_ID"
+ENV_METRICS_BACKLOG_ENABLED = "HINDSIGHT_API_METRICS_BACKLOG_ENABLED"
 
 # Vertex AI configuration
 ENV_LLM_VERTEXAI_PROJECT_ID = "HINDSIGHT_API_LLM_VERTEXAI_PROJECT_ID"
@@ -396,6 +414,7 @@ ENV_LLM_PROMPT_CACHE_ENABLED = "HINDSIGHT_API_LLM_PROMPT_CACHE_ENABLED"
 # Retain settings
 ENV_RETAIN_MAX_COMPLETION_TOKENS = "HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS"
 ENV_RETAIN_CHUNK_SIZE = "HINDSIGHT_API_RETAIN_CHUNK_SIZE"
+ENV_RETAIN_STRUCTURED_CHUNK_SIZE = "HINDSIGHT_API_RETAIN_STRUCTURED_CHUNK_SIZE"
 ENV_RETAIN_EXTRACT_CAUSAL_LINKS = "HINDSIGHT_API_RETAIN_EXTRACT_CAUSAL_LINKS"
 ENV_RETAIN_EXTRACTION_MODE = "HINDSIGHT_API_RETAIN_EXTRACTION_MODE"
 ENV_RETAIN_MISSION = "HINDSIGHT_API_RETAIN_MISSION"
@@ -422,6 +441,11 @@ ENV_FILE_STORAGE_AZURE_ACCOUNT_NAME = "HINDSIGHT_API_FILE_STORAGE_AZURE_ACCOUNT_
 ENV_FILE_STORAGE_AZURE_ACCOUNT_KEY = "HINDSIGHT_API_FILE_STORAGE_AZURE_ACCOUNT_KEY"
 ENV_FILE_PARSER = "HINDSIGHT_API_FILE_PARSER"
 ENV_FILE_PARSER_ALLOWLIST = "HINDSIGHT_API_FILE_PARSER_ALLOWLIST"
+ENV_FILE_PARSER_MARKITDOWN_OCR_ENABLED = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_ENABLED"
+ENV_FILE_PARSER_MARKITDOWN_OCR_API_KEY = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_API_KEY"
+ENV_FILE_PARSER_MARKITDOWN_OCR_BASE_URL = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_BASE_URL"
+ENV_FILE_PARSER_MARKITDOWN_OCR_MODEL = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_MODEL"
+ENV_FILE_PARSER_MARKITDOWN_OCR_PROMPT = "HINDSIGHT_API_FILE_PARSER_MARKITDOWN_OCR_PROMPT"
 ENV_FILE_PARSER_IRIS_TOKEN = "HINDSIGHT_API_FILE_PARSER_IRIS_TOKEN"
 ENV_FILE_PARSER_IRIS_ORG_ID = "HINDSIGHT_API_FILE_PARSER_IRIS_ORG_ID"
 ENV_FILE_PARSER_LLAMA_PARSE_API_KEY = "HINDSIGHT_API_FILE_PARSER_LLAMA_PARSE_API_KEY"
@@ -479,6 +503,7 @@ ENV_LAZY_RERANKER = "HINDSIGHT_API_LAZY_RERANKER"
 
 # Database migrations
 ENV_RUN_MIGRATIONS_ON_STARTUP = "HINDSIGHT_API_RUN_MIGRATIONS_ON_STARTUP"
+ENV_MIGRATION_CONCURRENCY = "HINDSIGHT_API_MIGRATION_CONCURRENCY"
 
 # Database connection pool
 ENV_DB_POOL_MIN_SIZE = "HINDSIGHT_API_DB_POOL_MIN_SIZE"
@@ -801,7 +826,12 @@ DEFAULT_ACCESS_LOG = False
 DEFAULT_MCP_ENABLED = True
 DEFAULT_MCP_ENABLED_TOOLS: list[str] | None = None  # None = all tools enabled
 DEFAULT_MCP_STATELESS = False  # False = stateful (supports SSE/GET); True = stateless (POST-only)
+DEFAULT_MCP_INSTRUCTIONS = None
 DEFAULT_ENABLE_BANK_CONFIG_API = True
+# Dry-run extraction is a preview tool that makes a real LLM call but stores nothing. Enabled by
+# default; set HINDSIGHT_API_ENABLE_DRY_RUN_EXTRACT=false to remove the endpoint (e.g. to cap
+# provider cost/abuse on untrusted deployments).
+DEFAULT_ENABLE_DRY_RUN_EXTRACT = True
 # The per-bank LLM connectivity probe makes a real provider call, so it's OFF by
 # default (cost/abuse concerns) and must be explicitly enabled to expose the endpoint.
 DEFAULT_ENABLE_BANK_LLM_HEALTH = False
@@ -840,6 +870,10 @@ DEFAULT_RETAIN_BATCH_POLL_INTERVAL_SECONDS = 60  # Batch API polling interval in
 DEFAULT_FILE_STORAGE_TYPE = "native"  # PostgreSQL BYTEA storage
 DEFAULT_FILE_PARSER = "markitdown"  # Default parser fallback chain (comma-separated, e.g. "iris,markitdown")
 DEFAULT_FILE_PARSER_ALLOWLIST = None  # Allowlist of parsers clients may request (None = all registered parsers)
+DEFAULT_FILE_PARSER_MARKITDOWN_OCR_ENABLED = False
+DEFAULT_FILE_PARSER_MARKITDOWN_OCR_PROMPT = """You are a precise OCR transcription engine.
+
+Transcribe only the visible text in the image. Do not describe the image, summarize it, translate it, infer missing content, or add commentary. Preserve the original language, wording, numbers, punctuation, capitalization, and reading order. Reconstruct headings, lists, key-value fields, stamps, and tables as clean Markdown when the layout is clear. If text is unreadable or uncertain, write [unclear] for that span. Return only the extracted Markdown."""
 DEFAULT_FILE_CONVERSION_MAX_BATCH_SIZE_MB = 100  # Max total batch size in MB (all files combined)
 DEFAULT_FILE_CONVERSION_MAX_BATCH_SIZE = 10  # Max files per batch upload
 DEFAULT_ENABLE_FILE_UPLOAD_API = True  # Enable file upload endpoint
@@ -900,6 +934,10 @@ DEFAULT_OBSERVATION_SCOPE_LIMITS: list | None = None
 
 # Database migrations
 DEFAULT_RUN_MIGRATIONS_ON_STARTUP = True
+# Number of tenant schemas to migrate concurrently. Each schema runs in its own
+# process (Alembic's command.upgrade() is not thread-safe); within a schema the
+# work is always sequential. 1 = fully sequential (the safe default).
+DEFAULT_MIGRATION_CONCURRENCY = 1
 
 # Database connection pool
 DEFAULT_DB_POOL_MIN_SIZE = 5
@@ -954,6 +992,7 @@ DEFAULT_OTEL_TRACES_ENABLED = False  # Disabled by default for backward compatib
 DEFAULT_OTEL_SERVICE_NAME = "hindsight-api"
 DEFAULT_OTEL_DEPLOYMENT_ENVIRONMENT = "development"
 DEFAULT_METRICS_INCLUDE_BANK_ID = False  # Disabled by default to avoid high-cardinality OTel metric growth
+DEFAULT_METRICS_BACKLOG_ENABLED = False  # Disabled by default: runs periodic per-schema COUNT queries
 
 # Audit log defaults
 DEFAULT_AUDIT_LOG_ENABLED = False  # Disabled by default
@@ -1075,6 +1114,63 @@ def _parse_optional_positive_int(name: str, raw: str | None) -> int | None:
     if raw is None or raw == "":
         return None
     return _parse_positive_int(name, raw, 1)
+
+
+def _validate_retain_chunking_int(name: str, value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer, got {value!r}")
+    if value < 1:
+        raise ValueError(f"{name} must be >= 1, got {value}")
+    return value
+
+
+def validate_retain_chunking_config(
+    retain_chunk_size: Any,
+    retain_structured_chunk_size: Any,
+    *,
+    retain_chunk_size_name: str = "retain_chunk_size",
+    retain_structured_chunk_size_name: str = "retain_structured_chunk_size",
+) -> None:
+    """Validate retain chunking size fields.
+
+    Defaults emit field-style names ("retain_chunk_size") so API/PATCH callers
+    don't have to override them. The startup validator (HindsightConfig.validate)
+    overrides to env-style names ("HINDSIGHT_API_RETAIN_CHUNK_SIZE") for env
+    misconfig errors.
+    """
+    _validate_retain_chunking_int(retain_chunk_size_name, retain_chunk_size)
+    if retain_structured_chunk_size is None:
+        return
+    _validate_retain_chunking_int(
+        retain_structured_chunk_size_name,
+        retain_structured_chunk_size,
+    )
+
+
+def validate_retain_completion_token_budget(
+    *,
+    llm_provider: str,
+    retain_max_completion_tokens: int,
+    retain_chunk_size: int,
+    retain_llm_model: str | None = None,
+    llm_model: str | None = None,
+    retain_llm_provider: str | None = None,
+    retain_max_completion_tokens_name: str = "retain_max_completion_tokens",
+    retain_chunk_size_name: str = "retain_chunk_size",
+) -> None:
+    """Validate that retain LLM output capacity exceeds the configured chunk size."""
+    if llm_provider == "none" or retain_max_completion_tokens > retain_chunk_size:
+        return
+    raise ValueError(
+        f"Invalid configuration: {retain_max_completion_tokens_name} "
+        f"({retain_max_completion_tokens}) must be greater than "
+        f"{retain_chunk_size_name} ({retain_chunk_size}). "
+        f"\n\nYou have two options to fix this:"
+        f"\n  1. Increase {retain_max_completion_tokens_name} to a value > {retain_chunk_size}"
+        f"\n  2. Use a model that supports at least {retain_max_completion_tokens} output tokens"
+        f"\n     (current model: {retain_llm_model or llm_model}, "
+        f"provider: {retain_llm_provider or llm_provider})"
+    )
 
 
 def _parse_optional_choice(name: str, raw: str | None, allowed: frozenset[str]) -> str | None:
@@ -1230,6 +1326,7 @@ class HindsightConfig:
     llm_groq_service_tier: str  # Groq: "on_demand", "flex", or "auto"
     llm_openai_service_tier: str | None  # OpenAI: None (default) or "flex" (50% cheaper)
     llm_bedrock_service_tier: str | None  # Bedrock: None (default), "flex", "priority", or "reserved"
+    llm_gemini_service_tier: str | None  # Gemini: None (default) or "flex" (50% cheaper)
     llm_extra_body: (
         dict | None
     )  # Extra body params merged into OpenAI-compatible API calls (e.g. {"chat_template_kwargs": {"enable_thinking": true}})
@@ -1410,8 +1507,10 @@ class HindsightConfig:
     mcp_enabled: bool
     mcp_enabled_tools: list[str] | None  # None = all tools; explicit list = allowlist
     mcp_stateless: bool  # True = stateless HTTP (POST-only); False = stateful (supports GET/SSE)
+    mcp_instructions: str | None  # Additional instructions appended to retain/recall MCP tool descriptions
     enable_bank_config_api: bool
     enable_bank_llm_health: bool
+    enable_dry_run_extract: bool
     # Default bank template (static, server-level only). When set, the manifest is applied
     # to every newly-created bank, overriding the env/config defaults for any fields it sets.
     default_bank_template: dict | None
@@ -1430,6 +1529,7 @@ class HindsightConfig:
     # Retain settings
     retain_max_completion_tokens: int
     retain_chunk_size: int
+    retain_structured_chunk_size: int | None
     retain_extract_causal_links: bool
     retain_extraction_mode: str
     retain_mission: str | None
@@ -1538,6 +1638,7 @@ class HindsightConfig:
 
     # Database migrations
     run_migrations_on_startup: bool
+    migration_concurrency: int
 
     # Database connection pool
     db_pool_min_size: int
@@ -1571,6 +1672,7 @@ class HindsightConfig:
     otel_service_name: str
     otel_deployment_environment: str
     metrics_include_bank_id: bool
+    metrics_backlog_enabled: bool
 
     # Audit log configuration (static - server-level only)
     audit_log_enabled: bool  # Master switch for audit logging
@@ -1605,6 +1707,11 @@ class HindsightConfig:
     embeddings_zeroentropy_encoding_format: str = DEFAULT_EMBEDDINGS_ZEROENTROPY_ENCODING_FORMAT
     embeddings_zeroentropy_batch_size: int = DEFAULT_EMBEDDINGS_ZEROENTROPY_BATCH_SIZE
     embeddings_zeroentropy_latency: str | None = DEFAULT_EMBEDDINGS_ZEROENTROPY_LATENCY
+    file_parser_markitdown_ocr_enabled: bool = DEFAULT_FILE_PARSER_MARKITDOWN_OCR_ENABLED
+    file_parser_markitdown_ocr_api_key: str | None = None
+    file_parser_markitdown_ocr_base_url: str | None = None
+    file_parser_markitdown_ocr_model: str | None = None
+    file_parser_markitdown_ocr_prompt: str = DEFAULT_FILE_PARSER_MARKITDOWN_OCR_PROMPT
 
     # Class-level sets for configuration categorization
 
@@ -1645,6 +1752,8 @@ class HindsightConfig:
         "file_storage_gcs_service_account_key",
         "file_storage_azure_account_key",
         # File parser credentials
+        "file_parser_markitdown_ocr_api_key",
+        "file_parser_markitdown_ocr_base_url",
         "file_parser_iris_token",
         "file_parser_llama_parse_api_key",
     }
@@ -1657,6 +1766,7 @@ class HindsightConfig:
         "mcp_enabled_tools",
         # Retention settings (behavioral)
         "retain_chunk_size",
+        "retain_structured_chunk_size",
         "retain_extraction_mode",
         "retain_mission",
         "retain_custom_instructions",
@@ -1807,6 +1917,9 @@ class HindsightConfig:
                 f"Note: 'standard' is not a valid Bedrock service tier -- use unset for default tier."
             )
 
+        # Validate gemini_service_tier
+        self.llm_gemini_service_tier = parse_gemini_service_tier(self.llm_gemini_service_tier)
+
         # When LLM provider is "none", force chunks-only mode and disable LLM-dependent features
         if self.llm_provider == "none":
             self.retain_extraction_mode = "chunks"
@@ -1816,20 +1929,23 @@ class HindsightConfig:
                 "disabling observations/consolidation. Reflect will return HTTP 400."
             )
 
-        # RETAIN_MAX_COMPLETION_TOKENS must be greater than RETAIN_CHUNK_SIZE
-        # to ensure the LLM has enough output capacity to extract facts from chunks
-        # (not applicable when provider is "none" since no LLM calls are made)
-        if self.llm_provider != "none" and self.retain_max_completion_tokens <= self.retain_chunk_size:
-            raise ValueError(
-                f"Invalid configuration: HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS "
-                f"({self.retain_max_completion_tokens}) must be greater than "
-                f"HINDSIGHT_API_RETAIN_CHUNK_SIZE ({self.retain_chunk_size}). "
-                f"\n\nYou have two options to fix this:"
-                f"\n  1. Increase HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS to a value > {self.retain_chunk_size}"
-                f"\n  2. Use a model that supports at least {self.retain_max_completion_tokens} output tokens"
-                f"\n     (current model: {self.retain_llm_model or self.llm_model}, "
-                f"provider: {self.retain_llm_provider or self.llm_provider})"
-            )
+        validate_retain_chunking_config(
+            self.retain_chunk_size,
+            self.retain_structured_chunk_size,
+            retain_chunk_size_name="HINDSIGHT_API_RETAIN_CHUNK_SIZE",
+            retain_structured_chunk_size_name="HINDSIGHT_API_RETAIN_STRUCTURED_CHUNK_SIZE",
+        )
+
+        validate_retain_completion_token_budget(
+            llm_provider=self.llm_provider,
+            retain_max_completion_tokens=self.retain_max_completion_tokens,
+            retain_chunk_size=self.retain_chunk_size,
+            retain_llm_model=self.retain_llm_model,
+            llm_model=self.llm_model,
+            retain_llm_provider=self.retain_llm_provider,
+            retain_max_completion_tokens_name="HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS",
+            retain_chunk_size_name="HINDSIGHT_API_RETAIN_CHUNK_SIZE",
+        )
 
         # Warn if local ML dependencies are missing when configured.
         # Don't hard-fail here — the actual ImportError fires at model init time
@@ -1921,6 +2037,11 @@ class HindsightConfig:
             llm_groq_service_tier=os.getenv(ENV_LLM_GROQ_SERVICE_TIER, DEFAULT_LLM_GROQ_SERVICE_TIER),
             llm_openai_service_tier=os.getenv(ENV_LLM_OPENAI_SERVICE_TIER, DEFAULT_LLM_OPENAI_SERVICE_TIER),
             llm_bedrock_service_tier=os.getenv(ENV_LLM_BEDROCK_SERVICE_TIER) or None,
+            llm_gemini_service_tier=(
+                parse_gemini_service_tier(os.getenv(ENV_LLM_GEMINI_SERVICE_TIER) or DEFAULT_LLM_GEMINI_SERVICE_TIER)
+                if llm_provider.lower() == "gemini"
+                else None
+            ),
             llm_extra_body=json.loads(os.getenv(ENV_LLM_EXTRA_BODY, "null")),
             llm_default_headers=json.loads(os.getenv(ENV_LLM_DEFAULT_HEADERS, "null")),
             llm_strict_schema=os.getenv(ENV_LLM_STRICT_SCHEMA, str(DEFAULT_LLM_STRICT_SCHEMA)).lower() in ("true", "1"),
@@ -2270,9 +2391,12 @@ class HindsightConfig:
             if os.getenv(ENV_MCP_ENABLED_TOOLS)
             else DEFAULT_MCP_ENABLED_TOOLS,
             mcp_stateless=os.getenv(ENV_MCP_STATELESS, str(DEFAULT_MCP_STATELESS)).lower() == "true",
+            mcp_instructions=os.getenv(ENV_MCP_INSTRUCTIONS) or DEFAULT_MCP_INSTRUCTIONS,
             enable_bank_llm_health=os.getenv(ENV_ENABLE_BANK_LLM_HEALTH, str(DEFAULT_ENABLE_BANK_LLM_HEALTH)).lower()
             == "true",
             enable_bank_config_api=os.getenv(ENV_ENABLE_BANK_CONFIG_API, str(DEFAULT_ENABLE_BANK_CONFIG_API)).lower()
+            == "true",
+            enable_dry_run_extract=os.getenv(ENV_ENABLE_DRY_RUN_EXTRACT, str(DEFAULT_ENABLE_DRY_RUN_EXTRACT)).lower()
             == "true",
             default_bank_template=_parse_default_bank_template(os.getenv(ENV_DEFAULT_BANK_TEMPLATE)),
             # Recall
@@ -2303,6 +2427,10 @@ class HindsightConfig:
                 os.getenv(ENV_RETAIN_MAX_COMPLETION_TOKENS, str(DEFAULT_RETAIN_MAX_COMPLETION_TOKENS))
             ),
             retain_chunk_size=int(os.getenv(ENV_RETAIN_CHUNK_SIZE, str(DEFAULT_RETAIN_CHUNK_SIZE))),
+            retain_structured_chunk_size=_parse_optional_positive_int(
+                ENV_RETAIN_STRUCTURED_CHUNK_SIZE,
+                os.getenv(ENV_RETAIN_STRUCTURED_CHUNK_SIZE),
+            ),
             retain_extract_causal_links=os.getenv(
                 ENV_RETAIN_EXTRACT_CAUSAL_LINKS, str(DEFAULT_RETAIN_EXTRACT_CAUSAL_LINKS)
             ).lower()
@@ -2343,6 +2471,18 @@ class HindsightConfig:
             file_parser_allowlist=_parse_str_list(os.getenv(ENV_FILE_PARSER_ALLOWLIST))
             if os.getenv(ENV_FILE_PARSER_ALLOWLIST)
             else None,
+            file_parser_markitdown_ocr_enabled=os.getenv(
+                ENV_FILE_PARSER_MARKITDOWN_OCR_ENABLED,
+                str(DEFAULT_FILE_PARSER_MARKITDOWN_OCR_ENABLED),
+            ).lower()
+            in ("1", "true", "yes", "on"),
+            file_parser_markitdown_ocr_api_key=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_API_KEY) or None,
+            file_parser_markitdown_ocr_base_url=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_BASE_URL) or None,
+            file_parser_markitdown_ocr_model=os.getenv(ENV_FILE_PARSER_MARKITDOWN_OCR_MODEL) or None,
+            file_parser_markitdown_ocr_prompt=os.getenv(
+                ENV_FILE_PARSER_MARKITDOWN_OCR_PROMPT,
+                DEFAULT_FILE_PARSER_MARKITDOWN_OCR_PROMPT,
+            ),
             file_parser_iris_token=os.getenv(ENV_FILE_PARSER_IRIS_TOKEN) or None,
             file_parser_iris_org_id=os.getenv(ENV_FILE_PARSER_IRIS_ORG_ID) or None,
             file_parser_llama_parse_api_key=os.getenv(ENV_FILE_PARSER_LLAMA_PARSE_API_KEY) or None,
@@ -2449,6 +2589,7 @@ class HindsightConfig:
             memory_defense=None,
             # Database migrations
             run_migrations_on_startup=os.getenv(ENV_RUN_MIGRATIONS_ON_STARTUP, "true").lower() == "true",
+            migration_concurrency=int(os.getenv(ENV_MIGRATION_CONCURRENCY, str(DEFAULT_MIGRATION_CONCURRENCY))),
             # Database connection pool
             db_pool_min_size=int(os.getenv(ENV_DB_POOL_MIN_SIZE, str(DEFAULT_DB_POOL_MIN_SIZE))),
             db_pool_max_size=int(os.getenv(ENV_DB_POOL_MAX_SIZE, str(DEFAULT_DB_POOL_MAX_SIZE))),
@@ -2531,6 +2672,8 @@ class HindsightConfig:
             otel_service_name=os.getenv(ENV_OTEL_SERVICE_NAME, DEFAULT_OTEL_SERVICE_NAME),
             otel_deployment_environment=os.getenv(ENV_OTEL_DEPLOYMENT_ENVIRONMENT, DEFAULT_OTEL_DEPLOYMENT_ENVIRONMENT),
             metrics_include_bank_id=os.getenv(ENV_METRICS_INCLUDE_BANK_ID, str(DEFAULT_METRICS_INCLUDE_BANK_ID)).lower()
+            in ("true", "1", "yes"),
+            metrics_backlog_enabled=os.getenv(ENV_METRICS_BACKLOG_ENABLED, str(DEFAULT_METRICS_BACKLOG_ENABLED)).lower()
             in ("true", "1", "yes"),
             # Audit log configuration (static, server-level only)
             audit_log_enabled=os.getenv(ENV_AUDIT_LOG_ENABLED, str(DEFAULT_AUDIT_LOG_ENABLED)).lower() == "true",

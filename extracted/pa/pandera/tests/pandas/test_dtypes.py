@@ -530,6 +530,25 @@ def test_coerce_dt(examples, type_, has_tz, is_index):
     assert data_type.try_coerce(data).to_list() == expected
 
 
+def test_coerce_dt_with_mixed_offsets():
+    """Test coercion of mixed-offset strings to a timezone-naive DateTime."""
+    data = pd.Series(
+        [
+            "2023-10-30T11:27:20.082372+01:00",
+            "2023-10-27T15:37:25.562608+02:00",
+        ]
+    )
+    data_type = pandas_engine.Engine.dtype(pandas_engine.DateTime)
+
+    coerced = data_type.try_coerce(data)
+
+    expected = [
+        to_datetime("2023-10-30T10:27:20.082372"),
+        to_datetime("2023-10-27T13:37:25.562608"),
+    ]
+    assert coerced.to_list() == expected
+
+
 def test_coerce_string():
     """Test that strings can be coerced."""
     data = pd.Series([1, None], dtype="Int32")
@@ -688,6 +707,45 @@ class TestArrowStringSerializationRoundTrip:
         roundtripped = DataFrameSchema.from_json(original.to_json())
         assert isinstance(
             roundtripped.columns["col"].dtype, pandas_engine.STRING
+        )
+
+    def test_pyarrow_dtype_lookup_does_not_change_arrow_string_resolution(
+        self,
+    ):
+        """Resolving another pyarrow-backed dtype should not replace
+        pandas ArrowString with the pyarrow-engine variant."""
+        import pyarrow
+
+        pandas_engine.Engine.dtype(
+            pd.ArrowDtype(pyarrow.list_(pyarrow.string()))
+        )
+
+        resolved = pandas_engine.Engine.dtype(pd.ArrowDtype(pyarrow.string()))
+
+        assert isinstance(resolved, pandas_engine.ArrowString)
+        assert str(resolved) == "arrow_string"
+
+    def test_schema_arrow_string_stays_stable_after_pyarrow_dtype_lookup(
+        self,
+    ):
+        """Schema construction should keep using pandas ArrowString after
+        resolving another pyarrow-backed dtype."""
+        import pyarrow
+
+        from pandera.pandas import DataFrameModel
+        from pandera.typing import Series as TypedSeries
+
+        pandas_engine.Engine.dtype(
+            pd.ArrowDtype(pyarrow.list_(pyarrow.string()))
+        )
+
+        class ArrowModel(DataFrameModel):
+            col: TypedSeries[pyarrow.string]
+
+        schema = ArrowModel.to_schema()
+
+        assert isinstance(
+            schema.columns["col"].dtype, pandas_engine.ArrowString
         )
 
 
@@ -1136,3 +1194,32 @@ def test_python_std_list_dict_error():
                 "bar": "2",
             }
             assert exc.failure_cases["failure_case"].iloc[1] == ["1.0", 2.0]
+
+
+def test_direct_pyarrow_engine_import_registers_pyarrow_dtypes():
+    """Test direct pyarrow engine import without leaking registry mutation."""
+    import copy
+
+    import pyarrow
+
+    from pandera.engines import engine
+
+    registry_snapshot = copy.deepcopy(
+        engine.Engine._registry[pandas_engine.Engine]
+    )
+
+    try:
+        from pandera.engines import pyarrow_engine
+
+        assert isinstance(
+            pyarrow_engine.Engine.dtype(pd.ArrowDtype(pyarrow.string())),
+            pyarrow_engine.ArrowString,
+        )
+        assert isinstance(
+            pyarrow_engine.Engine.dtype(
+                pd.ArrowDtype(pyarrow.list_(pyarrow.string()))
+            ),
+            pyarrow_engine.ArrowList,
+        )
+    finally:
+        engine.Engine._registry[pandas_engine.Engine] = registry_snapshot

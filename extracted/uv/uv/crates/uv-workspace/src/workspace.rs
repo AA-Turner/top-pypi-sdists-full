@@ -664,17 +664,16 @@ impl Workspace {
     /// Returns the set of conflicts for the workspace.
     pub fn conflicts(&self) -> Result<Conflicts, WorkspaceError> {
         let mut conflicting = Conflicts::empty();
-        if self.is_non_project() {
-            if let Some(root_conflicts) = self
+        if self.is_non_project()
+            && let Some(root_conflicts) = self
                 .pyproject_toml
                 .tool
                 .as_ref()
                 .and_then(|tool| tool.uv.as_ref())
                 .and_then(|uv| uv.conflicts.as_ref())
-            {
-                let mut root_conflicts = root_conflicts.to_conflicts()?;
-                conflicting.append(&mut root_conflicts);
-            }
+        {
+            let mut root_conflicts = root_conflicts.to_conflicts()?;
+            conflicting.append(&mut root_conflicts);
         }
         for member in self.packages.values() {
             conflicting.append(&mut member.pyproject_toml.conflicts()?);
@@ -979,20 +978,20 @@ impl Workspace {
         let mut workspace_members = Arc::new(workspace_members);
 
         // For the cases such as `MemberDiscovery::None`, add the current project if missing.
-        if let Some(root_member) = current_project {
-            if !workspace_members.contains_key(&root_member.project.name) {
-                assert!(matches!(
-                    options.members,
-                    MemberDiscovery::None | MemberDiscovery::Ignore(_)
-                ));
-                debug!(
-                    "Adding current workspace member: `{}`",
-                    root_member.root.simplified_display()
-                );
+        if let Some(root_member) = current_project
+            && !workspace_members.contains_key(&root_member.project.name)
+        {
+            assert!(matches!(
+                options.members,
+                MemberDiscovery::None | MemberDiscovery::Ignore(_)
+            ));
+            debug!(
+                "Adding current workspace member: `{}`",
+                root_member.root.simplified_display()
+            );
 
-                Arc::make_mut(&mut workspace_members)
-                    .insert(root_member.project.name.clone(), root_member);
-            }
+            Arc::make_mut(&mut workspace_members)
+                .insert(root_member.project.name.clone(), root_member);
         }
 
         let workspace_sources = workspace_pyproject_toml
@@ -1182,8 +1181,7 @@ impl Workspace {
                             // If the directory is hidden, skip it.
                             if member_root
                                 .file_name()
-                                .map(|name| name.as_encoded_bytes().starts_with(b"."))
-                                .unwrap_or(false)
+                                .is_some_and(|name| name.as_encoded_bytes().starts_with(b"."))
                             {
                                 debug!(
                                     "Ignoring hidden workspace member: `{}`",
@@ -1467,8 +1465,7 @@ impl ProjectWorkspace {
                     .stop_discovery_at
                     .as_deref()
                     .and_then(Path::parent)
-                    .map(|stop_discovery_at| stop_discovery_at != *path)
-                    .unwrap_or(true)
+                    .is_none_or(|stop_discovery_at| stop_discovery_at != *path)
             })
             .find(|path| path.join("pyproject.toml").is_file())
             .ok_or_else(|| WorkspaceErrorKind::MissingPyprojectToml)?;
@@ -1762,8 +1759,7 @@ async fn find_workspace(
                 .stop_discovery_at
                 .as_deref()
                 .and_then(Path::parent)
-                .map(|stop_discovery_at| stop_discovery_at != *path)
-                .unwrap_or(true)
+                .is_none_or(|stop_discovery_at| stop_discovery_at != *path)
         })
         .skip(1)
     {
@@ -1962,8 +1958,7 @@ impl VirtualProject {
                     .stop_discovery_at
                     .as_deref()
                     .and_then(Path::parent)
-                    .map(|stop_discovery_at| stop_discovery_at != *path)
-                    .unwrap_or(true)
+                    .is_none_or(|stop_discovery_at| stop_discovery_at != *path)
             })
             .find(|path| path.join("pyproject.toml").is_file())
             .ok_or(WorkspaceErrorKind::MissingPyprojectToml)?;
@@ -2178,6 +2173,7 @@ impl VirtualProject {
 #[cfg(test)]
 #[cfg(unix)] // Avoid path escaping for the unit tests
 mod tests {
+    use std::collections::BTreeMap;
     use std::env;
     use std::path::Path;
     use std::str::FromStr;
@@ -3244,6 +3240,7 @@ mod tests {
 [dependency-groups]
 foo = ["a", {include-group = "bar"}]
 bar = ["b"]
+future = [{include-group = "bar", unknown = "value"}]
 "#;
 
         let result = PyProjectToml::from_string(toml.to_string(), "pyproject.toml")
@@ -3272,6 +3269,43 @@ bar = ["b"]
             bar,
             &[DependencyGroupSpecifier::Requirement("b".to_string())]
         );
+
+        let future = groups
+            .get(&GroupName::from_str("future").unwrap())
+            .expect("Group `future` should be present");
+        assert_eq!(
+            future,
+            &[DependencyGroupSpecifier::Object(BTreeMap::from([
+                ("include-group".to_string(), "bar".to_string()),
+                ("unknown".to_string(), "value".to_string()),
+            ]))]
+        );
+    }
+
+    #[test]
+    fn reject_colliding_optional_dependency_names() {
+        let err = PyProjectToml::from_string(
+            r#"
+[project]
+name = "example"
+version = "1.0.0"
+
+[project.optional-dependencies]
+foo-bar = ["anyio"]
+foo_bar = ["iniconfig"]
+"#
+            .to_string(),
+            "pyproject.toml",
+        )
+        .unwrap_err();
+
+        assert_snapshot!(err.to_string(), @r#"
+        TOML parse error at line 6, column 1
+          |
+        6 | [project.optional-dependencies]
+          | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        duplicate normalized extra name `foo-bar`
+        "#);
     }
 
     #[tokio::test]

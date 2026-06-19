@@ -280,26 +280,7 @@ pub fn build_bspline_basis_1d(
             spec.penalty_order,
             greville_for_penalty.as_ref().map(|g| g.view()),
         )?;
-        let mut penalties_raw = vec![PenaltyCandidate {
-            matrix: s_bend_raw.clone(),
-            nullspace_dim_hint: 0,
-            source: PenaltySource::Primary,
-            normalization_scale: 1.0,
-            kronecker_factors: None,
-            op: None,
-        }];
-        if spec.double_penalty {
-            penalties_raw.push(PenaltyCandidate {
-                matrix: build_nullspace_shrinkage_penalty(&s_bend_raw)?
-                    .map(|shrink| shrink.sym_penalty)
-                    .unwrap_or_else(|| Array2::<f64>::zeros(s_bend_raw.raw_dim())),
-                nullspace_dim_hint: 0,
-                source: PenaltySource::DoublePenaltyNullspace,
-                normalization_scale: 1.0,
-                kronecker_factors: None,
-                op: None,
-            });
-        }
+        let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec)?;
         let penalties_raw_mats = penalties_raw
             .iter()
             .map(|candidate| candidate.matrix.clone())
@@ -479,83 +460,128 @@ pub fn build_bspline_basis_1d(
         spec.penalty_order,
         greville_for_penalty.as_ref().map(|g| g.view()),
     )?;
-    let mut penalties_raw = vec![PenaltyCandidate {
-        matrix: s_bend_raw.clone(),
-        nullspace_dim_hint: 0,
-        source: PenaltySource::Primary,
-        normalization_scale: 1.0,
-        kronecker_factors: None,
-        op: None,
-    }];
-    // The nullspace-shrinkage ("double") penalty shrinks the polynomial
-    // null space of the difference penalty (the {1, x, …} directions the
-    // wiggliness penalty leaves unpenalized). Non-free endpoint boundary
-    // conditions structurally REMOVE those low-order degrees of freedom: an
-    // anchored Hermite pin kills the constant AND linear directions at the
-    // endpoint, and a clamped pin kills the linear direction. After the
-    // boundary nullspace reparameterization (`bspline_boundary_nullspace_transform`)
-    // projects the shrinkage block, the surviving null directions are largely
-    // gone, leaving the projected double-penalty block rank-deficient and very
-    // nearly flat. A near-flat penalty block carries its own smoothing
-    // parameter whose REML log-λ coordinate is (numerically) unidentified — the
-    // outer REML objective is almost flat along it and the outer optimizer
-    // crawls without certifying termination (the same non-termination the
-    // cyclic basis avoids by emitting only its wiggliness penalty; see the
-    // periodic arm above). Since the boundary conditions already pin the
-    // low-order DOF, the extra nullspace-shrinkage penalty is redundant here:
-    // skip it whenever the endpoints are constrained.
-    if spec.double_penalty && spec.boundary_conditions.is_free() {
-        penalties_raw.push(PenaltyCandidate {
-            matrix: build_nullspace_shrinkage_penalty(&s_bend_raw)?
-                .map(|shrink| shrink.sym_penalty)
-                .unwrap_or_else(|| Array2::<f64>::zeros(s_bend_raw.raw_dim())),
-            nullspace_dim_hint: 0,
-            source: PenaltySource::DoublePenaltyNullspace,
-            normalization_scale: 1.0,
-            kronecker_factors: None,
-            op: None,
-        });
-    }
-
+    let penalties_raw = bspline_penalty_candidates(&s_bend_raw, spec)?;
     let penalties_raw_mats: Vec<Array2<f64>> = penalties_raw
         .iter()
         .map(|candidate| candidate.matrix.clone())
         .collect();
-    let (design, transformed_candidates, identifiability_transform) = if let Some(sparse_basis) =
-        design_sparse_opt
-    {
-        match &spec.identifiability {
-            BSplineIdentifiability::None => {
-                let transformed_candidates = penalties_raw
-                    .into_iter()
-                    .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                        Ok(PenaltyCandidate {
-                            nullspace_dim_hint: candidate.nullspace_dim_hint,
-                            matrix: candidate.matrix,
-                            source: candidate.source,
-                            normalization_scale: candidate.normalization_scale,
-                            kronecker_factors: None,
-                            op: None,
+    let (design, transformed_candidates, identifiability_transform) =
+        if let Some(sparse_basis) = design_sparse_opt {
+            match &spec.identifiability {
+                BSplineIdentifiability::None => {
+                    let transformed_candidates = penalties_raw
+                        .into_iter()
+                        .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
+                            Ok(PenaltyCandidate {
+                                nullspace_dim_hint: candidate.nullspace_dim_hint,
+                                matrix: candidate.matrix,
+                                source: candidate.source,
+                                normalization_scale: candidate.normalization_scale,
+                                kronecker_factors: None,
+                                op: None,
+                            })
                         })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                (
-                    DesignMatrix::Sparse(crate::matrix::SparseDesignMatrix::new(sparse_basis)),
-                    transformed_candidates,
-                    None,
-                )
+                        .collect::<Result<Vec<_>, _>>()?;
+                    (
+                        DesignMatrix::Sparse(crate::matrix::SparseDesignMatrix::new(sparse_basis)),
+                        transformed_candidates,
+                        None,
+                    )
+                }
+                BSplineIdentifiability::WeightedSumToZero { weights } => {
+                    let (constrained_basis, z) = apply_sum_to_zero_constraint_sparse(
+                        &sparse_basis,
+                        weights.as_ref().map(|w| w.view()),
+                    )?;
+                    let gauge = crate::solver::gauge::Gauge::sum_to_zero(z);
+                    let z = gauge.block_transform(0);
+                    let transformed_candidates = penalties_raw
+                        .into_iter()
+                        .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
+                            let matrix = gauge.restrict_penalty(&candidate.matrix);
+                            Ok(PenaltyCandidate {
+                                nullspace_dim_hint: candidate.nullspace_dim_hint,
+                                matrix,
+                                source: candidate.source,
+                                normalization_scale: candidate.normalization_scale,
+                                kronecker_factors: None,
+                                op: None,
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    // `apply_sum_to_zero_constraint_sparse` now returns a dense
+                    // constrained basis `B_c = B Z` with orthonormal `Z`. The
+                    // densification is the honest cost of using an orthonormal
+                    // null-space basis (so that `ZZᵀ` is a true projector); the
+                    // post-constraint matrix has `k-1` columns, which is the
+                    // smooth's typical working dimension, so this stays small.
+                    (
+                        DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Arc::new(
+                            constrained_basis,
+                        ))),
+                        transformed_candidates,
+                        Some(z),
+                    )
+                }
+                BSplineIdentifiability::RemoveLinearTrend
+                | BSplineIdentifiability::OrthogonalToDesignColumns { .. }
+                | BSplineIdentifiability::FrozenTransform { .. } => {
+                    crate::bail_invalid_basis!(
+                        "sparse B-spline identifiability only supports None or \
+                     WeightedSumToZero; RemoveLinearTrend, \
+                     OrthogonalToDesignColumns, and FrozenTransform require \
+                     the dense path"
+                            .to_string(),
+                    );
+                }
             }
-            BSplineIdentifiability::WeightedSumToZero { weights } => {
-                let (constrained_basis, z) = apply_sum_to_zero_constraint_sparse(
-                    &sparse_basis,
-                    weights.as_ref().map(|w| w.view()),
+        } else {
+            let raw_design = design_dense_opt.expect("dense B-spline basis should be present");
+            // A `FrozenTransform` already maps from the RAW knot basis with the
+            // endpoint boundary projection baked in (it was composed as
+            // `boundary ∘ identifiability` at fit time). Re-deriving and re-applying
+            // the boundary nullspace transform here would project the raw basis a
+            // second time and shrink its width before the frozen transform replays,
+            // so a frozen anchored/clamped spec must NOT re-run the boundary step.
+            // Skipping it lets the frozen spec keep its original
+            // `boundary_conditions` (the single source of truth the intercept-
+            // suppression decision reads, #1238/#1265) without double-projecting.
+            let boundary_transform = if matches!(
+                spec.identifiability,
+                BSplineIdentifiability::FrozenTransform { .. }
+            ) {
+                None
+            } else {
+                bspline_boundary_nullspace_transform(&knots, spec.degree, spec.boundary_conditions)?
+            };
+            let (boundary_design, boundary_penalties) =
+                if let Some(z_bc) = boundary_transform.as_ref() {
+                    (
+                        fast_ab(&raw_design, z_bc),
+                        penalties_raw_mats
+                            .into_iter()
+                            .map(|s| project_penalty_matrix(&s, Some(z_bc)))
+                            .collect(),
+                    )
+                } else {
+                    (raw_design, penalties_raw_mats)
+                };
+            let (design, penalties, identifiability_local) =
+                apply_bspline_identifiability_policy_in_chart(
+                    boundary_design,
+                    boundary_penalties,
+                    &knots,
+                    spec.degree,
+                    &spec.identifiability,
+                    boundary_transform.as_ref(),
                 )?;
-                let gauge = crate::solver::gauge::Gauge::sum_to_zero(z);
-                let z = gauge.block_transform(0);
-                let transformed_candidates = penalties_raw
-                    .into_iter()
-                    .map(|candidate| -> Result<PenaltyCandidate, BasisError> {
-                        let matrix = gauge.restrict_penalty(&candidate.matrix);
+            let identifiability_transform =
+                compose_optional_bspline_transform(boundary_transform, identifiability_local)?;
+            let transformed_candidates = penalties
+                .into_iter()
+                .zip(penalties_raw.into_iter())
+                .map(
+                    |(matrix, candidate)| -> Result<PenaltyCandidate, BasisError> {
                         Ok(PenaltyCandidate {
                             nullspace_dim_hint: candidate.nullspace_dim_hint,
                             matrix,
@@ -564,83 +590,15 @@ pub fn build_bspline_basis_1d(
                             kronecker_factors: None,
                             op: None,
                         })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                // `apply_sum_to_zero_constraint_sparse` now returns a dense
-                // constrained basis `B_c = B Z` with orthonormal `Z`. The
-                // densification is the honest cost of using an orthonormal
-                // null-space basis (so that `ZZᵀ` is a true projector); the
-                // post-constraint matrix has `k-1` columns, which is the
-                // smooth's typical working dimension, so this stays small.
-                (
-                    DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(Arc::new(
-                        constrained_basis,
-                    ))),
-                    transformed_candidates,
-                    Some(z),
+                    },
                 )
-            }
-            BSplineIdentifiability::RemoveLinearTrend
-            | BSplineIdentifiability::OrthogonalToDesignColumns { .. }
-            | BSplineIdentifiability::FrozenTransform { .. } => {
-                crate::bail_invalid_basis!(
-                    "sparse B-spline identifiability only supports None or \
-                     WeightedSumToZero; RemoveLinearTrend, \
-                     OrthogonalToDesignColumns, and FrozenTransform require \
-                     the dense path"
-                        .to_string(),
-                );
-            }
-        }
-    } else {
-        let raw_design = design_dense_opt.expect("dense B-spline basis should be present");
-        let boundary_transform =
-            bspline_boundary_nullspace_transform(&knots, spec.degree, spec.boundary_conditions)?;
-        let (boundary_design, boundary_penalties) = if let Some(z_bc) = boundary_transform.as_ref()
-        {
+                .collect::<Result<Vec<_>, _>>()?;
             (
-                fast_ab(&raw_design, z_bc),
-                penalties_raw_mats
-                    .into_iter()
-                    .map(|s| project_penalty_matrix(&s, Some(z_bc)))
-                    .collect(),
+                DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(design)),
+                transformed_candidates,
+                identifiability_transform,
             )
-        } else {
-            (raw_design, penalties_raw_mats)
         };
-        let (design, penalties, identifiability_local) =
-            apply_bspline_identifiability_policy_in_chart(
-                boundary_design,
-                boundary_penalties,
-                &knots,
-                spec.degree,
-                &spec.identifiability,
-                boundary_transform.as_ref(),
-            )?;
-        let identifiability_transform =
-            compose_optional_bspline_transform(boundary_transform, identifiability_local)?;
-        let transformed_candidates = penalties
-            .into_iter()
-            .zip(penalties_raw.into_iter())
-            .map(
-                |(matrix, candidate)| -> Result<PenaltyCandidate, BasisError> {
-                    Ok(PenaltyCandidate {
-                        nullspace_dim_hint: candidate.nullspace_dim_hint,
-                        matrix,
-                        source: candidate.source,
-                        normalization_scale: candidate.normalization_scale,
-                        kronecker_factors: None,
-                        op: None,
-                    })
-                },
-            )
-            .collect::<Result<Vec<_>, _>>()?;
-        (
-            DesignMatrix::Dense(crate::matrix::DenseDesignMatrix::from(design)),
-            transformed_candidates,
-            identifiability_transform,
-        )
-    };
     let (penalties, nullspace_dims, penaltyinfo, null_eigenvectors, ops) =
         filter_active_penalty_candidates_with_ops(transformed_candidates)?;
     Ok(BasisBuildResult {
@@ -824,9 +782,8 @@ fn bspline_boundary_nullspace_transform(
             cross_rank: rank,
             coeff_dim: p_raw,
             cross_frobenius: frob,
-            constrained_gram_max_eigenvalue: f64::NAN,
-            constrained_gram_min_eigenvalue: f64::NAN,
-            spectral_tolerance: f64::NAN,
+            gram_spectrum: "not computed (structural rank collapse before Gram eigendecomposition)"
+                .to_string(),
         });
     }
     if rank == 0 { Ok(None) } else { Ok(Some(z)) }
@@ -880,9 +837,9 @@ fn compute_geometric_constraint_transform_in_chart(
                 cross_rank: rank,
                 coeff_dim: k,
                 cross_frobenius: frob,
-                constrained_gram_max_eigenvalue: f64::NAN,
-                constrained_gram_min_eigenvalue: f64::NAN,
-                spectral_tolerance: f64::NAN,
+                gram_spectrum: "not computed (structural rank collapse before Gram \
+                                eigendecomposition)"
+                    .to_string(),
             });
         }
         Ok(z)
@@ -913,9 +870,8 @@ pub(crate) fn bspline_sum_to_zero_transform_from_cross(
             cross_rank: rank,
             coeff_dim: k,
             cross_frobenius: c.iter().map(|v| v * v).sum::<f64>().sqrt(),
-            constrained_gram_max_eigenvalue: f64::NAN,
-            constrained_gram_min_eigenvalue: f64::NAN,
-            spectral_tolerance: f64::NAN,
+            gram_spectrum: "not computed (structural rank collapse before Gram eigendecomposition)"
+                .to_string(),
         });
     }
     Ok(z)
@@ -1651,6 +1607,73 @@ pub(crate) fn validated_kronecker_factors(
         .zip(matrix.iter())
         .fold(0.0_f64, |acc, (&lhs, &rhs)| acc.max((lhs - rhs).abs()));
     (max_abs_diff <= scale * 1e-10).then_some(factors)
+}
+
+/// Assemble the raw (pre-identifiability) penalty candidates for a 1-D B-spline.
+///
+/// The wiggliness penalty `S_bend` is always present. When `double_penalty` is
+/// enabled on a free (non-boundary-conditioned) basis we additionally emit the
+/// Marra & Wood (2011) null-space shrinkage block `Z Zᵀ` as a *separate* REML
+/// coordinate, so that REML can drive an unsupported term's constant/linear
+/// part to `EDF → 0` independently of its wiggliness (mgcv `select = TRUE`).
+///
+/// Both candidates are Frobenius-normalized to unit norm exactly the way the
+/// Duchon / constant-curvature / tensor-B-spline paths already normalize their
+/// own primary + `DoublePenaltyNullspace` blocks. This normalization is what
+/// makes the second smoothing parameter `λ_nullspace` *identifiable*: an
+/// un-normalized `Z Zᵀ` (largest eigenvalue 1) sits on a wildly different scale
+/// from the raw bending penalty, leaving the outer REML objective nearly flat
+/// along the `λ_nullspace` coordinate. Under that flat coordinate REML weakened
+/// the wiggliness penalty instead of shrinking the term out, which *inflated*
+/// the smooth's EDF rather than reducing it (#1266). With both blocks on a
+/// common (unit-Frobenius) scale the coordinate is identified and the double
+/// penalty shrinks — never inflates — null-space / unsupported terms.
+fn bspline_penalty_candidates(
+    s_bend_raw: &Array2<f64>,
+    spec: &BSplineBasisSpec,
+) -> Result<Vec<PenaltyCandidate>, BasisError> {
+    let want_nullspace = spec.double_penalty && spec.boundary_conditions.is_free();
+    let shrinkage = if want_nullspace {
+        build_nullspace_shrinkage_penalty(s_bend_raw)?
+    } else {
+        None
+    };
+
+    // Without an active null-space block, preserve the historical single-penalty
+    // geometry exactly: the bending penalty ships un-normalized with scale 1.0,
+    // so `double_penalty = False` (and boundary-conditioned) fits are byte-for-
+    // byte unchanged.
+    let Some(shrinkage) = shrinkage else {
+        return Ok(vec![PenaltyCandidate {
+            matrix: s_bend_raw.clone(),
+            nullspace_dim_hint: 0,
+            source: PenaltySource::Primary,
+            normalization_scale: 1.0,
+            kronecker_factors: None,
+            op: None,
+        }]);
+    };
+
+    let (bend_norm, bend_scale) = normalize_penalty(s_bend_raw);
+    let (ridge_norm, ridge_scale) = normalize_penalty(&shrinkage.sym_penalty);
+    Ok(vec![
+        PenaltyCandidate {
+            matrix: bend_norm,
+            nullspace_dim_hint: 0,
+            source: PenaltySource::Primary,
+            normalization_scale: bend_scale,
+            kronecker_factors: None,
+            op: None,
+        },
+        PenaltyCandidate {
+            matrix: ridge_norm,
+            nullspace_dim_hint: 0,
+            source: PenaltySource::DoublePenaltyNullspace,
+            normalization_scale: ridge_scale,
+            kronecker_factors: None,
+            op: None,
+        },
+    ])
 }
 
 /// Build the double-penalty ridge from the structural null space of a PSD penalty.

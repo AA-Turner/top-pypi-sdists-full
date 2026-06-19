@@ -36,19 +36,19 @@ provided by ``strutils``.
 
 
 import builtins
+import collections
 import re
+import string
 import sys
+import typing
+import unicodedata
 import uuid
 import zlib
-import string
-import unicodedata
-import collections
 from collections.abc import Mapping
 from gzip import GzipFile
-from html.parser import HTMLParser
 from html import entities as htmlentitydefs
+from html.parser import HTMLParser
 from io import BytesIO as StringIO
-
 
 __all__ = ['camel2under', 'under2camel', 'slugify', 'split_punct_ws',
            'unit_len', 'ordinalize', 'cardinalize', 'pluralize', 'singularize',
@@ -57,7 +57,8 @@ __all__ = ['camel2under', 'under2camel', 'slugify', 'split_punct_ws',
            'iter_splitlines', 'indent', 'escape_shell_args',
            'args2cmd', 'args2sh', 'parse_int_list', 'format_int_list',
            'complement_int_list', 'int_ranges_from_int_list', 'MultiReplace',
-           'multi_replace', 'unwrap_text', 'removeprefix']
+           'multi_replace', 'unwrap_text', 'removeprefix',
+           'human_readable_list']
 
 
 _punct_ws_str = string.punctuation + string.whitespace
@@ -558,10 +559,12 @@ def bytes2human(nbytes, ndigits=0):
     '95M'
     >>> bytes2human(0, 2)
     '0.00B'
+    >>> bytes2human(1024)
+    '1K'
     """
     abs_bytes = abs(nbytes)
     for (size, symbol), (next_size, next_symbol) in _SIZE_RANGES:
-        if abs_bytes <= next_size:
+        if abs_bytes < next_size:
             break
     hnbytes = float(nbytes) / size
     return '{hnbytes:.{ndigits}f}{symbol}'.format(hnbytes=hnbytes,
@@ -570,11 +573,9 @@ def bytes2human(nbytes, ndigits=0):
 
 
 class HTMLTextExtractor(HTMLParser):
-    def __init__(self):
-        self.reset()
-        self.strict = False
-        self.convert_charrefs = True
-        self.result = []
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.result: list[str] = []
 
     def handle_data(self, d):
         self.result.append(d)
@@ -1155,7 +1156,7 @@ class MultiReplace:
         s = strutils.MultiReplace([
             ('foo', 'zoo'),
             ('cat', 'hat'),
-            ('bat', 'kraken)'
+            ('bat', 'kraken')
         ])
         new = s.sub('The foo bar cat ate a bat')
         new == 'The zoo bar hat ate a kraken'
@@ -1287,3 +1288,32 @@ def removeprefix(text: str, prefix: str) -> str:
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
+
+def human_readable_list(items: typing.Sequence[str], delimiter: str = ',', conjunction: str = 'and', *, oxford: bool = True) -> str:
+    """
+    Given a list of strings, return a human readable string with
+    appropriate delimiters and the conjunction word.
+
+    Args:
+        items: The list of strings to join.
+        delimiter (optional): The delimiter to use between items.
+        conjunction (optional): The word to use before the last item.
+        oxford (optional): Whether to use the Oxford comma/delimiter before
+            the conjunction in lists of 3+ items.
+
+    Returns:
+        str: The human readable string.
+    """
+    if not items:
+        return ''
+
+    delimiter = delimiter and delimiter.strip() + ' '
+    conjunction = conjunction.strip()
+
+    if len(items) == 1:
+        return items[0]
+
+    if len(items) == 2:
+        return f'{items[0]} {conjunction} {items[1]}'
+
+    return f'{delimiter.join(items[:-1])}{delimiter if oxford else " "}{conjunction} {items[-1]}'

@@ -88,6 +88,33 @@ class TestModelDelegationRequest:
         r = self._make(acceptance_criteria=("response_non_empty",))
         assert "response_non_empty" in r.acceptance_criteria
 
+    def test_overlay_accepts_quality_gate_dod_checks(self) -> None:
+        r = self._make(
+            quality_contract_mode="replace_task_class",
+            acceptance_criteria=(
+                "compiles_without_errors",
+                "final_artifact_only",
+                "no_refusal",
+                "uses_pytest_mark_unit",
+                "covers_edge_cases",
+                "covers_error_paths",
+                "follows_codebase_conventions",
+                "no_obvious_regressions",
+            ),
+        )
+
+        assert r.quality_contract_mode == "replace_task_class"
+        assert r.acceptance_criteria == (
+            "compiles_without_errors",
+            "final_artifact_only",
+            "no_refusal",
+            "uses_pytest_mark_unit",
+            "covers_edge_cases",
+            "covers_error_paths",
+            "follows_codebase_conventions",
+            "no_obvious_regressions",
+        )
+
     @pytest.mark.parametrize(
         "task_type",
         [
@@ -119,8 +146,14 @@ class TestModelDelegationRequest:
 @pytest.mark.unit
 class TestValidateAcceptanceCriteria:
     def test_valid(self) -> None:
-        result = validate_acceptance_criteria(("response_non_empty", "plain_text_only"))
-        assert "response_non_empty" in result
+        result = validate_acceptance_criteria(
+            ("response_non_empty", "plain_text_only", "final_artifact_only")
+        )
+        assert result == (
+            "response_non_empty",
+            "plain_text_only",
+            "final_artifact_only",
+        )
 
     def test_max_words_pattern(self) -> None:
         result = validate_acceptance_criteria(("max_words_per_sentence_10",))
@@ -399,6 +432,43 @@ class TestModelBifrostDelegationConfig:
         assert cfg.circuit_breaker.failure_threshold == 5
         assert cfg.failover.max_attempts == 3
         assert cfg.shadow_mode.enabled is False
+
+    def test_backend_prefers_logical_secret_ref(self) -> None:
+        backend = ModelDelegationBackendConfig(
+            backend_id="openrouter",
+            endpoint_url="https://openrouter.ai/api/v1/chat/completions",
+            model_name="openrouter-model",
+            tier="cheap_cloud",
+            secret_ref="llm.openrouter.api_key",  # pragma: allowlist secret
+            api_key_env="OPENROUTER_API_KEY",  # pragma: allowlist secret
+        )
+
+        expected_secret_ref = "llm.openrouter.api_key"  # pragma: allowlist secret
+        assert backend.resolved_secret_ref == expected_secret_ref
+
+    def test_backend_rejects_conflicting_secret_refs(self) -> None:
+        with pytest.raises(ValidationError):
+            ModelDelegationBackendConfig(
+                backend_id="openrouter",
+                endpoint_url="https://openrouter.ai/api/v1/chat/completions",
+                model_name="openrouter-model",
+                tier="cheap_cloud",
+                secret_ref="llm.openrouter.api_key",  # pragma: allowlist secret
+                api_key_ref="llm.other.api_key",  # pragma: allowlist secret
+            )
+
+    def test_backend_allows_matching_secret_refs_for_migration(self) -> None:
+        backend = ModelDelegationBackendConfig(
+            backend_id="openrouter",
+            endpoint_url="https://openrouter.ai/api/v1/chat/completions",
+            model_name="openrouter-model",
+            tier="cheap_cloud",
+            secret_ref="llm.openrouter.api_key",  # pragma: allowlist secret
+            api_key_ref="llm.openrouter.api_key",  # pragma: allowlist secret
+        )
+
+        expected_secret_ref = "llm.openrouter.api_key"  # pragma: allowlist secret
+        assert backend.resolved_secret_ref == expected_secret_ref
 
     def test_shadow_config_defaults(self) -> None:
         shadow = ModelDelegationShadowConfig()

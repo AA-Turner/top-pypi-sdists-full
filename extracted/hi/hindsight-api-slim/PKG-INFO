@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hindsight-api-slim
-Version: 0.8.2
+Version: 0.8.3
 Summary: Hindsight: Agent Memory That Works Like Human Memory
 Requires-Python: >=3.11
 Requires-Dist: aiohttp>=3.13.3
@@ -11,7 +11,7 @@ Requires-Dist: authlib>=1.6.9
 Requires-Dist: boto3>=1.42.74
 Requires-Dist: claude-agent-sdk>=0.2.82
 Requires-Dist: cohere>=5.0.0
-Requires-Dist: cryptography<47,>=46.0.6
+Requires-Dist: cryptography>=48.0.1
 Requires-Dist: dateparser>=1.2.2
 Requires-Dist: fastapi[standard]>=0.120.3
 Requires-Dist: fastmcp>=3.2.0

@@ -1884,6 +1884,8 @@ pub struct SurvivalFlexBlock10TimepointBase {
 #[derive(Clone, Debug)]
 pub struct SurvivalFlexBlock10TimepointDirectional {
     pub eta_uv_dir: Vec<f64>,
+    pub eta_u_dir: Vec<f64>,
+    pub chi_u_dir: Vec<f64>,
     pub chi_uv_dir: Vec<f64>,
     pub d_u_dir: Vec<f64>,
     pub d_uv_dir: Vec<f64>,
@@ -2024,10 +2026,10 @@ pub fn cpu_oracle_third_contraction(
         0.0
     };
 
-    let entry_eta_u_dir = b10_mat_dot(&entry.eta_uv, inputs.dir, p);
-    let exit_eta_u_dir = b10_mat_dot(&exit.eta_uv, inputs.dir, p);
-    let exit_chi_u_dir = b10_mat_dot(&exit.chi_uv, inputs.dir, p);
-    let exit_d_u_dir = b10_mat_dot(&exit.d_uv, inputs.dir, p);
+    let entry_eta_u_dir = &entry_ext.eta_u_dir;
+    let exit_eta_u_dir = &exit_ext.eta_u_dir;
+    let exit_chi_u_dir = &exit_ext.chi_u_dir;
+    let exit_d_u_dir = &exit_ext.d_u_dir;
 
     let chi_inv = 1.0 / chi;
     let chi_inv2 = chi_inv * chi_inv;
@@ -2138,10 +2140,10 @@ fn b10_fourth_ordered(
     let qd1_d1 = if qd1_index < p { dir1[qd1_index] } else { 0.0 };
     let qd1_d2 = if qd1_index < p { dir2[qd1_index] } else { 0.0 };
 
-    let entry_eta_u_d1 = b10_mat_dot(&entry_base.eta_uv, dir1, p);
-    let entry_eta_u_d2 = b10_mat_dot(&entry_base.eta_uv, dir2, p);
-    let exit_eta_u_d1 = b10_mat_dot(&exit_base.eta_uv, dir1, p);
-    let exit_eta_u_d2 = b10_mat_dot(&exit_base.eta_uv, dir2, p);
+    let entry_eta_u_d1 = entry_ext1.eta_u_dir.clone();
+    let entry_eta_u_d2 = entry_ext2.eta_u_dir.clone();
+    let exit_eta_u_d1 = exit_ext1.eta_u_dir.clone();
+    let exit_eta_u_d2 = exit_ext2.eta_u_dir.clone();
     let exit_chi_u_d1 = b10_mat_dot(&exit_base.chi_uv, dir1, p);
     let exit_chi_u_d2 = b10_mat_dot(&exit_base.chi_uv, dir2, p);
     let exit_d_u_d2 = b10_mat_dot(&exit_base.d_uv, dir2, p);

@@ -175,6 +175,9 @@ pub(crate) enum CostStallVerdict {
 /// but, crucially, is gated on the cost alone (not on gradient smallness),
 /// which is the condition `opt` never checks in isolation.
 pub(crate) const COST_STALL_WINDOW: usize = 6;
+pub(crate) const ARC_COST_STALL_WINDOW: usize = 3;
+pub(crate) const COST_STALL_REL_TOL_FLOOR: f64 = 1.0e-7;
+pub(crate) const COST_STALL_PROJECTED_GRAD_FLOOR: f64 = 1.0e-3;
 
 /// Best iterate captured by a cost-stall convergence, handed from the bridge
 /// (which is moved into `opt::Bfgs`) back to the seed-loop runner via the
@@ -219,6 +222,17 @@ pub(crate) struct CostStallGuard {
     best_rho: Option<Array1<f64>>,
     best_grad_norm: f64,
     no_improve_streak: usize,
+    /// Consecutive infeasible (non-finite cost) outer trials since the last
+    /// finite observation. On a near-separable multinomial fit ARC repeatedly
+    /// probes the unbounded λ→0 separating region where the inner softmax solve
+    /// does not converge and returns `OuterEval::infeasible` (cost=∞). Those
+    /// trials never produce a finite descent, so the normal `no_improve_streak`
+    /// (which only counts finite trials) can never fill its window — the loop
+    /// would otherwise grind to `max_iter`. A run of `window` consecutive
+    /// infeasible trials, once a finite best is in hand, is the same "no further
+    /// real progress" signal and trips the same halt at the best feasible
+    /// iterate (#1082/#1237).
+    infeasible_streak: usize,
     accepted_iters: usize,
     /// Shared publication slot read by the seed-loop runner after
     /// `optimizer.run()` returns the sentinel error.
@@ -240,9 +254,29 @@ impl CostStallGuard {
             best_rho: None,
             best_grad_norm: f64::INFINITY,
             no_improve_streak: 0,
+            infeasible_streak: 0,
             accepted_iters: 0,
             exit,
         }
+    }
+
+    /// Register a precomputed feasible seed that the optimizer consumes from
+    /// its internal cache instead of routing through the bridge. ARC's
+    /// `with_initial_sample` path does exactly that: the first finite
+    /// `(cost, gradient, Hessian)` is already known to the runner, so
+    /// `eval_hessian` is not called at the seed. Without this hook the
+    /// infeasible-trial stall path has no finite best iterate to halt back to
+    /// when the next few ARC probes run into the λ→0 separating region.
+    pub(crate) fn observe_seed(&mut self, rho: &Array1<f64>, value: f64, grad_norm: f64) {
+        if !value.is_finite() {
+            return;
+        }
+        self.best_value = value;
+        self.best_rho = Some(rho.clone());
+        self.best_grad_norm = grad_norm;
+        self.no_improve_streak = 0;
+        self.infeasible_streak = 0;
+        self.accepted_iters = self.accepted_iters.saturating_add(1);
     }
 
     /// Fold one accepted-iterate `(ρ, cost, ‖g‖)` into the guard. Returns a
@@ -258,10 +292,15 @@ impl CostStallGuard {
         if !value.is_finite() {
             // A non-finite accepted objective is the inner-solver's problem,
             // not a stall; reset so a later real descent is not falsely
-            // credited as a no-improvement step.
+            // credited as a no-improvement step. The dedicated infeasible-trial
+            // bookkeeping lives in `observe_infeasible`; this finite-path entry
+            // is left untouched for non-finite values.
             self.no_improve_streak = 0;
             return CostStallVerdict::Continue;
         }
+        // A finite trial means the inner solve produced a real cost: the
+        // separating-region infeasible run is broken, so clear its streak.
+        self.infeasible_streak = 0;
         self.accepted_iters = self.accepted_iters.saturating_add(1);
         let improvement = self.best_value - value;
         let floor = self.rel_tol * (1.0 + self.best_value.abs());
@@ -270,7 +309,21 @@ impl CostStallGuard {
             self.best_rho = Some(rho.clone());
             self.best_grad_norm = grad_norm;
         }
-        if improvement <= floor {
+        // KKT-stationary-at-bound (#1082/#1237). On a near-separable multinomial
+        // the outer REML criterion keeps decreasing as λ→0, so several log-λ
+        // directions slam to the lower box bound: the BOUND-PROJECTED gradient
+        // is already below the outer tolerance (the iterate is KKT-stationary),
+        // yet the raw cost keeps dropping by more than `floor` along those
+        // bound-pinned directions — so a pure cost-improvement test resets the
+        // no-improvement streak forever and the loop never certifies. Once the
+        // projected gradient clears the stationarity threshold there is no
+        // FEASIBLE descent left; further raw progress is bound-pinned drift, not
+        // optimization. Treat such a trial as no-improvement so the window can
+        // fill and the guard halts at the (stationary) best feasible iterate.
+        // `opt::Arc`'s own gradient-tolerance check never trips here because it
+        // tests the RAW gradient, which points out of the box forever.
+        let kkt_stationary_at_bound = grad_norm.is_finite() && grad_norm <= self.grad_threshold;
+        if improvement <= floor || kkt_stationary_at_bound {
             self.no_improve_streak = self.no_improve_streak.saturating_add(1);
         } else {
             self.no_improve_streak = 0;
@@ -278,6 +331,67 @@ impl CostStallGuard {
         if self.no_improve_streak < self.window {
             return CostStallVerdict::Continue;
         }
+        self.publish_stall(rho, value, grad_norm)
+    }
+
+    /// Fold one INFEASIBLE outer trial (non-finite cost — typically a near-λ=0
+    /// separating point whose inner softmax solve did not converge) into the
+    /// guard. ARC keeps proposing these on a near-separable multinomial fit and
+    /// they never reach `observe` with a finite value, so without this the
+    /// no-improvement window can never fill and the outer loop grinds to
+    /// `max_iter` (#1082/#1237). A run of `window` consecutive infeasible trials
+    /// — provided a finite best is already in hand to halt back to — is the same
+    /// "no further real progress" signal and trips the same halt.
+    ///
+    /// Returns `Continue` until the infeasible streak fills the window; never
+    /// fires before any finite iterate has been recorded (there would be nothing
+    /// to halt back to).
+    pub(crate) fn observe_infeasible(&mut self, rho: &Array1<f64>) -> CostStallVerdict {
+        if self.best_rho.is_none() || !self.best_value.is_finite() {
+            // No feasible iterate recorded yet: an infeasible run this early is
+            // the inner solver's startup problem, not a converged stall. Keep
+            // descending so the optimizer can find its first feasible point.
+            return CostStallVerdict::Continue;
+        }
+        self.infeasible_streak = self.infeasible_streak.saturating_add(1);
+        if self.infeasible_streak < self.window {
+            return CostStallVerdict::Continue;
+        }
+        // Halt back to the best feasible iterate. Its projected gradient decides
+        // converged-vs-flat-valley exactly as the finite stall path does.
+        self.publish_stall(rho, self.best_value, self.best_grad_norm)
+    }
+
+    /// Publish the current finite probe as a constrained-stationary point.
+    ///
+    /// This is deliberately narrower than a generic cost stall: ARC can evaluate a
+    /// bound-pinned separation probe whose raw gradient still points out of the
+    /// feasible box. That point already satisfies the constrained KKT condition,
+    /// but it may not be the guard's lowest raw-cost observation, so the generic
+    /// best-so-far publication can resurrect an older non-stationary iterate and
+    /// report `converged=false`. In that separation case the current feasible
+    /// probe is the certificate-bearing point and should be returned directly.
+    pub(crate) fn observe_constrained_stationary(
+        &mut self,
+        rho: &Array1<f64>,
+        value: f64,
+        grad_norm: f64,
+    ) -> CostStallVerdict {
+        if !value.is_finite() {
+            return CostStallVerdict::Continue;
+        }
+        self.infeasible_streak = 0;
+        self.accepted_iters = self.accepted_iters.saturating_add(1);
+        self.best_value = value;
+        self.best_rho = Some(rho.clone());
+        self.best_grad_norm = grad_norm;
+        self.no_improve_streak = self.window;
+        self.publish_stall(rho, value, grad_norm)
+    }
+
+    /// Publish the best iterate to the shared exit cell and decide the stall
+    /// verdict. Shared by the finite-stall and infeasible-stall paths.
+    fn publish_stall(&mut self, rho: &Array1<f64>, value: f64, grad_norm: f64) -> CostStallVerdict {
         // Publish the best iterate. Prefer the recorded best; fall back to the
         // current point if (pathologically) none was stored.
         let best_rho = self.best_rho.clone().unwrap_or_else(|| rho.clone());
@@ -509,6 +623,37 @@ impl ZerothOrderObjective for OuterFirstOrderBridge<'_> {
                     trial_rho_distance,
                     self.iter_count
                 );
+                if let Some(guard) = self.cost_stall.as_mut() {
+                    match guard.observe_infeasible(x) {
+                        CostStallVerdict::Continue => {}
+                        CostStallVerdict::Converged => {
+                            log::info!(
+                                "[OUTER] cost-stall convergence (infeasible BFGS probes): {} \
+                                 consecutive infeasible probes after a finite seed/iterate; \
+                                 accepting best-so-far as a stationary optimum (value={:.6e}).",
+                                guard.infeasible_streak,
+                                guard.best_value,
+                            );
+                            return Err(ObjectiveEvalError::Fatal {
+                                message: COST_STALL_CONVERGED_SENTINEL.to_string(),
+                            });
+                        }
+                        CostStallVerdict::FlatValleyStall { residual_grad_norm } => {
+                            log::warn!(
+                                "[OUTER] cost-stall halt (infeasible BFGS probes): {} \
+                                 consecutive infeasible probes after a finite seed/iterate; \
+                                 halting at best-so-far with residual |g|={:.3e} \
+                                 (value={:.6e}).",
+                                guard.infeasible_streak,
+                                residual_grad_norm,
+                                guard.best_value,
+                            );
+                            return Err(ObjectiveEvalError::Fatal {
+                                message: COST_STALL_CONVERGED_SENTINEL.to_string(),
+                            });
+                        }
+                    }
+                }
                 // Non-termination guard (#NaN-outer-loop): when every
                 // line-search probe is infeasible and BFGS has never
                 // accepted a gradient step (`iter_count == 0`), the
@@ -1036,61 +1181,137 @@ impl FirstOrderObjective for OuterSecondOrderBridge<'_> {
         // chart's x-coord progresses on every accepted-or-rejected eval and
         // the accepted line moves only on rho-acceptance.
         crate::solver::visualizer::record_outer_eval(eval.cost, g_norm);
-        // Cost-stall halt (#1089/#1237). Mirror the BFGS-side guard: when the
-        // REML score has stopped improving over `COST_STALL_WINDOW` consecutive
-        // evals, halt ARC by returning the `Fatal` sentinel (an objective cannot
-        // otherwise stop `opt::Arc`). The runner rebuilds the outer result from
-        // the published best iterate; the converged verdict rides on the
-        // bound-PROJECTED gradient norm (KKT residual), NOT the raw `g_norm`
-        // above — a near-separable multinomial fit pins several log-λ directions
-        // at the lower bound with a persistent out-of-bounds ∂V/∂ρ that inflates
-        // the raw norm forever and would otherwise block the converged verdict
-        // and cycle ARC to `max_iter` (#1237). The raw `g_norm` is kept for the
-        // inner-cap schedule / logging only.
-        if let Some(guard) = self.cost_stall.as_mut() {
-            let projected_g_norm =
-                projected_gradient_norm(x, &eval.gradient, self.cost_stall_bounds.as_ref());
-            match guard.observe(x, eval.cost, projected_g_norm) {
-                CostStallVerdict::Continue => {}
-                CostStallVerdict::Converged => {
-                    log::info!(
-                        "[OUTER] ARC cost-stall convergence: REML objective improved < {:.3e} \
-                         (relative) over {} consecutive outer steps AND the projected gradient \
-                         cleared the outer tolerance (|g|={:.3e} <= {:.3e}); accepting best-so-far \
-                         as a stationary optimum (value={:.6e}).",
-                        guard.rel_tol,
-                        guard.window,
-                        guard.best_grad_norm,
-                        guard.grad_threshold,
-                        guard.best_value,
-                    );
-                    return Err(ObjectiveEvalError::Fatal {
-                        message: COST_STALL_CONVERGED_SENTINEL.to_string(),
-                    });
-                }
-                CostStallVerdict::FlatValleyStall { residual_grad_norm } => {
-                    log::warn!(
-                        "[OUTER] ARC cost-stall FLAT-VALLEY STALL: REML objective improved < {:.3e} \
-                         (relative) over {} consecutive outer steps but the projected gradient is \
-                         still ABOVE the outer tolerance (|g|={:.3e} > {:.3e}); halting on a \
-                         weakly-identified ρ valley floor and reporting NON-CONVERGED (residual \
-                         outer non-stationarity, value={:.6e}).",
-                        guard.rel_tol,
-                        guard.window,
-                        residual_grad_norm,
-                        guard.grad_threshold,
-                        guard.best_value,
-                    );
-                    return Err(ObjectiveEvalError::Fatal {
-                        message: COST_STALL_CONVERGED_SENTINEL.to_string(),
-                    });
-                }
-            }
-        }
+        // NOTE: the cost-stall guard lives in `eval_hessian` below, NOT here.
+        // `opt::Arc`'s per-iterate oracle (`eval_cost_grad_hessian`) calls
+        // `eval_hessian` for the (value, grad, Hessian) triple and never calls
+        // this `eval_grad` on the ARC route, so folding the guard in here would
+        // leave it dead and let the near-separable multinomial loop keep cycling
+        // to `max_iter` (#1237). See `observe_cost_stall`.
         Ok(FirstOrderSample {
             value: eval.cost,
             gradient: eval.gradient,
         })
+    }
+}
+
+impl OuterSecondOrderBridge<'_> {
+    /// Fold one ARC oracle eval `(ρ, cost, grad)` into the cost-stall guard,
+    /// returning the `Fatal` cost-stall sentinel when the guard halts the loop.
+    ///
+    /// Cost-stall halt (#1089/#1237). `opt::Arc` evaluates the (value, gradient,
+    /// Hessian) triple at every trial point — accepted or rejected — through
+    /// `eval_hessian`, so observing here counts ARC's outer descent. On a
+    /// near-separable multinomial fit the unpenalized softmax MLE is unbounded:
+    /// the outer REML criterion keeps decreasing as λ→0, several log-λ
+    /// directions slam to the lower box bound and bounce, and ARC otherwise
+    /// cycles to its `max_iter` cap without certifying a stationary point. The
+    /// guard halts the moment the REML score plateaus over `COST_STALL_WINDOW`
+    /// evals; the converged verdict rides on the bound-PROJECTED gradient norm
+    /// (KKT residual), NOT the raw `g_norm` — a bound-pinned separating
+    /// direction with a persistent out-of-bounds ∂V/∂ρ is KKT-stationary even
+    /// though its raw gradient never vanishes. A trial that beats the best cost
+    /// resets the streak, so genuine descent never trips the halt.
+    fn observe_cost_stall(
+        &mut self,
+        x: &Array1<f64>,
+        eval: &OuterEval,
+    ) -> Option<ObjectiveEvalError> {
+        let bounds = self.cost_stall_bounds.clone();
+        let separation_bound_stationary = {
+            let guard = self.cost_stall.as_ref()?;
+            lower_bound_outward_active_count(
+                x,
+                &eval.gradient,
+                bounds.as_ref(),
+                guard.grad_threshold,
+            ) >= LOWER_BOUND_SEPARATION_ACTIVE_MIN
+        };
+        let guard = self.cost_stall.as_mut()?;
+        let projected_g_norm = projected_gradient_norm(x, &eval.gradient, bounds.as_ref());
+        let verdict = if separation_bound_stationary {
+            guard.observe_constrained_stationary(x, eval.cost, 0.0)
+        } else {
+            guard.observe(x, eval.cost, projected_g_norm)
+        };
+        match verdict {
+            CostStallVerdict::Continue => None,
+            CostStallVerdict::Converged => {
+                log::info!(
+                    "[OUTER] ARC cost-stall convergence: REML objective improved < {:.3e} \
+                     (relative) over {} consecutive outer steps AND the projected gradient \
+                     cleared the outer tolerance (|g|={:.3e} <= {:.3e}); accepting best-so-far \
+                     as a stationary optimum (value={:.6e}).",
+                    guard.rel_tol,
+                    guard.window,
+                    guard.best_grad_norm,
+                    guard.grad_threshold,
+                    guard.best_value,
+                );
+                Some(ObjectiveEvalError::Fatal {
+                    message: COST_STALL_CONVERGED_SENTINEL.to_string(),
+                })
+            }
+            CostStallVerdict::FlatValleyStall { residual_grad_norm } => {
+                log::warn!(
+                    "[OUTER] ARC cost-stall FLAT-VALLEY STALL: REML objective improved < {:.3e} \
+                     (relative) over {} consecutive outer steps but the projected gradient is \
+                     still ABOVE the outer tolerance (|g|={:.3e} > {:.3e}); halting on a \
+                     weakly-identified ρ valley floor and reporting NON-CONVERGED (residual \
+                     outer non-stationarity, value={:.6e}).",
+                    guard.rel_tol,
+                    guard.window,
+                    residual_grad_norm,
+                    guard.grad_threshold,
+                    guard.best_value,
+                );
+                Some(ObjectiveEvalError::Fatal {
+                    message: COST_STALL_CONVERGED_SENTINEL.to_string(),
+                })
+            }
+        }
+    }
+
+    /// Fold one INFEASIBLE ARC trial (non-finite cost) into the cost-stall
+    /// guard. Mirrors `observe_cost_stall` but routes through the guard's
+    /// infeasible-streak path: a run of `COST_STALL_WINDOW` consecutive
+    /// infeasible trials after a feasible best halts the outer loop at that
+    /// best feasible iterate rather than letting ARC grind to `max_iter`
+    /// probing the unbounded λ→0 separating region (#1082/#1237).
+    fn observe_cost_stall_infeasible(&mut self, x: &Array1<f64>) -> Option<ObjectiveEvalError> {
+        let guard = self.cost_stall.as_mut()?;
+        match guard.observe_infeasible(x) {
+            CostStallVerdict::Continue => None,
+            CostStallVerdict::Converged => {
+                log::info!(
+                    "[OUTER] ARC cost-stall convergence (infeasible run): {} consecutive \
+                     infeasible λ→0 trials after the best feasible iterate, whose projected \
+                     gradient cleared the outer tolerance (|g|={:.3e} <= {:.3e}); accepting \
+                     best feasible as a stationary optimum (value={:.6e}).",
+                    guard.window,
+                    guard.best_grad_norm,
+                    guard.grad_threshold,
+                    guard.best_value,
+                );
+                Some(ObjectiveEvalError::Fatal {
+                    message: COST_STALL_CONVERGED_SENTINEL.to_string(),
+                })
+            }
+            CostStallVerdict::FlatValleyStall { residual_grad_norm } => {
+                log::warn!(
+                    "[OUTER] ARC cost-stall halt (infeasible run): {} consecutive infeasible \
+                     λ→0 trials after the best feasible iterate, whose projected gradient is \
+                     still ABOVE the outer tolerance (|g|={:.3e} > {:.3e}); halting at the best \
+                     feasible iterate and reporting NON-CONVERGED (value={:.6e}).",
+                    guard.window,
+                    residual_grad_norm,
+                    guard.grad_threshold,
+                    guard.best_value,
+                );
+                Some(ObjectiveEvalError::Fatal {
+                    message: COST_STALL_CONVERGED_SENTINEL.to_string(),
+                })
+            }
+        }
     }
 }
 
@@ -1151,6 +1372,19 @@ impl SecondOrderObjective for OuterSecondOrderBridge<'_> {
             .obj
             .eval_with_order(x, OuterEvalOrder::ValueGradientHessian)
             .map_err(|err| into_objective_error("outer eval failed", err))?;
+        // Infeasible (non-finite cost) trials are the near-separable
+        // multinomial failure mode: ARC probes the unbounded λ→0 separating
+        // region where the inner softmax solve does not converge. These never
+        // reach `observe_cost_stall` below (validation rejects them), so feed
+        // them to the guard's dedicated infeasible-streak path FIRST — a run of
+        // consecutive infeasible trials after a feasible best halts the outer
+        // loop at that best iterate instead of grinding to `max_iter`
+        // (#1082/#1237).
+        if !eval.cost.is_finite() {
+            if let Some(err) = self.observe_cost_stall_infeasible(x) {
+                return Err(err);
+            }
+        }
         let eval = finite_outer_eval_or_error("outer eval failed", self.layout, eval)?;
         self.eval_count += 1;
         let g_norm = eval.gradient.iter().map(|v| v * v).sum::<f64>().sqrt();
@@ -1178,6 +1412,14 @@ impl SecondOrderObjective for OuterSecondOrderBridge<'_> {
                 .collect::<Vec<_>>()
                 .join(","),
         );
+        crate::solver::visualizer::record_outer_eval(eval.cost, g_norm);
+        // Cost-stall halt BEFORE the (possibly expensive) Hessian build: ARC's
+        // per-iterate oracle reaches here, so this is where the near-separable
+        // multinomial cycling is caught and certified (#1237). See
+        // `observe_cost_stall`.
+        if let Some(err) = self.observe_cost_stall(x, &eval) {
+            return Err(err);
+        }
         let hessian = build_bridge_hessian_for_source(
             self.hessian_source,
             eval.hessian,
@@ -1478,6 +1720,30 @@ pub(crate) fn projected_gradient_norm(
         None => gradient.iter().map(|v| v * v).sum::<f64>(),
     };
     sumsq.sqrt()
+}
+
+pub(crate) const LOWER_BOUND_SEPARATION_ACTIVE_MIN: usize = 2;
+
+/// Count log-precision axes pinned at their lower box bound while the raw
+/// gradient still points farther out of bounds. On near-separable softmax fits,
+/// those λ→0 axes can keep lowering the raw REML score even though the move is
+/// infeasible; once several such axes are active, repeated ARC trials there are
+/// constrained-stationary separation probes, not useful descent.
+#[inline]
+pub(crate) fn lower_bound_outward_active_count(
+    x: &Array1<f64>,
+    gradient: &Array1<f64>,
+    bounds: Option<&(Array1<f64>, Array1<f64>)>,
+    grad_threshold: f64,
+) -> usize {
+    let Some((lower, _upper)) = bounds else {
+        return 0;
+    };
+    let tol = 1.0e-10;
+    let outward_floor = grad_threshold.max(COST_STALL_PROJECTED_GRAD_FLOOR);
+    (0..x.len().min(gradient.len()).min(lower.len()))
+        .filter(|&i| x[i] <= lower[i] + tol && gradient[i] < -outward_floor)
+        .count()
 }
 
 #[inline]

@@ -40,7 +40,6 @@ from docling_core.transforms.serializer._doclang_utils import (
     _picture_classification_label_from_doclang,
     _picture_classification_label_to_doclang,
     _provenance_with_charspan,
-    _quantize_to_resolution,
     _thread_table_merge_offset,
     _wrap,
     _wrap_field_kv_markup_if_needed,
@@ -262,7 +261,7 @@ class DocLangParams(CommonParams):
     content_wrapping_mode: Annotated[WrapMode, _advanced_field()] = WrapMode.AUTO
     image_mode: Annotated[ImageRefMode, _advanced_field()] = ImageRefMode.PLACEHOLDER
     include_namespace: Annotated[bool, _advanced_field()] = False
-    include_version: Annotated[bool, _advanced_field()] = False
+    include_version: Annotated[bool, _advanced_field()] = True
     use_virtual_text: Annotated[
         bool,
         _advanced_field(detail="When True, the <text> wrapper is omitted whenever allowed."),
@@ -1742,7 +1741,7 @@ class DocLangDocSerializer(DocSerializer):
         hyperlink: Union[AnyUrl, Path],
         **kwargs: Any,
     ) -> str:
-        """Hyperlinks are emitted as ``<href uri=\"...\"/>`` in element head, not inline."""
+        r"""Hyperlinks are emitted as ``<href uri=\"...\"/>`` in element head, not inline."""
         return text
 
     text_serializer: BaseTextSerializer = DocLangTextSerializer()
@@ -1853,7 +1852,6 @@ class DocLangDocSerializer(DocSerializer):
 
     def _serialize_body(self, **kwargs) -> SerializationResult:
         """Serialize the document body."""
-
         self._suppressed_page_breaks = set()
         self._next_thread_id = 1
         self._thread_id_by_ref = {}

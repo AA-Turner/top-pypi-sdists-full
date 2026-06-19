@@ -54,6 +54,7 @@ from pikepdf._core import (
     FormFieldFlag,
     Job,
     JobUsageError,
+    JSONStreamData,
     Matrix,
     NameTree,
     NumberTree,
@@ -69,9 +70,11 @@ from pikepdf._core import (
     Token,
     TokenFilter,
     TokenType,
+    XrefEntry,
 )
 from pikepdf.exceptions import (
     DependencyError,
+    PageCopyWarning,
     HifiPrintImageNotTranscodableError,
     InvalidPdfImageError,
     OutlineStructureError,
@@ -106,6 +109,11 @@ from pikepdf.models import (
 
 from pikepdf.models.ctm import (
     get_objects_with_ctm,
+)
+
+from pikepdf.jobs import JobBuilder
+from pikepdf._page_copy import (
+    PageCopyResult,
 )
 
 
@@ -166,7 +174,9 @@ __all__ = [
     'Integer',
     'InvalidPdfImageError',
     'Job',
+    'JobBuilder',
     'JobUsageError',
+    'JSONStreamData',
     'make_page_destination',
     'Matrix',
     'models',
@@ -183,6 +193,8 @@ __all__ = [
     'OutlineItem',
     'OutlineStructureError',
     'Page',
+    'PageCopyResult',
+    'PageCopyWarning',
     'PageLocation',
     'parse_content_stream',
     'PasswordError',
@@ -205,4 +217,5 @@ __all__ = [
     'TokenType',
     'unparse_content_stream',
     'UnsupportedImageTypeError',
+    'XrefEntry',
 ]

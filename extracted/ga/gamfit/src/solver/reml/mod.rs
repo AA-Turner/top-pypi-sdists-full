@@ -28,9 +28,7 @@ mod rho_key;
 mod sparse_exact_penalty;
 mod trace;
 
-pub(crate) use sparse_exact_penalty::{
-    SparsePenaltyBlock, build_sparse_penalty_blocks_from_canonical,
-};
+pub(crate) use sparse_exact_penalty::sparse_penalty_block_count_from_canonical;
 
 pub(crate) const EXACT_TAU_TAU_HESSIAN_DENSE_CACHE_BUDGET_BYTES: usize = 512 * 1024 * 1024;
 pub(crate) const FIRTH_MAX_OBSERVATIONS: usize = 20_000;
@@ -2661,6 +2659,7 @@ trait PenalizedGeometry {
 #[derive(Clone)]
 pub(crate) enum DerivativeMatrixStorage {
     Dense(Array2<f64>),
+    Zero(ZeroDerivativeMatrix),
     Embedded(EmbeddedDerivativeMatrix),
     Implicit(ImplicitDerivativeOp),
     LatentCoord(LatentCoordDerivativeOp),
@@ -2743,11 +2742,24 @@ macro_rules! storage_dispatch {
     ($scrutinee:expr, $backend:ident => $body:expr) => {
         match $scrutinee {
             DerivativeMatrixStorage::Dense($backend) => $body,
+            DerivativeMatrixStorage::Zero($backend) => $body,
             DerivativeMatrixStorage::Embedded($backend) => $body,
             DerivativeMatrixStorage::Implicit($backend) => $body,
             DerivativeMatrixStorage::LatentCoord($backend) => $body,
         }
     };
+}
+
+#[derive(Clone)]
+pub(crate) struct ZeroDerivativeMatrix {
+    rows: usize,
+    cols: usize,
+}
+
+impl ZeroDerivativeMatrix {
+    pub(crate) fn new(rows: usize, cols: usize) -> Self {
+        Self { rows, cols }
+    }
 }
 
 /// Which derivative level the implicit operator should compute.
@@ -3029,6 +3041,168 @@ impl DerivativeStorageBackend for Array2<f64> {
             );
         }
         target.scaled_add(amp, self);
+        Ok(())
+    }
+}
+
+impl DerivativeStorageBackend for ZeroDerivativeMatrix {
+    fn resident_byte_count(&self) -> usize {
+        0
+    }
+    fn design_nrows(&self) -> usize {
+        self.rows
+    }
+    fn design_ncols(&self) -> usize {
+        self.cols
+    }
+    fn penalty_dim(&self) -> usize {
+        self.cols
+    }
+    fn uses_implicit_storage(&self) -> bool {
+        false
+    }
+    fn any_nonzero(&self) -> bool {
+        false
+    }
+    fn materialize(&self) -> Array2<f64> {
+        Array2::<f64>::zeros((self.rows, self.cols))
+    }
+    fn implicit_first_axis_info(
+        &self,
+    ) -> Option<(
+        std::sync::Arc<crate::terms::basis::ImplicitDesignPsiDerivative>,
+        usize,
+    )> {
+        None
+    }
+    fn implicit_axis_count_hint(&self) -> Option<usize> {
+        None
+    }
+
+    fn design_forward_mul_original(
+        &self,
+        u: &Array1<f64>,
+    ) -> Result<Array1<f64>, EstimationError> {
+        if self.cols != u.len() {
+            crate::bail_invalid_estim!(
+                "zero hyper design derivative forward_mul_original width mismatch: matrix={}x{}, vector={}",
+                self.rows,
+                self.cols,
+                u.len()
+            );
+        }
+        Ok(Array1::<f64>::zeros(self.rows))
+    }
+
+    fn design_transpose_mul_original(
+        &self,
+        v: &Array1<f64>,
+    ) -> Result<Array1<f64>, EstimationError> {
+        if self.rows != v.len() {
+            crate::bail_invalid_estim!(
+                "zero hyper design derivative transpose_mul_original height mismatch: matrix={}x{}, vector={}",
+                self.rows,
+                self.cols,
+                v.len()
+            );
+        }
+        Ok(Array1::<f64>::zeros(self.cols))
+    }
+
+    fn design_transformed(
+        &self,
+        qs: &Array2<f64>,
+        free_basis_opt: Option<&Array2<f64>>,
+    ) -> Result<Array2<f64>, EstimationError> {
+        if self.cols != qs.nrows() {
+            crate::bail_invalid_estim!(
+                "zero design derivative width mismatch: total_cols={}, qs rows={}",
+                self.cols,
+                qs.nrows()
+            );
+        }
+        let cols = free_basis_opt.map_or(qs.ncols(), |z| z.ncols());
+        Ok(Array2::<f64>::zeros((self.rows, cols)))
+    }
+
+    fn design_transformed_forward_mul(
+        &self,
+        qs: &Array2<f64>,
+        free_basis_opt: Option<&Array2<f64>>,
+        _u: &Array1<f64>,
+    ) -> Result<Array1<f64>, EstimationError> {
+        if self.cols != qs.nrows() {
+            crate::bail_invalid_estim!(
+                "zero design derivative width mismatch: total_cols={}, qs rows={}",
+                self.cols,
+                qs.nrows()
+            );
+        }
+        let cols = free_basis_opt.map_or(qs.ncols(), |z| z.ncols());
+        if _u.len() != cols {
+            crate::bail_invalid_estim!(
+                "zero design derivative transformed forward width mismatch: expected {}, vector={}",
+                cols,
+                _u.len()
+            );
+        }
+        Ok(Array1::<f64>::zeros(self.rows))
+    }
+
+    fn design_transformed_transpose_mul(
+        &self,
+        qs: &Array2<f64>,
+        free_basis_opt: Option<&Array2<f64>>,
+        v: &Array1<f64>,
+    ) -> Result<Array1<f64>, EstimationError> {
+        if self.rows != v.len() {
+            crate::bail_invalid_estim!(
+                "zero design derivative transpose height mismatch: matrix rows={}, vector={}",
+                self.rows,
+                v.len()
+            );
+        }
+        if self.cols != qs.nrows() {
+            crate::bail_invalid_estim!(
+                "zero design derivative width mismatch: total_cols={}, qs rows={}",
+                self.cols,
+                qs.nrows()
+            );
+        }
+        let cols = free_basis_opt.map_or(qs.ncols(), |z| z.ncols());
+        Ok(Array1::<f64>::zeros(cols))
+    }
+
+    fn penalty_transformed(
+        &self,
+        qs: &Array2<f64>,
+        free_basis_opt: Option<&Array2<f64>>,
+    ) -> Result<Array2<f64>, EstimationError> {
+        if self.cols != qs.nrows() {
+            crate::bail_invalid_estim!(
+                "zero penalty derivative width mismatch: total_dim={}, qs rows={}",
+                self.cols,
+                qs.nrows()
+            );
+        }
+        let cols = free_basis_opt.map_or(qs.ncols(), |z| z.ncols());
+        Ok(Array2::<f64>::zeros((cols, cols)))
+    }
+
+    fn penalty_scaled_add_to(
+        &self,
+        target: &mut Array2<f64>,
+        _amp: f64,
+    ) -> Result<(), EstimationError> {
+        if target.nrows() != self.cols || target.ncols() != self.cols {
+            crate::bail_invalid_estim!(
+                "zero hyper penalty derivative shape mismatch: target={}x{}, expected {}x{}",
+                target.nrows(),
+                target.ncols(),
+                self.cols,
+                self.cols
+            );
+        }
         Ok(())
     }
 }
@@ -3434,6 +3608,12 @@ pub(crate) struct HyperDesignDerivative {
 }
 
 impl HyperDesignDerivative {
+    pub(crate) fn zero(nrows: usize, ncols: usize) -> Self {
+        Self {
+            storage: DerivativeMatrixStorage::Zero(ZeroDerivativeMatrix::new(nrows, ncols)),
+        }
+    }
+
     pub(crate) fn from_embedded(
         local: Array2<f64>,
         global_range: Range<usize>,
@@ -4544,7 +4724,7 @@ pub(crate) struct RemlState<'a> {
     pub(crate) canonical_penalties: Arc<Vec<crate::construction::CanonicalPenalty>>,
     pub(crate) balanced_penalty_root: Array2<f64>,
     pub(crate) reparam_invariant: ReparamInvariant,
-    pub(crate) sparse_penalty_blocks: Option<Arc<Vec<SparsePenaltyBlock>>>,
+    pub(crate) sparse_penalty_block_count: Option<usize>,
     pub(crate) p: usize,
     pub(crate) config: Arc<RemlConfig>,
     pub(crate) runtime_mixture_link_state: Option<crate::types::MixtureLinkState>,
@@ -4767,6 +4947,16 @@ pub(crate) struct RemlState<'a> {
     /// own slot, consumed once per inner solve. Invalidated with the design in
     /// `reset_surface`.
     pub(crate) glm_first_step_gram: RwLock<Option<Arc<ndarray::Array2<f64>>>>,
+    /// Previous successful non-Gaussian fixed-design data-fit Gram `XᵀWX` in
+    /// the conditioned original frame, keyed to `warm_start_beta`.
+    ///
+    /// When the next outer trial uses a flat warm start, its first PIRLS
+    /// curvature build evaluates at the same `η = Xβ` as the previous converged
+    /// solve, so the Hessian weights and `XᵀWX` are identical. Reusing this
+    /// original-frame Gram skips one dense `O(n·p²)` pass per warm-started
+    /// trial while still letting later PIRLS iterations restream the moving
+    /// weights. IFT/tangent-predicted starts do not consume this cache.
+    pub(crate) flat_glm_first_step_gram: RwLock<Option<Arc<ndarray::Array2<f64>>>>,
     /// Frozen ALO robustness weights for this REML surface.
     ///
     /// The PSIS influence scale is a non-smooth function of the current hat

@@ -247,8 +247,10 @@ class ProcessingManager(IProcessingManager):
         fit handler on the strategy thread (via delay -> _handle_fit); uses a unique
         delay event id, so the recurring fit schedule is untouched."""
         # short delay defers the fit onto the strategy thread via the scheduler/channel
-        # (any non-zero delay works); a unique delay event id leaves the recurring fit untouched
-        self.delay("1s", lambda c: c._handle_fit(None, "fit", (None, c.time())))
+        # (any non-zero delay works); a unique delay event id leaves the recurring fit untouched.
+        # _handle_fit lives on the ProcessingManager (self), not the context the scheduler
+        # passes into the callback, so bind it from self rather than the callback arg.
+        self.delay("1s", lambda _c: self._handle_fit(None, "fit", (None, self._time_provider.time())))
 
     def configure_stale_data_detection(
         self, enabled: bool, detection_period: str | None = None, check_interval: str | None = None
@@ -613,10 +615,12 @@ class ProcessingManager(IProcessingManager):
     def __invoke_on_fit(self) -> None:
         with self._health_monitor("ctx.on_fit"):
             try:
-                # - refresh the blacklist cache (cache-only: no callbacks / no force-close)
-                #   so on_fit's get_universe / filter_blacklisted select over current data.
-                #   No-op for the Null instrument service.
-                self._context._instrument_service_manager.refresh_only()
+                # - enforce the blacklist before fitting: refresh the cache AND force-close
+                #   any held blacklisted positions (no change callbacks), so on_fit's
+                #   get_universe / filter_blacklisted select over current data and no
+                #   blacklisted instrument is held into the rebalance. No-op for the Null
+                #   instrument service.
+                self._context._instrument_service_manager.enforce_at_fit()
                 logger.debug(f"[<y>{self.__class__.__name__}</y>] :: Invoking <g>{self._strategy_name}</g> on_fit")
                 self._strategy.on_fit(self._context)
                 self._subscription_manager.commit()  # apply pending operations

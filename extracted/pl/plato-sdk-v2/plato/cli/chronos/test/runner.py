@@ -194,7 +194,12 @@ class TestRunner:
             f"cd {shlex.quote(workdir)}; "
             + " ".join(export_parts)
             + f" echo {shlex.quote(f'>>> Running phase: {phase_name}')}; "
-            + f"exec setsid bash -lc {shlex.quote(phase_script)}"
+            # `setsid -w`: without --wait, setsid forks (the SSH command is a
+            # process-group leader) and the parent exits 0 immediately, masking
+            # the phase command's real exit code — a failing world-runner would
+            # be reported as PASSED. --wait makes setsid wait for the child and
+            # propagate its exit status; PID-file-based termination still works.
+            + f"exec setsid -w bash -lc {shlex.quote(phase_script)}"
         )
         return f"bash -lc {shlex.quote(script)}", pid_file
 

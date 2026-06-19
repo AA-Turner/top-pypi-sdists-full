@@ -117,7 +117,6 @@ except ImportError:
 if TYPE_CHECKING:
     import ast
 
-    from chalk_rs import ResolverAST
     from pydantic import BaseModel
 
     from chalk._lsp.finders import RangeGQL
@@ -128,6 +127,7 @@ if TYPE_CHECKING:
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
     from chalk.sql._internal.sql_settings import SQLResolverSettings
     from chalk.sql._internal.sql_source import BaseSQLSource
+    from chalk_rs import ResolverAST
 
 
 T = TypeVar("T")
@@ -454,6 +454,12 @@ class ResolverProtocol(Protocol[P, T_co]):
     accelerate_python: Literal["require", "auto", "never"] | None
     """whether to require that this resolver run/not run in python"""
 
+    runtime_contract: str | None
+    """Opt-in runtime contract label. Set to ``"strict"`` by the ``@resolver``
+    decorator and read by downstream planner/runtime code to enforce stricter
+    validation than legacy ``@online`` / ``@offline`` resolvers. ``None`` for
+    resolvers declared with the legacy decorators."""
+
     fqn: str
     """The fully qualified name for the resolver"""
 
@@ -653,6 +659,10 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         name: None = None,  # deprecated
         postprocessing: Underscore | None = None,
         handle_duplicate_outputs: str | None = None,
+        # Opt-in contract label set by the `@resolver` decorator (currently
+        # "strict") and used by downstream planner/runtime code to enforce
+        # stricter behavior. `None` preserves pre-existing behavior.
+        runtime_contract: str | None = None,
     ):
         self._function_definition = ... if function_definition is None else function_definition
         self._function_captured_globals = ... if function_captured_globals is None else function_captured_globals
@@ -705,6 +715,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self.output_row_order = output_row_order
         self.postprocessing = postprocessing
         self.handle_duplicate_outputs = handle_duplicate_outputs
+        self.runtime_contract = runtime_contract
         super().__init__()
 
     @property
@@ -1465,6 +1476,13 @@ def parse_helper_function(
     )
 
 
+def _function_source_line_start(fn: Callable[..., Any], fallback: int | None = None) -> int | None:
+    try:
+        return inspect.getsourcelines(fn)[1]
+    except Exception:
+        return fallback
+
+
 def _extract_protobuf_enums_directly(mod: ModuleType, module_name: str) -> Dict[str, FunctionCapturedGlobal]:
     """Extract protobuf enums and create intermediate message class globals with full qualified names"""
     all_globals: Dict[str, FunctionCapturedGlobal] = {}
@@ -2134,6 +2152,94 @@ def parse_sink_function(
         )
 
 
+def _build_resolver(
+    fn: Callable[P, T],
+    *,
+    cls: type[Resolver],
+    caller_globals: dict[str, Any],
+    caller_locals: dict[str, Any],
+    environment: Environments | None,
+    tags: Tags | None,
+    cron: CronTab | Duration | Cron | None,
+    machine_type: MachineType | None,
+    owner: str | None,
+    timeout: Duration | None,
+    name: str | None,
+    resource_hint: ResourceHint | None,
+    static: bool,
+    accelerate_python: Literal["require", "auto", "never"] | None,
+    total: bool,
+    unique_on: Collection[Any] | None,
+    partitioned_by: Collection[Any] | None,
+    resource_group: str | None,
+    output_row_order: Literal["one-to-one"] | None,
+    venv: str | None,
+    incremental: IncrementalConfig | None,
+    handle_duplicate_outputs: str | None,
+    # Defaults to `None` so `@online`/`@offline` don't need to mention this
+    # kwarg at all. `@resolver` is the only caller that sets it (to "strict"),
+    # which keeps the contract — "strict mode is entered only via @resolver" —
+    # visible at the callsite level.
+    runtime_contract: str | None = None,
+) -> Resolver:
+    """Shared construction path for `@online`, `@offline`, and `@resolver`.
+    Callers capture `caller_globals` / `caller_locals` at their own scope so
+    that `inspect.currentframe().f_back` resolves to the user's frame; we
+    cannot do that frame walk here without skipping an extra level."""
+    caller_filename = inspect.getsourcefile(fn) or "<unknown file>"
+    error_builder = get_resolver_error_builder(fn)
+    parse_fn = parse_function(
+        fn=fn,
+        glbs=caller_globals,
+        lcls=caller_locals,
+        error_builder=error_builder,
+        name=name,
+        validate_output=True,
+        unique_on=unique_on,
+        partitioned_by=partitioned_by,
+    )
+    resolver_obj = cls(
+        filename=caller_filename,
+        function_definition=None,
+        function_captured_globals=None,
+        fqn=get_resolver_fqn(function=fn, name=name),
+        doc=None,
+        inputs=None,
+        output=None,
+        fn=fn,
+        environment=None if environment is None else list(ensure_tuple(environment)),
+        tags=None if tags is None else list(ensure_tuple(tags)),
+        cron=cron,
+        machine_type=machine_type,
+        owner=owner,
+        default_args=None,
+        timeout=timeout,
+        source_line=_function_source_line_start(fn),
+        lsp_builder=error_builder,
+        data_sources=None,
+        is_sql_file_resolver=False,
+        parse=parse_fn,
+        resource_hint=resource_hint,
+        static=static,
+        accelerate_python=accelerate_python,
+        total=total,
+        autogenerated=False,
+        # unique_on / partitioned_by are parsed later from `parse_fn`.
+        unique_on=None,
+        partitioned_by=None,
+        data_lineage=None,
+        sql_settings=None,
+        incremental_settings=incremental,
+        resource_group=resource_group,
+        output_row_order=output_row_order,
+        venv=venv,
+        handle_duplicate_outputs=handle_duplicate_outputs,
+        runtime_contract=runtime_contract,
+    )
+    resolver_obj.add_to_registry(override=False)
+    return resolver_obj
+
+
 @overload
 def online(
     *,
@@ -2347,65 +2453,31 @@ def online(
     del frame
 
     def decorator(fn: Callable[P, T]):
-        caller_filename = inspect.getsourcefile(fn) or "<unknown file>"
-        try:
-            caller_lines = inspect.getsourcelines(fn) or None
-        except:
-            caller_lines = None
-        error_builder = get_resolver_error_builder(fn)
-
-        parse_fn = parse_function(
-            fn=fn,
-            glbs=caller_globals,
-            lcls=caller_locals,
-            error_builder=error_builder,
-            name=name,
-            validate_output=True,
-            unique_on=unique_on,
-            partitioned_by=partitioned_by,
-        )
-
-        resolver = OnlineResolver(
-            filename=caller_filename,
-            function_definition=None,
-            function_captured_globals=None,
-            fqn=get_resolver_fqn(function=fn, name=name),
-            doc=None,
-            inputs=None,
-            output=None,
-            fn=fn,
-            environment=None if environment is None else list(ensure_tuple(environment)),
-            tags=None if tags is None else list(ensure_tuple(tags)),
+        # `runtime_contract` intentionally omitted; only `@resolver` sets it.
+        return _build_resolver(
+            fn,
+            cls=OnlineResolver,
+            caller_globals=caller_globals,
+            caller_locals=caller_locals,
+            environment=environment,
+            tags=tags,
             cron=cron,
             machine_type=machine_type,
             owner=owner,
-            default_args=None,
             timeout=timeout,
-            source_line=None if caller_lines is None else caller_lines[1],
-            lsp_builder=error_builder,
-            data_sources=None,
-            is_sql_file_resolver=False,
-            parse=parse_fn,
+            name=name,
             resource_hint=resource_hint,
             static=static,
             accelerate_python=accelerate_python,
             total=total,
-            autogenerated=False,
-            unique_on=None,  # these two will be parsed correctly when parse_fn is evaluated
-            partitioned_by=None,
-            data_lineage=None,
-            sql_settings=None,
-            incremental_settings=incremental,
+            unique_on=unique_on,
+            partitioned_by=partitioned_by,
             resource_group=resource_group,
             output_row_order=output_row_order,
             venv=venv,
+            incremental=incremental,
             handle_duplicate_outputs=handle_duplicate_outputs,
         )
-
-        resolver.add_to_registry(override=False)
-        # Return the decorated resolver, which notably implements __call__() so it acts the same as
-        # the underlying function if called directly, e.g. from test code
-        return resolver
 
     return decorator(fn) if fn else decorator
 
@@ -2418,6 +2490,7 @@ def offline(
     cron: CronTab | Duration | Cron | None = None,
     machine_type: MachineType | None = None,
     owner: str | None = None,
+    timeout: Duration | None = None,
     name: str | None = None,
     resource_hint: ResourceHint | None = None,
     static: bool = False,
@@ -2610,58 +2683,238 @@ def offline(
     assert caller_frame is not None
     caller_globals = caller_frame.f_globals
     caller_locals = caller_frame.f_locals
-    caller_line = caller_frame.f_lineno
     del frame
 
     def decorator(fn: Callable[P, T]):
-        caller_filename = inspect.getsourcefile(fn) or "<unknown file>"
-        error_builder = get_resolver_error_builder(fn)
-        parse_fn = parse_function(
-            fn=fn,
-            glbs=caller_globals,
-            lcls=caller_locals,
-            error_builder=error_builder,
-            validate_output=True,
-            unique_on=unique_on,
-            partitioned_by=partitioned_by,
-        )
-        resolver = OfflineResolver(
-            filename=caller_filename,
-            function_definition=None,
-            function_captured_globals=None,
-            fqn=get_resolver_fqn(function=fn, name=name),
-            doc=None,
-            inputs=None,
-            output=None,
-            fn=fn,
-            environment=None if environment is None else list(ensure_tuple(environment)),
-            tags=None if tags is None else list(ensure_tuple(tags)),
+        # `runtime_contract` intentionally omitted; only `@resolver` sets it.
+        return _build_resolver(
+            fn,
+            cls=OfflineResolver,
+            caller_globals=caller_globals,
+            caller_locals=caller_locals,
+            environment=environment,
+            tags=tags,
             cron=cron,
             machine_type=machine_type,
             owner=owner,
-            default_args=None,
             timeout=timeout,
-            source_line=caller_line,
-            lsp_builder=error_builder,
-            is_sql_file_resolver=False,
-            data_sources=None,
-            parse=parse_fn,
+            name=name,
             resource_hint=resource_hint,
             static=static,
             accelerate_python=accelerate_python,
             total=total,
-            autogenerated=False,
-            unique_on=None,  # these two will be parsed correctly when parse_fn is evaluated
-            partitioned_by=None,
-            data_lineage=None,
-            sql_settings=None,
-            incremental_settings=incremental,
+            unique_on=unique_on,
+            partitioned_by=partitioned_by,
+            resource_group=None,
             output_row_order=output_row_order,
             venv=venv,
+            incremental=incremental,
             handle_duplicate_outputs=handle_duplicate_outputs,
         )
-        resolver.add_to_registry(override=False)
-        return resolver
+
+    return decorator(fn) if fn else decorator
+
+
+@overload
+def resolver(
+    *,
+    run_contexts: list[str] | None = None,
+    environment: Environments | None = None,
+    tags: Tags | None = None,
+    cron: CronTab | Duration | Cron | None = None,
+    machine_type: MachineType | None = None,
+    owner: str | None = None,
+    timeout: Duration | None = None,
+    name: str | None = None,
+    resource_hint: ResourceHint | None = None,
+    static: bool = False,
+    accelerate_python: Literal["require", "auto", "never"] | None = None,
+    total: bool = False,
+    unique_on: Collection[Any] | None = None,
+    partitioned_by: Collection[Any] | None = None,
+    resource_group: str | None = None,
+    output_row_order: Literal["one-to-one"] | None = None,
+    venv: str | None = None,
+    incremental: IncrementalConfig | None = None,
+    handle_duplicate_outputs: str | None = None,
+) -> Callable[[Callable[P, T]], ResolverProtocol[P, T]]: ...
+
+
+@overload
+def resolver(
+    fn: Callable[P, T],
+    /,
+) -> ResolverProtocol[P, T]: ...
+
+
+def resolver(
+    fn: Callable[P, T] | None = None,
+    /,
+    *,
+    run_contexts: list[str] | None = None,
+    environment: Environments | None = None,
+    tags: Tags | None = None,
+    cron: CronTab | Duration | Cron | None = None,
+    machine_type: MachineType | None = None,
+    owner: str | None = None,
+    timeout: Duration | None = None,
+    name: str | None = None,
+    resource_hint: ResourceHint | None = None,
+    static: bool = False,
+    accelerate_python: Literal["require", "auto", "never"] | None = None,
+    total: bool = False,
+    unique_on: Collection[Any] | None = None,
+    partitioned_by: Collection[Any] | None = None,
+    resource_group: str | None = None,
+    output_row_order: Literal["one-to-one"] | None = None,
+    venv: str | None = None,
+    incremental: IncrementalConfig | None = None,
+    handle_duplicate_outputs: str | None = None,
+) -> Union[Callable[[Callable[P, T]], ResolverProtocol[P, T]], ResolverProtocol[P, T]]:
+    """Decorator that opts a resolver into the stricter ``"strict"`` runtime
+    contract — read by downstream planner/runtime code to enforce stricter
+    validation than the ``@online`` / ``@offline`` decorators.
+
+    .. warning::
+       Not yet available. Any use of ``@resolver`` raises
+       ``NotImplementedError``. The runtime-side enforcement of the
+       ``"strict"`` contract ships in a follow-up PR; until then, use
+       ``@online`` or ``@offline``. The signature, overloads, and field
+       plumbing are in place so that turning this on is a single-call-site
+       change (remove the raise) rather than a wide-touch refactor.
+
+    Once enabled, ``@resolver`` will set ``runtime_contract="strict"`` on the
+    resulting resolver and dispatch by ``run_contexts``. See ``online()`` and
+    ``offline()`` for the rest of the parameter docs.
+
+    Parameters
+    ----------
+    run_contexts
+        Contexts in which this resolver may run. Accepted values inside the
+        list are ``"online"`` and ``"offline"``.
+
+        - ``None`` (default) — equivalent to all contexts (online + offline).
+        - ``["online", "offline"]`` — same as ``None``.
+        - ``["offline"]`` — offline only.
+        - ``["online"]`` — invalid (online-only resolvers are not yet supported).
+        - ``[]`` — invalid.
+
+        ``resource_group`` is only valid when ``"online"`` is one of the run contexts.
+    """
+    raise NotImplementedError(
+        "`@resolver` is not yet available. The stricter runtime contract this "
+        + "decorator opts into is not yet implemented; for now, "
+        + "use `@online` or `@offline`."
+    )
+    # === Follow-up-PR-ready implementation below. Remove the `raise` above
+    # in the PR that ships runtime-side enforcement of
+    # `runtime_contract == "strict"`; the code below is the intended target
+    # and is kept here so that diff stays minimal. ===
+
+    frame = inspect.currentframe()
+    assert frame is not None
+    caller_frame = frame.f_back
+    assert caller_frame is not None
+    caller_globals = caller_frame.f_globals
+    caller_locals = caller_frame.f_locals
+    del frame
+
+    def decorator(fn: Callable[P, T]):
+        error_builder = get_resolver_error_builder(fn)
+        # Validate `run_contexts`. Only ``None``, ``["offline"]``, and the
+        # full set ``{"online", "offline"}`` are allowed today. ``["online"]``
+        # and ``[]`` are explicitly rejected, the former because there is no
+        # current impl of a resolver that runs only in offline queries
+        contexts: FrozenOrderedSet[str] | None
+        if run_contexts is None:
+            contexts = None
+        else:
+            ctx_set = FrozenOrderedSet(run_contexts)
+            unknown = ctx_set - {"online", "offline"}
+            if unknown:
+                error_builder.add_diagnostic(
+                    message=(
+                        f"Unknown `run_contexts` value(s): {sorted(unknown)!r}. "
+                        f"Allowed values are 'online' and 'offline'."
+                    ),
+                    label="invalid run_contexts",
+                    code="resolver-run-contexts-unknown",
+                    range=error_builder.function_decorator_arg_by_name("run_contexts")
+                    or error_builder.function_decorator(),
+                    raise_error=ValueError,
+                )
+            if not ctx_set:
+                error_builder.add_diagnostic(
+                    message=(
+                        "`run_contexts=[]` is not a valid configuration. Pass "
+                        "`None` for all contexts, or specify `['offline']` "
+                        "(or `['online', 'offline']`)."
+                    ),
+                    label="empty run_contexts",
+                    code="resolver-run-contexts-empty",
+                    range=error_builder.function_decorator_arg_by_name("run_contexts")
+                    or error_builder.function_decorator(),
+                    raise_error=ValueError,
+                )
+            if ctx_set == FrozenOrderedSet({"online"}):
+                error_builder.add_diagnostic(
+                    message=(
+                        "`run_contexts=['online']` is not yet supported via "
+                        "`@resolver`. Use `@online` for online-only resolvers."
+                    ),
+                    label="online-only via @resolver not supported",
+                    code="resolver-run-contexts-online-only",
+                    range=error_builder.function_decorator_arg_by_name("run_contexts")
+                    or error_builder.function_decorator(),
+                    raise_error=ValueError,
+                )
+            contexts = ctx_set
+
+        # `resource_group` requires the resolver to run online.
+        runs_online = contexts is None or "online" in contexts
+        if not runs_online and resource_group is not None:
+            error_builder.add_diagnostic(
+                message=(
+                    "`resource_group` is only valid for resolvers that can run "
+                    "online; include 'online' in `run_contexts` or omit "
+                    "`resource_group`."
+                ),
+                label="resource_group requires online context",
+                code="resolver-resource-group-requires-online",
+                range=error_builder.function_decorator_arg_by_name("resource_group")
+                or error_builder.function_decorator(),
+                raise_error=ValueError,
+            )
+
+        # Dispatch:
+        #   - offline only          → OfflineResolver
+        #   - all contexts (default)→ OnlineResolver (it's also reachable offline)
+        cls: type[Resolver] = OfflineResolver if contexts == FrozenOrderedSet({"offline"}) else OnlineResolver
+        return _build_resolver(
+            fn,
+            cls=cls,
+            caller_globals=caller_globals,
+            caller_locals=caller_locals,
+            environment=environment,
+            tags=tags,
+            cron=cron,
+            machine_type=machine_type,
+            owner=owner,
+            timeout=timeout,
+            name=name,
+            resource_hint=resource_hint,
+            static=static,
+            accelerate_python=accelerate_python,
+            total=total,
+            unique_on=unique_on,
+            partitioned_by=partitioned_by,
+            resource_group=resource_group,
+            output_row_order=output_row_order,
+            venv=venv,
+            incremental=incremental,
+            handle_duplicate_outputs=handle_duplicate_outputs,
+            runtime_contract="strict",
+        )
 
     return decorator(fn) if fn else decorator
 
@@ -2808,7 +3061,7 @@ def sink(
             owner=owner,
             default_args=parsed.input_feature_defaults,
             input_is_df=parsed.input_is_df,
-            source_line=caller_line,
+            source_line=_function_source_line_start(fn, fallback=caller_line),
             lsp_builder=error_builder,
             data_sources=None,
         )
@@ -3655,7 +3908,7 @@ def _validate_unique_pubsub_source(
         return
 
     # message_header_filters is list[tuple[str, bytes]] here (narrowed by is None check above).
-    new_filters_set = frozenset(message_header_filters)
+    new_filters_set = FrozenOrderedSet(message_header_filters)
 
     for existing in existing_on_source:
         existing_filters = existing.message_header_filters
@@ -3677,7 +3930,7 @@ def _validate_unique_pubsub_source(
             return
         # Disallow identical filter sets — two resolvers with the same filters would both
         # receive every matching message, producing duplicate writes.
-        if frozenset(existing_filters) == new_filters_set:
+        if FrozenOrderedSet(existing_filters) == new_filters_set:
             error_builder.add_diagnostic(
                 message=(
                     f"Stream resolver '{fqn}' has the same message_header_filters as "
@@ -3830,7 +4083,7 @@ def parse_and_register_stream_resolver(
         parse=parse_info,
         keys=keys,
         timestamp=timestamp,
-        source_line=caller_line,
+        source_line=_function_source_line_start(fn, fallback=caller_line),
         lsp_builder=error_builder,
         autogenerated=False,
         updates_materialized_aggregations=updates_materialized_aggregations,

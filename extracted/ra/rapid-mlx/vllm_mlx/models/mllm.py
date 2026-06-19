@@ -1559,8 +1559,6 @@ class MLXMultimodalLM:
 
         # Prefix caching with vision embedding support
         # Following LMCache approach: cache vision embeddings to skip encoder on hit
-        import time
-
         from mlx_vlm.models import cache as vlm_cache
 
         # use_cache was already popped near the top of chat() — don't re-pop
@@ -1599,8 +1597,6 @@ class MLXMultimodalLM:
                 logger.warning(f"Cache fetch failed: {e}")
 
         # Generate - use KV cache if available from previous identical request
-        start_time = time.time()
-
         # Create or reuse prompt cache for prefix caching speedup
         prompt_cache = None
         skip_prompt_processing = False

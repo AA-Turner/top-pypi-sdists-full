@@ -254,7 +254,7 @@ class PanXapi:
 
         filename = None
         for type in content_disposition:
-            result = re.search(r'^filename=([-\w\d\.]+)$', type)
+            result = re.search(r'^filename=(.+)$', type)
             if result:
                 filename = result.group(1)
                 break
@@ -603,7 +603,10 @@ class PanXapi:
         if extra_qs is not None:
             query = self.__merge_extra_qs(query, extra_qs)
 
-        response = self.__api_request(query)
+        try:
+            response = self.__api_request(query)
+        finally:
+            query.pop('password', None)
         if not response:
             raise PanXapiError(self.status_detail)
 

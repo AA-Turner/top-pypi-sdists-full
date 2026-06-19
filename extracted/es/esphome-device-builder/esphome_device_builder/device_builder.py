@@ -11,7 +11,6 @@ import asyncio
 import contextlib
 import html
 import logging
-import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -43,11 +42,11 @@ from .controllers.remote_build import OffloaderController, ReceiverController
 from .controllers.version_history import VersionHistoryController
 from .helpers.api import CommandHandler, collect_api_commands
 from .helpers.async_ import create_eager_task
-from .helpers.auth import auth_middleware
+from .helpers.auth import HASHED_FILENAME_RE, auth_middleware, ingress_peer_guard
 from .helpers.dashboard_advertise import DashboardAdvertiser
 from .helpers.dashboard_identity import get_or_create_identity as get_or_create_dashboard_identity
 from .helpers.event_bus import Event, EventBus, StreamControls, stream_events
-from .helpers.json import cors_middleware
+from .helpers.json import cors_middleware, json_response
 from .helpers.network_interfaces import ensure_single_host_for_ephemeral_port, resolve_bind_host
 from .helpers.peer_link_identity import PeerLinkIdentityStore
 from .helpers.secrets_state import write_secrets_locked
@@ -88,7 +87,6 @@ _SHUTDOWN_TIMEOUT_SECONDS = 5.0
 #     on every rebuild, so they're safe to cache forever.
 _NO_CACHE_HEADERS = {"Cache-Control": "no-cache"}
 _IMMUTABLE_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
-_HASHED_FILENAME_RE = re.compile(r"\.[a-f0-9]{8,}\.")
 
 # Path extensions that should NEVER fall back to ``index.html``. The
 # frontend bundle's entry script is emitted with a relative ``src``
@@ -175,6 +173,11 @@ def _resolve_base_href(request: web.Request, *, tail: str = "") -> str:
     # re-added.
     normalized = base.strip("/")
     return f"/{normalized}/" if normalized else "/"
+
+
+async def _handle_version(_request: web.Request) -> web.Response:
+    """Return the esphome version as JSON for the Docker HEALTHCHECK."""
+    return json_response({"version": esphome_version})
 
 
 # Worker-thread budget for the default ``ThreadPoolExecutor``. asyncio's
@@ -732,7 +735,13 @@ class DeviceBuilder:
         IS the ingress) to avoid recursively spawning a second
         ingress site via ``_start_ingress_site``.
         """
-        middlewares: list[Any] = [cors_middleware]
+        # The trusted ingress site bypasses auth, so the peer guard (loopback +
+        # supervisor only) runs outermost to reject everything else before any
+        # other processing. The public site gates by Authorization instead.
+        middlewares: list[Any] = []
+        if trusted:
+            middlewares.append(ingress_peer_guard)
+        middlewares.append(cors_middleware)
         if not trusted:
             middlewares.append(auth_middleware)
 
@@ -762,6 +771,11 @@ class DeviceBuilder:
         # the ingress site). HTTP, not WS, so a large firmware.elf isn't capped
         # by a proxy's WebSocket max_msg_size.
         app.router.add_get("/api/firmware/download", firmware_http_download)
+
+        # Health/version endpoint. Public (see auth._PUBLIC_PATHS) and
+        # registered before the SPA catch-all so the upstream Docker image's
+        # HEALTHCHECK gets a deterministic JSON 200 instead of the SPA shell.
+        app.router.add_get("/version", _handle_version)
 
         # Static file serving for board images
         boards_dir = Path(__file__).parent / "definitions" / "boards"
@@ -796,7 +810,7 @@ class DeviceBuilder:
 
     async def _start_ingress_site(self, _: web.Application) -> None:
         """Start the trusted HA Ingress TCP site alongside the public site."""
-        hosts = resolve_bind_host(self.settings.ingress_host or "0.0.0.0")
+        hosts = self.settings.ingress_bind_hosts
         ensure_single_host_for_ephemeral_port(hosts, self.settings.ingress_port, "--ingress-port")
         ingress_app = self.create_app(trusted=True, with_lifecycle=False)
         runner = web.AppRunner(ingress_app)
@@ -874,7 +888,7 @@ class DeviceBuilder:
             app = self.create_app(trusted=True, with_ingress_site=False)
             if self._startup_timer is not None:
                 self._startup_timer.mark("app")
-            hosts = resolve_bind_host(settings.ingress_host or "0.0.0.0")
+            hosts = settings.ingress_bind_hosts
             ensure_single_host_for_ephemeral_port(hosts, settings.ingress_port, "--ingress-port")
             web.run_app(
                 app,
@@ -1026,7 +1040,7 @@ class DeviceBuilder:
                 resolved = await asyncio.to_thread(_resolve_static, candidate)
                 if resolved is not None:
                     headers = (
-                        _IMMUTABLE_HEADERS if _HASHED_FILENAME_RE.search(tail) else shell_headers
+                        _IMMUTABLE_HEADERS if HASHED_FILENAME_RE.search(tail) else shell_headers
                     )
                     return web.FileResponse(resolved, headers=headers)
             # 404 asset-shaped requests instead of returning the SPA

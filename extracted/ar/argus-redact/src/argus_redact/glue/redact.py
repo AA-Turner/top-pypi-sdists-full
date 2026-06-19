@@ -6,34 +6,31 @@ import importlib
 import json
 import logging
 import os
-import re as _re
 import time
 from pathlib import Path
 
 from argus_redact._safe_io import safe_read_text as _safe_read_text
 from argus_redact._types import PatternMatch
 from argus_redact.lang._loader import core_patterns
-from argus_redact.layers import LAYER_NER, LAYER_REGEX, LAYER_SEMANTIC
+from argus_redact.layers import LAYER_NER, LAYER_SEMANTIC
 from argus_redact.pure.grammar import normalize_grammar_en
 from argus_redact.pure.hints import (
     boost_cross_layer,
     filter_self_reference,
     get_ner_min_confidence,
-    get_person_threshold,
     produce_hints,
     should_skip_ner,
 )
 from argus_redact.pure.lang_detect import detect_languages
 from argus_redact.pure.merger import merge_entities
-from argus_redact.pure.normalize import MAX_INPUT_SIZE, map_spans_to_original, normalize_text
-from argus_redact.pure.patterns import match_patterns
+from argus_redact.pure.normalize import MAX_INPUT_SIZE
 from argus_redact.pure.replacer import replace
 from argus_redact.telemetry import PerfRecord, emit, get_perf_hook
 
 logger = logging.getLogger(__name__)
 
 # Cached telemetry constants (resolved once at import, not per-call)
-from argus_redact._core_loader import HAS_CORE as _RUST_CORE
+from argus_redact._core_loader import HAS_CORE as _RUST_CORE, _core
 
 
 def _telemetry_hook_active() -> bool:
@@ -102,11 +99,12 @@ def _load_patterns(lang: str | list[str]) -> list[dict]:
     """Load regex patterns for the given language(s). Cached per language combo.
 
     Pattern DATA is the SSOT in argus-redact-core (RON), read via
-    ``core_patterns`` (a thin reader over ``_core.builtin_patterns``). The 3
-    deferred validators (organization/school/jwt) are re-attached there as
-    Python ``validate`` callables so they route through the Python validate
-    path; everything else (named ``validator`` strings) is validated inline in
-    Rust. The compiled core is required.
+    ``core_patterns`` (a thin reader over ``_core.builtin_patterns``). Every
+    builtin pattern names its validator as a Rust ``validator`` string, so its
+    regex AND validation run inline in Rust (as of v0.7.7 this includes the
+    formerly-deferred organization/school/jwt validators). Adapter / non-builtin
+    patterns may still carry a Python ``validate`` callable, handled by
+    ``pure/patterns.py``. The compiled core is required.
     """
     langs = tuple(lang) if isinstance(lang, list) else (lang,)
     if langs in _pattern_cache:
@@ -195,91 +193,27 @@ def _detect(
     entities: list[PatternMatch] = []
     langs = [lang] if isinstance(lang, str) else list(lang)
 
+    # Layer 1 (regex + person) — single Rust engine call. ``detect_l1`` reproduces
+    # internally: normalize_text → match_patterns (over _load_patterns) →
+    # map_spans_to_original → produce_hints_l1 → get_person_threshold →
+    # zh/en person → names-only fallback. It returns the RAW (pre-merge) L1
+    # components: ``layer1`` (the L1a regex matches, already tagged LAYER_REGEX,
+    # spans mapped back to original text), ``person`` (zh-then-en or names-only,
+    # also tagged LAYER_REGEX), the internal L1 hints, and validator ``near_misses``.
+    # detect_l1 takes the ORIGINAL text (it normalizes internally).
     t0 = time.perf_counter()
-    normalized, offset_map = normalize_text(text)
-    timing["normalize_ms"] = (time.perf_counter() - t0) * 1000
-    use_normalized = offset_map is not None
-
-    # Layer 1a: regex (structural PII — phone, ID, bank card, etc.)
-    t0 = time.perf_counter()
-    detect_text = normalized if use_normalized else text
-    layer1_raw, near_misses = match_patterns(detect_text, _load_patterns(lang))
-
-    # Map normalized offsets back to original text
-    if use_normalized and layer1_raw:
-        mapped_spans = map_spans_to_original(
-            [(e.start, e.end) for e in layer1_raw],
-            offset_map,
-            len(text),
-        )
-        layer1 = [
-            PatternMatch(
-                text=text[s:e],
-                type=e_orig.type,
-                start=s,
-                end=e,
-                confidence=e_orig.confidence,
-                layer=e_orig.layer,
-            )
-            for e_orig, (s, e) in zip(layer1_raw, mapped_spans)
-        ]
-    else:
-        layer1 = layer1_raw
-
+    layer1, person, _l1_hints, near_misses = _core.detect_l1(text, langs, names or [])
     timing["layer_1_ms"] = (time.perf_counter() - t0) * 1000
-    entities.extend(_tag_layer(layer1, LAYER_REGEX))
-    layer1_count = len(layer1)
+    entities.extend(layer1)
+    entities.extend(person)
+    layer1_count = len(layer1) + len(person)
 
-    # Produce hints from L1a results — consumed by L1b, L2, L3, and tier filter
+    # Produce the FULL Python hints (all 4 types) from the L1a regex set — consumed
+    # by L2 (NER gating), L3, and the report. The 2 L1 hints here
+    # (text_intent / self_reference_tier) equal detect_l1's internal ones
+    # (golden-locked); the Python set additionally carries pii_density +
+    # near_miss_format, which only the L2/L3/report consumers need.
     hints = produce_hints(layer1, text, near_misses=near_misses)
-
-    # Layer 1b: person name detection
-    # Hint-driven: threshold adjusts based on text_intent
-    person_threshold = get_person_threshold(hints)
-
-    if "zh" in langs:
-        from argus_redact.lang.zh.person import detect_person_names
-
-        t0 = time.perf_counter()
-        person_names = detect_person_names(
-            text,
-            pii_entities=layer1,
-            known_names=names,
-            threshold=person_threshold,
-        )
-        timing["layer_1b_person_ms"] = (time.perf_counter() - t0) * 1000
-        entities.extend(_tag_layer(person_names, LAYER_REGEX))
-        layer1_count += len(person_names)
-
-    if "en" in langs:
-        from argus_redact.lang.en.person import detect_person_names as detect_en_person
-
-        t0 = time.perf_counter()
-        en_person_names = detect_en_person(text, known_names=names)
-        timing["layer_1b_person_ms"] = timing.get("layer_1b_person_ms", 0) + (
-            time.perf_counter() - t0
-        ) * 1000
-        entities.extend(_tag_layer(en_person_names, LAYER_REGEX))
-        layer1_count += len(en_person_names)
-        # Note: en detector ignores L1 hints / threshold today (uses surname
-        # list-match exclusively); kwargs simplified to known_names.
-
-    if "zh" not in langs and "en" not in langs and names:
-        for name in names:
-            if not name:
-                continue
-            for m in _re.finditer(_re.escape(name), text):
-                entities.append(
-                    PatternMatch(
-                        text=name,
-                        type="person",
-                        start=m.start(),
-                        end=m.end(),
-                        confidence=1.0,
-                        layer=LAYER_REGEX,
-                    )
-                )
-                layer1_count += 1
 
     # Layer 2: NER (auto or ner mode), hint-gated
     layer2_count = 0
@@ -499,6 +433,17 @@ def redact(
     if lang == "auto":
         lang = detect_languages(text)
 
+    # Detection is unified on ONE path for every mode and return shape: _detect
+    # (Rust _core.detect_l1 under the hood, which skips L2/L3 in fast mode) runs
+    # the detection ONCE, then _replace_and_emit (Rust _core.replace) does the
+    # replacement. Fast / detailed / with_types / report differ only in the
+    # final return-shape dispatch below, never in how detection runs. The Python
+    # fast-mode path therefore detects exactly once and honors ARGUS_ABLATION_HINTS
+    # (read inside the Python produce_hints _detect calls).
+    #
+    # _core.redact_l1 (detect_l1 → merge → filter → replace, all in Rust as a
+    # single bundled call) is built, bound, and tested, but is NOT used by this
+    # shim — it is the entry point reserved for the upcoming iOS C ABI.
     if _pre_detected is not None:
         entities = _pre_detected
         langs = [lang] if isinstance(lang, str) else list(lang)

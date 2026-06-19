@@ -69,6 +69,103 @@ class RouteOverrideDescriptor:
     implements_via: str | None = None  # path-param name holding the row's PK
 
 
+def find_unbound_shadowing_overrides(
+    overrides: list[RouteOverrideDescriptor],
+    generated_paths: set[tuple[str, str]],
+) -> list[str]:
+    """#1420 Slice 3 / ADR-0040 D2 — conformance violations.
+
+    A route-override that *shadows* a generated entity route (same ``(METHOD,
+    path)``) but declares no ``# dazzle:implements`` binding silently replaces a
+    permit/scope-bound generated route with an un-gated custom one. Return one
+    human-readable violation string per such override; empty list = conformant.
+
+    ``generated_paths`` is the set of ``(METHOD, path)`` the generated CRUD layer
+    would mount (a domain route shape). An override that shadows one of these is
+    by definition domain-touching, so it must carry the binding.
+    """
+    violations: list[str] = []
+    for o in overrides:
+        if o.implements_entity is not None:
+            continue  # bound → conformant
+        if (o.method.upper(), o.path) in generated_paths:
+            violations.append(
+                f"Route override {o.method.upper()} {o.path} ({o.source_path.name}) shadows a "
+                "generated entity route but declares no `# dazzle:implements <Entity>.<op> via "
+                "<param>` binding — it bypasses the entity's permit/scope model. Add the binding, "
+                "or call dazzle.back.runtime.policy.check_entity_op(...) in the handler."
+            )
+    return violations
+
+
+_VALID_CRUD_OPS = frozenset({"list", "read", "create", "update", "delete"})
+
+
+def verify_route_matrix_completeness(
+    appspec: Any,
+    overrides: list[RouteOverrideDescriptor],
+    generated_paths: set[tuple[str, str]],
+) -> list[str]:
+    """#1420 Slice 3 / ADR-0040 D3 — every domain route must be matrix-represented.
+
+    The hard-gate form of the conformance check. Two ways a custom route escapes
+    the RBAC matrix:
+
+    1. **Unbound shadow** — an override that shadows a generated entity route but
+       carries no ``# dazzle:implements`` binding (no ``(entity, op)`` → no matrix
+       row). Reuses :func:`find_unbound_shadowing_overrides`.
+    2. **Dangling binding** — an override whose ``# dazzle:implements`` names an
+       entity that doesn't exist in the AppSpec, or an op outside the CRUD set.
+       Its row points at nothing.
+
+    Returns one violation string per offending override; ``[]`` means the route
+    set is matrix-complete. A CLI gate (`dazzle rbac routes --strict`) exits
+    non-zero when this is non-empty.
+    """
+    violations = list(find_unbound_shadowing_overrides(overrides, generated_paths))
+    entity_names = {e.name for e in appspec.domain.entities}
+    for o in overrides:
+        if o.implements_entity is None:
+            continue
+        if o.implements_entity not in entity_names:
+            violations.append(
+                f"Route override {o.method.upper()} {o.path} ({o.source_path.name}) binds to "
+                f"`# dazzle:implements {o.implements_entity}.{o.implements_op}` but entity "
+                f"{o.implements_entity!r} does not exist in the AppSpec — dangling binding, no "
+                "matrix row."
+            )
+        elif o.implements_op not in _VALID_CRUD_OPS:
+            violations.append(
+                f"Route override {o.method.upper()} {o.path} ({o.source_path.name}) binds to op "
+                f"{o.implements_op!r}, which is not a CRUD op (list/read/create/update/delete) — "
+                "no matrix row."
+            )
+    return violations
+
+
+_RAW_DB_PATTERNS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(r"\.execute\s*\(\s*['\"]?\s*(SELECT|INSERT|UPDATE|DELETE)\b", re.IGNORECASE),
+        "raw SQL via .execute(...)",
+    ),
+    (re.compile(r"\bRepository\s*\("), "direct Repository(...) construction"),
+    (re.compile(r"(?m)^\s*(import\s+psycopg|from\s+psycopg(\.\w+)?\s+import)\b"), "psycopg import"),
+]
+
+
+def scan_handler_for_raw_db(source: str) -> list[str]:
+    """#1420 Slice 3 / ADR-0040 D4 — flag raw DB access in a custom route handler.
+
+    A domain-touching custom handler must bind via the ``# dazzle:implements``
+    header or call ``dazzle.back.runtime.policy.check_entity_op`` — not reach the
+    database directly (raw SQL / a hand-built Repository), which escapes the
+    declared binding and bypasses permit/scope. Returns one label per detected
+    pattern; ``[]`` means the handler does not touch the DB directly. Backs the
+    ``raw_db_in_custom_route`` counter-prior.
+    """
+    return [label for pat, label in _RAW_DB_PATTERNS if pat.search(source)]
+
+
 def discover_route_overrides(routes_dir: Path) -> list[RouteOverrideDescriptor]:
     """Scan a project routes directory for override declarations.
 

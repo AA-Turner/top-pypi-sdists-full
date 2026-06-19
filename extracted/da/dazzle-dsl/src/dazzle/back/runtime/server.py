@@ -259,6 +259,11 @@ def _maybe_instrument_for_perf(app: Any) -> None:
 # =============================================================================
 
 
+def _any_workspace_live(workspaces: list[Any]) -> bool:
+    """#1399 slice 1 — True if any workspace opted into SSE live push."""
+    return any(getattr(ws, "live", False) for ws in workspaces)
+
+
 class DazzleBackendApp:
     """
     Dazzle Backend Application.
@@ -475,6 +480,51 @@ class DazzleBackendApp:
         declared = load_manifest(manifest_path).capabilities.enabled
         return resolve_capabilities(list(declared))
 
+    def _warn_unregistered_renderers(self) -> None:
+        """#1413: warn at boot when a custom renderer declared in dazzle.toml
+        ``[renderers] extra`` has no runtime handler registered.
+
+        Declaring a renderer (link-time, validated by build_appspec) and
+        registering its handler (runtime, ``services.renderer_registry.register``)
+        are separate steps. A declared-but-unregistered renderer passes
+        ``dazzle validate``/``lint`` but 500s with a FragmentError at first
+        request. Surface the gap at the moment it matters — boot — without
+        failing the boot (warning, not error).
+        """
+        if self._project_root is None or self._app is None:
+            return
+        manifest_path = self._project_root / "dazzle.toml"
+        if not manifest_path.is_file():
+            return
+        from dazzle.core.manifest import load_manifest
+
+        try:
+            declared = load_manifest(manifest_path).renderers.extra
+        except (ValueError, OSError):
+            # Best-effort warning only — a malformed/unreadable manifest is
+            # surfaced loudly by the appspec build that already ran; don't let
+            # this advisory check perturb boot.
+            return
+        if not declared:
+            return
+        services = getattr(self._app.state, "services", None)
+        registry = getattr(services, "renderer_registry", None)
+        if registry is None:
+            return
+        registered = set(registry.registered_names())
+        orphans = sorted(r for r in declared if r not in registered)
+        if orphans:
+            logger.warning(
+                "[dazzle] custom renderer(s) declared in dazzle.toml "
+                "[renderers] extra but never registered at runtime: %s — they "
+                "will 500 (FragmentError) at request time. Wire "
+                "services.renderer_registry.register(name=..., handler=...) at "
+                "startup (e.g. your register_all() via register_lifespan_hook). "
+                "Declared-but-unregistered renderers pass validate/lint but "
+                "fail at request (#1413).",
+                ", ".join(orphans),
+            )
+
     def _build_subsystem_context(self, auth_dep: Any = None, optional_auth_dep: Any = None) -> Any:
         """Build SubsystemContext from current DazzleBackendApp state."""
         from dazzle.back.runtime.subsystems import SubsystemContext
@@ -580,6 +630,10 @@ class DazzleBackendApp:
         # framework is up. Each emits a deprecation warning pointing at
         # dazzle.register_lifespan_hook, the supported path.
         await run_legacy_router_events(app, "startup")
+        # #1413: after all registration (framework defaults + project
+        # register_all via startup hooks/legacy events), warn on any custom
+        # renderer declared in dazzle.toml that never got a runtime handler.
+        self._warn_unregistered_renderers()
         try:
             yield
         finally:
@@ -1271,6 +1325,56 @@ class DazzleBackendApp:
 
                     self._upload_callbacks.append(_upload_hook)
 
+    def _wire_sse_live_push(self) -> None:
+        """#1399 slice 1 — wire SSE live push when a workspace declares `live: on`.
+
+        Must run AFTER ``_run_subsystems()`` (which sets ``self._event_framework``).
+        The framework's concrete bus only exists after its start lifespan hook
+        runs, so we bind everything to a ``LazyFrameworkBus`` proxy that resolves
+        the live bus at call time. Three wirings, all gated on opt-in + framework:
+
+        1. Nudge publishers on every CRUD service (entity mutation -> bus).
+        2. An ``SSEStreamManager`` + ``/_ops/sse/events`` route (bus -> browser),
+           mounted independently of the ops dashboard.
+        3. Lifespan start/stop for the manager, registered AFTER the framework's
+           start hook so subscription happens against a started bus.
+        """
+        if not _any_workspace_live(list(self._appspec.workspaces)):
+            return
+        framework = self._event_framework
+        if framework is None:
+            logger.warning(
+                "Workspace declares `live: on` but no event framework is available; "
+                "SSE live push disabled."
+            )
+            return
+
+        from dazzle.back.runtime.lifespan_hooks import register_lifespan_hook
+        from dazzle.back.runtime.sse_stream import SSEStreamManager, create_sse_routes
+        from dazzle.back.runtime.sse_wiring import LazyFrameworkBus, register_sse_callbacks
+
+        assert self._app is not None
+        # Defensive: never double-mount the SSE router (e.g. if a future ops
+        # dashboard also mounts /_ops/sse). validate_routes() would reject the
+        # collision otherwise.
+        if any(getattr(r, "path", "") == "/_ops/sse/events" for r in self._app.routes):
+            logger.info("SSE routes already mounted; skipping live-push mount.")
+            return
+        lazy_bus = LazyFrameworkBus(framework)
+        register_sse_callbacks(self._services, lazy_bus)
+
+        sse_manager = SSEStreamManager(event_bus=lazy_bus)
+        self._app.include_router(create_sse_routes(sse_manager))
+
+        async def _start_sse() -> None:
+            await sse_manager.start()
+
+        async def _stop_sse() -> None:
+            await sse_manager.stop()
+
+        register_lifespan_hook(self._app, startup=_start_sse, shutdown=_stop_sse)
+        logger.info("SSE live push enabled (mounted /_ops/sse/events).")
+
     def _wire_storage_routes(self) -> None:
         """Register storage upload-ticket routes (#932 cycle 3).
 
@@ -1356,6 +1460,21 @@ class DazzleBackendApp:
 
         Returns (auth_dep, optional_auth_dep) for route generation.
         """
+        # #1420 Slice 1 — fail closed: auth disabled in production is a critical
+        # misconfiguration (generated CRUD would be world-writable). Runs before
+        # any auth/DB state is touched.
+        from dazzle.back.runtime.auth.insecure_guard import (
+            assert_secure_auth_config,
+            insecure_ack_from_env,
+        )
+        from dazzle.core.environment import is_production
+
+        assert_secure_auth_config(
+            self._enable_auth,
+            production=is_production(),
+            allow_insecure=insecure_ack_from_env(),
+        )
+
         auth_dep = None
         optional_auth_dep = None
         if not self._enable_auth:
@@ -1489,6 +1608,19 @@ class DazzleBackendApp:
                 override_router = build_override_router(self._project_root / "routes")
                 if override_router is not None:
                     self._app.include_router(override_router)
+
+                # #1420 Slice 3 / ADR-0040 D2 — conformance: a route-override that
+                # shadows a generated entity route without a `# dazzle:implements`
+                # binding bypasses permit/scope. Surface it loudly at boot.
+                from dazzle.back.runtime.route_overrides import (
+                    discover_route_overrides,
+                    find_unbound_shadowing_overrides,
+                )
+
+                _overrides = discover_route_overrides(self._project_root / "routes")
+                _generated = {(ep.method.value, ep.path) for ep in self._endpoint_specs}
+                for _violation in find_unbound_shadowing_overrides(_overrides, _generated):
+                    logger.warning("[dazzle] %s", _violation)
             except Exception:
                 logger.debug("Route override discovery skipped", exc_info=True)
 
@@ -2025,6 +2157,9 @@ class DazzleBackendApp:
         # _setup_system_routes.
         self._subsystem_ctx = self._build_subsystem_context(auth_dep, optional_auth_dep)
         self._run_subsystems()
+        # #1399 slice 1 — SSE live push. After subsystems so self._event_framework
+        # is set; before route validation so the SSE route is counted.
+        self._wire_sse_live_push()
         # Sync integration_mgr and workspace_builder back from subsystem context
         if self._subsystem_ctx.integration_mgr is not None:
             self._integration_mgr = self._subsystem_ctx.integration_mgr

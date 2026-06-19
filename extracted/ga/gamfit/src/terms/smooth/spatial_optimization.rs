@@ -1287,6 +1287,43 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
         Ok(dirs)
     }
 
+    fn nfree_tensor_gradient_hyper_dirs(
+        &mut self,
+        theta: &Array1<f64>,
+    ) -> Result<Vec<DirectionalHyperParam>, EstimationError> {
+        let psi = &theta
+            .as_slice()
+            .ok_or_else(|| {
+                EstimationError::InvalidInput(
+                    "nfree_tensor_gradient_hyper_dirs: theta is not contiguous".to_string(),
+                )
+            })?[self.rho_dim..];
+        let (global_range, p_total, s_psi_components) = self
+            .realizer
+            .canonical_penalty_derivatives_at_psi(&self.spatial_terms, psi)
+            .map_err(EstimationError::InvalidInput)?;
+        let zero_x = crate::estimate::reml::HyperDesignDerivative::zero(
+            self.realizer.design().design.nrows(),
+            p_total,
+        );
+        let components = s_psi_components
+            .into_iter()
+            .enumerate()
+            .map(|(penalty_index, local)| {
+                (
+                    penalty_index,
+                    crate::estimate::reml::HyperPenaltyDerivative::from_embedded(
+                        local,
+                        global_range.clone(),
+                        p_total,
+                    ),
+                )
+            })
+            .collect::<Vec<_>>();
+        Ok(DirectionalHyperParam::new_compact(zero_x, components, None, None)?.not_penalty_like())
+            .map(|dir| vec![dir])
+    }
+
     fn ensure_theta(&mut self, theta: &Array1<f64>) -> Result<(), String> {
         if self
             .current_theta
@@ -1399,6 +1436,11 @@ impl<'d> SingleBlockExactJointDesignCache<'d> {
     fn supports_nfree_penalty_rekey(&self) -> bool {
         self.realizer
             .supports_nfree_penalty_rekey(&self.spatial_terms)
+    }
+
+    fn supports_nfree_gradient_only_routing(&self) -> bool {
+        self.realizer
+            .supports_nfree_gradient_only_routing(&self.spatial_terms)
     }
 
     /// Build the EXACT canonical penalty surface `S(ψ)` at the length-scale
@@ -2027,7 +2069,7 @@ fn try_exact_joint_spatial_length_scale_optimization(
     } else {
         SpatialHyperKind::Isotropic
     };
-    let outcome = run_exact_joint_spatial_optimization(
+    let (outcome, kappa_timing) = run_exact_joint_spatial_optimization(
         kind,
         data,
         y,
@@ -2085,6 +2127,7 @@ fn try_exact_joint_spatial_length_scale_optimization(
                 family,
                 options,
                 baseline_score,
+                Some(kappa_timing),
             )?));
         }
     };
@@ -2111,6 +2154,7 @@ fn try_exact_joint_spatial_length_scale_optimization(
             family,
             options,
             baseline_score,
+            Some(kappa_timing),
         )?));
     }
 
@@ -2139,6 +2183,7 @@ fn try_exact_joint_spatial_length_scale_optimization(
         design: optimized.design,
         resolvedspec,
         adaptive_diagnostics: optimized.adaptive_diagnostics,
+        kappa_timing: Some(kappa_timing),
     };
 
     Ok(Some(optimized_result))
@@ -2178,6 +2223,7 @@ fn fit_frozen_baseline_geometry(
     family: LikelihoodSpec,
     options: &FitOptions,
     baseline_score: f64,
+    kappa_timing: Option<SpatialLengthScaleOptimizationTiming>,
 ) -> Result<FittedTermCollectionWithSpec, EstimationError> {
     let baseline = fit_term_collection_forspecwith_heuristic_lambdas(
         data,
@@ -2196,6 +2242,7 @@ fn fit_frozen_baseline_geometry(
         design: baseline.design,
         resolvedspec: resolvedspec.clone(),
         adaptive_diagnostics: baseline.adaptive_diagnostics,
+        kappa_timing,
     })
 }
 
@@ -2396,6 +2443,50 @@ impl<'d> SpatialJointContext<'d> {
         Ok(())
     }
 
+    fn stage_frozen_glm_trial_statistics(
+        &mut self,
+        theta: &Array1<f64>,
+        warm_beta: Option<&Array1<f64>>,
+        allow_gradient: bool,
+    ) -> Result<(), EstimationError> {
+        let kind = self.kind;
+        let mut staged_gram: Option<Array2<f64>> = None;
+        let mut staged_deriv: Option<(Array2<f64>, Array1<f64>)> = None;
+        if theta.len() == self.rho_dim + 1 {
+            let psi = theta[self.rho_dim];
+            if let (Some(tensor), Some(beta)) = (self.frozen_glm_tensor.as_ref(), warm_beta)
+                && tensor.contains(psi)
+                && let Some((current_w, _)) = self.frozen_glm_working_state(beta)?
+            {
+                const FROZEN_GLM_WEIGHT_DRIFT_RTOL: f64 = 1e-3;
+                if tensor.weight_drift_within(current_w.view(), FROZEN_GLM_WEIGHT_DRIFT_RTOL) {
+                    staged_gram = Some(tensor.gram_at(psi));
+                    log::debug!(
+                        "[STAGE] {} trial at psi={psi:.6}: serving frozen-W GLM \
+                         first-Fisher-step XᵀWX n-free (weight drift within tol)",
+                        kind.label(),
+                    );
+                }
+                if allow_gradient
+                    && tensor.contains_for_gradient(psi)
+                    && let Some((dgram_dpsi, drhs_dpsi)) =
+                        tensor.gradient_pair_if_sound(psi, current_w.view())
+                {
+                    staged_deriv = Some((dgram_dpsi, drhs_dpsi));
+                    log::debug!(
+                        "[STAGE] {} trial at psi={psi:.6}: serving frozen-W GLM \
+                         ψ-gradient (∂G/∂ψ, ∂b/∂ψ) n-free (gradient weight drift within \
+                         tight tol); B_j stays exact",
+                        kind.label(),
+                    );
+                }
+            }
+        }
+        self.evaluator.stage_glm_first_step_gram(staged_gram);
+        self.evaluator.stage_glm_psi_gram_deriv(staged_deriv);
+        Ok(())
+    }
+
     /// Full evaluation on the current realized design + hyper_dirs.
     fn eval_full(
         &mut self,
@@ -2458,17 +2549,42 @@ impl<'d> SpatialJointContext<'d> {
         let skip_design_realization = !allow_second_order && theta.len() == self.rho_dim + 1 && {
             let psi = theta[self.rho_dim];
             self.evaluator.psi_gram_tensor_covers(psi)
+                    // #1033 gradient coverage: the skip serves the ψ-gradient n-free
+                    // only where the analytic Chebyshev derivative is CERTIFIED
+                    // (`contains_for_gradient`). Differentiating the value interpolant
+                    // amplifies its error (`T_d′ ∼ d²`), so near the window edges the
+                    // analytic derivative genuinely fails the gradient tolerance even
+                    // though the value still certifies — a real accuracy boundary. For
+                    // those edge ψ the gradient must come from the EXACT streamed n×k
+                    // ∂X/∂ψ slab, which needs the realized design at this ψ, so the
+                    // skip is refused there (whole design realized → exact value AND
+                    // gradient). Most κ trials land interior (inside the sub-window) →
+                    // n-free; only the rare edge evals pay O(n), and every gradient is
+                    // EXACT (analytic interior, exact-streamed at edges) — no
+                    // production finite difference.
                     && self.evaluator.psi_gram_tensor_covers_gradient(psi)
-                    // #1264: the skip keeps the conditioned reduced /
-                    // null-space basis frozen at the revision-pinning ψ and only
-                    // re-keys the Gram + penalty. That is exact only inside the
-                    // RRQR-pivot-stable sub-window; on the wide standardized
-                    // window a far ψ move can change the radial-kernel pivot
-                    // frame, and skipping there pairs a stale basis with a
-                    // re-keyed Gram → a wrong β̂. Gate the skip on the stable
-                    // frame band; elsewhere the full `reset_surface` slow path
-                    // runs.
-                    && self.evaluator.psi_gram_tensor_covers_skip(psi)
+                    // #1033 (reduced-basis rotation, supersedes #1264 gate): the
+                    // Gaussian-identity inner solve the skip serves reads its data
+                    // statistics ONLY from re-keyed k×k objects — XᵀWX(ψ)/XᵀW(y−
+                    // offset)(ψ) from the `GaussianFixedCache` (re-installed at this
+                    // trial's ψ by `install_psi_gram_statistics`) and the stable
+                    // reparametrization Qs, which is built from the PENALTY
+                    // (`stable_reparameterization_engine_canonical`), NOT the data
+                    // Gram, and is rebuilt every inner PLS call from the re-keyed
+                    // `S(ψ)`. β̂, EDF, scale/deviance, and the j==0 ψ-gradient
+                    // (from the re-keyed `∂G/∂ψ`,`∂b/∂ψ` derivative pair, conjugated
+                    // by Qs) never read `self.x` rows. So the skip is sound whether
+                    // or not the conditioned reduced basis ROTATES with ψ: the
+                    // realized `self.x` frozen at the pinning ψ is never consumed on
+                    // this lane. The earlier wrong-β̂ regression a wide-window MSI
+                    // run found was the STALE PENALTY `S(ψ_old)` (fixed by re-keying
+                    // it n-free below), not a stale reduced basis. The pairwise
+                    // range-projector witness `reduced_basis_equal` is retained as a
+                    // soundness reference, but is no longer a skip precondition — it
+                    // refused sound rotated-basis skips, forcing the O(n)
+                    // `reset_surface` fallback and breaking n-independence across a
+                    // basis rotation.
+                    //
                     // #1033 penalty lane: ψ moves S(ψ) too, and the skip leaves
                     // `reset_surface` un-run; only skip when the penalty can be
                     // rebuilt EXACTLY and n-free on the fast path, else the inner
@@ -2493,80 +2609,25 @@ impl<'d> SpatialJointContext<'d> {
         }
         let warm_beta = self.evaluator.current_beta();
         self.ensure_frozen_glm_tensor(theta, warm_beta.as_ref())?;
-        // #1111 / #1033 mechanism (c): when the certified frozen-weight GLM
-        // ψ-tensor covers this trial's ψ AND the trial's converged working
-        // weight has not drifted past tolerance from the frozen snapshot, the
-        // first Fisher-scoring iteration's XᵀWX is faithfully reproduced by the
-        // tensor's n-free k×k assembly. Stage it on the evaluator so
-        // `prepare_eval_state` installs it onto the inner REML surface (after
-        // `reset_surface`, on BOTH the slow and design-revision fast paths) —
-        // the GLM inner P-IRLS then serves its first-iteration Gram n-free
-        // instead of restreaming the dominant O(n·p²) weighted cross-product.
-        // Outside the window or past the drift tolerance we clear the slot so a
-        // stale previous-ψ Gram is never consumed; the exact stream then runs.
-        {
-            let mut staged_gram: Option<Array2<f64>> = None;
-            if theta.len() == self.rho_dim + 1 {
-                let psi = theta[self.rho_dim];
-                if let (Some(tensor), Some(beta)) =
-                    (self.frozen_glm_tensor.as_ref(), warm_beta.as_ref())
-                    && tensor.contains(psi)
-                    && let Some((current_w, _)) = self.frozen_glm_working_state(beta)?
-                {
-                    const FROZEN_GLM_WEIGHT_DRIFT_RTOL: f64 = 1e-3;
-                    if tensor.weight_drift_within(current_w.view(), FROZEN_GLM_WEIGHT_DRIFT_RTOL) {
-                        staged_gram = Some(tensor.gram_at(psi));
-                        log::debug!(
-                            "[STAGE] {} eval_full at psi={psi:.6}: serving frozen-W GLM \
-                             first-Fisher-step XᵀWX n-free (weight drift within tol)",
-                            kind.label(),
-                        );
-                    }
-                }
-            }
-            self.evaluator.stage_glm_first_step_gram(staged_gram);
-        }
-        // #1033 / #1111: stage the GLM frozen-W conditioned-frame ψ-gradient
-        // derivative `(∂XᵀWX/∂ψ, ∂XᵀW(y−offset)/∂ψ)` whenever the certified
-        // frozen-weight tensor covers this trial's ψ for the gradient. The
-        // provider `gradient_pair_if_sound` applies its OWN tight
-        // `GRADIENT_WEIGHT_DRIFT_RTOL` (1e-9) drift check against the trial's
-        // converged working weight, so it refuses (`None`) unless the frozen-W
-        // snapshot is a bit-tight stand-in for the trial's `XᵀWX` — independent
-        // of the looser first-step value gate above. When it serves, the GLM
-        // ψ-gradient HyperCoord forms `a_j` / `g_j` from these k×k objects
-        // instead of the n×k ∂X/∂ψ slab; `B_j` (the moving-W Hessian curvature)
-        // is irreducibly n-dependent and stays the exact slab (#1033). Outside
-        // the window or past the tight tolerance we stage `None`, clearing the
-        // slot so a stale previous-ψ pair is never consumed; the exact slab
-        // gradient then runs.
-        {
-            let mut staged_deriv: Option<(Array2<f64>, Array1<f64>)> = None;
-            if !allow_second_order && theta.len() == self.rho_dim + 1 {
-                let psi = theta[self.rho_dim];
-                if let (Some(tensor), Some(beta)) =
-                    (self.frozen_glm_tensor.as_ref(), warm_beta.as_ref())
-                    && tensor.contains_for_gradient(psi)
-                    && let Some((current_w, _)) = self.frozen_glm_working_state(beta)?
-                    && let Some((dgram_dpsi, drhs_dpsi)) =
-                        tensor.gradient_pair_if_sound(psi, current_w.view())
-                {
-                    staged_deriv = Some((dgram_dpsi, drhs_dpsi));
-                    log::debug!(
-                        "[STAGE] {} eval_full at psi={psi:.6}: serving frozen-W GLM \
-                         ψ-gradient (∂G/∂ψ, ∂b/∂ψ) n-free (gradient weight drift within \
-                         tight tol); B_j stays exact",
-                        kind.label(),
-                    );
-                }
-            }
-            self.evaluator.stage_glm_psi_gram_deriv(staged_deriv);
-        }
-        // #1033: reuse the ψ-invariant hyper-direction slab when the realized
-        // design has not advanced (the certified Gaussian skip path never
-        // re-realizes it), retiring the per-trial basis ψ-derivative + O(n·k²)
-        // rotation rebuild. A slow-path trial advances the revision and rebuilds.
-        let hyper_dirs = self.cache.hyper_dirs_for_current_design(self.data, kind)?;
+        // #1033 / #1111: stage the GLM frozen-W first-step Gram and conditioned
+        // ψ-gradient whenever the certified frozen-weight tensor covers this
+        // trial's ψ. The provider applies its drift guards, so misses clear the
+        // staged slots and the exact streamed path runs.
+        //
+        // Stage through a shared helper because cost-only line-search probes use
+        // the same first-Fisher-step Gram; they simply pass `allow_gradient=false`.
+        self.stage_frozen_glm_trial_statistics(theta, warm_beta.as_ref(), !allow_second_order)?;
+        // #1033: on the certified Gaussian skip path the value and ψ-gradient
+        // are both served by k-space tensor statistics, so the row-wise X_ψ slab
+        // is dead. Build only the exact n-free S_ψ components from frozen
+        // geometry and attach a zero-storage design derivative placeholder.
+        // Edge-gradient/Hessian/non-certified trials keep the exact row-wise
+        // builder, because those lanes genuinely consume X_ψ.
+        let hyper_dirs = if skip_design_realization {
+            self.cache.nfree_tensor_gradient_hyper_dirs(theta)?
+        } else {
+            self.cache.hyper_dirs_for_current_design(self.data, kind)?
+        };
 
         let design_revision = Some(self.cache.design_revision());
         // #1033 penalty lane: stage the EXACT n-free `S(ψ)` for this trial so the
@@ -2704,13 +2765,25 @@ impl<'d> SpatialJointContext<'d> {
         // re-keys the cache to this probe's ψ), and the probe cost comes from
         // k-space statistics only. Line-search probes are the bulk of the κ-loop
         // per-trial work, so this is the dominant n-flat lever. Unlike the
-        // gradient path the value lane spans the FULL certified window, so only
-        // `psi_gram_tensor_covers` (not the narrower gradient sub-window) is
-        // required. Any miss (non-Gaussian, off-window, fast path not yet armed)
-        // realizes the design and runs the exact streamed probe unchanged.
+        // gradient path the value lane spans the FULL certified window, but the
+        // probe still skips `reset_surface`, so it must also stay inside the
+        // reduced-basis-equality skip sub-window. Any miss (non-Gaussian, off-window,
+        // off-skip-window, fast path not yet armed) realizes the design and runs
+        // the exact streamed probe unchanged.
         let skip_value_realization = theta.len() == self.rho_dim + 1 && {
             let psi = theta[self.rho_dim];
             self.evaluator.psi_gram_tensor_covers(psi)
+                    // #1033 (reduced-basis rotation): a value-only line-search probe
+                    // runs the inner Gaussian-identity solve from the re-keyed
+                    // `GaussianFixedCache` (XᵀWX(ψ)/XᵀW(y−offset)(ψ)) and the stable
+                    // reparametrization Qs (penalty-derived, re-keyed every call from
+                    // the n-free `S(ψ)`). β̂ and the cost never read the frozen
+                    // `self.x` rows, so the probe is correct whether or not the
+                    // conditioned reduced basis rotates with ψ. The
+                    // `reduced_basis_equal` precondition is therefore dropped here
+                    // too (it refused sound rotated-basis probes and forced the O(n)
+                    // `reset_surface` fallback); the witness is kept as a soundness
+                    // reference. See the eval_full gate for the full justification.
                     // #1033 penalty lane: the value-probe fast path also skips
                     // `reset_surface`, so the probe must be able to re-key S(ψ)
                     // EXACTLY and n-free; otherwise its cost would use the stale
@@ -2734,9 +2807,38 @@ impl<'d> SpatialJointContext<'d> {
                 Err(_) => self.evaluator.stage_fast_path_penalty(None),
             }
         }
+        let warm_beta = self.evaluator.current_beta();
+        if let Err(err) = self.ensure_frozen_glm_tensor(theta, warm_beta.as_ref()) {
+            log::warn!(
+                "[STAGE] {} value-probe at psi={:.6}: frozen-W GLM tensor setup failed ({err}); \
+                 falling back to exact streamed Gram",
+                self.kind.label(),
+                if theta.len() > self.rho_dim {
+                    theta[self.rho_dim]
+                } else {
+                    f64::NAN
+                },
+            );
+            self.evaluator.stage_glm_first_step_gram(None);
+            self.evaluator.stage_glm_psi_gram_deriv(None);
+        } else if let Err(err) =
+            self.stage_frozen_glm_trial_statistics(theta, warm_beta.as_ref(), false)
+        {
+            log::warn!(
+                "[STAGE] {} value-probe at psi={:.6}: frozen-W GLM staging failed ({err}); \
+                 falling back to exact streamed Gram",
+                self.kind.label(),
+                if theta.len() > self.rho_dim {
+                    theta[self.rho_dim]
+                } else {
+                    f64::NAN
+                },
+            );
+            self.evaluator.stage_glm_first_step_gram(None);
+            self.evaluator.stage_glm_psi_gram_deriv(None);
+        }
         let design_revision = Some(self.cache.design_revision());
         let cost_label = self.kind.label();
-        let warm_beta = self.evaluator.current_beta();
         let result = {
             let design = self.cache.design();
             self.evaluator.evaluate_cost_only(
@@ -2823,6 +2925,17 @@ enum SpatialJointOutcome {
     },
 }
 
+fn kphase_log_norms(theta: &Array1<f64>, rho_dim: usize) -> (f64, f64) {
+    let theta_norm = theta.iter().map(|v| v * v).sum::<f64>().sqrt();
+    let log_kappa_norm = theta
+        .iter()
+        .skip(rho_dim)
+        .map(|v| v * v)
+        .sum::<f64>()
+        .sqrt();
+    (theta_norm, log_kappa_norm)
+}
+
 fn run_exact_joint_spatial_optimization(
     kind: SpatialHyperKind,
     data: ArrayView2<'_, f64>,
@@ -2840,7 +2953,7 @@ fn run_exact_joint_spatial_optimization(
     upper: &Array1<f64>,
     rho_dim: usize,
     kappa_options: &SpatialLengthScaleOptimizationOptions,
-) -> Result<SpatialJointOutcome, EstimationError> {
+) -> Result<(SpatialJointOutcome, SpatialLengthScaleOptimizationTiming), EstimationError> {
     let label = kind.label();
     // Use bounds and design metadata for validation.
     assert!(
@@ -2885,13 +2998,23 @@ fn run_exact_joint_spatial_optimization(
     // converges to the same optimum strictly cheaper per eval; below it,
     // exact second-order keeps the ARC/TR-CG geometry. The budget's
     // derivation is owned by `EXACT_JOINT_SECOND_ORDER_THETA_CAP`.
-    let prefer_gradient_only = theta_dim > EXACT_JOINT_SECOND_ORDER_THETA_CAP;
+    let mut prefer_gradient_only = theta_dim > EXACT_JOINT_SECOND_ORDER_THETA_CAP;
     if prefer_gradient_only {
         log::info!(
             "[{label}] joint θ-dim {theta_dim} exceeds the exact pair-Hessian budget \
              ({EXACT_JOINT_SECOND_ORDER_THETA_CAP}); routing gradient-only quasi-Newton"
         );
     }
+    // #1033: set when the n-free Gaussian ψ-lane arms below. It must SUPPRESS the
+    // declared analytic outer Hessian (force `Unavailable`), not merely prefer
+    // gradient-only: the planner keeps the second-order ARC solver whenever an
+    // analytic Hessian is declared `Either`, even under `prefer_gradient_only`
+    // (see `plan_prefer_gradient_only_does_not_hide_analytic_hessian`). A
+    // `ValueGradientHessian` eval forces the O(n) design re-realization because
+    // the outer Hessian curvature slab `B_j` is irreducibly n-dependent, so only
+    // routing to a gradient-only solver (BFGS) keeps every in-window κ-trial on
+    // the n-free `ValueAndGradient` skip.
+    let mut suppress_outer_hessian_for_nfree = false;
 
     log::trace!(
         "[{}] starting analytic optimization: rho_dim={}, coord_dim={}, dims_per_term={:?}",
@@ -3025,6 +3148,38 @@ fn run_exact_joint_spatial_optimization(
                  keeping the exact per-trial path"
             );
         }
+        // #1033 (n-independent outer loop): with the n-free Gaussian lane fully
+        // armed (Gram tensor attached + exact n-free penalty re-key), the design-
+        // realization skip serves the criterion AND the ψ-gradient `(a_j, g_j)`
+        // n-free for every in-window trial — but ONLY a `ValueAndGradient` eval
+        // takes that skip. A `ValueGradientHessian` eval sets `allow_second_order`,
+        // which forces `ensure_theta` → `reset_surface` (the O(n) design re-
+        // realization) because the outer Hessian curvature `B_j` is the exact
+        // n-dependent slab. So second-order outer steps are the LAST O(n) per-trial
+        // cost in the κ search, and they make the outer loop scale with n. Route
+        // gradient-only here: the spatial length-scale objective is smooth and the
+        // budget policy already establishes that gradient-only quasi-Newton
+        // converges to the same optimum strictly cheaper per eval past the pair-
+        // Hessian budget — and with the tensor, the realized Hessian is the only
+        // remaining expensive operation, so the same argument applies for ANY n
+        // once the lane is armed. This keeps every in-window κ-trial on the n-free
+        // `ValueAndGradient` skip, delivering the n-independent outer loop. The
+        // exact second-order geometry is preserved whenever the lane is NOT armed
+        // for gradient-only routing (non-Gaussian, multi-term, Matérn, or an
+        // uncertified window), where it still pays O(n) per Hessian but keeps the
+        // quality-sensitive exact second-order path.
+        if attached
+            && evaluator.supports_nfree_penalty_rekey()
+            && cache.supports_nfree_gradient_only_routing()
+        {
+            suppress_outer_hessian_for_nfree = true;
+            prefer_gradient_only = true;
+            log::info!(
+                "[{label}] n-free Gaussian ψ-lane armed; suppressing the analytic outer \
+                 Hessian and routing gradient-only (BFGS) so the κ outer loop never realizes \
+                 the O(n) second-order slab — n-independent outer loop (#1033)"
+            );
+        }
     }
 
     // ── Discriminating outer-gradient FD audit (issue #1040 / #944 merge gate) ──
@@ -3097,6 +3252,15 @@ fn run_exact_joint_spatial_optimization(
         }
     }
 
+    let kphase_cost_calls = std::cell::Cell::new(0usize);
+    let kphase_eval_calls = std::cell::Cell::new(0usize);
+    let kphase_efs_calls = std::cell::Cell::new(0usize);
+    let kphase_cost_total_s = std::cell::Cell::new(0.0);
+    let kphase_eval_total_s = std::cell::Cell::new(0.0);
+    let kphase_efs_total_s = std::cell::Cell::new(0.0);
+    let kphase_optim_start = std::time::Instant::now();
+    let kphase_log_kappa_dim = coord_dim;
+
     let problem = exact_joint_multistart_outer_problem(
         theta0,
         lower,
@@ -3105,16 +3269,27 @@ fn run_exact_joint_spatial_optimization(
         coord_dim,
         theta_dim,
         Derivative::Analytic,
-        if analytic_outer_hessian_available {
+        if analytic_outer_hessian_available && !suppress_outer_hessian_for_nfree {
             DeclaredHessianForm::Either
         } else {
+            // `Unavailable` when the n-free Gaussian ψ-lane is armed (#1033): the
+            // planner then selects BFGS instead of ARC, so the κ loop issues only
+            // `ValueAndGradient` evals and every in-window trial takes the n-free
+            // design-realization skip.
             DeclaredHessianForm::Unavailable
         },
         prefer_gradient_only,
         // Single-block spatial path: penalty-like rho + spatial psi.
-        // EFS/HybridEFS remain eligible; the Wood-Fasiolo PSD structure holds
-        // for single-block families with β-independent joint H_L.
-        false,
+        // EFS/HybridEFS remain eligible (the Wood-Fasiolo PSD structure holds
+        // for single-block families with β-independent joint H_L) UNLESS the
+        // n-free Gaussian ψ-lane is armed (#1033): HybridEFS forms the trace Gram
+        // `tr(H⁻¹ B_d H⁻¹ B_e)` from the n-dependent curvature slab `B_d`, so it
+        // realizes O(n) per step exactly like a Hessian eval. Disabling the
+        // fixed-point lane there forces the planner to BFGS (`(Analytic,
+        // Unavailable)` → `S::Bfgs`), keeping every in-window κ-trial on the
+        // n-free `ValueAndGradient` skip even when `n_params` exceeds the small-
+        // BFGS threshold (aniso / multi-ψ).
+        suppress_outer_hessian_for_nfree,
         seed_risk_profile_for_likelihood_family(&family),
         kappa_options.rel_tol.max(1e-6),
         kappa_options.max_outer_iter.max(1),
@@ -3136,7 +3311,22 @@ fn run_exact_joint_spatial_optimization(
                       theta: &Array1<f64>,
                       order: OuterEvalOrder|
      -> Result<OuterEval, EstimationError> {
-        match ctx.eval_full(theta, order, analytic_outer_hessian_available) {
+        let t0 = std::time::Instant::now();
+        let raw = ctx.eval_full(theta, order, analytic_outer_hessian_available);
+        let elapsed_s = t0.elapsed().as_secs_f64();
+        kphase_eval_calls.set(kphase_eval_calls.get() + 1);
+        kphase_eval_total_s.set(kphase_eval_total_s.get() + elapsed_s);
+        let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, rho_dim);
+        log::info!(
+            "[KAPPA-PHASE] phase=eval_outer call={} order={:?} design_revision={:?} theta_norm={:.4e} log_kappa_norm={:.4e} elapsed_s={:.4}",
+            kphase_eval_calls.get(),
+            order,
+            Some(ctx.cache.design_revision()),
+            theta_norm,
+            log_kappa_norm,
+            elapsed_s,
+        );
+        match raw {
             Ok((cost, grad, hess)) => Ok(OuterEval {
                 cost,
                 gradient: grad,
@@ -3163,12 +3353,37 @@ fn run_exact_joint_spatial_optimization(
 
     let mut obj = problem.build_objective_with_eval_order(
         &mut ctx,
-        |ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| Ok(ctx.eval_cost(theta)),
+        |ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| {
+            let t0 = std::time::Instant::now();
+            let cost = ctx.eval_cost(theta);
+            let elapsed_s = t0.elapsed().as_secs_f64();
+            kphase_cost_calls.set(kphase_cost_calls.get() + 1);
+            kphase_cost_total_s.set(kphase_cost_total_s.get() + elapsed_s);
+            let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, rho_dim);
+            log::info!(
+                "[KAPPA-PHASE] phase=cost call={} design_revision={:?} theta_norm={:.4e} log_kappa_norm={:.4e} elapsed_s={:.4}",
+                kphase_cost_calls.get(),
+                Some(ctx.cache.design_revision()),
+                theta_norm,
+                log_kappa_norm,
+                elapsed_s,
+            );
+            Ok(cost)
+        },
         |ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| {
             eval_outer(
                 ctx,
                 theta,
-                if analytic_outer_hessian_available {
+                // #1033: when the n-free Gaussian ψ-lane is armed we suppress the
+                // outer Hessian and route BFGS — so this default gradient eval MUST
+                // request `ValueAndGradient`, not `ValueGradientHessian`. A
+                // second-order order sets `allow_second_order`, which forces
+                // `ensure_theta` → the O(n) design re-realization (the Hessian slab
+                // is irreducibly n-dependent), DISARMING the design-revision fast
+                // path for every trial — exactly the O(n) κ-loop this lane exists to
+                // remove. Gating only the planner's solver (Unavailable→BFGS)
+                // without gating this eval-order left every trial second-order.
+                if analytic_outer_hessian_available && !suppress_outer_hessian_for_nfree {
                     OuterEvalOrder::ValueGradientHessian
                 } else {
                     OuterEvalOrder::ValueAndGradient
@@ -3181,7 +3396,23 @@ fn run_exact_joint_spatial_optimization(
         Some(|ctx: &mut &mut SpatialJointContext<'_>| {
             ctx.reset();
         }),
-        Some(|ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| ctx.eval_efs(theta)),
+        Some(|ctx: &mut &mut SpatialJointContext<'_>, theta: &Array1<f64>| {
+            let t0 = std::time::Instant::now();
+            let eval = ctx.eval_efs(theta);
+            let elapsed_s = t0.elapsed().as_secs_f64();
+            kphase_efs_calls.set(kphase_efs_calls.get() + 1);
+            kphase_efs_total_s.set(kphase_efs_total_s.get() + elapsed_s);
+            let (theta_norm, log_kappa_norm) = kphase_log_norms(theta, rho_dim);
+            log::info!(
+                "[KAPPA-PHASE] phase=efs call={} design_revision={:?} theta_norm={:.4e} log_kappa_norm={:.4e} elapsed_s={:.4}",
+                kphase_efs_calls.get(),
+                Some(ctx.cache.design_revision()),
+                theta_norm,
+                log_kappa_norm,
+                elapsed_s,
+            );
+            eval
+        }),
     );
 
     let run_label = match kind {
@@ -3194,6 +3425,28 @@ fn run_exact_joint_spatial_optimization(
             kind.adjective(),
         ))
     })?;
+    let kphase_total_s = kphase_optim_start.elapsed().as_secs_f64();
+    log::info!(
+        "[KAPPA-PHASE-SUMMARY] log_kappa_dim={} n_cost={} cost_total_s={:.4} n_eval={} eval_total_s={:.4} n_efs={} efs_total_s={:.4} optim_total_s={:.4}",
+        kphase_log_kappa_dim,
+        kphase_cost_calls.get(),
+        kphase_cost_total_s.get(),
+        kphase_eval_calls.get(),
+        kphase_eval_total_s.get(),
+        kphase_efs_calls.get(),
+        kphase_efs_total_s.get(),
+        kphase_total_s,
+    );
+    let timing = SpatialLengthScaleOptimizationTiming {
+        log_kappa_dim: kphase_log_kappa_dim,
+        cost_calls: kphase_cost_calls.get(),
+        cost_total_s: kphase_cost_total_s.get(),
+        eval_calls: kphase_eval_calls.get(),
+        eval_total_s: kphase_eval_total_s.get(),
+        efs_calls: kphase_efs_calls.get(),
+        efs_total_s: kphase_efs_total_s.get(),
+        optim_total_s: kphase_total_s,
+    };
     if !result.converged {
         // Mirror `fit_term_collectionwith_exact_spatial_adaptive_regularization`
         // (commit 0267d082): the strict absolute-floor gradient criterion is too
@@ -3247,11 +3500,14 @@ fn run_exact_joint_spatial_optimization(
                 result.final_value,
                 result.final_grad_norm_report(),
             );
-            return Ok(SpatialJointOutcome::NonConverged {
-                iterations: result.iterations,
-                final_value: result.final_value,
-                final_grad_norm: result.final_grad_norm,
-            });
+            return Ok((
+                SpatialJointOutcome::NonConverged {
+                    iterations: result.iterations,
+                    final_value: result.final_value,
+                    final_grad_norm: result.final_grad_norm,
+                },
+                timing,
+            ));
         } else {
             // A non-finite terminal cost is a genuine numerical blowup (NaN/inf
             // propagating through the gradient/Hessian wiring), not the ordinary
@@ -3277,10 +3533,13 @@ fn run_exact_joint_spatial_optimization(
     // optimization. For the anisotropic kind the decomposition into (ψ̄, η)
     // happens later in apply_tospec.
     let theta_star = result.rho;
-    Ok(SpatialJointOutcome::Optimized {
-        theta_star,
-        final_value: result.final_value,
-    })
+    Ok((
+        SpatialJointOutcome::Optimized {
+            theta_star,
+            final_value: result.final_value,
+        },
+        timing,
+    ))
 }
 
 fn set_spatial_length_scale(
@@ -3474,12 +3733,20 @@ fn freeze_smooth_basis_from_metadata(
                 None => BSplineIdentifiability::None,
             };
             // Boundary projections are folded into `identifiability_transform`
-            // by `build_bspline_basis_1d`. A frozen prediction spec must
-            // rebuild the same raw knot basis and apply the captured
-            // transform exactly once; keeping the original boundary
-            // conditions would project the raw basis a second time and
-            // shrink its width before `FrozenTransform` is applied.
-            s.boundary_conditions = Default::default();
+            // by `build_bspline_basis_1d`. A frozen prediction spec rebuilds the
+            // same raw knot basis and replays the captured `FrozenTransform`
+            // exactly once; the builder now SKIPS re-deriving the boundary
+            // nullspace transform whenever identifiability is `FrozenTransform`
+            // (it is already baked into that transform), so re-projection can no
+            // longer happen. We therefore KEEP the original
+            // `boundary_conditions`: they are the single source of truth the
+            // intercept-suppression decision reads
+            // (`term_collection_has_one_sided_anchored_bspline`), and a
+            // one-sided anchored smooth suppresses the global intercept at fit
+            // time (#1238). Clearing them here flipped that decision at predict
+            // and re-added a spurious intercept column → save→load→predict
+            // 21-vs-22 design mismatch (#1265). Boundary conditions are left
+            // exactly as fit.
         }
         (
             SmoothBasisSpec::ThinPlate {
@@ -3567,12 +3834,11 @@ fn freeze_smooth_basis_from_metadata(
             s.method = *method;
             s.max_degree = *max_degree;
             s.wahba_kernel = *wahba_kernel;
-            // #532: freeze the realized-design transform (the composed
-            // `z · z_parametric` captured at fit time) so the predict-time
-            // rebuild reuses it verbatim instead of recomputing the
-            // center-space `z`, which would drop the parametric
-            // orthogonalization and resurrect the intercept collision. The
-            // Harmonic method never carries a constraint transform.
+            // #532: freeze the realized-design transform captured at fit time
+            // so the predict-time rebuild reuses it verbatim instead of
+            // dropping the parametric orthogonalization and resurrecting the
+            // intercept collision. The Harmonic method never carries a
+            // constraint transform.
             s.identifiability = match constraint_transform {
                 Some(z) => SphericalSplineIdentifiability::FrozenTransform {
                     transform: z.clone(),
@@ -4596,12 +4862,31 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
     }
 
     /// True when this realizer carries exactly ONE spatial smooth term whose
-    /// frozen basis geometry (`BasisMetadata::Duchon`/`Matern`/`ThinPlate`)
+    /// frozen basis geometry (`BasisMetadata::Duchon`/`ThinPlate`/`Matern`)
     /// admits an EXACT, n-free penalty rebuild at a new length-scale (#1033).
     /// The κ-loop fast path gates its design-realization skip on this: the skip
     /// leaves `reset_surface` un-run, so it is only sound when `S(ψ_new)` can be
     /// re-keyed n-free from the frozen geometry (centers + identifiability
-    /// transform + operator collocation points), never from the data rows.
+    /// transform + operator collocation points), never from the data rows, AND
+    /// the re-keyed penalty's block topology is IDENTICAL to the one the frozen
+    /// design carries.
+    ///
+    /// `Matern` is now ADMITTED (#1274). The earlier #1270 exclusion existed
+    /// because the n-free re-key rebuilt the projected-kernel double-penalty
+    /// (1–2 blocks), while the realized Matérn design carries the collocation
+    /// operator triplet (mass/tension/stiffness, gated by the Sobolev order
+    /// `m = ν + d/2`) installed by `matern_operator_penalty_triplet_from_metadata`
+    /// — a DIFFERENT block topology that the block-count guard correctly
+    /// rejected. The fix routes the re-key through the SAME canonical triplet
+    /// builder the realized design uses
+    /// (`matern_operator_penalty_triplet_at_length_scale`, see the
+    /// `BasisMetadata::Matern` branch in `canonical_penalties_at_psi`), so the
+    /// re-keyed `S(ψ)` is byte/topology-identical to the slow-path realized
+    /// penalty at every trial length-scale (the operator gate `m = ν + d/2` is
+    /// ℓ-independent, so the block count is ψ-stable by construction). With the
+    /// topologies matched the design-realization skip is sound for Matérn, so
+    /// the κ outer loop is n-free for it as well — instead of re-realizing the
+    /// O(n) design on every trial.
     fn supports_nfree_penalty_rekey(&self, spatial_terms: &[usize]) -> bool {
         if spatial_terms.len() != 1 {
             return false;
@@ -4611,9 +4896,28 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             self.design.smooth.terms.get(term_idx).map(|t| &t.metadata),
             Some(
                 BasisMetadata::Duchon { .. }
-                    | BasisMetadata::Matern { .. }
                     | BasisMetadata::ThinPlate { .. }
+                    | BasisMetadata::Matern { .. }
             )
+        )
+    }
+
+    /// True when the armed n-free Gaussian lane should suppress exact outer
+    /// Hessians and route κ search through gradient-only BFGS.
+    ///
+    /// This is deliberately narrower than [`Self::supports_nfree_penalty_rekey`]:
+    /// Matérn has an exact n-free operator-triplet `S(ψ)` re-key (#1274), but its
+    /// quality gate still depends on the exact second-order outer route. Duchon
+    /// and ThinPlate are the #1033 n-independent acceptance lane where the exact
+    /// Hessian slab is the remaining O(n) per-trial cost.
+    fn supports_nfree_gradient_only_routing(&self, spatial_terms: &[usize]) -> bool {
+        if spatial_terms.len() != 1 {
+            return false;
+        }
+        let term_idx = spatial_terms[0];
+        matches!(
+            self.design.smooth.terms.get(term_idx).map(|t| &t.metadata),
+            Some(BasisMetadata::Duchon { .. } | BasisMetadata::ThinPlate { .. })
         )
     }
 
@@ -4670,11 +4974,24 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 power,
                 nullspace_order,
                 aniso_log_scales,
+                input_scales,
                 ..
             } => {
                 let operator_penalties = match &termspec.basis {
                     SmoothBasisSpec::Duchon { spec, .. } => spec.operator_penalties.clone(),
                     _ => crate::basis::DuchonOperatorPenaltySpec::default(),
+                };
+                // Slow-path Duchon realization stores centers/collocation points
+                // in standardized coordinates and compensates the user-facing
+                // length_scale by σ_geom before building penalties. The n-free
+                // re-key must use the same effective length scale, or the fast
+                // path pairs G(ψ_new) with an S(ψ_new) from a different
+                // coordinate scale.
+                let effective_ls = match input_scales.as_deref() {
+                    Some(scales) => {
+                        compensate_optional_length_scale_for_standardization(ls_opt, scales)
+                    }
+                    None => ls_opt,
                 };
                 crate::basis::duchon_penalties_at_length_scale(
                     centers.view(),
@@ -4684,43 +5001,60 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                     *power,
                     *nullspace_order,
                     aniso_log_scales.as_deref(),
-                    ls_opt,
+                    effective_ls,
                     &mut self.basisworkspace,
                 )
                 .map_err(|e| e.to_string())?
             }
             BasisMetadata::Matern {
                 centers,
+                periodic,
                 nu,
                 include_intercept,
                 identifiability_transform,
                 aniso_log_scales,
-                nullspace_shrinkage_survived,
+                input_scales,
                 ..
             } => {
+                // `spatial_term_psi_to_length_scale_and_aniso` decodes ψ to a
+                // length scale in ORIGINAL data coordinates — exactly what the
+                // slow-path rebuild writes into `spec.length_scale` before
+                // `matern_operator_penalty_triplet_from_metadata` compensates it
+                // by σ_geom. Compensate identically here so the n-free re-key
+                // reproduces the slow-path penalty surface byte-for-byte (#706).
                 let ls = ls_opt.ok_or_else(|| {
                     "Matérn n-free penalty re-key requires a finite length-scale".to_string()
                 })?;
-                let double_penalty = match &termspec.basis {
-                    SmoothBasisSpec::Matern { spec, .. } => spec.double_penalty,
-                    _ => true,
+                let effective_ls = match input_scales.as_deref() {
+                    Some(scales) => compensate_length_scale_for_standardization(ls, scales),
+                    None => ls,
                 };
                 let aniso_for_penalty = aniso_from_psi.as_deref().or(aniso_log_scales.as_deref());
-                crate::basis::matern_penalties_at_length_scale(
-                    centers.view(),
-                    identifiability_transform.as_ref(),
-                    *nu,
-                    *include_intercept,
-                    aniso_for_penalty,
-                    *nullspace_shrinkage_survived,
-                    double_penalty,
-                    ls,
-                )
-                .map_err(|e| e.to_string())?
+                // Route through the SAME canonical operator-triplet builder the
+                // realized design uses (`matern_operator_penalty_triplet_from_
+                // metadata`). The Matérn design ALWAYS overrides the kernel
+                // double-penalty with this {mass, tension, stiffness} triplet
+                // (see `build_inner_smooth_basis`), so re-keying via the kernel
+                // path produced a 1-block surface against a 3-block frozen
+                // design — the topology desync #1270 hard-errored on. Sharing
+                // the builder makes the block count ψ-stable by construction.
+                let (penalties, nullspace_dims, _info) =
+                    matern_operator_penalty_triplet_at_length_scale(
+                        centers.view(),
+                        periodic.as_deref(),
+                        identifiability_transform.as_ref(),
+                        *nu,
+                        *include_intercept,
+                        aniso_for_penalty,
+                        effective_ls,
+                    )
+                    .map_err(|e| e.to_string())?;
+                (penalties, nullspace_dims)
             }
             BasisMetadata::ThinPlate {
                 centers,
                 identifiability_transform,
+                radial_reparam,
                 ..
             } => {
                 let ls = ls_opt.ok_or_else(|| {
@@ -4733,6 +5067,7 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
                 crate::basis::thin_plate_penalties_at_length_scale(
                     centers.view(),
                     identifiability_transform.as_ref(),
+                    radial_reparam.as_ref(),
                     ls,
                     double_penalty,
                     &mut self.basisworkspace,
@@ -4777,6 +5112,175 @@ impl<'d> FrozenTermCollectionIncrementalRealizer<'d> {
             "nfree-psi-penalty",
         )
         .map_err(|e| e.to_string())
+    }
+
+    fn canonical_penalty_derivatives_at_psi(
+        &mut self,
+        spatial_terms: &[usize],
+        psi: &[f64],
+    ) -> Result<(Range<usize>, usize, Vec<Array2<f64>>), String> {
+        if spatial_terms.len() != 1 {
+            return Err(format!(
+                "n-free penalty derivative re-key requires exactly one spatial term, found {}",
+                spatial_terms.len()
+            ));
+        }
+        let term_idx = spatial_terms[0];
+        let (ls_opt, aniso_from_psi) = spatial_term_psi_to_length_scale_and_aniso(psi);
+        let termspec =
+            self.spec.smooth_terms.get(term_idx).ok_or_else(|| {
+                format!("spatial term {term_idx} out of range for n-free penalty derivative")
+            })?;
+        let term = self
+            .design
+            .smooth
+            .terms
+            .get(term_idx)
+            .ok_or_else(|| format!("realized smooth term {term_idx} out of range"))?;
+        let p_total = self.design.design.ncols();
+        let smooth_start = p_total.saturating_sub(self.design.smooth.total_smooth_cols());
+        let global_range = (smooth_start + term.coeff_range.start)
+            ..(smooth_start + term.coeff_range.end);
+
+        let locals = match &term.metadata {
+            BasisMetadata::Duchon {
+                centers,
+                identifiability_transform,
+                operator_collocation_points,
+                power,
+                nullspace_order,
+                aniso_log_scales,
+                input_scales,
+                ..
+            } => {
+                let mut spec = match &termspec.basis {
+                    SmoothBasisSpec::Duchon { spec, .. } => spec.clone(),
+                    _ => {
+                        return Err(
+                            "Duchon n-free penalty derivative requires a Duchon term spec"
+                                .to_string(),
+                        );
+                    }
+                };
+                let effective_ls = match input_scales.as_deref() {
+                    Some(scales) => {
+                        compensate_optional_length_scale_for_standardization(ls_opt, scales)
+                    }
+                    None => ls_opt,
+                };
+                spec.length_scale = effective_ls;
+                spec.power = *power;
+                spec.nullspace_order = *nullspace_order;
+                spec.aniso_log_scales = aniso_log_scales.clone();
+                if spec.length_scale.is_none() {
+                    return Err(
+                        "Duchon n-free penalty derivative requires a hybrid length-scale"
+                            .to_string(),
+                    );
+                }
+                let collocation = operator_collocation_points
+                    .as_ref()
+                    .map(|points| points.view())
+                    .unwrap_or_else(|| centers.view());
+                let (_sources, first, _second) =
+                    crate::basis::build_duchon_operator_penalty_psi_derivatives(
+                        collocation,
+                        centers.view(),
+                        &spec,
+                        identifiability_transform.as_ref(),
+                        &mut self.basisworkspace,
+                    )
+                    .map_err(|e| e.to_string())?;
+                first
+            }
+            BasisMetadata::Matern {
+                centers,
+                periodic,
+                nu,
+                include_intercept,
+                identifiability_transform,
+                aniso_log_scales,
+                input_scales,
+                ..
+            } => {
+                let ls = ls_opt.ok_or_else(|| {
+                    "Matérn n-free penalty derivative requires a finite length-scale".to_string()
+                })?;
+                let effective_ls = match input_scales.as_deref() {
+                    Some(scales) => compensate_length_scale_for_standardization(ls, scales),
+                    None => ls,
+                };
+                let penalty_centers =
+                    crate::basis::expand_periodic_centers(&centers.to_owned(), periodic.as_deref())
+                        .map_err(|e| e.to_string())?;
+                let aniso_for_penalty = aniso_from_psi.as_deref().or(aniso_log_scales.as_deref());
+                let (first, _second) = crate::basis::build_matern_operator_penalty_psi_derivatives(
+                    penalty_centers.view(),
+                    effective_ls,
+                    *nu,
+                    *include_intercept,
+                    identifiability_transform.as_ref(),
+                    aniso_for_penalty,
+                )
+                .map_err(|e| e.to_string())?;
+                first
+            }
+            BasisMetadata::ThinPlate {
+                centers,
+                identifiability_transform,
+                radial_reparam,
+                ..
+            } => {
+                let ls = ls_opt.ok_or_else(|| {
+                    "thin-plate n-free penalty derivative requires a finite length-scale"
+                        .to_string()
+                })?;
+                let mut spec = match &termspec.basis {
+                    SmoothBasisSpec::ThinPlate { spec, .. } => spec.clone(),
+                    _ => {
+                        return Err(
+                            "thin-plate n-free penalty derivative requires a ThinPlate term spec"
+                                .to_string(),
+                        );
+                    }
+                };
+                spec.length_scale = ls;
+                if spec.radial_reparam.is_none() {
+                    spec.radial_reparam = radial_reparam.clone();
+                }
+                let (primary, _primary_second) =
+                    crate::basis::build_thin_plate_penalty_psi_derivativeswithworkspace(
+                        centers.view(),
+                        &spec,
+                        identifiability_transform.as_ref(),
+                        &mut self.basisworkspace,
+                    )
+                    .map_err(|e| e.to_string())?;
+                if self.design.penalties.len() > 1 {
+                    vec![
+                        primary.clone(),
+                        Array2::<f64>::zeros(primary.raw_dim()),
+                    ]
+                } else {
+                    vec![primary]
+                }
+            }
+            other => {
+                return Err(format!(
+                    "n-free penalty derivative re-key unsupported for basis metadata {:?}",
+                    std::mem::discriminant(other)
+                ));
+            }
+        };
+        if locals.len() != self.design.penalties.len() {
+            return Err(format!(
+                "n-free penalty derivative re-key produced {} blocks but the frozen design carries {} \
+                 — penalty topology is not ψ-stable",
+                locals.len(),
+                self.design.penalties.len()
+            ));
+        }
+        Ok((global_range, p_total, locals))
     }
 
     fn apply_log_kappa(
@@ -5186,6 +5690,7 @@ pub struct SpatialLengthScaleOptimizationResult<FitOut> {
     pub resolved_specs: Vec<TermCollectionSpec>,
     pub designs: Vec<TermCollectionDesign>,
     pub fit: FitOut,
+    pub timing: Option<SpatialLengthScaleOptimizationTiming>,
 }
 
 /// Exact-joint hyper-parameter setup for N-block spatial length-scale optimization.
@@ -5703,6 +6208,7 @@ where
             resolved_specs,
             designs,
             fit,
+            timing: None,
         });
     }
 
@@ -6295,6 +6801,7 @@ where
                         resolved_specs,
                         designs,
                         fit,
+                        timing: None,
                     });
                 }
                 return Err(message);
@@ -6321,6 +6828,16 @@ where
         kphase_efs_total_s.get(),
         kphase_total_s,
     );
+    let timing = SpatialLengthScaleOptimizationTiming {
+        log_kappa_dim: kphase_log_kappa_dim,
+        cost_calls: kphase_cost_calls.get(),
+        cost_total_s: kphase_cost_total_s.get(),
+        eval_calls: kphase_eval_calls.get(),
+        eval_total_s: kphase_eval_total_s.get(),
+        efs_calls: kphase_efs_calls.get(),
+        efs_total_s: kphase_efs_total_s.get(),
+        optim_total_s: kphase_total_s,
+    };
 
     let theta_star = result.rho;
 
@@ -6400,6 +6917,7 @@ where
         resolved_specs,
         designs,
         fit,
+        timing: Some(timing),
     })
 }
 
@@ -6790,6 +7308,7 @@ fn try_exact_joint_latent_coord_optimization(
         design: optimized.design,
         resolvedspec: resolvedspec.clone(),
         adaptive_diagnostics: optimized.adaptive_diagnostics,
+        kappa_timing: None,
     })
 }
 
@@ -6889,6 +7408,7 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
             design: out.design,
             resolvedspec,
             adaptive_diagnostics: out.adaptive_diagnostics,
+            kappa_timing: None,
         });
     }
     if kappa_options.max_outer_iter == 0 {
@@ -6963,6 +7483,7 @@ pub fn fit_term_collectionwith_spatial_length_scale_optimization(
             design: fitted.design,
             resolvedspec,
             adaptive_diagnostics: fitted.adaptive_diagnostics,
+            kappa_timing: None,
         });
     }
     let initial_score = fit_score(&best.fit);

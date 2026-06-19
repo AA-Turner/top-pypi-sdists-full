@@ -11,7 +11,6 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from dstack._internal import settings
 from dstack._internal.core.errors import GatewayError
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import ApplyAction, EntityReference
@@ -152,7 +151,7 @@ def get_dev_env_run_plan_dict(
                 " && tail -f /dev/null"
             ),
         ]
-        image_name = f"dstackai/base:{settings.DSTACK_BASE_IMAGE_VERSION}-base-ubuntu{settings.DSTACK_BASE_IMAGE_UBUNTU_VERSION}"
+        image_name = "dstackai/base:0.14-base-ubuntu24.04"
 
     run_spec = {
         "configuration": {
@@ -215,6 +214,7 @@ def get_dev_env_run_plan_dict(
             "fleets": None,
             "tags": None,
             "backend_options": None,
+            "instances": None,
             "priority": 0,
         },
         "configuration_path": "dstack.yaml",
@@ -241,6 +241,7 @@ def get_dev_env_run_plan_dict(
             "fleets": None,
             "tags": None,
             "backend_options": None,
+            "instances": None,
         },
         "repo_code_hash": None,
         "repo_data": {
@@ -388,7 +389,7 @@ def get_dev_env_run_dict(
                 " && tail -f /dev/null"
             ),
         ]
-        image_name = "dstackai/base:0.13-base-ubuntu22.04"
+        image_name = "dstackai/base:0.14-base-ubuntu24.04"
 
     return {
         "id": run_id,
@@ -460,6 +461,7 @@ def get_dev_env_run_dict(
                 "fleets": None,
                 "tags": None,
                 "backend_options": None,
+                "instances": None,
                 "priority": 0,
             },
             "configuration_path": "dstack.yaml",
@@ -486,6 +488,7 @@ def get_dev_env_run_dict(
                 "fleets": None,
                 "tags": None,
                 "backend_options": None,
+                "instances": None,
             },
             "repo_code_hash": None,
             "repo_data": {
@@ -1144,6 +1147,39 @@ class TestGetRun:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
+        ("ide", "ide_name", "attached_ide_url", "proxied_ide_url_tmpl"),
+        [
+            pytest.param(
+                "vscode",
+                "VS Code",
+                "vscode://vscode-remote/ssh-remote+dev-env/test",
+                "vscode://vscode-remote/ssh-remote+{auth}/test",
+                id="vscode",
+            ),
+            pytest.param(
+                "cursor",
+                "Cursor",
+                "cursor://vscode-remote/ssh-remote+dev-env/test",
+                "cursor://vscode-remote/ssh-remote+{auth}/test",
+                id="cursor",
+            ),
+            pytest.param(
+                "windsurf",
+                "Windsurf",
+                "windsurf://vscode-remote/ssh-remote+dev-env/test",
+                "windsurf://vscode-remote/ssh-remote+{auth}/test",
+                id="windsurf",
+            ),
+            pytest.param(
+                "zed",
+                "Zed",
+                "zed://ssh/dev-env/test",
+                "zed://ssh/{auth}/test",
+                id="zed",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize(
         "sshproxy",
         [
             pytest.param(False, id="without-sshproxy"),
@@ -1158,6 +1194,10 @@ class TestGetRun:
         session: AsyncSession,
         client: AsyncClient,
         sshproxy: bool,
+        ide: str,
+        ide_name: str,
+        attached_ide_url: str,
+        proxied_ide_url_tmpl: str,
     ):
         monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_ENABLED", sshproxy)
         monkeypatch.setattr("dstack._internal.server.settings.SSHPROXY_HOSTNAME", "example.com")
@@ -1174,7 +1214,7 @@ class TestGetRun:
         run_spec = get_run_spec(
             repo_id=repo.name,
             run_name="dev-env",
-            configuration=DevEnvironmentConfiguration(ide="cursor"),
+            configuration=DevEnvironmentConfiguration(ide=ide),
         )
         run = await create_run(
             session=session,
@@ -1194,10 +1234,11 @@ class TestGetRun:
             json={"run_name": run.run_name},
         )
         assert response.status_code == 200, response.json()
+        proxied_authority = f"{job.id.hex}@example.com:2222"
         assert response.json()["jobs"][0]["job_connection_info"] == {
-            "ide_name": "Cursor",
-            "attached_ide_url": "cursor://vscode-remote/ssh-remote+dev-env/test",
-            "proxied_ide_url": f"cursor://vscode-remote/ssh-remote+{job.id.hex}@example.com:2222/test"
+            "ide_name": ide_name,
+            "attached_ide_url": attached_ide_url,
+            "proxied_ide_url": proxied_ide_url_tmpl.format(auth=proxied_authority)
             if sshproxy
             else None,
             "attached_ssh_command": ["ssh", "dev-env"],
@@ -3748,18 +3789,18 @@ class TestSubmitService:
         repo = await create_repo(session=session, project_id=project.id)
         backend = await create_backend(session=session, project_id=project.id)
         for gateway_name, is_default in existing_gateways:
-            gateway_compute = await create_gateway_compute(
-                session=session,
-                backend_id=backend.id,
-            )
             gateway = await create_gateway(
                 session=session,
                 project_id=project.id,
                 backend_id=backend.id,
-                gateway_compute_id=gateway_compute.id,
                 status=GatewayStatus.RUNNING,
                 name=gateway_name,
                 wildcard_domain=f"{gateway_name}.example",
+            )
+            await create_gateway_compute(
+                session=session,
+                backend_id=backend.id,
+                gateway_id=gateway.id,
             )
             if is_default:
                 project.default_gateway_id = gateway.id
@@ -3844,16 +3885,15 @@ class TestSubmitService:
             session=session, owner=exporter_user, name="exporter-project"
         )
         backend = await create_backend(session=session, project_id=exporter_project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
         gateway = await create_gateway(
             session=session,
             project_id=exporter_project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             name="exported-gateway",
             wildcard_domain="exported-gateway.example",
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         importer_user = await create_user(
             session=session, global_role=GlobalRole.USER, name="importer_user"
@@ -3929,14 +3969,13 @@ class TestSubmitService:
         user = await create_user(session=session, global_role=GlobalRole.USER)
         gateway_project = await create_project(session=session, owner=user, name="gateway-project")
         backend = await create_backend(session=session, project_id=gateway_project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
         gateway = await create_gateway(
             session=session,
             project_id=gateway_project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         service_project = await create_project(session=session, owner=user, name="service-project")
         # The project's default_gateway_id may point to the gateway (e.g., if the gateway was
@@ -3982,16 +4021,15 @@ class TestSubmitService:
             session=session, owner=exporter_user, name="exporter-project"
         )
         backend = await create_backend(session=session, project_id=exporter_project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
         gateway = await create_gateway(
             session=session,
             project_id=exporter_project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             name="exported-gateway",
             wildcard_domain="${{ run.project_name }}.example.com",
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         importer_user = await create_user(
             session=session, global_role=GlobalRole.USER, name="importer_user"
@@ -4041,16 +4079,15 @@ class TestSubmitService:
             session=session, owner=exporter_user, name="exporter-project"
         )
         backend = await create_backend(session=session, project_id=exporter_project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
         gateway = await create_gateway(
             session=session,
             project_id=exporter_project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             name="exported-gateway",
             wildcard_domain="${{ run.unknown_variable }}.example.com",
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         importer_user = await create_user(
             session=session, global_role=GlobalRole.USER, name="importer_user"
@@ -4108,15 +4145,14 @@ class TestSubmitService:
         )
         repo = await create_repo(session=session, project_id=project.id)
         backend = await create_backend(session=session, project_id=project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
         gateway = await create_gateway(
             session=session,
             project_id=project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             wildcard_domain="example.com",
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
         project.default_gateway_id = gateway.id
         await session.commit()
 
@@ -4158,16 +4194,15 @@ class TestSubmitService:
         )
         repo = await create_repo(session=session, project_id=project.id)
         backend = await create_backend(session=session, project_id=project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
         gateway = await create_gateway(
             session=session,
             project_id=project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             wildcard_domain="example.com",
             forbid_new_services=True,
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
         project.default_gateway_id = gateway.id
         await session.commit()
 
@@ -4196,17 +4231,16 @@ class TestSubmitService:
         )
         repo = await create_repo(session=session, project_id=project.id)
         backend = await create_backend(session=session, project_id=project.id)
-        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
-        await create_gateway(
+        gateway = await create_gateway(
             session=session,
             project_id=project.id,
             backend_id=backend.id,
-            gateway_compute_id=gateway_compute.id,
             status=GatewayStatus.RUNNING,
             name="restricted-gateway",
             wildcard_domain="example.com",
             forbid_new_services=True,
         )
+        await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         response = await client.post(
             "/api/project/test-project/runs/submit",

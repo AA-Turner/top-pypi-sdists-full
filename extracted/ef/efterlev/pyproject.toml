@@ -73,13 +73,27 @@ dependencies = [
     # Windows). platformdirs is the canonical helper — same library pip /
     # uv / ruff use. Tiny dep, no transitives.
     "platformdirs>=4.0,<5",
-    # Pin python-multipart>=0.0.27 directly to override the older MCP
-    # transitive (mcp pulls 0.0.26). CVE-2026-42561 affects 0.0.26;
-    # fix landed in 0.0.27. We don't import python-multipart ourselves
-    # (it comes in via the mcp server's HTTP transport); the direct
-    # pin is purely a security floor until mcp ships a release with
-    # the bumped transitive.
-    "python-multipart>=0.0.27,<1",
+    # Pin python-multipart>=0.0.31 directly to override the older MCP
+    # transitive. CVE-2026-42561 affected 0.0.26 (fixed 0.0.27);
+    # CVE-2026-53538/53539/53540 affect 0.0.27 (fixed 0.0.30/0.0.31,
+    # surfaced by pip-audit 2026-06-17). We don't import python-multipart
+    # ourselves (it comes in via the mcp server's HTTP transport); the
+    # direct pin is purely a security floor until mcp ships a release
+    # with the bumped transitive.
+    "python-multipart>=0.0.31,<1",
+    # Pin starlette>=1.1.0 directly as a security floor over the mcp +
+    # sse-starlette transitive (pulls 1.0.1). CVE-2026-48817/48818 affect
+    # 1.0.1; both fixed in 1.1.0 (surfaced by pip-audit 2026-06-17). We
+    # don't import starlette ourselves (it arrives via mcp's HTTP/SSE
+    # transport); the direct pin is purely a CVE floor until mcp ships a
+    # release with the bumped transitive. Same pattern as python-multipart.
+    "starlette>=1.1.0,<2",
+    # Pin cryptography>=48.0.1 directly as a security floor over the
+    # transitive (anthropic/trestle pull 46.0.7). GHSA-537c-gmf6-5ccf
+    # affects <48.0.1; fixed in 48.0.1 (surfaced by pip-audit 2026-06-17).
+    # trestle 4.0.3 requires cryptography>=46.0.7 with no upper cap, so the
+    # bump is compatible. Same security-floor pattern as the pins above.
+    "cryptography>=48.0.1",
     # Pin pyjwt>=2.13.0 directly as a security floor over the mcp transitive
     # (mcp pulls 2.12.1). PYSEC-2026-175/177/178/179 affect 2.12.1; all fixed
     # in 2.13.0. We don't import pyjwt ourselves (it arrives via mcp's auth

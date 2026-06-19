@@ -197,9 +197,10 @@ class Kubernetes(object):
         port=None,
         num_parallel=None,
         qos=None,
+        extended_resources=None,
         security_context=None,
     ):
-        name = "js-%s" % str(uuid4())[:6]
+        name = "j-%s" % str(uuid4())[:6]
         jobset = (
             KubernetesClient()
             .jobset(
@@ -232,6 +233,7 @@ class Kubernetes(object):
                 port=port,
                 num_parallel=num_parallel,
                 qos=qos,
+                extended_resources=extended_resources,
                 security_context=security_context,
             )
             .environment_variable("METAFLOW_CODE_METADATA", code_package_metadata)
@@ -322,9 +324,7 @@ class Kubernetes(object):
 
         additional_obp_configs = {
             "OBP_PERIMETER": initial_configs["OBP_PERIMETER"],
-            "OBP_INTEGRATIONS_URL": initial_configs[
-                "OBP_INTEGRATIONS_URL"
-            ],
+            "OBP_INTEGRATIONS_URL": initial_configs["OBP_INTEGRATIONS_URL"],
         }
         for k, v in additional_obp_configs.items():
             jobset.environment_variable(k, v)
@@ -514,6 +514,7 @@ class Kubernetes(object):
         name_pattern=None,
         qos=None,
         annotations=None,
+        extended_resources=None,
         security_context=None,
     ):
         if env is None:
@@ -559,6 +560,7 @@ class Kubernetes(object):
                 shared_memory=shared_memory,
                 port=port,
                 qos=qos,
+                extended_resources=extended_resources,
                 security_context=security_context,
             )
             .environment_variable("METAFLOW_CODE_METADATA", code_package_metadata)

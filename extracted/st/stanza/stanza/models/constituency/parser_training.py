@@ -8,6 +8,8 @@ import re
 import torch
 from torch import nn
 
+from torch.profiler import profile, record_function, ProfilerActivity
+
 #from stanza.models.common import pretrain
 
 from stanza.models.common import utils
@@ -27,6 +29,7 @@ from stanza.models.constituency.top_down_oracle import TopDownOracle
 from stanza.models.constituency.trainer import Trainer
 from stanza.models.constituency.utils import retag_trees, build_optimizer, build_scheduler, verify_transitions, get_open_nodes, check_constituents, check_root_labels, remove_duplicate_trees, remove_singleton_trees
 from stanza.server.parser_eval import EvaluateParser, ParseResult
+from stanza.utils.constituency import condense_output_layers
 from stanza.utils.get_tqdm import get_tqdm
 
 tqdm = get_tqdm()
@@ -78,6 +81,9 @@ def evaluate(args, model_file, retag_pipeline):
         treebank = tree_reader.read_treebank(args['eval_file'])
         tlogger.info("Read %d trees for evaluation", len(treebank))
 
+        if args['limit_treebank']:
+            treebank = treebank[:args['limit_treebank']]
+
         retagged_treebank = treebank
         if retag_pipeline is not None:
             retag_method = trainer.model.retag_method
@@ -88,7 +94,18 @@ def evaluate(args, model_file, retag_pipeline):
 
         if args['log_norms']:
             trainer.log_norms()
-        f1, kbestF1, _ = run_dev_set(trainer.model, retagged_treebank, treebank, args, evaluator, analyze_first_errors=True)
+        if args['write_profile']:
+            with profile(
+                    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    with_stack=True,
+                    record_shapes=True,
+            ) as prof:
+                f1, kbestF1, _ = run_dev_set(trainer.model, retagged_treebank, treebank, args, evaluator, analyze_first_errors=True)
+            sort_by = 'cuda_time_total' if args['profile_sort'] == 'cuda' else 'self_cpu_time_total'
+            tlogger.info("Profile results for %d sentences:\n%s", len(retagged_treebank), prof.key_averages(group_by_stack_n=5).table(sort_by=sort_by, row_limit=args['profile_row_limit']))
+            prof.export_chrome_trace(args['write_profile'])
+        else:
+            f1, kbestF1, _ = run_dev_set(trainer.model, retagged_treebank, treebank, args, evaluator, analyze_first_errors=True)
         tlogger.info("F1 score on %s: %f", args['eval_file'], f1)
         if kbestF1 is not None:
             tlogger.info("KBest F1 score on %s: %f", args['eval_file'], kbestF1)
@@ -136,6 +153,8 @@ def build_trainer(args, train_trees, dev_trees, silver_trees, foundation_cache, 
     if None in tags:
         raise RuntimeError("Fatal problem: the tagger put None on some of the nodes!")
     tlogger.info("Unique tags in training set: %s", tags)
+    tag_counts = Tree.get_tag_counts(train_trees)
+    tlogger.info("Tag counts: %s", tag_counts)
     # no need to fail for missing tags between train/dev set
     # the model has an unknown tag embedding
     for tag in Tree.get_unique_tags(dev_trees):
@@ -151,8 +170,12 @@ def build_trainer(args, train_trees, dev_trees, silver_trees, foundation_cache, 
     dev_sequences, dev_transitions = transition_sequence.convert_trees_to_sequences(dev_trees, "dev", args['transition_scheme'], args['reversed'])
     silver_sequences, silver_transitions = transition_sequence.convert_trees_to_sequences(silver_trees, "silver", args['transition_scheme'], args['reversed'])
 
+    train_transition_counts = Counter()
+    for ts in train_sequences:
+        train_transition_counts.update(ts)
+
     tlogger.info("Total unique transitions in train set: %d", len(train_transitions))
-    tlogger.info("Unique transitions in training set:\n  %s", "\n  ".join(map(str, train_transitions)))
+    tlogger.info("Unique transitions in training set:\n  %s", "\n  ".join(map(lambda x: ("%s: %d" % (x, train_transition_counts.get(x))), train_transitions)))
     expanded_train_transitions = set(train_transitions + [x for trans in train_transitions for x in trans.components()])
     if args['check_valid_states']:
         parse_transitions.check_transitions(expanded_train_transitions, dev_transitions, "dev")
@@ -258,6 +281,14 @@ def train(args, model_load_file, retag_pipeline):
     if args['wandb']:
         wandb.finish()
 
+
+    if args['condense_output_layers']:
+        tlogger.info("Condensing output layers in %s", args['save_name'])
+        summary = condense_output_layers.condense_model(args['save_name'], args['save_name'], threshold=args['condense_output_threshold'])
+        for r in summary['results']:
+            tlogger.info("  output_layers.%d: %d -> %d (%d dead neurons)",
+                         r['layer_idx'], r['original_size'], r['live'], r['dead'])
+
     return trainer
 
 def compose_train_data(trees, sequences):
@@ -353,9 +384,9 @@ def iterate_training(args, trainer, train_trees, train_sequences, transitions, d
         process_outputs = lambda x: torch.softmax(x, dim=1)
         model_loss_function = FocalLoss(reduction='sum', gamma=args['loss_focal_gamma'])
     elif args['loss'] == 'large_margin':
-        tlogger.info("Building LargeMarginInSoftmaxLoss(sum)")
+        tlogger.info("Building LargeMarginInSoftmaxLoss(sum), reg_lambda=%f",  args['loss_reg_lambda'])
         process_outputs = lambda x: x
-        model_loss_function = LargeMarginInSoftmaxLoss(reduction='sum')
+        model_loss_function = LargeMarginInSoftmaxLoss(reduction='sum', reg_lambda=args['loss_reg_lambda'])
     else:
         raise ValueError("Unexpected loss term: %s" % args['loss'])
 
@@ -518,7 +549,7 @@ def iterate_training(args, trainer, train_trees, train_sequences, transitions, d
                                   model.rare_words,
                                   model.root_labels,
                                   model.constituent_opens,
-                                  model.unary_limit(),
+                                  model.unary_limit,
                                   temp_args)
             new_model.to(device)
             new_model.copy_with_new_structure(model)

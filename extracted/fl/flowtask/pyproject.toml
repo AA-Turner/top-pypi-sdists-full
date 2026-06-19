@@ -64,7 +64,7 @@ dependencies = [
     "tabulate==0.9.0",
     "python-magic==0.4.27",
     "pytomlpp==1.0.13",
-    "psutil==6.0.0",
+    "psutil==7.2.2",
     "networkx>=3.4.1",
     "watchdog>=6.0.0",
     "hachiko==0.4.0",
@@ -243,6 +243,8 @@ disable_error_code = "annotation-unchecked"
 [dependency-groups]
 dev = [
     "moto[s3]>=5.2.1",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=0.23.8",
 ]
 
 

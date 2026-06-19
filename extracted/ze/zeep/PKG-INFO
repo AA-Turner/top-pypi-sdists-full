@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zeep
-Version: 4.3.2
+Version: 4.3.3
 Summary: A Python SOAP client
 Author-email: Michael van Tellingen <michaelvantellingen@gmail.com>
 License: MIT
@@ -9,14 +9,14 @@ Project-URL: Documentation, https://docs.python-zeep.org
 Project-URL: Changelog, https://github.com/mvantellingen/python-zeep/blob/main/CHANGES
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs>=17.2.0
@@ -26,23 +26,8 @@ Requires-Dist: platformdirs>=1.4.0
 Requires-Dist: requests>=2.7.0
 Requires-Dist: requests-toolbelt>=0.7.1
 Requires-Dist: requests-file>=1.5.1
-Requires-Dist: pytz
 Provides-Extra: docs
 Requires-Dist: sphinx>=1.4.0; extra == "docs"
-Provides-Extra: test
-Requires-Dist: coverage[toml]==7.6.2; extra == "test"
-Requires-Dist: freezegun==1.5.1; extra == "test"
-Requires-Dist: pretend==1.0.9; extra == "test"
-Requires-Dist: pytest-cov==5.0.0; extra == "test"
-Requires-Dist: pytest-httpx; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: pytest==8.3.3; extra == "test"
-Requires-Dist: requests_mock==1.12.1; extra == "test"
-Requires-Dist: isort==5.13.2; extra == "test"
-Requires-Dist: flake8==7.1.1; extra == "test"
-Requires-Dist: flake8-blind-except==0.2.1; extra == "test"
-Requires-Dist: flake8-debugger==4.1.2; extra == "test"
-Requires-Dist: flake8-imports==0.1.1; extra == "test"
 Provides-Extra: async
 Requires-Dist: httpx>=0.15.0; extra == "async"
 Requires-Dist: packaging; extra == "async"
@@ -59,7 +44,7 @@ Dynamic: license-file
 A Python SOAP client
 
 ## Highlights:
-- Compatible with Python 3.9, 3.10, 3.11, 3.12, 3.13 and PyPy3
+- Compatible with Python 3.10, 3.11, 3.12, 3.13, 3.14 and PyPy3
 - Built on top of lxml, requests, and httpx
 - Support for Soap 1.1, Soap 1.2, and HTTP bindings
 - Support for WS-Addressing headers

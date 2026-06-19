@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: durabletask
-Version: 1.5.0
+Version: 1.6.0
 Summary: A Durable Task Client SDK for Python
 License:     MIT License
         
@@ -42,6 +42,8 @@ Requires-Dist: opentelemetry-api>=1.0.0; extra == "opentelemetry"
 Requires-Dist: opentelemetry-sdk>=1.0.0; extra == "opentelemetry"
 Provides-Extra: azure-blob-payloads
 Requires-Dist: azure-storage-blob[aio]>=12.0.0; extra == "azure-blob-payloads"
+Provides-Extra: history-export-azure
+Requires-Dist: azure-storage-blob[aio]>=12.0.0; extra == "history-export-azure"
 Dynamic: license-file
 
 # Durable Task SDK for Python

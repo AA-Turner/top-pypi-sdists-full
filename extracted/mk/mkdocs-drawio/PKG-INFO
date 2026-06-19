@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-drawio
-Version: 1.16.1
+Version: 1.16.2
 Summary: MkDocs plugin for embedding Drawio files
 License: MIT
 License-File: LICENSE
@@ -29,8 +29,11 @@ Description-Content-Type: text/markdown
 
 # MkDocs Plugin for embedding Drawio files
 
+<img width="256" height="256" alt="Image" src="https://github.com/user-attachments/assets/fb25d409-38eb-4e1a-90e8-6db78999514e" />
+
 [![Publish Badge](https://github.com/tuunit/mkdocs-drawio/workflows/Publish/badge.svg)](https://github.com/tuunit/mkdocs-drawio/actions)
 [![PyPI](https://img.shields.io/pypi/v/mkdocs-drawio)](https://pypi.org/project/mkdocs-drawio/)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/mkdocs-drawio)
 
 Sergey ([onixpro](https://github.com/onixpro)) is the original creator of this plugin but since his repository isn't maintained anymore we forked it on the 19th December of 2023 and have been keeping it up-to-date and expanding on the features since then.
 [Buy Sergey a ☕](https://www.buymeacoffee.com/SergeyLukin)
@@ -90,6 +93,8 @@ Full documentation of the configuration options and examples can be found in the
 By default the plugin uses the official url for the minified drawio javascript library. To use a custom source for the drawio viewer you can overwritte the url. This might be useful in airlocked environments.
 
 > If you want to use a self-hosted JavaScript viewer file. You should download the latest version from the [official drawio repo](https://github.com/jgraph/drawio/blob/dev/src/main/webapp/js/viewer-static.min.js).
+
+Self-hosted viewer paths can be configured as site-root paths such as `/js/viewer-static.min.js`. The plugin normalizes them per page, so they also work on versioned deployments such as `mike`.
 
 ```yaml
 plugins:

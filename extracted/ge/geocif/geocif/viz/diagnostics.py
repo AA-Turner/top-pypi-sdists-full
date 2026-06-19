@@ -650,7 +650,7 @@ def mape_box_by_region(
             figsize=(9, max(3.5, len(regions_sorted) * 0.42)),
         )
         bp = ax.boxplot(
-            data_clipped, vert=False, labels=labels,
+            data_clipped, vert=False, tick_labels=labels,
             patch_artist=True, widths=0.6, showfliers=False,
             medianprops={"color": "black", "linewidth": 1.4},
         )
@@ -742,7 +742,7 @@ def mape_box_by_year(
         )
         bp = ax.boxplot(
             data_clipped, vert=True,
-            labels=[str(y) for y in years_sorted],
+            tick_labels=[str(y) for y in years_sorted],
             patch_artist=True, widths=0.55, showfliers=False,
             medianprops={"color": "black", "linewidth": 1.4},
         )

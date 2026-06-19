@@ -38,7 +38,9 @@ class MarketFilterParams(BaseModel):
     event_id: Optional[StrictStr] = Field(default=None, description="Find markets belonging to an event", alias="eventId")
     page: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="For pagination (used by Limitless)")
     similarity_threshold: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="For semantic search (used by Limitless)", alias="similarityThreshold")
-    __properties: ClassVar[List[str]] = ["limit", "offset", "sort", "status", "searchIn", "query", "slug", "marketId", "outcomeId", "eventId", "page", "similarityThreshold"]
+    source_exchange: Optional[StrictStr] = Field(default=None, description="Filter by source venue (e.g. 'polymarket', 'kalshi', 'myriad'). `exchange` is an alias.", alias="sourceExchange")
+    exchange: Optional[StrictStr] = Field(default=None, description="Alias for `sourceExchange`.")
+    __properties: ClassVar[List[str]] = ["limit", "offset", "sort", "status", "searchIn", "query", "slug", "marketId", "outcomeId", "eventId", "page", "similarityThreshold", "sourceExchange", "exchange"]
 
     @field_validator('sort')
     def sort_validate_enum(cls, value):
@@ -132,7 +134,9 @@ class MarketFilterParams(BaseModel):
             "outcomeId": obj.get("outcomeId"),
             "eventId": obj.get("eventId"),
             "page": obj.get("page"),
-            "similarityThreshold": obj.get("similarityThreshold")
+            "similarityThreshold": obj.get("similarityThreshold"),
+            "sourceExchange": obj.get("sourceExchange"),
+            "exchange": obj.get("exchange")
         })
         return _obj
 

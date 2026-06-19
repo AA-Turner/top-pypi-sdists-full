@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.742
+Version: 0.4.744
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -208,6 +208,27 @@ from geocif import yield_outlook
 yield_outlook.run(cfg_geocif)  # uses config defaults (10 years, mean)
 # yield_outlook.run(cfg_geocif, current_year=2026, n_years=10, aggregation="median")
 ```
+
+### Cropmask optimizers
+
+Two consumers of `geoprepare` extraction outputs that tune the cropland mask used downstream. Run *after* the corresponding geoprepare extractor has written its outputs.
+
+```python
+# Uniform threshold T over the region (single absolute or rank-based knob).
+# Reads geoprepare.extract_sweep output:
+#   ${PATHS:dir_output}/threshold_sweep/{country}/{crop}/{country}_{crop}_s{season}_sweep.csv
+from geocif import threshold_optimizer
+threshold_optimizer.run(cfg_geocif)
+
+# Per-cell binary mask via genetic algorithm (independent in/out decision per cell).
+# Reads geoprepare.extract_cells output:
+#   ${PATHS:dir_output}/cell_optimizer/{country}/{crop}/{country}_{crop}_s{season}_cells.parquet
+# Writes a production-mask parquet at the same location that geoextract picks up.
+from geocif import cell_optimizer
+cell_optimizer.run(cfg_geocif)
+```
+
+Configure under `[THRESHOLD_OPTIMIZER]` and `[CELL_OPTIMIZER]` in `geocif.txt`. Outputs land under `${PATHS:dir_output}/ml/analysis/{date}/{threshold_sweep_summary|cell_optimizer}/`.
 
 ### ML models
 

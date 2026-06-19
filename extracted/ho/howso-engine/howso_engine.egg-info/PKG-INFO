@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: howso-engine
-Version: 60.3.2
+Version: 61.0.0
 Summary: The Howso Engine™ is a natively and fully explainable ML engine, serving as an alternative to black box AI neural networks.
 Author: Howso Incorporated
 Author-email: support@howso.com
@@ -675,17 +675,17 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Operating System :: Microsoft :: Windows :: Windows 11
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE-3RD-PARTY.txt
 License-File: LICENSE.txt
@@ -693,7 +693,7 @@ Requires-Dist: certifi
 Requires-Dist: Faker>=4.1.1
 Requires-Dist: humanize>=4.0.0
 Requires-Dist: mmh3
-Requires-Dist: numpy
+Requires-Dist: numpy<2.5,>=2.3
 Requires-Dist: packaging
 Requires-Dist: pandas<3.0
 Requires-Dist: psutil
@@ -705,7 +705,7 @@ Requires-Dist: sacremoses
 Requires-Dist: semantic-version~=2.0
 Requires-Dist: typing-extensions~=4.9
 Requires-Dist: urllib3>=2.6.3
-Requires-Dist: amalgam-lang==32.0.1
+Requires-Dist: amalgam-lang==33.0.0
 Provides-Extra: dev
 Requires-Dist: dill~=0.0; extra == "dev"
 Requires-Dist: flake8-docstrings; extra == "dev"
@@ -774,7 +774,7 @@ predicting, while a client may manage the API interface for multiple Trainees.
 
 ## Supported Platforms
 
-Compatible with Python versions: 3.10, 3.11, 3.12, and 3.13.
+Compatible with Python versions: 3.11, 3.12, 3.13, and 3.14.
 
 **Operating Systems**
 

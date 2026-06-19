@@ -25,6 +25,7 @@ class Check(BaseCheck):
         groupby: Union[str, list[str], Callable] | None = None,
         ignore_na: bool = True,
         element_wise: bool = False,
+        native: bool = True,
         name: str | None = None,
         error: str | None = None,
         raise_warning: bool = False,
@@ -33,6 +34,7 @@ class Check(BaseCheck):
         description: str | None = None,
         statistics: dict[str, Any] | None = None,
         strategy: Any | None = None,
+        constraint: Any | None = None,
         determined_by_unique: bool = False,
         **check_kwargs,
     ) -> None:
@@ -82,6 +84,14 @@ class Check(BaseCheck):
             element-wise fashion. If bool, assumes that all checks should be
             applied to the column element-wise. If list, should be the same
             number of elements as checks.
+        :param native: If True (default), the check function receives the raw
+            native frame and the column key as positional args:
+            ``check_fn(native_frame, key)``. If False, the check function
+            receives a Narwhals expression ``nw.col(key)`` (a ``nw.Expr``)
+            as its sole argument: ``check_fn(nw.col(key))``. Builtin checks
+            use ``native=False``. Note: This parameter only applies when
+            using the Narwhals backend; it is ignored by the native pandas,
+            polars, and ibis backends.
         :param name: optional name for the check.
         :param error: custom error message if series fails validation
             check.
@@ -98,6 +108,13 @@ class Check(BaseCheck):
         :param strategy: A hypothesis strategy, used for implementing data
             synthesis strategies for this check. See the
             :ref:`User Guide <custom-strategies>` for more details.
+        :param constraint: An optional constraint adapter that returns a
+            ``FieldConstraints`` value describing the bounds/membership/regex
+            constraints this check encodes. When present, the strategy
+            builder aggregates this with sibling constraints and emits a
+            single hypothesis strategy in one shot, avoiding ``.filter``
+            chaining. See :ref:`User Guide <custom-strategies>` for more
+            details.
         :param determined_by_unique: If True, indicates that this check's
             result is fully determined by the unique values in the data, meaning
             duplicate values don't affect the outcome. This enables significant
@@ -175,6 +192,7 @@ class Check(BaseCheck):
         self._check_fn = check_fn
         self._check_kwargs = check_kwargs
         self.element_wise = element_wise
+        self.native = native
         self.name = name or getattr(
             self._check_fn, "__name__", self._check_fn.__class__.__name__
         )
@@ -201,6 +219,7 @@ class Check(BaseCheck):
         self.statistics = statistics or check_kwargs or {}
         self.statistics_args = [*self.statistics.keys()]
         self.strategy = strategy
+        self.constraint = constraint
 
     def __call__(
         self,
@@ -228,11 +247,15 @@ class Check(BaseCheck):
 
             ``failure_cases``: subset of the check_object that failed.
         """
-        if self.name is not None and self.is_builtin_check(self.name):
-            # we need to reload the function here in case additional
-            # type signatures have been registered for a specific built-in
-            # check.
-            self._check_fn = self.get_builtin_check_fn(self.name)
+        # Reload the function here in case additional type signatures have been registered
+        # for a specific built-in check. Use the check function's own name (the dispatcher
+        # name) rather than ``self.name``, since the latter may have been overridden by a
+        # user-supplied ``name=`` and would otherwise skip this reload (see #2042).
+        builtin_check_name = getattr(self._check_fn, "__name__", None)
+        if builtin_check_name is not None and self.is_builtin_check(
+            builtin_check_name
+        ):
+            self._check_fn = self.get_builtin_check_fn(builtin_check_name)
         backend = self.get_backend(check_obj)(self)
         return backend(check_obj, column)
 

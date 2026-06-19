@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "docling-slim"
-version = "2.103.0"  # DO NOT EDIT, updated automatically
+version = "2.104.0"  # DO NOT EDIT, updated automatically
 description = "Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications."
 license = "MIT"
 keywords = [
@@ -342,6 +342,10 @@ docling = { workspace = true }
 package = true
 default-groups = "all"
 
+override-dependencies = [
+  "grpcio>=1.75.1"
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["docling"]
 
@@ -355,6 +359,7 @@ markers = [
   "ml_vlm: VLM and picture-description tests that download or execute vision-language model code.",
   "ml_asr: ASR tests that download or execute speech model code.",
   "cross_platform: Lightweight smoke tests run on Windows and macOS workflow-dispatch lanes.",
+  "external_service: Tests that require a real external service and are excluded from CI.",
 ]
 
 [tool.ruff]

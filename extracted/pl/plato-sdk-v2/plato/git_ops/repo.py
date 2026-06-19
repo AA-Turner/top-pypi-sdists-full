@@ -45,6 +45,10 @@ def checkout_main_from_bare(*, bare_repo_path: str, worktree_path: str) -> None:
     if git_dir.is_dir():
         repo = Repo(worktree_path)
         repo.git.config("core.logAllRefUpdates", "false")
+        try:
+            repo.git.remote("set-url", "origin", bare_repo_path)
+        except GitCommandError:
+            repo.git.remote("add", "origin", bare_repo_path)
         repo.git.fetch("origin", "main")
         repo.git.reset("--hard", "origin/main")
         repo.git.clean(

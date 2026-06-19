@@ -135,6 +135,7 @@ def _finalize_content_and_reasoning(
     reasoning_parser,
     engine_reasoning_text: str = "",
     enable_thinking: bool | None = None,
+    reasoning_max_tokens: int | None = None,
 ) -> tuple[str, str | None]:
     """Compute final ``content`` + ``reasoning_text`` after tool parsing.
 
@@ -180,9 +181,11 @@ def _finalize_content_and_reasoning(
     # the parser. (No reasoning_parser is still a short-circuit
     # below.) Issue #442.
     if engine_reasoning_text:
-        return cleaned_text, engine_reasoning_text
+        return _apply_reasoning_cap(
+            cleaned_text, engine_reasoning_text, reasoning_max_tokens
+        )
     if reasoning_parser is None:
-        return cleaned_text, reasoning_text
+        return _apply_reasoning_cap(cleaned_text, reasoning_text, reasoning_max_tokens)
     # #575 — thread the request-level ``enable_thinking`` so the
     # underlying ``BaseThinkingReasoningParser.extract_reasoning``
     # can apply its symmetric-with-streaming Case-4 fallback when
@@ -278,7 +281,166 @@ def _finalize_content_and_reasoning(
         # MUST survive (codex R2 BLOCKING).
         if enable_thinking is True and first_parse_was_case4:
             cleaned_text = ""
-    return cleaned_text, reasoning_text
+    return _apply_reasoning_cap(cleaned_text, reasoning_text, reasoning_max_tokens)
+
+
+def _apply_reasoning_cap(
+    cleaned_text: str,
+    reasoning_text: str | None,
+    reasoning_max_tokens: int | None,
+) -> tuple[str, str | None]:
+    """Truncate ``reasoning_text`` to the per-request cap and reroute
+    the overflow into ``cleaned_text`` (upstream vLLM PR #20859
+    backport).
+
+    Non-stream equivalent of
+    ``StreamingPostProcessor._consume_reasoning_budget``:
+    ``None`` short-circuits to a no-op so back-compat callers behave
+    exactly as before. Uses the same chars-÷4 heuristic as
+    ``_build_usage`` and the streaming postprocessor — single source
+    of truth for "how many tokens does this text approximate" so the
+    OpenAI usage block, the streaming SSE deltas, and this non-stream
+    finalize all agree on a single token count.
+    """
+    if (
+        reasoning_max_tokens is None
+        or not reasoning_text
+        or not isinstance(reasoning_text, str)
+    ):
+        return cleaned_text, reasoning_text
+    max_chars = reasoning_max_tokens * 4
+    if len(reasoning_text) <= max_chars:
+        return cleaned_text, reasoning_text
+    overflow = reasoning_text[max_chars:]
+    truncated = reasoning_text[:max_chars]
+    # Codex round-11 BLOCKING: prepend overflow rather than appending
+    # it. In the source ordering, the overflow bytes were emitted by
+    # the model BEFORE any post-``</think>`` final content. Appending
+    # ``cleaned_text + overflow`` would reorder the response as
+    # ``final-answer + dropped-reasoning``, which:
+    #   1. mis-represents the model's actual token order on the wire,
+    #   2. breaks the streaming-vs-non-streaming parity (the streaming
+    #      pipeline emits overflow on the cap-crossing chunk, BEFORE
+    #      any subsequent content delta — same as putting overflow
+    #      first here),
+    #   3. confuses downstream consumers that pattern-match the start
+    #      of the response (e.g. JSON-schema validators that scan for
+    #      the opening ``{``).
+    # Prepend so the time-ordered emission is preserved.
+    cleaned_text = overflow + (cleaned_text or "")
+    return cleaned_text, truncated
+
+
+def _rescue_silent_drop_from_reasoning(
+    final_content: str | None,
+    reasoning_text: str | None,
+    tool_calls: list | None,
+) -> str | None:
+    """Issue #569: never silently drop an assistant turn.
+
+    The route layer's normal ``content`` extraction can legitimately
+    produce an empty ``final_content`` when the model emits ONLY
+    reasoning tokens and never closes the reasoning channel into a
+    ``content``/``final`` channel or a tool call. The exact production
+    failure mode: ``gemma-4-26b-4bit`` multi-turn tool flows where the
+    model gets stuck inside ``<|channel>thought\\n...`` and runs out of
+    its token budget before emitting any ``<|tool_call>`` or
+    ``<|channel>content`` marker. The engine's token-level
+    ``OutputRouter`` correctly routes every token to ``reasoning`` —
+    but the route then emits an OpenAI-compat message with
+    ``content=null`` and ``tool_calls=null`` while
+    ``reasoning_content`` carries the entire stuck thought. Agentic
+    clients (Cline, Cursor, Codex CLI) read ``content`` and
+    ``tool_calls`` only, see an empty message, and either retry into
+    the same trap or stall.
+
+    Rescue rule: when ``final_content`` is empty/None AND no
+    ``tool_calls`` fired AND ``reasoning_text`` is non-empty, surface
+    ``reasoning_text`` as ``content``. ``reasoning_content`` stays
+    populated unchanged — duplication between the two fields is the
+    lesser evil vs. a silently empty response.
+
+    Cases that fall through unchanged:
+
+    * Happy path: ``final_content`` is non-empty AND has at least one
+      non-whitespace char → return as-is. Whitespace-only
+      ``final_content`` (``"   \n"``) is treated as semantically
+      absent for rescue purposes (codex round-3 NIT on #676): an
+      OpenAI-compat client still sees an empty assistant turn, so
+      the rescue must be allowed to fire when reasoning is present.
+      The strip is on the predicate only — the original
+      ``final_content`` propagates back on the happy path so callers
+      that DO want the whitespace preserved still see it as-is.
+    * Tool-call path: ``tool_calls`` non-empty → the spec already
+      requires ``content`` to be ``None`` (the tool call IS the
+      response); rescue does NOT fire.
+    * Truly empty: ``reasoning_text`` empty OR whitespace-only →
+      nothing semantically rescue-worthy; ``None`` propagates. The
+      whitespace-only check (codex round-1 NIT on #676) closes a
+      gap where ``"   \n"`` would surface as non-empty ``content``
+      while still being semantically empty to clients. The
+      ORIGINAL ``reasoning_text`` is returned untouched (no
+      ``.strip()`` on the assignment) so callers that DO want the
+      whitespace preserved still see it as-is — the strip is on
+      the predicate only.
+
+    The rescue lives at the route layer (not the engine) because the
+    engine's ``_route_tokens_for_channels`` has a tested contract
+    (issue #442's harmony fix pins ``content == ""`` when only the
+    analysis channel fires) — flipping that at the engine level
+    would re-leak analysis text into ``content`` for the original
+    #442 case. The rescue runs AFTER tool-call parsing and AFTER the
+    reasoning/content split, as a final route-level safety net so
+    silent drops never escape to clients regardless of which model
+    family produced them.
+
+    Codex round-3 BLOCKING on #676: this helper is now the SINGLE
+    predicate for both the non-streaming AND streaming rescue paths
+    (chat.py:~1285 and chat.py:~1605). The streaming path used to
+    promote ``processor.accumulated_reasoning`` directly into
+    ``delta.content`` without the whitespace guard, so a
+    reasoning-only stream of ``"   \n"`` would emit a semantically
+    empty ``delta.content`` while non-streaming correctly suppressed
+    it. Routing both call sites through this helper closes that
+    asymmetry — the predicate cannot drift between the two paths
+    because there's only one of it.
+    """
+    if final_content and final_content.strip():
+        return final_content
+    if tool_calls:
+        return final_content
+    if not reasoning_text or not reasoning_text.strip():
+        return final_content
+    return reasoning_text
+
+
+def _is_structured_output_requested(response_format) -> bool:
+    """Codex round-2 BLOCKING on #676: shared predicate for "client
+    asked for structured output" — used by BOTH the non-streaming
+    and streaming silent-drop rescue gates in
+    ``vllm_mlx/routes/chat.py`` to decide whether to suppress the
+    reasoning→content rescue.
+
+    Returns ``True`` iff ``response_format.type`` is ``json_object``
+    or ``json_schema`` — the two OpenAI-compat shapes where surfacing
+    reasoning prose as ``content`` would feed the client unstructured
+    text instead of validated JSON (or the existing empty/error path
+    they can retry on). ``text`` (the default) and ``None`` return
+    ``False`` so agentic clients still get the rescue.
+
+    Accepts either a Pydantic ``ResponseFormat`` object (real route
+    use) or a raw ``dict`` (tests / inbound JSON). Round 1 inlined
+    this same check at the non-streaming call site only; round 2
+    pulled it into a helper after codex caught the streaming path
+    drifting — one definition, two call sites, no chance for the
+    two predicates to disagree again.
+    """
+    if response_format is None:
+        return False
+    rf_type = getattr(response_format, "type", None)
+    if isinstance(response_format, dict):
+        rf_type = response_format.get("type")
+    return rf_type in ("json_object", "json_schema")
 
 
 def _parser_accepts_enable_thinking(reasoning_parser) -> bool:

@@ -327,6 +327,11 @@ Output:
 
         self._result = {"data": data_df, "variables": variables_df}
 
+        # When export_dataframe is set, expose only the data DataFrame so that
+        # downstream components like PandasToFile or TableOutput can consume it directly.
+        if getattr(self, "export_dataframe", False):
+            self._result = data_df
+
         # Emit observability metrics.
         rows_fetched = len(data_df) if not data_df.empty else 0
         self.add_metric("census_rows_fetched", rows_fetched)

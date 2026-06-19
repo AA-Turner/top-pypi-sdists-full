@@ -15,7 +15,6 @@ from typing import Any
 from pydantic_ai import Agent
 from pydantic_ai._agent_graph import End, UserPromptNode
 from pydantic_ai.messages import (
-    FinalResultEvent,
     FunctionToolCallEvent,
     FunctionToolResultEvent,
     PartDeltaEvent,
@@ -165,11 +164,8 @@ async def execute_headless(  # noqa: C901
             deps.backend.stop()
 
 
-async def _run_verbose(  # noqa: C901
-    agent: Any, task: str, deps: Any, run_kwargs: dict[str, Any]
-) -> Any:
+async def _run_verbose(agent: Any, task: str, deps: Any, run_kwargs: dict[str, Any]) -> Any:
     """Run agent with verbose progress on stderr."""
-
     _log = lambda msg: print(msg, file=sys.stderr, flush=True)  # noqa: E731
     start = _time.monotonic()
 
@@ -191,8 +187,6 @@ async def _run_verbose(  # noqa: C901
                                 thinking_chars += len(event.delta.content_delta or "")
                             elif isinstance(event.delta, TextPartDelta):
                                 text_chars += len(event.delta.content_delta or "")
-                        elif isinstance(event, FinalResultEvent):
-                            break
                     if thinking_chars:
                         t = _time.monotonic() - start
                         _log(f"[{t:6.1f}s]   thinking: {thinking_chars} chars")

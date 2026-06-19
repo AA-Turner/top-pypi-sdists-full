@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansys-tools-common
-Version: 0.5.0
+Version: 0.5.1
 Summary: A set of tools for PyAnsys libraries
 Project-URL: Discussions, https://github.com/ansys/ansys-tools-common/discussions
 Project-URL: Documentation, https://tools.docs.pyansys.com/

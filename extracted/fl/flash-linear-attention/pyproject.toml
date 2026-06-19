@@ -1,21 +1,27 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "flash-linear-attention"
-version = "0.5.0"
+version = "0.5.1"
 description = "Fast linear attention models and layers"
 readme = "README.md"
+license = {file = "LICENSE"}
 requires-python = ">=3.10"
-dependencies = ["fla-core==0.5.0", "transformers"]
+dependencies = ["fla-core==0.5.1", "transformers>=4.45.0"]
 
 [project.urls]
 Homepage = "https://github.com/fla-org/flash-linear-attention"
 Repository = "https://github.com/fla-org/flash-linear-attention"
 
 [project.optional-dependencies]
-tilelang = ["tilelang"]
+cuda = ["fla-core[cuda]==0.5.1"]
+rocm = ["fla-core[rocm]==0.5.1"]
+xpu = ["fla-core[xpu]==0.5.1"]
+npu = ["fla-core[npu]==0.5.1"]
+cpu = ["fla-core[cpu]==0.5.1"]
+tilelang = ["tilelang>=0.1.9"]
 conv1d = ["causal-conv1d>=1.4.0"]
 benchmark = ["matplotlib", "datasets>=3.3.0"]
 test = ["pytest"]

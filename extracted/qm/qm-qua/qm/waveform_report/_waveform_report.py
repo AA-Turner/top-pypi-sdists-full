@@ -167,6 +167,7 @@ class PlayedAnalogWaveform(PlayedWaveform):
 
     def to_custom_string(self, show_chirp: bool = True) -> str:
         _attributes = super()._common_attributes_to_printable_str_list()
+        dc_offset_by_port = {k: format_float(v) for k, v in self.current_dc_offset_by_port.items()}
         _attributes += (
             [
                 f"{k}={v if self.is_iq else v[0]}"
@@ -178,7 +179,7 @@ class PlayedAnalogWaveform(PlayedWaveform):
             ]
             + [
                 f"Intermediate Frequency={pretty_string_freq(self.current_intermediate_frequency)}",
-                f"Current DC Offset (By output ports)={ {k: format_float(v) for k, v in self.current_dc_offset_by_port.items()} }",
+                f"Current DC Offset (By output ports)={dc_offset_by_port}",
                 f"Current Phase={format_float(self.current_phase)},",
             ]
             + ([] if (self.chirp_info is None or not show_chirp) else [f"chirp_info={self.chirp_info}"])
@@ -303,13 +304,13 @@ class Event:
         return ret
 
     @classmethod
-    def from_job_dict(cls, dict_description: EventType) -> "Event":
+    def from_job_dict(cls, dict_description: EventType, element: str) -> "Event":
         return cls(
             name=dict_description["eventMessage"],
             timestamp=int(dict_description["timestamp"]),
             controller=dict_description["sourcePulser"]["controllerName"],
             fem=int(dict_description["sourcePulser"].get("femId", 0)) + 1,
-            element=dict_description["quantumElement"],
+            element=element,
             is_i=dict_description["sourcePulserIqInfo"]["isI"],
             is_q=dict_description["sourcePulserIqInfo"]["isQ"],
         )
@@ -371,9 +372,23 @@ class WaveformReport:
             analog_waveforms=[PlayedAnalogWaveform.from_job_dict(awf) for awf in d["analogWaveforms"]],
             digital_waveforms=[PlayedDigitalWaveform.from_job_dict(dwf) for dwf in d["digitalWaveforms"]],
             adc_acquisitions=[AdcAcquisition.from_job_dict(acq) for acq in d.get("adcAcquisitions", [])],
-            events=[Event.from_job_dict(event) for event in d.get("events", []) if Event.is_supported(event)],
+            events=cls._create_events_from_dict(d),
             job_id=job_id,
         )
+
+    @staticmethod
+    def _create_events_from_dict(d: WaveformReportType) -> List[Event]:
+        data = d.get("events", [])
+        events = []
+        for event in data:
+            if Event.is_supported(event):
+                if isinstance(event["quantumElement"], str):
+                    events.append(Event.from_job_dict(event, event["quantumElement"]))
+                else:
+                    for element in event["quantumElement"]:
+                        events.append(Event.from_job_dict(event, element))
+
+        return events
 
     @property
     def waveforms(self) -> Sequence[PlayedWaveform]:

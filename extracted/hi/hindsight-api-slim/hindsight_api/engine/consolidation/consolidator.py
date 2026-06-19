@@ -335,7 +335,15 @@ def _resolve_obs_tags_list(memory: dict[str, Any]) -> list[list[str]] | None:
 
     Returns ``None`` for the default ``combined``-mode single pass (caller uses
     the memory's own tags). Returns a list[list[str]] when the memory requested
-    multi-pass scoping (``per_tag``, ``all_combinations``, or an explicit list).
+    multi-pass scoping (``per_tag``, ``all_combinations``, ``shared``, or an
+    explicit list).
+
+    ``shared`` resolves to ``[[]]`` — a single pass over the empty (untagged)
+    scope. The created observation carries no tags and recall/dedup match it with
+    ``tags_match="any"``, so every memory consolidates into one shared observation
+    regardless of its own tags. Use it to deduplicate across volatile per-call
+    provenance tags (e.g. per-session ids) without dropping those tags from the
+    source facts.
     """
     parsed = _parse_observation_scopes(memory)
     tags = list(memory.get("tags") or [])
@@ -346,6 +354,8 @@ def _resolve_obs_tags_list(memory: dict[str, Any]) -> list[list[str]] | None:
         if not tags:
             return None
         return [list(c) for r in range(1, len(tags) + 1) for c in combinations(tags, r)]
+    if parsed == "shared":
+        return [[]]
     if parsed == "combined" or parsed is None:
         return None
     return parsed  # explicit list[list[str]]
@@ -362,6 +372,7 @@ def _resolve_write_scopes(memory: dict[str, Any]) -> list[frozenset[str]]:
     - ``combined`` / ``None``    -> ``[frozenset(memory.tags)]``
     - ``per_tag``                -> ``[frozenset({t}) for t in memory.tags]``
     - ``all_combinations``       -> one frozenset per nonempty subset of tags
+    - ``shared``                 -> ``[frozenset()]`` (the single untagged scope)
     - explicit ``list[list[str]]`` -> one frozenset per declared scope
 
     Empty-tag memories collapse to a single ``frozenset()`` in all modes so they
@@ -376,6 +387,8 @@ def _resolve_write_scopes(memory: dict[str, Any]) -> list[frozenset[str]]:
         if not tags:
             return [frozenset()]
         return [frozenset(c) for r in range(1, len(tags) + 1) for c in combinations(tags, r)]
+    if parsed == "shared":
+        return [frozenset()]
     if parsed == "combined" or parsed is None:
         return [frozenset(tags)]
     return [frozenset(s) for s in parsed]  # explicit list[list[str]]
@@ -436,6 +449,13 @@ class _CreateAction(BaseModel):
     def sanitize_text(cls, v: str) -> str:
         return sanitize_llm_output(v) or ""
 
+    @field_validator("source_fact_ids", mode="before")
+    @classmethod
+    def ensure_list(cls, v: str | list[str]) -> list[str]:
+        if isinstance(v, str):
+            return [v]
+        return v
+
 
 class _UpdateAction(BaseModel):
     text: str
@@ -447,6 +467,13 @@ class _UpdateAction(BaseModel):
     @classmethod
     def sanitize_text(cls, v: str) -> str:
         return sanitize_llm_output(v) or ""
+
+    @field_validator("source_fact_ids", mode="before")
+    @classmethod
+    def ensure_list(cls, v: str | list[str]) -> list[str]:
+        if isinstance(v, str):
+            return [v]
+        return v
 
 
 class _DeleteAction(BaseModel):
@@ -627,6 +654,7 @@ class ConsolidationPerfLog:
         self.start_time = time.time()
         self.lines: list[str] = []
         self.timings: dict[str, float] = {}
+        self.timing_counts: dict[str, int] = {}
         self.llm_calls: int = 0
         self.total_obs_in_context: int = 0
         self.total_prompt_chars: int = 0
@@ -636,11 +664,13 @@ class ConsolidationPerfLog:
         self.lines.append(message)
 
     def record_timing(self, key: str, duration: float) -> None:
-        """Record a timing measurement."""
-        if key in self.timings:
-            self.timings[key] += duration
-        else:
-            self.timings[key] = duration
+        """Record a timing measurement.
+
+        Tracks both total seconds and call count so the summary can
+        distinguish one slow call from many fast calls in aggregate.
+        """
+        self.timings[key] = self.timings.get(key, 0.0) + duration
+        self.timing_counts[key] = self.timing_counts.get(key, 0) + 1
 
     def record_llm_call(self, obs_count: int, prompt_chars: int) -> None:
         """Record stats for a single LLM call."""
@@ -663,6 +693,8 @@ class ConsolidationPerfLog:
         """
         for key, value in other.timings.items():
             self.timings[key] = self.timings.get(key, 0.0) + value
+        for key, count in other.timing_counts.items():
+            self.timing_counts[key] = self.timing_counts.get(key, 0) + count
         self.llm_calls += other.llm_calls
         self.total_obs_in_context += other.total_obs_in_context
         self.total_prompt_chars += other.total_prompt_chars
@@ -1263,16 +1295,22 @@ async def _run_consolidation_job(
         f"{stats['skipped']} skipped)"
     )
 
-    # Add timing breakdown
+    # Add timing breakdown. Each phase is recorded once per call, so the count
+    # disambiguates a single slow call from many fast calls — important for
+    # operators triaging "the recall phase took 15s" log lines, where the
+    # total is the sum of many serial sub-calls rather than one slow query.
+    def _fmt(key: str) -> str:
+        total = perf.timings[key]
+        count = perf.timing_counts.get(key, 0)
+        if count > 1:
+            avg_ms = total * 1000.0 / count
+            return f"{key}={total:.3f}s ({count} calls, avg={avg_ms:.0f}ms)"
+        return f"{key}={total:.3f}s"
+
     timing_parts = []
-    if "recall" in perf.timings:
-        timing_parts.append(f"recall={perf.timings['recall']:.3f}s")
-    if "llm" in perf.timings:
-        timing_parts.append(f"llm={perf.timings['llm']:.3f}s")
-    if "embedding" in perf.timings:
-        timing_parts.append(f"embedding={perf.timings['embedding']:.3f}s")
-    if "db_write" in perf.timings:
-        timing_parts.append(f"db_write={perf.timings['db_write']:.3f}s")
+    for key in ("recall", "llm", "embedding", "db_write"):
+        if key in perf.timings:
+            timing_parts.append(_fmt(key))
 
     if perf.llm_calls > 0:
         timing_parts.append(f"avg_obs={perf.total_obs_in_context / perf.llm_calls:.1f}")
@@ -1492,11 +1530,7 @@ async def _process_memory_batch(
     if max_obs >= 0 and fact_tags:
         # max_obs == 0 means "no new observations": there are no slots regardless
         # of the current count, so skip the count query for that case.
-        current_count = (
-            await _count_observations_for_scope(conn, bank_id, fact_tags)
-            if max_obs > 0
-            else 0
-        )
+        current_count = await _count_observations_for_scope(conn, bank_id, fact_tags) if max_obs > 0 else 0
         remaining_observation_slots = max(max_obs - current_count, 0)
         if remaining_observation_slots == 0:
             logger.info(

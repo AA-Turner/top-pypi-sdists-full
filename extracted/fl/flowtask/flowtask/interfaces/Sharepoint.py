@@ -21,7 +21,7 @@ from msgraph.generated.drives.item.items.item.create_upload_session.create_uploa
 )
 from msgraph.generated.models.drive_item_uploadable_properties import DriveItemUploadableProperties
 
-from ..exceptions import FileError, FileNotFound
+from ..exceptions import FileError, FileNotFound, ConfigError
 from .O365Client import O365Client
 from ..conf import (
     SHAREPOINT_APP_ID,
@@ -64,6 +64,14 @@ class SharepointClient(O365Client):
         self._site_info: Optional[DriveItem] = None
         self._drive_info: Optional[DriveItem] = None
 
+        # Drive targeting: "site" (default, SharePoint document library) or
+        # "onedrive" (a user's personal OneDrive). Resolved lazily from the
+        # optional ``drive`` component config via ``_ensure_drive_config``.
+        self.drive_type: str = "site"
+        self.onedrive_user: Optional[str] = None
+        self._user_drive_info: Optional[DriveItem] = None
+        self._drive_cfg_done: bool = False
+
     def get_context(self, url: str, *args):
         """
         Backwards compatibility method.
@@ -95,8 +103,98 @@ class SharepointClient(O365Client):
         self._logger.info("SharePoint connection established successfully")
         return self
 
+    def _ensure_drive_config(self) -> None:
+        """Resolve the optional ``drive`` config into drive targeting attributes.
+
+        Idempotent and synchronous so it can be called from both sync and async
+        helpers without ordering assumptions.  Reads the component-level
+        ``drive`` mapping (set by FlowComponent from the YAML), e.g.::
+
+            drive:
+              type: onedrive        # "site" (default) | "onedrive"
+              user: someone@tenant.com   # UPN, user-id, or "me"
+
+        Raises:
+            ConfigError: When ``type`` is ``onedrive`` but ``user`` is missing,
+                or when ``type`` is not a recognised value.
+        """
+        if self._drive_cfg_done:
+            return
+
+        drive_cfg = getattr(self, "drive", None)
+        if isinstance(drive_cfg, dict):
+            self.drive_type = (drive_cfg.get("type") or "site").strip().lower()
+            self.onedrive_user = drive_cfg.get("user")
+        else:
+            self.drive_type = "site"
+            self.onedrive_user = None
+
+        if self.drive_type not in ("site", "onedrive"):
+            raise ConfigError(
+                f"SharepointClient: invalid drive.type '{self.drive_type}'. "
+                "Expected 'site' or 'onedrive'."
+            )
+        if self.drive_type == "onedrive" and not self.onedrive_user:
+            raise ConfigError(
+                "SharepointClient: drive.type='onedrive' requires drive.user "
+                "(a UPN, user-id, or the literal 'me' for delegated auth)."
+            )
+
+        self._drive_cfg_done = True
+
+    async def _resolve_user_drive(self) -> DriveItem:
+        """Resolve and cache a user's personal OneDrive drive.
+
+        Uses ``/users/{id}/drive`` for app-only or another user's OneDrive, or
+        ``/me/drive`` when ``drive.user`` is the literal ``"me"`` (delegated
+        auth only).
+
+        Returns:
+            The resolved OneDrive ``DriveItem``.
+
+        Raises:
+            RuntimeError: When the user's OneDrive cannot be resolved (e.g.
+                missing ``Files.ReadWrite.All`` application permission, or an
+                unknown user).
+        """
+        if self._user_drive_info:
+            return self._user_drive_info
+
+        self._ensure_drive_config()
+        try:
+            if str(self.onedrive_user).strip().lower() == "me":
+                drive = await self.graph_client.me.drive.get()
+            else:
+                drive = await self.graph_client.users\
+                    .by_user_id(self.onedrive_user).drive.get()
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to resolve OneDrive for '{self.onedrive_user}': {e}. "
+                "For app-only auth this requires the application permission "
+                "'Files.ReadWrite.All' (admin-consented)."
+            ) from e
+
+        if not drive or not getattr(drive, "id", None):
+            raise RuntimeError(
+                f"Could not resolve OneDrive for user '{self.onedrive_user}'"
+            )
+
+        self._user_drive_info = drive
+        self._drive_id = drive.id
+        self._logger.info(
+            f"OneDrive resolved for '{self.onedrive_user}': {drive.name} (ID: {drive.id})"
+        )
+        return drive
+
     async def verify_sharepoint_access(self):
         """Verify SharePoint-specific access and cache site/drive info."""
+        self._ensure_drive_config()
+        if self.drive_type == "onedrive":
+            drive = await self._resolve_user_drive()
+            self._logger.info(
+                f"OneDrive accessible for '{self.onedrive_user}': {drive.name}"
+            )
+            return
         try:
             # Resolve and cache site info
             self._site_info = await self._resolve_site()
@@ -225,7 +323,16 @@ class SharepointClient(O365Client):
         → library: "Shared Documents", path: "Stores"
         - "Documents/folder/subfolder"
         → library: "Documents", path: "folder/subfolder"
+
+        In OneDrive mode there is no document-library concept: the whole
+        directory is a folder path under the drive root, so this returns
+        ``(None, <full path>)``.
         """
+        self._ensure_drive_config()
+        if self.drive_type == "onedrive":
+            clean = (directory or "").replace("\\", "/").strip().strip("/")
+            return None, clean
+
         if not directory:
             return "Documents", ""  # Default library
 
@@ -249,7 +356,15 @@ class SharepointClient(O365Client):
         return library_name, path_within_library
 
     async def _resolve_drive(self, library_name: str = None) -> DriveItem:
-        """Resolve document library drive using Graph API with dynamic library name."""
+        """Resolve document library drive using Graph API with dynamic library name.
+
+        In OneDrive mode the ``library_name`` is ignored and the configured
+        user's personal OneDrive is returned instead.
+        """
+        self._ensure_drive_config()
+        if self.drive_type == "onedrive":
+            return await self._resolve_user_drive()
+
         if self._drive_info and not library_name:
             return self._drive_info
 

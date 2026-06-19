@@ -240,6 +240,11 @@ class CompoundUnary(Transition):
         # so CompoundUnary that results in root will have root as labels[0], for example
         self.label = tuple(label)
 
+    def __init_subclass__(cls, **kwargs):
+        # this is used in type() instead of instanceof() for efficiency reasons,
+        # so we block it from being subclassed
+        raise TypeError(f"CompoundUnary is final and cannot be subclassed")
+
     def update_state(self, state, model):
         """
         Apply potentially multiple unary transitions to the same preterminal
@@ -265,14 +270,14 @@ class CompoundUnary(Transition):
             return False
         # don't unary transition a dummy, dummy
         # and don't stack CompoundUnary transitions
-        if isinstance(model.get_top_transition(state.transitions), (CompoundUnary, OpenConstituent)):
+        if type(model.get_top_transition(state.transitions)) is CompoundUnary or type(model.get_top_transition(state.transitions)) is OpenConstituent:
             return False
         # if we are doing IN_ORDER_COMPOUND, then we are only using these
         # transitions to model changes from a tag node to a sequence of
         # unary nodes.  can only occur at preterminals
-        if model.transition_scheme() is TransitionScheme.IN_ORDER_COMPOUND:
+        if model.transition_scheme is TransitionScheme.IN_ORDER_COMPOUND:
             return tree.is_preterminal()
-        if model.transition_scheme() is not TransitionScheme.TOP_DOWN_UNARY:
+        if model.transition_scheme is not TransitionScheme.TOP_DOWN_UNARY:
             return True
 
         is_root = self.label[0] in model.root_labels
@@ -308,6 +313,11 @@ class Dummy():
     """
     def __init__(self, label):
         self.label = label
+
+    def __init_subclass__(cls, **kwargs):
+        # this is used in type() instead of instanceof() for efficiency reasons,
+        # so we block it from being subclassed
+        raise TypeError(f"Dummy is final and cannot be subclassed")
 
     def is_preterminal(self):
         return False
@@ -354,13 +364,22 @@ class OpenConstituent(Transition):
         self.label = tuple(label)
         self.top_label = self.label[0]
 
+    def __init_subclass__(cls, **kwargs):
+        # this is used in type() instead of instanceof() for efficiency reasons,
+        # so we block it from being subclassed
+        raise TypeError(f"OpenConsituent is final and cannot be subclassed")
+
     def delta_opens(self):
         return 1
 
     def update_state(self, state, model):
         # open a new constituent which can later be closed
         # puts a DUMMY constituent on the stack to mark where the constituents end
-        return state.word_position, state.constituents, model.dummy_constituent(Dummy(self.label)), None
+        return state.word_position, state.constituents, Dummy(self.label), OpenConstituent
+
+    @staticmethod
+    def build_constituents(model, data):
+        return model.dummy_constituents(data)
 
     def is_legal(self, state, model):
         """
@@ -378,7 +397,7 @@ class OpenConstituent(Transition):
             # Also, you can only Open a ROOT iff it is at the root position
             # The assumption in the unary scheme is there will be no
             # root open transitions
-            if not model.has_unary_transitions():
+            if not model.transition_scheme is TransitionScheme.TOP_DOWN_UNARY:
                 # TODO: maybe cache this value if this is an expensive operation
                 is_root = self.top_label in model.root_labels
                 if is_root:
@@ -393,10 +412,10 @@ class OpenConstituent(Transition):
             # (a close immediately after the open represents a unary)
             if state.empty_constituents:
                 return False
-            if isinstance(model.get_top_transition(state.transitions), OpenConstituent):
+            if type(model.get_top_transition(state.transitions)) is OpenConstituent:
                 # consecutive Opens don't make sense in the context of in-order
                 return False
-            if not model.transition_scheme() is TransitionScheme.IN_ORDER:
+            if not model.transition_scheme is TransitionScheme.IN_ORDER:
                 # eg, IN_ORDER_UNARY or IN_ORDER_COMPOUND
                 # if compound unary opens are used
                 # or the unary transitions are via CompoundUnary
@@ -417,7 +436,7 @@ class OpenConstituent(Transition):
                 # nodes under one root
                 return state.num_opens == 0 and state.empty_word_queue()
             else:
-                if (state.num_opens > 0 or state.empty_word_queue()) and too_many_unary_nodes(model.get_top_constituent(state.constituents), model.unary_limit()):
+                if (state.num_opens > 0 or state.empty_word_queue()) and too_many_unary_nodes(model.get_top_constituent(state.constituents), model.unary_limit):
                     # looks like we've been in a loop of lots of unary transitions
                     # note that we check `num_opens > 0` because otherwise we might wind up stuck
                     # in a state where the only legal transition is open, such as if the
@@ -510,7 +529,7 @@ class CloseConstituent(Transition):
         # pop constituents until we are done
         children = []
         constituents = state.constituents
-        while not isinstance(model.get_top_constituent(constituents), Dummy):
+        while type(model.get_top_constituent(constituents)) is not Dummy:
             # keep the entire value from the stack - the model may need
             # the whole thing to transform the children into a new node
             children.append(constituents.value)
@@ -553,24 +572,24 @@ class CloseConstituent(Transition):
         if state.num_opens <= 0:
             return False
         if model.is_top_down:
-            if isinstance(model.get_top_transition(state.transitions), OpenConstituent):
+            if type(model.get_top_transition(state.transitions)) is OpenConstituent:
                 return False
             if state.num_opens <= 1 and not state.empty_word_queue():
                 # don't close the last open until all words have been used
                 return False
-            if model.transition_scheme() == TransitionScheme.TOP_DOWN_COMPOUND:
+            if model.transition_scheme is TransitionScheme.TOP_DOWN_COMPOUND:
                 # when doing TOP_DOWN_COMPOUND, we assume all transitions
                 # at the ROOT level have an S, SQ, FRAG, etc underneath
                 # this is checked when the model is first trained
                 if state.num_opens == 1 and not state.empty_word_queue():
                     return False
-            elif not model.has_unary_transitions():
+            elif not model.transition_scheme is TransitionScheme.TOP_DOWN_UNARY:
                 # in fact, we have to leave the top level constituent
                 # under the ROOT open if unary transitions are not possible
                 if state.num_opens == 2 and not state.empty_word_queue():
                     return False
-        elif model.transition_scheme() is TransitionScheme.IN_ORDER:
-            if not isinstance(model.get_top_transition(state.transitions), OpenConstituent):
+        elif model.transition_scheme is TransitionScheme.IN_ORDER:
+            if type(model.get_top_transition(state.transitions)) is not OpenConstituent:
                 # we're not stuck in a loop of unaries
                 return True
             if state.num_opens > 1 or state.empty_word_queue():
@@ -578,7 +597,7 @@ class CloseConstituent(Transition):
                 # if we're stuck in a loop of unaries
                 return True
             node = model.get_top_constituent(state.constituents.pop())
-            if too_many_unary_nodes(node, model.unary_limit()):
+            if too_many_unary_nodes(node, model.unary_limit):
                 # at this point, we are in a situation where
                 # - multiple unaries have happened in a row
                 # - there is stuff on the word_queue, so a ROOT open isn't legal
@@ -588,15 +607,15 @@ class CloseConstituent(Transition):
                 # this node, so instead we make the Close illegal
                 return False
         else:
-            # model.transition_scheme() == TransitionScheme.IN_ORDER_COMPOUND or
-            # model.transition_scheme() == TransitionScheme.IN_ORDER_UNARY:
+            # model.transition_scheme == TransitionScheme.IN_ORDER_COMPOUND or
+            # model.transition_scheme == TransitionScheme.IN_ORDER_UNARY:
             # in both of these cases, we cannot do open/close
             #   IN_ORDER_COMPOUND will use compound opens and preterminal unaries
             #   IN_ORDER_UNARY will use compound unaries
             # the only restriction here is that we can't close immediately after an open
             #   internal unaries are handled by the opens being compound
             #   preterminal unaries are handled with CompoundUnary
-            if isinstance(model.get_top_transition(state.transitions), OpenConstituent):
+            if type(model.get_top_transition(state.transitions)) is OpenConstituent:
                 return False
         return True
 

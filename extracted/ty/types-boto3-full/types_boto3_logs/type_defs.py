@@ -1041,6 +1041,7 @@ class FilterLogEventsRequestTypeDef(TypedDict):
     filterPattern: NotRequired[str]
     nextToken: NotRequired[str]
     limit: NotRequired[int]
+    startFromHead: NotRequired[bool]
     interleaved: NotRequired[bool]
     unmask: NotRequired[bool]
 
@@ -2029,6 +2030,7 @@ class FilterLogEventsRequestPaginateTypeDef(TypedDict):
     startTime: NotRequired[int]
     endTime: NotRequired[int]
     filterPattern: NotRequired[str]
+    startFromHead: NotRequired[bool]
     interleaved: NotRequired[bool]
     unmask: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]

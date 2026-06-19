@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class CancelSuspendedTriggerJobsTriggerKind(str, Enum):
+    ASSET = "asset"
     AZURE = "azure"
     DEFAULT_EMAIL = "default_email"
     EMAIL = "email"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sdk
-Version: 0.117.0
+Version: 0.118.0
 Summary: Databricks SDK for Python (Beta)
 Project-URL: Documentation, https://databricks-sdk-py.readthedocs.io
 Keywords: databricks,sdk
@@ -58,6 +58,10 @@ Dynamic: license-file
 ![PyPI](https://img.shields.io/pypi/v/databricks-sdk)
 [![codecov](https://codecov.io/gh/databricks/databricks-sdk-py/branch/main/graph/badge.svg?token=GU63K7WDBE)](https://codecov.io/gh/databricks/databricks-sdk-py)
 [![lines of code](https://tokei.rs/b1/github/databricks/databricks-sdk-py)]([https://codecov.io/github/databricks/databricks-sdk-py](https://github.com/databricks/databricks-sdk-py))
+
+> This repository is a read-only mirror, published from Databricks'
+> internal repository with each release. Pull requests are reviewed
+> here but merged internally (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 [Beta](https://docs.databricks.com/release-notes/release-types.html): This SDK is supported for production use cases, 
 but we do expect future releases to have some interface changes; see [Interface stability](#interface-stability). 

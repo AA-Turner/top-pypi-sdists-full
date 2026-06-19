@@ -37,6 +37,33 @@ class RecordTestCase(unittest.TestCase):
         with self.assertRaises(AttributeError) as _:
             test_obj.nothing
 
+    def test_dunder_attribute_does_not_trigger_full_details(self):
+        """Probing for a missing dunder attribute (e.g. pydantic's
+        isinstance check, copy/pickle machinery) must not fire a network
+        request nor clobber local modifications. See issue #688.
+        """
+        test_values = {
+            "id": 123,
+            "url": "http://localhost:8000/api/dcim/devices/123/",
+            "name": "original",
+        }
+        test_obj = Record(test_values, Mock(base_url="http://localhost:8000/api"), None)
+        test_obj.name = "modified"
+        with patch.object(Record, "full_details") as full_details:
+            # Simulate what the real full_details would do if reached:
+            # re-parse the server values and overwrite local edits.
+            def clobber():
+                test_obj.name = "original"
+                return True
+
+            full_details.side_effect = clobber
+
+            self.assertFalse(hasattr(test_obj, "__pydantic_decorators__"))
+            full_details.assert_not_called()
+        # Local modification is preserved: the dunder guard short-circuited
+        # before full_details could run and clobber it.
+        self.assertEqual(test_obj.name, "modified")
+
     def test_dict_access(self):
         test_values = {
             "id": 123,
@@ -51,6 +78,18 @@ class RecordTestCase(unittest.TestCase):
         self.assertEqual(test_obj["int_list"][1], 321)
         with self.assertRaises(KeyError) as _:
             test_obj["nothing"]
+
+    def test_nested_dict_key_collides_with_record_method(self):
+        # Regression for issue #749: a nested dict key like "updates"
+        # collided with Record.updates and was invoked as a constructor.
+        test_values = {
+            "id": 1,
+            "config_context": {"router_bgp": {"updates": {"wait_install": True}}},
+        }
+        test_obj = Record(test_values, Mock(base_url="http://test"), None)
+        self.assertEqual(
+            test_obj.config_context.router_bgp.updates.wait_install, True
+        )
 
     def test_serialize_list_of_records(self):
         test_values = {
@@ -145,6 +184,76 @@ class RecordTestCase(unittest.TestCase):
         test_obj.tagged_vlans.append(1)
         test = test_obj._diff()
         self.assertFalse(test)
+
+    def test_serialize_list_of_records_without_id(self):
+        # NetBox 4.5+ FrontPort.rear_ports mapping items have no id.
+        # Regression test for issue #745.
+        test_values = {
+            "id": 123,
+            "rear_ports": [
+                {"position": 1, "rear_port": 1653, "rear_port_position": 1},
+                {"position": 2, "rear_port": 1654, "rear_port_position": 1},
+            ],
+        }
+        test_obj = Record(test_values, Mock(base_url="test"), None)
+        result = test_obj.serialize()
+        self.assertEqual(result["rear_ports"], test_values["rear_ports"])
+
+    def test_diff_unchanged_list_of_records_without_id(self):
+        # Regression test for issue #745: no false-positive diff for
+        # untouched mapping lists like FrontPort.rear_ports.
+        test_values = {
+            "id": 123,
+            "rear_ports": [
+                {"position": 1, "rear_port": 1653, "rear_port_position": 1},
+            ],
+        }
+        test_obj = Record(test_values, Mock(base_url="test"), None)
+        self.assertFalse(test_obj._diff())
+
+    def test_diff_detects_changed_idless_nested_record(self):
+        test_obj = Record(
+            {
+                "id": 123,
+                "rear_ports": [
+                    {"position": 1, "rear_port": 1653, "rear_port_position": 1},
+                ],
+            },
+            Mock(base_url="test"),
+            None,
+        )
+
+        test_obj.rear_ports[0].position = 2
+
+        self.assertEqual(test_obj._diff(), {"rear_ports"})
+
+    def test_json_field_list_of_dicts_kept_raw(self):
+        # Regression test for issue #625: a column explicitly marked
+        # JsonField that holds a list of dicts (e.g. an arbitrary plugin
+        # JSON field) must stay as plain dicts, not be coerced into nested
+        # Records. Coercion broke serialize()/save() because the dicts have
+        # no id.
+        from pynetbox.core.response import JsonField
+
+        class PluginRecord(Record):
+            my_json_list = JsonField
+
+        test_values = {
+            "id": 123,
+            "my_json_list": [{"example": "bug"}, {"another": "value"}],
+        }
+        test_obj = PluginRecord(test_values, Mock(base_url="test"), None)
+
+        # Items remain plain dicts, not Records.
+        self.assertIsInstance(test_obj.my_json_list[0], dict)
+        self.assertEqual(test_obj.my_json_list, test_values["my_json_list"])
+
+        # serialize() round-trips the raw JSON and save() doesn't choke.
+        self.assertEqual(
+            test_obj.serialize()["my_json_list"], test_values["my_json_list"]
+        )
+        # Unchanged list produces no false-positive diff.
+        self.assertFalse(test_obj._diff())
 
     def test_dict(self):
         test_values = {
@@ -494,6 +603,67 @@ class RecordTestCase(unittest.TestCase):
         diff = interface._diff()
         self.assertIn("primary_mac_address", diff)
 
+    def test_diff_partial_custom_fields_no_false_change(self):
+        """Regression test for issue #748: assigning a subset of custom_fields
+        should not flag the omitted fields as changed."""
+        test_obj = Record(
+            {
+                "id": 123,
+                "name": "testsite",
+                "custom_fields": {"testfield": "val", "other_field": None},
+            },
+            None,
+            None,
+        )
+        # Re-assign only the field we care about, leaving its value unchanged.
+        test_obj.custom_fields = {"testfield": "val"}
+        self.assertFalse(test_obj._diff())
+
+    def test_diff_partial_custom_fields_detects_real_change(self):
+        """Issue #748: a changed value in a partial custom_fields assignment is
+        still detected."""
+        test_obj = Record(
+            {
+                "id": 123,
+                "name": "testsite",
+                "custom_fields": {"testfield": "val", "other_field": None},
+            },
+            None,
+            None,
+        )
+        test_obj.custom_fields = {"testfield": "new_val"}
+        self.assertEqual(test_obj._diff(), {"custom_fields"})
+
+    def test_diff_partial_custom_fields_detects_new_key(self):
+        """Issue #748: assigning a custom field key that was not in the original
+        response is detected as a change."""
+        test_obj = Record(
+            {
+                "id": 123,
+                "name": "testsite",
+                "custom_fields": {"testfield": "val", "other_field": None},
+            },
+            None,
+            None,
+        )
+        test_obj.custom_fields = {"brand_new_key": "val"}
+        self.assertEqual(test_obj._diff(), {"custom_fields"})
+
+    def test_diff_partial_custom_fields_detects_explicit_none_clear(self):
+        """Issue #748: explicitly setting a custom field to None to clear it is
+        detected as a change."""
+        test_obj = Record(
+            {
+                "id": 123,
+                "name": "testsite",
+                "custom_fields": {"testfield": "val", "other_field": None},
+            },
+            None,
+            None,
+        )
+        test_obj.custom_fields = {"testfield": None}
+        self.assertEqual(test_obj._diff(), {"custom_fields"})
+
     def test_serialize_excludes_internal_attributes(self):
         """Ensure serialize() filters out internal Record metadata."""
         test_obj = Record({"id": 123, "name": "test"}, None, None)
@@ -509,6 +679,108 @@ class RecordTestCase(unittest.TestCase):
             "_full_cache",
         ]:
             self.assertNotIn(attr, serialized)
+
+    def test_link_peers_typed_by_sibling_content_type(self):
+        """Regression for issue #519: link_peers items should be cast to the
+        Record subclass identified by the sibling link_peers_type field."""
+        import pynetbox
+        from pynetbox.models.circuits import CircuitTerminations
+
+        nb = pynetbox.api("http://localhost:8000", token="abc")
+        record = Record(
+            {
+                "id": 7,
+                "name": "et-0/0/0",
+                "link_peers": [
+                    {
+                        "id": 1,
+                        "url": "http://localhost:8000/api/circuits/circuit-terminations/1/",
+                        "display": "Termination A",
+                    }
+                ],
+                "link_peers_type": "circuits.circuittermination",
+            },
+            nb,
+            Mock(spec=Endpoint),
+        )
+        self.assertEqual(len(record.link_peers), 1)
+        self.assertIsInstance(record.link_peers[0], CircuitTerminations)
+        self.assertEqual(record.link_peers[0].id, 1)
+
+    def test_connected_endpoints_typed_by_sibling_content_type(self):
+        """Regression for issue #519: connected_endpoints items should be cast
+        to the Record subclass identified by the sibling
+        connected_endpoints_type field."""
+        import pynetbox
+        from pynetbox.models.dcim import Interfaces
+
+        nb = pynetbox.api("http://localhost:8000", token="abc")
+        record = Record(
+            {
+                "id": 7,
+                "name": "et-0/0/0",
+                "connected_endpoints": [
+                    {
+                        "id": 22,
+                        "url": "http://localhost:8000/api/dcim/interfaces/22/",
+                        "display": "eth0",
+                        "name": "eth0",
+                    }
+                ],
+                "connected_endpoints_type": "dcim.interface",
+                "connected_endpoints_reachable": True,
+            },
+            nb,
+            Mock(spec=Endpoint),
+        )
+        self.assertEqual(len(record.connected_endpoints), 1)
+        self.assertIsInstance(record.connected_endpoints[0], Interfaces)
+        self.assertEqual(record.connected_endpoints[0].name, "eth0")
+
+    def test_sibling_type_null_falls_back_to_default(self):
+        """A null sibling type (no link peer present) should leave the empty
+        list alone and not raise."""
+        import pynetbox
+
+        nb = pynetbox.api("http://localhost:8000", token="abc")
+        record = Record(
+            {
+                "id": 7,
+                "name": "et-0/0/0",
+                "link_peers": [],
+                "link_peers_type": None,
+            },
+            nb,
+            Mock(spec=Endpoint),
+        )
+        self.assertEqual(record.link_peers, [])
+        self.assertIsNone(record.link_peers_type)
+
+    def test_sibling_type_unmapped_falls_back_to_default_record(self):
+        """If the sibling content type isn't in the mapper, items still
+        become Records rather than raw dicts."""
+        import pynetbox
+
+        nb = pynetbox.api("http://localhost:8000", token="abc")
+        record = Record(
+            {
+                "id": 7,
+                "name": "et-0/0/0",
+                "link_peers": [
+                    {
+                        "id": 99,
+                        "url": "http://localhost:8000/api/some_plugin/some_models/99/",
+                        "display": "plugin obj",
+                    }
+                ],
+                "link_peers_type": "some_plugin.some_model",
+            },
+            nb,
+            Mock(spec=Endpoint),
+        )
+        self.assertEqual(len(record.link_peers), 1)
+        self.assertIsInstance(record.link_peers[0], Record)
+        self.assertEqual(record.link_peers[0].id, 99)
 
 
 class RecordSetTestCase(unittest.TestCase):
@@ -542,6 +814,26 @@ class RecordSetTestCase(unittest.TestCase):
                 verb="delete", data=[{"id": i} for i in RecordSetTestCase.ids]
             )
             self.assertTrue(test)
+
+    def test_len_fetches_count_in_cursor_mode(self):
+        """len() falls back to get_count() when count is None (cursor mode)."""
+        from pynetbox.core.query import Request
+
+        req = Request(
+            http_session=Mock(),
+            base="http://localhost:8000/api/dcim/devices",
+            pagination="cursor",
+        )
+        # Simulate a cursor-paginated response: count omitted (null).
+        req.http_session.get.return_value.ok = True
+        req.http_session.get.return_value.json.side_effect = [
+            {"count": None, "next": None, "previous": None, "results": [{"id": 1}]},
+            {"count": 7, "next": None, "previous": None, "results": []},
+        ]
+        api = Mock(base_url="http://localhost:8000/api")
+        app = Mock(name="dcim")
+        record_set = RecordSet(Endpoint(api, app, "devices"), req)
+        self.assertEqual(len(record_set), 7)
 
     def test_update(self):
         with patch(

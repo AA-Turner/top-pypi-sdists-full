@@ -17,7 +17,6 @@ use clap::Subcommand;
 use mergify_ci::git_refs::Format as GitRefsFormat;
 use mergify_ci::git_refs::GitRefsOptions;
 use mergify_ci::junit_process::JunitProcessOptions;
-use mergify_ci::queue_info::QueueInfoOptions;
 use mergify_ci::scopes_send::ScopesSendOptions;
 use mergify_ci::tests_quarantine::GetOptions;
 use mergify_ci::tests_quarantine::QuarantineOptions;
@@ -161,7 +160,7 @@ enum NativeCommand {
     CiGitRefs {
         format: GitRefsFormat,
     },
-    CiQueueInfo(CiQueueInfoOpts),
+    CiQueueInfo,
     CiJunitProcess(CiJunitProcessOpts),
     /// Deprecated alias for `CiJunitProcess`. Same orchestrator,
     /// same args; the dispatcher prints a deprecation warning to
@@ -480,11 +479,6 @@ struct CiScopesOpts {
     base: Option<String>,
     head: Option<String>,
     write: Option<PathBuf>,
-}
-
-struct CiQueueInfoOpts {
-    pull_request: Option<PullRequestRef>,
-    token: Option<String>,
 }
 
 struct CiScopesSendOpts {
@@ -1052,15 +1046,8 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             command: CiSubcommand::GitRefs(GitRefsCliArgs { format }),
         }) => Dispatch::Native(NativeCommand::CiGitRefs { format }),
         Subcommands::Ci(CiArgs {
-            command:
-                CiSubcommand::QueueInfo(QueueInfoCliArgs {
-                    pull_request,
-                    token,
-                }),
-        }) => Dispatch::Native(NativeCommand::CiQueueInfo(CiQueueInfoOpts {
-            pull_request,
-            token,
-        })),
+            command: CiSubcommand::QueueInfo(QueueInfoCliArgs {}),
+        }) => Dispatch::Native(NativeCommand::CiQueueInfo),
         Subcommands::Tests(TestsArgs {
             command:
                 TestsSubcommand::Show(TestsShowCliArgs {
@@ -1340,30 +1327,20 @@ fn render_stack_list_text(out: &mergify_stack::commands::list::StackListOutput, 
                 "  [{status_label}] #{num} {title} ({short}){conflict}",
                 title = entry.title,
             );
-            if verbose && !entry.ci_checks.is_empty() {
-                let checks = entry
-                    .ci_checks
-                    .iter()
-                    .map(|c| format!("{} {}", c.status, c.name))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                println!("    CI: {checks}");
-            } else if entry.ci_status != "unknown" {
-                println!("    CI: {}", entry.ci_status);
-            }
-            if verbose && !entry.reviews.is_empty() {
-                let reviewers = entry
-                    .reviews
-                    .iter()
-                    .map(|r| format!("{} {}", r.state, r.user))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                println!("    Review: {reviewers}");
-            } else if entry.review_status != "unknown" {
-                println!("    Review: {}", entry.review_status);
+            // CI + review render on a single 5-space-indented line
+            // joined by " | ", matching Python's display_stack_list
+            // (a part is omitted entirely when its status is unknown).
+            let ci_display = format_ci_display(entry, verbose);
+            let review_display = format_review_display(entry, verbose);
+            let parts: Vec<&str> = [ci_display.as_str(), review_display.as_str()]
+                .into_iter()
+                .filter(|p| !p.is_empty())
+                .collect();
+            if !parts.is_empty() {
+                println!("     {}", parts.join(" | "));
             }
             if let Some(url) = &entry.pull_url {
-                println!("    {url}");
+                println!("     {url}");
             }
         } else {
             println!("  [{status_label}] {title} ({short})", title = entry.title);
@@ -1372,17 +1349,85 @@ fn render_stack_list_text(out: &mergify_stack::commands::list::StackListOutput, 
     }
 }
 
+/// Build the `CI: …` cell for a stack-list entry. Port of Python's
+/// `_format_ci_display`: empty when the status is unknown; in
+/// verbose mode with per-check data it lists each check with a
+/// status glyph, otherwise it shows the coarse status label.
+fn format_ci_display(
+    entry: &mergify_stack::commands::list::StackListEntry,
+    verbose: bool,
+) -> String {
+    if entry.ci_status == "unknown" {
+        return String::new();
+    }
+    if verbose && !entry.ci_checks.is_empty() {
+        let checks = entry
+            .ci_checks
+            .iter()
+            .map(|c| {
+                let glyph = match c.status.as_str() {
+                    "success" => "✓",
+                    "failure" => "✗",
+                    _ => "●",
+                };
+                format!("{glyph} {}", c.name)
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        return format!("CI: {checks}");
+    }
+    let text = match entry.ci_status.as_str() {
+        "passing" => "✓ passing",
+        "failing" => "✗ failing",
+        "pending" => "● pending",
+        other => other,
+    };
+    format!("CI: {text}")
+}
+
+/// Build the `Review: …` cell for a stack-list entry. Port of
+/// Python's `_format_review_display`.
+fn format_review_display(
+    entry: &mergify_stack::commands::list::StackListEntry,
+    verbose: bool,
+) -> String {
+    if entry.review_status == "unknown" {
+        return String::new();
+    }
+    if verbose && !entry.reviews.is_empty() {
+        let reviewers = entry
+            .reviews
+            .iter()
+            .map(|r| match r.state.as_str() {
+                "APPROVED" => format!("✓ {}", r.user),
+                "CHANGES_REQUESTED" => format!("✗ {}", r.user),
+                _ => r.user.clone(),
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        return format!("Review: {reviewers}");
+    }
+    let text = match entry.review_status.as_str() {
+        "approved" => "✓ approved",
+        "changes_requested" => "✗ changes requested",
+        "pending" => "● pending",
+        other => other,
+    };
+    format!("Review: {text}")
+}
+
 /// Install / upgrade the git hooks. Prints one human line per
 /// action performed, then a summary footer. Surfaces the same
 /// outcome ``mergify_cli/stack/setup.py`` used to print.
 fn run_stack_setup(force: bool) -> Result<(), mergify_core::CliError> {
     use mergify_stack::commands::setup::HookAction;
-    let logs = mergify_stack::commands::setup::install(&mergify_stack::commands::setup::Options {
-        repo_dir: None,
-        force,
-    })?;
+    let outcome =
+        mergify_stack::commands::setup::install(&mergify_stack::commands::setup::Options {
+            repo_dir: None,
+            force,
+        })?;
     let mut any_legacy_needs_force = false;
-    for log in &logs {
+    for log in &outcome.logs {
         for action in &log.actions {
             match action {
                 HookAction::ScriptInstalled | HookAction::ScriptUpdated => {
@@ -1407,6 +1452,9 @@ fn run_stack_setup(force: bool) -> Result<(), mergify_core::CliError> {
                 HookAction::ScriptUpToDate | HookAction::WrapperAlreadyInstalled => {}
             }
         }
+    }
+    if outcome.notes_display_ref_added {
+        println!("Added notes.displayRef = refs/notes/mergify/*");
     }
     if any_legacy_needs_force {
         println!("Some hooks are legacy. Run 'mergify stack hooks --setup --force' to migrate.");
@@ -1532,15 +1580,8 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 mergify_ci::git_refs::run(&GitRefsOptions { format }, &mut output)
                     .map(|()| mergify_core::ExitCode::Success)
             }
-            NativeCommand::CiQueueInfo(opts) => mergify_ci::queue_info::run(
-                QueueInfoOptions {
-                    pull_request: opts.pull_request.as_ref(),
-                    token: opts.token.as_deref(),
-                },
-                &mut output,
-            )
-            .await
-            .map(|()| mergify_core::ExitCode::Success),
+            NativeCommand::CiQueueInfo => mergify_ci::queue_info::run(&mut output)
+                .map(|()| mergify_core::ExitCode::Success),
             NativeCommand::CiJunitProcess(opts) => {
                 mergify_ci::junit_process::run(
                     JunitProcessOptions {
@@ -1850,9 +1891,11 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     },
                 )?;
                 match outcome {
-                    mergify_stack::commands::edit::Outcome::PausedAt { commit } => {
-                        let short = &commit.sha[..commit.sha.len().min(12)];
-                        println!("Editing commit: {short} {subject}", subject = commit.subject);
+                    mergify_stack::commands::edit::Outcome::PausedAt { .. } => {
+                        // The "Editing commit:" notice is printed by
+                        // edit::run before the rebase so it precedes
+                        // git's output; here we add the post-rebase
+                        // amend hint.
                         println!("Amend the commit, then run: git rebase --continue");
                     }
                     mergify_stack::commands::edit::Outcome::EmptyStack => {
@@ -1877,18 +1920,15 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     },
                 )?;
                 match outcome {
-                    mergify_stack::commands::drop::Outcome::Dropped { dropped } => {
-                        for c in &dropped {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("Dropping: {short} {subject}", subject = c.subject);
+                    mergify_stack::commands::drop::Outcome::Dropped { plan } => {
+                        for line in mergify_stack::plan_display::render_plan("Drop plan:", &plan) {
+                            println!("{line}");
                         }
                         println!("Commits dropped successfully.");
                     }
                     mergify_stack::commands::drop::Outcome::DryRun { plan } => {
-                        println!("Drop plan:");
-                        for c in &plan {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("  drop {short} {subject}", subject = c.subject);
+                        for line in mergify_stack::plan_display::render_plan("Drop plan:", &plan) {
+                            println!("{line}");
                         }
                         println!("Dry run — no changes made");
                     }
@@ -1913,18 +1953,15 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     },
                 )?;
                 match outcome {
-                    mergify_stack::commands::fixup::Outcome::Squashed { fixed_up } => {
-                        for c in &fixed_up {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("Fixing up: {short} {subject}", subject = c.subject);
+                    mergify_stack::commands::fixup::Outcome::Squashed { plan } => {
+                        for line in mergify_stack::plan_display::render_plan("Fixup plan:", &plan) {
+                            println!("{line}");
                         }
                         println!("Commits squashed successfully.");
                     }
                     mergify_stack::commands::fixup::Outcome::DryRun { plan } => {
-                        println!("Fixup plan:");
-                        for c in &plan {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("  fixup {short} {subject}", subject = c.subject);
+                        for line in mergify_stack::plan_display::render_plan("Fixup plan:", &plan) {
+                            println!("{line}");
                         }
                         println!("Dry run — no changes made");
                     }
@@ -1950,21 +1987,16 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     },
                 )?;
                 match outcome {
-                    mergify_stack::commands::reword::Outcome::Reworded { commit } => {
-                        let short = &commit.sha[..commit.sha.len().min(12)];
-                        println!(
-                            "Reworded {short} {subject}",
-                            subject = commit.subject,
-                        );
+                    mergify_stack::commands::reword::Outcome::Reworded { plan } => {
+                        for line in mergify_stack::plan_display::render_plan("Reword plan:", &plan) {
+                            println!("{line}");
+                        }
+                        println!("Commit reworded successfully.");
                     }
-                    mergify_stack::commands::reword::Outcome::DryRun {
-                        commit,
-                        inline_message,
-                    } => {
-                        let short = &commit.sha[..commit.sha.len().min(12)];
-                        let verb = if inline_message { "amend" } else { "reword" };
-                        println!("Reword plan:");
-                        println!("  {verb} {short} {subject}", subject = commit.subject);
+                    mergify_stack::commands::reword::Outcome::DryRun { plan } => {
+                        for line in mergify_stack::plan_display::render_plan("Reword plan:", &plan) {
+                            println!("{line}");
+                        }
                         println!("Dry run — no changes made");
                     }
                     mergify_stack::commands::reword::Outcome::EmptyStack => {
@@ -1990,10 +2022,9 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 match outcome {
                     mergify_stack::commands::reorder::Outcome::Reordered { plan }
                     | mergify_stack::commands::reorder::Outcome::DryRun { plan } => {
-                        println!("Reorder plan:");
-                        for (i, c) in plan.iter().enumerate() {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("  {n}. {short} {subject}", n = i + 1, subject = c.subject);
+                        for line in mergify_stack::plan_display::render_plan("Reorder plan:", &plan)
+                        {
+                            println!("{line}");
                         }
                         if opts.dry_run {
                             println!("Dry run — no changes made");
@@ -2035,10 +2066,8 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 match outcome {
                     mergify_stack::commands::move_cmd::Outcome::Moved { plan }
                     | mergify_stack::commands::move_cmd::Outcome::DryRun { plan } => {
-                        println!("Move plan:");
-                        for (i, c) in plan.iter().enumerate() {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("  {n}. {short} {subject}", n = i + 1, subject = c.subject);
+                        for line in mergify_stack::plan_display::render_plan("Move plan:", &plan) {
+                            println!("{line}");
                         }
                         if opts.dry_run {
                             println!("Dry run — no changes made");
@@ -2074,10 +2103,8 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                 match outcome {
                     mergify_stack::commands::squash::Outcome::Squashed { plan }
                     | mergify_stack::commands::squash::Outcome::DryRun { plan } => {
-                        println!("Squash plan:");
-                        for (i, c) in plan.iter().enumerate() {
-                            let short = &c.sha[..c.sha.len().min(12)];
-                            println!("  {n}. {short} {subject}", n = i + 1, subject = c.subject);
+                        for line in mergify_stack::plan_display::render_plan("Squash plan:", &plan) {
+                            println!("{line}");
                         }
                         if opts.dry_run {
                             println!("Dry run — no changes made");
@@ -2240,6 +2267,11 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                         trunk: (&trunk.0, &trunk.1),
                         dry_run: opts.dry_run,
                         mergify_binary: &mergify_binary,
+                        // Direct `stack sync` shows git's rebase output.
+                        quiet: false,
+                        // Standalone sync fetches everything itself.
+                        prefetched_remote_changes: None,
+                        skip_trunk_fetch: false,
                     },
                 )
                 .await?;
@@ -2345,14 +2377,14 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     },
                 )
                 .await?;
-                let log_lines = match outcome {
-                    mergify_stack::commands::push::Outcome::DryRun { log_lines, .. }
-                    | mergify_stack::commands::push::Outcome::Pushed { log_lines, .. } => {
-                        log_lines
+                // Dry-run buffers its plan and prints it here; a real
+                // push streams progress live from `push::run` as each
+                // step completes, so its transcript must not be
+                // re-printed.
+                if let mergify_stack::commands::push::Outcome::DryRun { log_lines, .. } = outcome {
+                    for line in log_lines {
+                        println!("{line}");
                     }
-                };
-                for line in log_lines {
-                    println!("{line}");
                 }
                 Ok(mergify_core::ExitCode::Success)
             }
@@ -2420,12 +2452,15 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     } => {
                         println!("Opening PR #{pull_number}: {title}");
                         println!("  {pull_url}");
+                        Ok(mergify_core::ExitCode::Success)
                     }
                     mergify_stack::commands::open::Outcome::EmptyStack => {
+                        // Python exits STACK_NOT_FOUND (3) so callers
+                        // can detect the empty stack via `$?`.
                         println!("No commits in stack");
+                        Ok(mergify_core::ExitCode::StackNotFound)
                     }
                 }
-                Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackHooks(opts) => {
                 if opts.do_setup {
@@ -3542,7 +3577,8 @@ enum CiSubcommand {
     /// Print the base/head git references for the current build.
     #[command(name = "git-refs")]
     GitRefs(GitRefsCliArgs),
-    /// Print the merge queue batch metadata for a merge queue draft PR.
+    /// Print the current build's merge queue batch metadata (from the
+    /// Mergify git note).
     #[command(name = "queue-info")]
     QueueInfo(QueueInfoCliArgs),
     /// Give the list of scopes impacted by changed files.
@@ -3569,20 +3605,11 @@ struct GitRefsCliArgs {
     format: GitRefsFormat,
 }
 
+/// `queue-info` reads the `refs/notes/mergify/<branch>` git note
+/// Mergify writes for the current `HEAD`, so it takes no arguments and
+/// needs no GitHub token — plain git in any CI.
 #[derive(clap::Args)]
-struct QueueInfoCliArgs {
-    /// Pull request URL (e.g. <https://github.com/owner/repo/pull/123>).
-    /// When omitted, reads the metadata from the CI event payload
-    /// (`GITHUB_EVENT_PATH`) — the in-CI default.
-    #[arg(value_name = "PULL_REQUEST_URL", value_parser = mergify_core::pull_request::parse_pr_url)]
-    pull_request: Option<PullRequestRef>,
-
-    /// GitHub token used to fetch the pull request. Falls back to
-    /// ``MERGIFY_TOKEN``, then ``GITHUB_TOKEN``, then `gh auth token`.
-    /// Only used when a pull request URL is given.
-    #[arg(long, short = 't')]
-    token: Option<String>,
-}
+struct QueueInfoCliArgs {}
 
 #[derive(clap::Args)]
 struct ScopesCliArgs {

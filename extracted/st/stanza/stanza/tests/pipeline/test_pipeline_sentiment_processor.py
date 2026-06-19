@@ -20,10 +20,10 @@ class TestSentimentPipeline:
     @pytest.fixture(scope="class")
     def pipeline(self):
         """
-        A reusable pipeline with the NER module
+        A reusable pipeline with the sentiment module
         """
         gc.collect()
-        return stanza.Pipeline(dir=TEST_MODELS_DIR, processors="tokenize,sentiment")
+        return stanza.Pipeline(dir=TEST_MODELS_DIR, processors="tokenize,sentiment", download_method=None)
 
     def test_simple(self, pipeline):
         results = []

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-github-actions-annotate-failures
-Version: 0.4.0
+Version: 0.4.1
 Summary: pytest plugin to annotate failed tests with a workflow command for GitHub Actions
 Author-email: utgwkk <utagawakiki@gmail.com>
 Maintainer-email: utgwkk <utagawakiki@gmail.com>

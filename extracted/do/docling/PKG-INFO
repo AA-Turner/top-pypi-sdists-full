@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling
-Version: 2.103.0
+Version: 2.104.0
 Summary: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -23,27 +23,27 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: <4.0,>=3.10
-Requires-Dist: docling-slim[standard]==2.103.0
+Requires-Dist: docling-slim[standard]==2.104.0
 Provides-Extra: asr
-Requires-Dist: docling-slim[format-audio]==2.103.0; extra == 'asr'
+Requires-Dist: docling-slim[format-audio]==2.104.0; extra == 'asr'
 Provides-Extra: easyocr
-Requires-Dist: docling-slim[feat-ocr-easyocr]==2.103.0; extra == 'easyocr'
+Requires-Dist: docling-slim[feat-ocr-easyocr]==2.104.0; extra == 'easyocr'
 Provides-Extra: htmlrender
-Requires-Dist: docling-slim[format-html-render]==2.103.0; extra == 'htmlrender'
+Requires-Dist: docling-slim[format-html-render]==2.104.0; extra == 'htmlrender'
 Provides-Extra: ocrmac
-Requires-Dist: docling-slim[feat-ocr-mac]==2.103.0; extra == 'ocrmac'
+Requires-Dist: docling-slim[feat-ocr-mac]==2.104.0; extra == 'ocrmac'
 Provides-Extra: onnxruntime
-Requires-Dist: docling-slim[models-onnxruntime]==2.103.0; extra == 'onnxruntime'
+Requires-Dist: docling-slim[models-onnxruntime]==2.104.0; extra == 'onnxruntime'
 Provides-Extra: rapidocr
-Requires-Dist: docling-slim[feat-ocr-rapidocr-onnx]==2.103.0; extra == 'rapidocr'
+Requires-Dist: docling-slim[feat-ocr-rapidocr-onnx]==2.104.0; extra == 'rapidocr'
 Provides-Extra: remote-serving
-Requires-Dist: docling-slim[models-remote]==2.103.0; extra == 'remote-serving'
+Requires-Dist: docling-slim[models-remote]==2.104.0; extra == 'remote-serving'
 Provides-Extra: tesserocr
-Requires-Dist: docling-slim[feat-ocr-tesserocr]==2.103.0; extra == 'tesserocr'
+Requires-Dist: docling-slim[feat-ocr-tesserocr]==2.104.0; extra == 'tesserocr'
 Provides-Extra: vlm
-Requires-Dist: docling-slim[models-vlm-inline]==2.103.0; extra == 'vlm'
+Requires-Dist: docling-slim[models-vlm-inline]==2.104.0; extra == 'vlm'
 Provides-Extra: xbrl
-Requires-Dist: docling-slim[format-xml-xbrl]==2.103.0; extra == 'xbrl'
+Requires-Dist: docling-slim[format-xml-xbrl]==2.104.0; extra == 'xbrl'
 Description-Content-Type: text/markdown
 
 <p align="center">

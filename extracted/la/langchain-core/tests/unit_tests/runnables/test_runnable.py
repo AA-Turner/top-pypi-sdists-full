@@ -106,6 +106,13 @@ from tests.unit_tests.pydantic_utils import (
 )
 from tests.unit_tests.stubs import AnyStr, _any_id_ai_message, _any_id_ai_message_chunk
 
+# Several tests assert the legacy `RunLog` / `RunLogPatch` output produced by
+# `astream_log`, which cannot be replaced by `astream` without losing coverage.
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:astream_log is deprecated. Use astream instead.:"
+    "langchain_core._api.deprecation.LangChainDeprecationWarning"
+)
+
 PYDANTIC_VERSION_AT_LEAST_29 = version.parse("2.9") <= PYDANTIC_VERSION
 PYDANTIC_VERSION_AT_LEAST_210 = version.parse("2.10") <= PYDANTIC_VERSION
 
@@ -453,7 +460,7 @@ def test_schemas(snapshot: SnapshotAssertion) -> None:
         "title": "CommaSeparatedListOutputParserOutput",
     }
 
-    router: Runnable = RouterRunnable({})
+    router = RouterRunnable[Any]({})
 
     assert _schema(router.input_schema) == {
         "$ref": "#/definitions/RouterInput",
@@ -702,7 +709,7 @@ def test_schema_complex_seq() -> None:
 
     model = FakeListChatModel(responses=[""])
 
-    chain1: Runnable = RunnableSequence(
+    chain1 = RunnableSequence[dict[str, Any], str](
         prompt1, model, StrOutputParser(), name="city_chain"
     )
 
@@ -3017,7 +3024,7 @@ async def test_higher_order_lambda_runnable_async(mocker: MockerFixture) -> None
         input={"question": lambda x: x["question"]},
     )
 
-    def router(value: dict[str, Any]) -> Runnable:
+    def router(value: dict[str, Any]) -> Runnable[dict[str, Any], str]:
         if value["key"] == "math":
             return itemgetter("input") | math_chain
         if value["key"] == "english":
@@ -3039,7 +3046,7 @@ async def test_higher_order_lambda_runnable_async(mocker: MockerFixture) -> None
     assert result2 == ["4", "2"]
 
     # Test ainvoke
-    async def arouter(params: dict[str, Any]) -> Runnable:
+    async def arouter(params: dict[str, Any]) -> Runnable[dict[str, Any], str]:
         if params["key"] == "math":
             return itemgetter("input") | math_chain
         if params["key"] == "english":
@@ -3486,7 +3493,7 @@ async def test_map_astream_iterator_input() -> None:
     assert final_value.get("passthrough") == llm_res
 
     simple_map = RunnableMap(passthrough=RunnablePassthrough())
-    assert loads(dumps(simple_map)) == simple_map
+    assert loads(dumps(simple_map), allowed_objects="core") == simple_map
 
 
 def test_with_config_with_config() -> None:
@@ -3819,7 +3826,8 @@ def _empty_mapper_assign() -> RunnableAssign:
         async for _ in it:
             pass
         return
-        yield  # pragma: no cover  # make this an async generator function
+        # make this an async generator function
+        yield  # type: ignore[unreachable]  # pragma: no cover
 
     return RunnablePassthrough.assign(foo=RunnableGenerator(empty_gen, aempty_gen))
 
@@ -3917,10 +3925,10 @@ def test_each(snapshot: SnapshotAssertion) -> None:
 
 
 def test_recursive_lambda() -> None:
-    def _simple_recursion(x: int) -> int | Runnable:
+    def _simple_recursion(x: int) -> Runnable[Any, int]:
         if x < 10:
             return RunnableLambda(lambda *_: _simple_recursion(x + 1))
-        return x
+        return RunnableLambda(lambda *_: x)
 
     runnable = RunnableLambda(_simple_recursion)
     assert runnable.invoke(5) == 10

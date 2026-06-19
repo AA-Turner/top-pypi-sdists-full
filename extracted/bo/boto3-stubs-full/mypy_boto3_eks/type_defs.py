@@ -38,6 +38,7 @@ from .literals import (
     ClusterVersionStatusType,
     ConfigStatusType,
     ConnectorConfigProviderType,
+    ControlPlaneEgressModeTypeType,
     EksAnywhereSubscriptionStatusType,
     ErrorCodeType,
     FargateProfileIssueCodeType,
@@ -557,6 +558,7 @@ class VpcConfigResponseTypeDef(TypedDict):
     endpointPublicAccess: NotRequired[bool]
     endpointPrivateAccess: NotRequired[bool]
     publicAccessCidrs: NotRequired[list[str]]
+    controlPlaneEgressMode: NotRequired[ControlPlaneEgressModeTypeType]
 
 
 class ZonalShiftConfigResponseTypeDef(TypedDict):
@@ -626,6 +628,7 @@ class VpcConfigRequestTypeDef(TypedDict):
     endpointPublicAccess: NotRequired[bool]
     endpointPrivateAccess: NotRequired[bool]
     publicAccessCidrs: NotRequired[Sequence[str]]
+    controlPlaneEgressMode: NotRequired[ControlPlaneEgressModeTypeType]
 
 
 class ZonalShiftConfigRequestTypeDef(TypedDict):

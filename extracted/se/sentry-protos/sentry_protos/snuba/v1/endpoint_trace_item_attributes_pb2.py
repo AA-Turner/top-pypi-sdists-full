@@ -27,7 +27,7 @@ from sentry_protos.snuba.v1 import trace_item_attribute_pb2 as sentry__protos_do
 from sentry_protos.snuba.v1 import trace_item_filter_pb2 as sentry__protos_dot_snuba_dot_v1_dot_trace__item__filter__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;sentry_protos/snuba/v1/endpoint_trace_item_attributes.proto\x12\x16sentry_protos.snuba.v1\x1a+sentry_protos/snuba/v1/request_common.proto\x1a\x31sentry_protos/snuba/v1/trace_item_attribute.proto\x1a.sentry_protos/snuba/v1/trace_item_filter.proto\"\xd6\x02\n\x1eTraceItemAttributeNamesRequest\x12\x31\n\x04meta\x18\x01 \x01(\x0b\x32#.sentry_protos.snuba.v1.RequestMeta\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x12\n\x06offset\x18\x03 \x01(\rB\x02\x18\x01\x12\x37\n\x04type\x18\x05 \x01(\x0e\x32).sentry_protos.snuba.v1.AttributeKey.Type\x12\x1d\n\x15value_substring_match\x18\x06 \x01(\t\x12\x35\n\npage_token\x18\x07 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12O\n\x1eintersecting_attributes_filter\x18\x08 \x01(\x0b\x32\'.sentry_protos.snuba.v1.TraceItemFilter\"\xb7\x02\n\x1fTraceItemAttributeNamesResponse\x12U\n\nattributes\x18\x01 \x03(\x0b\x32\x41.sentry_protos.snuba.v1.TraceItemAttributeNamesResponse.Attribute\x12\x35\n\npage_token\x18\x02 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12\x32\n\x04meta\x18\x03 \x01(\x0b\x32$.sentry_protos.snuba.v1.ResponseMeta\x1aR\n\tAttribute\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x37\n\x04type\x18\x02 \x01(\x0e\x32).sentry_protos.snuba.v1.AttributeKey.Type\"\xfe\x01\n\x1fTraceItemAttributeValuesRequest\x12\x31\n\x04meta\x18\x01 \x01(\x0b\x32#.sentry_protos.snuba.v1.RequestMeta\x12\x31\n\x03key\x18\x02 \x01(\x0b\x32$.sentry_protos.snuba.v1.AttributeKey\x12\x10\n\x04name\x18\x03 \x01(\tB\x02\x18\x01\x12\x1d\n\x15value_substring_match\x18\x04 \x01(\t\x12\r\n\x05limit\x18\x05 \x01(\r\x12\x35\n\npage_token\x18\x06 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\"\xad\x01\n TraceItemAttributeValuesResponse\x12\x0e\n\x06values\x18\x01 \x03(\t\x12\x0e\n\x06\x63ounts\x18\x03 \x03(\x03\x12\x35\n\npage_token\x18\x06 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12\x32\n\x04meta\x18\x07 \x01(\x0b\x32$.sentry_protos.snuba.v1.ResponseMetab\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n;sentry_protos/snuba/v1/endpoint_trace_item_attributes.proto\x12\x16sentry_protos.snuba.v1\x1a+sentry_protos/snuba/v1/request_common.proto\x1a\x31sentry_protos/snuba/v1/trace_item_attribute.proto\x1a.sentry_protos/snuba/v1/trace_item_filter.proto\"\xe4\x04\n\x1eTraceItemAttributeNamesRequest\x12\x31\n\x04meta\x18\x01 \x01(\x0b\x32#.sentry_protos.snuba.v1.RequestMeta\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x12\n\x06offset\x18\x03 \x01(\rB\x02\x18\x01\x12\x37\n\x04type\x18\x05 \x01(\x0e\x32).sentry_protos.snuba.v1.AttributeKey.Type\x12\x1d\n\x15value_substring_match\x18\x06 \x01(\t\x12\x35\n\npage_token\x18\x07 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12O\n\x1eintersecting_attributes_filter\x18\x08 \x01(\x0b\x32\'.sentry_protos.snuba.v1.TraceItemFilter\x12P\n\x08order_by\x18\t \x01(\x0b\x32>.sentry_protos.snuba.v1.TraceItemAttributeNamesRequest.OrderBy\x1a\xb9\x01\n\x07OrderBy\x12U\n\x06\x63olumn\x18\x01 \x01(\x0e\x32\x45.sentry_protos.snuba.v1.TraceItemAttributeNamesRequest.OrderBy.Column\x12\x12\n\ndescending\x18\x02 \x01(\x08\"C\n\x06\x43olumn\x12\x16\n\x12\x43OLUMN_UNSPECIFIED\x10\x00\x12\x0f\n\x0b\x43OLUMN_NAME\x10\x01\x12\x10\n\x0c\x43OLUMN_COUNT\x10\x02\"\xd5\x02\n\x1fTraceItemAttributeNamesResponse\x12U\n\nattributes\x18\x01 \x03(\x0b\x32\x41.sentry_protos.snuba.v1.TraceItemAttributeNamesResponse.Attribute\x12\x35\n\npage_token\x18\x02 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12\x32\n\x04meta\x18\x03 \x01(\x0b\x32$.sentry_protos.snuba.v1.ResponseMeta\x1ap\n\tAttribute\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x37\n\x04type\x18\x02 \x01(\x0e\x32).sentry_protos.snuba.v1.AttributeKey.Type\x12\x12\n\x05\x63ount\x18\x03 \x01(\x04H\x00\x88\x01\x01\x42\x08\n\x06_count\"\x8f\x04\n\x1fTraceItemAttributeValuesRequest\x12\x31\n\x04meta\x18\x01 \x01(\x0b\x32#.sentry_protos.snuba.v1.RequestMeta\x12\x31\n\x03key\x18\x02 \x01(\x0b\x32$.sentry_protos.snuba.v1.AttributeKey\x12\x10\n\x04name\x18\x03 \x01(\tB\x02\x18\x01\x12\x1d\n\x15value_substring_match\x18\x04 \x01(\t\x12\r\n\x05limit\x18\x05 \x01(\r\x12\x35\n\npage_token\x18\x06 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12Q\n\x08order_by\x18\x07 \x01(\x0b\x32?.sentry_protos.snuba.v1.TraceItemAttributeValuesRequest.OrderBy\x1a\xbb\x01\n\x07OrderBy\x12V\n\x06\x63olumn\x18\x01 \x01(\x0e\x32\x46.sentry_protos.snuba.v1.TraceItemAttributeValuesRequest.OrderBy.Column\x12\x12\n\ndescending\x18\x02 \x01(\x08\"D\n\x06\x43olumn\x12\x16\n\x12\x43OLUMN_UNSPECIFIED\x10\x00\x12\x10\n\x0c\x43OLUMN_VALUE\x10\x01\x12\x10\n\x0c\x43OLUMN_COUNT\x10\x02\"\xad\x01\n TraceItemAttributeValuesResponse\x12\x0e\n\x06values\x18\x01 \x03(\t\x12\x0e\n\x06\x63ounts\x18\x03 \x03(\x03\x12\x35\n\npage_token\x18\x06 \x01(\x0b\x32!.sentry_protos.snuba.v1.PageToken\x12\x32\n\x04meta\x18\x07 \x01(\x0b\x32$.sentry_protos.snuba.v1.ResponseMetab\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -39,13 +39,21 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TRACEITEMATTRIBUTEVALUESREQUEST'].fields_by_name['name']._loaded_options = None
   _globals['_TRACEITEMATTRIBUTEVALUESREQUEST'].fields_by_name['name']._serialized_options = b'\030\001'
   _globals['_TRACEITEMATTRIBUTENAMESREQUEST']._serialized_start=232
-  _globals['_TRACEITEMATTRIBUTENAMESREQUEST']._serialized_end=574
-  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE']._serialized_start=577
-  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE']._serialized_end=888
-  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE_ATTRIBUTE']._serialized_start=806
-  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE_ATTRIBUTE']._serialized_end=888
-  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST']._serialized_start=891
-  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST']._serialized_end=1145
-  _globals['_TRACEITEMATTRIBUTEVALUESRESPONSE']._serialized_start=1148
-  _globals['_TRACEITEMATTRIBUTEVALUESRESPONSE']._serialized_end=1321
+  _globals['_TRACEITEMATTRIBUTENAMESREQUEST']._serialized_end=844
+  _globals['_TRACEITEMATTRIBUTENAMESREQUEST_ORDERBY']._serialized_start=659
+  _globals['_TRACEITEMATTRIBUTENAMESREQUEST_ORDERBY']._serialized_end=844
+  _globals['_TRACEITEMATTRIBUTENAMESREQUEST_ORDERBY_COLUMN']._serialized_start=777
+  _globals['_TRACEITEMATTRIBUTENAMESREQUEST_ORDERBY_COLUMN']._serialized_end=844
+  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE']._serialized_start=847
+  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE']._serialized_end=1188
+  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE_ATTRIBUTE']._serialized_start=1076
+  _globals['_TRACEITEMATTRIBUTENAMESRESPONSE_ATTRIBUTE']._serialized_end=1188
+  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST']._serialized_start=1191
+  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST']._serialized_end=1718
+  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST_ORDERBY']._serialized_start=1531
+  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST_ORDERBY']._serialized_end=1718
+  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST_ORDERBY_COLUMN']._serialized_start=1650
+  _globals['_TRACEITEMATTRIBUTEVALUESREQUEST_ORDERBY_COLUMN']._serialized_end=1718
+  _globals['_TRACEITEMATTRIBUTEVALUESRESPONSE']._serialized_start=1721
+  _globals['_TRACEITEMATTRIBUTEVALUESRESPONSE']._serialized_end=1894
 # @@protoc_insertion_point(module_scope)

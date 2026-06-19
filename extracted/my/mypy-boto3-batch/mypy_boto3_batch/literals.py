@@ -84,11 +84,20 @@ CEStateType = Literal["DISABLED", "ENABLED"]
 CEStatusType = Literal["CREATING", "DELETED", "DELETING", "INVALID", "UPDATING", "VALID"]
 CETypeType = Literal["MANAGED", "UNMANAGED"]
 CRAllocationStrategyType = Literal[
-    "BEST_FIT", "BEST_FIT_PROGRESSIVE", "SPOT_CAPACITY_OPTIMIZED", "SPOT_PRICE_CAPACITY_OPTIMIZED"
+    "BEST_FIT",
+    "BEST_FIT_PROGRESSIVE",
+    "BEST_FIT_PROGRESSIVE_ORDERED",
+    "SPOT_CAPACITY_OPTIMIZED",
+    "SPOT_CAPACITY_OPTIMIZED_PRIORITIZED",
+    "SPOT_PRICE_CAPACITY_OPTIMIZED",
 ]
 CRTypeType = Literal["EC2", "FARGATE", "FARGATE_SPOT", "SPOT"]
 CRUpdateAllocationStrategyType = Literal[
-    "BEST_FIT_PROGRESSIVE", "SPOT_CAPACITY_OPTIMIZED", "SPOT_PRICE_CAPACITY_OPTIMIZED"
+    "BEST_FIT_PROGRESSIVE",
+    "BEST_FIT_PROGRESSIVE_ORDERED",
+    "SPOT_CAPACITY_OPTIMIZED",
+    "SPOT_CAPACITY_OPTIMIZED_PRIORITIZED",
+    "SPOT_PRICE_CAPACITY_OPTIMIZED",
 ]
 DescribeComputeEnvironmentsPaginatorName = Literal["describe_compute_environments"]
 DescribeJobDefinitionsPaginatorName = Literal["describe_job_definitions"]
@@ -462,6 +471,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -489,6 +499,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",

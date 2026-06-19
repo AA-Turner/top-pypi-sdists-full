@@ -120,13 +120,17 @@ class PAYGBudget(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     BUDGET_CENTS_FIELD_NUMBER: builtins.int
+    CLEAR_USER_PARAMETER_FIELD_NUMBER: builtins.int
     budget_cents: builtins.int
+    clear_user_parameter: builtins.bool
+    """Whether the next billing cycle should clear the Contract's existing UserParameter"""
     def __init__(
         self,
         *,
         budget_cents: builtins.int = ...,
+        clear_user_parameter: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["budget_cents", b"budget_cents"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["budget_cents", b"budget_cents", "clear_user_parameter", b"clear_user_parameter"]) -> None: ...
 
 global___PAYGBudget = PAYGBudget
 
@@ -137,18 +141,22 @@ class Reservation(google.protobuf.message.Message):
     RESERVED_PRICE_CENTS_FIELD_NUMBER: builtins.int
     IS_UNLIMITED_FIELD_NUMBER: builtins.int
     NUM_RESERVED_UNITS_FIELD_NUMBER: builtins.int
+    CLEAR_USER_PARAMETER_FIELD_NUMBER: builtins.int
     reserved_price_cents: builtins.int
     is_unlimited: builtins.bool
     num_reserved_units: builtins.int
+    clear_user_parameter: builtins.bool
+    """Whether the next billing cycle should clear the Contract's existing UserParameter"""
     def __init__(
         self,
         *,
         reserved_price_cents: builtins.int = ...,
         is_unlimited: builtins.bool = ...,
         num_reserved_units: builtins.int = ...,
+        clear_user_parameter: builtins.bool = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "reserved_units", b"reserved_units"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "reserved_price_cents", b"reserved_price_cents", "reserved_units", b"reserved_units"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["clear_user_parameter", b"clear_user_parameter", "is_unlimited", b"is_unlimited", "num_reserved_units", b"num_reserved_units", "reserved_price_cents", b"reserved_price_cents", "reserved_units", b"reserved_units"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["reserved_units", b"reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
 
 global___Reservation = Reservation

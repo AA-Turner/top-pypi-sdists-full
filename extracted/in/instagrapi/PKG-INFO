@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 2.16.0
+Version: 2.16.10
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -21,12 +21,12 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests==2.34.2
-Requires-Dist: PySocks==1.7.1
+Requires-Dist: requests<3,>=2.34.2
+Requires-Dist: PySocks<2,>=1.7.1
 Requires-Dist: pydantic==2.12.5; sys_platform == "android"
 Requires-Dist: pydantic<2.14,>=2.12.5; sys_platform != "android"
-Requires-Dist: Pillow==12.2.0
-Requires-Dist: pycryptodomex==3.23.0
+Requires-Dist: Pillow<13,>=12.2.0
+Requires-Dist: pycryptodomex<4,>=3.23.0
 Provides-Extra: curl
 Requires-Dist: curl-adapter>=1.2.1; extra == "curl"
 Provides-Extra: video
@@ -52,7 +52,7 @@ Requires-Dist: proglog<=1.0.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest==9.1.0; extra == "test"
 Requires-Dist: python-dotenv>=0.10; extra == "test"
-Requires-Dist: ruff==0.15.17; extra == "test"
+Requires-Dist: ruff==0.15.18; extra == "test"
 Dynamic: license-file
 
 # instagrapi

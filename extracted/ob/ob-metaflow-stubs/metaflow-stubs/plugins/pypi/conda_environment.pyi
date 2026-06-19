@@ -1,20 +1,20 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.33.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-06-15T21:55:43.302384                                                            #
+# MF version: 2.19.34.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-06-18T13:29:50.543529                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
-import abc
 import io
+import abc
+import metaflow
 import typing
 if typing.TYPE_CHECKING:
     import metaflow.exception
+    import metaflow.metaflow_environment
     import abc
     import io
-    import metaflow.metaflow_environment
 
 from ...exception import MetaflowException as MetaflowException
 from ...metaflow_config import get_pinned_conda_libs as get_pinned_conda_libs

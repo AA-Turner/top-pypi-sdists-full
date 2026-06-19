@@ -89,6 +89,7 @@ setup(
         'torch>=1.13.0',
         'tqdm',
         'udtools>=0.2.4',
+        'huggingface-hub',
     ],
 
     # List required Python versions
@@ -125,6 +126,9 @@ setup(
             'spacy',
             'streamlit',
             'ipython',
+        ],
+        'matplotlib': [
+            'matplotlib',
         ],
         'morphseg': [
             'morphseg>=0.2.5.1',

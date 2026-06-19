@@ -1392,9 +1392,11 @@ class Exchange(ABC):
         except ApiException as e:
             raise self._parse_api_exception(e) from None
 
-    def fetch_market(self, params: Optional[dict] = None, **kwargs) -> UnifiedMarket:
+    def fetch_market(self, params: Optional[Union[dict, str]] = None, **kwargs) -> UnifiedMarket:
         try:
             args = []
+            if isinstance(params, str):
+                params = {"market_id": params}
             if kwargs:
                 params = {**(params or {}), **kwargs}
             if params is not None:
@@ -1490,6 +1492,8 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def cancel_order(self, order_id: str) -> Order:
+        if self.is_hosted:
+            return self._hosted_cancel_order(order_id)
         try:
             args = []
             args.append(order_id)
@@ -1510,6 +1514,12 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_order(self, order_id: str) -> Order:
+        if self.is_hosted:
+            response = self._hosted_request(
+                "fetch_order",
+                path_params={"order_id": order_id},
+            )
+            return self._hosted_single(response, "order", order_from_v0)
         try:
             args = []
             args.append(order_id)
@@ -1530,6 +1540,16 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_open_orders(self, market_id: Optional[str] = None) -> List[Order]:
+        if self.is_hosted:
+            resolved_address = resolve_wallet_address(self, None)
+            params: Dict[str, Any] = {"address": resolved_address}
+            if market_id is not None:
+                params["market_id"] = market_id
+            response = self._hosted_request(
+                "fetch_open_orders",
+                params=params,
+            )
+            return self._hosted_collection(response, "orders", order_from_v0)
         try:
             args = []
             if market_id is not None:
@@ -1551,6 +1571,13 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_my_trades(self, params: Optional[dict] = None, **kwargs) -> List[UserTrade]:
+        if self.is_hosted:
+            resolved_address = resolve_wallet_address(self, None)
+            response = self._hosted_request(
+                "fetch_my_trades",
+                path_params={"address": resolved_address},
+            )
+            return self._hosted_collection(response, "trades", user_trade_from_v0)
         try:
             args = []
             if kwargs:
@@ -1620,6 +1647,13 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_positions(self, address: Optional[str] = None) -> List[Position]:
+        if self.is_hosted:
+            resolved_address = resolve_wallet_address(self, address)
+            response = self._hosted_request(
+                "fetch_positions",
+                path_params={"address": resolved_address},
+            )
+            return self._hosted_collection(response, "positions", position_from_v0)
         try:
             args = []
             if address is not None:
@@ -1641,6 +1675,13 @@ class Exchange(ABC):
             raise self._parse_api_exception(e) from None
 
     def fetch_balance(self, address: Optional[str] = None) -> List[Balance]:
+        if self.is_hosted:
+            resolved_address = resolve_wallet_address(self, address)
+            response = self._hosted_request(
+                "fetch_balance",
+                path_params={"address": resolved_address},
+            )
+            return self._hosted_collection(response, "balances", balance_from_v0)
         try:
             args = []
             if address is not None:

@@ -37,10 +37,22 @@ class PandasToFile(FlowComponent):
         |                        |          | sheet.                                                                      |
         | sheet_name             |   No     | An array that define de name of each sheet                                  |
         | column_format          |   No     | Set excel properties for columns                                            |
+        | passthrough            |   No     | If True (default), the component forwards the received DataFrame to the      |
+        |                        |          | next component (so it can sit mid-flow) while still exposing the filename.   |
+        |                        |          | Set to False to restore the legacy {filename: True} dict return.            |
 
         Returns
 
-        This component returns the filename of the saved file.
+        The saved filename is ALWAYS available regardless of mode, via:
+          - the file written to disk,
+          - the ``FILENAME`` and ``{StepName}_FILENAME`` task variables,
+          - the ``FILENAME`` metric.
+
+        By default (``passthrough`` True) this component returns the received
+        DataFrame so the data chain continues, and additionally carries the saved
+        path on ``df.attrs['filename']`` — i.e. it returns BOTH the data and the
+        filename. With ``passthrough: false`` it returns the {filename: True} dict
+        instead (legacy behaviour).
 
 
 
@@ -91,6 +103,7 @@ class PandasToFile(FlowComponent):
         self.as_sheets: bool = False
         self.sheet_name: list = []
         self.column_format: list = []
+        self.passthrough: bool = True
         super(PandasToFile, self).__init__(
             loop=loop,
             job=job,
@@ -253,10 +266,22 @@ class PandasToFile(FlowComponent):
                 raise ComponentError(
                     "Error: Only extension supported: csv, xlsx and json are supported"
                 )
-            # getting filename:
-            self._result[self.filename] = True
+            # The saved filename is ALWAYS exposed — on disk, as a task variable,
+            # and as a metric — regardless of what we return downstream.
+            # setTaskVar already prefixes with the step name, so this exposes
+            # ``{StepName}_FILENAME`` (collision-free across PandasToFile steps).
             self.setTaskVar("FILENAME", self.filename)
             self.add_metric("FILENAME", self.filename)
+            if self.passthrough:
+                # Return BOTH: forward the received DataFrame so the chain
+                # continues, and carry the filename along on the frame's
+                # ``.attrs`` metadata so nothing is lost.
+                self._result = self.data
+                if isinstance(self._result, pd.DataFrame):
+                    self._result.attrs["filename"] = self.filename
+            else:
+                # Legacy behaviour: return the {filename: True} dict.
+                self._result[self.filename] = True
             return self._result
         except Exception as err:
             raise ComponentError(f"Error in PandasToFile: {err}") from err

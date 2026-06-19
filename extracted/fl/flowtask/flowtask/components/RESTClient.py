@@ -41,6 +41,7 @@ class RESTClient(HTTPClient):
         | accept           |   No     | The accepted response type, defaults to "application/json".                                       |
         | url              |   Yes    | The URL to send the REST query to.                                                                |
         | method           |   No     | The HTTP method to use for the request, defaults to the method specified in the class.            |
+        | data_key         |   No     | Dot-path (JSONPath-like) to a nested key extracted before building the DataFrame, e.g. "data.restaurants". |
 
     Return
 
@@ -81,8 +82,45 @@ class RESTClient(HTTPClient):
         """Init Method."""
         self._result: Union[List, Dict] = None
         self._data: dict = kwargs.pop("data", {})
+        # Optional dot-path (JSONPath-like) to extract a nested key from the
+        # JSON response before building the DataFrame, e.g. "data.restaurants".
+        self.data_key: str = kwargs.pop("data_key", None)
         super().__init__(loop=loop, job=job, stat=stat, **kwargs)
         self.accept: str = "application/json"  # by default
+
+    def _extract_data_key(self, result: Union[List, Dict]) -> Union[List, Dict]:
+        """Navigate a nested JSON response using a dot-path.
+
+        Given ``self.data_key`` (e.g. ``"data.restaurants"``), traverse the
+        result dict key by key and return the nested value. List indices are
+        supported as integer segments (e.g. ``"data.items.0"``).
+
+        Args:
+            result: The decoded JSON response (dict or list).
+
+        Returns:
+            The value located at ``self.data_key``.
+
+        Raises:
+            ComponentError: If any segment of the path cannot be resolved.
+        """
+        if not self.data_key:
+            return result
+        current = result
+        for segment in self.data_key.split("."):
+            try:
+                if isinstance(current, dict):
+                    current = current[segment]
+                elif isinstance(current, list):
+                    current = current[int(segment)]
+                else:
+                    raise KeyError(segment)
+            except (KeyError, IndexError, ValueError, TypeError) as err:
+                raise ComponentError(
+                    f"RESTClient Error: data_key '{self.data_key}' could not be "
+                    f"resolved at segment '{segment}': {err}"
+                ) from err
+        return current
 
     async def run(self):
         self.url = self.build_url(
@@ -114,6 +152,8 @@ class RESTClient(HTTPClient):
             logging.exception(err, stack_info=True)
             raise ComponentError(f"RESTClient Error: {err}") from err
         # at here, processing Result
+        if self.data_key:
+            result = self._extract_data_key(result)
         if self.as_dataframe is True:
             try:
                 result = await self.create_dataframe(result)
@@ -216,6 +256,8 @@ class AbstractREST(RESTClient):
                 else:
                     raise ComponentError(f"HTTPClient Error: {error}")
             # at here, processing Result
+            if self.data_key:
+                result = self._extract_data_key(result)
             if self.as_dataframe is True:
                 try:
                     result = await self.create_dataframe(result)

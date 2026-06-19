@@ -1,10 +1,12 @@
 Metadata-Version: 2.1
 Name: voyageai
-Version: 0.4.0
+Version: 0.4.1
 Summary: 
+License: MIT
 Author: Yujie Qian
 Author-email: yujieq@voyageai.com
 Requires-Python: >=3.9,<3.15
+Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10

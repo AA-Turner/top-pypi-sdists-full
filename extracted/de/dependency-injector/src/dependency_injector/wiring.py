@@ -127,6 +127,17 @@ with suppress(ImportError):
 
     INSPECT_EXCLUSION_FILTERS.append(is_werkzeug_local_proxy)
 
+
+def _is_cyfunction(obj: Any) -> bool:
+    """Return True for Cython-compiled functions/methods (non-fused)."""
+    return type(obj).__name__ == "cython_function_or_method"
+
+
+def _is_function_like(obj: Any) -> bool:
+    """Return True for pure-Python functions and Cython-compiled functions."""
+    return isfunction(obj) or _is_cyfunction(obj)
+
+
 from . import providers  # noqa: E402
 
 __all__ = (
@@ -485,7 +496,7 @@ def wire(  # noqa: C901
                     warn_unresolved=warn_unresolved,
                     warn_unresolved_stacklevel=1,
                 )
-            elif isfunction(member):
+            elif _is_function_like(member):
                 _patch_fn(
                     module,
                     member_name,
@@ -548,10 +559,10 @@ def unwire(  # noqa: C901
 
     for module in modules:
         for name, member in getmembers(module):
-            if isfunction(member):
+            if _is_function_like(member):
                 _unpatch(module, name, member)
             elif isclass(member):
-                for method_name, method in getmembers(member, isfunction):
+                for method_name, method in getmembers(member, _is_function_like):
                     _unpatch(member, method_name, method)
 
         for patched in _patched_registry.get_callables_from_module(module):
@@ -803,7 +814,7 @@ def _fetch_modules(package):
 
 
 def _is_method(member) -> bool:
-    return ismethod(member) or isfunction(member)
+    return ismethod(member) or _is_function_like(member)
 
 
 def _is_marker(member) -> bool:

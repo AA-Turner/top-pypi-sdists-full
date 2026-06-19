@@ -16,21 +16,26 @@ use mergify_core::CliError;
 use crate::change_id;
 use crate::git::{resolve_repo_toplevel, run_git_capture, shell_quote, spawn_rebase};
 use crate::local_commits::{self, LocalCommit};
+use crate::plan_display::PlanRow;
 use crate::trunk;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OrderedCommit {
-    pub sha: String,
-    pub subject: String,
+struct OrderedCommit {
+    sha: String,
+    subject: String,
+    change_id: String,
 }
 
 #[derive(Debug, Clone)]
 pub enum Outcome {
+    /// Reorder ran to completion. `plan` is the new full-stack
+    /// order (tag-less, like Python's `display_plan`).
     Reordered {
-        plan: Vec<OrderedCommit>,
+        plan: Vec<PlanRow>,
     },
+    /// `--dry-run` short-circuit. Same full-stack `plan`, no rebase.
     DryRun {
-        plan: Vec<OrderedCommit>,
+        plan: Vec<PlanRow>,
     },
     /// New order matches current order — no rebase needed.
     AlreadyInOrder,
@@ -89,12 +94,22 @@ pub fn run(opts: &Options<'_>) -> Result<Outcome, CliError> {
         return Ok(Outcome::AlreadyInOrder);
     }
 
+    let plan: Vec<PlanRow> = resolved
+        .iter()
+        .map(|c| PlanRow {
+            sha: c.sha.clone(),
+            subject: c.subject.clone(),
+            change_id: c.change_id.clone(),
+            action: None,
+        })
+        .collect();
+
     if opts.dry_run {
-        return Ok(Outcome::DryRun { plan: resolved });
+        return Ok(Outcome::DryRun { plan });
     }
 
     spawn_reorder_rebase(&repo_dir, &base, opts.mergify_binary, &requested_shas)?;
-    Ok(Outcome::Reordered { plan: resolved })
+    Ok(Outcome::Reordered { plan })
 }
 
 fn match_commit(prefix: &str, commits: &[LocalCommit]) -> Result<OrderedCommit, CliError> {
@@ -116,22 +131,22 @@ fn match_commit(prefix: &str, commits: &[LocalCommit]) -> Result<OrderedCommit, 
         )
     };
     match matches.as_slice() {
-        [] => Err(CliError::StackNotFound(format!(
-            "no commit found matching {field} prefix '{prefix}'"
-        ))),
+        [] => Err(crate::match_commit::not_found(field, prefix)),
         [only] => Ok(OrderedCommit {
             sha: only.commit_sha.clone(),
             subject: only.title.clone(),
+            change_id: only.change_id.clone(),
         }),
         many => {
-            let listing = many
+            let candidates: Vec<crate::match_commit::Candidate<'_>> = many
                 .iter()
-                .map(|c| format!("{} {}", &c.commit_sha[..7], c.title))
-                .collect::<Vec<_>>()
-                .join("\n  ");
-            Err(CliError::InvalidState(format!(
-                "{field} prefix '{prefix}' matches multiple commits:\n  {listing}"
-            )))
+                .map(|c| crate::match_commit::Candidate {
+                    commit_sha: &c.commit_sha,
+                    title: &c.title,
+                    change_id: &c.change_id,
+                })
+                .collect();
+            Err(crate::match_commit::ambiguous(field, prefix, &candidates))
         }
     }
 }
@@ -145,5 +160,5 @@ fn spawn_reorder_rebase(
     let bin = shell_quote(&mergify_binary.to_string_lossy());
     let shas = shell_quote(&ordered_shas.join(","));
     let editor = format!("{bin} _internal rebase-todo-rewrite --action reorder --shas {shas}");
-    spawn_rebase(repo_dir, base, Some(&editor))
+    spawn_rebase(repo_dir, base, Some(&editor), false)
 }

@@ -60,6 +60,7 @@ from ..approvals import (
     approval_prompt_flow,
     attach_primary_approval_link,
     build_approval_browser_url,
+    canonical_local_approval_url,
     first_approval_url,
     queue_blocked_approvals,
     wait_for_approval_requests,
@@ -109,6 +110,7 @@ from ..harness_usage import record_harness_usage_events
 from ..incident import build_incident_context
 from ..local_dashboard_session import build_local_dashboard_session_token
 from ..local_supply_chain import (
+    _resolve_guard_sync_auth_context,
     apply_stored_package_policy_override,
     build_local_supply_chain_posture,
     build_supply_chain_explain_payload,
@@ -117,6 +119,7 @@ from ..local_supply_chain import (
     build_workspace_scan_payload,
     package_request_policy_hash,
     resolve_package_firewall_entitlement_with_refresh,
+    sync_supply_chain_cloud_state,
 )
 from ..mcp_tool_calls import (
     allow_tool_call,
@@ -214,6 +217,7 @@ from .install_commands import (
 )
 from .protect_approvals import _queue_local_protect_approvals, _suppress_package_shim_allow_output
 from .remote_pair_flow import dispatch_guard_remote_pair_command
+from .uninstall_commands import run_guard_self_uninstall
 from .update_commands import run_guard_update
 
 DEFAULT_GUARD_APPS_URL = "https://hol.org/guard/apps"
@@ -278,7 +282,7 @@ _GUARD_HELP_GROUPS = (
     "  doctor       Run local diagnostics\n"
     "  bootstrap    Detect, install, and launch the approval center\n"
     "  install      Enable Guard management for a harness\n"
-    "  uninstall    Disable Guard management for a harness\n"
+    "  uninstall    Disable Guard management or remove hol-guard entirely\n"
     "  update       Update hol-guard in the current environment\n"
     "\n"
     "Command selection:\n"

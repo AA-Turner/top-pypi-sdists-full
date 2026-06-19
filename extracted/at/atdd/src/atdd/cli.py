@@ -378,8 +378,14 @@ Phase descriptions:
         nargs="?",
         type=str,
         default="all",
-        choices=["all", "planner", "tester", "coder", "coach"],
-        help="Phase to validate (default: all)"
+        choices=["all", "planner", "tester", "coder", "coach", "package"],
+        help="Phase to validate, or 'package' to compose-validate an installed package (default: all)"
+    )
+    validate_parser.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Package directory (for 'atdd validate package <path>')"
     )
     validate_parser.add_argument(
         "--verbose", "-v",
@@ -648,9 +654,14 @@ Phase descriptions:
     # NOTE: 'session' subcommand removed in E009; replaced by top-level issue commands.
 
     # ----- atdd list -----
-    subparsers.add_parser(
+    list_parser = subparsers.add_parser(
         "list",
-        help="List all ATDD issues"
+        help="List all ATDD issues (or the installed substrate with --substrate)"
+    )
+    list_parser.add_argument(
+        "--substrate",
+        action="store_true",
+        help="List the installed substrate (.atdd/substrate.lock.yaml) instead of issues",
     )
 
     # ----- atdd archive <issue_number> -----
@@ -1184,6 +1195,23 @@ Phase descriptions:
         "spawn_argv",
         nargs=argparse.REMAINDER,
         help="Forwarded to atdd.coach.commands.spawn",
+    )
+
+    # ----- atdd author ... (author-atdd-substrate wagon, #1097) -----
+    # Author schema-valid substrate artifacts by construction. The sub-arg
+    # surface (convention-node / relationship / scope / gate) lives in
+    # `atdd.planner.commands.author.build_parser`; we register `author` here
+    # and forward argv. The first forwarded token is the kind (a positional),
+    # so REMAINDER captures it cleanly.
+    author_parser = subparsers.add_parser(
+        "author",
+        help="Author schema-valid ATDD substrate artifacts by construction.",
+        add_help=False,
+    )
+    author_parser.add_argument(
+        "author_argv",
+        nargs=argparse.REMAINDER,
+        help="Forwarded to atdd.planner.commands.author",
     )
 
     # ----- atdd judge --prompt-template ... --schema ... --inputs ... -----
@@ -1871,6 +1899,36 @@ Phase descriptions:
         ),
     )
 
+    # ----- Substrate admission (wagon: admit-substrate) -----
+    search_parser = subparsers.add_parser(
+        "search", help="Search configured registries for admittable artifacts"
+    )
+    search_parser.add_argument("query", help="alias, canonical id, or tag substring")
+    search_parser.add_argument(
+        "--kind", choices=["extension", "workspace"], default=None,
+        help="restrict results to a kind",
+    )
+
+    add_cmd_parser = subparsers.add_parser(
+        "add", help="Admit an extension/workspace artifact into the local substrate"
+    )
+    add_cmd_parser.add_argument("ref", nargs="?", help="registry ref or alias")
+    add_cmd_parser.add_argument("--path", help="admit a local package directory directly")
+    add_cmd_parser.add_argument(
+        "--dry-run", action="store_true", help="validate + compose only; do not install"
+    )
+
+    remove_cmd_parser = subparsers.add_parser(
+        "remove", help="Withdraw an artifact from the local substrate"
+    )
+    remove_cmd_parser.add_argument("ref", help="artifact id to remove")
+    remove_cmd_parser.add_argument(
+        "--force", action="store_true", help="remove even if other artifacts depend on it"
+    )
+    remove_cmd_parser.add_argument(
+        "--prune", action="store_true", help="also remove now-unused workspaces"
+    )
+
     # ----- Legacy flag-based arguments (deprecated, kept for backwards compatibility) -----
 
     # Repository root override (not deprecated - still useful)
@@ -1949,6 +2007,13 @@ Phase descriptions:
     # atdd validate [phase]
     elif args.command == "validate":
         repo_path = Path(args.repo) if hasattr(args, 'repo') and args.repo else None
+
+        # atdd validate package <path> (#1133): compose-validate an installed
+        # extension/workspace package against core (package-relative core load;
+        # no runtime execution). Distinct from the pytest validator phases below.
+        if getattr(args, "phase", None) == "package":
+            from atdd.planner.commands.compose import validate_package_cli
+            return validate_package_cli(getattr(args, "path", None))
 
         # --diagnostics-only: read+print the most recent artifact without
         # invoking pytest. Must complete in <100 ms (issue #449).
@@ -2134,8 +2199,35 @@ Phase descriptions:
 
     # atdd list (top-level shorthand)
     elif args.command == "list":
+        if getattr(args, "substrate", False):
+            from atdd.substrate import commands as substrate_cmd
+            return substrate_cmd.run_list(project_root=(args.repo or "."))
         manager = IssueManager()
         return manager.list()
+
+    # ----- Substrate admission (wagon: admit-substrate) -----
+    elif args.command == "search":
+        from atdd.substrate import commands as substrate_cmd
+        return substrate_cmd.run_search(
+            args.query, kind=args.kind, project_root=(args.repo or ".")
+        )
+
+    elif args.command == "add":
+        from atdd.substrate import commands as substrate_cmd
+        if not args.ref and not args.path:
+            print("error: `atdd add` needs a ref/alias or --path")
+            return 2
+        return substrate_cmd.run_add(
+            ref=args.ref, path=args.path,
+            project_root=(args.repo or "."), dry_run=args.dry_run,
+        )
+
+    elif args.command == "remove":
+        from atdd.substrate import commands as substrate_cmd
+        return substrate_cmd.run_remove(
+            args.ref, project_root=(args.repo or "."),
+            force=args.force, prune=args.prune,
+        )
 
     # atdd archive <issue_id> — DEPRECATED, delegates to atdd issue <N> --status COMPLETE
     elif args.command == "archive":
@@ -2448,6 +2540,11 @@ Phase descriptions:
     elif args.command == "spawn":
         from atdd.coach.commands.spawn import run as run_spawn
         return run_spawn(list(getattr(args, "spawn_argv", []) or []))
+
+    # atdd author ... (author-atdd-substrate wagon — #1097)
+    elif args.command == "author":
+        from atdd.planner.commands.author import run as run_author
+        return run_author(list(getattr(args, "author_argv", []) or []))
 
     # atdd plan <source> ... (PLAN-1 — #758)
     elif args.command == "plan":

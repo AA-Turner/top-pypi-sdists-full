@@ -39,13 +39,14 @@ from .models import (
     PolicyDecision,
 )
 from .risk import artifact_risk_signals, artifact_risk_summary
-from .store import GuardStore, _runtime_scoped_exact_match_key
+from .store import GuardStore, _runtime_scoped_exact_match_key, runtime_tool_action_exact_match_context
 
 GUARD_COMMAND = "hol-guard"
 GUARD_DASHBOARD_URL = "https://hol.org/guard"
 GUARD_INBOX_URL = f"{GUARD_DASHBOARD_URL}/inbox"
 GUARD_FLEET_URL = f"{GUARD_DASHBOARD_URL}/protect"
 GUARD_CONNECT_URL = f"{GUARD_DASHBOARD_URL}/connect"
+_APPROVAL_ONCE_POLICY_TTL = timedelta(minutes=15)
 _WORKSPACE_SCOPED_RUNTIME_ARTIFACT_TYPES = frozenset(
     {
         "file_read_request",
@@ -141,6 +142,7 @@ def primary_approval_request(
         for item in reversed(items):
             if _string_or_none(item.get("artifact_id")) == bound_artifact_id:
                 return item
+        return None
 
     if len(items) == 1:
         return items[0]
@@ -173,8 +175,8 @@ def primary_approval_url(
         return None
     approval_url = request.get("approval_url")
     if isinstance(approval_url, str) and approval_url.strip():
-        return _canonical_local_approval_url(
-            approval_url.strip().replace("/approvals/", "/requests/"),
+        return canonical_local_approval_url(
+            approval_url,
             approval_center_url=approval_center_url,
         )
     resolved_request_id = request.get("request_id")
@@ -185,19 +187,25 @@ def primary_approval_url(
     return None
 
 
-def _canonical_local_approval_url(approval_url: str, *, approval_center_url: str | None) -> str:
-    if not isinstance(approval_center_url, str) or not approval_center_url.strip():
-        return approval_url
+def canonical_local_approval_url(approval_url: str, *, approval_center_url: str | None) -> str:
+    """Rewrite stale loopback approval links to the active approval center."""
+
+    approval_url = approval_url.strip()
     try:
         parsed_approval = urlparse(approval_url)
-        parsed_center = urlparse(approval_center_url.strip())
     except ValueError:
         return approval_url
     loopback_hosts = {"127.0.0.1", "::1", "localhost"}
     approval_host = _parsed_url_host(parsed_approval)
-    center_host = _parsed_url_host(parsed_center)
     if parsed_approval.scheme not in {"http", "https"} or approval_host not in loopback_hosts:
         return approval_url
+    if not isinstance(approval_center_url, str) or not approval_center_url.strip():
+        return approval_url
+    try:
+        parsed_center = urlparse(approval_center_url.strip())
+    except ValueError:
+        return approval_url
+    center_host = _parsed_url_host(parsed_center)
     if parsed_center.scheme not in {"http", "https"} or center_host not in loopback_hosts:
         return approval_url
     return urlunparse(
@@ -322,7 +330,7 @@ def apply_approval_resolution(
     resolve_scope_matches: bool = True,
     approval_gate_input: ApprovalGateInput | None = None,
     approval_gate_grant: ApprovalGateGrant | None = None,
-    persist_policy: bool = True,
+    persist_policy: bool | None = None,
 ) -> dict[str, object]:
     request = store.get_approval_request(request_id)
     if request is None:
@@ -367,8 +375,17 @@ def apply_approval_resolution(
         approval_gate_grant=approval_gate_grant,
         now=resolved_at,
     )
-    if persist_policy:
+    if persist_policy is True or (persist_policy is None and scope != "artifact"):
         store.upsert_policy(decision, resolved_at, approval_gate_grant=resolved_gate_grant)
+    elif persist_policy is None and scope == "artifact":
+        store.upsert_policy(
+            replace(
+                decision,
+                expires_at=_approval_once_policy_expires_at(resolved_at),
+            ),
+            resolved_at,
+            approval_gate_grant=resolved_gate_grant,
+        )
     resolution_harness = None if scope == "global" else str(request["harness"])
     if return_queue_result:
         result = store.resolve_request_with_queue_result(
@@ -456,7 +473,23 @@ def _artifact_scope_runtime_exact_match_key(request: Mapping[str, object], scope
     if scope != "artifact" or request.get("artifact_type") != "tool_action_request":
         return None
     artifact_id = request.get("artifact_id")
-    return _runtime_scoped_exact_match_key(artifact_id) if isinstance(artifact_id, str) else None
+    raw_command_text = _string_or_none(request.get("raw_command_text"))
+    wrapper_chain = request.get("wrapper_chain")
+    envelope = request.get("action_envelope_json")
+    if isinstance(envelope, Mapping):
+        raw_command_text = raw_command_text or _string_or_none(envelope.get("raw_command_text"))
+        if not isinstance(wrapper_chain, Sequence) or isinstance(wrapper_chain, str):
+            wrapper_chain = envelope.get("wrapper_chain")
+    normalized_wrapper_chain = (
+        wrapper_chain if isinstance(wrapper_chain, Sequence) and not isinstance(wrapper_chain, str) else None
+    )
+    context = runtime_tool_action_exact_match_context(
+        config_path=_string_or_none(request.get("config_path")),
+        source_scope=_string_or_none(request.get("source_scope")),
+        raw_command_text=raw_command_text,
+        wrapper_chain=normalized_wrapper_chain,
+    )
+    return _runtime_scoped_exact_match_key(artifact_id, context) if isinstance(artifact_id, str) else None
 
 
 def _broad_runtime_exact_match_key(request: Mapping[str, object], scope: str) -> str | None:
@@ -757,6 +790,7 @@ def build_runtime_snapshot(
         latest_connect_state=latest_connect_state,
         oauth_storage_health=oauth_storage_health,
     )
+    trust_status = store.get_cached_policy_trust_status()
     headline_state = _resolve_runtime_headline_state(
         pending_count=pending_count,
         runtime_state=store.get_runtime_state(),
@@ -788,6 +822,7 @@ def build_runtime_snapshot(
         "managed_installs": store.list_managed_installs(),
         "supply_chain": build_local_supply_chain_posture(store, config, now=snapshot_now),
         **cloud_context,
+        "trust_status": trust_status,
     }
 
 
@@ -942,6 +977,11 @@ def _string_list(value: object) -> list[str]:
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _approval_once_policy_expires_at(resolved_at: str) -> str:
+    parsed = datetime.fromisoformat(resolved_at.replace("Z", "+00:00"))
+    return (parsed + _APPROVAL_ONCE_POLICY_TTL).isoformat()
 
 
 def _build_runtime_cloud_context(

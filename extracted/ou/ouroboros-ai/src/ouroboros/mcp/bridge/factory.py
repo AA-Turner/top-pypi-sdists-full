@@ -23,8 +23,8 @@ async def create_bridge_from_config_file(path: Path) -> MCPBridge:
     return bridge
 
 
-def create_bridge_from_env(cwd: Path | None = None) -> MCPBridge | None:
-    config_path = discover_config(cwd)
+def create_bridge_from_env() -> MCPBridge | None:
+    config_path = discover_config()
     if config_path is None:
         return None
     result = load_bridge_config(config_path)

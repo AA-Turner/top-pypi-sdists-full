@@ -246,18 +246,44 @@ def dispatch_optimizer(name, parameters, opt_logger, lr=None, betas=None, eps=No
     else:
         raise ValueError("Unsupported optimizer: {}".format(name))
 
+_LSTM_BIAS_RE = re.compile(r'\.bias_(?:ih|hh)_l\d+(?:_reverse)?$')
 
-def get_optimizer(name, model, lr, betas=(0.9, 0.999), eps=1e-8, momentum=0, weight_decay=None, bert_learning_rate=0.0, bert_weight_decay=None, charlm_learning_rate=0.0, is_peft=False, bert_finetune_layers=None, opt_logger=None):
-    opt_logger = opt_logger if opt_logger is not None else logger
-    base_parameters = [p for n, p in model.named_parameters()
+def extract_base_optimizer_parameters(model, lr, charlm_learning_rate, lstm_bias_weight_decay):
+    base_parameters = [(n, p) for n, p in model.named_parameters()
                        if p.requires_grad and not n.startswith("bert_model.")
                        and not n.startswith("charmodel_forward.") and not n.startswith("charmodel_backward.")]
-    parameters = [{'param_group_name': 'base', 'params': base_parameters}]
+    if lstm_bias_weight_decay is not None:
+        lstm_bias_parameters = [p for n, p in base_parameters if _LSTM_BIAS_RE.search(n)]
+        base_parameters = [p for n, p in base_parameters if not _LSTM_BIAS_RE.search(n)]
+        parameters = [
+            {'param_group_name': 'base', 'params': base_parameters},
+            {'param_group_name': 'lstm_bias', 'params': lstm_bias_parameters, 'weight_decay': lstm_bias_weight_decay}
+        ]
+    else:
+        parameters = [{'param_group_name': 'base', 'params': [p for n, p in base_parameters]}]
 
     charlm_parameters = [p for n, p in model.named_parameters()
                          if p.requires_grad and (n.startswith("charmodel_forward.") or n.startswith("charmodel_backward."))]
     if len(charlm_parameters) > 0 and charlm_learning_rate > 0:
         parameters.append({'param_group_name': 'charlm', 'params': charlm_parameters, 'lr': lr * charlm_learning_rate})
+    return parameters
+
+def get_optimizer(name,
+                  model,
+                  lr,
+                  betas=(0.9, 0.999),
+                  eps=1e-8,
+                  momentum=0,
+                  weight_decay=None,
+                  bert_learning_rate=0.0,
+                  bert_weight_decay=None,
+                  charlm_learning_rate=0.0,
+                  lstm_bias_weight_decay=None,
+                  is_peft=False,
+                  bert_finetune_layers=None,
+                  opt_logger=None):
+    opt_logger = opt_logger if opt_logger is not None else logger
+    parameters = extract_base_optimizer_parameters(model, lr, charlm_learning_rate, lstm_bias_weight_decay)
 
     if not is_peft:
         bert_parameters = [p for n, p in model.named_parameters() if p.requires_grad and n.startswith("bert_model.")]
@@ -293,17 +319,23 @@ def get_optimizer(name, model, lr, betas=(0.9, 0.999), eps=1e-8, momentum=0, wei
 
     return dispatch_optimizer(name, parameters, opt_logger=opt_logger, lr=lr, betas=betas, eps=eps, momentum=momentum, **extra_args)
 
-def get_split_optimizer(name, model, lr, betas=(0.9, 0.999), eps=1e-8, momentum=0, weight_decay=None, bert_learning_rate=0.0, bert_weight_decay=None, charlm_learning_rate=0.0, is_peft=False, bert_finetune_layers=None):
+def get_split_optimizer(name,
+                        model,
+                        lr,
+                        betas=(0.9, 0.999),
+                        eps=1e-8,
+                        momentum=0,
+                        weight_decay=None,
+                        bert_learning_rate=0.0,
+                        bert_weight_decay=None,
+                        charlm_learning_rate=0.0,
+                        lstm_bias_weight_decay=None,
+                        is_peft=False,
+                        bert_finetune_layers=None,
+                        opt_logger=None):
     """Same as `get_optimizer`, but splits the optimizer for Bert into a separate optimizer"""
-    base_parameters = [p for n, p in model.named_parameters()
-                       if p.requires_grad and not n.startswith("bert_model.")
-                       and not n.startswith("charmodel_forward.") and not n.startswith("charmodel_backward.")]
-    parameters = [{'param_group_name': 'base', 'params': base_parameters}]
-
-    charlm_parameters = [p for n, p in model.named_parameters()
-                         if p.requires_grad and (n.startswith("charmodel_forward.") or n.startswith("charmodel_backward."))]
-    if len(charlm_parameters) > 0 and charlm_learning_rate > 0:
-        parameters.append({'param_group_name': 'charlm', 'params': charlm_parameters, 'lr': lr * charlm_learning_rate})
+    opt_logger = opt_logger if opt_logger is not None else logger
+    parameters = extract_base_optimizer_parameters(model, lr, charlm_learning_rate, lstm_bias_weight_decay)
 
     bert_parameters = None
     if not is_peft:
@@ -331,12 +363,12 @@ def get_split_optimizer(name, model, lr, betas=(0.9, 0.999), eps=1e-8, momentum=
         extra_args["weight_decay"] = weight_decay
 
     optimizers = {
-        "general_optimizer": dispatch_optimizer(name, parameters, opt_logger=logger, lr=lr, betas=betas, eps=eps, momentum=momentum, **extra_args)
+        "general_optimizer": dispatch_optimizer(name, parameters, opt_logger=opt_logger, lr=lr, betas=betas, eps=eps, momentum=momentum, **extra_args)
     }
     if bert_parameters is not None and bert_learning_rate > 0.0:
         if bert_weight_decay is not None:
             extra_args['weight_decay'] = bert_weight_decay
-        optimizers["bert_optimizer"] = dispatch_optimizer(name, bert_parameters, opt_logger=logger, lr=lr, betas=betas, eps=eps, momentum=momentum, **extra_args)
+        optimizers["bert_optimizer"] = dispatch_optimizer(name, bert_parameters, opt_logger=opt_logger, lr=lr, betas=betas, eps=eps, momentum=momentum, **extra_args)
     return optimizers
 
 
@@ -1031,3 +1063,29 @@ def evaluating(net):
     finally:
         if istrain:
             net.train()
+
+def initialize_forget_gate_bias(lstm, bias_value=1.0):
+    """
+    Initialize the forget gate bias of an LSTM to a positive constant.
+
+    Starting with a positive forget gate bias (commonly +1) encourages the
+    model to remember cell state early in training rather than defaulting to
+    the neutral sigmoid(0)=0.5 posture.  See Jozefowicz et al. (2015),
+    "An Empirical Exploration of Recurrent Network Architectures."
+
+    Sets bias_ih to bias_value and bias_hh to 0.0 for the forget gate slice
+    in every layer and direction (forward and reverse for bidirectional LSTMs).
+    The combined pre-activation bias (bias_ih + bias_hh) is thus bias_value.
+
+    Args:
+        lstm:       an nn.LSTM module
+        bias_value: value to initialize the forget gate bias to (default 1.0)
+    """
+    H = lstm.hidden_size
+    suffixes = ['']
+    if lstm.bidirectional:
+        suffixes.append('_reverse')
+    for layer in range(lstm.num_layers):
+        for suffix in suffixes:
+            nn.init.constant_(getattr(lstm, f'bias_ih_l{layer}{suffix}')[H:2*H], bias_value)
+            nn.init.constant_(getattr(lstm, f'bias_hh_l{layer}{suffix}')[H:2*H], 0.0)

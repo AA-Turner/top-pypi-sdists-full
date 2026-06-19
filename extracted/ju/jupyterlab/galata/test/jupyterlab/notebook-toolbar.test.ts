@@ -1,12 +1,8 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import {
-  expect,
-  galata,
-  IJupyterLabPageFixture,
-  test
-} from '@jupyterlab/galata';
+import type { IJupyterLabPageFixture } from '@jupyterlab/galata';
+import { expect, galata, test } from '@jupyterlab/galata';
 
 const fileName = 'notebook.ipynb';
 
@@ -401,6 +397,19 @@ test.describe('Reactive toolbar', () => {
     await page.locator('div.lm-TabBar-tabLabel >> text=Notebook.ipynb').click();
     const saveLocator = toolbar.locator('[data-jp-item-name="save"]');
     await expect(saveLocator).toHaveCount(0, { timeout: 1000 });
+
+    const debuggerActive = page.locator(
+      '.jp-DebuggerBugButton[aria-disabled="false"]'
+    );
+
+    // The debugger icon flickering is a persistent source of flakiness,
+    // we see it appear, disappear and appear again; while we want to
+    // fix this properly, it is not trivial as seen in attempts to address
+    // the issue https://github.com/jupyterlab/jupyterlab/issues/18514
+    // so for now to ease the snapshot updates we just wait for it to settle.
+    await debuggerActive.waitFor();
+    await page.waitForTimeout(1250);
+    await debuggerActive.waitFor();
 
     expect(await toolbar.screenshot()).toMatchSnapshot(imageName);
   });

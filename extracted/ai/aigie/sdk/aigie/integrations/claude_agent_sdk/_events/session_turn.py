@@ -26,8 +26,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-class SessionTurnEvents:
 
+class SessionTurnEvents:
     async def complete_pending_subagent_spans(self):
         """Force-close any subagent spans whose ToolResultBlock was missed.
 
@@ -54,9 +54,7 @@ class SessionTurnEvents:
     ) -> None:
         update_data = self._build_subagent_completion_payload(subagent_data, end_time)
         if aigie._buffer:
-            logger.debug(
-                "[AIGIE] Completing pending subagent span: %s", update_data["name"]
-            )
+            logger.debug("[AIGIE] Completing pending subagent span: %s", update_data["name"])
             self.close_span(payload=update_data)
         self._pop_subagent_parent()
         del self.subagent_map[tool_use_id]
@@ -97,9 +95,7 @@ class SessionTurnEvents:
         if self._parent_span_stack:
             self._set_current_parent(self._parent_span_stack[-1])
         else:
-            self._set_current_parent(
-                self._current_turn_span_id or self._current_query_span_id
-            )
+            self._set_current_parent(self._current_turn_span_id or self._current_query_span_id)
 
     async def complete_pending_turn_spans(self) -> None:
         """
@@ -257,7 +253,7 @@ class SessionTurnEvents:
                 "parent_id": None,
                 "name": getattr(self, "_root_name", self.trace_name),
                 "type": "agent",
-                "status": "success" if success else "failed",
+                "status": "success" if success else "error",
                 "output": {
                     "turn_count": turn_count,
                     "total_cost": total_cost,
@@ -488,7 +484,7 @@ class SessionTurnEvents:
             "trace_id": self.trace_id,  # Required for backend merge
             "name": f"Turn {turn_data['turnNumber']}",  # Include name for race conditions
             "type": "chain",  # Include type for race conditions
-            "status": "failed",
+            "status": "error",
             "error": sanitized,
             "error_message": sanitized,
             "start_time": turn_data.get("startTimeIso"),  # Preserve start_time
@@ -507,4 +503,3 @@ class SessionTurnEvents:
             self._session_context.current_turn_span_id = None
             # Revert parent to query span (if exists) since turn errored
             self._session_context.set_current_parent(self._current_query_span_id)
-

@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import Field as FieldInfo
 
@@ -26,6 +26,12 @@ class MemoryUpdateMemoryResponse(BaseModel):
 
     memory: str
     """The content of the new memory version"""
+
+    metadata: Optional[Dict[str, object]] = None
+    """
+    Arbitrary key-value metadata attached to this memory, or null if none was
+    provided
+    """
 
     parent_memory_id: Optional[str] = FieldInfo(alias="parentMemoryId", default=None)
     """ID of the memory this version updates"""

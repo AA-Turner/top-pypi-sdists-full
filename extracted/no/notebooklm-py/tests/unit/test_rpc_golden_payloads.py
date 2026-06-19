@@ -83,6 +83,14 @@ from notebooklm.rpc.types import (
 
 FIXTURE_ROOT: Path = Path(__file__).parents[1] / "fixtures" / "rpc_golden"
 
+_ARTIFACT_CLIENT_OPTIONS: list[Any] = [
+    2,
+    None,
+    None,
+    [1, None, None, None, None, None, None, None, None, None, [1]],
+    [[1, 4, 8, 2, 3, 6]],
+]
+
 
 class _FixtureSchemaError(AssertionError):
     """Raised when a fixture is missing a required field or has the wrong type.
@@ -235,7 +243,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 audio_length=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -262,7 +270,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 audio_length=AudioLength.SHORT,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -298,7 +306,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 style_prompt=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -329,7 +337,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 style_prompt="blueprint line art",
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -349,7 +357,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                             "Summarize visually",
                             None,
                             1,
-                            2,
+                            None,
                             "blueprint line art",
                         ],
                     ],
@@ -365,7 +373,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 instructions=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -381,6 +389,37 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
             ],
         ),
         (
+            "video_non_contiguous_preset_style",
+            build_video_artifact_params(
+                "nb_payload",
+                ["src_alpha"],
+                language="en",
+                instructions="Make it playful",
+                video_format=VideoFormat.BRIEF,
+                video_style=VideoStyle.KAWAII,
+                style_prompt=None,
+            ),
+            [
+                _ARTIFACT_CLIENT_OPTIONS,
+                "nb_payload",
+                [
+                    None,
+                    None,
+                    3,
+                    [[["src_alpha"]]],
+                    None,
+                    None,
+                    None,
+                    None,
+                    [
+                        None,
+                        None,
+                        [[["src_alpha"]], "en", "Make it playful", None, 2, 9],
+                    ],
+                ],
+            ],
+        ),
+        (
             "briefing_report",
             build_report_artifact_params(
                 "nb_payload",
@@ -391,7 +430,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 extra_instructions=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -432,7 +471,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 extra_instructions="Ignored for custom reports.",
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -468,7 +507,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 difficulty=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -497,7 +536,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 difficulty=QuizDifficulty.HARD,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -526,7 +565,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 difficulty=QuizDifficulty.EASY,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -557,7 +596,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 style=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -590,7 +629,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 style=InfographicStyle.EDITORIAL,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -622,7 +661,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 slide_length=None,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -656,7 +695,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 slide_length=SlideDeckLength.SHORT,
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -688,7 +727,7 @@ def _expected_rpc_envelope(method: RPCMethod, params: list[Any]) -> list[Any]:
                 instructions="Extract product comparisons",
             ),
             [
-                [2],
+                _ARTIFACT_CLIENT_OPTIONS,
                 "nb_payload",
                 [
                     None,
@@ -744,6 +783,22 @@ def test_artifact_payload_builders_match_golden_rpc_envelopes(
     assert encode_rpc_request(method, params) == _expected_rpc_envelope(method, expected)
 
 
+def test_video_style_values_match_live_web_ui() -> None:
+    """Guard against drift in the Web UI's Video Overview style radio values."""
+    assert {style: style.value for style in VideoStyle} == {
+        VideoStyle.AUTO_SELECT: 1,
+        VideoStyle.CUSTOM: 0,
+        VideoStyle.CLASSIC: 2,
+        VideoStyle.WHITEBOARD: 3,
+        VideoStyle.KAWAII: 9,
+        VideoStyle.ANIME: 7,
+        VideoStyle.WATERCOLOR: 6,
+        VideoStyle.RETRO_PRINT: 8,
+        VideoStyle.HERITAGE: 4,
+        VideoStyle.PAPER_CRAFT: 5,
+    }
+
+
 def test_revise_slide_payload_builder_matches_golden_envelope() -> None:
     params = build_revise_slide_params("artifact_payload", 2, "Tighten the summary")
 
@@ -757,17 +812,9 @@ def test_revise_slide_payload_builder_matches_golden_envelope() -> None:
 def test_retry_artifact_payload_builder_matches_golden_envelope() -> None:
     params = build_retry_artifact_params("artifact_payload")
 
-    # The type-agnostic retry_options literal is sent verbatim (issue #1319).
-    assert params == [
-        [
-            2,
-            None,
-            None,
-            [1, None, None, None, None, None, None, None, None, None, [1]],
-            [[1, 4, 8, 2, 3, 6]],
-        ],
-        "artifact_payload",
-    ]
+    # The type-agnostic client-options literal is sent verbatim (issue #1319;
+    # also confirmed for CREATE_ARTIFACT on 2026-06-15).
+    assert params == [_ARTIFACT_CLIENT_OPTIONS, "artifact_payload"]
     encoded = encode_rpc_request(RPCMethod.RETRY_ARTIFACT, params)
     assert encoded == _expected_rpc_envelope(RPCMethod.RETRY_ARTIFACT, params)
     # The encoded envelope must carry the confirmed wire ID.
@@ -788,11 +835,11 @@ def test_source_upload_rpc_payload_builders_match_golden_envelopes() -> None:
     register_params = build_register_file_source_params("research.pdf", "nb_payload")
     rename_params = build_rename_source_params("src_payload", "Renamed source")
 
+    # Nested template block per the Gemini-3.5 wire migration (#1546).
     assert register_params == [
         [["research.pdf"]],
         "nb_payload",
-        [2],
-        [1, None, None, None, None, None, None, None, None, None, [1]],
+        [2, None, None, [1, None, None, None, None, None, None, None, None, None, [1]]],
     ]
     assert encode_rpc_request(RPCMethod.ADD_SOURCE_FILE, register_params) == _expected_rpc_envelope(
         RPCMethod.ADD_SOURCE_FILE,

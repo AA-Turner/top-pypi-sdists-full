@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import pickle
 import sqlite3
 import sys
 import time
@@ -13,7 +14,7 @@ from typing import cast
 
 import pytest
 
-from codex_plugin_scanner.cli import main
+from codex_plugin_scanner.cli import _resolve_legacy_args, main
 from codex_plugin_scanner.guard import local_trust_contract as local_trust_contract_module
 from codex_plugin_scanner.guard import store as guard_store_module
 from codex_plugin_scanner.guard.local_trust_contract import (
@@ -28,6 +29,7 @@ from codex_plugin_scanner.guard.local_trust_contract import (
     POLICY_INTEGRITY_REASON_BACKEND_PERMISSION_DENIED,
     POLICY_INTEGRITY_REASON_BACKEND_TIMEOUT,
     POLICY_INTEGRITY_REASON_BACKEND_UNAVAILABLE,
+    TrustBackendCorruptResultError,
     TrustBackendProcessFailedError,
     TrustBackendUnavailableError,
     TrustStatus,
@@ -36,6 +38,7 @@ from codex_plugin_scanner.guard.local_trust_contract import (
     select_trust_backend,
 )
 from codex_plugin_scanner.guard.models import PolicyDecision
+from codex_plugin_scanner.guard.policy_authority import PolicyAuthorityError
 from codex_plugin_scanner.guard.store import GuardStore, SystemKeyringSecretStore
 
 
@@ -98,6 +101,14 @@ def _write_delayed_nested_trust_marker(marker_path: str) -> None:
 
 def _write_corrupt_trust_result(operation, result_path: str) -> None:
     Path(result_path).write_bytes(b"not a pickle")
+
+
+def _write_malformed_trust_result(operation, result_path: str) -> None:
+    Path(result_path).write_bytes(pickle.dumps({"ok": True}))
+
+
+def _write_list_trust_result(operation, result_path: str) -> None:
+    Path(result_path).write_bytes(pickle.dumps([True, {"mode": "protected"}]))
 
 
 def _skip_trust_result(operation, result_path: str) -> None:
@@ -272,10 +283,99 @@ def test_trust_backend_check_handles_corrupt_result_file(
         lambda: {"mode": "protected"},
         timeout_seconds=1.0,
         timeout_result={"mode": "degraded"},
-        on_error=lambda error: {"mode": "degraded", "error": error.__class__.__name__},
+        on_error=lambda error: {
+            "mode": "degraded",
+            "error": error.__class__.__name__,
+            "reason": degraded_reason_for_backend_error(error),
+        },
     )
 
-    assert result == {"mode": "degraded", "error": "UnpicklingError"}
+    assert result == {
+        "mode": "degraded",
+        "error": "TrustBackendCorruptResultError",
+        "reason": POLICY_INTEGRITY_REASON_BACKEND_CORRUPT,
+    }
+
+
+def test_trust_backend_check_rejects_malformed_result_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(local_trust_contract_module, "_trust_backend_check_worker", _write_malformed_trust_result)
+
+    result = run_trust_backend_check(
+        lambda: {"mode": "protected"},
+        timeout_seconds=1.0,
+        timeout_result={"mode": "degraded"},
+        on_error=lambda error: {
+            "mode": "degraded",
+            "error": error.__class__.__name__,
+            "reason": degraded_reason_for_backend_error(error),
+        },
+    )
+
+    assert result == {
+        "mode": "degraded",
+        "error": "TrustBackendCorruptResultError",
+        "reason": POLICY_INTEGRITY_REASON_BACKEND_CORRUPT,
+    }
+
+
+def test_trust_backend_check_rejects_list_result_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(local_trust_contract_module, "_trust_backend_check_worker", _write_list_trust_result)
+
+    result = run_trust_backend_check(
+        lambda: {"mode": "protected"},
+        timeout_seconds=1.0,
+        timeout_result={"mode": "degraded"},
+        on_error=lambda error: {
+            "mode": "degraded",
+            "error": error.__class__.__name__,
+            "reason": degraded_reason_for_backend_error(error),
+        },
+    )
+
+    assert result == {
+        "mode": "degraded",
+        "error": "TrustBackendCorruptResultError",
+        "reason": POLICY_INTEGRITY_REASON_BACKEND_CORRUPT,
+    }
+
+
+def test_trust_backend_result_loader_preserves_permission_denied() -> None:
+    class PermissionDeniedResultPath:
+        def open(self, mode: str = "rb"):
+            raise PermissionError("denied")
+
+    with pytest.raises(PermissionError):
+        local_trust_contract_module._load_trust_backend_result(cast(Path, PermissionDeniedResultPath()))
+
+
+def test_trust_backend_check_handles_result_permission_denied(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def denied_loader(result_file: Path):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(local_trust_contract_module, "_load_trust_backend_result", denied_loader)
+
+    result = run_trust_backend_check(
+        lambda: {"mode": "protected"},
+        timeout_seconds=1.0,
+        timeout_result={"mode": "degraded"},
+        on_error=lambda error: {
+            "mode": "degraded",
+            "error": error.__class__.__name__,
+            "reason": degraded_reason_for_backend_error(error),
+        },
+    )
+
+    assert result == {
+        "mode": "degraded",
+        "error": "PermissionError",
+        "reason": POLICY_INTEGRITY_REASON_BACKEND_PERMISSION_DENIED,
+    }
 
 
 def test_trust_backend_check_reports_missing_result_with_exit_code(
@@ -370,6 +470,10 @@ def test_trust_backend_errors_normalize_to_safe_degraded_reasons() -> None:
     assert (
         degraded_reason_for_backend_error(TrustBackendProcessFailedError("worker died"))
         == POLICY_INTEGRITY_REASON_BACKEND_UNAVAILABLE
+    )
+    assert (
+        degraded_reason_for_backend_error(TrustBackendCorruptResultError("bad result"))
+        == POLICY_INTEGRITY_REASON_BACKEND_CORRUPT
     )
     assert (
         degraded_reason_for_backend_error(PermissionError("denied"))
@@ -869,6 +973,7 @@ def test_remote_policy_row_is_honored_without_local_mac(tmp_path: Path) -> None:
     store.replace_remote_policies(
         [_decision(artifact_id="codex:project:remote", artifact_hash="hash-remote", source="cloud-sync")],
         "2026-06-14T00:00:00Z",
+        remote_write_authorized=True,
     )
 
     resolved = store.resolve_policy(
@@ -876,6 +981,37 @@ def test_remote_policy_row_is_honored_without_local_mac(tmp_path: Path) -> None:
         "codex:project:remote",
         "hash-remote",
         now="2026-06-14T00:01:00Z",
+    )
+
+    assert resolved == "allow"
+
+
+def test_local_policy_write_cannot_impersonate_remote_policy_source(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+
+    with pytest.raises(PolicyAuthorityError, match="remote_policy_source_requires_validated_sync_path"):
+        store.upsert_policy(
+            _decision(artifact_id="codex:project:forged-remote", artifact_hash="hash-forged", source="team-policy"),
+            "2026-06-14T00:00:00Z",
+        )
+
+    with pytest.raises(PolicyAuthorityError, match="remote_policy_source_requires_validated_sync_path"):
+        store.replace_remote_policies(
+            [_decision(artifact_id="codex:project:forged-replace", artifact_hash="hash-forged", source="team-policy")],
+            "2026-06-14T00:01:00Z",
+        )
+
+    store.replace_remote_policies(
+        [_decision(artifact_id="codex:project:valid-remote", artifact_hash="hash-valid", source="team-policy")],
+        "2026-06-14T00:01:00Z",
+        remote_write_authorized=True,
+    )
+
+    resolved = store.resolve_policy(
+        "codex",
+        "codex:project:valid-remote",
+        "hash-valid",
+        now="2026-06-14T00:02:00Z",
     )
 
     assert resolved == "allow"
@@ -1135,6 +1271,13 @@ def test_policies_cli_verify_status_migrate_and_repair(
     assert status_rc == 0
     assert status_payload["enforcement"] == "enforce"
 
+    human_status_rc = main(["guard", "policies", "integrity-status", "--home", str(home_dir)])
+    human_status_output = capsys.readouterr().out
+    assert human_status_rc == 0
+    assert "Runtime protection" in human_status_output
+    assert "Remembered rules" in human_status_output
+    assert "Cloud policies" in human_status_output
+
     migrate_rc = main(
         [
             "guard",
@@ -1168,6 +1311,245 @@ def test_policies_cli_verify_status_migrate_and_repair(
     assert repair_rc == 0
     assert repair_payload["cleared"] == 1
     assert GuardStore(home_dir).list_policy_decisions() == []
+
+
+def test_policies_integrity_status_human_output_hides_real_key_id(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    store = GuardStore(home_dir)
+    store.upsert_policy(
+        _decision(artifact_id="codex:project:key-visible", artifact_hash="hash-key"),
+        "2026-06-18T00:00:00Z",
+    )
+
+    status_rc = main(["guard", "policies", "integrity-status", "--home", str(home_dir), "--json"])
+    status_payload = json.loads(capsys.readouterr().out)
+    key_id = status_payload.get("key_id")
+    assert status_rc == 0
+    assert isinstance(key_id, str)
+    assert key_id
+
+    human_rc = main(["guard", "policies", "integrity-status", "--home", str(home_dir)])
+    human_output = capsys.readouterr().out
+    assert human_rc == 0
+    assert "Integrity key" in human_output
+    assert "present" in human_output
+    assert key_id not in human_output
+
+
+def test_trust_cli_status_reports_no_passive_prompts(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    rc = main(["guard", "trust", "status", "--home", str(home_dir), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert payload["command"] == "status"
+    assert payload["no_ui_passive"] is True
+    assert payload["passive_prompt_allowed"] is False
+    assert payload["runtime_protection"] in {"protected", "degraded", "unknown"}
+    assert payload["remembered_rules"] in {"enforced", "disabled_degraded", "unknown"}
+    assert payload["one_time_approvals"] == "available"
+    assert payload["durable_local_rules"] in {"enforced", "limited"}
+    assert "key_id" not in payload
+    assert "last_proof" not in payload
+
+
+def test_guard_doctor_includes_safe_trust_diagnostics(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+
+    rc = main(
+        [
+            "guard",
+            "doctor",
+            "--home",
+            str(home_dir),
+            "--workspace",
+            str(workspace_dir),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    trust_payload = payload["trust"]
+
+    assert rc == 0
+    assert trust_payload["command"] == "doctor"
+    assert trust_payload["no_ui_passive"] is True
+    assert trust_payload["passive_prompt_allowed"] is False
+    assert trust_payload["one_time_approvals"] == "available"
+    assert trust_payload["durable_local_rules"] in {"enforced", "limited"}
+    assert trust_payload["checks"]["passive_no_ui"] is True
+    assert trust_payload["checks"]["runtime_protection"] is (
+        trust_payload["runtime_protection"] == "protected"
+    )
+    assert trust_payload["official_install"]["package"] == "hol-guard"
+    assert trust_payload["official_install"]["update_command"] == "hol-guard update"
+    assert "recommended_actions" in trust_payload
+    assert "key_id" not in trust_payload
+    assert "last_proof" not in trust_payload
+
+
+def test_guard_doctor_human_output_includes_trust_diagnostics(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    workspace_dir = tmp_path / "workspace"
+    workspace_dir.mkdir()
+
+    rc = main(["guard", "doctor", "--home", str(home_dir), "--workspace", str(workspace_dir)])
+    output = capsys.readouterr().out
+
+    assert rc == 0
+    assert "Local trust" in output
+    assert "Passive OS prompts" in output
+    assert "hol-guard update" in output
+    assert "Guard Cloud policies" in output
+    assert "trust test --no-ui --json" in output
+
+
+def test_trust_cli_doctor_human_output_uses_trust_renderer(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+
+    rc = main(["guard", "trust", "doctor", "--home", str(home_dir)])
+    output = capsys.readouterr().out
+
+    assert rc == 0
+    assert "Local trust" in output
+    assert "Passive OS prompts" in output
+    assert "hol-guard update" in output
+    assert '"runtime_protection"' not in output
+
+
+def test_trust_cli_bare_combined_command_routes_to_guard() -> None:
+    assert _resolve_legacy_args(["trust", "status", "--json"], program_mode="combined") == [
+        "guard",
+        "trust",
+        "status",
+        "--json",
+    ]
+
+
+def test_trust_cli_no_ui_probe_requires_no_ui_flag(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+
+    missing_flag_rc = main(["guard", "trust", "test", "--home", str(home_dir), "--json"])
+    missing_flag_payload = json.loads(capsys.readouterr().out)
+    assert missing_flag_rc == 2
+    assert "Use --no-ui" in missing_flag_payload["error"]
+    assert missing_flag_payload["passive_prompt_allowed"] is False
+
+    no_ui_rc = main(["guard", "trust", "test", "--home", str(home_dir), "--no-ui", "--json"])
+    no_ui_payload = json.loads(capsys.readouterr().out)
+    assert no_ui_rc == 0
+    assert no_ui_payload["probe"] == "passive_no_ui"
+    assert no_ui_payload["ok"] is True
+    assert no_ui_payload["passive_prompt_allowed"] is False
+    assert no_ui_payload["trust_health"] in {"protected", "degraded_safe"}
+
+
+def test_trust_cli_rejects_unavailable_backend_status(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    rc = main(
+        [
+            "guard",
+            "trust",
+            "status",
+            "--backend",
+            "macos-native",
+            "--home",
+            str(home_dir),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    assert payload["backend_requested"] == "macos-native"
+    assert "not available for passive status" in payload["error"]
+    assert payload["passive_prompt_allowed"] is False
+
+
+def test_trust_cli_degraded_safe_backend_is_explicit(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    rc = main(
+        [
+            "guard",
+            "trust",
+            "status",
+            "--backend",
+            "degraded-safe",
+            "--home",
+            str(home_dir),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert payload["backend_requested"] == "degraded-safe"
+    assert payload["backend"] == "degraded-safe"
+    assert payload["remembered_rules"] == "disabled_degraded"
+    assert payload["durable_local_rules"] == "limited"
+
+
+def test_trust_cli_doctor_degraded_safe_does_not_pass_runtime_check(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    rc = main(
+        [
+            "guard",
+            "trust",
+            "doctor",
+            "--backend",
+            "degraded-safe",
+            "--home",
+            str(home_dir),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 0
+    assert payload["runtime_protection"] == "degraded"
+    assert payload["checks"]["runtime_protection"] is False
+    assert payload["checks"]["local_rules_protected"] is False
+    assert payload["summary"].startswith("Runtime protection is degraded.")
+
+
+def test_trust_cli_macos_native_setup_is_explicitly_unavailable(tmp_path: Path, capsys) -> None:
+    home_dir = tmp_path / "home"
+    rc = main(
+        [
+            "guard",
+            "trust",
+            "setup",
+            "--backend",
+            "macos-native",
+            "--home",
+            str(home_dir),
+            "--json",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert rc == 2
+    assert payload["backend_requested"] == "macos-native"
+    assert "not enabled yet" in payload["error"]
+    assert "trust setup" in payload["error"]
+    assert payload["passive_prompt_allowed"] is False
+
+    reset_rc = main(
+        [
+            "guard",
+            "trust",
+            "reset",
+            "--backend",
+            "macos-native",
+            "--home",
+            str(home_dir),
+            "--json",
+        ]
+    )
+    reset_payload = json.loads(capsys.readouterr().out)
+    assert reset_rc == 2
+    assert "trust reset" in reset_payload["error"]
 
 
 def test_policies_cli_verify_returns_nonzero_for_rollback_detected(tmp_path: Path, capsys) -> None:

@@ -19,6 +19,14 @@ impl EnvVars {
     #[attr_added_in("0.6.0")]
     pub const UV: &'static str = "UV";
 
+    /// The path to the Ruff binary used by `uv format`.
+    #[attr_added_in("0.11.22")]
+    pub const RUFF: &'static str = "RUFF";
+
+    /// The path to the ty binary used by `uv check`.
+    #[attr_added_in("0.11.22")]
+    pub const TY: &'static str = "TY";
+
     /// Equivalent to the `--offline` command-line argument. If set, uv will disable network access.
     #[attr_added_in("0.5.9")]
     pub const UV_OFFLINE: &'static str = "UV_OFFLINE";
@@ -649,6 +657,11 @@ impl EnvVars {
     #[attr_hidden]
     #[attr_added_in("0.2.0")]
     pub const UV_INTERNAL__PARENT_INTERPRETER: &'static str = "UV_INTERNAL__PARENT_INTERPRETER";
+
+    /// Used to identify the source tree when invoking PEP 517 build hooks.
+    #[attr_hidden]
+    #[attr_added_in("0.11.22")]
+    pub const UV_INTERNAL__BUILD_DIR: &'static str = "UV_INTERNAL__BUILD_DIR";
 
     /// Used to force showing the derivation tree during resolver error reporting.
     #[attr_hidden]

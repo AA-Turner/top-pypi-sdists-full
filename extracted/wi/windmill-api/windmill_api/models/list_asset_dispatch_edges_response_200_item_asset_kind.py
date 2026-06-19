@@ -1,0 +1,13 @@
+from enum import Enum
+
+
+class ListAssetDispatchEdgesResponse200ItemAssetKind(str, Enum):
+    DATATABLE = "datatable"
+    DUCKLAKE = "ducklake"
+    RESOURCE = "resource"
+    S3OBJECT = "s3object"
+    VARIABLE = "variable"
+    VOLUME = "volume"
+
+    def __str__(self) -> str:
+        return str(self.value)

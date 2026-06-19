@@ -1353,6 +1353,7 @@ class ToProtoConverter:
                 if r.incremental_settings is not None
                 else None
             ),
+            runtime_contract=r.runtime_contract,
             underscore_expr=postprocessing_underscore_expr,
         )
 

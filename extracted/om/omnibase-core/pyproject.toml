@@ -7,7 +7,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omnibase_core"
-version = "0.44.0"
+version = "0.45.0"
 description = "ONEX Core Framework - Base classes and essential implementations"
 authors = [
     {name = "OmniNode.ai", email = "contact@omninode.ai"}
@@ -41,7 +41,7 @@ dependencies = [
     "dependency-injector>=4.48.3,<5.0.0",
     "deepdiff>=8.0.0,<10.0.0",
     "click>=8.3.1,<9.0.0",
-    "cryptography>=46.0.3,<49.0.0",
+    "cryptography>=46.0.3,<50.0.0",
     "jsonschema>=4.25.1,<5.0.0",
     "httpx>=0.27.0,<1.0.0",
     "blake3>=1.0.8,<2.0.0",
@@ -66,6 +66,7 @@ check-local-paths = "omnibase_core.validation.validator_local_paths:main"
 onex-validate-topics = "omnibase_core.validation.scripts.validate_topic_names:main"
 validate-string-versions = "omnibase_core.validation.scripts.validate_string_versions:main"
 onex-validate-links = "omnibase_core.scripts.validate_markdown_links:main"
+onex-demo-path-topic-gate = "omnibase_core.validation.validator_demo_path_topic_coherence:main"
 
 [project.entry-points."onex.backends"]
 event_bus_inmemory = "omnibase_core.event_bus.event_bus_inmemory:EventBusInmemory"
@@ -311,11 +312,13 @@ ignore = [
 "src/omnibase_core/validation/validator_skill_backing_node.py" = ["T201"]
 "src/omnibase_core/validation/validator_patterns.py" = ["T201"]
 "src/omnibase_core/validation/validator_types.py" = ["T201"]
+"src/omnibase_core/validation/validator_receipt_honesty.py" = ["T201"]  # CLI output for honesty gate scan results (OMN-12791)
 "src/omnibase_core/validation/cross_repo/cli.py" = ["T201"]
 "src/omnibase_core/validation/scripts/cross_platform_timeout.py" = ["T201"]
 "src/omnibase_core/validation/scripts/timeout_utils.py" = ["T201"]
 "src/omnibase_core/validation/scripts/validate_string_versions.py" = ["T201"]
 "src/omnibase_core/validation/scripts/validate_topic_names.py" = ["T201"]
+"src/omnibase_core/validation/validator_demo_path_topic_coherence.py" = ["T201"]  # CLI output for demo-path topic coherence gate (OMN-12777)
 "src/omnibase_core/scripts/validate_markdown_links.py" = ["T201"]
 "scripts/pin_bump.py" = ["T201"]  # CLI output for publish-downstream-pin-bump workflow [OMN-9050]
 "scripts/emit_ts_types.py" = ["T201"]  # CLI output for omnidash-v2 TS type generation

@@ -1,0 +1,84 @@
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.3.66"
+description = "Tower is the best way to host Python data apps in production"
+rust-version = "1.81"
+authors = ["Brad Heller <brad@tower.dev>", "Ben Lovell <ben@tower.dev>"]
+license = "MIT"
+repository = "https://github.com/tower/tower-cli"
+
+[workspace.dependencies]
+aes-gcm = "0.10"
+anyhow = "1.0.95"
+async-compression = { version = "0.4", features = ["tokio", "gzip"] }
+async-trait = "0.1.89"
+async_zip = { version = "0.0.16", features = ["tokio", "tokio-fs", "deflate"] }
+axum = "0.8.4"
+base64 = "0.22"
+bytes = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.5", features = ["derive"] }
+cli-table = "0.4"
+colored = "2"
+config = { path = "crates/config" }
+crypto = { path = "crates/crypto" }
+ctrlc = "3"
+dirs = "5"
+flate2 = "1"
+fs2 = "0.4"
+futures = "0.3"
+futures-util = "0.3"
+futures-lite = "2.6"
+glob = "0.3"
+hex = "0.4"
+http = "1.1"
+indicatif = "0.17"
+nix = { version = "0.30", features = ["signal"] }
+pem = "3"
+pyo3 = { version = "0.28", features = ["extension-module"] }
+promptly = "0.3"
+rand = "0.8"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls-webpki-roots-no-provider", "stream"] }
+reqwest-eventsource = { version = "0.6" }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rpassword = "7"
+rsa = "0.9"
+seahash = "4.1"
+serde = "1"
+serde_json = "1.0"
+sha2 = "0.10"
+snafu = "0.7"
+tar = "0.4"
+spinners = "4"
+tempfile = "3.12"
+testutils = { path = "crates/testutils" }
+tmpdir = "1.0"
+tokio = { version = "1", features = ["full"] }
+tokio-pipe = "0.2"
+tokio-stream = { version = "0.1.11", features = ["net"] }
+tokio-tar = "0.3"
+tokio-util = "0.7"
+toml = "0.8"
+toml_edit = "0.22"
+tower-api = { path = "crates/tower-api" }
+tower-cmd = { path = "crates/tower-cmd" }
+tower-package = { path = "crates/tower-package" }
+tower-runtime = { path = "crates/tower-runtime" }
+tower-telemetry = { path = "crates/tower-telemetry" }
+tower-uv = { path = "crates/tower-uv" }
+tracing = { version = "0.1" }
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+url = { version = "2", features = ["serde"] }
+webbrowser = "1"
+inquire = "0.9.4"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

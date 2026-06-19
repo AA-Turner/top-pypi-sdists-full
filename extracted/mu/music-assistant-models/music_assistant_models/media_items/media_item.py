@@ -72,12 +72,8 @@ class _MediaItemBase(DataClassDictMixin):
         """Return the translation key base for this item's translation_key (None if unset)."""
         if self.translation_key is None:
             return None
-        key = self.translation_key
-        return (
-            key
-            if key.startswith(("provider.", "core.", "common."))
-            else f"media.{self._translation_group}.{key}"
-        )
+        # the group is always derived from the media type; translation_key is just the slug
+        return f"media.{self._translation_group}.{self.translation_key}"
 
     def __post_serialize__(self, d: dict[str, Any]) -> dict[str, Any]:
         """Localize name/subtitle/description when a translation resolver is set."""
@@ -373,8 +369,8 @@ class Audiobook(MediaItem):
     __eq__ = _MediaItemBase.__eq__
 
     publisher: str | None = None
-    authors: UniqueList[str | Artist] = field(default_factory=UniqueList)
-    narrators: UniqueList[str | Artist] = field(default_factory=UniqueList)
+    authors: UniqueList[str | Artist | ItemMapping] = field(default_factory=UniqueList)
+    narrators: UniqueList[str | Artist | ItemMapping] = field(default_factory=UniqueList)
     duration: int = 0
     # resume point info
     # set to None if unknown/unsupported by provider
@@ -387,7 +383,7 @@ class Audiobook(MediaItem):
     @property
     def artist_str(self) -> str:
         """Return (combined) author string for audiobook."""
-        return "/".join(a.name if isinstance(a, Artist) else a for a in self.authors)
+        return "/".join(a.name if isinstance(a, Artist | ItemMapping) else a for a in self.authors)
 
 
 @dataclass(kw_only=True)

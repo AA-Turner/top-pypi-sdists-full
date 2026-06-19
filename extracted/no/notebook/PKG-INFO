@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: notebook
-Version: 7.5.7
+Version: 7.6.0
 Summary: Jupyter Notebook - A web-based notebook environment for interactive computing
 Project-URL: Documentation, https://jupyter-notebook.readthedocs.io/
 Project-URL: Homepage, https://github.com/jupyter/notebook
@@ -46,16 +46,17 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: jupyter-server<3,>=2.4.0
+Requires-Python: >=3.10
+Requires-Dist: jupyter-builder<2,>=1.0.2
+Requires-Dist: jupyter-server<3,>=2.19.0
 Requires-Dist: jupyterlab-server<3,>=2.28.0
-Requires-Dist: jupyterlab<4.6,>=4.5.8
+Requires-Dist: jupyterlab<4.7,>=4.6.0
 Requires-Dist: notebook-shim<0.3,>=0.2
 Requires-Dist: tornado>=6.2.0
 Provides-Extra: dev
@@ -69,9 +70,8 @@ Requires-Dist: sphinx>=1.3.6; extra == 'docs'
 Requires-Dist: sphinxcontrib-github-alt; extra == 'docs'
 Requires-Dist: sphinxcontrib-spelling; extra == 'docs'
 Provides-Extra: test
-Requires-Dist: importlib-resources>=5.0; (python_version < '3.10') and extra == 'test'
 Requires-Dist: ipykernel; extra == 'test'
-Requires-Dist: jupyter-server[test]<3,>=2.4.0; extra == 'test'
+Requires-Dist: jupyter-server[test]<3,>=2.19.0; extra == 'test'
 Requires-Dist: jupyterlab-server[test]<3,>=2.28.0; extra == 'test'
 Requires-Dist: nbval; extra == 'test'
 Requires-Dist: pytest-console-scripts; extra == 'test'

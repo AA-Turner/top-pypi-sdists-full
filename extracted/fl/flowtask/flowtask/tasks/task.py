@@ -123,6 +123,11 @@ class Task(AbstractTask):
         except KeyError:
             conditions = {}
         self._conditions = {**self._conditions, **conditions}
+        # masks fallback via kwargs (the executor flow builds the Task without
+        # the parser, so --masks would otherwise be lost). Mirrors conditions.
+        masks = kwargs.pop("masks", {})
+        if isinstance(masks, dict):
+            self._masks = {**self._masks, **masks}
         self.logger.debug(
             f"CURRENTLY NEW CONDS: {self._conditions}"
         )

@@ -1,0 +1,2 @@
+import{Fi as e,Xi as t,fi as n,kn as r,li as i,wt as a}from"./index-BD_kIOMy-BXZ548hc.js";var o=t({__name:`WorkQueueToWorkPoolQueueRedirect`,setup(t){let o=n(`workQueueId`),s=i(a().workQueues.getWorkQueue,[o]),c=e(),l=r();return s.promise().then(({response:e})=>{if(!e.workPoolName){c.replace(l.workPools());return}c.replace(l.workPoolQueue(e.workPoolName,e.name))}),()=>{}}});export{o as default};
+//# sourceMappingURL=WorkQueueToWorkPoolQueueRedirect-DJZTvjVT-BlxSeoEZ.js.map

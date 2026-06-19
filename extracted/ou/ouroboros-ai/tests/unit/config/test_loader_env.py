@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ouroboros.config.loader import _load_env_file
+from ouroboros.config.loader import _UNTRUSTED_ENV_DENYLIST, _load_env_file
 
 
 @pytest.fixture(autouse=True)
@@ -77,34 +77,50 @@ def test_load_env_file_skips_template_placeholders(tmp_path: Path, monkeypatch) 
     assert os.environ["OPENROUTER_API_KEY"] == "real-key"
 
 
-_DENYLISTED_KEYS = (
-    # Search PATH used by shutil.which()/bare executable spawning.
-    "PATH",
-    "OUROBOROS_CLI_PATH",
-    "OUROBOROS_CODEX_CLI_PATH",
-    "OUROBOROS_COPILOT_CLI_PATH",
-    "OUROBOROS_KIRO_CLI_PATH",
-    "OUROBOROS_OPENCODE_CLI_PATH",
-    "OUROBOROS_HERMES_CLI_PATH",
-    "OUROBOROS_GOOSE_CLI_PATH",
-    "OUROBOROS_GEMINI_CLI_PATH",
-    "OUROBOROS_PI_CLI_PATH",
-    "OUROBOROS_GJC_CLI_PATH",
-    "OUROBOROS_OUROCODE_CLI_PATH",
-    # Bare provider alias (no OUROBOROS_ prefix) honored + executed by
-    # opencode_config._configured_opencode_cli_path.
-    "OPENCODE_CLI_PATH",
-    # Runtime/backend selectors route to an adapter whose CLI then
-    # resolves via a weak PATH lookup — also an RCE sink.
-    "OUROBOROS_AGENT_RUNTIME",
-    "OUROBOROS_RUNTIME",
-    "OUROBOROS_LLM_BACKEND",
-    # Permission-mode overrides — must not silently disable the
-    # user's approval gate from an untrusted repo.
-    "OUROBOROS_AGENT_PERMISSION_MODE",
-    "OUROBOROS_LLM_PERMISSION_MODE",
-    "OUROBOROS_OPENCODE_PERMISSION_MODE",
-)
+# Derive directly from the source of truth so this regression suite can never
+# drift out of sync with the denylist again — a previous drift (missing the
+# gjc/PI/config-home roots) is exactly how an incomplete fix slips past CI.
+_DENYLISTED_KEYS = tuple(sorted(_UNTRUSTED_ENV_DENYLIST))
+
+
+def test_denylist_covers_known_execution_routing_keys() -> None:
+    """Pin the membership of every execution-routing class explicitly.
+
+    Importing the source set guards against drift, but an explicit floor
+    ensures a future edit cannot silently *shrink* the denylist (e.g. drop a
+    config-home root) without a failing test.
+    """
+    required = {
+        # Explicit executable-path overrides + bare alias.
+        "PATH",
+        "OUROBOROS_CLI_PATH",
+        "OPENCODE_CLI_PATH",
+        # Spawned-CLI / agent instruction + extension roots.
+        "GJC_CODING_AGENT_DIR",
+        "GJC_CONFIG_DIR",
+        "PI_CONFIG_DIR",
+        "COPILOT_CUSTOM_INSTRUCTIONS_DIRS",
+        "OUROBOROS_AGENTS_DIR",
+        # Backend config-home roots (Codex/OpenCode config files -> RCE +
+        # approval-gate removal). Completes CVE-2026-47211.
+        "CODEX_HOME",
+        "OPENCODE_CONFIG",
+        "OPENCODE_CONFIG_DIR",
+        "XDG_CONFIG_HOME",
+        # Ouroboros MCP-bridge / plugin execution roster + SSRF toggle.
+        "OUROBOROS_MCP_CONFIG",
+        "OUROBOROS_PLUGIN_LOCKFILE",
+        "OUROBOROS_PLUGIN_TRUST_ROOT",
+        "OUROBOROS_ALLOW_LOCAL_TRANSPORT",
+        # Runtime/backend selectors + permission/capability overrides.
+        "OUROBOROS_AGENT_RUNTIME",
+        "OUROBOROS_LLM_BACKEND",
+        "OUROBOROS_RUNTIME_PROFILE",
+        "OUROBOROS_AGENT_PERMISSION_MODE",
+        "OUROBOROS_TOOL_CAPABILITIES",
+    }
+    missing = required - _UNTRUSTED_ENV_DENYLIST
+    assert not missing, f"denylist regressed, missing: {sorted(missing)}"
 
 
 def test_untrusted_env_cannot_set_bare_opencode_alias(
@@ -133,6 +149,53 @@ def test_untrusted_env_cannot_disable_approval_gate(
     _load_env_file(env_file, trusted=False)
 
     assert "OUROBOROS_AGENT_PERMISSION_MODE" not in os.environ
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "OUROBOROS_MCP_CONFIG",
+        "OUROBOROS_PLUGIN_LOCKFILE",
+        "OUROBOROS_PLUGIN_TRUST_ROOT",
+        "OUROBOROS_ALLOW_LOCAL_TRANSPORT",
+    ],
+)
+def test_untrusted_env_cannot_set_mcp_or_plugin_roster(
+    tmp_path: Path,
+    monkeypatch,
+    key: str,
+) -> None:
+    """A cloned repo must not redirect the MCP bridge / plugin dispatcher at
+    an attacker-controlled command roster, nor disable the SSRF transport
+    guard, via the auto-loaded project .env."""
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"{key}=./.evil\n")
+    monkeypatch.delenv(key, raising=False)
+
+    _load_env_file(env_file, trusted=False)
+
+    assert key not in os.environ
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["CODEX_HOME", "OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR", "XDG_CONFIG_HOME"],
+)
+def test_untrusted_env_cannot_redirect_backend_config_home(
+    tmp_path: Path,
+    monkeypatch,
+    key: str,
+) -> None:
+    """CVE-2026-47211 completion: a cloned repo must not redirect a spawned
+    backend (Codex/OpenCode) at attacker-controlled config that can launch
+    MCP servers or disable the approval gate."""
+    env_file = tmp_path / ".env"
+    env_file.write_text(f"{key}=./.evil\n")
+    monkeypatch.delenv(key, raising=False)
+
+    _load_env_file(env_file, trusted=False)
+
+    assert key not in os.environ
 
 
 def test_untrusted_env_cannot_set_mixed_case_path(

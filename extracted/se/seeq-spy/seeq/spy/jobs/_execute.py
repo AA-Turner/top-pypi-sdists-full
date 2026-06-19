@@ -4,11 +4,10 @@ import logging
 import os
 import re
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Union, Optional
-
-import sys
 
 from seeq import spy, sdk
 from seeq.base import util
@@ -322,10 +321,12 @@ class ExecutionInstance:
                     f'Notifying user {spy.session.user.username} about skipped execution of the notebook in project '
                     f'{self.project_name}, path {self.file_path}, label {self.label}. The notebook failed to execute.')
                 subject = "A scheduled notebook skipped execution"
+                additional_recipients = get_additional_error_notification_recipients()
                 spy.notifications.send_email(
                     to=spy.session.user.email if spy.session.user.email else spy.session.user.username,
                     subject=subject,
-                    content=self._build_email_content(subject, skipped_execution=True, error_message=error_message)
+                    content=self._build_email_content(subject, skipped_execution=True, error_message=error_message),
+                    cc=additional_recipients
                 )
         except Exception as e:
             self.logger.error(e, exc_info=e)
@@ -339,10 +340,12 @@ class ExecutionInstance:
                     f'project {self.project_name}, path {self.file_path}, label {self.label}. The notebook was '
                     f'moved or deleted.')
                 subject = "A scheduled notebook was automatically unscheduled"
+                additional_recipients = get_additional_error_notification_recipients()
                 spy.notifications.send_email(
                     to=spy.session.user.email if spy.session.user.email else spy.session.user.username,
                     subject=subject,
-                    content=self._build_email_content(subject, skipped_execution=False, error_message=error_message)
+                    content=self._build_email_content(subject, skipped_execution=False, error_message=error_message),
+                    cc=additional_recipients
                 )
         except Exception as e:
             self.logger.error(e, exc_info=e)
@@ -445,6 +448,14 @@ def is_notify_on_skipped_execution() -> bool:
 
 def is_notify_on_automatic_unschedule() -> bool:
     return os.environ.get('SEEQ_SDL_NOTIFY_ON_AUTOMATIC_UNSCHEDULE', '') == 'true'
+
+
+def get_additional_error_notification_recipients() -> Optional[list[str]]:
+    recipients_string = os.environ.get('SEEQ_SDL_ADDITIONAL_ERROR_NOTIFICATION_RECIPIENTS')
+    if not recipients_string:
+        return None
+    recipients = [r.strip() for r in recipients_string.split(',') if r.strip()]
+    return recipients or None
 
 
 def get_memory_usage() -> int:

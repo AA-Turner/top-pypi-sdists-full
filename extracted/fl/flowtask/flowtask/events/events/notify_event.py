@@ -38,6 +38,12 @@ from ...conf import (
 from ...utils.functions import check_empty
 from .abstract import AbstractEvent
 from ...version import __version__
+from ...utils.msgraph_patch import patch_graph_host_os_header
+
+# This module imports the Teams provider eagerly (and therefore msgraph-core),
+# so sanitise the HostOs telemetry header at import time to avoid h11
+# "Illegal header value" errors on trailing-space kernel versions.
+patch_graph_host_os_header()
 
 
 class NotifyEvent(AbstractEvent):

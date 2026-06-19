@@ -71,9 +71,10 @@ def sync_detailed(
      Replace an existing job. Every writable field is overwritten.
 
     Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Editing
-    the schedule recomputes the next fire time; changing only which
-    environments are enabled preserves the existing cadence.
+    job), or by recreating a one-off job in the desired environment. Each
+    environment may carry its own cron `schedule` override. Editing an
+    environment's effective schedule recomputes its next fire time; an edit that
+    leaves an environment's schedule unchanged preserves its existing cadence.
 
     Args:
         job_id (str):
@@ -117,9 +118,10 @@ def sync(
      Replace an existing job. Every writable field is overwritten.
 
     Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Editing
-    the schedule recomputes the next fire time; changing only which
-    environments are enabled preserves the existing cadence.
+    job), or by recreating a one-off job in the desired environment. Each
+    environment may carry its own cron `schedule` override. Editing an
+    environment's effective schedule recomputes its next fire time; an edit that
+    leaves an environment's schedule unchanged preserves its existing cadence.
 
     Args:
         job_id (str):
@@ -158,9 +160,10 @@ async def asyncio_detailed(
      Replace an existing job. Every writable field is overwritten.
 
     Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Editing
-    the schedule recomputes the next fire time; changing only which
-    environments are enabled preserves the existing cadence.
+    job), or by recreating a one-off job in the desired environment. Each
+    environment may carry its own cron `schedule` override. Editing an
+    environment's effective schedule recomputes its next fire time; an edit that
+    leaves an environment's schedule unchanged preserves its existing cadence.
 
     Args:
         job_id (str):
@@ -202,9 +205,10 @@ async def asyncio(
      Replace an existing job. Every writable field is overwritten.
 
     Set enablement per environment via the `environments` map (a recurring
-    job), or by recreating a one-off job in the desired environment. Editing
-    the schedule recomputes the next fire time; changing only which
-    environments are enabled preserves the existing cadence.
+    job), or by recreating a one-off job in the desired environment. Each
+    environment may carry its own cron `schedule` override. Editing an
+    environment's effective schedule recomputes its next fire time; an edit that
+    leaves an environment's schedule unchanged preserves its existing cadence.
 
     Args:
         job_id (str):

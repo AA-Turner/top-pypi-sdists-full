@@ -1,12 +1,8 @@
 // Copyright (c) Jupyter Development Team.
 // Distributed under the terms of the Modified BSD License.
 
-import {
-  expect,
-  galata,
-  IJupyterLabPageFixture,
-  test
-} from '@jupyterlab/galata';
+import type { IJupyterLabPageFixture } from '@jupyterlab/galata';
+import { expect, galata, test } from '@jupyterlab/galata';
 import * as path from 'path';
 
 const fileName = 'notebook.ipynb';
@@ -214,9 +210,11 @@ test.describe('Collapsible Headings; keyboard navigation', () => {
     await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('ArrowLeft');
     await page.keyboard.press('ArrowLeft');
-    expect(
-      await (await page.notebook.getNotebookInPanelLocator())!.screenshot()
-    ).toMatchSnapshot('reexpand_headers_03a.png');
+    expect
+      .soft(
+        await (await page.notebook.getNotebookInPanelLocator())!.screenshot()
+      )
+      .toMatchSnapshot('reexpand_headers_03a.png');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');

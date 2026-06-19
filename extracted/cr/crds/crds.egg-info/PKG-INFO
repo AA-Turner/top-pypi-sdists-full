@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crds
-Version: 13.2.4
+Version: 13.2.5
 Summary: Calibration Reference Data System,  HST/JWST/Roman reference file management
 Author: STScI CRDS s/w developers
 Project-URL: homepage, https://github.com/spacetelescope/crds
@@ -33,7 +33,7 @@ Requires-Dist: ansible; extra == "dev"
 Requires-Dist: helm; extra == "dev"
 Provides-Extra: test
 Requires-Dist: mock; extra == "test"
-Requires-Dist: pytest>=6.0; extra == "test"
+Requires-Dist: pytest>=9.0; extra == "test"
 Requires-Dist: pytest-astropy; extra == "test"
 Requires-Dist: pytest-doctestplus>=0.10.0; extra == "test"
 Requires-Dist: stsynphot; extra == "test"

@@ -788,7 +788,7 @@ def test_headless_connect_slows_down_polling_when_server_requests_it(tmp_path: P
     assert sleeps == [7]
 
 
-def test_headless_connect_rejects_unreadable_macos_keychain_credentials_without_prompt(
+def test_headless_connect_rejects_macos_keychain_readback_failure(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -827,7 +827,7 @@ def test_headless_connect_rejects_unreadable_macos_keychain_credentials_without_
         def read(self) -> bytes:
             return json.dumps(self._payload).encode("utf-8")
 
-    with pytest.raises(RuntimeError, match="persist local Guard Cloud authorization"):
+    with pytest.raises(RuntimeError, match="persist local Guard Cloud authorization securely"):
         connect_flow.run_guard_device_connect_command(
             store=store,
             connect_url="https://hol.org/guard/connect",

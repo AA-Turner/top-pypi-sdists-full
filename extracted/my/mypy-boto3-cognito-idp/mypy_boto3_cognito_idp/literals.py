@@ -79,6 +79,7 @@ __all__ = (
     "ResourceServiceName",
     "RiskDecisionTypeType",
     "RiskLevelTypeType",
+    "SecurityPolicyTypeType",
     "ServiceName",
     "StatusTypeType",
     "TermsEnforcementTypeType",
@@ -205,6 +206,7 @@ ReplicaRoleTypeType = Literal["PRIMARY", "SECONDARY"]
 ReplicaStatusTypeType = Literal["ACTIVE", "CREATING", "DELETING", "INACTIVE"]
 RiskDecisionTypeType = Literal["AccountTakeover", "Block", "NoRisk"]
 RiskLevelTypeType = Literal["High", "Low", "Medium"]
+SecurityPolicyTypeType = Literal["TLS_V1", "TLS_V1_2_2021", "TLS_V1_3_2025"]
 StatusTypeType = Literal["Disabled", "Enabled"]
 TermsEnforcementTypeType = Literal["NONE"]
 TermsSourceTypeType = Literal["LINK"]
@@ -585,6 +587,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
